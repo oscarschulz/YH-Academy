@@ -10,6 +10,7 @@ const plazaControllers = require('../controllers/plazaControllers');
 const plazaSupabaseLiteControllers = require('../controllers/plazaSupabaseLiteControllers');
 const plazaDirectoryRegionsSupabaseLiteControllers = require('../controllers/plazaDirectoryRegionsSupabaseLiteControllers');
 const plazaBridgeRequestsSupabaseLiteControllers = require('../controllers/plazaBridgeRequestsSupabaseLiteControllers');
+const plazaMeetupsSupabaseLiteControllers = require('../controllers/plazaMeetupsSupabaseLiteControllers');
 const aiNurtureControllers = require('../controllers/aiNurtureControllers');
 const publicLandingController = require('../controllers/publicLandingController');
 const paymentControllers = require('../controllers/paymentControllers');
@@ -172,9 +173,9 @@ router.post('/plaza/messages/:id/report', auth, plazaControllers.reportConversat
 router.post('/plaza/messages/:id/close', auth, plazaControllers.closeConversation);
 router.post('/plaza/messages/:id/block', auth, plazaControllers.blockConversationParticipant);
 
-router.get('/plaza/meetups', auth, plazaControllers.getMeetups);
-router.post('/plaza/meetups', auth, plazaControllers.createMeetup);
-router.patch('/plaza/meetups/:id/patron-status', auth, plazaControllers.updatePatronMeetupStatus);
+router.get('/plaza/meetups', auth, plazaMeetupsSupabaseLiteControllers.getMeetups);
+router.post('/plaza/meetups', auth, plazaMeetupsSupabaseLiteControllers.createMeetup);
+router.patch('/plaza/meetups/:id/patron-status', auth, plazaMeetupsSupabaseLiteControllers.updatePatronMeetupStatus);
 
 // ==========================================
 // 💳 YH PROVIDER-NEUTRAL PAYMENT LEDGER ROUTES
