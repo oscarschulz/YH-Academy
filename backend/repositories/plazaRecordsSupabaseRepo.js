@@ -48,6 +48,18 @@ function normalizeStatus(value = '', fallback = 'active') {
     return clean || fallback;
 }
 
+function isReadablePlazaStatus(value = '') {
+    const status = normalizeStatus(value || 'active');
+
+    return ![
+        'deleted',
+        'archived',
+        'hidden',
+        'blocked',
+        'removed'
+    ].includes(status);
+}
+
 function normalizeTags(value = []) {
     const raw = Array.isArray(value)
         ? value
@@ -350,7 +362,7 @@ async function listFeed(limit = 40) {
 
     return (Array.isArray(data) ? data : [])
         .map(mapFeedRow)
-        .filter((item) => normalizeStatus(item.status || 'active') === 'active');
+        .filter((item) => isReadablePlazaStatus(item.status || item.reviewStatus || 'active'));
 }
 
 async function listOpportunities(limit = 60) {
@@ -367,7 +379,7 @@ async function listOpportunities(limit = 60) {
 
     return (Array.isArray(data) ? data : [])
         .map(mapOpportunityRow)
-        .filter((item) => normalizeStatus(item.status || 'active') === 'active');
+        .filter((item) => isReadablePlazaStatus(item.status || item.reviewStatus || 'active'));
 }
 
 async function deleteRecord(recordType = '', id = '') {
