@@ -3,6 +3,7 @@ const { Timestamp } = require('firebase-admin/firestore');
 const Stripe = require('stripe');
 const crypto = require('crypto');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
+const verifiedBadgeSupabaseRepo = require('../backend/repositories/verifiedBadgeSupabaseRepo');
 const federationConnectSupabaseRepo = require('../backend/repositories/federationConnectSupabaseRepo');
 
 function cleanText(value, fallback = '') {
@@ -155,6 +156,84 @@ function getVerifiedBadgePaymentRecordId(viewerId = '', division = '') {
 
     return `verified_badge_${cleanDivision}_${cleanViewerId}`.slice(0, 180);
 }
+
+/* PATCH: Verified Badge Supabase helpers */
+function getVerifiedBadgeUserIdentity(userData = {}, fallback = {}) {
+    const source = userData && typeof userData === 'object' ? userData : {};
+
+    return {
+        email: cleanText(fallback.email || source.email || source.userEmail || '').toLowerCase(),
+        name: cleanText(
+            fallback.name ||
+            source.fullName ||
+            source.name ||
+            source.displayName ||
+            source.username ||
+            fallback.email ||
+            'YH Member'
+        )
+    };
+}
+
+async function syncVerifiedBadgeStatusToSupabase({ userId = '', userData = {}, viewer = {}, division = '', badge = {} } = {}) {
+    const cleanUserId = cleanText(userId || viewer.id || viewer.firebaseUid);
+    const cleanDivision = normalizeVerifiedBadgeDivision(division || badge.division);
+
+    if (!cleanUserId || !cleanDivision || !badge || typeof badge !== 'object') return null;
+
+    try {
+        const identity = getVerifiedBadgeUserIdentity(userData, viewer);
+
+        return await verifiedBadgeSupabaseRepo.upsertVerifiedBadgeRecord(
+            verifiedBadgeSupabaseRepo.buildVerifiedBadgePayload({
+                userId: cleanUserId,
+                userEmail: identity.email,
+                userName: identity.name,
+                division: cleanDivision,
+                badge,
+                sourceDocumentPath: `users/${cleanUserId}/verificationBadges/${cleanDivision}`
+            })
+        );
+    } catch (error) {
+        console.error('Verified Badge Supabase sync failed:', error?.message || error);
+        return null;
+    }
+}
+
+async function loadVerifiedBadgeStatusesSupabaseMerged(viewer = {}, userData = {}) {
+    const firestoreBadges = userData.verificationBadges && typeof userData.verificationBadges === 'object'
+        ? userData.verificationBadges
+        : {};
+
+    const cleanUserId = cleanText(viewer.id || viewer.firebaseUid);
+
+    if (!cleanUserId) return firestoreBadges;
+
+    try {
+        const supabaseBadges = await verifiedBadgeSupabaseRepo.listVerifiedBadgesForUser(cleanUserId);
+
+        if (!Array.isArray(supabaseBadges) || !supabaseBadges.length) {
+            return firestoreBadges;
+        }
+
+        return supabaseBadges.reduce((next, badge) => {
+            const division = normalizeVerifiedBadgeDivision(badge.division);
+            if (!division) return next;
+
+            next[division] = {
+                ...(next[division] && typeof next[division] === 'object' ? next[division] : {}),
+                ...badge,
+                sourceDatabase: 'supabase'
+            };
+
+            return next;
+        }, { ...firestoreBadges });
+    } catch (error) {
+        console.error('Verified Badge Supabase read failed; using Firestore fallback:', error?.message || error);
+        return firestoreBadges;
+    }
+}
+/* END PATCH: Verified Badge Supabase helpers */
 
 function normalizeVerifiedBadgeBillingPlan(value = '', fallback = 'monthly') {
     const clean = cleanLower(value || fallback);
@@ -1184,18 +1263,28 @@ async function createOrRefreshVerifiedBadgePayment(viewer = {}, plan = {}, optio
         }
     });
 
+    const pendingBadge = buildPendingVerifiedBadgePayload(plan, payment);
+
     await userRef.set({
         verificationBadges: {
-            [plan.division]: buildPendingVerifiedBadgePayload(plan, payment)
+            [plan.division]: pendingBadge
         },
         updatedAt: new Date().toISOString()
     }, { merge: true });
+
+    await syncVerifiedBadgeStatusToSupabase({
+        userId: viewer.id,
+        userData,
+        viewer,
+        division: plan.division,
+        badge: pendingBadge
+    });
 
     return {
         userRef,
         userData,
         payment,
-        badge: buildPendingVerifiedBadgePayload(plan, payment),
+        badge: pendingBadge,
         billingPlan,
         amount
     };
@@ -1339,12 +1428,22 @@ async function createVerifiedBadgeStripeCheckoutSession(req, res) {
             }
         });
 
+        const pendingBadge = buildPendingVerifiedBadgePayload(plan, payment);
+
         await initial.userRef.set({
             verificationBadges: {
-                [plan.division]: buildPendingVerifiedBadgePayload(plan, payment)
+                [plan.division]: pendingBadge
             },
             updatedAt: new Date().toISOString()
         }, { merge: true });
+
+        await syncVerifiedBadgeStatusToSupabase({
+            userId: viewer.id,
+            userData: initial.userData,
+            viewer,
+            division: plan.division,
+            badge: pendingBadge
+        });
 
         return res.json({
             success: true,
@@ -1353,7 +1452,7 @@ async function createVerifiedBadgeStripeCheckoutSession(req, res) {
             division: plan.division,
             billingPlan,
             billingLabel: getVerifiedBadgeBillingLabel(billingPlan),
-            badge: buildPendingVerifiedBadgePayload(plan, payment),
+            badge: pendingBadge,
             payment,
             paymentLedgerId: payment.id,
             checkoutSessionId: session.id,
@@ -1470,12 +1569,22 @@ async function createVerifiedBadgeOxaPayInvoice(req, res) {
             }
         });
 
+        const pendingBadge = buildPendingVerifiedBadgePayload(plan, payment);
+
         await initial.userRef.set({
             verificationBadges: {
-                [plan.division]: buildPendingVerifiedBadgePayload(plan, payment)
+                [plan.division]: pendingBadge
             },
             updatedAt: new Date().toISOString()
         }, { merge: true });
+
+        await syncVerifiedBadgeStatusToSupabase({
+            userId: viewer.id,
+            userData: initial.userData,
+            viewer,
+            division: plan.division,
+            badge: pendingBadge
+        });
 
         return res.json({
             success: true,
@@ -1484,7 +1593,7 @@ async function createVerifiedBadgeOxaPayInvoice(req, res) {
             division: plan.division,
             billingPlan,
             billingLabel: getVerifiedBadgeBillingLabel(billingPlan),
-            badge: buildPendingVerifiedBadgePayload(plan, payment),
+            badge: pendingBadge,
             payment,
             paymentLedgerId: payment.id,
             oxapayTrackId: trackId,
@@ -1607,6 +1716,14 @@ async function unsubscribeVerifiedBadge(req, res) {
             },
             updatedAt: nowIso
         }, { merge: true });
+
+        await syncVerifiedBadgeStatusToSupabase({
+            userId: viewer.id,
+            userData,
+            viewer,
+            division: plan.division,
+            badge: nextBadge
+        });
 
         return res.json({
             success: true,
@@ -1885,9 +2002,7 @@ async function buildMySubscriptionsSnapshot(viewer = {}) {
     }
 
     const userData = userSnap.data() || {};
-    const badges = userData.verificationBadges && typeof userData.verificationBadges === 'object'
-        ? userData.verificationBadges
-        : {};
+    const badges = await loadVerifiedBadgeStatusesSupabaseMerged(viewer, userData);
 
     const payments = await paymentLedgerRepo.listPaymentsForUser(viewer.id, 120).catch((error) => {
         console.error('build subscriptions payment ledger load error:', error);
@@ -2153,6 +2268,14 @@ async function unsubscribePaymentPlan(req, res) {
             },
             updatedAt: nowIso
         }, { merge: true });
+
+        await syncVerifiedBadgeStatusToSupabase({
+            userId: viewer.id,
+            userData,
+            viewer,
+            division: plan.division,
+            badge: nextBadge
+        });
 
         if (paymentLedgerId) {
             await paymentLedgerRepo.upsertPaymentRecord({

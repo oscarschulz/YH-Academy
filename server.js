@@ -12,6 +12,7 @@ const jwt = require('jsonwebtoken');
 const publicLandingEventsRepo = require('./backend/repositories/publicLandingEventsRepo');
 const realtimeFirestoreRepo = require('./backend/repositories/realtimeFirestoreRepo');
 const paymentLedgerRepo = require('./backend/repositories/paymentLedgerRepo');
+const verifiedBadgeSupabaseRepo = require('./backend/repositories/verifiedBadgeSupabaseRepo');
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
 const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const yhuSupabaseMirrorRepo = require('./backend/repositories/yhuSupabaseMirrorRepo');
@@ -130,6 +131,31 @@ function buildYHVerificationBadges(userData = {}) {
         federation: normalizeYHVerificationBadgeState(source.federation, 'federation')
     };
 }
+
+/* PATCH: Server Verified Badge Supabase helpers */
+async function syncYHVerifiedBadgeStatusToSupabase({ userId = '', userEmail = '', userName = '', division = '', badge = {} } = {}) {
+    const cleanUserId = sanitizeText(userId);
+    const cleanDivision = normalizeYHVerifiedBadgeDivision(division || badge.division);
+
+    if (!cleanUserId || !cleanDivision || !badge || typeof badge !== 'object') return null;
+
+    try {
+        return await verifiedBadgeSupabaseRepo.upsertVerifiedBadgeRecord(
+            verifiedBadgeSupabaseRepo.buildVerifiedBadgePayload({
+                userId: cleanUserId,
+                userEmail: sanitizeText(userEmail || badge.userEmail || '').toLowerCase(),
+                userName: sanitizeText(userName || badge.userName || 'YH Member'),
+                division: cleanDivision,
+                badge,
+                sourceDocumentPath: `users/${cleanUserId}/verificationBadges/${cleanDivision}`
+            })
+        );
+    } catch (error) {
+        console.error('Server Verified Badge Supabase sync failed:', error?.message || error);
+        return null;
+    }
+}
+/* END PATCH: Server Verified Badge Supabase helpers */
 
 function normalizeYHVerifiedBadgeDivision(value = '') {
     const clean = sanitizeText(value).toLowerCase();
@@ -552,6 +578,14 @@ async function syncYHVerifiedBadgePaymentStatus(payment = {}, status = 'pending'
         },
         updatedAt: new Date().toISOString()
     }, { merge: true });
+
+    await syncYHVerifiedBadgeStatusToSupabase({
+        userId: payerUid,
+        userEmail: updatedPayment.payerEmail || payment.payerEmail || payment.metadata?.userEmail || context.userEmail,
+        userName: updatedPayment.payerName || payment.payerName || payment.metadata?.userName || 'YH Member',
+        division: plan.division,
+        badge: userBadgePayload
+    });
 
     if (cleanStatus === 'paid') {
         await appendYHVerifiedBadgePaymentNotification(payerUid, {

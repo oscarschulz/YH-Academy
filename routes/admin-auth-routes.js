@@ -8,6 +8,7 @@ const academyLeadSupabaseRepo = require('../backend/repositories/academyLeadSupa
 const adminBroadcastSupabaseRepo = require('../backend/repositories/adminBroadcastSupabaseRepo');
 const universeCollectionMirrorRepo = require('../backend/repositories/universeCollectionMirrorRepo');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
+const verifiedBadgeSupabaseRepo = require('../backend/repositories/verifiedBadgeSupabaseRepo');
 const adminPlazaSupabaseRepo = require('../backend/repositories/adminPlazaSupabaseRepo');
 const adminPlazaSupabaseWriteRepo = require('../backend/repositories/adminPlazaSupabaseWriteRepo');
 const adminPatronApplicationsSupabaseRepo = require('../backend/repositories/adminPatronApplicationsSupabaseRepo');
@@ -2110,6 +2111,32 @@ function roundAdminMoney(value = 0) {
   return Math.round(Math.max(0, toNumber(value, 0)) * 100) / 100;
 }
 
+
+/* PATCH: Admin Verified Badge Supabase helpers */
+async function syncAdminVerifiedBadgeStatusToSupabase({ userId = '', userEmail = '', userName = '', division = '', badge = {} } = {}) {
+  const cleanUserId = cleanText(userId);
+  const cleanDivision = cleanText(division || badge.division).toLowerCase();
+
+  if (!cleanUserId || !['academy', 'federation'].includes(cleanDivision) || !badge || typeof badge !== 'object') return null;
+
+  try {
+    return await verifiedBadgeSupabaseRepo.upsertVerifiedBadgeRecord(
+      verifiedBadgeSupabaseRepo.buildVerifiedBadgePayload({
+        userId: cleanUserId,
+        userEmail: cleanText(userEmail || badge.userEmail || '').toLowerCase(),
+        userName: cleanText(userName || badge.userName || 'YH Member'),
+        division: cleanDivision,
+        badge,
+        sourceDocumentPath: `users/${cleanUserId}/verificationBadges/${cleanDivision}`
+      })
+    );
+  } catch (error) {
+    console.error('Admin Verified Badge Supabase sync failed:', error?.message || error);
+    return null;
+  }
+}
+/* END PATCH: Admin Verified Badge Supabase helpers */
+
 function getAdminPlazaOpportunityOwnerUid(opportunity = {}, payment = {}) {
   return cleanText(
     payment?.metadata?.ownerUid ||
@@ -2599,6 +2626,34 @@ apiRouter.post('/api/admin/economy/payments/:paymentId/settle', requireAdminSess
         },
         updatedAt: now.toISOString()
       }, { merge: true });
+
+      /* PATCH: Admin Verified Badge Supabase settle sync */
+      await syncAdminVerifiedBadgeStatusToSupabase({
+        userId: payerUid,
+        userEmail: payment.payerEmail,
+        userName: payment.payerName,
+        division: sourceDivision,
+        badge: {
+          active: true,
+          status: 'active',
+          code: badgeCode,
+          division: sourceDivision,
+          amountMonthly: roundAdminMoney(payment.amount || 0),
+          currency: cleanText(payment.currency || 'USD').toUpperCase() || 'USD',
+          interval: 'month',
+          asset: badgeAsset,
+          paymentLedgerId: updatedPayment.id,
+          paymentStatus: 'paid',
+          provider: cleanText(req.body?.provider || payment.provider || 'manual'),
+          paymentMethod: cleanText(req.body?.paymentMethod || payment.paymentMethod || 'manual'),
+          providerStatus: 'admin_paid',
+          activatedAt: now.toISOString(),
+          approvedAt: now.toISOString(),
+          expiresAt: expiresAt.toISOString(),
+          verifiedBy: cleanText(req.adminSession?.username || 'admin'),
+          updatedAt: now.toISOString()
+        }
+      });
 
       const notification = await appendAdminEconomyNotificationToUser(payerUid, {
         id: `verified_badge_active_${sourceDivision}_${updatedPayment.id}`,
