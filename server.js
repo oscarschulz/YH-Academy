@@ -5709,6 +5709,86 @@ app.get('/api/federation/directory', requireApiUser, async (req, res) => {
     }
 });
 
+
+/* PATCH: Federation Supabase public write dual-sync helpers batch 1 */
+function federationDualSyncText(value = '', fallback = '') {
+    if (value === null || value === undefined) return fallback;
+    return String(value).trim();
+}
+
+function federationDualSyncNowIso() {
+    return new Date().toISOString();
+}
+
+async function syncFederationConnectionRequestToSupabaseRecord(requestId = '', data = {}, options = {}) {
+    const cleanRequestId = federationDualSyncText(requestId || data?.id);
+
+    if (!cleanRequestId || !federationConnectSupabaseRepo?.buildFederationPayload) {
+        return null;
+    }
+
+    try {
+        const normalized = federationConnectSupabaseRepo.normalizeValue({
+            ...(data && typeof data === 'object' ? data : {}),
+            id: cleanRequestId,
+            updatedAt: data?.updatedAt || federationDualSyncNowIso()
+        });
+
+        const payload = federationConnectSupabaseRepo.buildFederationPayload({
+            sourceCollectionPath: 'federationConnectionRequests',
+            sourceDocumentId: cleanRequestId,
+            sourceDocumentPath: `federationConnectionRequests/${cleanRequestId}`,
+            data: {
+                ...normalized,
+                id: cleanRequestId,
+                sourceDatabase: 'supabase',
+                dualSyncedFrom: federationDualSyncText(options.source || 'federation-public-write')
+            }
+        });
+
+        return await federationConnectSupabaseRepo.upsertFederationRecord(payload);
+    } catch (error) {
+        console.error('Federation connection request Supabase dual-sync failed:', error?.message || error);
+        return null;
+    }
+}
+
+async function syncFederationDealRoomToSupabaseRecord(roomId = '', data = {}, options = {}) {
+    const cleanRoomId = federationDualSyncText(roomId || data?.id);
+
+    if (!cleanRoomId || !federationConnectSupabaseRepo?.buildFederationPayload) {
+        return null;
+    }
+
+    try {
+        const normalized = federationConnectSupabaseRepo.normalizeValue({
+            ...(data && typeof data === 'object' ? data : {}),
+            id: cleanRoomId,
+            roomId: data?.roomId || cleanRoomId,
+            updatedAt: data?.updatedAt || federationDualSyncNowIso()
+        });
+
+        const payload = federationConnectSupabaseRepo.buildFederationPayload({
+            sourceCollectionPath: 'federationDealRooms',
+            sourceDocumentId: cleanRoomId,
+            sourceDocumentPath: `federationDealRooms/${cleanRoomId}`,
+            data: {
+                ...normalized,
+                id: cleanRoomId,
+                roomId: normalized.roomId || cleanRoomId,
+                sourceDatabase: 'supabase',
+                dualSyncedFrom: federationDualSyncText(options.source || 'federation-public-write')
+            }
+        });
+
+        return await federationConnectSupabaseRepo.upsertFederationRecord(payload);
+    } catch (error) {
+        console.error('Federation deal room Supabase dual-sync failed:', error?.message || error);
+        return null;
+    }
+}
+/* END PATCH: Federation Supabase public write dual-sync helpers batch 1 */
+
 /* PATCH: Federation Supabase read overrides batch 1 */
 function getFederationSupabaseRecordPayload(row = {}) {
     const data = row && row.data && typeof row.data === 'object' ? row.data : {};
@@ -6270,6 +6350,15 @@ app.post('/api/federation/deal-rooms', requireApiUser, async (req, res) => {
         const ref = await firestore.collection('federationDealRooms').add(payload);
         const freshSnap = await ref.get();
 
+        /* PATCH: Federation Supabase deal room create sync batch 1 */
+        const federationDealRoomSupabaseRecord = await syncFederationDealRoomToSupabaseRecord(
+            ref.id,
+            mapFederationDealRoomDoc(freshSnap),
+            { source: 'api/federation/deal-rooms' }
+        );
+        /* END PATCH: Federation Supabase deal room create sync batch 1 */
+
+
         return res.status(201).json({
             success: true,
             room: mapFederationDealRoomDoc(freshSnap)
@@ -6597,6 +6686,22 @@ app.post('/api/federation/connect/requests/:requestId/payment-provider', require
             updatedAt: Timestamp.now()
         }, { merge: true });
 
+        /* PATCH: Federation Supabase payment-provider sync batch 1 */
+        const federationPaymentProviderSyncSnap = await requestRef.get().catch(() => null);
+        await syncFederationConnectionRequestToSupabaseRecord(
+            requestId,
+            {
+                ...request,
+                ...((federationPaymentProviderSyncSnap && federationPaymentProviderSyncSnap.exists)
+                    ? (federationPaymentProviderSyncSnap.data() || {})
+                    : {}),
+                id: requestId
+            },
+            { source: 'api/federation/connect/requests/payment-provider' }
+        );
+        /* END PATCH: Federation Supabase payment-provider sync batch 1 */
+
+
         return res.json({
             success: true,
             provider,
@@ -6793,6 +6898,22 @@ app.post('/api/federation/connect/requests/:requestId/oxapay-invoice', requireAp
             checkoutStartedAt: Timestamp.now(),
             updatedAt: Timestamp.now()
         }, { merge: true });
+
+        /* PATCH: Federation Supabase oxapay sync batch 1 */
+        const federationOxaPaySyncSnap = await requestRef.get().catch(() => null);
+        await syncFederationConnectionRequestToSupabaseRecord(
+            requestId,
+            {
+                ...request,
+                ...((federationOxaPaySyncSnap && federationOxaPaySyncSnap.exists)
+                    ? (federationOxaPaySyncSnap.data() || {})
+                    : {}),
+                id: requestId
+            },
+            { source: 'api/federation/connect/requests/oxapay-invoice' }
+        );
+        /* END PATCH: Federation Supabase oxapay sync batch 1 */
+
 
         return res.json({
             success: true,
@@ -6998,6 +7119,22 @@ app.post('/api/federation/connect/requests/:requestId/checkout-session', require
             checkoutStartedAt: Timestamp.now(),
             updatedAt: Timestamp.now()
         }, { merge: true });
+
+        /* PATCH: Federation Supabase stripe checkout sync batch 1 */
+        const federationStripeCheckoutSyncSnap = await requestRef.get().catch(() => null);
+        await syncFederationConnectionRequestToSupabaseRecord(
+            requestId,
+            {
+                ...request,
+                ...((federationStripeCheckoutSyncSnap && federationStripeCheckoutSyncSnap.exists)
+                    ? (federationStripeCheckoutSyncSnap.data() || {})
+                    : {}),
+                id: requestId
+            },
+            { source: 'api/federation/connect/requests/checkout-session' }
+        );
+        /* END PATCH: Federation Supabase stripe checkout sync batch 1 */
+
 
         return res.json({
             success: true,
@@ -7253,6 +7390,15 @@ app.post('/api/federation/connect/requests', requireApiUser, async (req, res) =>
             }
         }
 
+        /* PATCH: Federation Supabase connect request create sync batch 1 */
+        const federationConnectionRequestRecord = await syncFederationConnectionRequestToSupabaseRecord(
+            ref.id,
+            requestPayload,
+            { source: 'api/federation/connect/requests' }
+        );
+        const federationRecordsWriteOk = Boolean(federationConnectionRequestRecord);
+        /* END PATCH: Federation Supabase connect request create sync batch 1 */
+
         if (!supabaseWriteOk && !firebaseWriteOk) {
             throw new Error('Federation request could not be saved to Supabase or Firebase.');
         }
@@ -7261,7 +7407,8 @@ app.post('/api/federation/connect/requests', requireApiUser, async (req, res) =>
             success: true,
             storage: {
                 supabase: supabaseWriteOk,
-                firebase: firebaseWriteOk
+                firebase: firebaseWriteOk,
+                federationRecords: federationRecordsWriteOk
             },
             request: {
                 id: ref.id,
