@@ -16,6 +16,7 @@ const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRep
 const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const yhuSupabaseMirrorRepo = require('./backend/repositories/yhuSupabaseMirrorRepo');
 const federationConnectSupabaseRepo = require('./backend/repositories/federationConnectSupabaseRepo');
+const adminBroadcastSupabaseRepo = require('./backend/repositories/adminBroadcastSupabaseRepo');
 const { yhuSupabaseAdmin } = require('./config/supabaseAdmin');
 const app = express();
 app.set('trust proxy', 1);
@@ -3571,6 +3572,35 @@ app.use(cors({
     credentials: true
 }));
 
+
+/* PATCH: Server Admin Broadcast Supabase helpers */
+async function createServerAdminBroadcastWithSupabaseSync(payload = {}) {
+  const ref = await firestore.collection('adminBroadcasts').add(payload);
+
+  try {
+    const sourceDocumentPath = `adminBroadcasts/${ref.id}`;
+
+    await adminBroadcastSupabaseRepo.upsertAdminBroadcastRecord(
+      adminBroadcastSupabaseRepo.buildAdminBroadcastPayload({
+        sourceCollectionPath: 'adminBroadcasts',
+        sourceDocumentId: ref.id,
+        sourceDocumentPath,
+        data: {
+          ...(payload && typeof payload === 'object' ? payload : {}),
+          id: ref.id,
+          dualSyncedFrom: 'server',
+          dualSyncedAt: new Date().toISOString()
+        }
+      })
+    );
+  } catch (error) {
+    console.error('Server Admin Broadcast Supabase dual-sync failed:', error?.message || error);
+  }
+
+  return ref;
+}
+/* END PATCH: Server Admin Broadcast Supabase helpers */
+
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     let event = null;
 
@@ -3628,7 +3658,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                             }
                         });
 
-                        await firestore.collection('adminBroadcasts').add({
+                        await createServerAdminBroadcastWithSupabaseSync({
                             audience: sanitizeText(payment.payerName || payment.payerEmail || 'YH Member'),
                             subject: 'Verified badge payment confirmed',
                             message: `Stripe payment confirmed for ${sanitizeText(metadata.badgeCode || 'YH')} badge payment ${paymentLedgerId}.`,
@@ -3666,7 +3696,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                             }
                         });
 
-                        await firestore.collection('adminBroadcasts').add({
+                        await createServerAdminBroadcastWithSupabaseSync({
                             audience: sanitizeText(payment.payerName || payment.payerEmail || 'YH Member'),
                             subject: 'Academy Learn From subscription confirmed',
                             message: `Stripe subscription confirmed for Academy Learn From access payment ${paymentLedgerId}.`,
@@ -3756,7 +3786,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                                 'stripe_checkout_completed'
                             );
 
-                        await firestore.collection('adminBroadcasts').add({
+                        await createServerAdminBroadcastWithSupabaseSync({
                             audience: sanitizeText(current.requesterName || current.requesterEmail || 'Federation Member'),
                             subject: 'Federation paid introduction payment confirmed',
                             message: academyEconomySynced
@@ -3895,7 +3925,7 @@ app.post('/api/oxapay/webhook', express.raw({ type: 'application/json' }), async
                 });
 
                 if (learnFromStatus === 'paid') {
-                    await firestore.collection('adminBroadcasts').add({
+                    await createServerAdminBroadcastWithSupabaseSync({
                         audience: sanitizeText(learnFromPayment.payerName || learnFromPayment.payerEmail || 'YH Member'),
                         subject: 'Academy Learn From crypto payment confirmed',
                         message: `OxaPay payment confirmed for Academy Learn From access payment ${learnFromPayment.id}.`,
@@ -3943,7 +3973,7 @@ app.post('/api/oxapay/webhook', express.raw({ type: 'application/json' }), async
                 });
 
                 if (badgeStatus === 'paid') {
-                    await firestore.collection('adminBroadcasts').add({
+                    await createServerAdminBroadcastWithSupabaseSync({
                         audience: sanitizeText(badgePayment.payerName || badgePayment.payerEmail || 'YH Member'),
                         subject: 'Verified badge crypto payment confirmed',
                         message: `OxaPay payment confirmed for ${sanitizeText(badgePayment.metadata?.badgeCode || 'YH')} badge payment ${badgePayment.id}.`,
@@ -4064,7 +4094,7 @@ app.post('/api/oxapay/webhook', express.raw({ type: 'application/json' }), async
                     'oxapay_invoice_paid'
                 );
 
-            await firestore.collection('adminBroadcasts').add({
+            await createServerAdminBroadcastWithSupabaseSync({
                 audience: sanitizeText(current.requesterName || current.requesterEmail || 'Federation Member'),
                 subject: 'Federation lead purchase crypto payment confirmed',
                 message: academyEconomySynced

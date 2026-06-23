@@ -5,6 +5,7 @@ const { Timestamp } = require('firebase-admin/firestore');
 const { firestore } = require('../config/firebaseAdmin');
 const academyFirestoreRepo = require('../backend/repositories/academyFirestoreRepo');
 const academyLeadSupabaseRepo = require('../backend/repositories/academyLeadSupabaseRepo');
+const adminBroadcastSupabaseRepo = require('../backend/repositories/adminBroadcastSupabaseRepo');
 const universeCollectionMirrorRepo = require('../backend/repositories/universeCollectionMirrorRepo');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
 const adminPlazaSupabaseRepo = require('../backend/repositories/adminPlazaSupabaseRepo');
@@ -1310,10 +1311,70 @@ async function buildAdminBusinessChatAnalyticsSnapshot() {
 }
 
 
+
+/* PATCH: Admin Broadcast Supabase helpers */
+function mapAdminBroadcastToFirestoreLikeDoc(broadcast = {}) {
+  return {
+    id: broadcast.id || broadcast.sourceDocumentId || broadcast.supabaseRecordId || '',
+    data: () => ({
+      ...(broadcast && typeof broadcast === 'object' ? broadcast : {}),
+      id: broadcast.id || broadcast.sourceDocumentId || broadcast.supabaseRecordId || '',
+      sourceDatabase: broadcast.sourceDatabase || 'supabase'
+    })
+  };
+}
+
+async function listAdminBroadcastsForAdminBootstrap(limit = 100) {
+  try {
+    const broadcasts = await adminBroadcastSupabaseRepo.listAdminBroadcastRecords(limit);
+
+    return {
+      docs: broadcasts.map(mapAdminBroadcastToFirestoreLikeDoc),
+      source: 'supabase-primary'
+    };
+  } catch (error) {
+    console.error('Admin Broadcast Supabase read failed; using Firestore fallback:', error?.message || error);
+
+    return firestore
+      .collection('adminBroadcasts')
+      .orderBy('sentAt', 'desc')
+      .limit(Math.max(1, Math.min(Number(limit) || 100, 500)))
+      .get()
+      .catch(() => ({ docs: [], source: 'firestore-fallback' }));
+  }
+}
+
+async function createAdminBroadcastWithSupabaseSync(payload = {}) {
+  const ref = await firestore.collection('adminBroadcasts').add(payload);
+
+  try {
+    const sourceDocumentPath = `adminBroadcasts/${ref.id}`;
+
+    await adminBroadcastSupabaseRepo.upsertAdminBroadcastRecord(
+      adminBroadcastSupabaseRepo.buildAdminBroadcastPayload({
+        sourceCollectionPath: 'adminBroadcasts',
+        sourceDocumentId: ref.id,
+        sourceDocumentPath,
+        data: {
+          ...(payload && typeof payload === 'object' ? payload : {}),
+          id: ref.id,
+          dualSyncedFrom: 'admin-auth-routes',
+          dualSyncedAt: new Date().toISOString()
+        }
+      })
+    );
+  } catch (error) {
+    console.error('Admin Broadcast Supabase dual-sync failed:', error?.message || error);
+  }
+
+  return ref;
+}
+/* END PATCH: Admin Broadcast Supabase helpers */
+
 async function buildAdminBootstrapPayload() {
   const [usersSnap, broadcastsSnap, paymentLedgerResult, payoutLedgerResult] = await Promise.all([
     firestore.collection('users').limit(300).get(),
-    firestore.collection('adminBroadcasts').orderBy('sentAt', 'desc').limit(100).get().catch(() => ({ docs: [] })),
+    listAdminBroadcastsForAdminBootstrap(100),
     paymentLedgerRepo.listAdminPaymentRecords(500).catch(() => []),
     paymentLedgerRepo.listAdminPayoutRecords(500).catch(() => [])
   ]);
@@ -4052,7 +4113,7 @@ apiRouter.post('/api/admin/academy/:memberId/nudge', requireAdminSession, async 
       updatedAt: nowIso
     }, { merge: true });
 
-    await firestore.collection('adminBroadcasts').add({
+    await createAdminBroadcastWithSupabaseSync({
       audience: memberName,
       subject: 'Manual roadmap nudge',
       message: `Admin sent a roadmap nudge to ${memberName}.`,
@@ -4520,7 +4581,7 @@ apiRouter.post('/api/admin/academy/route-opportunity-mission', requireAdminSessi
       updatedAt: now
     }, { merge: true });
 
-    await firestore.collection('adminBroadcasts').add({
+    await createAdminBroadcastWithSupabaseSync({
       audience: operatorName,
       subject: 'Academy Opportunity Mission routed',
       message: `Admin routed ${title} from ${sourceDivision} to ${operatorName}.`,
@@ -4720,7 +4781,7 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requ
       }, { merge: true });
     }
 
-    await firestore.collection('adminBroadcasts').add({
+    await createAdminBroadcastWithSupabaseSync({
       audience: cleanText(userSnap.data()?.fullName || userSnap.data()?.name || userSnap.data()?.username || memberId),
       subject: 'Academy routed mission reviewed',
       message: `Admin marked Lead Mission ${leadId} as ${decision.replace(/_/g, ' ')}.`,
@@ -4876,7 +4937,7 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', req
 
     await leadRef.set(updatePayload, { merge: true });
 
-    await firestore.collection('adminBroadcasts').add({
+    await createAdminBroadcastWithSupabaseSync({
       audience: cleanText(userSnap.data()?.fullName || userSnap.data()?.name || userSnap.data()?.username || memberId),
       subject: 'Lead Mission network routing updated',
       message: `Admin updated Lead Mission ${leadId}: ${Object.keys(patch).join(', ')}.`,
@@ -5285,7 +5346,7 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/match', req
       adminUpdatedBy: req.adminSession.username
     }, { merge: true });
 
-    await firestore.collection('adminBroadcasts').add({
+    await createAdminBroadcastWithSupabaseSync({
       audience: cleanText(requestSnap.data()?.requesterName || requestSnap.data()?.requesterEmail || 'Federation requester'),
       subject: 'Federation connection request matched',
       message: `Admin matched request ${requestId} to lead ${leadId}.`,
@@ -5606,7 +5667,7 @@ apiRouter.post('/api/admin/broadcasts', requireAdminSession, async (req, res) =>
     }
 
     const nowIso = new Date().toISOString();
-    const ref = await firestore.collection('adminBroadcasts').add({
+    const ref = await createAdminBroadcastWithSupabaseSync({
       audience,
       subject,
       message,
