@@ -11,6 +11,7 @@ const plazaSupabaseLiteControllers = require('../controllers/plazaSupabaseLiteCo
 const plazaDirectoryRegionsSupabaseLiteControllers = require('../controllers/plazaDirectoryRegionsSupabaseLiteControllers');
 const plazaBridgeRequestsSupabaseLiteControllers = require('../controllers/plazaBridgeRequestsSupabaseLiteControllers');
 const plazaMeetupsSupabaseLiteControllers = require('../controllers/plazaMeetupsSupabaseLiteControllers');
+const plazaBusinessMessagesSupabaseLiteControllers = require('../controllers/plazaBusinessMessagesSupabaseLiteControllers');
 const aiNurtureControllers = require('../controllers/aiNurtureControllers');
 const publicLandingController = require('../controllers/publicLandingController');
 const paymentControllers = require('../controllers/paymentControllers');
@@ -160,18 +161,18 @@ router.patch('/plaza/requests/:id', auth, plazaBridgeRequestsSupabaseLiteControl
 router.patch('/plaza/requests/:id/status', auth, plazaBridgeRequestsSupabaseLiteControllers.advanceRequestStatus);
 router.delete('/plaza/requests/:id', auth, plazaBridgeRequestsSupabaseLiteControllers.deleteRequest);
 
-router.get('/plaza/business-members', auth, plazaControllers.getBusinessMembers);
-router.get('/plaza/business-blocks', auth, plazaControllers.getBusinessBlocks);
-router.delete('/plaza/business-blocks/:blockedUserId', auth, plazaControllers.unblockBusinessMember);
-router.get('/plaza/messages', auth, plazaControllers.getMessages);
-router.post('/plaza/messages/from-request/:requestId', auth, plazaControllers.createConversationFromRequest);
-router.post('/plaza/messages/from-business-member/:targetUserId', auth, plazaControllers.createConversationFromBusinessMember);
-router.post('/plaza/messages/from-member/:targetUserId', auth, plazaControllers.createConversationFromMember);
-router.post('/plaza/messages/from-region/:regionId', auth, plazaControllers.createConversationFromRegion);
-router.post('/plaza/messages/:id/replies', auth, plazaControllers.createConversationReply);
-router.post('/plaza/messages/:id/report', auth, plazaControllers.reportConversation);
-router.post('/plaza/messages/:id/close', auth, plazaControllers.closeConversation);
-router.post('/plaza/messages/:id/block', auth, plazaControllers.blockConversationParticipant);
+router.get('/plaza/business-members', auth, plazaBusinessMessagesSupabaseLiteControllers.getBusinessMembers);
+router.get('/plaza/business-blocks', auth, plazaBusinessMessagesSupabaseLiteControllers.getBusinessBlocks);
+router.delete('/plaza/business-blocks/:blockedUserId', auth, plazaBusinessMessagesSupabaseLiteControllers.unblockBusinessMember);
+router.get('/plaza/messages', auth, plazaBusinessMessagesSupabaseLiteControllers.getMessages);
+router.post('/plaza/messages/from-request/:requestId', auth, plazaBusinessMessagesSupabaseLiteControllers.createConversationFromRequest);
+router.post('/plaza/messages/from-business-member/:targetUserId', auth, plazaBusinessMessagesSupabaseLiteControllers.createConversationFromBusinessMember);
+router.post('/plaza/messages/from-member/:targetUserId', auth, plazaBusinessMessagesSupabaseLiteControllers.createConversationFromMember);
+router.post('/plaza/messages/from-region/:regionId', auth, plazaBusinessMessagesSupabaseLiteControllers.createConversationFromRegion);
+router.post('/plaza/messages/:id/replies', auth, plazaBusinessMessagesSupabaseLiteControllers.createConversationReply);
+router.post('/plaza/messages/:id/report', auth, plazaBusinessMessagesSupabaseLiteControllers.reportConversation);
+router.post('/plaza/messages/:id/close', auth, plazaBusinessMessagesSupabaseLiteControllers.closeConversation);
+router.post('/plaza/messages/:id/block', auth, plazaBusinessMessagesSupabaseLiteControllers.blockConversationParticipant);
 
 router.get('/plaza/meetups', auth, plazaMeetupsSupabaseLiteControllers.getMeetups);
 router.post('/plaza/meetups', auth, plazaMeetupsSupabaseLiteControllers.createMeetup);
