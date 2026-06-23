@@ -8732,11 +8732,78 @@ function buildAcademyLeadFollowUpsFromSupabaseLeads(leads = []) {
         }));
 }
 
+
+/* PATCH: Academy Lead Supabase read merge helpers */
+function getAcademyLeadReadMergeKey(item = {}, fallback = '') {
+    return academyLeadDualSyncText(
+        item.id ||
+        item.leadId ||
+        item.sourceDocumentPath ||
+        item.source_document_path ||
+        item.supabaseRecordId ||
+        fallback
+    );
+}
+
+function mergeAcademyLeadReadItems(supabaseItems = [], firestoreItems = []) {
+    const merged = new Map();
+
+    (Array.isArray(firestoreItems) ? firestoreItems : []).forEach((item, index) => {
+        const key = getAcademyLeadReadMergeKey(item, `firestore-${index}`);
+
+        merged.set(key, {
+            ...(item && typeof item === 'object' ? item : {}),
+            sourceDatabase: item?.sourceDatabase || 'firestore'
+        });
+    });
+
+    (Array.isArray(supabaseItems) ? supabaseItems : []).forEach((item, index) => {
+        const key = getAcademyLeadReadMergeKey(item, `supabase-${index}`);
+        const existing = merged.get(key) || {};
+
+        merged.set(key, {
+            ...existing,
+            ...(item && typeof item === 'object' ? item : {}),
+            sourceDatabase: 'supabase'
+        });
+    });
+
+    return Array.from(merged.values())
+        .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+}
+
+function getAcademyLeadMergedSource(supabaseItems = [], firestoreItems = []) {
+    const supabaseCount = Array.isArray(supabaseItems) ? supabaseItems.length : 0;
+    const firestoreCount = Array.isArray(firestoreItems) ? firestoreItems.length : 0;
+
+    if (firestoreCount > supabaseCount) {
+        return 'supabase-merged';
+    }
+
+    return 'supabase-primary';
+}
+/* END PATCH: Academy Lead Supabase read merge helpers */
+
 async function listAcademyLeadMissionsSupabasePrimary(uid = '') {
     try {
+        const [supabaseItems, firestoreItems] = await Promise.all([
+            listAcademyLeadSupabaseReadRecords('lead_mission', uid),
+            academyFirestoreRepo.listLeadMissionLeads(uid).catch((error) => {
+                console.error('Academy lead Firestore merge read failed:', error?.message || error);
+                return [];
+            })
+        ]);
+
+        const items = mergeAcademyLeadReadItems(supabaseItems, firestoreItems);
+
         return {
-            source: 'supabase-primary',
-            items: await listAcademyLeadSupabaseReadRecords('lead_mission', uid)
+            source: getAcademyLeadMergedSource(supabaseItems, firestoreItems),
+            items,
+            counts: {
+                supabase: supabaseItems.length,
+                firestore: Array.isArray(firestoreItems) ? firestoreItems.length : 0,
+                merged: items.length
+            }
         };
     } catch (error) {
         console.error('Academy lead missions Supabase read failed; using Firestore fallback:', error?.message || error);
@@ -8746,17 +8813,35 @@ async function listAcademyLeadMissionsSupabasePrimary(uid = '') {
             items: await academyFirestoreRepo.listLeadMissionLeads(uid)
         };
     }
-}
-
-async function getAcademyLeadMissionByIdSupabasePrimary(uid = '', leadId = '') {
+}async function getAcademyLeadMissionByIdSupabasePrimary(uid = '', leadId = '') {
     try {
         const sourceDocumentPath = `users/${uid}/academyLeadMissions/${leadId}`;
-        const record = await academyLeadSupabaseRepo.getAcademyLeadRecord('lead_mission', sourceDocumentPath);
 
-        if (record) {
+        const [record, firestoreItem] = await Promise.all([
+            academyLeadSupabaseRepo.getAcademyLeadRecord('lead_mission', sourceDocumentPath),
+            academyFirestoreRepo.getLeadMissionLeadById(uid, leadId).catch((error) => {
+                console.error('Academy lead Firestore detail merge read failed:', error?.message || error);
+                return null;
+            })
+        ]);
+
+        if (record || firestoreItem) {
+            const supabaseItem = record
+                ? mapAcademyLeadSupabaseRecordToControllerPayload(record)
+                : null;
+
+            const merged = mergeAcademyLeadReadItems(
+                supabaseItem ? [supabaseItem] : [],
+                firestoreItem ? [firestoreItem] : []
+            )[0] || null;
+
             return {
-                source: 'supabase-primary',
-                item: mapAcademyLeadSupabaseRecordToControllerPayload(record)
+                source: record && firestoreItem
+                    ? 'supabase-merged'
+                    : record
+                        ? 'supabase-primary'
+                        : 'firestore-fallback',
+                item: merged
             };
         }
     } catch (error) {
@@ -8767,15 +8852,14 @@ async function getAcademyLeadMissionByIdSupabasePrimary(uid = '', leadId = '') {
         source: 'firestore-fallback',
         item: await academyFirestoreRepo.getLeadMissionLeadById(uid, leadId)
     };
-}
-
-async function listAcademyLeadMissionFollowUpsSupabasePrimary(uid = '') {
+}async function listAcademyLeadMissionFollowUpsSupabasePrimary(uid = '') {
     try {
-        const leads = await listAcademyLeadSupabaseReadRecords('lead_mission', uid);
+        const leadResult = await listAcademyLeadMissionsSupabasePrimary(uid);
 
         return {
-            source: 'supabase-primary',
-            items: buildAcademyLeadFollowUpsFromSupabaseLeads(leads)
+            source: leadResult.source,
+            items: buildAcademyLeadFollowUpsFromSupabaseLeads(leadResult.items),
+            counts: leadResult.counts
         };
     } catch (error) {
         console.error('Academy lead follow-ups Supabase read failed; using Firestore fallback:', error?.message || error);
@@ -8785,13 +8869,26 @@ async function listAcademyLeadMissionFollowUpsSupabasePrimary(uid = '') {
             items: await academyFirestoreRepo.listLeadMissionFollowUps(uid)
         };
     }
-}
-
-async function listAcademyLeadMissionPayoutsSupabasePrimary(uid = '') {
+}async function listAcademyLeadMissionPayoutsSupabasePrimary(uid = '') {
     try {
+        const [supabaseItems, firestoreItems] = await Promise.all([
+            listAcademyLeadSupabaseReadRecords('lead_payout', uid),
+            academyFirestoreRepo.listLeadMissionPayouts(uid).catch((error) => {
+                console.error('Academy lead payout Firestore merge read failed:', error?.message || error);
+                return [];
+            })
+        ]);
+
+        const items = mergeAcademyLeadReadItems(supabaseItems, firestoreItems);
+
         return {
-            source: 'supabase-primary',
-            items: await listAcademyLeadSupabaseReadRecords('lead_payout', uid)
+            source: getAcademyLeadMergedSource(supabaseItems, firestoreItems),
+            items,
+            counts: {
+                supabase: supabaseItems.length,
+                firestore: Array.isArray(firestoreItems) ? firestoreItems.length : 0,
+                merged: items.length
+            }
         };
     } catch (error) {
         console.error('Academy lead payouts Supabase read failed; using Firestore fallback:', error?.message || error);
@@ -8801,13 +8898,26 @@ async function listAcademyLeadMissionPayoutsSupabasePrimary(uid = '') {
             items: await academyFirestoreRepo.listLeadMissionPayouts(uid)
         };
     }
-}
-
-async function listAcademyLeadMissionDealsSupabasePrimary(uid = '') {
+}async function listAcademyLeadMissionDealsSupabasePrimary(uid = '') {
     try {
+        const [supabaseItems, firestoreItems] = await Promise.all([
+            listAcademyLeadSupabaseReadRecords('lead_deal', uid),
+            academyFirestoreRepo.listLeadMissionDeals(uid).catch((error) => {
+                console.error('Academy lead deal Firestore merge read failed:', error?.message || error);
+                return [];
+            })
+        ]);
+
+        const items = mergeAcademyLeadReadItems(supabaseItems, firestoreItems);
+
         return {
-            source: 'supabase-primary',
-            items: await listAcademyLeadSupabaseReadRecords('lead_deal', uid)
+            source: getAcademyLeadMergedSource(supabaseItems, firestoreItems),
+            items,
+            counts: {
+                supabase: supabaseItems.length,
+                firestore: Array.isArray(firestoreItems) ? firestoreItems.length : 0,
+                merged: items.length
+            }
         };
     } catch (error) {
         console.error('Academy lead deals Supabase read failed; using Firestore fallback:', error?.message || error);
@@ -8817,8 +8927,7 @@ async function listAcademyLeadMissionDealsSupabasePrimary(uid = '') {
             items: await academyFirestoreRepo.listLeadMissionDeals(uid)
         };
     }
-}
-/* END PATCH: Academy Lead Supabase-primary read helpers */
+}/* END PATCH: Academy Lead Supabase-primary read helpers */
 
 exports.listAcademyOpportunityMissions = async (req, res) => {
     try {
@@ -8910,9 +9019,22 @@ exports.getLeadMissionsWorkspace = async (req, res) => {
         const payouts = payoutResult.items;
         const deals = dealResult.items;
 
+        const workspaceSources = [
+            leadResult.source,
+            followUpResult.source,
+            payoutResult.source,
+            dealResult.source
+        ];
+
+        const workspaceSource = workspaceSources.includes('firestore-fallback')
+            ? 'firestore-fallback'
+            : workspaceSources.includes('supabase-merged')
+                ? 'supabase-merged'
+                : 'supabase-primary';
+
         return res.json({
             success: true,
-            source: 'supabase-primary',
+            source: workspaceSource,
             meta: {
                 operatorName: sanitize(req.user?.name || req.user?.username || 'Operator'),
                 readmeNote: 'Your Lead Missions records are private to you and admin.',
@@ -8920,7 +9042,11 @@ exports.getLeadMissionsWorkspace = async (req, res) => {
                 followUpSource: followUpResult.source,
                 payoutSource: payoutResult.source,
                 dealSource: dealResult.source,
-                scriptSource: 'firestore'
+                scriptSource: 'firestore',
+                leadCounts: leadResult.counts || null,
+                followUpCounts: followUpResult.counts || null,
+                payoutCounts: payoutResult.counts || null,
+                dealCounts: dealResult.counts || null
             },
             leads,
             followUps,
