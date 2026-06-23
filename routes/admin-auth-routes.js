@@ -8,6 +8,7 @@ const universeCollectionMirrorRepo = require('../backend/repositories/universeCo
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
 const adminPlazaSupabaseRepo = require('../backend/repositories/adminPlazaSupabaseRepo');
 const adminPlazaSupabaseWriteRepo = require('../backend/repositories/adminPlazaSupabaseWriteRepo');
+const adminPatronApplicationsSupabaseRepo = require('../backend/repositories/adminPatronApplicationsSupabaseRepo');
 const { sendSystemMail } = require('../controllers/authControllers');
 
 const ADMIN_SESSION_COOKIE = 'yh_admin_session';
@@ -1681,6 +1682,35 @@ const applications = users.flatMap((user) => {
 
   return output;
 });
+
+  /* PATCH: Merge Supabase Patron applications into admin application queue v1 */
+  try {
+    const supabasePatronApplications = await adminPatronApplicationsSupabaseRepo.listAdminPatronApplications(250);
+    const existingApplicationIds = new Set(applications.map((item) => cleanText(item.id)));
+    const existingApplicationEmails = new Set(applications.map((item) => cleanText(item.email).toLowerCase()).filter(Boolean));
+
+    supabasePatronApplications.forEach((application) => {
+      const id = cleanText(application.id);
+      const email = cleanText(application.email).toLowerCase();
+
+      if (id && existingApplicationIds.has(id)) return;
+
+      if (
+        email &&
+        existingApplicationEmails.has(email) &&
+        cleanText(application.applicationType) === 'plaza-patron-leader'
+      ) {
+        return;
+      }
+
+      applications.push(application);
+      if (id) existingApplicationIds.add(id);
+      if (email) existingApplicationEmails.add(email);
+    });
+  } catch (error) {
+    console.error('Supabase Patron applications admin queue merge failed:', error);
+  }
+  /* END PATCH: Merge Supabase Patron applications into admin application queue v1 */
 
   const academy = [];
   const academyLeadMissions = [];
@@ -3642,6 +3672,58 @@ async function appendFederationConnectionRequestNotificationToRequester(request 
 
   return true;
 }
+
+/* PATCH: Supabase Patron application admin review override v1 */
+apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async (req, res, next) => {
+  try {
+    const applicationId = cleanText(req.params.id);
+    const decision = cleanText(req.body?.decision || req.body?.action).toLowerCase();
+
+    const reviewResult = await adminPatronApplicationsSupabaseRepo.reviewPatronApplication(
+      applicationId,
+      decision,
+      req.adminSession?.username || 'admin'
+    );
+
+    if (!reviewResult || reviewResult.handled !== true) {
+      return next();
+    }
+
+    let universeReferralReward = null;
+
+    if (reviewResult.application?.status === 'Approved' && reviewResult.userSync?.userId) {
+      universeReferralReward = await qualifyUniverseReferralRewardForUser({
+        referredUid: reviewResult.userSync.userId,
+        qualifiedDivision: 'plazaPatronApplication',
+        approvedBy: req.adminSession?.username || 'admin',
+        approvalSource: 'admin_application_review:plazaPatronApplication:supabase'
+      }).catch((error) => {
+        console.error('Supabase Patron referral qualification error:', error);
+        return null;
+      });
+    }
+
+    return res.json({
+      success: true,
+      source: 'supabase',
+      application: reviewResult.application,
+      alreadyReviewed: false,
+      approvalEmailSent: false,
+      approvalEmailError: '',
+      inProductNotificationQueued: true,
+      universeReferralReward
+    });
+  } catch (error) {
+    console.error('Supabase Patron application review override error:', error);
+
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      source: 'supabase',
+      message: error.message || 'Failed to review Patron application.'
+    });
+  }
+});
+/* END PATCH: Supabase Patron application admin review override v1 */
 
 apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async (req, res) => {
   try {
