@@ -9,6 +9,7 @@ const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
 const adminPlazaSupabaseRepo = require('../backend/repositories/adminPlazaSupabaseRepo');
 const adminPlazaSupabaseWriteRepo = require('../backend/repositories/adminPlazaSupabaseWriteRepo');
 const adminPatronApplicationsSupabaseRepo = require('../backend/repositories/adminPatronApplicationsSupabaseRepo');
+const federationConnectSupabaseRepo = require('../backend/repositories/federationConnectSupabaseRepo');
 const { sendSystemMail } = require('../controllers/authControllers');
 
 const ADMIN_SESSION_COOKIE = 'yh_admin_session';
@@ -5018,6 +5019,88 @@ function buildAdminMatchedFederationOpportunitySnapshot(lead = {}, ownerUid = ''
     ).slice(0, 260)
   };
 }
+
+/* PATCH: Admin Federation Supabase write dual-sync helpers batch 1 */
+function adminFederationDualSyncText(value = '', fallback = '') {
+  if (value === null || value === undefined) return fallback;
+  return String(value).trim();
+}
+
+function adminFederationDualSyncNowIso() {
+  return new Date().toISOString();
+}
+
+async function syncAdminFederationConnectionRequestToSupabaseRecord(requestId = '', data = {}, options = {}) {
+  const cleanRequestId = adminFederationDualSyncText(requestId || data?.id);
+
+  if (!cleanRequestId || !federationConnectSupabaseRepo?.buildFederationPayload) {
+    return null;
+  }
+
+  try {
+    const normalized = federationConnectSupabaseRepo.normalizeValue({
+      ...(data && typeof data === 'object' ? data : {}),
+      id: cleanRequestId,
+      updatedAt: data?.updatedAt || data?.adminUpdatedAt || adminFederationDualSyncNowIso()
+    });
+
+    const payload = federationConnectSupabaseRepo.buildFederationPayload({
+      sourceCollectionPath: 'federationConnectionRequests',
+      sourceDocumentId: cleanRequestId,
+      sourceDocumentPath: `federationConnectionRequests/${cleanRequestId}`,
+      data: {
+        ...normalized,
+        id: cleanRequestId,
+        sourceDatabase: 'supabase',
+        dualSyncedFrom: adminFederationDualSyncText(options.source || 'admin-federation-write'),
+        adminSyncedBy: adminFederationDualSyncText(options.adminUsername || '')
+      }
+    });
+
+    return await federationConnectSupabaseRepo.upsertFederationRecord(payload);
+  } catch (error) {
+    console.error('Admin Federation connection request Supabase dual-sync failed:', error?.message || error);
+    return null;
+  }
+}
+
+async function syncAdminFederationDealRoomToSupabaseRecord(roomId = '', data = {}, options = {}) {
+  const cleanRoomId = adminFederationDualSyncText(roomId || data?.id);
+
+  if (!cleanRoomId || !federationConnectSupabaseRepo?.buildFederationPayload) {
+    return null;
+  }
+
+  try {
+    const normalized = federationConnectSupabaseRepo.normalizeValue({
+      ...(data && typeof data === 'object' ? data : {}),
+      id: cleanRoomId,
+      roomId: data?.roomId || cleanRoomId,
+      updatedAt: data?.updatedAt || adminFederationDualSyncNowIso()
+    });
+
+    const payload = federationConnectSupabaseRepo.buildFederationPayload({
+      sourceCollectionPath: 'federationDealRooms',
+      sourceDocumentId: cleanRoomId,
+      sourceDocumentPath: `federationDealRooms/${cleanRoomId}`,
+      data: {
+        ...normalized,
+        id: cleanRoomId,
+        roomId: normalized.roomId || cleanRoomId,
+        sourceDatabase: 'supabase',
+        dualSyncedFrom: adminFederationDualSyncText(options.source || 'admin-federation-write'),
+        adminSyncedBy: adminFederationDualSyncText(options.adminUsername || '')
+      }
+    });
+
+    return await federationConnectSupabaseRepo.upsertFederationRecord(payload);
+  } catch (error) {
+    console.error('Admin Federation deal room Supabase dual-sync failed:', error?.message || error);
+    return null;
+  }
+}
+/* END PATCH: Admin Federation Supabase write dual-sync helpers batch 1 */
+
 apiRouter.post('/api/admin/federation/connection-requests/:requestId/match', requireAdminSession, async (req, res) => {
   try {
     const requestId = cleanText(req.params.requestId);
@@ -5101,6 +5184,18 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/match', req
     const updatedSnap = await requestRef.get();
     const updatedRequest = mapAdminFederationConnectionRequestDoc(updatedSnap);
 
+    /* PATCH: Admin Federation match request Supabase sync batch 1 */
+    await syncAdminFederationConnectionRequestToSupabaseRecord(
+      requestId,
+      updatedRequest,
+      {
+        source: 'api/admin/federation/connection-requests/match',
+        adminUsername: req.adminSession.username
+      }
+    );
+    /* END PATCH: Admin Federation match request Supabase sync batch 1 */
+
+
     const requesterNotificationQueued =
       await appendFederationConnectionRequestNotificationToRequester(updatedRequest, 'match');
 
@@ -5169,6 +5264,18 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/deal-packag
 
     const updatedSnap = await requestRef.get();
     const updatedRequest = mapAdminFederationConnectionRequestDoc(updatedSnap);
+
+    /* PATCH: Admin Federation deal-package Supabase sync batch 1 */
+    await syncAdminFederationConnectionRequestToSupabaseRecord(
+      requestId,
+      updatedRequest,
+      {
+        source: 'api/admin/federation/connection-requests/deal-package',
+        adminUsername: req.adminSession.username
+      }
+    );
+    /* END PATCH: Admin Federation deal-package Supabase sync batch 1 */
+
 
     const academyEconomySynced =
       await syncFederationRequestToAcademyEconomy(updatedRequest, 'deal-package');
@@ -5253,6 +5360,19 @@ apiRouter.post('/api/admin/federation/deal-rooms/:roomId/status', requireAdminSe
 
     const freshSnap = await roomRef.get();
 
+    /* PATCH: Admin Federation deal-room status Supabase sync batch 1 */
+    const federationDealRoomAdminRecord = mapAdminFederationDealRoomDoc(freshSnap);
+    await syncAdminFederationDealRoomToSupabaseRecord(
+      roomId,
+      federationDealRoomAdminRecord,
+      {
+        source: 'api/admin/federation/deal-rooms/status',
+        adminUsername: req.adminSession?.username || 'admin'
+      }
+    );
+    /* END PATCH: Admin Federation deal-room status Supabase sync batch 1 */
+
+
     return res.json({
       success: true,
       room: mapAdminFederationDealRoomDoc(freshSnap)
@@ -5326,6 +5446,18 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/status', re
 
     const updatedSnap = await requestRef.get();
     const updatedRequest = mapAdminFederationConnectionRequestDoc(updatedSnap);
+
+    /* PATCH: Admin Federation request status Supabase sync batch 1 */
+    await syncAdminFederationConnectionRequestToSupabaseRecord(
+      requestId,
+      updatedRequest,
+      {
+        source: 'api/admin/federation/connection-requests/status',
+        adminUsername: req.adminSession.username
+      }
+    );
+    /* END PATCH: Admin Federation request status Supabase sync batch 1 */
+
 
     const academyEconomySynced =
       await syncFederationRequestToAcademyEconomy(updatedRequest, 'status');
