@@ -7,6 +7,7 @@ const academyFirestoreRepo = require('../backend/repositories/academyFirestoreRe
 const universeCollectionMirrorRepo = require('../backend/repositories/universeCollectionMirrorRepo');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
 const adminPlazaSupabaseRepo = require('../backend/repositories/adminPlazaSupabaseRepo');
+const adminPlazaSupabaseWriteRepo = require('../backend/repositories/adminPlazaSupabaseWriteRepo');
 const { sendSystemMail } = require('../controllers/authControllers');
 
 const ADMIN_SESSION_COOKIE = 'yh_admin_session';
@@ -2721,6 +2722,82 @@ apiRouter.get('/api/admin/plaza/business-chat-reports', requireAdminSession, asy
     });
   }
 });
+
+
+/* PATCH: Admin Plaza Supabase write overrides batch 1 */
+apiRouter.post('/api/admin/plaza/business-chat-reports/:reportId/status', requireAdminSession, async (req, res) => {
+  try {
+    const result = await adminPlazaSupabaseWriteRepo.updateBusinessChatReportStatus(
+      req.params.reportId,
+      req.body || {},
+      req.adminSession?.username || 'admin'
+    );
+
+    return res.json({
+      success: true,
+      source: 'supabase',
+      report: result.report,
+      conversation: result.conversation
+    });
+  } catch (error) {
+    console.error('admin business chat report status Supabase override error:', error);
+
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      source: 'supabase',
+      message: error.message || 'Failed to update Business Chat report.'
+    });
+  }
+});
+
+apiRouter.post('/api/admin/plaza/requests/:requestId/route', requireAdminSession, async (req, res) => {
+  try {
+    const request = await adminPlazaSupabaseWriteRepo.routePlazaRequest(
+      req.params.requestId,
+      req.body || {},
+      req.adminSession?.username || 'admin'
+    );
+
+    return res.json({
+      success: true,
+      source: 'supabase',
+      request
+    });
+  } catch (error) {
+    console.error('admin plaza request route Supabase override error:', error);
+
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      source: 'supabase',
+      message: error.message || 'Failed to route Plaza request.'
+    });
+  }
+});
+
+apiRouter.post('/api/admin/plazas/:listingId/status', requireAdminSession, async (req, res) => {
+  try {
+    const listing = await adminPlazaSupabaseWriteRepo.updatePlazaListingStatus(
+      req.params.listingId,
+      req.body || {},
+      req.adminSession?.username || 'admin'
+    );
+
+    return res.json({
+      success: true,
+      source: 'supabase',
+      listing
+    });
+  } catch (error) {
+    console.error('admin plaza listing status Supabase override error:', error);
+
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      source: 'supabase',
+      message: error.message || 'Failed to update Plaza listing.'
+    });
+  }
+});
+/* END PATCH: Admin Plaza Supabase write overrides batch 1 */
 
 apiRouter.post('/api/admin/plaza/business-chat-reports/:reportId/status', requireAdminSession, async (req, res) => {
   try {
