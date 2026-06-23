@@ -6,7 +6,6 @@ const auth = require('../middlewares/auth');
 const authController = require('../controllers/authControllers');
 const realtimeControllers = require('../controllers/realtimeControllers');
 const academyCommunityControllers = require('../controllers/academyCommunityControllers');
-const plazaControllers = require('../controllers/plazaControllers');
 const plazaSupabaseLiteControllers = require('../controllers/plazaSupabaseLiteControllers');
 const plazaDirectoryRegionsSupabaseLiteControllers = require('../controllers/plazaDirectoryRegionsSupabaseLiteControllers');
 const plazaBridgeRequestsSupabaseLiteControllers = require('../controllers/plazaBridgeRequestsSupabaseLiteControllers');
