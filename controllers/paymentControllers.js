@@ -3,6 +3,7 @@ const { Timestamp } = require('firebase-admin/firestore');
 const Stripe = require('stripe');
 const crypto = require('crypto');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
+const federationConnectSupabaseRepo = require('../backend/repositories/federationConnectSupabaseRepo');
 
 function cleanText(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
@@ -2385,6 +2386,52 @@ async function unsubscribeAcademyLearnFromAccess(req, res) {
     }
 }
 
+
+/* PATCH: Federation payment controller Supabase dual-sync helpers */
+function paymentControllerFederationSyncText(value = '', fallback = '') {
+    if (value === null || value === undefined) return fallback;
+    return String(value).trim();
+}
+
+function paymentControllerFederationSyncNowIso() {
+    return new Date().toISOString();
+}
+
+async function syncPaymentControllerFederationRequestToSupabaseRecord(requestId = '', data = {}, options = {}) {
+    const cleanRequestId = paymentControllerFederationSyncText(requestId || data?.id);
+
+    if (!cleanRequestId || !federationConnectSupabaseRepo?.buildFederationPayload) {
+        return null;
+    }
+
+    try {
+        const normalized = federationConnectSupabaseRepo.normalizeValue({
+            ...(data && typeof data === 'object' ? data : {}),
+            id: cleanRequestId,
+            updatedAt: data?.updatedAt || data?.paymentLedgerUpdatedAt || paymentControllerFederationSyncNowIso()
+        });
+
+        const payload = federationConnectSupabaseRepo.buildFederationPayload({
+            sourceCollectionPath: 'federationConnectionRequests',
+            sourceDocumentId: cleanRequestId,
+            sourceDocumentPath: `federationConnectionRequests/${cleanRequestId}`,
+            data: {
+                ...normalized,
+                id: cleanRequestId,
+                sourceDatabase: 'supabase',
+                dualSyncedFrom: paymentControllerFederationSyncText(options.source || 'payment-controller-federation-ledger'),
+                paymentLedgerSynced: true
+            }
+        });
+
+        return await federationConnectSupabaseRepo.upsertFederationRecord(payload);
+    } catch (error) {
+        console.error('Payment controller Federation request Supabase dual-sync failed:', error?.message || error);
+        return null;
+    }
+}
+/* END PATCH: Federation payment controller Supabase dual-sync helpers */
+
 async function createFederationPaidIntroLedger(req, res) {
     try {
         const viewer = getViewer(req);
@@ -2465,6 +2512,22 @@ async function createFederationPaidIntroLedger(req, res) {
             paymentLedgerUpdatedAt: Timestamp.now(),
             updatedAt: Timestamp.now()
         }, { merge: true });
+
+        /* PATCH: Federation paid intro ledger Supabase sync */
+        const federationPaidIntroLedgerSyncSnap = await requestRef.get().catch(() => null);
+        await syncPaymentControllerFederationRequestToSupabaseRecord(
+            requestId,
+            {
+                ...request,
+                ...((federationPaidIntroLedgerSyncSnap && federationPaidIntroLedgerSyncSnap.exists)
+                    ? (federationPaidIntroLedgerSyncSnap.data() || {})
+                    : {}),
+                id: requestId
+            },
+            { source: 'payments/federation/connect/requests/ledger' }
+        );
+        /* END PATCH: Federation paid intro ledger Supabase sync */
+
 
         return res.status(201).json({
             success: true,
