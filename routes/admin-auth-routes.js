@@ -6,6 +6,7 @@ const { firestore } = require('../config/firebaseAdmin');
 const academyFirestoreRepo = require('../backend/repositories/academyFirestoreRepo');
 const universeCollectionMirrorRepo = require('../backend/repositories/universeCollectionMirrorRepo');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
+const adminPlazaSupabaseRepo = require('../backend/repositories/adminPlazaSupabaseRepo');
 const { sendSystemMail } = require('../controllers/authControllers');
 
 const ADMIN_SESSION_COOKIE = 'yh_admin_session';
@@ -1814,15 +1815,9 @@ const applications = users.flatMap((user) => {
   let plazas = [];
 
   try {
-    const plazaListingsSnap = await firestore
-      .collection('plazaOpportunities')
-      .limit(300)
-      .get();
-
-    plazas = plazaListingsSnap.docs
-      .map((doc) => mapAdminPlazaListingDoc(doc))
-      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-  } catch (_) {
+    plazas = await adminPlazaSupabaseRepo.listAdminPlazaListings(300);
+  } catch (error) {
+    console.error('admin Supabase Plaza listings read failed:', error);
     plazas = [];
   }
 
@@ -2882,6 +2877,57 @@ apiRouter.post('/api/admin/plaza/business-chat-reports/:reportId/status', requir
   }
 });
 
+
+
+/* PATCH: Admin Plaza Supabase read overrides v1 */
+async function buildAdminPlazaRoutingDeskSnapshot(limit = 120) {
+  try {
+    return await adminPlazaSupabaseRepo.buildAdminPlazaRoutingDeskSnapshot(limit);
+  } catch (error) {
+    console.error('buildAdminPlazaRoutingDeskSnapshot Supabase override error:', error);
+    return {
+      summary: {
+        total: 0,
+        unrouted: 0,
+        needsReview: 0,
+        highPriority: 0,
+        byStatus: {},
+        byLane: {}
+      },
+      requests: []
+    };
+  }
+}
+
+async function buildAdminBusinessChatReportsSnapshot(limit = 160) {
+  try {
+    return await adminPlazaSupabaseRepo.buildAdminBusinessChatReportsSnapshot(limit);
+  } catch (error) {
+    console.error('buildAdminBusinessChatReportsSnapshot Supabase override error:', error);
+    return [];
+  }
+}
+
+async function buildAdminBusinessChatAnalyticsSnapshot() {
+  try {
+    return await adminPlazaSupabaseRepo.buildAdminBusinessChatAnalyticsSnapshot();
+  } catch (error) {
+    console.error('buildAdminBusinessChatAnalyticsSnapshot Supabase override error:', error);
+    return {
+      totalBusinessConversations: 0,
+      activeDealConversations: 0,
+      reportedConversations: 0,
+      openReports: 0,
+      blockedConversations: 0,
+      closedConversations: 0,
+      uniqueBlockedUsers: 0,
+      totalMessages: 0,
+      reportsByStatus: {},
+      source: 'supabase'
+    };
+  }
+}
+/* END PATCH: Admin Plaza Supabase read overrides v1 */
 
 apiRouter.get('/api/admin/bootstrap', requireAdminSession, async (req, res) => {
   try {
