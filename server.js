@@ -1705,6 +1705,46 @@ async function canUserAccessLiveRoom(userId, roomId) {
     }
 }
 
+/* PATCH: Server Academy Member Profile Supabase helpers */
+async function getServerAcademyMemberProfileSupabaseSnapshot(userId = '', fallbackRef = null) {
+    const cleanUserId = sanitizeText(userId);
+
+    if (!cleanUserId) return null;
+
+    try {
+        const snapshot = await academyMemberProfileSupabaseRepo.getProfileSnapshotByUid(cleanUserId, fallbackRef);
+        if (snapshot?.exists) return snapshot;
+    } catch (error) {
+        console.warn('Server academy member profile Supabase read fallback:', error?.message || error);
+    }
+
+    if (fallbackRef && typeof fallbackRef.get === 'function') {
+        return fallbackRef.get();
+    }
+
+    return null;
+}
+
+async function syncServerAcademyMemberProfileFromFirestoreUserRef(userId = '', userRef = null) {
+    const cleanUserId = sanitizeText(userId);
+
+    if (!cleanUserId || !userRef || typeof userRef.get !== 'function') return null;
+
+    try {
+        const snap = await userRef.get();
+        if (!snap.exists) return null;
+
+        return academyMemberProfileSupabaseRepo.upsertProfileFromUserData(
+            cleanUserId,
+            snap.data() || {}
+        );
+    } catch (error) {
+        console.warn('Server academy member profile Supabase write sync skipped:', error?.message || error);
+        return null;
+    }
+}
+/* END PATCH: Server Academy Member Profile Supabase helpers */
+
 async function canUserAccessRoom(userId, roomId) {
     const cleanUserId = sanitizeText(userId);
     const cleanRoomId = sanitizeText(roomId);
@@ -4670,6 +4710,7 @@ const viewRoutes = require('./routes/viewRoutes');
 const apiRoutes = require('./routes/apiRoutes');
 const { createAdminRouters } = require('./routes/admin-auth-routes');
 const { startAiNurtureWorker } = require('./backend/services/aiNurtureWorker');
+const academyMemberProfileSupabaseRepo = require('./backend/repositories/academyMemberProfileSupabaseRepo');
 
 const { pageRouter: adminPageRouter, apiRouter: adminApiRouter } = createAdminRouters({
     privateAdminDir: path.join(__dirname, 'private', 'admin')
@@ -9193,7 +9234,7 @@ app.get(['/api/universe/profile', '/api/academy/profile'], requireApiUser, async
         }
 
         const userRef = firestore.collection('users').doc(userId);
-        const userSnap = await userRef.get();
+        const userSnap = await getServerAcademyMemberProfileSupabaseSnapshot(userId, userRef);
         const user = userSnap.exists ? (userSnap.data() || {}) : {};
 
         const storedProfile = await academyFirestoreRepo

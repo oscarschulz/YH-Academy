@@ -10,6 +10,7 @@ const aiNurtureRepo = require('./backend/repositories/aiNurtureFirestoreRepo');
 const publicLandingEventsRepo = require('./backend/repositories/publicLandingEventsRepo');
 const universeCollectionMirrorRepo = require('./backend/repositories/universeCollectionMirrorRepo');
 const { firestore } = require('./config/firebaseAdmin');
+const academyMemberProfileSupabaseRepo = require('./backend/repositories/academyMemberProfileSupabaseRepo');
 
 const ACADEMY_UPLOADS_ROOT = path.resolve(
     String(process.env.PERSISTENT_UPLOADS_DIR || '').trim() || path.join(__dirname, 'public', 'uploads')
@@ -1725,7 +1726,7 @@ function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
 
 async function getAcademyUserAccessSnapshot(uid) {
     const userRef = firestore.collection('users').doc(uid);
-    const userSnapshot = await userRef.get();
+    const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
     const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
 
     const academyApplication =
@@ -3661,7 +3662,7 @@ exports.submitMembershipApplication = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await userRef.get();
+        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
         const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
 
         const existingApplication =
@@ -3900,6 +3901,21 @@ exports.submitMembershipApplication = async (req, res) => {
             },
             { merge: true }
         );
+        /* PATCH: Academy Member Profile Supabase write sync */
+        const academyMemberProfileSyncUid =
+            (typeof uid !== 'undefined' && uid) ||
+            (typeof userId !== 'undefined' && userId) ||
+            (typeof memberId !== 'undefined' && memberId) ||
+            (typeof ownerUid !== 'undefined' && ownerUid) ||
+            (typeof req !== 'undefined' ? getAcademyAuthUid(req) : '');
+
+        if (academyMemberProfileSyncUid) {
+            await syncAcademyMemberProfileFromFirestoreUserRef(
+                academyMemberProfileSyncUid,
+                userRef
+            );
+        }
+        /* END PATCH: Academy Member Profile Supabase write sync */
 
         try {
 await publicLandingEventsRepo.createEventForUser(uid, {
@@ -4144,7 +4160,7 @@ exports.getUniverseProfile = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await userRef.get();
+        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
 
         if (!userSnapshot.exists) {
             return res.status(404).json({
@@ -4729,6 +4745,46 @@ function buildUniverseProfileActivities({
     return activities.slice(0, 24);
 }
 
+/* PATCH: Academy Member Profile Supabase helpers */
+async function getAcademyMemberProfileSupabaseSnapshot(uid = '', fallbackRef = null) {
+    const cleanUid = sanitize(uid);
+
+    if (!cleanUid) return null;
+
+    try {
+        const snapshot = await academyMemberProfileSupabaseRepo.getProfileSnapshotByUid(cleanUid, fallbackRef);
+        if (snapshot?.exists) return snapshot;
+    } catch (error) {
+        console.warn('Academy member profile Supabase read fallback:', error?.message || error);
+    }
+
+    if (fallbackRef && typeof fallbackRef.get === 'function') {
+        return fallbackRef.get();
+    }
+
+    return null;
+}
+
+async function syncAcademyMemberProfileFromFirestoreUserRef(uid = '', userRef = null) {
+    const cleanUid = sanitize(uid);
+
+    if (!cleanUid || !userRef || typeof userRef.get !== 'function') return null;
+
+    try {
+        const snap = await userRef.get();
+        if (!snap.exists) return null;
+
+        return academyMemberProfileSupabaseRepo.upsertProfileFromUserData(
+            cleanUid,
+            snap.data() || {}
+        );
+    } catch (error) {
+        console.warn('Academy member profile Supabase write sync skipped:', error?.message || error);
+        return null;
+    }
+}
+/* END PATCH: Academy Member Profile Supabase helpers */
+
 function buildUniverseProfileSnapshot({ divisions = {}, signals = {}, academyProfile = {}, plazaDirectoryRaw = null } = {}) {
     return {
         divisionCards: ['academy', 'plaza', 'federation'].map((key) => {
@@ -4768,7 +4824,7 @@ exports.getUniverseProfile = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await userRef.get();
+        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
 
         if (!userSnapshot.exists) {
             return res.status(404).json({
@@ -5137,7 +5193,7 @@ exports.getCurrentProfile = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await userRef.get();
+        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
         const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
         const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid) || {};
         const profileResponse = buildAcademyProfileResponse(uid, userData, storedProfile);
@@ -5198,7 +5254,7 @@ exports.updateCurrentProfile = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await userRef.get();
+        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
         const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
         const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid) || {};
         const currentProfile = buildAcademyProfileResponse(uid, userData, storedProfile);
@@ -5403,7 +5459,7 @@ exports.changeCurrentPassword = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await userRef.get();
+        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
 
         if (!userSnapshot.exists) {
             return res.status(404).json({
@@ -5492,7 +5548,7 @@ exports.deleteCurrentProfile = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await userRef.get();
+        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
 
         if (!userSnapshot.exists) {
             return res.status(404).json({
@@ -5612,7 +5668,7 @@ exports.deleteCurrentAccount = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await userRef.get();
+        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
 
         if (!userSnapshot.exists) {
             return res.status(404).json({
@@ -5673,7 +5729,7 @@ exports.getMembershipStatus = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await userRef.get();
+        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
         const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
 
         const application =
@@ -5897,7 +5953,7 @@ exports.submitRoadmapApplication = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await userRef.get();
+        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
         const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
 
         const academyApplication =
@@ -6210,6 +6266,21 @@ exports.submitRoadmapApplication = async (req, res) => {
             },
             { merge: true }
         );
+        /* PATCH: Academy Member Profile Supabase write sync */
+        const academyMemberProfileSyncUid =
+            (typeof uid !== 'undefined' && uid) ||
+            (typeof userId !== 'undefined' && userId) ||
+            (typeof memberId !== 'undefined' && memberId) ||
+            (typeof ownerUid !== 'undefined' && ownerUid) ||
+            (typeof req !== 'undefined' ? getAcademyAuthUid(req) : '');
+
+        if (academyMemberProfileSyncUid) {
+            await syncAcademyMemberProfileFromFirestoreUserRef(
+                academyMemberProfileSyncUid,
+                userRef
+            );
+        }
+        /* END PATCH: Academy Member Profile Supabase write sync */
 
         try {
 await publicLandingEventsRepo.createEventForUser(uid, {
