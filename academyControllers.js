@@ -8650,6 +8650,176 @@ async function syncAcademyControllerPayoutToSupabaseRecord(uid = '', payout = {}
 }
 /* END PATCH: Academy Lead Supabase dual-sync helpers */
 
+
+/* PATCH: Academy Lead Supabase-primary read helpers */
+function mapAcademyLeadSupabaseRecordToControllerPayload(record = {}) {
+    const data = record?.data && typeof record.data === 'object'
+        ? record.data
+        : {};
+
+    const id = academyLeadDualSyncText(
+        record.source_document_id ||
+        data.id ||
+        data.leadId ||
+        record.id
+    );
+
+    return {
+        ...data,
+        id,
+        sourceDocumentPath: record.source_document_path || data.sourceDocumentPath || '',
+        sourceCollectionPath: record.source_collection_path || data.sourceCollectionPath || '',
+        sourceCollectionRoot: record.source_collection_root || data.sourceCollectionRoot || '',
+        recordType: record.record_type || data.recordType || '',
+        status: data.status || record.status || 'active',
+        reviewStatus: data.reviewStatus || record.review_status || data.saleReviewStatus || '',
+        saleReviewStatus: data.saleReviewStatus || record.review_status || '',
+        payoutStatus: data.payoutStatus || record.payout_status || '',
+        companyName: data.companyName || record.company_name || '',
+        contactName: data.contactName || record.contact_name || '',
+        contactRole: data.contactRole || record.contact_role || '',
+        contactType: data.contactType || record.contact_type || '',
+        email: data.email || record.email || '',
+        phone: data.phone || record.phone || '',
+        city: data.city || record.city || '',
+        country: data.country || record.country || '',
+        sourceDivision: data.sourceDivision || record.source_division || '',
+        pipelineStage: data.pipelineStage || record.pipeline_stage || '',
+        priority: data.priority || record.priority || '',
+        currency: data.currency || record.currency || 'USD',
+        buyerPriceAmount: data.buyerPriceAmount ?? Number(record.buyer_price_amount || 0),
+        sellerPriceAmount: data.sellerPriceAmount ?? Number(record.seller_price_amount || 0),
+        universeCommissionAmount: data.universeCommissionAmount ?? Number(record.universe_commission_amount || 0),
+        payoutAmount: data.payoutAmount ?? Number(record.payout_amount || 0),
+        createdAt: data.createdAt || record.created_at_source || record.created_at || '',
+        updatedAt: data.updatedAt || record.updated_at_source || record.updated_at || '',
+        sourceDatabase: 'supabase',
+        supabaseRecordId: record.id
+    };
+}
+
+async function listAcademyLeadSupabaseReadRecords(recordType = '', uid = '') {
+    const rows = await academyLeadSupabaseRepo.listAcademyLeadRecords(recordType, {
+        ownerUserId: uid,
+        limit: 1000
+    });
+
+    return rows.map(mapAcademyLeadSupabaseRecordToControllerPayload);
+}
+
+function buildAcademyLeadFollowUpsFromSupabaseLeads(leads = []) {
+    return (Array.isArray(leads) ? leads : [])
+        .filter((lead) => {
+            const status = academyLeadDualSyncText(lead.status).toLowerCase();
+
+            if (['deleted', 'archived', 'rejected'].includes(status)) {
+                return false;
+            }
+
+            return Boolean(
+                academyLeadDualSyncText(lead.followUpDueDate) ||
+                academyLeadDualSyncText(lead.nextAction) ||
+                academyLeadDualSyncText(lead.pipelineStage) ||
+                academyLeadDualSyncText(lead.taskStatus)
+            );
+        })
+        .map((lead) => ({
+            ...lead,
+            leadId: lead.id,
+            dueDate: lead.followUpDueDate || lead.nextActionDueDate || '',
+            status: lead.taskStatus || lead.status || 'active',
+            sourceDatabase: 'supabase'
+        }));
+}
+
+async function listAcademyLeadMissionsSupabasePrimary(uid = '') {
+    try {
+        return {
+            source: 'supabase-primary',
+            items: await listAcademyLeadSupabaseReadRecords('lead_mission', uid)
+        };
+    } catch (error) {
+        console.error('Academy lead missions Supabase read failed; using Firestore fallback:', error?.message || error);
+
+        return {
+            source: 'firestore-fallback',
+            items: await academyFirestoreRepo.listLeadMissionLeads(uid)
+        };
+    }
+}
+
+async function getAcademyLeadMissionByIdSupabasePrimary(uid = '', leadId = '') {
+    try {
+        const sourceDocumentPath = `users/${uid}/academyLeadMissions/${leadId}`;
+        const record = await academyLeadSupabaseRepo.getAcademyLeadRecord('lead_mission', sourceDocumentPath);
+
+        if (record) {
+            return {
+                source: 'supabase-primary',
+                item: mapAcademyLeadSupabaseRecordToControllerPayload(record)
+            };
+        }
+    } catch (error) {
+        console.error('Academy lead mission Supabase lookup failed; using Firestore fallback:', error?.message || error);
+    }
+
+    return {
+        source: 'firestore-fallback',
+        item: await academyFirestoreRepo.getLeadMissionLeadById(uid, leadId)
+    };
+}
+
+async function listAcademyLeadMissionFollowUpsSupabasePrimary(uid = '') {
+    try {
+        const leads = await listAcademyLeadSupabaseReadRecords('lead_mission', uid);
+
+        return {
+            source: 'supabase-primary',
+            items: buildAcademyLeadFollowUpsFromSupabaseLeads(leads)
+        };
+    } catch (error) {
+        console.error('Academy lead follow-ups Supabase read failed; using Firestore fallback:', error?.message || error);
+
+        return {
+            source: 'firestore-fallback',
+            items: await academyFirestoreRepo.listLeadMissionFollowUps(uid)
+        };
+    }
+}
+
+async function listAcademyLeadMissionPayoutsSupabasePrimary(uid = '') {
+    try {
+        return {
+            source: 'supabase-primary',
+            items: await listAcademyLeadSupabaseReadRecords('lead_payout', uid)
+        };
+    } catch (error) {
+        console.error('Academy lead payouts Supabase read failed; using Firestore fallback:', error?.message || error);
+
+        return {
+            source: 'firestore-fallback',
+            items: await academyFirestoreRepo.listLeadMissionPayouts(uid)
+        };
+    }
+}
+
+async function listAcademyLeadMissionDealsSupabasePrimary(uid = '') {
+    try {
+        return {
+            source: 'supabase-primary',
+            items: await listAcademyLeadSupabaseReadRecords('lead_deal', uid)
+        };
+    } catch (error) {
+        console.error('Academy lead deals Supabase read failed; using Firestore fallback:', error?.message || error);
+
+        return {
+            source: 'firestore-fallback',
+            items: await academyFirestoreRepo.listLeadMissionDeals(uid)
+        };
+    }
+}
+/* END PATCH: Academy Lead Supabase-primary read helpers */
+
 exports.listAcademyOpportunityMissions = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
@@ -8727,19 +8897,30 @@ exports.getLeadMissionsWorkspace = async (req, res) => {
             });
         }
 
-        const [leads, followUps, payouts, deals, scripts] = await Promise.all([
-            academyFirestoreRepo.listLeadMissionLeads(uid),
-            academyFirestoreRepo.listLeadMissionFollowUps(uid),
-            academyFirestoreRepo.listLeadMissionPayouts(uid),
-            academyFirestoreRepo.listLeadMissionDeals(uid),
+        const [leadResult, followUpResult, payoutResult, dealResult, scripts] = await Promise.all([
+            listAcademyLeadMissionsSupabasePrimary(uid),
+            listAcademyLeadMissionFollowUpsSupabasePrimary(uid),
+            listAcademyLeadMissionPayoutsSupabasePrimary(uid),
+            listAcademyLeadMissionDealsSupabasePrimary(uid),
             academyFirestoreRepo.getLeadMissionScripts(uid)
         ]);
 
+        const leads = leadResult.items;
+        const followUps = followUpResult.items;
+        const payouts = payoutResult.items;
+        const deals = dealResult.items;
+
         return res.json({
             success: true,
+            source: 'supabase-primary',
             meta: {
                 operatorName: sanitize(req.user?.name || req.user?.username || 'Operator'),
-                readmeNote: 'Your Lead Missions records are private to you and admin.'
+                readmeNote: 'Your Lead Missions records are private to you and admin.',
+                leadSource: leadResult.source,
+                followUpSource: followUpResult.source,
+                payoutSource: payoutResult.source,
+                dealSource: dealResult.source,
+                scriptSource: 'firestore'
             },
             leads,
             followUps,
@@ -8894,10 +9075,12 @@ exports.listMyLeadMissionsLeads = async (req, res) => {
             });
         }
 
-        const leads = await academyFirestoreRepo.listLeadMissionLeads(uid);
+        const result = await listAcademyLeadMissionsSupabasePrimary(uid);
+        const leads = result.items;
 
         return res.json({
             success: true,
+            source: result.source,
             leads
         });
     } catch (error) {
@@ -8979,7 +9162,8 @@ exports.getMyLeadMissionLeadById = async (req, res) => {
             });
         }
 
-        const lead = await academyFirestoreRepo.getLeadMissionLeadById(uid, leadId);
+        const result = await getAcademyLeadMissionByIdSupabasePrimary(uid, leadId);
+        const lead = result.item;
 
         if (!lead) {
             return res.status(404).json({
@@ -8990,6 +9174,7 @@ exports.getMyLeadMissionLeadById = async (req, res) => {
 
         return res.json({
             success: true,
+            source: result.source,
             lead
         });
     } catch (error) {
@@ -9071,10 +9256,12 @@ exports.listMyLeadMissionsFollowUps = async (req, res) => {
             });
         }
 
-        const followUps = await academyFirestoreRepo.listLeadMissionFollowUps(uid);
+        const result = await listAcademyLeadMissionFollowUpsSupabasePrimary(uid);
+        const followUps = result.items;
 
         return res.json({
             success: true,
+            source: result.source,
             followUps
         });
     } catch (error) {
@@ -9097,10 +9284,12 @@ exports.listMyLeadMissionPayouts = async (req, res) => {
             });
         }
 
-        const payouts = await academyFirestoreRepo.listLeadMissionPayouts(uid);
+        const result = await listAcademyLeadMissionPayoutsSupabasePrimary(uid);
+        const payouts = result.items;
 
         return res.json({
             success: true,
+            source: result.source,
             payouts
         });
     } catch (error) {
@@ -9123,10 +9312,12 @@ exports.listMyLeadMissionDeals = async (req, res) => {
             });
         }
 
-        const deals = await academyFirestoreRepo.listLeadMissionDeals(uid);
+        const result = await listAcademyLeadMissionDealsSupabasePrimary(uid);
+        const deals = result.items;
 
         return res.json({
             success: true,
+            source: result.source,
             deals
         });
     } catch (error) {
