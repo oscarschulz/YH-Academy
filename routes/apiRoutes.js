@@ -12,6 +12,7 @@ const plazaDirectoryRegionsSupabaseLiteControllers = require('../controllers/pla
 const plazaBridgeRequestsSupabaseLiteControllers = require('../controllers/plazaBridgeRequestsSupabaseLiteControllers');
 const plazaMeetupsSupabaseLiteControllers = require('../controllers/plazaMeetupsSupabaseLiteControllers');
 const plazaBusinessMessagesSupabaseLiteControllers = require('../controllers/plazaBusinessMessagesSupabaseLiteControllers');
+const plazaPatronSupabaseLiteControllers = require('../controllers/plazaPatronSupabaseLiteControllers');
 const aiNurtureControllers = require('../controllers/aiNurtureControllers');
 const publicLandingController = require('../controllers/publicLandingController');
 const paymentControllers = require('../controllers/paymentControllers');
@@ -143,14 +144,14 @@ router.post('/plaza/directory/profile', auth, plazaDirectoryRegionsSupabaseLiteC
 router.get('/plaza/regions', auth, plazaDirectoryRegionsSupabaseLiteControllers.getRegions);
 router.post('/plaza/regions', auth, plazaDirectoryRegionsSupabaseLiteControllers.createRegion);
 
-router.get('/plaza/patron-application-status', auth, plazaControllers.getPatronApplicationStatus);
-router.post('/plaza/patron-applications', auth, plazaControllers.submitPatronApplication);
+router.get('/plaza/patron-application-status', auth, plazaPatronSupabaseLiteControllers.getPatronApplicationStatus);
+router.post('/plaza/patron-applications', auth, plazaPatronSupabaseLiteControllers.submitPatronApplication);
 
-router.get('/plaza/patron/desk', auth, plazaControllers.getPatronDesk);
-router.post('/plaza/patron/announcements', auth, plazaControllers.createPatronAnnouncement);
-router.patch('/plaza/patron/requests/:id/status', auth, plazaControllers.updatePatronRoutedRequestStatus);
-router.post('/plaza/patron/recommendations', auth, plazaControllers.createPatronFederationRecommendation);
-router.post('/plaza/patron/intro-outcomes', auth, plazaControllers.createPatronIntroOutcome);
+router.get('/plaza/patron/desk', auth, plazaPatronSupabaseLiteControllers.getPatronDesk);
+router.post('/plaza/patron/announcements', auth, plazaPatronSupabaseLiteControllers.createPatronAnnouncement);
+router.patch('/plaza/patron/requests/:id/status', auth, plazaPatronSupabaseLiteControllers.updatePatronRoutedRequestStatus);
+router.post('/plaza/patron/recommendations', auth, plazaPatronSupabaseLiteControllers.createPatronFederationRecommendation);
+router.post('/plaza/patron/intro-outcomes', auth, plazaPatronSupabaseLiteControllers.createPatronIntroOutcome);
 
 router.get('/plaza/bridge', auth, plazaBridgeRequestsSupabaseLiteControllers.getBridge);
 router.post('/plaza/bridge', auth, plazaBridgeRequestsSupabaseLiteControllers.createBridge);
