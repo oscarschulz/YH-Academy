@@ -15,6 +15,7 @@ const paymentLedgerRepo = require('./backend/repositories/paymentLedgerRepo');
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
 const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const yhuSupabaseMirrorRepo = require('./backend/repositories/yhuSupabaseMirrorRepo');
+const federationConnectSupabaseRepo = require('./backend/repositories/federationConnectSupabaseRepo');
 const { yhuSupabaseAdmin } = require('./config/supabaseAdmin');
 const app = express();
 app.set('trust proxy', 1);
@@ -5707,6 +5708,363 @@ app.get('/api/federation/directory', requireApiUser, async (req, res) => {
         });
     }
 });
+
+/* PATCH: Federation Supabase read overrides batch 1 */
+function getFederationSupabaseRecordPayload(row = {}) {
+    const data = row && row.data && typeof row.data === 'object' ? row.data : {};
+
+    return {
+        ...data,
+        id: sanitizeText(row.source_document_id || data.id || row.id),
+        sourceDatabase: 'supabase',
+        source: 'supabase',
+        createdAt: sanitizeText(data.createdAt || data.submittedAt || row.created_at_source || row.created_at || ''),
+        updatedAt: sanitizeText(data.updatedAt || data.reviewedAt || row.updated_at_source || row.updated_at || '')
+    };
+}
+
+function mapFederationSupabaseRequestRecord(row = {}) {
+    const data = getFederationSupabaseRecordPayload(row);
+
+    return {
+        ...data,
+        id: sanitizeText(row.source_document_id || data.id || row.id),
+        leadId: sanitizeText(data.leadId),
+        ownerUid: sanitizeText(data.ownerUid || data.ownerUserId || row.owner_user_id),
+        requesterUid: sanitizeText(data.requesterUid || data.requesterId || data.userId || row.owner_user_id),
+        requesterName: sanitizeText(data.requesterName || data.memberName || data.buyerName || ''),
+        requesterEmail: sanitizeText(data.requesterEmail || data.email || '').toLowerCase(),
+        targetUserId: sanitizeText(data.targetUserId || data.targetUid || data.providerUid || row.target_user_id),
+        providerUid: sanitizeText(data.providerUid || data.providerId || row.target_user_id),
+        providerName: sanitizeText(data.providerName || data.targetName || ''),
+        opportunityTitle: sanitizeText(data.opportunityTitle || data.leadTitle || data.title || row.title),
+        status: sanitizeText(data.status || row.status || 'pending_admin_match'),
+        adminStatus: sanitizeText(data.adminStatus || data.reviewStatus || row.review_status || 'pending_review'),
+        paymentStatus: sanitizeText(data.paymentStatus || ''),
+        budgetRange: sanitizeText(data.budgetRange || 'not_sure'),
+        urgency: sanitizeText(data.urgency || 'normal'),
+        preferredIntroType: sanitizeText(data.preferredIntroType || 'admin_brokered'),
+        requestReason: sanitizeText(data.requestReason || data.reason || ''),
+        intendedUse: sanitizeText(data.intendedUse || ''),
+        notes: sanitizeText(data.notes || data.adminNote || ''),
+        createdAt: sanitizeText(data.createdAt || row.created_at_source || ''),
+        updatedAt: sanitizeText(data.updatedAt || row.updated_at_source || '')
+    };
+}
+
+function mapFederationSupabaseDealRoomRecord(row = {}) {
+    const data = getFederationSupabaseRecordPayload(row);
+
+    return {
+        ...data,
+        id: sanitizeText(row.source_document_id || data.id || row.id),
+        title: sanitizeText(data.title || data.roomTitle || row.title),
+        roomType: normalizeFederationDealRoomType(data.roomType || data.type || row.category),
+        description: sanitizeText(data.description || row.body || ''),
+        partnerNeed: sanitizeText(data.partnerNeed || ''),
+        expectedValueAmount: Number(data.expectedValueAmount || 0),
+        currency: sanitizeText(data.currency || 'USD').toUpperCase() || 'USD',
+        platformCommissionRate: Number(data.platformCommissionRate || 0),
+        platformCommissionAmount: Number(data.platformCommissionAmount || 0),
+        adminStatus: sanitizeText(data.adminStatus || row.review_status || 'pending_admin_review'),
+        dealStatus: sanitizeText(data.dealStatus || data.status || row.status || 'proposed'),
+        commissionStatus: sanitizeText(data.commissionStatus || 'not_priced'),
+        creatorUid: sanitizeText(data.creatorUid || data.ownerUid || row.owner_user_id),
+        creatorName: sanitizeText(data.creatorName || ''),
+        creatorEmail: sanitizeText(data.creatorEmail || '').toLowerCase(),
+        participantUids: Array.isArray(data.participantUids)
+            ? data.participantUids.map((item) => sanitizeText(item)).filter(Boolean)
+            : [sanitizeText(row.owner_user_id), sanitizeText(row.target_user_id)].filter(Boolean),
+        linkedPlazaOpportunityId: sanitizeText(data.linkedPlazaOpportunityId || ''),
+        academyMissionNeed: sanitizeText(data.academyMissionNeed || ''),
+        adminNotes: sanitizeText(data.adminNotes || data.adminNote || ''),
+        createdAt: sanitizeText(data.createdAt || row.created_at_source || ''),
+        updatedAt: sanitizeText(data.updatedAt || row.updated_at_source || '')
+    };
+}
+
+function mergeFederationRowsById(primary = [], secondary = []) {
+    const merged = [];
+    const seen = new Set();
+
+    [...primary, ...secondary].forEach((item) => {
+        const id = sanitizeText(item && item.id);
+
+        if (!id || seen.has(id)) return;
+
+        seen.add(id);
+        merged.push(item);
+    });
+
+    return merged;
+}
+
+async function listFederationSupabaseRequestsForUser(userId = '', limit = 100) {
+    const cleanUserId = sanitizeText(userId);
+
+    if (!cleanUserId) return [];
+
+    const rows = await federationConnectSupabaseRepo.listFederationRecords('connection_request', {
+        ownerUserId: cleanUserId,
+        limit
+    });
+
+    return rows.map(mapFederationSupabaseRequestRecord);
+}
+
+async function listFederationFirebaseRequestsForUser(userId = '', limit = 100) {
+    const cleanUserId = sanitizeText(userId);
+
+    if (!cleanUserId) return [];
+
+    const snap = await firestore
+        .collection('federationConnectionRequests')
+        .where('requesterUid', '==', cleanUserId)
+        .limit(limit)
+        .get();
+
+    const requests = [];
+    snap.forEach((docSnap) => requests.push(mapFederationRequestDoc(docSnap)));
+
+    return requests;
+}
+
+async function listFederationMergedRequestsForUser(userId = '', limit = 100) {
+    const supabaseRequests = await listFederationSupabaseRequestsForUser(userId, limit).catch((error) => {
+        console.error('Federation Supabase requests read failed:', error?.message || error);
+        return [];
+    });
+
+    const firebaseRequests = await listFederationFirebaseRequestsForUser(userId, limit).catch((error) => {
+        console.error('Federation Firebase requests fallback read failed:', error?.message || error);
+        return [];
+    });
+
+    const requests = mergeFederationRowsById(supabaseRequests, firebaseRequests);
+
+    requests.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+    return requests.slice(0, limit);
+}
+
+async function listFederationSupabaseDealRoomsForUser(userId = '', limit = 100) {
+    const cleanUserId = sanitizeText(userId);
+
+    if (!cleanUserId) return [];
+
+    const ownerRows = await federationConnectSupabaseRepo.listFederationRecords('deal_room', {
+        ownerUserId: cleanUserId,
+        limit
+    }).catch(() => []);
+
+    const targetRows = await federationConnectSupabaseRepo.listFederationRecords('deal_room', {
+        targetUserId: cleanUserId,
+        limit
+    }).catch(() => []);
+
+    return mergeFederationRowsById(
+        ownerRows.map(mapFederationSupabaseDealRoomRecord),
+        targetRows.map(mapFederationSupabaseDealRoomRecord)
+    );
+}
+
+async function listFederationFirebaseDealRoomsForUser(userId = '', limit = 100) {
+    const cleanUserId = sanitizeText(userId);
+
+    if (!cleanUserId) return [];
+
+    const snap = await firestore
+        .collection('federationDealRooms')
+        .where('participantUids', 'array-contains', cleanUserId)
+        .limit(limit)
+        .get();
+
+    const rooms = [];
+    snap.forEach((docSnap) => rooms.push(mapFederationDealRoomDoc(docSnap)));
+
+    return rooms;
+}
+
+async function listFederationMergedDealRoomsForUser(userId = '', limit = 100) {
+    const supabaseRooms = await listFederationSupabaseDealRoomsForUser(userId, limit).catch((error) => {
+        console.error('Federation Supabase deal rooms read failed:', error?.message || error);
+        return [];
+    });
+
+    const firebaseRooms = await listFederationFirebaseDealRoomsForUser(userId, limit).catch((error) => {
+        console.error('Federation Firebase deal rooms fallback read failed:', error?.message || error);
+        return [];
+    });
+
+    const rooms = mergeFederationRowsById(supabaseRooms, firebaseRooms);
+
+    rooms.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+    return rooms.slice(0, limit);
+}
+
+app.get('/api/federation/command', requireApiUser, async (req, res) => {
+    try {
+        const fedState = await getFederationUserState(req);
+
+        if (!fedState.approved) {
+            return res.status(403).json({
+                success: false,
+                message: 'Federation access is required.'
+            });
+        }
+
+        const membersSnap = await firestore
+            .collection('users')
+            .where('hasFederationAccess', '==', true)
+            .limit(300)
+            .get();
+
+        const members = [];
+        membersSnap.forEach((docSnap) => members.push(mapFederationMemberUserDoc(docSnap)));
+
+        const requests = await listFederationMergedRequestsForUser(fedState.userId, 100);
+
+        let connectOpportunitiesCount = 0;
+
+        try {
+            connectOpportunitiesCount = await countSupabaseFederationReadyLeadMissions();
+        } catch (error) {
+            console.error('federation command Supabase opportunities count error:', error?.message || error);
+            connectOpportunitiesCount = 0;
+        }
+
+        const countries = new Set(members.map((member) => member.country).filter(Boolean));
+        const categories = new Set(members.map((member) => member.category).filter(Boolean));
+
+        return res.json({
+            success: true,
+            source: 'supabase-merged',
+            command: {
+                member: fedState.member,
+                stats: {
+                    approvedMembers: members.length,
+                    countriesActive: countries.size,
+                    sectorsLive: categories.size,
+                    connectOpportunities: connectOpportunitiesCount,
+                    myRequests: requests.length,
+                    pendingRequests: requests.filter((item) =>
+                        ['pending_admin_match', 'pending_review'].includes(String(item.status || '').toLowerCase())
+                    ).length,
+                    completedRequests: requests.filter((item) =>
+                        String(item.status || '').toLowerCase() === 'completed'
+                    ).length
+                }
+            }
+        });
+    } catch (error) {
+        console.error('federation command Supabase override error:', error);
+
+        return res.status(500).json({
+            success: false,
+            source: 'supabase-merged',
+            message: 'Failed to load Federation command.'
+        });
+    }
+});
+
+app.get('/api/federation/deal-rooms', requireApiUser, async (req, res) => {
+    try {
+        const fedState = await getFederationUserState(req);
+
+        if (!fedState.approved) {
+            return res.status(403).json({
+                success: false,
+                message: 'Federation access is required.'
+            });
+        }
+
+        const rooms = await listFederationMergedDealRoomsForUser(fedState.userId, 100);
+
+        return res.json({
+            success: true,
+            source: 'supabase-merged',
+            rooms
+        });
+    } catch (error) {
+        console.error('federation deal rooms Supabase override error:', error);
+
+        return res.status(500).json({
+            success: false,
+            source: 'supabase-merged',
+            message: 'Failed to load Federation Deal Rooms.'
+        });
+    }
+});
+
+app.get('/api/federation/requests', requireApiUser, async (req, res) => {
+    try {
+        const requesterUid = sanitizeText(req.user?.id);
+
+        if (!requesterUid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const fedState = await getFederationUserState(req);
+
+        if (!fedState.approved) {
+            return res.status(403).json({
+                success: false,
+                message: 'Federation access is required.'
+            });
+        }
+
+        const requests = await listFederationMergedRequestsForUser(fedState.userId, 100);
+
+        return res.json({
+            success: true,
+            source: 'supabase-merged',
+            requests
+        });
+    } catch (error) {
+        console.error('federation requests Supabase override error:', error);
+
+        return res.status(500).json({
+            success: false,
+            source: 'supabase-merged',
+            message: 'Failed to load Federation requests.'
+        });
+    }
+});
+
+app.get('/api/federation/connect/my-requests', requireApiUser, async (req, res) => {
+    try {
+        const requesterUid = sanitizeText(req.user?.id);
+
+        if (!requesterUid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const requests = await listFederationMergedRequestsForUser(requesterUid, 100);
+
+        return res.json({
+            success: true,
+            source: 'supabase-merged',
+            requests
+        });
+    } catch (error) {
+        console.error('federation connect my-requests Supabase override error:', error);
+
+        return res.status(500).json({
+            success: false,
+            source: 'supabase-merged',
+            message: 'Failed to load your Federation Connect requests.'
+        });
+    }
+});
+/* END PATCH: Federation Supabase read overrides batch 1 */
+
 app.get('/api/federation/command', requireApiUser, async (req, res) => {
     try {
         const fedState = await getFederationUserState(req);
