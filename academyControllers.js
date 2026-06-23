@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
+const academyLeadSupabaseRepo = require('./backend/repositories/academyLeadSupabaseRepo');
 const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const academyPlannerKnowledgeContext = require('./backend/services/academyPlannerKnowledgeContext');
 const yhUniverseKnowledgeContext = require('./backend/services/yhUniverseKnowledgeContext');
@@ -8573,6 +8574,82 @@ exports.getAcademyMissionPlaybooks = async (req, res) => {
         });
     }
 };
+
+/* PATCH: Academy Lead Supabase dual-sync helpers */
+function academyLeadDualSyncText(value = '', fallback = '') {
+    if (value === null || value === undefined) return fallback;
+    return String(value).trim();
+}
+
+async function syncAcademyControllerLeadToSupabaseRecord(uid = '', lead = {}, options = {}) {
+    const cleanUid = academyLeadDualSyncText(uid);
+    const leadId = academyLeadDualSyncText(lead?.id || lead?.leadId);
+
+    if (!cleanUid || !leadId || !academyLeadSupabaseRepo?.buildAcademyLeadPayload) {
+        return null;
+    }
+
+    try {
+        const sourceDocumentPath = `users/${cleanUid}/academyLeadMissions/${leadId}`;
+
+        const payload = academyLeadSupabaseRepo.buildAcademyLeadPayload({
+            sourceCollectionPath: `users/${cleanUid}/academyLeadMissions`,
+            sourceCollectionRoot: 'academyLeadMissions',
+            sourceDocumentId: leadId,
+            sourceDocumentPath,
+            ownerUserId: cleanUid,
+            data: {
+                ...(lead && typeof lead === 'object' ? lead : {}),
+                id: leadId,
+                ownerUid: lead?.ownerUid || cleanUid,
+                ownerUserId: lead?.ownerUserId || cleanUid,
+                dualSyncedFrom: academyLeadDualSyncText(options.source || 'academy-controller'),
+                dualSyncedAt: new Date().toISOString()
+            }
+        });
+
+        return await academyLeadSupabaseRepo.upsertAcademyLeadRecord(payload);
+    } catch (error) {
+        console.error('Academy lead Supabase dual-sync failed:', error?.message || error);
+        return null;
+    }
+}
+
+async function syncAcademyControllerPayoutToSupabaseRecord(uid = '', payout = {}, options = {}) {
+    const cleanUid = academyLeadDualSyncText(uid);
+    const payoutId = academyLeadDualSyncText(payout?.id || payout?.payoutId || payout?.leadId);
+
+    if (!cleanUid || !payoutId || !academyLeadSupabaseRepo?.buildAcademyLeadPayload) {
+        return null;
+    }
+
+    try {
+        const sourceDocumentPath = `users/${cleanUid}/academyLeadPayouts/${payoutId}`;
+
+        const payload = academyLeadSupabaseRepo.buildAcademyLeadPayload({
+            sourceCollectionPath: `users/${cleanUid}/academyLeadPayouts`,
+            sourceCollectionRoot: 'academyLeadPayouts',
+            sourceDocumentId: payoutId,
+            sourceDocumentPath,
+            ownerUserId: cleanUid,
+            data: {
+                ...(payout && typeof payout === 'object' ? payout : {}),
+                id: payoutId,
+                ownerUid: payout?.ownerUid || cleanUid,
+                ownerUserId: payout?.ownerUserId || cleanUid,
+                dualSyncedFrom: academyLeadDualSyncText(options.source || 'academy-controller-payout'),
+                dualSyncedAt: new Date().toISOString()
+            }
+        });
+
+        return await academyLeadSupabaseRepo.upsertAcademyLeadRecord(payload);
+    } catch (error) {
+        console.error('Academy lead payout Supabase dual-sync failed:', error?.message || error);
+        return null;
+    }
+}
+/* END PATCH: Academy Lead Supabase dual-sync helpers */
+
 exports.listAcademyOpportunityMissions = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
@@ -8776,6 +8853,23 @@ exports.submitRoutedLeadMission = async (req, res) => {
             }
         });
 
+        /* PATCH: Academy lead submit Supabase dual-sync */
+        await syncAcademyControllerLeadToSupabaseRecord(
+            uid,
+            {
+                ...updatedLead,
+                id: leadId,
+                assignmentStatus: 'submitted',
+                reviewStatus: 'pending_review',
+                completionProof,
+                submittedByUid: uid,
+                submittedByName: sanitize(req.user?.name || req.user?.username || 'Operator')
+            },
+            { source: 'academy-lead-submit' }
+        );
+        /* END PATCH: Academy lead submit Supabase dual-sync */
+
+
         return res.json({
             success: true,
             message: 'Mission submitted for admin review.',
@@ -8850,6 +8944,15 @@ exports.createLeadMissionLead = async (req, res) => {
             operator: req.user,
             lead
         });
+
+        /* PATCH: Academy lead create Supabase dual-sync */
+        await syncAcademyControllerLeadToSupabaseRecord(
+            uid,
+            lead,
+            { source: 'academy-lead-create' }
+        );
+        /* END PATCH: Academy lead create Supabase dual-sync */
+
 
         return res.status(201).json({
             success: true,
@@ -8934,6 +9037,15 @@ exports.updateMyLeadMissionLead = async (req, res) => {
             operator: req.user,
             lead
         });
+
+        /* PATCH: Academy lead update Supabase dual-sync */
+        await syncAcademyControllerLeadToSupabaseRecord(
+            uid,
+            lead,
+            { source: 'academy-lead-update' }
+        );
+        /* END PATCH: Academy lead update Supabase dual-sync */
+
 
         return res.json({
             success: true,

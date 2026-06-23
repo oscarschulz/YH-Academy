@@ -4,6 +4,7 @@ const express = require('express');
 const { Timestamp } = require('firebase-admin/firestore');
 const { firestore } = require('../config/firebaseAdmin');
 const academyFirestoreRepo = require('../backend/repositories/academyFirestoreRepo');
+const academyLeadSupabaseRepo = require('../backend/repositories/academyLeadSupabaseRepo');
 const universeCollectionMirrorRepo = require('../backend/repositories/universeCollectionMirrorRepo');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
 const adminPlazaSupabaseRepo = require('../backend/repositories/adminPlazaSupabaseRepo');
@@ -4222,6 +4223,82 @@ async function appendAcademyRoutedMissionNotificationToOperator(memberId = '', p
 
   return true;
 }
+
+/* PATCH: Admin Academy Lead Supabase dual-sync helpers */
+function adminAcademyLeadDualSyncText(value = '', fallback = '') {
+  if (value === null || value === undefined) return fallback;
+  return String(value).trim();
+}
+
+async function syncAdminAcademyLeadToSupabaseRecord(memberId = '', lead = {}, options = {}) {
+  const cleanMemberId = adminAcademyLeadDualSyncText(memberId);
+  const leadId = adminAcademyLeadDualSyncText(lead?.id || lead?.leadId);
+
+  if (!cleanMemberId || !leadId || !academyLeadSupabaseRepo?.buildAcademyLeadPayload) {
+    return null;
+  }
+
+  try {
+    const sourceDocumentPath = `users/${cleanMemberId}/academyLeadMissions/${leadId}`;
+
+    const payload = academyLeadSupabaseRepo.buildAcademyLeadPayload({
+      sourceCollectionPath: `users/${cleanMemberId}/academyLeadMissions`,
+      sourceCollectionRoot: 'academyLeadMissions',
+      sourceDocumentId: leadId,
+      sourceDocumentPath,
+      ownerUserId: cleanMemberId,
+      data: {
+        ...(lead && typeof lead === 'object' ? lead : {}),
+        id: leadId,
+        ownerUid: lead?.ownerUid || cleanMemberId,
+        ownerUserId: lead?.ownerUserId || cleanMemberId,
+        dualSyncedFrom: adminAcademyLeadDualSyncText(options.source || 'admin-academy-lead'),
+        dualSyncedAt: new Date().toISOString()
+      }
+    });
+
+    return await academyLeadSupabaseRepo.upsertAcademyLeadRecord(payload);
+  } catch (error) {
+    console.error('Admin Academy lead Supabase dual-sync failed:', error?.message || error);
+    return null;
+  }
+}
+
+async function syncAdminAcademyPayoutToSupabaseRecord(memberId = '', payout = {}, options = {}) {
+  const cleanMemberId = adminAcademyLeadDualSyncText(memberId);
+  const payoutId = adminAcademyLeadDualSyncText(payout?.id || payout?.payoutId || payout?.leadId);
+
+  if (!cleanMemberId || !payoutId || !academyLeadSupabaseRepo?.buildAcademyLeadPayload) {
+    return null;
+  }
+
+  try {
+    const sourceDocumentPath = `users/${cleanMemberId}/academyLeadPayouts/${payoutId}`;
+
+    const payload = academyLeadSupabaseRepo.buildAcademyLeadPayload({
+      sourceCollectionPath: `users/${cleanMemberId}/academyLeadPayouts`,
+      sourceCollectionRoot: 'academyLeadPayouts',
+      sourceDocumentId: payoutId,
+      sourceDocumentPath,
+      ownerUserId: cleanMemberId,
+      data: {
+        ...(payout && typeof payout === 'object' ? payout : {}),
+        id: payoutId,
+        ownerUid: payout?.ownerUid || cleanMemberId,
+        ownerUserId: payout?.ownerUserId || cleanMemberId,
+        dualSyncedFrom: adminAcademyLeadDualSyncText(options.source || 'admin-academy-payout'),
+        dualSyncedAt: new Date().toISOString()
+      }
+    });
+
+    return await academyLeadSupabaseRepo.upsertAcademyLeadRecord(payload);
+  } catch (error) {
+    console.error('Admin Academy payout Supabase dual-sync failed:', error?.message || error);
+    return null;
+  }
+}
+/* END PATCH: Admin Academy Lead Supabase dual-sync helpers */
+
 apiRouter.post('/api/admin/academy/route-opportunity-mission', requireAdminSession, async (req, res) => {
   try {
     const body = req.body || {};
@@ -4474,6 +4551,15 @@ apiRouter.post('/api/admin/academy/route-opportunity-mission', requireAdminSessi
         lead: freshLead
     });
 
+    /* PATCH: Admin routed Academy mission Supabase dual-sync */
+    await syncAdminAcademyLeadToSupabaseRecord(
+      memberId,
+      freshLead,
+      { source: 'admin-route-opportunity-mission' }
+    );
+    /* END PATCH: Admin routed Academy mission Supabase dual-sync */
+
+
     return res.json({
         success: true,
         message: 'Opportunity routed to Academy Mission.',
@@ -4670,6 +4756,23 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requ
         lead: freshLeadForMirror
     });
 
+    /* PATCH: Admin Academy review Supabase dual-sync */
+    await syncAdminAcademyLeadToSupabaseRecord(
+      memberId,
+      freshLeadForMirror,
+      { source: `admin-academy-review-${decision}` }
+    );
+
+    if (earning) {
+      await syncAdminAcademyPayoutToSupabaseRecord(
+        memberId,
+        earning,
+        { source: `admin-academy-review-payout-${decision}` }
+      );
+    }
+    /* END PATCH: Admin Academy review Supabase dual-sync */
+
+
     return res.json({
         success: true,
         lead: freshLeadForMirror,
@@ -4797,6 +4900,15 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', req
       },
       lead: updatedLeadForMirror
     });
+
+    /* PATCH: Admin Academy network Supabase dual-sync */
+    await syncAdminAcademyLeadToSupabaseRecord(
+      memberId,
+      updatedLeadForMirror,
+      { source: 'admin-academy-network-update' }
+    );
+    /* END PATCH: Admin Academy network Supabase dual-sync */
+
 
     return res.json({
       success: true,
