@@ -4654,19 +4654,30 @@ function showFederationTabLoader(sectionIdOrLabel = "Loading Federation...") {
   const raw = String(sectionIdOrLabel || "").trim();
   const label = raw.startsWith("Loading ") ? raw : getFederationSectionLoaderLabel(raw);
 
+  /* PATCH: YHU balanced 0.5s Federation embedded tab loader v3 */
   if (isFederationDashboardEmbeddedNavigationV1()) {
     markFederationDashboardNonBlockingSyncV1(label);
 
+    window.__yhFederationBalancedTabLoaderVisibleUntilV2 = Date.now() + 500;
+
+    if (text) {
+      text.textContent = label || "Loading Federation.";
+    }
+
     if (loader) {
-      loader.hidden = true;
-      loader.classList.remove("is-active");
-      loader.classList.add("hidden-step");
-      loader.setAttribute("aria-hidden", "true");
-      loader.style.pointerEvents = "none";
+      loader.hidden = false;
+      loader.classList.remove("hidden-step");
+      loader.setAttribute("aria-hidden", "false");
+      loader.style.pointerEvents = "auto";
+
+      window.requestAnimationFrame(() => {
+        loader.classList.add("is-active");
+      });
     }
 
     return;
   }
+  /* END PATCH: YHU balanced 0.5s Federation embedded tab loader v3 */
 
   if (text) {
     text.textContent = label || "Loading Federation...";
@@ -4685,6 +4696,15 @@ function showFederationTabLoader(sectionIdOrLabel = "Loading Federation...") {
 function hideFederationTabLoader() {
   const loader = document.getElementById("yh-tab-loader");
   if (!loader) return;
+
+  const balancedVisibleUntilV2 = Number(window.__yhFederationBalancedTabLoaderVisibleUntilV2 || 0);
+  if (balancedVisibleUntilV2 > Date.now()) {
+    window.clearTimeout(window.__yhFederationBalancedTabLoaderHideDelayV2);
+    window.__yhFederationBalancedTabLoaderHideDelayV2 = window.setTimeout(() => {
+      hideFederationTabLoader();
+    }, Math.max(40, balancedVisibleUntilV2 - Date.now()));
+    return;
+  }
 
   loader.classList.remove("is-active");
   loader.setAttribute("aria-hidden", "true");

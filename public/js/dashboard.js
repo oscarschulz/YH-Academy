@@ -911,11 +911,33 @@ function markUniverseDivisionNonBlockingSyncV1(label = '') {
 function showUniverseDivisionEntryLoader(label = 'Loading...') {
     const loaderText = String(label || 'Loading...').trim() || 'Loading...';
 
+    /* PATCH: YHU balanced 0.5s dashboard entry loader v3 */
     if (shouldBypassUniverseDivisionEntryLoaderV1(loaderText)) {
         markUniverseDivisionNonBlockingSyncV1(loaderText);
-        hideUniverseDivisionEntryLoader();
+
+        if (typeof showAcademyTabLoader === 'function') {
+            showAcademyTabLoader(loaderText);
+        } else {
+            const loader = document.getElementById('yh-tab-loader');
+            const text = document.getElementById('yh-tab-loader-text');
+
+            if (text) text.textContent = loaderText;
+            if (loader) {
+                loader.classList.remove('hidden-step');
+                loader.classList.add('is-active');
+                loader.setAttribute('aria-hidden', 'false');
+                loader.style.pointerEvents = 'auto';
+            }
+        }
+
+        window.clearTimeout(window.__yhBalancedUniverseDivisionEntryLoaderTimerV2);
+        window.__yhBalancedUniverseDivisionEntryLoaderTimerV2 = window.setTimeout(() => {
+            hideUniverseDivisionEntryLoader();
+        }, 550);
+
         return true;
     }
+    /* END PATCH: YHU balanced 0.5s dashboard entry loader v3 */
 
     if (typeof showAcademyTabLoader === 'function') {
         showAcademyTabLoader(loaderText);
@@ -10299,28 +10321,38 @@ function showDashboardUnifiedChildWorkspaceLoader(key = 'overview', meta = {}) {
     const title = document.getElementById('yh-universe-child-workspace-loader-title');
     const copy = document.getElementById('yh-universe-child-workspace-loader-copy');
 
+    /* PATCH: YHU balanced 0.5s child workspace loader v3 */
     if (shouldBypassDashboardUnifiedChildWorkspaceLoaderV1(key, meta)) {
         markDashboardUnifiedChildWorkspaceNonBlockingSyncV1(key, meta);
 
-        if (loader) {
-            loader.classList.remove('is-active');
-            loader.classList.add('hidden-step');
-            loader.setAttribute('aria-hidden', 'true');
-            loader.style.pointerEvents = 'none';
-        }
+        if (!frameShell || !loader) return false;
 
-        if (frameShell) {
-            frameShell.classList.remove('is-switching', 'has-child-workspace-loader');
-            frameShell.removeAttribute('data-child-loader-key');
-            frameShell.removeAttribute('data-child-loader-started-at');
-        }
+        const loaderMeta = getDashboardUnifiedChildWorkspaceLoaderMeta(key, meta);
+
+        if (icon) icon.src = loaderMeta.icon || '/images/logo.avif';
+        if (kicker) kicker.textContent = loaderMeta.kicker || 'Workspace Sync';
+        if (title) title.textContent = loaderMeta.title || 'Preparing workspace';
+        if (copy) copy.textContent = loaderMeta.copy || 'Loading this section inside your Universe Dashboard.';
+
+        frameShell.classList.add('is-switching', 'has-child-workspace-loader');
+        frameShell.dataset.childLoaderKey = String(key || '').trim().toLowerCase();
+        frameShell.dataset.childLoaderStartedAt = String(Date.now());
+
+        loader.classList.remove('hidden-step');
+        loader.classList.add('is-active');
+        loader.setAttribute('aria-hidden', 'false');
+        loader.style.pointerEvents = 'auto';
+
+        window.__yhDashboardBalancedChildWorkspaceLoaderVisibleUntilV2 = Date.now() + 500;
 
         window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderFallback);
-        window.clearTimeout(window.__yhDashboardChildWorkspaceReadyPollTimer);
-        window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderMinTimer);
+        window.__yhDashboardChildWorkspaceLoaderFallback = window.setTimeout(() => {
+            hideDashboardUnifiedChildWorkspaceLoader('balanced-1s-timeout');
+        }, 650);
 
-        return false;
+        return true;
     }
+    /* END PATCH: YHU balanced 0.5s child workspace loader v3 */
 
     if (!frameShell || !loader) return false;
 
@@ -10361,7 +10393,15 @@ function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready') {
 
     const startedAt = Number(frameShell?.dataset?.childLoaderStartedAt || 0);
     const elapsedMs = startedAt ? Date.now() - startedAt : 9999;
-    const minVisibleMs = reason === 'hard-timeout' || reason.includes('soft-timeout') ? 0 : 260;
+    const balancedVisibleUntilV2 = Number(window.__yhDashboardBalancedChildWorkspaceLoaderVisibleUntilV2 || 0);
+    const balancedRemainingMsV2 = balancedVisibleUntilV2 > Date.now()
+        ? Math.max(0, balancedVisibleUntilV2 - Date.now())
+        : 0;
+    const baseMinVisibleMs = reason === 'hard-timeout' || reason.includes('soft-timeout') ? 0 : 260;
+    const minVisibleMs = Math.max(
+        baseMinVisibleMs,
+        balancedRemainingMsV2 ? elapsedMs + balancedRemainingMsV2 : 0
+    );
 
     if (elapsedMs < minVisibleMs) {
         window.__yhDashboardChildWorkspaceLoaderMinTimer = window.setTimeout(() => {

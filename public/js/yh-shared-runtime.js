@@ -94,20 +94,52 @@
     function showAcademyTabLoader(label = 'Loading.') {
         const normalizedLoaderLabel = String(label || 'Loading.').trim() || 'Loading.';
 
+        /* PATCH: YHU balanced 0.5s dashboard tab loader v3 */
         if (shouldBypassYHTabLoaderForDashboardNavigationV1(normalizedLoaderLabel)) {
             markYHNonBlockingTabSyncV1(normalizedLoaderLabel);
 
-            const existingOverlay = document.getElementById('yh-tab-loader');
-            if (existingOverlay) {
-                existingOverlay.classList.remove('is-active');
-                existingOverlay.classList.add('hidden-step');
-                existingOverlay.setAttribute('aria-hidden', 'true');
-                existingOverlay.style.pointerEvents = 'none';
+            const balancedOverlay = document.getElementById('yh-tab-loader');
+            if (!balancedOverlay) return 0;
+
+            const balancedText = document.getElementById('yh-tab-loader-text');
+            if (balancedText) balancedText.textContent = normalizedLoaderLabel || 'Loading.';
+
+            if (yhTabLoaderHideTimer) {
+                clearTimeout(yhTabLoaderHideTimer);
+                yhTabLoaderHideTimer = null;
             }
 
-            yhTabLoaderDepth = 0;
-            return 0;
+            if (yhTabLoaderNestedHideTimer) {
+                clearTimeout(yhTabLoaderNestedHideTimer);
+                yhTabLoaderNestedHideTimer = null;
+            }
+
+            if (yhTabLoaderForceHideTimer) {
+                clearTimeout(yhTabLoaderForceHideTimer);
+                yhTabLoaderForceHideTimer = null;
+            }
+
+            yhTabLoaderCycle += 1;
+            const activeCycle = yhTabLoaderCycle;
+
+            yhTabLoaderDepth = 1;
+            yhTabLoaderVisibleAt = Date.now();
+
+            window.__yhBalancedDashboardTabLoaderVisibleUntilV2 = Date.now() + 500;
+
+            balancedOverlay.dataset.loaderCycle = String(activeCycle);
+            balancedOverlay.classList.remove('hidden-step');
+            balancedOverlay.classList.add('is-active');
+            balancedOverlay.setAttribute('aria-hidden', 'false');
+            balancedOverlay.style.pointerEvents = 'auto';
+
+            yhTabLoaderForceHideTimer = setTimeout(() => {
+                forceHideAcademyTabLoader({ token: activeCycle });
+            }, 550);
+
+            return activeCycle;
         }
+        /* END PATCH: YHU balanced 0.5s dashboard tab loader v3 */
 
         const overlay = document.getElementById('yh-tab-loader');
         if (!overlay) return 0;
@@ -169,6 +201,16 @@
         if (!overlay) return;
 
         const force = options && options.force === true;
+
+        const balancedVisibleUntilV2 = Number(window.__yhBalancedDashboardTabLoaderVisibleUntilV2 || 0);
+        if (!force && balancedVisibleUntilV2 > Date.now()) {
+            window.clearTimeout(window.__yhBalancedDashboardTabLoaderHideDelayV2);
+            window.__yhBalancedDashboardTabLoaderHideDelayV2 = window.setTimeout(() => {
+                hideAcademyTabLoader(options);
+            }, Math.max(40, balancedVisibleUntilV2 - Date.now()));
+            return;
+        }
+
         const token = Number(options?.token || 0);
         const hasToken = Number.isFinite(token) && token > 0;
         const overlayCycle = Number(overlay.dataset.loaderCycle || 0);

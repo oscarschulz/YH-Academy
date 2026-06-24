@@ -4860,19 +4860,30 @@ function showPlazaTabLoader(screenNameOrLabel = "Loading Plazas...") {
   const raw = String(screenNameOrLabel || "").trim();
   const label = raw.startsWith("Loading ") ? raw : getPlazaScreenLoaderLabel(raw);
 
+  /* PATCH: YHU balanced 0.5s Plaza embedded tab loader v3 */
   if (isPlazaDashboardEmbeddedNavigationV1()) {
     markPlazaDashboardNonBlockingSyncV1(label);
 
+    window.__yhPlazaBalancedTabLoaderVisibleUntilV2 = Date.now() + 500;
+
+    if (text) {
+      text.textContent = label || "Loading Plaza.";
+    }
+
     if (loader) {
-      loader.hidden = true;
-      loader.classList.remove("is-active");
-      loader.classList.add("hidden-step");
-      loader.setAttribute("aria-hidden", "true");
-      loader.style.pointerEvents = "none";
+      loader.hidden = false;
+      loader.classList.remove("hidden-step");
+      loader.setAttribute("aria-hidden", "false");
+      loader.style.pointerEvents = "auto";
+
+      window.requestAnimationFrame(() => {
+        loader.classList.add("is-active");
+      });
     }
 
     return;
   }
+  /* END PATCH: YHU balanced 0.5s Plaza embedded tab loader v3 */
 
   if (text) {
     text.textContent = label || "Loading Plaza...";
@@ -4891,6 +4902,15 @@ function showPlazaTabLoader(screenNameOrLabel = "Loading Plazas...") {
 function hidePlazaTabLoader() {
   const loader = document.getElementById("yh-tab-loader");
   if (!loader) return;
+
+  const balancedVisibleUntilV2 = Number(window.__yhPlazaBalancedTabLoaderVisibleUntilV2 || 0);
+  if (balancedVisibleUntilV2 > Date.now()) {
+    window.clearTimeout(window.__yhPlazaBalancedTabLoaderHideDelayV2);
+    window.__yhPlazaBalancedTabLoaderHideDelayV2 = window.setTimeout(() => {
+      hidePlazaTabLoader();
+    }, Math.max(40, balancedVisibleUntilV2 - Date.now()));
+    return;
+  }
 
   loader.classList.remove("is-active");
   loader.setAttribute("aria-hidden", "true");
