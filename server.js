@@ -380,6 +380,9 @@ async function appendYHVerifiedBadgePaymentNotification(payerUid = '', notificat
         inProductReviewNotifications: next,
         updatedAt: nowIso
     }, { merge: true });
+        /* PATCH: yhu_users Supabase safe write sync */
+        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
+        /* END PATCH: yhu_users Supabase safe write sync */
 
     return nextNotification;
 }
@@ -1744,6 +1747,17 @@ async function syncServerAcademyMemberProfileFromFirestoreUserRef(userId = '', u
     }
 }
 /* END PATCH: Server Academy Member Profile Supabase helpers */
+
+/* PATCH: yhu_users Supabase safe write sync helper */
+async function syncServerYhuUserToSupabase(userRef = null, source = 'server') {
+    try {
+        return await yhuUsersSupabaseRepo.syncFromFirestoreUserRef(userRef, { source });
+    } catch (error) {
+        console.warn('yhu_users Supabase sync skipped:', error?.message || error);
+        return null;
+    }
+}
+/* END PATCH: yhu_users Supabase safe write sync helper */
 
 async function canUserAccessRoom(userId, roomId) {
     const cleanUserId = sanitizeText(userId);
@@ -4711,6 +4725,7 @@ const apiRoutes = require('./routes/apiRoutes');
 const { createAdminRouters } = require('./routes/admin-auth-routes');
 const { startAiNurtureWorker } = require('./backend/services/aiNurtureWorker');
 const academyMemberProfileSupabaseRepo = require('./backend/repositories/academyMemberProfileSupabaseRepo');
+const yhuUsersSupabaseRepo = require('./backend/repositories/yhuUsersSupabaseRepo');
 
 const { pageRouter: adminPageRouter, apiRouter: adminApiRouter } = createAdminRouters({
     privateAdminDir: path.join(__dirname, 'private', 'admin')
@@ -5571,6 +5586,9 @@ async function getFederationUserState(req) {
             federationReferralCode: nextCode,
             updatedAt: new Date().toISOString()
         }, { merge: true });
+        /* PATCH: yhu_users Supabase safe write sync */
+        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
+        /* END PATCH: yhu_users Supabase safe write sync */
 
         member = {
             ...member,
@@ -7801,6 +7819,9 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
             hasFederationAccess: false,
             updatedAt: nowIso
         }, { merge: true });
+        /* PATCH: yhu_users Supabase safe write sync */
+        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
+        /* END PATCH: yhu_users Supabase safe write sync */
 
         return res.status(201).json({
             success: true,
@@ -7937,6 +7958,9 @@ async function appendUserInProductNotification(userRef, user = {}, notification 
         inProductReviewNotifications: next,
         updatedAt: new Date().toISOString()
     }, { merge: true });
+        /* PATCH: yhu_users Supabase safe write sync */
+        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
+        /* END PATCH: yhu_users Supabase safe write sync */
 
     return next;
 }
@@ -7993,6 +8017,9 @@ app.post('/api/member/system-notifications/:id/read', requireApiUser, async (req
             inProductReviewNotifications: next,
             updatedAt: nowIso
         }, { merge: true });
+        /* PATCH: yhu_users Supabase safe write sync */
+        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
+        /* END PATCH: yhu_users Supabase safe write sync */
 
         return res.json({
             success: true,
@@ -8028,6 +8055,9 @@ app.post('/api/member/system-notifications/read-all', requireApiUser, async (req
             inProductReviewNotifications: next,
             updatedAt: nowIso
         }, { merge: true });
+        /* PATCH: yhu_users Supabase safe write sync */
+        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
+        /* END PATCH: yhu_users Supabase safe write sync */
 
         return res.json({
             success: true,
@@ -8671,6 +8701,9 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
             hasPlazaAccess: false,
             updatedAt: nowIso
         }, { merge: true });
+        /* PATCH: yhu_users Supabase safe write sync */
+        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
+        /* END PATCH: yhu_users Supabase safe write sync */
 
         return res.status(201).json({
             success: true,

@@ -11,6 +11,7 @@ const publicLandingEventsRepo = require('./backend/repositories/publicLandingEve
 const universeCollectionMirrorRepo = require('./backend/repositories/universeCollectionMirrorRepo');
 const { firestore } = require('./config/firebaseAdmin');
 const academyMemberProfileSupabaseRepo = require('./backend/repositories/academyMemberProfileSupabaseRepo');
+const yhuUsersSupabaseRepo = require('./backend/repositories/yhuUsersSupabaseRepo');
 
 const ACADEMY_UPLOADS_ROOT = path.resolve(
     String(process.env.PERSISTENT_UPLOADS_DIR || '').trim() || path.join(__dirname, 'public', 'uploads')
@@ -3901,6 +3902,9 @@ exports.submitMembershipApplication = async (req, res) => {
             },
             { merge: true }
         );
+        /* PATCH: Academy yhu_users Supabase safe write sync */
+        await syncAcademyYhuUserToSupabase(userRef, 'academy:userRef-write');
+        /* END PATCH: Academy yhu_users Supabase safe write sync */
         /* PATCH: Academy Member Profile Supabase write sync */
         const academyMemberProfileSyncUid =
             (typeof uid !== 'undefined' && uid) ||
@@ -4785,6 +4789,17 @@ async function syncAcademyMemberProfileFromFirestoreUserRef(uid = '', userRef = 
 }
 /* END PATCH: Academy Member Profile Supabase helpers */
 
+/* PATCH: Academy yhu_users Supabase safe write sync helper */
+async function syncAcademyYhuUserToSupabase(userRef = null, source = 'academy') {
+    try {
+        return await yhuUsersSupabaseRepo.syncFromFirestoreUserRef(userRef, { source });
+    } catch (error) {
+        console.warn('Academy yhu_users Supabase sync skipped:', error?.message || error);
+        return null;
+    }
+}
+/* END PATCH: Academy yhu_users Supabase safe write sync helper */
+
 function buildUniverseProfileSnapshot({ divisions = {}, signals = {}, academyProfile = {}, plazaDirectoryRaw = null } = {}) {
     return {
         divisionCards: ['academy', 'plaza', 'federation'].map((key) => {
@@ -5510,6 +5525,9 @@ exports.changeCurrentPassword = async (req, res) => {
         }
 
         await userRef.update(updatePayload);
+        /* PATCH: Academy yhu_users Supabase safe write sync */
+        await syncAcademyYhuUserToSupabase(userRef, 'academy:userRef-write');
+        /* END PATCH: Academy yhu_users Supabase safe write sync */
 
         return res.json({
             success: true,
@@ -6266,6 +6284,9 @@ exports.submitRoadmapApplication = async (req, res) => {
             },
             { merge: true }
         );
+        /* PATCH: Academy yhu_users Supabase safe write sync */
+        await syncAcademyYhuUserToSupabase(userRef, 'academy:userRef-write');
+        /* END PATCH: Academy yhu_users Supabase safe write sync */
         /* PATCH: Academy Member Profile Supabase write sync */
         const academyMemberProfileSyncUid =
             (typeof uid !== 'undefined' && uid) ||

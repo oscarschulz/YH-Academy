@@ -15,6 +15,7 @@ const adminPatronApplicationsSupabaseRepo = require('../backend/repositories/adm
 const federationConnectSupabaseRepo = require('../backend/repositories/federationConnectSupabaseRepo');
 const { sendSystemMail } = require('../controllers/authControllers');
 const academyMemberProfileSupabaseRepo = require('../backend/repositories/academyMemberProfileSupabaseRepo');
+const yhuUsersSupabaseRepo = require('../backend/repositories/yhuUsersSupabaseRepo');
 
 const ADMIN_SESSION_COOKIE = 'yh_admin_session';
 const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
@@ -2548,6 +2549,9 @@ async function appendAdminEconomyNotificationToUser(ownerUid = '', notification 
     inProductReviewNotifications: next,
     updatedAt: new Date().toISOString()
   }, { merge: true });
+    /* PATCH: Admin yhu_users Supabase safe write sync */
+    await syncAdminYhuUserToSupabase(userRef, 'admin:userRef-write');
+    /* END PATCH: Admin yhu_users Supabase safe write sync */
 
   return normalizedNotification;
 }
@@ -2627,6 +2631,9 @@ apiRouter.post('/api/admin/economy/payments/:paymentId/settle', requireAdminSess
         },
         updatedAt: now.toISOString()
       }, { merge: true });
+    /* PATCH: Admin yhu_users Supabase safe write sync */
+    await syncAdminYhuUserToSupabase(userRef, 'admin:userRef-write');
+    /* END PATCH: Admin yhu_users Supabase safe write sync */
 
       /* PATCH: Admin Verified Badge Supabase settle sync */
       await syncAdminVerifiedBadgeStatusToSupabase({
@@ -3554,6 +3561,9 @@ async function appendFederationConnectionRequestNotificationToRequester(request 
     ),
     updatedAt: nowIso
   }, { merge: true });
+    /* PATCH: Admin yhu_users Supabase safe write sync */
+    await syncAdminYhuUserToSupabase(userRef, 'admin:userRef-write');
+    /* END PATCH: Admin yhu_users Supabase safe write sync */
 
   return true;
 }
@@ -4031,6 +4041,9 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
           academyApprovalEmailError: '',
           academyApplication: responseApplication
         }, { merge: true });
+    /* PATCH: Admin yhu_users Supabase matched user write sync */
+    await syncAdminYhuUserToSupabase(matchedUserDoc.ref, 'admin:matchedUserDoc-write');
+    /* END PATCH: Admin yhu_users Supabase matched user write sync */
 
     /* PATCH: Academy Member Profile Supabase admin application write sync */
     await syncAdminAcademyMemberProfileFromFirestoreUserRef(matchedUserDoc.id, matchedUserDoc.ref);
@@ -4050,6 +4063,9 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
           academyApprovalEmailError: approvalEmailError,
           academyApplication: responseApplication
         }, { merge: true }).catch(() => null);
+    /* PATCH: Admin yhu_users Supabase matched user write sync */
+    await syncAdminYhuUserToSupabase(matchedUserDoc.ref, 'admin:matchedUserDoc-write');
+    /* END PATCH: Admin yhu_users Supabase matched user write sync */
 
     /* PATCH: Academy Member Profile Supabase admin application write sync */
     await syncAdminAcademyMemberProfileFromFirestoreUserRef(matchedUserDoc.id, matchedUserDoc.ref);
@@ -4110,6 +4126,17 @@ async function syncAdminAcademyMemberProfileFromFirestoreUserRef(userId = '', us
 }
 /* END PATCH: Admin Academy Member Profile Supabase helpers */
 
+/* PATCH: Admin yhu_users Supabase safe write sync helper */
+async function syncAdminYhuUserToSupabase(userRef = null, source = 'admin') {
+    try {
+        return await yhuUsersSupabaseRepo.syncFromFirestoreUserRef(userRef, { source });
+    } catch (error) {
+        console.warn('Admin yhu_users Supabase sync skipped:', error?.message || error);
+        return null;
+    }
+}
+/* END PATCH: Admin yhu_users Supabase safe write sync helper */
+
 apiRouter.post('/api/admin/members/:id/status', requireAdminSession, async (req, res) => {
   try {
     const memberId = cleanText(req.params.id);
@@ -4137,6 +4164,9 @@ apiRouter.post('/api/admin/members/:id/status', requireAdminSession, async (req,
       memberStatus: nextStatus,
       updatedAt: new Date().toISOString()
     }, { merge: true });
+    /* PATCH: Admin yhu_users Supabase safe write sync */
+    await syncAdminYhuUserToSupabase(userRef, 'admin:userRef-write');
+    /* END PATCH: Admin yhu_users Supabase safe write sync */
 
     /* PATCH: Academy Member Profile Supabase admin write sync */
     await syncAdminAcademyMemberProfileFromFirestoreUserRef(memberId, userRef);
@@ -4201,6 +4231,9 @@ apiRouter.post('/api/admin/academy/:memberId/nudge', requireAdminSession, async 
       adminAcademyLastCheckIn: 'Nudge sent',
       updatedAt: nowIso
     }, { merge: true });
+    /* PATCH: Admin yhu_users Supabase safe write sync */
+    await syncAdminYhuUserToSupabase(userRef, 'admin:userRef-write');
+    /* END PATCH: Admin yhu_users Supabase safe write sync */
 
     /* PATCH: Academy Member Profile Supabase admin write sync */
     await syncAdminAcademyMemberProfileFromFirestoreUserRef(memberId, userRef);
@@ -4248,6 +4281,9 @@ apiRouter.post('/api/admin/academy/:memberId/track', requireAdminSession, async 
       adminAcademyStatus: 'On Track',
       updatedAt: new Date().toISOString()
     }, { merge: true });
+    /* PATCH: Admin yhu_users Supabase safe write sync */
+    await syncAdminYhuUserToSupabase(userRef, 'admin:userRef-write');
+    /* END PATCH: Admin yhu_users Supabase safe write sync */
 
     /* PATCH: Academy Member Profile Supabase admin write sync */
     await syncAdminAcademyMemberProfileFromFirestoreUserRef(memberId, userRef);
@@ -4378,6 +4414,9 @@ async function appendAcademyRoutedMissionNotificationToOperator(memberId = '', p
     ),
     updatedAt: nowIso
   }, { merge: true });
+    /* PATCH: Admin yhu_users Supabase safe write sync */
+    await syncAdminYhuUserToSupabase(userRef, 'admin:userRef-write');
+    /* END PATCH: Admin yhu_users Supabase safe write sync */
 
   return true;
 }
@@ -5938,6 +5977,9 @@ apiRouter.post('/api/admin/applications/:applicationId/division-override', requi
       adminDivisionOverrideUpdatedAt: nowIso,
       adminDivisionOverrideUpdatedBy: override.updatedBy
     }, { merge: true });
+    /* PATCH: Admin yhu_users Supabase matched user write sync */
+    await syncAdminYhuUserToSupabase(matchedUserDoc.ref, 'admin:matchedUserDoc-write');
+    /* END PATCH: Admin yhu_users Supabase matched user write sync */
 
     /* PATCH: Academy Member Profile Supabase admin application write sync */
     await syncAdminAcademyMemberProfileFromFirestoreUserRef(matchedUserDoc.id, matchedUserDoc.ref);
