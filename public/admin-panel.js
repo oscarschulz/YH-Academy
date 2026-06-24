@@ -2690,6 +2690,58 @@ function renderMembers() {
   `).join('') || makeEmptyRow(7, 'No members match the current filters.');
 }
 
+
+/* PATCH: YHU admin lead review visibility helper v1 */
+function normalizeAdminLeadReviewVisibilityStatus(record = {}) {
+  const candidates = [
+    record.reviewStatus,
+    record.assignmentStatus,
+    record.taskStatus,
+    record.pipelineStage,
+    record.status
+  ]
+    .map((value) => String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_'))
+    .filter(Boolean);
+
+  const finalStatuses = new Set([
+    'done',
+    'completed',
+    'approved',
+    'rejected',
+    'closed',
+    'paid',
+    'cancelled',
+    'canceled'
+  ]);
+
+  if (candidates.some((status) => finalStatuses.has(status))) {
+    return 'final';
+  }
+
+  const reviewableStatuses = new Set([
+    'waiting',
+    'pending',
+    'pending_review',
+    'submitted',
+    'under_review',
+    'needs_review',
+    'for_review',
+    'review',
+    'reviewing'
+  ]);
+
+  if (candidates.some((status) => reviewableStatuses.has(status))) {
+    return 'reviewable';
+  }
+
+  return candidates[0] || 'unknown';
+}
+
+function shouldShowAdminLeadReviewActions(record = {}) {
+  return normalizeAdminLeadReviewVisibilityStatus(record) === 'reviewable';
+}
+/* END PATCH: YHU admin lead review visibility helper v1 */
+
 function renderAcademy() {
   const focusFilter = document.getElementById('academy-focus-filter').value;
   const reviewFilter = document.getElementById('academy-review-filter').value;
@@ -2857,7 +2909,7 @@ function renderAcademy() {
         ${makeCell('Actions', `
           <div class="table-actions">
               <button data-open="academyLeadMission" data-id="${item.id}">Open</button>
-              ${String(item.assignmentStatus || item.taskStatus || item.pipelineStage || '').toLowerCase() === 'submitted' ? `
+              ${shouldShowAdminLeadReviewActions(item) ? `
                 <button data-action="lead-review-approve" data-id="${item.id}">Approve</button>
                 <button data-action="lead-review-revision" data-id="${item.id}">Revision</button>
                 <button data-action="lead-review-reject" data-id="${item.id}">Reject</button>
@@ -4568,7 +4620,7 @@ if (type === 'application') {
       .join('');
 
     const assignmentStatus = String(record.assignmentStatus || record.taskStatus || record.pipelineStage || '').trim().toLowerCase();
-    const isSubmittedForReview = assignmentStatus === 'submitted';
+    const isSubmittedForReview = shouldShowAdminLeadReviewActions(record);
     const hasRoutedMissionSignal =
       record.routedFromAdmin === true ||
       String(record.sourceMethod || '').trim().toLowerCase().startsWith('admin_routed_') ||
@@ -4578,7 +4630,7 @@ if (type === 'application') {
     const routedMissionReviewActions = isSubmittedForReview ? `
       <div class="drawer-section">
         <h4>Mission Review Actions</h4>
-        <p class="muted">This mission has been submitted by the Academy operator and is waiting for admin review.</p>
+        <p class="muted">This lead mission is waiting for admin review. Approval will compute payout by backend tier rules and auto-route when Plaza/Federation ready.</p>
         <div class="inline-actions">
           <button class="badge-btn" data-action="lead-review-approve" data-id="${record.id}">Approve Mission</button>
           <button class="badge-btn" data-action="lead-review-revision" data-id="${record.id}">Request Revision</button>
