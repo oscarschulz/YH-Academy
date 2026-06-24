@@ -4811,12 +4811,309 @@ apiRouter.post('/api/admin/academy/route-opportunity-mission', requireAdminSessi
     });
   }
 });
+/* PATCH: YHU admin lead review reason, tier payout and routing v1 */
+const YHU_ADMIN_LEAD_REVIEW_PAYOUT_RULES = Object.freeze({
+  tier1: 9,
+  tier2: 6,
+  tier3: 3,
+  level1: 9,
+  level2: 6,
+  level3: 3,
+  currency: 'USD'
+});
+
+function normalizeAdminLeadReviewDecisionV1(value = '') {
+  const raw = cleanText(value).toLowerCase().replace(/[\s-]+/g, '_');
+
+  if (raw === 'approve' || raw === 'approved') return 'approved';
+  if (raw === 'reject' || raw === 'rejected') return 'rejected';
+  if (raw === 'revision' || raw === 'needs_revision' || raw === 'revision_requested') return 'revision_requested';
+
+  return raw;
+}
+
+function normalizeAdminLeadReviewTierV1(value = '', lead = {}) {
+  const raw = cleanText(
+    value ||
+    lead.tier ||
+    lead.leadTier ||
+    lead.contactTier ||
+    lead.payoutTier ||
+    lead.level ||
+    lead.leadLevel ||
+    lead.strategicValue ||
+    lead.priority ||
+    ''
+  ).toLowerCase().replace(/[\s-]+/g, '_');
+
+  if (['tier1', 'tier_1', 't1', 'level1', 'level_1', 'l1', 'high', 'hot', 'premium', 'strategic', 'enterprise', 'vip'].includes(raw)) return 'tier1';
+  if (['tier2', 'tier_2', 't2', 'level2', 'level_2', 'l2', 'medium', 'warm', 'standard', 'qualified'].includes(raw)) return 'tier2';
+  if (['tier3', 'tier_3', 't3', 'level3', 'level_3', 'l3', 'low', 'cold', 'basic', 'normal'].includes(raw)) return 'tier3';
+
+  return '';
+}
+
+function getAdminLeadTierPayoutInfoV1(lead = {}) {
+  const tier = normalizeAdminLeadReviewTierV1('', lead);
+  const fallbackAmount = Math.max(0, toNumber(lead.operatorPayoutAmount || lead.payoutAmount || 0, 0));
+  const amount = tier
+    ? Number(YHU_ADMIN_LEAD_REVIEW_PAYOUT_RULES[tier] || 0)
+    : fallbackAmount;
+
+  return {
+    tier: tier || 'manual_fallback',
+    amount: Math.max(0, toNumber(amount, 0)),
+    currency: cleanText(lead.currency || YHU_ADMIN_LEAD_REVIEW_PAYOUT_RULES.currency || 'USD').toUpperCase() || 'USD',
+    rule: tier ? 'backend_tier_rule' : 'existing_record_fallback',
+    source: tier ? 'tier' : 'existing_record'
+  };
+}
+
+function adminLeadReviewScopeSetV1(lead = {}) {
+  const values = [
+    ...(Array.isArray(lead.accessScopes) ? lead.accessScopes : []),
+    ...(Array.isArray(lead.networkScopes) ? lead.networkScopes : []),
+    ...(Array.isArray(lead.divisionScopes) ? lead.divisionScopes : []),
+    lead.sourceDivision,
+    lead.targetDivision,
+    lead.routeDivision
+  ];
+
+  return new Set(values.map((item) => cleanText(item).toLowerCase()).filter(Boolean));
+}
+
+function shouldAdminLeadAutoRouteToPlazaV1(lead = {}) {
+  const scopes = adminLeadReviewScopeSetV1(lead);
+  return lead.plazaReady === true || lead.routeToPlaza === true || scopes.has('plaza') || scopes.has('plazas');
+}
+
+function shouldAdminLeadAutoRouteToFederationV1(lead = {}) {
+  const scopes = adminLeadReviewScopeSetV1(lead);
+  return lead.federationReady === true || lead.routeToFederation === true || scopes.has('federation');
+}
+
+function adminLeadReviewTitleV1(lead = {}, leadId = '') {
+  return cleanText(
+    lead.routedSourceTitle ||
+    lead.title ||
+    lead.companyName ||
+    lead.opportunityTitle ||
+    lead.contactName ||
+    leadId ||
+    'Academy lead mission'
+  );
+}
+
+function adminLeadReviewSummaryV1(lead = {}) {
+  return cleanText(
+    lead.missionBrief ||
+    lead.academyMissionNeed ||
+    lead.description ||
+    lead.notes ||
+    lead.nextAction ||
+    ''
+  ).slice(0, 600);
+}
+
+function adminLeadReviewLeadDataV1(lead = {}, context = {}) {
+  const nowIso = context.nowIso || new Date().toISOString();
+
+  return {
+    ...(lead && typeof lead === 'object' ? lead : {}),
+    id: context.leadId || lead.id || lead.leadId,
+    leadId: context.leadId || lead.leadId || lead.id,
+    ownerUid: context.memberId || lead.ownerUid || lead.memberId,
+    memberId: context.memberId || lead.memberId || lead.ownerUid,
+    operatorUid: context.memberId || lead.operatorUid || lead.memberId || lead.ownerUid,
+    operatorName: context.operatorName || lead.operatorName || lead.memberName || 'Operator',
+    sourceDivision: cleanText(lead.sourceDivision || 'academy'),
+    sourceFeature: cleanText(lead.sourceFeature || 'academy_lead_mission'),
+    status: cleanText(context.status || lead.status || 'active'),
+    reviewStatus: cleanText(context.reviewStatus || lead.reviewStatus || 'approved'),
+    adminReviewNote: cleanText(context.adminNote || lead.adminReviewNote || ''),
+    adminDecisionReason: cleanText(context.adminNote || lead.adminDecisionReason || ''),
+    adminReviewedBy: cleanText(context.adminName || lead.adminReviewedBy || 'admin'),
+    adminReviewedAt: nowIso,
+    updatedAt: nowIso
+  };
+}
+
+async function routeApprovedAcademyLeadToPlazaV1({ lead = {}, memberId = '', leadId = '', operator = {}, adminName = 'admin', adminNote = '', payoutInfo = {}, nowIso = '' } = {}) {
+  if (!shouldAdminLeadAutoRouteToPlazaV1(lead)) return null;
+  if (!adminPlazaSupabaseWriteRepo?.upsertSmokeRecord) return null;
+
+  const routeId = cleanText(lead.plazaRouteId || `academy_lead_${memberId}_${leadId}`);
+  const title = adminLeadReviewTitleV1(lead, leadId);
+  const summary = adminLeadReviewSummaryV1(lead);
+  const leadData = adminLeadReviewLeadDataV1(lead, {
+    memberId,
+    leadId,
+    operatorName: cleanText(operator.fullName || operator.name || operator.username || memberId),
+    adminName,
+    adminNote,
+    nowIso,
+    status: 'active',
+    reviewStatus: 'approved'
+  });
+
+  const row = await adminPlazaSupabaseWriteRepo.upsertSmokeRecord({
+    record_type: 'opportunity',
+    source_collection_path: 'plazaOpportunities',
+    source_document_id: routeId,
+    source_document_path: `plazaOpportunities/${routeId}`,
+    owner_user_id: memberId,
+    target_user_id: cleanText(lead.targetUserId || lead.providerUid || ''),
+    status: 'active',
+    review_status: 'approved',
+    title,
+    summary,
+    body: summary || cleanText(lead.notes || ''),
+    region: cleanText(lead.region || lead.country || 'Global'),
+    category: cleanText(lead.serviceCategory || lead.contactType || lead.missionType || 'academy_lead'),
+    tags: Array.from(new Set([
+      'academy-lead',
+      'admin-approved',
+      payoutInfo.tier,
+      ...(Array.isArray(lead.networkTags) ? lead.networkTags : []),
+      ...(Array.isArray(lead.tags) ? lead.tags : [])
+    ].map((item) => cleanText(item).toLowerCase()).filter(Boolean))).slice(0, 12),
+    public_meta: {
+      title,
+      sourceDivision: 'academy',
+      sourceFeature: 'approved_lead_mission',
+      reviewedBy: adminName,
+      routeSource: 'admin_lead_approval'
+    },
+    private_meta: {
+      memberId,
+      leadId,
+      sourceRecordPath: `users/${memberId}/academyLeadMissions/${leadId}`,
+      adminNote,
+      payoutTier: payoutInfo.tier,
+      payoutAmount: payoutInfo.amount,
+      payoutCurrency: payoutInfo.currency
+    },
+    data: {
+      ...leadData,
+      routeSource: 'admin_lead_approval',
+      routedFromAdmin: true,
+      routedToPlaza: true,
+      plazaRouteId: routeId,
+      plazaRoutedBy: adminName,
+      plazaRoutedAt: nowIso,
+      adminRoutingLane: 'plaza_provider',
+      routeKey: 'plaza_provider',
+      routeLabel: 'Approved Academy lead',
+      payoutTier: payoutInfo.tier,
+      operatorPayoutAmount: payoutInfo.amount,
+      currency: payoutInfo.currency
+    },
+    created_at_source: cleanText(lead.createdAt || lead.assignedAt || nowIso),
+    updated_at_source: nowIso
+  });
+
+  return {
+    target: 'plaza',
+    routeId,
+    recordType: 'opportunity',
+    status: 'active',
+    rowId: row?.id || '',
+    source: 'supabase'
+  };
+}
+
+async function routeApprovedAcademyLeadToFederationV1({ lead = {}, memberId = '', leadId = '', operator = {}, adminName = 'admin', adminNote = '', payoutInfo = {}, nowIso = '' } = {}) {
+  if (!shouldAdminLeadAutoRouteToFederationV1(lead)) return null;
+  if (!federationConnectSupabaseRepo?.buildFederationPayload || !federationConnectSupabaseRepo?.upsertFederationRecord) return null;
+
+  const routeId = cleanText(lead.federationRouteId || `academy_lead_${memberId}_${leadId}`);
+  const title = adminLeadReviewTitleV1(lead, leadId);
+  const summary = adminLeadReviewSummaryV1(lead);
+  const operatorName = cleanText(operator.fullName || operator.name || operator.username || memberId);
+  const leadData = adminLeadReviewLeadDataV1(lead, {
+    memberId,
+    leadId,
+    operatorName,
+    adminName,
+    adminNote,
+    nowIso,
+    status: 'pending_admin_match',
+    reviewStatus: 'approved'
+  });
+
+  const payload = federationConnectSupabaseRepo.buildFederationPayload({
+    recordType: 'connection_request',
+    sourceCollectionPath: 'federationConnectionRequests',
+    sourceDocumentId: routeId,
+    sourceDocumentPath: `federationConnectionRequests/${routeId}`,
+    data: {
+      ...leadData,
+      id: routeId,
+      requestId: routeId,
+      leadId,
+      leadPath: `users/${memberId}/academyLeadMissions/${leadId}`,
+      ownerUid: memberId,
+      operatorUid: memberId,
+      operatorName,
+      requesterUid: memberId,
+      requesterName: operatorName,
+      requesterEmail: cleanText(operator.email || '').toLowerCase(),
+      opportunityTitle: title,
+      title,
+      description: summary,
+      requestMode: 'approved_academy_lead',
+      status: 'pending_admin_match',
+      adminStatus: 'approved_lead_ready',
+      reviewStatus: 'approved',
+      paymentStatus: 'not_started',
+      payoutStatus: payoutInfo.amount > 0 ? 'approved' : 'not_started',
+      commissionStatus: 'not_started',
+      category: cleanText(lead.contactType || lead.serviceCategory || lead.missionType || 'academy_lead'),
+      contactName: cleanText(lead.contactName || ''),
+      contactRole: cleanText(lead.contactRole || ''),
+      contactType: cleanText(lead.contactType || ''),
+      companyName: cleanText(lead.companyName || ''),
+      companyWebsite: cleanText(lead.companyWebsite || ''),
+      city: cleanText(lead.city || ''),
+      country: cleanText(lead.country || ''),
+      strategicValue: cleanText(lead.strategicValue || payoutInfo.tier || 'standard'),
+      platformCommissionRate: toNumber(lead.platformCommissionRate, 0),
+      platformCommissionAmount: toNumber(lead.platformCommissionAmount, 0),
+      operatorPayoutAmount: payoutInfo.amount,
+      currency: payoutInfo.currency,
+      adminNote,
+      matchedBy: adminName,
+      matchedAt: nowIso,
+      routedFromAdmin: true,
+      routeSource: 'admin_lead_approval',
+      routedToFederation: true,
+      federationRouteId: routeId,
+      createdAt: cleanText(lead.createdAt || lead.assignedAt || nowIso),
+      updatedAt: nowIso
+    }
+  });
+
+  const row = await federationConnectSupabaseRepo.upsertFederationRecord(payload);
+
+  return {
+    target: 'federation',
+    routeId,
+    recordType: 'connection_request',
+    status: 'pending_admin_match',
+    rowId: row?.id || '',
+    source: 'supabase'
+  };
+}
+/* END PATCH: YHU admin lead review reason, tier payout and routing v1 */
+
 apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requireAdminSession, async (req, res) => {
   try {
     const memberId = cleanText(req.params.memberId);
     const leadId = cleanText(req.params.leadId);
     const body = req.body || {};
-    const decision = cleanText(body.decision || body.status || '').toLowerCase();
+    const decision = normalizeAdminLeadReviewDecisionV1(body.decision || body.status || '');
+    const adminName = cleanText(req.adminSession?.username || 'admin');
+    const adminNote = cleanText(body.adminNote || body.reason || body.note || '').slice(0, 1200);
 
     const allowed = new Set([
       'approved',
@@ -4831,6 +5128,17 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requ
       });
     }
 
+    if (!adminNote) {
+      return res.status(400).json({
+        success: false,
+        message: decision === 'approved'
+          ? 'Approval reason is required.'
+          : decision === 'rejected'
+            ? 'Rejection reason is required.'
+            : 'Revision reason is required.'
+      });
+    }
+
     const userRef = firestore.collection('users').doc(memberId);
     const userSnap = await userRef.get();
 
@@ -4841,6 +5149,7 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requ
       });
     }
 
+    const operator = userSnap.data() || {};
     const leadRef = userRef.collection('academyLeadMissions').doc(leadId);
     const leadSnap = await leadRef.get();
 
@@ -4854,19 +5163,11 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requ
     const lead = leadSnap.data() || {};
     const now = Timestamp.now();
     const nowIso = new Date().toISOString();
-    const adminNote = cleanText(body.adminNote || body.note || '').slice(0, 1200);
-    const currency = cleanText(lead.currency || body.currency || 'USD').toUpperCase() || 'USD';
-
-    const manualPayoutAmount =
-      body.operatorPayoutAmount !== undefined &&
-      body.operatorPayoutAmount !== null &&
-      body.operatorPayoutAmount !== ''
-        ? Math.max(0, toNumber(body.operatorPayoutAmount, 0))
-        : null;
-
-    const operatorPayoutAmount = manualPayoutAmount !== null
-      ? manualPayoutAmount
-      : Math.max(0, toNumber(lead.operatorPayoutAmount, 0));
+    const payoutInfo = getAdminLeadTierPayoutInfoV1(lead);
+    const currency = cleanText(payoutInfo.currency || lead.currency || body.currency || 'USD').toUpperCase() || 'USD';
+    const operatorPayoutAmount = decision === 'approved'
+      ? Math.max(0, toNumber(payoutInfo.amount, 0))
+      : 0;
 
     const patch = {
       reviewStatus: decision,
@@ -4886,8 +5187,18 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requ
           ? 'rejected'
           : 'revision_requested',
       reviewedAt: now,
-      reviewedBy: cleanText(req.adminSession?.username || 'admin'),
+      reviewedAtIso: nowIso,
+      reviewedBy: adminName,
       adminReviewNote: adminNote,
+      adminDecisionReason: adminNote,
+      adminDecision: decision,
+      reviewReasonRequired: true,
+      payoutTier: decision === 'approved' ? payoutInfo.tier : '',
+      payoutRule: decision === 'approved' ? payoutInfo.rule : '',
+      payoutSource: decision === 'approved' ? payoutInfo.source : '',
+      computedOperatorPayoutAmount: operatorPayoutAmount,
+      operatorPayoutAmount,
+      currency,
       updatedAt: now
     };
 
@@ -4895,21 +5206,28 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requ
       patch.completedAt = now;
       patch.callOutcome = 'Approved by admin';
       patch.nextAction = 'Mission approved. Earnings can be withdrawn when available.';
+      patch.earningStatus = operatorPayoutAmount > 0 ? 'approved' : 'not_earned';
     }
 
     if (decision === 'revision_requested') {
       patch.callOutcome = 'Revision requested by admin';
-      patch.nextAction = adminNote || 'Admin requested revision.';
+      patch.nextAction = adminNote;
+      patch.earningStatus = 'revision_requested';
     }
 
     if (decision === 'rejected') {
       patch.callOutcome = 'Rejected by admin';
-      patch.nextAction = adminNote || 'Mission rejected.';
+      patch.nextAction = adminNote;
+      patch.earningStatus = 'rejected';
+      patch.operatorPayoutAmount = 0;
+      patch.computedOperatorPayoutAmount = 0;
     }
 
     await leadRef.set(patch, { merge: true });
 
     let earning = null;
+    let payoutLedgerRecord = null;
+    const routes = [];
 
     if (decision === 'approved' && operatorPayoutAmount > 0) {
       const payoutRef = userRef.collection('academyLeadPayouts').doc(`earning_${leadId}`);
@@ -4920,23 +5238,36 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requ
         sourceDivision: cleanText(lead.sourceDivision || 'academy'),
         sourceFeature: cleanText(lead.sourceFeature || 'routed_mission'),
         sourceRecordId: cleanText(lead.sourceRecordId || leadId),
-        title: cleanText(lead.routedSourceTitle || lead.companyName || 'Academy routed mission'),
+        title: adminLeadReviewTitleV1(lead, leadId),
         amount: operatorPayoutAmount,
         currency,
         status: 'approved',
         paymentStatus: 'earned',
         payoutStatus: 'not_requested',
         operatorUid: memberId,
-        operatorName: cleanText(userSnap.data()?.fullName || userSnap.data()?.name || userSnap.data()?.username || memberId),
-        approvedBy: cleanText(req.adminSession?.username || 'admin'),
+        operatorName: cleanText(operator.fullName || operator.name || operator.username || memberId),
+        receiverUid: memberId,
+        receiverName: cleanText(operator.fullName || operator.name || operator.username || memberId),
+        receiverEmail: cleanText(operator.email || '').toLowerCase(),
+        approvedBy: adminName,
         approvedAt: now,
+        approvedAtIso: nowIso,
         updatedAt: now,
         createdAt: lead.assignedAt || now,
+        payoutTier: payoutInfo.tier,
+        payoutRule: payoutInfo.rule,
+        payoutSource: payoutInfo.source,
+        adminReviewNote: adminNote,
         metadata: {
           missionType: cleanText(lead.missionType || ''),
+          payoutTier: payoutInfo.tier,
+          payoutRule: payoutInfo.rule,
+          payoutSource: payoutInfo.source,
           platformCommissionRate: toNumber(lead.platformCommissionRate, 0),
           platformCommissionAmount: toNumber(lead.platformCommissionAmount, 0),
-          opportunityValueAmount: toNumber(lead.opportunityValueAmount, 0)
+          opportunityValueAmount: toNumber(lead.opportunityValueAmount, 0),
+          sourceRecordPath: `users/${memberId}/academyLeadMissions/${leadId}`,
+          adminReviewReason: adminNote
         }
       };
 
@@ -4946,49 +5277,140 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requ
         ...payoutPayload
       };
 
+      try {
+        payoutLedgerRecord = await paymentLedgerRepo.createPayoutRequest({
+          id: payoutRef.id,
+          receiverUid: memberId,
+          receiverEmail: cleanText(operator.email || '').toLowerCase(),
+          receiverName: cleanText(operator.fullName || operator.name || operator.username || memberId),
+          sourceDivision: cleanText(lead.sourceDivision || 'academy'),
+          sourceFeature: 'academy_lead_mission_approval',
+          sourceRecordId: leadId,
+          sourcePaymentId: '',
+          amount: operatorPayoutAmount,
+          currency,
+          method: 'manual',
+          provider: 'manual',
+          providerStatus: 'earned',
+          status: 'approved',
+          adminNote,
+          metadata: {
+            academyLeadMissionId: leadId,
+            sourceRecordPath: `users/${memberId}/academyLeadMissions/${leadId}`,
+            payoutTier: payoutInfo.tier,
+            payoutRule: payoutInfo.rule,
+            payoutSource: payoutInfo.source,
+            approvedBy: adminName,
+            approvedAt: nowIso
+          }
+        });
+      } catch (error) {
+        console.error('Admin lead approval payout ledger sync failed:', error?.message || error);
+      }
+
       await leadRef.set({
         operatorPayoutAmount,
+        computedOperatorPayoutAmount: operatorPayoutAmount,
+        payoutTier: payoutInfo.tier,
+        payoutRule: payoutInfo.rule,
+        payoutSource: payoutInfo.source,
         earningLedgerId: payoutRef.id,
+        paymentLedgerPayoutId: payoutLedgerRecord?.id || payoutRef.id,
         earningStatus: 'approved',
         earningApprovedAt: now,
+        earningApprovedAtIso: nowIso,
         updatedAt: now
       }, { merge: true });
     }
 
+    if (decision === 'approved') {
+      const routeContext = {
+        lead: {
+          ...lead,
+          ...patch,
+          id: leadId,
+          leadId
+        },
+        memberId,
+        leadId,
+        operator,
+        adminName,
+        adminNote,
+        payoutInfo: {
+          ...payoutInfo,
+          amount: operatorPayoutAmount,
+          currency
+        },
+        nowIso
+      };
+
+      const plazaRoute = await routeApprovedAcademyLeadToPlazaV1(routeContext).catch((error) => {
+        console.error('Admin lead approval Plaza auto-route failed:', error?.message || error);
+        return { target: 'plaza', error: error?.message || String(error) };
+      });
+
+      if (plazaRoute) routes.push(plazaRoute);
+
+      const federationRoute = await routeApprovedAcademyLeadToFederationV1(routeContext).catch((error) => {
+        console.error('Admin lead approval Federation auto-route failed:', error?.message || error);
+        return { target: 'federation', error: error?.message || String(error) };
+      });
+
+      if (federationRoute) routes.push(federationRoute);
+
+      if (routes.length) {
+        await leadRef.set({
+          autoRoutedByAdmin: true,
+          autoRouteTargets: routes.map((item) => item.target).filter(Boolean),
+          autoRouteResults: routes,
+          routedToPlaza: routes.some((item) => item.target === 'plaza' && !item.error),
+          routedToFederation: routes.some((item) => item.target === 'federation' && !item.error),
+          plazaRouteId: routes.find((item) => item.target === 'plaza')?.routeId || lead.plazaRouteId || '',
+          federationRouteId: routes.find((item) => item.target === 'federation')?.routeId || lead.federationRouteId || '',
+          autoRoutedAt: now,
+          autoRoutedAtIso: nowIso,
+          updatedAt: now
+        }, { merge: true });
+      }
+    }
+
     await createAdminBroadcastWithSupabaseSync({
-      audience: cleanText(userSnap.data()?.fullName || userSnap.data()?.name || userSnap.data()?.username || memberId),
+      audience: cleanText(operator.fullName || operator.name || operator.username || memberId),
       subject: 'Academy routed mission reviewed',
-      message: `Admin marked Lead Mission ${leadId} as ${decision.replace(/_/g, ' ')}.`,
+      message: `Admin marked Lead Mission ${leadId} as ${decision.replace(/_/g, ' ')}. Reason: ${adminNote}`,
       sentAt: nowIso,
-      createdBy: cleanText(req.adminSession?.username || 'admin')
+      createdBy: adminName
     });
 
     await appendAcademyRoutedMissionNotificationToOperator(memberId, {
       action: 'reviewed',
       leadId,
-      title: cleanText(lead.routedSourceTitle || lead.companyName || 'Academy routed mission'),
+      title: adminLeadReviewTitleV1(lead, leadId),
       decision,
+      adminNote,
       currency,
       operatorPayoutAmount,
+      payoutTier: payoutInfo.tier,
       sourceDivision: cleanText(lead.sourceDivision || 'academy'),
-      sourceFeature: cleanText(lead.sourceFeature || 'routed_mission')
+      sourceFeature: cleanText(lead.sourceFeature || 'routed_mission'),
+      autoRouteTargets: routes.map((item) => item.target).filter(Boolean)
     });
 
     const freshSnap = await leadRef.get();
     const freshLeadForMirror = {
-        id: freshSnap.id,
-        ...(freshSnap.data() || {})
+      id: freshSnap.id,
+      ...(freshSnap.data() || {})
     };
 
     await universeCollectionMirrorRepo.mirrorAcademyLead({
-        action: `admin_review_${decision}`,
-        operatorUid: memberId,
-        operator: {
-            id: memberId,
-            name: cleanText(userSnap.data()?.fullName || userSnap.data()?.name || userSnap.data()?.username || memberId),
-            email: cleanText(userSnap.data()?.email || '')
-        },
-        lead: freshLeadForMirror
+      action: `admin_review_${decision}`,
+      operatorUid: memberId,
+      operator: {
+        id: memberId,
+        name: cleanText(operator.fullName || operator.name || operator.username || memberId),
+        email: cleanText(operator.email || '')
+      },
+      lead: freshLeadForMirror
     });
 
     /* PATCH: Admin Academy review Supabase dual-sync */
@@ -5007,17 +5429,26 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requ
     }
     /* END PATCH: Admin Academy review Supabase dual-sync */
 
-
     return res.json({
-        success: true,
-        lead: freshLeadForMirror,
-        earning
+      success: true,
+      lead: freshLeadForMirror,
+      earning,
+      payoutLedgerRecord,
+      routes,
+      payout: {
+        amount: operatorPayoutAmount,
+        currency,
+        tier: payoutInfo.tier,
+        rule: payoutInfo.rule,
+        source: payoutInfo.source
+      },
+      reason: adminNote
     });
   } catch (error) {
     console.error('admin academy routed mission review error:', error);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Failed to review Academy routed mission.'
+      message: error.statusCode ? error.message : 'Failed to review Academy routed mission.'
     });
   }
 });

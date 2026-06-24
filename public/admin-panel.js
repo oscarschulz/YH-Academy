@@ -5545,6 +5545,7 @@ function openAdminInlineModal(config = {}) {
     if (firstInput) firstInput.focus();
   });
 }
+/* PATCH: YHU admin lead review frontend reason-only payout v1 */
 async function reviewAcademyRoutedMission(record, decision = '') {
   if (!record?.memberId && !record?.ownerUid) {
     throw new Error('Missing Lead Mission owner id.');
@@ -5556,6 +5557,11 @@ async function reviewAcademyRoutedMission(record, decision = '') {
 
   const memberId = record.memberId || record.ownerUid;
   const cleanDecision = String(decision || '').trim().toLowerCase();
+  const tierLabel = String(record.tier || record.leadTier || record.contactTier || record.payoutTier || record.level || record.strategicValue || 'tier from backend').trim();
+  const routeTargets = [
+    record.plazaReady || (Array.isArray(record.accessScopes) && record.accessScopes.map((item) => String(item || '').toLowerCase()).includes('plazas')) ? 'Plaza' : '',
+    record.federationReady || (Array.isArray(record.accessScopes) && record.accessScopes.map((item) => String(item || '').toLowerCase()).includes('federation')) ? 'Federation' : ''
+  ].filter(Boolean).join(' + ') || 'No auto-route target marked';
 
   const modalResult = await openAdminInlineModal({
     title:
@@ -5566,10 +5572,10 @@ async function reviewAcademyRoutedMission(record, decision = '') {
           : 'Reject Academy Mission',
     description:
       cleanDecision === 'approved'
-        ? 'Confirm the operator payout and add an optional approval note.'
+        ? `Backend will compute payout from tier (${tierLabel}) and auto-route when marked: ${routeTargets}. Add approval reason before approving.`
         : cleanDecision === 'revision_requested'
           ? 'Tell the operator what needs to be corrected before approval.'
-          : 'Add the reason this mission is being rejected.',
+          : 'Add the reason this mission is being rejected. No payout or auto-route will be created.',
     submitLabel:
       cleanDecision === 'approved'
         ? 'Approve Mission'
@@ -5577,30 +5583,24 @@ async function reviewAcademyRoutedMission(record, decision = '') {
           ? 'Send Revision'
           : 'Reject Mission',
     fields: [
-      ...(cleanDecision === 'approved'
-        ? [{
-            name: 'operatorPayoutAmount',
-            label: 'Operator Payout Amount',
-            type: 'number',
-            min: '0',
-            step: '1',
-            value: String(record.operatorPayoutAmount || 0),
-            required: true
-          }]
-        : []),
       {
         name: 'adminNote',
         label:
           cleanDecision === 'revision_requested'
-            ? 'Revision Note'
+            ? 'Revision Reason'
             : cleanDecision === 'rejected'
-              ? 'Rejection Note'
-              : 'Approval Note',
+              ? 'Rejection Reason'
+              : 'Approval Reason',
         type: 'textarea',
         rows: 5,
         value: '',
-        required: cleanDecision !== 'approved',
-        placeholder: 'Write the admin note here...'
+        required: true,
+        placeholder:
+          cleanDecision === 'approved'
+            ? 'Why is this lead approved? Backend will calculate payout from tier.'
+            : cleanDecision === 'revision_requested'
+              ? 'What exactly should the operator fix?'
+              : 'Why is this lead rejected?'
       }
     ]
   });
@@ -5612,9 +5612,8 @@ async function reviewAcademyRoutedMission(record, decision = '') {
     adminNote: String(modalResult.adminNote || '').trim()
   };
 
-  if (cleanDecision === 'approved') {
-    payload.operatorPayoutAmount = Number(modalResult.operatorPayoutAmount || 0);
-    payload.currency = record.currency || 'USD';
+  if (!payload.adminNote) {
+    throw new Error('Admin reason is required.');
   }
 
   const { data } = await adminFetchJson(
@@ -5635,8 +5634,21 @@ async function reviewAcademyRoutedMission(record, decision = '') {
     openDrawer('academyLeadMission', refreshed.id);
   }
 
+  const payout = data?.payout || null;
+  const routes = Array.isArray(data?.routes) ? data.routes : [];
+  const routeLabel = routes.length
+    ? routes.map((item) => item.target).filter(Boolean).join(' + ')
+    : '';
+
+  if (cleanDecision === 'approved' && payout) {
+    showToast(
+      `Lead approved. Payout: ${payout.currency || 'USD'} ${Number(payout.amount || 0).toFixed(2)}${routeLabel ? ` • Routed: ${routeLabel}` : ''}`
+    );
+  }
+
   return data;
 }
+/* END PATCH: YHU admin lead review frontend reason-only payout v1 */
 
 function getAcademyRouteMemberPromptDefault() {
   const academyMember =
