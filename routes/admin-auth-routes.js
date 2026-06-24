@@ -16,6 +16,7 @@ const federationConnectSupabaseRepo = require('../backend/repositories/federatio
 const { sendSystemMail } = require('../controllers/authControllers');
 const academyMemberProfileSupabaseRepo = require('../backend/repositories/academyMemberProfileSupabaseRepo');
 const yhuUsersSupabaseRepo = require('../backend/repositories/yhuUsersSupabaseRepo');
+const userNotificationsSupabaseRepo = require('../backend/repositories/userNotificationsSupabaseRepo');
 
 const ADMIN_SESSION_COOKIE = 'yh_admin_session';
 const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
@@ -1373,6 +1374,30 @@ async function createAdminBroadcastWithSupabaseSync(payload = {}) {
   return ref;
 }
 /* END PATCH: Admin Broadcast Supabase helpers */
+
+/* PATCH: Admin User Notifications Supabase sync helper */
+async function syncAdminUserInProductNotificationsFromUserRef(userRef = null, source = 'admin') {
+  try {
+    if (!userRef || !userRef.id || typeof userRef.get !== 'function') {
+      return [];
+    }
+
+    const userSnap = await userRef.get();
+    const user = userSnap.exists ? (userSnap.data() || {}) : {};
+    const notifications = Array.isArray(user.inProductReviewNotifications)
+      ? user.inProductReviewNotifications
+      : [];
+
+    return await userNotificationsSupabaseRepo.syncUserNotificationsFromList(userRef.id, notifications, {
+      source,
+      sourceField: 'inProductReviewNotifications'
+    });
+  } catch (error) {
+    console.warn('Admin user notification Supabase sync skipped:', error?.message || error);
+    return [];
+  }
+}
+/* END PATCH: Admin User Notifications Supabase sync helper */
 
 async function buildAdminBootstrapPayload() {
   const [usersSnap, broadcastsSnap, paymentLedgerResult, payoutLedgerResult] = await Promise.all([
@@ -3561,6 +3586,9 @@ async function appendFederationConnectionRequestNotificationToRequester(request 
     ),
     updatedAt: nowIso
   }, { merge: true });
+  /* PATCH: Admin User Notifications Supabase sync after Firestore write */
+  await syncAdminUserInProductNotificationsFromUserRef(userRef, 'admin:user-notification-write');
+  /* END PATCH: Admin User Notifications Supabase sync after Firestore write */
     /* PATCH: Admin yhu_users Supabase safe write sync */
     await syncAdminYhuUserToSupabase(userRef, 'admin:userRef-write');
     /* END PATCH: Admin yhu_users Supabase safe write sync */
@@ -4014,6 +4042,13 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
       };
     });
 
+    /* PATCH: Admin User Notifications Supabase transaction sync */
+    await syncAdminUserInProductNotificationsFromUserRef(
+      matchedUserDoc.ref,
+      'admin:application-review-transaction'
+    );
+    /* END PATCH: Admin User Notifications Supabase transaction sync */
+
     let approvalEmailSent = false;
     let approvalEmailError = reviewResult.approvalEmailError || '';
     let responseApplication = reviewResult.application;
@@ -4414,6 +4449,9 @@ async function appendAcademyRoutedMissionNotificationToOperator(memberId = '', p
     ),
     updatedAt: nowIso
   }, { merge: true });
+  /* PATCH: Admin User Notifications Supabase sync after Firestore write */
+  await syncAdminUserInProductNotificationsFromUserRef(userRef, 'admin:user-notification-write');
+  /* END PATCH: Admin User Notifications Supabase sync after Firestore write */
     /* PATCH: Admin yhu_users Supabase safe write sync */
     await syncAdminYhuUserToSupabase(userRef, 'admin:userRef-write');
     /* END PATCH: Admin yhu_users Supabase safe write sync */

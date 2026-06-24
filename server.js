@@ -344,9 +344,7 @@ async function appendYHVerifiedBadgePaymentNotification(payerUid = '', notificat
     const userSnap = await userRef.get();
     const userData = userSnap.exists ? (userSnap.data() || {}) : {};
 
-    const current = Array.isArray(userData.inProductReviewNotifications)
-        ? userData.inProductReviewNotifications
-        : [];
+    const current = await listServerUserInProductNotifications(cleanPayerUid, userData);
 
     const nowIso = new Date().toISOString();
     const id = sanitizeText(notification.id || `badge_payment_${Date.now()}`);
@@ -380,6 +378,9 @@ async function appendYHVerifiedBadgePaymentNotification(payerUid = '', notificat
         inProductReviewNotifications: next,
         updatedAt: nowIso
     }, { merge: true });
+        /* PATCH: User Notifications Supabase sync after Firestore write */
+        await syncServerUserInProductNotifications(userRef.id, next, 'server:user-notification-write');
+        /* END PATCH: User Notifications Supabase sync after Firestore write */
         /* PATCH: yhu_users Supabase safe write sync */
         await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
         /* END PATCH: yhu_users Supabase safe write sync */
@@ -4726,6 +4727,7 @@ const { createAdminRouters } = require('./routes/admin-auth-routes');
 const { startAiNurtureWorker } = require('./backend/services/aiNurtureWorker');
 const academyMemberProfileSupabaseRepo = require('./backend/repositories/academyMemberProfileSupabaseRepo');
 const yhuUsersSupabaseRepo = require('./backend/repositories/yhuUsersSupabaseRepo');
+const userNotificationsSupabaseRepo = require('./backend/repositories/userNotificationsSupabaseRepo');
 
 const { pageRouter: adminPageRouter, apiRouter: adminApiRouter } = createAdminRouters({
     privateAdminDir: path.join(__dirname, 'private', 'admin')
@@ -7892,6 +7894,64 @@ function normalizeUserInProductNotification(item = {}) {
     };
 }
 
+/* PATCH: User Notifications Supabase route switch helpers */
+async function listServerUserInProductNotifications(userId = '', fallbackUser = {}) {
+    const cleanUserId = sanitizeText(userId);
+    const fallback = getUserInProductNotifications(fallbackUser);
+
+    if (!cleanUserId) {
+        return fallback;
+    }
+
+    try {
+        const supabaseNotifications = await userNotificationsSupabaseRepo.listUserNotifications(cleanUserId, {
+            limit: USER_IN_PRODUCT_NOTIFICATION_LIMIT
+        });
+
+        const merged = new Map();
+
+        fallback.forEach((item) => {
+            const normalized = normalizeUserInProductNotification(item);
+            if (sanitizeText(normalized.id)) {
+                merged.set(sanitizeText(normalized.id), normalized);
+            }
+        });
+
+        supabaseNotifications.forEach((item) => {
+            const normalized = normalizeUserInProductNotification(item);
+            if (sanitizeText(normalized.id)) {
+                merged.set(sanitizeText(normalized.id), normalized);
+            }
+        });
+
+        return Array.from(merged.values())
+            .filter((item) => item.id)
+            .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+            .slice(0, USER_IN_PRODUCT_NOTIFICATION_LIMIT);
+    } catch (error) {
+        console.warn('User notification Supabase read fallback:', error?.message || error);
+        return fallback;
+    }
+}
+
+async function syncServerUserInProductNotifications(userId = '', notifications = [], source = 'server') {
+    const cleanUserId = sanitizeText(userId);
+    if (!cleanUserId || !Array.isArray(notifications)) {
+        return [];
+    }
+
+    try {
+        return await userNotificationsSupabaseRepo.syncUserNotificationsFromList(cleanUserId, notifications, {
+            source,
+            sourceField: 'inProductReviewNotifications'
+        });
+    } catch (error) {
+        console.warn('User notification Supabase sync skipped:', error?.message || error);
+        return [];
+    }
+}
+/* END PATCH: User Notifications Supabase route switch helpers */
+
 function getUserInProductNotifications(user = {}) {
     const notifications = Array.isArray(user?.inProductReviewNotifications)
         ? user.inProductReviewNotifications
@@ -7947,7 +8007,7 @@ function buildInProductReviewNotification({
 }
 
 async function appendUserInProductNotification(userRef, user = {}, notification = {}) {
-    const current = getUserInProductNotifications(user);
+    const current = await listServerUserInProductNotifications(userRef.id, user);
 
     const next = [
         normalizeUserInProductNotification(notification),
@@ -7958,6 +8018,9 @@ async function appendUserInProductNotification(userRef, user = {}, notification 
         inProductReviewNotifications: next,
         updatedAt: new Date().toISOString()
     }, { merge: true });
+        /* PATCH: User Notifications Supabase sync after Firestore write */
+        await syncServerUserInProductNotifications(userRef.id, next, 'server:user-notification-write');
+        /* END PATCH: User Notifications Supabase sync after Firestore write */
         /* PATCH: yhu_users Supabase safe write sync */
         await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
         /* END PATCH: yhu_users Supabase safe write sync */
@@ -7973,7 +8036,7 @@ app.get('/api/member/system-notifications', requireApiUser, async (req, res) => 
 
         return res.json({
             success: true,
-            notifications: getUserInProductNotifications(user)
+            notifications: await listServerUserInProductNotifications(req.user.id, user)
         });
     } catch (error) {
         console.error('member system notifications error:', error);
@@ -7997,7 +8060,7 @@ app.post('/api/member/system-notifications/:id/read', requireApiUser, async (req
         const userRef = firestore.collection('users').doc(req.user.id);
         const userSnap = await userRef.get();
         const user = userSnap.exists ? (userSnap.data() || {}) : {};
-        const current = getUserInProductNotifications(user);
+        const current = await listServerUserInProductNotifications(userRef.id, user);
         const nowIso = new Date().toISOString();
 
         const next = current.map((item) => {
@@ -8017,6 +8080,9 @@ app.post('/api/member/system-notifications/:id/read', requireApiUser, async (req
             inProductReviewNotifications: next,
             updatedAt: nowIso
         }, { merge: true });
+        /* PATCH: User Notifications Supabase sync after Firestore write */
+        await syncServerUserInProductNotifications(userRef.id, next, 'server:user-notification-write');
+        /* END PATCH: User Notifications Supabase sync after Firestore write */
         /* PATCH: yhu_users Supabase safe write sync */
         await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
         /* END PATCH: yhu_users Supabase safe write sync */
@@ -8039,7 +8105,7 @@ app.post('/api/member/system-notifications/read-all', requireApiUser, async (req
         const userRef = firestore.collection('users').doc(req.user.id);
         const userSnap = await userRef.get();
         const user = userSnap.exists ? (userSnap.data() || {}) : {};
-        const current = getUserInProductNotifications(user);
+        const current = await listServerUserInProductNotifications(userRef.id, user);
         const nowIso = new Date().toISOString();
 
         const next = current.map((item) => ({
@@ -8055,6 +8121,9 @@ app.post('/api/member/system-notifications/read-all', requireApiUser, async (req
             inProductReviewNotifications: next,
             updatedAt: nowIso
         }, { merge: true });
+        /* PATCH: User Notifications Supabase sync after Firestore write */
+        await syncServerUserInProductNotifications(userRef.id, next, 'server:user-notification-write');
+        /* END PATCH: User Notifications Supabase sync after Firestore write */
         /* PATCH: yhu_users Supabase safe write sync */
         await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
         /* END PATCH: yhu_users Supabase safe write sync */
