@@ -4603,12 +4603,70 @@ function getFederationSectionLoaderLabel(sectionId = "") {
   return FEDERATION_SECTION_LOADER_LABELS[key] || "Loading Federation...";
 }
 
+/* PATCH: YHU instant Federation dashboard child tabs v1 */
+function isFederationDashboardEmbeddedNavigationV1() {
+  const ownPath = String(window.location?.pathname || "").replace(/\/+$/, "");
+  const ownBody = document.body || null;
+
+  let parentBody = null;
+  let parentPath = "";
+
+  try {
+    if (window.parent && window.parent !== window && window.parent.document) {
+      parentBody = window.parent.document.body || null;
+      parentPath = String(window.parent.location?.pathname || "").replace(/\/+$/, "");
+    }
+  } catch (_) {}
+
+  return Boolean(
+    ownPath === "/dashboard" ||
+    parentPath === "/dashboard" ||
+    ownBody?.getAttribute("data-yh-page") === "dashboard" ||
+    ownBody?.getAttribute("data-yh-view") === "hub" ||
+    ownBody?.getAttribute("data-yh-dashboard-embed") === "true" ||
+    ownBody?.classList?.contains("yh-dashboard-inline-embed-body") ||
+    parentBody?.getAttribute("data-yh-page") === "dashboard" ||
+    parentBody?.getAttribute("data-yh-view") === "hub" ||
+    parentBody?.classList?.contains("yh-dashboard-shell-ready")
+  );
+}
+
+function markFederationDashboardNonBlockingSyncV1(label = "") {
+  const cleanLabel = String(label || "Syncing Federation...").trim() || "Syncing Federation...";
+
+  [document.body].filter(Boolean).forEach((body) => {
+    body.setAttribute("data-yh-tab-syncing", "true");
+    body.setAttribute("data-yh-tab-sync-label", cleanLabel);
+
+    window.clearTimeout(window.__yhFederationNonBlockingTabSyncTimerV1);
+    window.__yhFederationNonBlockingTabSyncTimerV1 = window.setTimeout(() => {
+      body.removeAttribute("data-yh-tab-syncing");
+      body.removeAttribute("data-yh-tab-sync-label");
+    }, 900);
+  });
+}
+/* END PATCH: YHU instant Federation dashboard child tabs v1 */
+
 function showFederationTabLoader(sectionIdOrLabel = "Loading Federation...") {
   const loader = document.getElementById("yh-tab-loader");
   const text = document.getElementById("yh-tab-loader-text");
 
   const raw = String(sectionIdOrLabel || "").trim();
   const label = raw.startsWith("Loading ") ? raw : getFederationSectionLoaderLabel(raw);
+
+  if (isFederationDashboardEmbeddedNavigationV1()) {
+    markFederationDashboardNonBlockingSyncV1(label);
+
+    if (loader) {
+      loader.hidden = true;
+      loader.classList.remove("is-active");
+      loader.classList.add("hidden-step");
+      loader.setAttribute("aria-hidden", "true");
+      loader.style.pointerEvents = "none";
+    }
+
+    return;
+  }
 
   if (text) {
     text.textContent = label || "Loading Federation...";

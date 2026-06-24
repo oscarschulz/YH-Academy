@@ -877,8 +877,45 @@ function applyDashboardInlinePlazaIconEnhancements(frame, options = {}) {
 }
 /* END PATCH: Dashboard Plazas child tab icon assets v1 */
 
+/* PATCH: YHU instant dashboard parent-child navigation v1 */
+function shouldBypassUniverseDivisionEntryLoaderV1(label = '') {
+    const clean = String(label || '').trim().toLowerCase();
+
+    if (/payment|checkout|purchase|subscription|saving|submitting|deleting|uploading|approving|rejecting|creating|application|account|logout|login|auth|verification/.test(clean)) {
+        return false;
+    }
+
+    const path = String(window.location?.pathname || '').replace(/\/+$/, '');
+
+    return Boolean(
+        path === '/dashboard' ||
+        document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+        document.body?.getAttribute('data-yh-view') === 'hub'
+    );
+}
+
+function markUniverseDivisionNonBlockingSyncV1(label = '') {
+    const cleanLabel = String(label || 'Syncing...').trim() || 'Syncing...';
+
+    document.body?.setAttribute('data-yh-tab-syncing', 'true');
+    document.body?.setAttribute('data-yh-tab-sync-label', cleanLabel);
+
+    window.clearTimeout(window.__yhDashboardNonBlockingTabSyncTimerV1);
+    window.__yhDashboardNonBlockingTabSyncTimerV1 = window.setTimeout(() => {
+        document.body?.removeAttribute('data-yh-tab-syncing');
+        document.body?.removeAttribute('data-yh-tab-sync-label');
+    }, 900);
+}
+/* END PATCH: YHU instant dashboard parent-child navigation v1 */
+
 function showUniverseDivisionEntryLoader(label = 'Loading...') {
     const loaderText = String(label || 'Loading...').trim() || 'Loading...';
+
+    if (shouldBypassUniverseDivisionEntryLoaderV1(loaderText)) {
+        markUniverseDivisionNonBlockingSyncV1(loaderText);
+        hideUniverseDivisionEntryLoader();
+        return true;
+    }
 
     if (typeof showAcademyTabLoader === 'function') {
         showAcademyTabLoader(loaderText);
@@ -10214,6 +10251,46 @@ function getDashboardUnifiedChildWorkspaceLoaderMeta(key = 'overview', meta = {}
     };
 }
 
+/* PATCH: YHU instant dashboard child workspace loader bypass v1 */
+function shouldBypassDashboardUnifiedChildWorkspaceLoaderV1(key = '', meta = {}) {
+    const cleanKey = String(key || '').trim().toLowerCase();
+    const division = String(meta?.division || '').trim().toLowerCase();
+    const resourceType = String(meta?.resourceType || '').trim().toLowerCase();
+
+    if (resourceType && ['payment', 'checkout', 'subscription'].includes(resourceType)) {
+        return false;
+    }
+
+    return Boolean(
+        cleanKey &&
+        cleanKey !== 'overview' &&
+        (
+            division === 'academy' ||
+            division === 'plazas' ||
+            division === 'federation' ||
+            ['wallet', 'business-chats', 'resources'].includes(resourceType) ||
+            /^academy-|^plazas-|^federation-/.test(cleanKey)
+        )
+    );
+}
+
+function markDashboardUnifiedChildWorkspaceNonBlockingSyncV1(key = '', meta = {}) {
+    const cleanKey = String(key || '').trim().toLowerCase();
+    const cleanTitle = String(meta?.title || cleanKey || 'Workspace').replace(/^Open\s+/i, '').trim() || 'Workspace';
+
+    document.body?.setAttribute('data-yh-child-workspace-syncing', 'true');
+    document.body?.setAttribute('data-yh-child-workspace-sync-key', cleanKey);
+    document.body?.setAttribute('data-yh-child-workspace-sync-label', cleanTitle);
+
+    window.clearTimeout(window.__yhDashboardChildWorkspaceNonBlockingTimerV1);
+    window.__yhDashboardChildWorkspaceNonBlockingTimerV1 = window.setTimeout(() => {
+        document.body?.removeAttribute('data-yh-child-workspace-syncing');
+        document.body?.removeAttribute('data-yh-child-workspace-sync-key');
+        document.body?.removeAttribute('data-yh-child-workspace-sync-label');
+    }, 900);
+}
+/* END PATCH: YHU instant dashboard child workspace loader bypass v1 */
+
 function showDashboardUnifiedChildWorkspaceLoader(key = 'overview', meta = {}) {
     const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
     const loader = document.getElementById('yh-universe-child-workspace-loader');
@@ -10221,6 +10298,29 @@ function showDashboardUnifiedChildWorkspaceLoader(key = 'overview', meta = {}) {
     const kicker = document.getElementById('yh-universe-child-workspace-loader-kicker');
     const title = document.getElementById('yh-universe-child-workspace-loader-title');
     const copy = document.getElementById('yh-universe-child-workspace-loader-copy');
+
+    if (shouldBypassDashboardUnifiedChildWorkspaceLoaderV1(key, meta)) {
+        markDashboardUnifiedChildWorkspaceNonBlockingSyncV1(key, meta);
+
+        if (loader) {
+            loader.classList.remove('is-active');
+            loader.classList.add('hidden-step');
+            loader.setAttribute('aria-hidden', 'true');
+            loader.style.pointerEvents = 'none';
+        }
+
+        if (frameShell) {
+            frameShell.classList.remove('is-switching', 'has-child-workspace-loader');
+            frameShell.removeAttribute('data-child-loader-key');
+            frameShell.removeAttribute('data-child-loader-started-at');
+        }
+
+        window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderFallback);
+        window.clearTimeout(window.__yhDashboardChildWorkspaceReadyPollTimer);
+        window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderMinTimer);
+
+        return false;
+    }
 
     if (!frameShell || !loader) return false;
 

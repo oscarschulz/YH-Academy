@@ -15,7 +15,100 @@
 
         let yhTabLoaderNestedHideTimer = null;
     let yhTabLoaderCycle = 0;
+
+    /* PATCH: YHU non-blocking dashboard tab navigation v1 */
+    function getYHParentDashboardBodyForTabLoaderV1() {
+        try {
+            if (window.parent && window.parent !== window && window.parent.document) {
+                return window.parent.document.body || null;
+            }
+        } catch (_) {}
+
+        return null;
+    }
+
+    function isYHDashboardNavigationContextV1() {
+        const ownBody = document.body || null;
+        const parentBody = getYHParentDashboardBodyForTabLoaderV1();
+        const ownPath = String(window.location?.pathname || '').replace(/\/+$/, '');
+
+        let parentPath = '';
+        try {
+            parentPath = String(window.parent?.location?.pathname || '').replace(/\/+$/, '');
+        } catch (_) {}
+
+        return Boolean(
+            ownPath === '/dashboard' ||
+            parentPath === '/dashboard' ||
+            ownBody?.getAttribute('data-yh-page') === 'dashboard' ||
+            ownBody?.getAttribute('data-yh-view') === 'hub' ||
+            ownBody?.getAttribute('data-yh-dashboard-embed') === 'true' ||
+            ownBody?.classList?.contains('yh-dashboard-inline-embed-body') ||
+            parentBody?.getAttribute('data-yh-page') === 'dashboard' ||
+            parentBody?.getAttribute('data-yh-view') === 'hub' ||
+            parentBody?.classList?.contains('yh-dashboard-shell-ready')
+        );
+    }
+
+    function isYHCriticalBlockingLoaderLabelV1(label = '') {
+        const clean = String(label || '').trim().toLowerCase();
+
+        return /payment|checkout|purchase|subscription|saving|submitting|deleting|uploading|approving|rejecting|creating|application|account|logout|login|auth|verification/.test(clean);
+    }
+
+    function shouldBypassYHTabLoaderForDashboardNavigationV1(label = '') {
+        if (!isYHDashboardNavigationContextV1()) return false;
+        if (isYHCriticalBlockingLoaderLabelV1(label)) return false;
+
+        const clean = String(label || '').trim().toLowerCase();
+
+        return (
+            !clean ||
+            /loading|preparing|entering|opening|sync|roadmap|missions|community|messages|voice|video|profile|plazas|federation|wallet|business|resources|settings/.test(clean)
+        );
+    }
+
+    function markYHNonBlockingTabSyncV1(label = '') {
+        const cleanLabel = String(label || 'Syncing...').trim() || 'Syncing...';
+
+        const bodies = [document.body, getYHParentDashboardBodyForTabLoaderV1()].filter(Boolean);
+
+        bodies.forEach((body) => {
+            body.setAttribute('data-yh-tab-syncing', 'true');
+            body.setAttribute('data-yh-tab-sync-label', cleanLabel);
+
+            window.clearTimeout(body.__yhNonBlockingTabSyncTimerV1);
+            body.__yhNonBlockingTabSyncTimerV1 = window.setTimeout(() => {
+                body.removeAttribute('data-yh-tab-syncing');
+                body.removeAttribute('data-yh-tab-sync-label');
+            }, 900);
+        });
+
+        try {
+            window.dispatchEvent(new CustomEvent('yh:nonblocking-tab-sync', {
+                detail: { label: cleanLabel }
+            }));
+        } catch (_) {}
+    }
+    /* END PATCH: YHU non-blocking dashboard tab navigation v1 */
     function showAcademyTabLoader(label = 'Loading.') {
+        const normalizedLoaderLabel = String(label || 'Loading.').trim() || 'Loading.';
+
+        if (shouldBypassYHTabLoaderForDashboardNavigationV1(normalizedLoaderLabel)) {
+            markYHNonBlockingTabSyncV1(normalizedLoaderLabel);
+
+            const existingOverlay = document.getElementById('yh-tab-loader');
+            if (existingOverlay) {
+                existingOverlay.classList.remove('is-active');
+                existingOverlay.classList.add('hidden-step');
+                existingOverlay.setAttribute('aria-hidden', 'true');
+                existingOverlay.style.pointerEvents = 'none';
+            }
+
+            yhTabLoaderDepth = 0;
+            return 0;
+        }
+
         const overlay = document.getElementById('yh-tab-loader');
         if (!overlay) return 0;
 
