@@ -99,7 +99,7 @@ function mergeSources(row = {}) {
 
 function rowToFirestoreUser(row = {}) {
     const source = mergeSources(row);
-    const uid = cleanText(row.firebase_uid || row.source_document_id || source.firebaseUid || source.uid || source.userId || '');
+    const uid = cleanText(row.user_id || row.firebase_uid || row.source_document_id || source.user_id || source.firebaseUid || source.uid || source.userId || '');
 
     const fullName = cleanText(row.full_name || row.display_name || source.fullName || source.name || source.displayName || source.userName || '');
     const email = lowerEmail(row.email || source.email || source.userEmail || '');
@@ -175,6 +175,7 @@ function buildPayload(uid = '', user = {}, existingRow = {}) {
         firebase_uid: uid,
         source_document_id: uid,
         source_document_path: `users/${uid}`,
+        user_id: uid,
         email,
         full_name: fullName,
         display_name: fullName,
@@ -251,6 +252,7 @@ async function getProfileByUid(uid = '') {
     if (!cleanUid) return null;
 
     const queries = [
+        ['user_id', cleanUid],
         ['firebase_uid', cleanUid],
         ['source_document_id', cleanUid]
     ];
