@@ -14,17 +14,6 @@
 
   .yh-tw-scope {
     isolation: isolate;
-    min-height: auto;
-    height: auto;
-    max-height: min(420px, calc(100vh - 360px));
-    overflow: visible;
-    display: grid;
-    grid-auto-rows: max-content;
-    align-content: start;
-    gap: 10px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: clamp(10px, 0.8vw, 14px);
   }
 
   /* PATCH: YH Tailwind local utility aliases v1 */
