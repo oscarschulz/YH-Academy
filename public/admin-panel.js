@@ -2914,12 +2914,6 @@ function renderAcademy() {
                 <button data-action="lead-review-revision" data-id="${item.id}">Revision</button>
                 <button data-action="lead-review-reject" data-id="${item.id}">Reject</button>
               ` : ''}
-            <button data-action="lead-federation-ready" data-id="${item.id}">
-              ${item.federationReady ? 'Unmark Federation' : 'Federation Ready'}
-            </button>
-            <button data-action="lead-plaza-ready" data-id="${item.id}">
-              ${item.plazaReady ? 'Unmark Plaza' : 'Plaza Ready'}
-            </button>
             <button data-action="lead-set-strategic-value" data-id="${item.id}">Set Value</button>
           </div>
         `)}
