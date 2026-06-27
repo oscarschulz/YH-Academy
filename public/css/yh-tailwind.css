@@ -1329,12 +1329,16 @@ body[data-yh-page="apply"] .yh-register-modal-panel {
   width: 100vw;
   height: 100dvh;
   min-height: 100dvh;
-  max-height: none;
+  max-height: 100dvh;
   display: grid;
-  place-items: center;
-  padding: clamp(22px, 2.4vw, 42px);
+  place-items: start center;
+  align-items: start;
+  justify-items: center;
+  padding: max(18px, env(safe-area-inset-top)) clamp(16px, 2.4vw, 42px) max(18px, env(safe-area-inset-bottom));
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   border: 0;
   border-radius: 0;
   background:
@@ -1351,6 +1355,8 @@ body[data-yh-page="apply"] .yh-register-modal-panel {
   -webkit-backface-visibility: visible;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.28) transparent;
 }
 
 body[data-yh-page="apply"] .yh-register-modal-panel.hidden-step {
@@ -1364,17 +1370,16 @@ body.yh-register-modal-open[data-yh-page="apply"] .yh-register-modal-panel {
 body[data-yh-page="apply"] .yh-register-modal-panel .auth-center-wrapper {
   position: relative;
   z-index: 1;
-  width: min(640px, calc(100vw - 48px));
-  max-height: calc(100dvh - 82px);
-  min-height: 0;
-  margin: 0;
+  width: min(640px, calc(100vw - 32px));
+  max-height: none;
+  min-height: auto;
+  margin: 0 auto;
   padding: clamp(20px, 1.55vw, 26px);
   display: grid;
   align-content: start;
   justify-items: stretch;
   gap: 11px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: visible;
   border: 1px solid rgba(147, 197, 253, 0.38);
   border-radius: 22px;
   background:
@@ -1388,8 +1393,6 @@ body[data-yh-page="apply"] .yh-register-modal-panel .auth-center-wrapper {
     inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(10px) saturate(1.08);
   -webkit-backdrop-filter: blur(10px) saturate(1.08);
-  scrollbar-width: thin;
-  scrollbar-color: rgba(147, 197, 253, 0.28) transparent;
 }
 
 body[data-yh-page="apply"] .yh-register-modal-panel .auth-center-wrapper::before {
@@ -1632,16 +1635,21 @@ body[data-yh-page="apply"] .yh-register-modal-panel .btn-back-icon {
 
 @media (max-width: 720px) {
   body[data-yh-page="apply"] .yh-register-modal-panel {
-    padding: 16px;
+    padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+    place-items: start center;
     align-items: start;
+    justify-items: center;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   body[data-yh-page="apply"] .yh-register-modal-panel .auth-center-wrapper {
     width: 100%;
-    max-height: calc(100dvh - 66px);
-    padding: 20px 16px;
-    margin-top: 44px;
+    max-height: none;
+    padding: 18px 14px;
+    margin-top: 0;
     border-radius: 18px;
+    overflow: visible;
   }
 
   body[data-yh-page="apply"] .yh-register-modal-panel .form-row,
@@ -1903,13 +1911,18 @@ body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .auth-cen
   width: 100%;
   min-height: 100%;
   display: grid;
-  align-content: start;
-  gap: 9px;
+  align-content: center;
+  justify-content: stretch;
+  justify-items: stretch;
+  gap: clamp(10px, 1.1dvh, 14px);
+  padding-block: clamp(8px, 2.4dvh, 28px);
 }
 
 body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .auth-center-wrapper {
   align-content: start;
+  justify-items: stretch;
   gap: 12px;
+  padding-block: 0;
 }
 
 body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .text-center.mb-large.mt-small {
@@ -2333,9 +2346,17 @@ body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-profi
   position: fixed;
   inset: 0;
   z-index: 12020;
+  width: 100vw;
+  height: 100dvh;
   display: grid;
-  place-items: center;
-  padding: 22px;
+  place-items: start center;
+  align-items: start;
+  justify-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: rgba(1, 3, 10, 0.78);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -2347,10 +2368,11 @@ body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-profi
 
 body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-profile-cropper-dialog {
   width: min(460px, calc(100vw - 32px));
-  max-height: calc(100dvh - 44px);
+  max-height: none;
   display: grid;
   gap: 14px;
-  overflow: hidden;
+  overflow: visible;
+  margin: 0 auto;
   padding: 18px;
   border: 1px solid rgba(223, 247, 255, 0.2);
   border-radius: 18px;
