@@ -1,6 +1,19 @@
 // public/js/apply.js
 
 function showStep(stepNumber) {
+    if (Number(stepNumber) !== 1) {
+        document.body.classList.remove('yh-register-modal-open');
+
+        const authFlipper = document.getElementById('auth-flipper');
+        if (authFlipper) authFlipper.classList.remove('is-flipped');
+
+        const registerModal = document.querySelector('.yh-register-modal-panel');
+        if (registerModal) {
+            registerModal.classList.add('hidden-step');
+            registerModal.setAttribute('aria-hidden', 'true');
+        }
+    }
+
     document.querySelectorAll('.step-container').forEach(el => { el.classList.add('hidden-step'); });
     const targetStep = document.getElementById(`step-${stepNumber}`);
     if(targetStep) {
@@ -420,20 +433,20 @@ const YH_LANDING_CITY_LIGHT_POINTS = [
 ].map((point, index) => ({
     ...point,
     kind: 'city-light',
-    coreColor: index % 5 === 0 ? 'rgba(255, 237, 213, 0.98)' : 'rgba(251, 191, 36, 0.94)',
-    coreAltitude: 0.006,
-    coreRadius: index % 5 === 0 ? 0.115 : 0.075,
-    ringAltitude: 0.0024,
+    coreColor: index % 3 === 0 ? 'rgba(255, 255, 228, 1)' : 'rgba(255, 246, 72, 1)',
+    coreAltitude: 0.019,
+    coreRadius: index % 3 === 0 ? 0.44 : 0.3,
+    ringAltitude: 0.0046,
     ringColor: [
-        'rgba(255, 237, 213, 0.82)',
-        'rgba(251, 191, 36, 0.28)',
-        'rgba(251, 191, 36, 0)'
+        'rgba(255, 255, 228, 1)',
+        'rgba(255, 248, 96, 0.86)',
+        'rgba(255, 242, 48, 0.18)',
+        'rgba(255, 242, 48, 0)'
     ],
-    ringMaxRadius: index % 5 === 0 ? 2.35 : 1.45,
-    ringPropagationSpeed: index % 5 === 0 ? 0.82 : 0.52,
-    ringRepeatPeriod: index % 5 === 0 ? 2700 : 3600
+    ringMaxRadius: index % 3 === 0 ? 3.72 : 2.52,
+    ringPropagationSpeed: index % 3 === 0 ? 0.36 : 0.3,
+    ringRepeatPeriod: index % 3 === 0 ? 3600 : 4300
 }));
-
 const YH_LANDING_NETWORK_ARCS = [
     { id: 'arc_london_dubai', startLat: 51.5072, startLng: -0.1276, endLat: 25.2048, endLng: 55.2708 },
     { id: 'arc_dubai_mumbai', startLat: 25.2048, startLng: 55.2708, endLat: 19.076, endLng: 72.8777 },
@@ -451,15 +464,15 @@ const YH_LANDING_NETWORK_ARCS = [
 ].map((arc, index) => ({
     ...arc,
     color: [
-        'rgba(255, 237, 213, 0.95)',
-        index % 3 === 0 ? 'rgba(251, 191, 36, 0.72)' : 'rgba(245, 158, 11, 0.58)',
-        'rgba(251, 191, 36, 0.08)'
+        index % 3 === 0 ? 'rgba(255, 255, 218, 0.58)' : 'rgba(255, 248, 120, 0.46)',
+        index % 3 === 0 ? 'rgba(255, 246, 72, 0.28)' : 'rgba(255, 242, 48, 0.22)',
+        'rgba(255, 242, 48, 0)'
     ],
-    stroke: index % 3 === 0 ? 0.62 : 0.44,
-    altitude: index % 3 === 0 ? 0.28 : 0.2,
-    dashLength: index % 3 === 0 ? 0.42 : 0.34,
-    dashGap: index % 3 === 0 ? 0.12 : 0.18,
-    dashAnimateTime: index % 3 === 0 ? 2200 : 2800
+    stroke: index % 3 === 0 ? 0.16 : 0.13,
+    altitude: index % 3 === 0 ? 0.17 : 0.13,
+    dashLength: index % 3 === 0 ? 0.2 : 0.16,
+    dashGap: index % 3 === 0 ? 0.34 : 0.38,
+    dashAnimateTime: index % 3 === 0 ? 4800 : 5600
 }));
 
 const YH_LANDING_MAP_POINTS = [];
@@ -1070,7 +1083,9 @@ function addLandingGlobeClouds(world) {
                 new window.THREE.MeshPhongMaterial({
                     map: cloudsTexture,
                     transparent: true,
-                    depthWrite: false
+                    opacity: 0.014,
+                    depthWrite: false,
+                    color: 0xe6f2ff
                 })
             );
 
@@ -1264,6 +1279,92 @@ window.yhSetLandingGlobeData = function yhSetLandingGlobeData(next = {}) {
     }
 };
 
+function applyLandingReferenceGlobeLighting(world) {
+    if (
+        !world ||
+        !window.THREE ||
+        typeof world.scene !== 'function'
+    ) {
+        return;
+    }
+
+    const THREE = window.THREE;
+    const scene = world.scene();
+
+    if (!scene || scene.__yhCinematicLandingLightsV83) {
+        return;
+    }
+
+    scene.__yhCinematicLandingLightsV83 = true;
+    scene.background = null;
+
+    if (typeof world.renderer === 'function') {
+        const renderer = world.renderer();
+
+        if (renderer) {
+            if (typeof renderer.setPixelRatio === 'function') {
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            }
+
+            if ('outputColorSpace' in renderer && THREE.SRGBColorSpace) {
+                renderer.outputColorSpace = THREE.SRGBColorSpace;
+            }
+
+            if ('toneMapping' in renderer && THREE.ACESFilmicToneMapping) {
+                renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            }
+
+            if ('toneMappingExposure' in renderer) {
+                renderer.toneMappingExposure = 0.98;
+            }
+
+            if ('physicallyCorrectLights' in renderer) {
+                renderer.physicallyCorrectLights = true;
+            }
+        }
+    }
+
+    const ambient = new THREE.AmbientLight(0xe3edf8, 0.42);
+    scene.add(ambient);
+
+    const softFill = new THREE.HemisphereLight(0x8aa9c2, 0x01040a, 0.24);
+    scene.add(softFill);
+
+    const keyLight = new THREE.DirectionalLight(0xf2f8ff, 0.12);
+    keyLight.position.set(2.2, 1.4, 5.8);
+    scene.add(keyLight);
+
+    const rimLight = new THREE.DirectionalLight(0xdff7ff, 0.74);
+    rimLight.position.set(9.4, 2.2, 4.8);
+    scene.add(rimLight);
+
+    const upperEdgeLight = new THREE.DirectionalLight(0xffffff, 0.18);
+    upperEdgeLight.position.set(-1.8, 5.2, 6.8);
+    scene.add(upperEdgeLight);
+
+    const warmCityFill = new THREE.DirectionalLight(0xffff8a, 0.26);
+    warmCityFill.position.set(-3.2, -1.4, 4.6);
+    scene.add(warmCityFill);
+
+    const horizonGlow = new THREE.PointLight(0xfff36a, 0.18, 760);
+    horizonGlow.position.set(190, -6, 260);
+    scene.add(horizonGlow);
+
+    if (typeof world.globeMaterial === 'function') {
+        const material = world.globeMaterial();
+
+        if (material) {
+            if ('color' in material) material.color = new THREE.Color(0xffffff);
+            if ('emissive' in material) material.emissive = new THREE.Color(0x151900);
+            if ('emissiveIntensity' in material) material.emissiveIntensity = 0.085;
+            if ('shininess' in material) material.shininess = 7;
+            if ('specular' in material) material.specular = new THREE.Color(0x3f4212);
+            if ('bumpScale' in material) material.bumpScale = 0.72;
+            material.needsUpdate = true;
+        }
+    }
+}
+
 async function initLandingMapShell() {
     const mapEl = document.getElementById('yh-world-map');
     if (!mapEl) return;
@@ -1313,12 +1414,12 @@ async function initLandingMapShell() {
     mapEl.innerHTML = '';
 
     const world = new window.Globe(mapEl, { animateIn: false })
-        .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg')
+        .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
         .bumpImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png')
         .backgroundColor('rgba(0,0,0,0)')
         .showAtmosphere(true)
-        .atmosphereColor('#7dd3fc')
-        .atmosphereAltitude(0.2)
+        .atmosphereColor('#bfefff')
+        .atmosphereAltitude(0.038)
         .showPointerCursor((objType, objData) => {
             return (objType === 'point' || objType === 'ring') && !!objData;
         })
@@ -1326,6 +1427,7 @@ async function initLandingMapShell() {
             focusLandingGlowPoint(point);
             showToast(`${point.label || 'Universe network light'} selected`);
         });
+
 
     yhLandingMapInstance = world;
 
@@ -1337,21 +1439,27 @@ async function initLandingMapShell() {
         }
     }
 
+    applyLandingReferenceGlobeLighting(world);
+
+    if (typeof world.pointOfView === 'function') {
+        world.pointOfView({ lat: 34, lng: -92, altitude: 1.92 }, 0);
+    }
     const controls = typeof world.controls === 'function' ? world.controls() : null;
 
     if (controls) {
         controls.autoRotate = true;
-        controls.autoRotateSpeed = 0.28;
+        controls.autoRotateSpeed = 0.07;
         controls.enablePan = false;
         controls.enableRotate = true;
         controls.enableZoom = false;
         controls.zoomSpeed = 0;
         controls.enableDamping = true;
-        controls.dampingFactor = 0.08;
+        controls.dampingFactor = 0.05;
 
         if (typeof world.getGlobeRadius === 'function') {
             const globeRadius = world.getGlobeRadius();
-            controls.maxDistance = globeRadius * 4.6;
+            controls.minDistance = globeRadius * 1.95;
+            controls.maxDistance = globeRadius * 4.35;
         }
     }
 
@@ -1444,7 +1552,7 @@ async function initLandingMapShell() {
         capture: true
     });
 
-    world.pointOfView({ lat: 14, lng: 18, altitude: 2.16 }, 0);
+    world.pointOfView({ lat: 34, lng: -92, altitude: 1.92 }, 0);
 
     if (controls) {
         if (typeof controls.update === 'function') {
@@ -1522,10 +1630,37 @@ window.addEventListener('load', () => {
     window.addEventListener('resize', syncLandingMobileGlobePlacement, { passive: true });
     window.addEventListener('orientationchange', syncLandingMobileGlobePlacement, { passive: true });
 
-    // --- CARD FLIP LOGIC ---
+    // --- CARD FLIP / REGISTER MODAL LOGIC ---
     const flipper = document.getElementById('auth-flipper');
     const btnFlipRegister = document.getElementById('btn-flip-register');
     const btnFlipLogin = document.getElementById('btn-flip-login');
+    const registerModalFace = flipper?.querySelector('.flip-card-back');
+
+    const mountRegisterModal = () => {
+        if (!registerModalFace) return;
+
+        const registerModalContent = registerModalFace.querySelector('.auth-center-wrapper');
+
+        if (
+            btnFlipLogin &&
+            registerModalContent &&
+            btnFlipLogin.parentElement !== registerModalContent
+        ) {
+            registerModalContent.insertBefore(btnFlipLogin, registerModalContent.firstElementChild);
+        }
+
+        if (registerModalFace.dataset.yhModalMounted === 'true') return;
+
+        registerModalFace.classList.add('yh-register-modal-panel', 'hidden-step');
+        registerModalFace.setAttribute('role', 'dialog');
+        registerModalFace.setAttribute('aria-modal', 'true');
+        registerModalFace.setAttribute('aria-hidden', 'true');
+
+        document.body.appendChild(registerModalFace);
+        registerModalFace.dataset.yhModalMounted = 'true';
+    };
+
+    mountRegisterModal();
 
     const syncMobileAuthCardHeight = (options = {}) => {
         const animateFace = options.animateFace === true;
@@ -1560,6 +1695,11 @@ window.addEventListener('load', () => {
                 node.style.removeProperty(prop);
             });
         };
+
+        if (document.body.classList.contains('yh-register-modal-open')) {
+            [authCard, panelRight, flipper, frontFace, backFace].forEach(clearRuntimeSizing);
+            return;
+        }
 
         if (!isMobile) {
             [authCard, panelRight, flipper, frontFace, backFace].forEach(clearRuntimeSizing);
@@ -1673,20 +1813,60 @@ window.addEventListener('load', () => {
         });
     };
 
-    const flipToRegister = () => {
-        if (!flipper) return;
-        flipper.classList.add('is-flipped');
+    const openRegisterModal = () => {
+        if (!registerModalFace) return;
+
+        mountRegisterModal();
+
+        flipper?.classList.remove('is-flipped');
+        document.body.classList.add('yh-register-modal-open');
+
+        registerModalFace.classList.remove('hidden-step');
+        registerModalFace.setAttribute('aria-hidden', 'false');
+
+        window.requestAnimationFrame(() => {
+            const firstRegisterInput = document.getElementById('reg-fullname');
+            firstRegisterInput?.focus({ preventScroll: true });
+        });
+    };
+
+    const closeRegisterModal = () => {
+        if (!registerModalFace) return;
+
+        document.body.classList.remove('yh-register-modal-open');
+        flipper?.classList.remove('is-flipped');
+
+        registerModalFace.classList.add('hidden-step');
+        registerModalFace.setAttribute('aria-hidden', 'true');
+
         syncMobileAuthCardHeight({ animateFace: true });
     };
 
-    const flipToLogin = () => {
-        if (!flipper) return;
-        flipper.classList.remove('is-flipped');
-        syncMobileAuthCardHeight({ animateFace: true });
-    };
+    const flipToRegister = openRegisterModal;
+    const flipToLogin = closeRegisterModal;
 
-    if (btnFlipRegister) btnFlipRegister.addEventListener('click', flipToRegister);
-    if (btnFlipLogin) btnFlipLogin.addEventListener('click', flipToLogin);
+    if (btnFlipRegister) btnFlipRegister.addEventListener('click', openRegisterModal);
+    if (btnFlipLogin) btnFlipLogin.addEventListener('click', closeRegisterModal);
+
+    if (registerModalFace) {
+        registerModalFace.addEventListener('click', (event) => {
+            if (
+                document.body.classList.contains('yh-register-modal-open') &&
+                event.target === registerModalFace
+            ) {
+                closeRegisterModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (
+            event.key === 'Escape' &&
+            document.body.classList.contains('yh-register-modal-open')
+        ) {
+            closeRegisterModal();
+        }
+    });
 
     function handleDeletedAccountAuthResult(result = {}, options = {}) {
         const isDeletedAccount =

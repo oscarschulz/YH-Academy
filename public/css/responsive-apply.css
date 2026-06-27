@@ -61,11 +61,6 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
         max-width: 1460px;
     }
 
-    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-topbar {
-        padding-left: clamp(12px, 1.8vw, 22px) !important;
-        padding-right: clamp(12px, 1.8vw, 22px) !important;
-    }
-
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-grid {
         width: min(100%, 1380px);
         max-width: 1380px;
@@ -74,7 +69,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
         align-items: center;
         align-content: center;
         min-height: clamp(720px, 88vh, 900px);
-        padding-top: clamp(68px, 5vw, 90px) !important;
+        padding-top: clamp(68px, 5vw, 90px);
         padding-bottom: 18px;
     }
 
@@ -107,7 +102,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-world-map canvas {
-        transform: translate(-47%, -50%) !important;
+        transform: translate(-47%, -50%);
     }
 }
 /* =========================================================
@@ -127,11 +122,6 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
         max-width: 1300px;
     }
 
-    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-topbar {
-        padding-left: 10px !important;
-        padding-right: 10px !important;
-    }
-
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-grid {
         width: 100%;
         max-width: 100%;
@@ -140,7 +130,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
         align-items: center;
         align-content: center;
         min-height: clamp(690px, 86vh, 790px);
-        padding-top: 72px !important;
+        padding-top: 72px;
         padding-bottom: 18px;
     }
 
@@ -211,7 +201,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-activity-panel {
-        margin-top: 0.84rem !important;
+        margin-top: 0.84rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-activity-stream {
@@ -249,7 +239,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-world-map canvas {
-        transform: translate(-46.8%, -50%) !important;
+        transform: translate(-46.8%, -50%);
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-front,
@@ -278,24 +268,12 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
    short-height laptop
    ========================================================= */
 @media (max-width: 1160px), (max-height: 700px) and (min-width: 821px) {
-    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-topbar {
-        padding-top: 8px !important;
-    }
-
-    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-brand-logo {
-        width: 40px;
-        height: 40px;
-    }
-
-    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-brand-name {
-        font-size: 1rem;
-    }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-grid {
         grid-template-columns: minmax(0, 1fr) minmax(300px, 0.86fr);
         gap: 14px;
         min-height: clamp(540px, 82vh, 650px);
-        padding-top: 50px !important;
+        padding-top: 50px;
         padding-bottom: 10px;
         align-items: center;
         align-content: center;
@@ -351,7 +329,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-world-map canvas {
-        transform: translate(-47.2%, -49%) !important;
+        transform: translate(-47.2%, -49%);
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card,
@@ -549,21 +527,12 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
         padding-right: 16px;
     }
 
-    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-topbar {
-        position: relative;
-        top: auto;
-        left: auto;
-        right: auto;
-        padding: 8px 0 0 !important;
-        margin-bottom: 0;
-    }
-
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-grid {
         width: 100%;
         grid-template-columns: minmax(0, 1fr) minmax(320px, 0.92fr);
         gap: 14px;
         min-height: auto;
-        padding-top: 4px !important;
+        padding-top: 4px;
         padding-bottom: 10px;
         align-items: start;
         align-content: start;
@@ -628,7 +597,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-activity-panel {
-        margin-top: 0.52rem !important;
+        margin-top: 0.52rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-activity-stream {
@@ -656,7 +625,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-world-map canvas {
-        transform: translate(-46.6%, -49.8%) !important;
+        transform: translate(-46.6%, -49.8%);
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card,
@@ -665,8 +634,8 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
         max-width: 780px;
         min-height: clamp(860px, 90dvh, 1120px);
         height: clamp(860px, 90dvh, 1120px);
-        margin-left: auto !important;
-        margin-right: auto !important;
+        margin-left: auto;
+        margin-right: auto;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-grid,
@@ -687,7 +656,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-grid {
         grid-template-columns: minmax(0, 1fr) minmax(250px, 0.82fr);
         gap: 10px;
-        padding-top: 8px !important;
+        padding-top: 8px;
         padding-bottom: 0;
         min-height: auto;
         align-items: start;
@@ -775,7 +744,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-world-map canvas {
-        transform: translate(-46.8%, -50%) !important;
+        transform: translate(-46.8%, -50%);
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card,
@@ -784,8 +753,8 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
         max-width: 690px;
         min-height: clamp(820px, 91dvh, 1100px);
         height: clamp(820px, 91dvh, 1100px);
-        margin-left: auto !important;
-        margin-right: auto !important;
+        margin-left: auto;
+        margin-right: auto;
     }
 }
 
@@ -821,8 +790,8 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
         max-width: 620px;
         min-height: clamp(840px, 92dvh, 1120px);
         height: clamp(840px, 92dvh, 1120px);
-        margin-left: auto !important;
-        margin-right: auto !important;
+        margin-left: auto;
+        margin-right: auto;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-front,
@@ -946,7 +915,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-world-map canvas {
-        transform: translate(var(--yh-apply-phone-globe-x), -50%) !important;
+        transform: translate(var(--yh-apply-phone-globe-x), -50%);
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card,
@@ -955,8 +924,8 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
         max-width: 94vw;
         min-height: clamp(var(--yh-apply-phone-auth-min), var(--yh-apply-phone-auth-fluid), var(--yh-apply-phone-auth-max));
         height: clamp(var(--yh-apply-phone-auth-min), var(--yh-apply-phone-auth-fluid), var(--yh-apply-phone-auth-max));
-        margin-left: auto !important;
-        margin-right: auto !important;
+        margin-left: auto;
+        margin-right: auto;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-front,
@@ -1073,10 +1042,6 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-shell {
         padding: 0 10px 16px;
-    }
-
-    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-brand-name {
-        font-size: 1rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-title {
