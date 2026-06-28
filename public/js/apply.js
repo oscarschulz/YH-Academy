@@ -2766,7 +2766,7 @@ if (formRegisterSimple) {
         otpCodeExpired = false;
         clearPendingVerifyEmail();
 
-        const { otpInput, expiryMessage } = getOTPElements();
+        const { otpInput, expiryMessage, resendBtn, verifyBtn, timerDisplay } = getOTPElements();
 
         if (otpInput) {
             otpInput.disabled = false;
@@ -2778,12 +2778,33 @@ if (formRegisterSimple) {
             expiryMessage.classList.add('hidden-step');
         }
 
+        if (resendBtn) {
+            resendBtn.disabled = true;
+            resendBtn.innerText = yhT('auth.resendIn', { time: '02:00' });
+            resendBtn.style.opacity = '0.5';
+            resendBtn.style.cursor = 'not-allowed';
+        }
+
+        if (verifyBtn) {
+            verifyBtn.disabled = false;
+            verifyBtn.innerText = yhT('auth.verifyEnter');
+            verifyBtn.style.opacity = '1';
+            verifyBtn.style.cursor = 'pointer';
+        }
+
+        if (timerDisplay) {
+            timerDisplay.innerText = '02:00';
+            timerDisplay.style.color = 'var(--neon-blue)';
+        }
+
         showStep(1);
 
         window.setTimeout(() => {
             loginEmailInput?.focus();
         }, 180);
     }
+
+    window.yhCloseVerifyIdentityStep = closeVerifyIdentityStep;
 
     function startOTPTimer() {
         clearInterval(otpTimerInterval);
