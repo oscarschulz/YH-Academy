@@ -345,9 +345,7 @@ textarea.input-field { resize: none; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 #ai-status-title { font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
 
-/* Approved Card (Overrides default card width) */
-.approved-card-container { display: flex; height: 85vh; padding: 0 !important; overflow: hidden !important; max-width: 1200px !important; }
-.approved-form-right { display: flex; flex-direction: column; justify-content: space-between; height: 100%; padding: 2.5rem 4rem; width: 55%; overflow-y: auto; }
+/* Approved content primitives only. Layout ownership lives in yh-tailwind.css. */
 .approved-badge-section { margin-bottom: 1rem; }
 .approved-title-big {
     margin: 0;
@@ -542,8 +540,6 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
     border-radius: 999px !important;
 }
 
-.approved-card-container { height: 80vh !important; min-height: 550px; width: 95vw !important; max-width: 1300px !important; overflow: hidden !important; padding: 0 !important; }
-.approved-form-right { padding: 2rem 3.5rem !important; display: flex; flex-direction: column; justify-content: center; overflow-y: auto; }
 .form-logo-small { width: 55px; margin: 0 auto; filter: drop-shadow(0 0 5px rgba(14, 165, 233, 0.3)); }
 .yh-title-small { font-size: 1.2rem; font-weight: 800; color: #fff; margin: 0.2rem 0 0 0; letter-spacing: 1px; text-transform: uppercase; }
 .yh-subtitle-small { font-size: 0.95rem; color: var(--text-muted); margin: 0 0 0.5rem 0; font-weight: 400; }

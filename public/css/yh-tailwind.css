@@ -1339,13 +1339,18 @@ body[data-yh-page="apply"] #step-2.step-container.hidden-step {
 
 body[data-yh-page="apply"] #step-2 .approved-card-container {
   position: relative;
+  box-sizing: border-box;
   width: min(1040px, calc(100vw - 56px));
+  max-width: 1040px;
   height: min(590px, calc(100dvh - 64px));
   min-height: min(560px, calc(100dvh - 64px));
   max-height: calc(100dvh - 64px);
+  margin: 0 auto;
+  padding: 0;
   display: grid;
   grid-template-columns: minmax(0, 1.04fr) minmax(340px, 0.96fr);
   align-items: stretch;
+  justify-content: stretch;
   overflow: hidden;
   border: 1px solid rgba(147, 197, 253, 0.32);
   border-radius: 22px;
@@ -1365,9 +1370,14 @@ body[data-yh-page="apply"] #step-2 .approved-card-container {
 
 body[data-yh-page="apply"] #step-2 .approved-card-container .panel-left {
   position: relative;
+  width: 100%;
+  max-width: none;
   min-width: 0;
+  height: 100%;
   min-height: 100%;
   display: block;
+  align-self: stretch;
+  justify-self: stretch;
   overflow: hidden;
   border-right: 1px solid rgba(147, 197, 253, 0.22);
   background:
@@ -1402,9 +1412,15 @@ body[data-yh-page="apply"] #step-2 .approved-card-container .intro-video {
 
 body[data-yh-page="apply"] #step-2 .approved-form-right {
   position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
   min-width: 0;
+  height: 100%;
   min-height: 100%;
   display: grid;
+  align-self: stretch;
+  justify-self: stretch;
   align-content: center;
   justify-content: center;
   justify-items: center;
@@ -1593,6 +1609,7 @@ body[data-yh-page="apply"] #step-2 #btn-resend-otp {
 @media (max-width: 920px) {
   body[data-yh-page="apply"] #step-2 .approved-card-container {
     width: min(560px, calc(100vw - 28px));
+    max-width: 560px;
     height: auto;
     min-height: 0;
     max-height: none;
@@ -1600,6 +1617,8 @@ body[data-yh-page="apply"] #step-2 #btn-resend-otp {
   }
 
   body[data-yh-page="apply"] #step-2 .approved-card-container .panel-left {
+    width: 100%;
+    height: clamp(210px, 32dvh, 260px);
     min-height: 210px;
     max-height: 260px;
     border-right: 0;
@@ -1607,6 +1626,8 @@ body[data-yh-page="apply"] #step-2 #btn-resend-otp {
   }
 
   body[data-yh-page="apply"] #step-2 .approved-form-right {
+    width: 100%;
+    height: auto;
     min-height: 360px;
     padding: 26px 18px 28px;
   }
