@@ -2581,28 +2581,66 @@ if (formRegisterSimple) {
         const profilePhotoFile = document.getElementById('reg-profile-photo')?.files?.[0] || null;
         const referralCode = getYHUniverseReferralCode();
 
-        if (password !== confirmPassword) {
-            showToast("Passwords do not match.", "error");
+        if (!fullName) {
+            showToast("Please enter your full name.", "error");
+            document.getElementById('reg-fullname')?.focus();
+            return;
+        }
+
+        if (!email) {
+            showToast("Please enter your email address.", "error");
+            document.getElementById('reg-email')?.focus();
+            return;
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            showToast("Please enter a valid email address.", "error");
+            document.getElementById('reg-email')?.focus();
             return;
         }
 
         if (!username) {
             showToast("Please enter a username.", "error");
+            document.getElementById('reg-username')?.focus();
             return;
         }
 
         if (!city || !country) {
             showToast("Please enter your city and country.", "error");
+            if (!city) {
+                document.getElementById('reg-city')?.focus();
+            } else {
+                document.getElementById('reg-country')?.focus();
+            }
             return;
         }
 
         if (!profilePhotoFile) {
             showToast("Profile photo is required.", "error");
+            document.getElementById('reg-profile-photo-label')?.focus?.();
             return;
         }
 
         if (!profilePhotoFile.type.startsWith('image/')) {
             showToast("Please upload a valid image file.", "error");
+            return;
+        }
+
+        if (!password) {
+            showToast("Please create a password.", "error");
+            document.getElementById('reg-password')?.focus();
+            return;
+        }
+
+        if (!confirmPassword) {
+            showToast("Please confirm your password.", "error");
+            document.getElementById('reg-confirm-password')?.focus();
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            showToast("Passwords do not match.", "error");
+            document.getElementById('reg-confirm-password')?.focus();
             return;
         }
 
