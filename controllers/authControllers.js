@@ -68,6 +68,7 @@ const randomSuffix = (length = 4) => {
 };
 
 const nowIso = () => new Date().toISOString();
+const ACCOUNT_VERIFICATION_OTP_TTL_MINUTES = Number(process.env.ACCOUNT_VERIFICATION_OTP_TTL_MINUTES || 2);
 const PASSWORD_RESET_OTP_TTL_MINUTES = Number(process.env.PASSWORD_RESET_OTP_TTL_MINUTES || 10);
 const PASSWORD_RESET_VERIFIED_TTL_MINUTES = Number(process.env.PASSWORD_RESET_VERIFIED_TTL_MINUTES || 15);
 
@@ -1116,16 +1117,36 @@ exports.verifyOTP = async (req, res) => {
             });
         }
 
+        const issuedAt = String(user.verificationCodeIssuedAt || '').trim();
+        const expiresAt = addMinutesToIsoFromValue(issuedAt, ACCOUNT_VERIFICATION_OTP_TTL_MINUTES);
+
+        if (!issuedAt || !expiresAt || isIsoExpired(expiresAt)) {
+            await usersCollection().doc(user.id).update({
+                verificationCode: null,
+                verificationCodeIssuedAt: null,
+                updatedAt: nowIso()
+            });
+
+            return res.status(400).json({
+                success: false,
+                otpExpired: true,
+                verificationRequired: true,
+                message: 'Verification code expired. Please request a new code.'
+            });
+        }
+
         await usersCollection().doc(user.id).update({
             isVerified: true,
             verificationCode: null,
+            verificationCodeIssuedAt: null,
             updatedAt: nowIso()
         });
 
         const updatedUser = {
             ...user,
             isVerified: true,
-            verificationCode: null
+            verificationCode: null,
+            verificationCodeIssuedAt: null
         };
 
         try {
@@ -1185,6 +1206,7 @@ exports.resendOTP = async (req, res) => {
 
         await usersCollection().doc(user.id).update({
             verificationCode: otpCode,
+            verificationCodeIssuedAt: nowIso(),
             updatedAt: nowIso()
         });
 

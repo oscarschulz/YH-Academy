@@ -1848,26 +1848,6 @@ window.addEventListener('load', () => {
     if (btnFlipRegister) btnFlipRegister.addEventListener('click', openRegisterModal);
     if (btnFlipLogin) btnFlipLogin.addEventListener('click', closeRegisterModal);
 
-    if (registerModalFace) {
-        registerModalFace.addEventListener('click', (event) => {
-            if (
-                document.body.classList.contains('yh-register-modal-open') &&
-                event.target === registerModalFace
-            ) {
-                closeRegisterModal();
-            }
-        });
-    }
-
-    document.addEventListener('keydown', (event) => {
-        if (
-            event.key === 'Escape' &&
-            document.body.classList.contains('yh-register-modal-open')
-        ) {
-            closeRegisterModal();
-        }
-    });
-
     function handleDeletedAccountAuthResult(result = {}, options = {}) {
         const isDeletedAccount =
             result?.accountDeleted === true ||
@@ -2696,28 +2676,148 @@ if (formRegisterSimple) {
 
     // --- OTP LOGIC ---
     let otpTimerInterval;
+    let otpCodeExpired = false;
+
+    function getOTPElements() {
+        return {
+            timerDisplay: document.getElementById('otp-timer'),
+            resendBtn: document.getElementById('btn-resend-otp'),
+            otpInput: document.getElementById('otp-input'),
+            verifyBtn: document.getElementById('btn-verify-otp'),
+            expiryMessage: document.getElementById('otp-expiry-message')
+        };
+    }
+
+    function setOTPActiveState() {
+        const { timerDisplay, resendBtn, otpInput, verifyBtn, expiryMessage } = getOTPElements();
+
+        otpCodeExpired = false;
+
+        if (timerDisplay) {
+            timerDisplay.innerText = "02:00";
+            timerDisplay.style.color = 'var(--neon-blue)';
+        }
+
+        if (resendBtn) {
+            resendBtn.innerText = yhT('auth.resendIn', { time: '02:00' });
+            resendBtn.disabled = true;
+            resendBtn.style.opacity = '0.5';
+            resendBtn.style.cursor = 'not-allowed';
+        }
+
+        if (otpInput) {
+            otpInput.disabled = false;
+            otpInput.value = '';
+            otpInput.removeAttribute('aria-invalid');
+        }
+
+        if (verifyBtn) {
+            verifyBtn.innerText = yhT('auth.verifyEnter');
+            verifyBtn.disabled = false;
+            verifyBtn.style.opacity = '1';
+            verifyBtn.style.cursor = 'pointer';
+        }
+
+        if (expiryMessage) {
+            expiryMessage.classList.add('hidden-step');
+            expiryMessage.textContent = 'This code has expired. Please request a new code.';
+        }
+    }
+
+    function setOTPExpiredState(message = 'This code has expired. Please request a new code.') {
+        const { timerDisplay, resendBtn, otpInput, verifyBtn, expiryMessage } = getOTPElements();
+
+        otpCodeExpired = true;
+        clearInterval(otpTimerInterval);
+
+        if (timerDisplay) {
+            timerDisplay.innerText = "00:00";
+            timerDisplay.style.color = "#ef4444";
+        }
+
+        if (otpInput) {
+            otpInput.value = '';
+            otpInput.disabled = true;
+            otpInput.setAttribute('aria-invalid', 'true');
+        }
+
+        if (verifyBtn) {
+            verifyBtn.innerText = 'Code Expired';
+            verifyBtn.disabled = true;
+            verifyBtn.style.opacity = '0.55';
+            verifyBtn.style.cursor = 'not-allowed';
+        }
+
+        if (resendBtn) {
+            resendBtn.innerText = yhT('auth.resendCode');
+            resendBtn.disabled = false;
+            resendBtn.style.opacity = '1';
+            resendBtn.style.cursor = 'pointer';
+        }
+
+        if (expiryMessage) {
+            expiryMessage.textContent = message;
+            expiryMessage.classList.remove('hidden-step');
+        }
+    }
+
+    function closeVerifyIdentityStep() {
+        clearInterval(otpTimerInterval);
+        otpCodeExpired = false;
+        clearPendingVerifyEmail();
+
+        const { otpInput, expiryMessage } = getOTPElements();
+
+        if (otpInput) {
+            otpInput.disabled = false;
+            otpInput.value = '';
+            otpInput.removeAttribute('aria-invalid');
+        }
+
+        if (expiryMessage) {
+            expiryMessage.classList.add('hidden-step');
+        }
+
+        showStep(1);
+
+        window.setTimeout(() => {
+            loginEmailInput?.focus();
+        }, 180);
+    }
+
     function startOTPTimer() {
         clearInterval(otpTimerInterval);
+
+        const { timerDisplay, resendBtn } = getOTPElements();
+
+        if (!timerDisplay || !resendBtn) return;
+
         let timeLeft = 120;
-        const timerDisplay = document.getElementById('otp-timer');
-        const resendBtn = document.getElementById('btn-resend-otp');
-        
-        resendBtn.disabled = true; resendBtn.style.opacity = '0.5'; resendBtn.style.cursor = 'not-allowed';
-        timerDisplay.style.color = 'var(--neon-blue)';
+        setOTPActiveState();
 
         otpTimerInterval = setInterval(() => {
-            const minutes = Math.floor(timeLeft / 60); const seconds = timeLeft % 60;
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
             const timeLabel = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
             timerDisplay.innerText = timeLabel;
             resendBtn.innerText = yhT('auth.resendIn', { time: timeLabel });
 
             if (timeLeft <= 0) {
-                clearInterval(otpTimerInterval);
-                timerDisplay.innerText = "00:00"; timerDisplay.style.color = "#ef4444";
-                resendBtn.innerText = yhT('auth.resendCode'); resendBtn.disabled = false; resendBtn.style.opacity = '1'; resendBtn.style.cursor = 'pointer';
+                setOTPExpiredState('Verification code expired. Please request a new code or return to login.');
+                showToast("Verification code expired. Please request a new code.", "error");
+                return;
             }
+
             timeLeft--;
         }, 1000);
+    }
+
+    const btnCloseVerifyOTP = document.getElementById('btn-close-verify-otp');
+    if (btnCloseVerifyOTP) {
+        btnCloseVerifyOTP.addEventListener('click', () => {
+            closeVerifyIdentityStep();
+        });
     }
 
     const btnResendOTP = document.getElementById('btn-resend-otp');
@@ -2725,8 +2825,8 @@ if (formRegisterSimple) {
         btnResendOTP.addEventListener('click', async () => {
             const email = getPendingVerifyEmail();
             if (!email) {
-                showToast("Missing verification email. Please register again.", "error");
-                showStep(1);
+                showToast("Missing verification email. Please log in again.", "error");
+                closeVerifyIdentityStep();
                 return;
             }
 
@@ -2743,17 +2843,14 @@ if (formRegisterSimple) {
 
                 if (result.success) {
                     showToast("A new code has been sent to your email.", "success");
-                    document.getElementById('otp-input').value = '';
                     startOTPTimer();
                 } else {
                     showToast(result.message, "error");
-                    btnResendOTP.innerText = yhT('auth.resendCode');
-                    btnResendOTP.disabled = false;
+                    setOTPExpiredState(result.message || 'Please request a new code.');
                 }
             } catch (error) {
                 showToast("Failed to resend code.", "error");
-                btnResendOTP.innerText = yhT('auth.resendCode');
-                btnResendOTP.disabled = false;
+                setOTPExpiredState('Failed to resend code. Please try again.');
             }
         });
     }
@@ -2762,12 +2859,25 @@ if (formRegisterSimple) {
     if (formVerifyOTP) {
         formVerifyOTP.addEventListener('submit', async function(e) {
             e.preventDefault();
-            const otpCode = document.getElementById('otp-input').value.trim();
+
+            const { otpInput } = getOTPElements();
+            const otpCode = otpInput?.value?.trim() || '';
             const email = getPendingVerifyEmail();
 
             if (!email) {
-                showToast("Missing verification email. Please register again.", "error");
-                showStep(1);
+                showToast("Missing verification email. Please log in again.", "error");
+                closeVerifyIdentityStep();
+                return;
+            }
+
+            if (otpCodeExpired) {
+                showToast("This verification code has expired. Please request a new code.", "error");
+                setOTPExpiredState();
+                return;
+            }
+
+            if (!otpCode) {
+                showToast("Please enter the verification code.", "error");
                 return;
             }
 
@@ -2805,6 +2915,9 @@ if (formRegisterSimple) {
                     setTimeout(() => {
                         window.location.assign(`/dashboard?auth=${Date.now()}`);
                     }, 450);
+                } else if (result.otpExpired) {
+                    showToast(result.message || "Verification code expired. Please request a new code.", "error");
+                    setOTPExpiredState(result.message || 'Verification code expired. Please request a new code.');
                 } else {
                     showToast(result.message, "error");
                     submitBtn.innerText = yhT('auth.verifyEnter');
