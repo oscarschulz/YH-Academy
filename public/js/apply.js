@@ -89,7 +89,7 @@ function showToast(message, type = "success") {
         right: 'auto',
         top: '50%',
         bottom: 'auto',
-        zIndex: '12000',
+        zIndex: '2147483600',
         width: 'max-content',
         inlineSize: 'max-content',
         maxWidth: 'min(calc(100vw - 32px), 360px)',
@@ -2513,6 +2513,59 @@ async function handleLoginSubmit() {
             return;
         }
 
+        const loginNeedsVerification =
+            result?.requiresVerification === true ||
+            result?.emailVerificationRequired === true ||
+            result?.accountUnverified === true ||
+            result?.unverified === true ||
+            result?.otpRequired === true ||
+            /verify|verification|not verified|unverified/i.test(String(result?.message || ''));
+
+        if (loginNeedsVerification) {
+            const verificationEmail = String(
+                result?.email ||
+                result?.user?.email ||
+                (rawIdentifier.includes('@') ? rawIdentifier : '')
+            ).trim().toLowerCase();
+
+            if (!verificationEmail) {
+                markYHAccessScanError('Email verification required.');
+                showToast("This account needs email verification. Please log in using your email address to resend the code.", "error");
+                btnLogin.textContent = yhT('auth.login');
+                btnLogin.disabled = false;
+                btnLogin.removeAttribute('aria-busy');
+                return;
+            }
+
+            setPendingVerifyEmail(verificationEmail);
+
+            try {
+                await fetch('/api/resend-otp', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: verificationEmail })
+                });
+            } catch (_) {}
+
+            markYHAccessScanError('Verification required.');
+            showStep(2);
+
+            const otpInput = document.getElementById('otp-input');
+            if (otpInput) {
+                otpInput.value = '';
+                window.setTimeout(() => otpInput.focus(), 220);
+            }
+
+            startOTPTimer();
+            showToast("Verification code sent to your email.", "success");
+
+            btnLogin.textContent = yhT('auth.login');
+            btnLogin.disabled = false;
+            btnLogin.removeAttribute('aria-busy');
+            return;
+        }
+
         if (handleDeletedAccountAuthResult(result, {
             status: response.status,
             identifier
@@ -2818,7 +2871,6 @@ if (formRegisterSimple) {
     function closeVerifyIdentityStep() {
         clearInterval(otpTimerInterval);
         otpCodeExpired = false;
-        clearPendingVerifyEmail();
 
         const { otpInput, expiryMessage, resendBtn, verifyBtn, timerDisplay } = getOTPElements();
 
