@@ -1385,14 +1385,24 @@ body.yh-account-otp-modal-open[data-yh-page="apply"] {
   overflow: hidden;
 }
 
-body.yh-account-otp-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section {
+body.yh-account-otp-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 {
+  filter: none;
   pointer-events: none;
+}
+
+body.yh-account-otp-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 * {
+  pointer-events: none;
+}
+
+body.yh-account-otp-modal-open[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel,
+body.yh-account-otp-modal-open[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel * {
+  pointer-events: auto;
 }
 
 body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel {
   position: fixed;
   inset: 0;
-  z-index: 13030;
+  z-index: 2147483000;
   width: 100vw;
   height: 100dvh;
   min-height: 100dvh;
@@ -1433,7 +1443,8 @@ body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel.hidden-step {
 
 body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel .yh-account-verify-card {
   position: relative;
-  z-index: 1;
+  z-index: 2147483001;
+  isolation: isolate;
   width: min(640px, calc(100vw - 32px));
   max-height: none;
   min-height: auto;
@@ -1478,7 +1489,7 @@ body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel .yh-account-ver
 
 body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel .yh-account-verify-close {
   position: absolute;
-  z-index: 5;
+  z-index: 2147483002;
   top: clamp(12px, 1.4vw, 18px);
   right: clamp(12px, 1.4vw, 18px);
   width: 36px;
@@ -1549,9 +1560,12 @@ body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel .subtitle {
 }
 
 body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel .yh-account-verify-form {
+  position: relative;
+  z-index: 2147483002;
   width: 100%;
   display: grid;
   gap: 12px;
+  pointer-events: auto;
 }
 
 body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel .form-group {
@@ -1567,6 +1581,11 @@ body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel label {
 }
 
 body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel .yh-account-verify-input {
+  position: relative;
+  z-index: 2147483003;
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
   width: 100%;
   height: 48px;
   min-height: 48px;
@@ -1607,8 +1626,12 @@ body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel .yh-account-ver
 }
 
 body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel .yh-account-verify-submit {
+  position: relative;
+  z-index: 2147483003;
   min-height: 48px;
   margin-top: 2px;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel .yh-account-verify-resend {
