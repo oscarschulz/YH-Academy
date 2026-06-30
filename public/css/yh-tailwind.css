@@ -1605,7 +1605,6 @@ body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel .yh-otp-expiry-
   }
 }
 /* END PATCH: YHU account verification modal v2 */
-/* END PATCH: YHU account verification modal v1 */
 
 body.yh-register-modal-open[data-yh-page="apply"] {
   overflow: hidden;
