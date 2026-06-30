@@ -2211,6 +2211,12 @@ const bindRegisterPhotoUpload = () => {
 
     if (!input || !label) return;
 
+    label.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        input.click();
+    });
+
     input.addEventListener('change', async () => {
         const file = input.files?.[0];
 
@@ -2627,13 +2633,21 @@ if (formRegisterSimple) {
             return;
         }
 
+        if (!yhRegisterProfileCropState.croppedDataUrl) {
+            showToast("Please crop and confirm your profile photo first.", "error");
+            openRegisterProfileCropper(profilePhotoFile).catch(() => {
+                showToast('Unable to open this image. Please choose another photo.', 'error');
+                clearRegisterProfileCropper();
+            });
+            return;
+        }
+
         const submitBtn = e.target.querySelector('button[type="submit"]');
         submitBtn.innerText = yhT('auth.creatingAccount');
         submitBtn.disabled = true;
 
         try {
-            const profilePhotoDataUrl = yhRegisterProfileCropState.croppedDataUrl ||
-                await compressImageToDataURL(profilePhotoFile, 320, 0.82);
+            const profilePhotoDataUrl = yhRegisterProfileCropState.croppedDataUrl;
 
             const response = await fetch('/api/register', {
                 method: 'POST',

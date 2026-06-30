@@ -1654,10 +1654,24 @@ body.yh-register-modal-open[data-yh-page="apply"] {
   overflow: hidden;
 }
 
+body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 {
+  filter: none;
+  pointer-events: none;
+}
+
+body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 * {
+  pointer-events: none;
+}
+
+body.yh-register-modal-open[data-yh-page="apply"] .yh-register-modal-panel,
+body.yh-register-modal-open[data-yh-page="apply"] .yh-register-modal-panel * {
+  pointer-events: auto;
+}
+
 body[data-yh-page="apply"] .yh-register-modal-panel {
   position: fixed;
   inset: 0;
-  z-index: 13020;
+  z-index: 2147482000;
   width: 100vw;
   height: 100dvh;
   min-height: 100dvh;
@@ -1800,6 +1814,8 @@ body[data-yh-page="apply"] .yh-register-modal-panel .pill-input {
 }
 
 body[data-yh-page="apply"] .yh-register-modal-panel .yh-password-shell {
+  position: relative;
+  z-index: 3;
   min-height: 44px;
   height: 44px;
   display: grid;
@@ -1837,9 +1853,12 @@ body[data-yh-page="apply"] .yh-register-modal-panel .yh-password-shell input::-m
 }
 
 body[data-yh-page="apply"] .yh-register-modal-panel .yh-password-toggle {
+  position: relative;
+  z-index: 4;
   width: 76px;
   min-width: 76px;
   height: 44px;
+  pointer-events: auto;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
@@ -1865,8 +1884,33 @@ body[data-yh-page="apply"] .yh-register-modal-panel .yh-password-toggle {
   cursor: pointer;
 }
 
+body[data-yh-page="apply"] .yh-register-modal-panel .yh-upload-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 body[data-yh-page="apply"] .yh-register-modal-panel .yh-upload-label {
+  position: relative;
+  z-index: 3;
+  width: 100%;
   min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 13px;
+  border: 1px solid rgba(147, 197, 253, 0.34);
+  border-radius: 10px;
+  color: rgba(248, 251, 255, 0.88);
+  font-family: var(--yh-font-subheader);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  pointer-events: auto;
   border-color: rgba(147, 197, 253, 0.34);
   background:
     linear-gradient(180deg, rgba(8, 18, 38, 0.46), rgba(3, 8, 20, 0.3));
@@ -1913,7 +1957,18 @@ body[data-yh-page="apply"] .yh-register-modal-panel .yh-upload-preview-img {
     0 12px 28px rgba(0, 0, 0, 0.28);
 }
 
+body[data-yh-page="apply"] .yh-register-modal-panel .yh-upload-help {
+  position: relative;
+  z-index: 2;
+  color: rgba(220, 232, 247, 0.58);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  padding-top: 4px;
+}
+
 body[data-yh-page="apply"] .yh-register-modal-panel .yh-upload-recrop-btn {
+  position: relative;
+  z-index: 3;
   width: max-content;
   min-height: 34px;
   justify-self: center;
@@ -2688,10 +2743,14 @@ body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-auth-
   filter: drop-shadow(0 0 12px rgba(147, 197, 253, 0.16));
 }
 
-body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-profile-cropper-modal {
+body.yh-profile-cropper-open[data-yh-page="apply"] {
+  overflow: hidden;
+}
+
+body[data-yh-page="apply"] .yh-register-modal-panel .yh-profile-cropper-modal {
   position: fixed;
   inset: 0;
-  z-index: 12020;
+  z-index: 2147482600;
   width: 100vw;
   height: 100dvh;
   display: grid;
@@ -2706,13 +2765,14 @@ body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-profi
   background: rgba(1, 3, 10, 0.78);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+  pointer-events: auto;
 }
 
-body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-profile-cropper-modal.hidden-step {
+body[data-yh-page="apply"] .yh-register-modal-panel .yh-profile-cropper-modal.hidden-step {
   display: none;
 }
 
-body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-profile-cropper-dialog {
+body[data-yh-page="apply"] .yh-register-modal-panel .yh-profile-cropper-dialog {
   width: min(460px, calc(100vw - 32px));
   max-height: none;
   display: grid;
