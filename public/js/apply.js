@@ -2334,7 +2334,7 @@ const bindRegisterPhotoUpload = () => {
 
         startOTPTimer();
     };
-bootstrapPendingVerification();
+
 bindPasswordVisibilityToggles();
 bindRegisterPhotoUpload();
 
@@ -2939,6 +2939,8 @@ if (formRegisterSimple) {
             timeLeft--;
         }, 1000);
     }
+
+    bootstrapPendingVerification();
 
     const btnCloseVerifyOTP = document.getElementById('btn-close-verify-otp');
     if (btnCloseVerifyOTP) {
