@@ -1,7 +1,11 @@
 // public/js/apply.js
 
 function showStep(stepNumber) {
-    if (Number(stepNumber) !== 1) {
+    const normalizedStep = Number(stepNumber);
+
+    document.body.classList.toggle('yh-account-otp-modal-open', normalizedStep === 2);
+
+    if (normalizedStep !== 1) {
         document.body.classList.remove('yh-register-modal-open');
 
         const authFlipper = document.getElementById('auth-flipper');
@@ -15,7 +19,16 @@ function showStep(stepNumber) {
     }
 
     document.querySelectorAll('.step-container').forEach(el => { el.classList.add('hidden-step'); });
-    const targetStep = document.getElementById(`step-${stepNumber}`);
+
+    if (normalizedStep === 2) {
+        const landingStep = document.getElementById('step-1');
+        if (landingStep) {
+            landingStep.classList.remove('hidden-step');
+            landingStep.classList.remove('fade-in');
+        }
+    }
+
+    const targetStep = document.getElementById(`step-${normalizedStep}`);
     if(targetStep) {
         targetStep.classList.remove('hidden-step');
         targetStep.classList.remove('fade-in');
