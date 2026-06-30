@@ -2505,36 +2505,6 @@ async function handleLoginSubmit() {
             return;
         }
 
-        if (response.status === 403 && result.verificationRequired) {
-            await scanPromise;
-
-            const verificationEmail = String(result.email || identifier).trim().toLowerCase();
-
-            if (verificationEmail) {
-                setPendingVerifyEmail(verificationEmail);
-            }
-
-            const otpInput = document.getElementById('otp-input');
-            if (otpInput) otpInput.value = '';
-
-            if (yhAccessScanText) {
-                yhAccessScanText.textContent = 'Email verification required 100%';
-            }
-
-            showStep(2);
-            startOTPTimer();
-
-            showToast(
-                result.message || "Verification code sent to your email. Enter the OTP to continue.",
-                result.otpSent ? "success" : "error"
-            );
-
-            btnLogin.textContent = yhT('auth.login');
-            btnLogin.disabled = false;
-            btnLogin.removeAttribute('aria-busy');
-            return;
-        }
-
         markYHAccessScanError(result.message || 'Verification failed. Try again.');
         showToast(result.message, "error");
         btnLogin.textContent = yhT('auth.login');
@@ -2674,7 +2644,7 @@ if (formRegisterSimple) {
                 sessionStorage.setItem('yh_pending_profile_avatar', profilePhotoDataUrl);
                 localStorage.setItem('yh_pending_profile_avatar', profilePhotoDataUrl);
 
-                clearPendingVerifyEmail();
+                setPendingVerifyEmail(email);
                 clearYHUniverseReferralCode();
 
                 if (loginEmailInput) {
@@ -2685,17 +2655,36 @@ if (formRegisterSimple) {
                     loginPasswordInput.value = '';
                 }
 
+                const resendResponse = await fetch('/api/resend-otp', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                const resendResult = await resendResponse.json();
+
+                if (!resendResult.success) {
+                    showToast(resendResult.message || "Account created, but verification code could not be sent.", "error");
+                    submitBtn.innerText = yhT('auth.createAccount');
+                    submitBtn.disabled = false;
+                    return;
+                }
+
                 formRegisterSimple.reset();
                 clearRegisterProfileCropper();
 
-                showStep(1);
-                flipToLogin();
+                showStep(2);
 
-                window.setTimeout(() => {
-                    loginEmailInput?.focus();
-                }, 220);
+                const otpInput = document.getElementById('otp-input');
+                if (otpInput) {
+                    otpInput.value = '';
+                    window.setTimeout(() => otpInput.focus(), 220);
+                }
 
-                showToast(result.message || "Registration successful. Please log in to verify your account.", "success");
+                startOTPTimer();
+
+                showToast("Verification code sent to your email.", "success");
 
                 submitBtn.innerText = yhT('auth.createAccount');
                 submitBtn.disabled = false;

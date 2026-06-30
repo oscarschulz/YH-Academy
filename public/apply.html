@@ -6,9 +6,9 @@
     <title> Young Hustlers Universe</title>
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
-<link rel="stylesheet" href="/css/responsive-apply.css?v=20260628-yh-register-submit-v10">
-<link rel="stylesheet" href="/css/style.css?v=20260628-yh-register-submit-v10">
-<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260628-yh-register-submit-v10">
+<link rel="stylesheet" href="/css/responsive-apply.css?v=20260630-yh-account-otp-modal-v1">
+<link rel="stylesheet" href="/css/style.css?v=20260630-yh-account-otp-modal-v1">
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260630-yh-account-otp-modal-v1">
 </head>
 <body data-yh-page="apply">
 
@@ -365,44 +365,57 @@
         </div>
     </div>
 
-    <div id="step-2" class="step-container hidden-step fade-in">
-        <div class="card form-card-ultrawide approved-card-container">
-            <div class="panel-left">
-                <video src="/video/yhvideo3.mp4?v=20260628-yh-otp-video-v9" autoplay loop muted playsinline preload="auto" class="intro-video"></video>
-            </div>
-            
-            <div class="panel-right approved-form-right hide-scrollbar text-center">
-                <button type="button" id="btn-close-verify-otp" class="yh-verify-otp-close-btn" aria-label="Back to login" onclick="event.preventDefault(); event.stopPropagation(); if (window.yhCloseVerifyIdentityStep) { window.yhCloseVerifyIdentityStep(); } else { try { sessionStorage.removeItem('yh_pending_verify_email'); localStorage.removeItem('yh_pending_verify_email'); } catch (_) {} showStep(1); }">×</button>
 
-                <div class="form-header-approved text-center">
-                    <img src="/images/logo.avif" alt="YH Logo" class="form-logo-small">
-                    <h1 class="yh-title-small" style="margin-top: 15px;">Verify Your Identity</h1>
-                    <p class="yh-subtitle-small">We sent a 6-digit code to your email.</p>
-                    <p id="otp-expiry-message" class="yh-otp-expiry-message hidden-step" aria-live="polite">
-                        This code has expired. Please request a new code.
-                    </p>
+    <div id="step-2" class="step-container hidden-step fade-in yh-account-verify-modal-panel">
+        <div class="yh-account-verify-bg" aria-hidden="true">
+            <img src="/images/landing/new%20bg.png?v=20260630-yh-account-otp-modal-v1" alt="" class="yh-account-verify-bg-image">
+            <div class="yh-account-verify-bg-overlay"></div>
+        </div>
+
+        <div class="yh-account-verify-card" role="dialog" aria-modal="true" aria-labelledby="yh-account-verify-title">
+            <button type="button" id="btn-close-verify-otp" class="yh-account-verify-close" aria-label="Back to login">×</button>
+
+            <div class="yh-account-verify-head text-center">
+                <img src="/images/logo.avif" alt="YH Logo" class="yh-account-verify-logo">
+                <h1 id="yh-account-verify-title" class="main-title step1-title">YOUNG HUSTLERS UNIVERSE</h1>
+                <p class="subtitle step1-subtitle">Enter the verification code sent to your email.</p>
+                <p id="otp-expiry-message" class="yh-otp-expiry-message hidden-step" aria-live="polite">
+                    This code has expired. Please request a new code.
+                </p>
+            </div>
+
+            <form id="form-verify-otp" class="w-full yh-account-verify-form" novalidate>
+                <div class="form-group w-full">
+                    <label>Verification Code</label>
+                    <input
+                        type="text"
+                        id="otp-input"
+                        required
+                        placeholder="••••••"
+                        maxlength="6"
+                        inputmode="numeric"
+                        pattern="[0-9]*"
+                        class="input-field yh-account-verify-input"
+                        autocomplete="one-time-code"
+                    >
                 </div>
 
-                <form id="form-verify-otp" class="approved-form-actual" style="max-width: 350px; margin: 1.5rem auto 0 auto;">
-                    <div class="form-group-compact w-full text-center">
-                        <input type="text" id="otp-input" required placeholder="••••••" maxlength="6" class="input-field-compact text-center otp-styled-input" autocomplete="one-time-code">
-                    </div>
-                    
-                    <div class="timer-container mt-small mb-1-25">
-                        <span id="otp-timer" class="color-neon fw-bold" style="font-size: 1.2rem; letter-spacing: 2px;">02:00</span>
-                    </div>
+                <div class="yh-account-verify-timer">
+                    <span id="otp-timer" class="color-neon fw-bold">02:00</span>
+                </div>
 
-                    <button type="submit" id="btn-verify-otp" class="btn-primary btn-finish-compact w-full mb-small">Verify & Enter Universe ➔</button>
-                    
-                    <div class="resend-container mt-small">
-                        <p class="subtitle" style="font-size: 0.85rem;">Didn't receive the code? <br>
-                            <button type="button" id="btn-resend-otp" class="btn-resend" disabled>Resend in 02:00</button>
-                        </p>
-                    </div>
-                </form>
-            </div>
+                <button type="submit" id="btn-verify-otp" class="btn-primary btn-large yh-account-verify-submit">
+                    Verify & Enter Universe ➔
+                </button>
+
+                <div class="yh-account-verify-resend">
+                    <span>Didn't receive the code?</span>
+                    <button type="button" id="btn-resend-otp" class="btn-resend" disabled>Resend in 02:00</button>
+                </div>
+            </form>
         </div>
     </div>
+
 
     <div id="step-3" class="step-container hidden-step fade-in">
         <div class="card text-center py-large">
@@ -486,6 +499,6 @@
     </div>
 
 <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
-<script src="/js/apply.js?v=20260628-yh-register-submit-v10"></script>
+<script src="/js/apply.js?v=20260630-yh-account-otp-modal-v1"></script>
 </body>
 </html>
