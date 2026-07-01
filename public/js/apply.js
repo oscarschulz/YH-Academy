@@ -1675,6 +1675,16 @@ window.addEventListener('load', () => {
 
     mountRegisterModal();
 
+    const mountRegisterProfileCropper = () => {
+        const cropperModal = document.getElementById('yh-profile-cropper-modal');
+        if (!cropperModal || cropperModal.dataset.yhCropperMounted === 'true') return;
+
+        document.body.appendChild(cropperModal);
+        cropperModal.dataset.yhCropperMounted = 'true';
+    };
+
+    mountRegisterProfileCropper();
+
     const syncMobileAuthCardHeight = (options = {}) => {
         const animateFace = options.animateFace === true;
 
@@ -2539,14 +2549,36 @@ async function handleLoginSubmit() {
 
             setPendingVerifyEmail(verificationEmail);
 
-            try {
-                await fetch('/api/resend-otp', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: verificationEmail })
-                });
-            } catch (_) {}
+            const otpAlreadySent = result?.otpSent === true;
+
+            if (!otpAlreadySent) {
+                try {
+                    const resendResponse = await fetch('/api/resend-otp', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: verificationEmail })
+                    });
+
+                    const resendResult = await resendResponse.json();
+
+                    if (!resendResult.success) {
+                        markYHAccessScanError('Verification code failed.');
+                        showToast(resendResult.message || "Could not send verification code. Please try again.", "error");
+                        btnLogin.textContent = yhT('auth.login');
+                        btnLogin.disabled = false;
+                        btnLogin.removeAttribute('aria-busy');
+                        return;
+                    }
+                } catch (_) {
+                    markYHAccessScanError('Verification code failed.');
+                    showToast("Could not send verification code. Please try again.", "error");
+                    btnLogin.textContent = yhT('auth.login');
+                    btnLogin.disabled = false;
+                    btnLogin.removeAttribute('aria-busy');
+                    return;
+                }
+            }
 
             markYHAccessScanError('Verification required.');
             showStep(2);
@@ -2558,7 +2590,7 @@ async function handleLoginSubmit() {
             }
 
             startOTPTimer();
-            showToast("Verification code sent to your email.", "success");
+            showToast(result?.message || "Verification code sent to your email.", "success");
 
             btnLogin.textContent = yhT('auth.login');
             btnLogin.disabled = false;
@@ -2721,34 +2753,20 @@ if (formRegisterSimple) {
             const result = await response.json();
 
             if (result.success) {
+                const verificationEmail = String(result.email || email).trim().toLowerCase();
+
                 sessionStorage.setItem('yh_pending_profile_avatar', profilePhotoDataUrl);
                 localStorage.setItem('yh_pending_profile_avatar', profilePhotoDataUrl);
 
-                setPendingVerifyEmail(email);
+                setPendingVerifyEmail(verificationEmail);
                 clearYHUniverseReferralCode();
 
                 if (loginEmailInput) {
-                    loginEmailInput.value = email;
+                    loginEmailInput.value = verificationEmail;
                 }
 
                 if (loginPasswordInput) {
                     loginPasswordInput.value = '';
-                }
-
-                const resendResponse = await fetch('/api/resend-otp', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email })
-                });
-
-                const resendResult = await resendResponse.json();
-
-                if (!resendResult.success) {
-                    showToast(resendResult.message || "Account created, but verification code could not be sent.", "error");
-                    submitBtn.innerText = yhT('auth.createAccount');
-                    submitBtn.disabled = false;
-                    return;
                 }
 
                 formRegisterSimple.reset();
@@ -2764,7 +2782,7 @@ if (formRegisterSimple) {
 
                 startOTPTimer();
 
-                showToast("Verification code sent to your email.", "success");
+                showToast(result.message || "Verification code sent to your email.", "success");
 
                 submitBtn.innerText = yhT('auth.createAccount');
                 submitBtn.disabled = false;
@@ -2965,6 +2983,7 @@ if (formRegisterSimple) {
             try {
                 const response = await fetch('/api/resend-otp', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email })
                 });
