@@ -967,6 +967,22 @@ function deriveRegistrationGeo({ city = '', country = '' } = {}) {
     };
 }
 
+function isValidRegistrationProfilePhotoDataUrl(value = '') {
+    const clean = String(value || '').trim();
+
+    if (!clean) return false;
+
+    const match = clean.match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=]+)$/i);
+    if (!match) return false;
+
+    const base64Payload = match[2] || '';
+
+    if (base64Payload.length < 200) return false;
+    if (base64Payload.length > 1200000) return false;
+
+    return true;
+}
+
 exports.registerUser = async (req, res) => {
     let userRef = null;
 
@@ -993,22 +1009,84 @@ exports.registerUser = async (req, res) => {
         profilePhotoDataUrl = String(profilePhotoDataUrl || '').trim();
         referralCode = normalizeUniverseReferralCode(referralCode || req.body?.ref || req.body?.universeReferralCode || '');
 
-        if (!fullName || !email || !username || !city || !country || !password || !profilePhotoDataUrl) {
+        if (!fullName) {
             return res.status(400).json({
                 success: false,
-                message: 'Full name, email, username, city, country, profile photo, and password are required.'
+                message: 'Full name is required.'
+            });
+        }
+
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.status(400).json({
+                success: false,
+                message: 'A valid email address is required.'
+            });
+        }
+
+        if (!username) {
+            return res.status(400).json({
+                success: false,
+                message: 'Username is required.'
+            });
+        }
+
+        if (!city || !country) {
+            return res.status(400).json({
+                success: false,
+                message: 'City and country are required.'
+            });
+        }
+
+        if (!password.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Password is required.'
+            });
+        }
+
+        if (!isValidRegistrationProfilePhotoDataUrl(profilePhotoDataUrl)) {
+            return res.status(400).json({
+                success: false,
+                message: 'A valid cropped profile photo is required.'
             });
         }
 
         const existingEmail = await findUserByEmail(email);
-        if (existingEmail) {
+
+        if (existingEmail?.isVerified === true) {
             return res.status(400).json({
                 success: false,
                 message: 'Email is already registered.'
             });
         }
 
-        await purgeDeletedUserRecords(await findDeletedUsersByEmail(email));
+        if (existingEmail && existingEmail.isVerified !== true) {
+            const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const issuedAt = nowIso();
+
+            await usersCollection().doc(existingEmail.id).update({
+                verificationCode: otpCode,
+                verificationCodeIssuedAt: issuedAt,
+                accountStatus: 'pending_verification',
+                updatedAt: issuedAt
+            });
+
+            await sendOtpMail({
+                to: email,
+                subject: 'YH Universe - Verification Code',
+                html: verificationMailHtml(otpCode)
+            });
+
+            return res.json({
+                success: true,
+                requiresVerification: true,
+                verificationRequired: true,
+                email,
+                otpSent: true,
+                pendingAccountExists: true,
+                message: 'Verification code sent to your email. Enter the OTP to continue.'
+            });
+        }
 
         username = await generateUniqueUsername(fullName, username);
 
@@ -1020,6 +1098,7 @@ exports.registerUser = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         const createdAt = nowIso();
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
         userRef = usersCollection().doc();
 
@@ -1060,9 +1139,10 @@ exports.registerUser = async (req, res) => {
             profilePhoto: profilePhotoDataUrl,
             photoURL: profilePhotoDataUrl,
             password: hashedPassword,
-            verificationCode: null,
-            verificationCodeIssuedAt: null,
+            verificationCode: otpCode,
+            verificationCodeIssuedAt: createdAt,
             isVerified: false,
+            accountStatus: 'pending_verification',
             universeReferral: {
                 code: universeReferralCode,
                 status: 'active',
@@ -1089,10 +1169,19 @@ exports.registerUser = async (req, res) => {
             });
         }
 
+        await sendOtpMail({
+            to: email,
+            subject: 'YH Universe - Verification Code',
+            html: verificationMailHtml(otpCode)
+        });
+
         return res.json({
             success: true,
-            loginRequired: true,
-            message: 'Registration successful. Please log in to verify your account.'
+            requiresVerification: true,
+            verificationRequired: true,
+            email,
+            otpSent: true,
+            message: 'Account created. Verification code sent to your email.'
         });
     } catch (error) {
         console.error('Register Error:', error);
@@ -1137,6 +1226,7 @@ exports.verifyOTP = async (req, res) => {
 
         await usersCollection().doc(user.id).update({
             isVerified: true,
+            accountStatus: 'active',
             verificationCode: null,
             verificationCodeIssuedAt: null,
             updatedAt: nowIso()
@@ -1145,6 +1235,7 @@ exports.verifyOTP = async (req, res) => {
         const updatedUser = {
             ...user,
             isVerified: true,
+            accountStatus: 'active',
             verificationCode: null,
             verificationCodeIssuedAt: null
         };
@@ -1207,6 +1298,7 @@ exports.resendOTP = async (req, res) => {
         await usersCollection().doc(user.id).update({
             verificationCode: otpCode,
             verificationCodeIssuedAt: nowIso(),
+            accountStatus: 'pending_verification',
             updatedAt: nowIso()
         });
 
