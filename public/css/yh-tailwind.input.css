@@ -4033,11 +4033,9 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card {
   gap: 14px;
 }
 
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-activity-card,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-events-card {
-  grid-column: span 4;
-  min-height: 214px;
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card {
+  grid-column: span 12;
+  min-height: 166px;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-bottom-cta {
@@ -4915,10 +4913,11 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-body {
   display: grid !important;
-  grid-template-columns: 1fr !important;
+  grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr) !important;
   gap: 16px !important;
   min-width: 0 !important;
   width: 100% !important;
+  align-items: stretch !important;
   align-content: start !important;
 }
 
@@ -4980,7 +4979,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list {
   display: grid !important;
-  grid-template-columns: 1fr !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   gap: 11px !important;
   width: 100% !important;
   min-width: 0 !important;

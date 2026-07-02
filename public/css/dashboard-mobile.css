@@ -795,6 +795,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-body {
+        grid-template-columns: 1fr !important;
         gap: 3px !important;
         align-content: start !important;
     }
