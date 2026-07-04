@@ -816,9 +816,16 @@ function renderLandingMapFallback() {
     `;
 }
 
-const YH_GLOBE_LIB_SRCS = [
-    'https://cdn.jsdelivr.net/npm/globe.gl',
-    'https://unpkg.com/globe.gl'
+
+const YH_SHUBHAM_GLOBE_THREE_SRCS = [
+    'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+    'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
+    'https://unpkg.com/three@0.128.0/build/three.min.js'
+];
+
+const YH_SHUBHAM_GLOBE_ORBIT_SRCS = [
+    'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js',
+    'https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js'
 ];
 
 let yhLandingGlobeDepsPromise = null;
@@ -881,20 +888,24 @@ async function loadLandingScriptFromList(srcList = [], validator = () => false) 
 }
 
 async function ensureLandingThreeModule() {
-    if (window.THREE) return window.THREE;
+    if (window.THREE && window.THREE.WebGLRenderer && window.THREE.SphereGeometry) {
+        return window.THREE;
+    }
 
     if (!yhLandingThreeModulePromise) {
-        yhLandingThreeModulePromise = import('https://esm.sh/three');
+        yhLandingThreeModulePromise = loadLandingScriptFromList(
+            YH_SHUBHAM_GLOBE_THREE_SRCS,
+            () => !!(window.THREE && window.THREE.WebGLRenderer && window.THREE.SphereGeometry)
+        );
     }
 
-    const threeModule = await yhLandingThreeModulePromise;
-    const THREE = threeModule?.default || threeModule;
+    const loaded = await yhLandingThreeModulePromise;
+    yhLandingThreeModulePromise = null;
 
-    if (!THREE) {
-        throw new Error('Three module import failed.');
+    if (!loaded || !window.THREE) {
+        throw new Error('Three.js globe library failed to load.');
     }
 
-    window.THREE = THREE;
     return window.THREE;
 }
 
@@ -902,7 +913,7 @@ async function ensureLandingGlobeDeps(options = {}) {
     const retries = Number.isFinite(Number(options.retries)) ? Number(options.retries) : 5;
     const retryDelay = Number.isFinite(Number(options.retryDelay)) ? Number(options.retryDelay) : 320;
 
-    if (window.Globe && window.THREE) {
+    if (window.THREE && window.THREE.OrbitControls) {
         return true;
     }
 
@@ -912,19 +923,22 @@ async function ensureLandingGlobeDeps(options = {}) {
 
     yhLandingGlobeDepsPromise = (async () => {
         for (let attempt = 0; attempt < retries; attempt += 1) {
-            if (!window.Globe) {
-                await loadLandingScriptFromList(YH_GLOBE_LIB_SRCS, () => !!window.Globe);
-            }
-
             try {
                 await ensureLandingThreeModule();
+
+                if (!window.THREE.OrbitControls) {
+                    await loadLandingScriptFromList(
+                        YH_SHUBHAM_GLOBE_ORBIT_SRCS,
+                        () => !!(window.THREE && window.THREE.OrbitControls)
+                    );
+                }
             } catch (error) {
-                console.warn('Landing Three module import failed:', error?.message || error);
+                console.warn('Landing Three.js globe dependency failed:', error?.message || error);
             }
 
             await wait(120);
 
-            if (window.Globe && window.THREE) {
+            if (window.THREE && window.THREE.OrbitControls) {
                 return true;
             }
 
@@ -933,13 +947,14 @@ async function ensureLandingGlobeDeps(options = {}) {
             }
         }
 
-        return !!(window.Globe && window.THREE);
+        return !!(window.THREE && window.THREE.OrbitControls);
     })();
 
     const result = await yhLandingGlobeDepsPromise;
     yhLandingGlobeDepsPromise = null;
     return result;
 }
+
 
 function syncLandingGlobeSize() {
     const mapEl = document.getElementById('yh-world-map');
@@ -1204,8 +1219,9 @@ function focusLandingGlowPoint(point = null) {
     );
 }
 
+
 function applyLandingGlobeData() {
-    if (!yhLandingMapInstance) return;
+    if (!yhLandingMapInstance || typeof yhLandingMapInstance.pointsData !== 'function') return;
 
     const livePoints = buildLandingGlowEvents(yhLandingGlobeData.points);
     const cityLights = buildLandingGlowEvents(YH_LANDING_CITY_LIGHT_POINTS);
@@ -1251,6 +1267,7 @@ function applyLandingGlobeData() {
         .arcDashGap((arc) => arc.dashGap ?? 0.16)
         .arcDashAnimateTime((arc) => arc.dashAnimateTime ?? 2600);
 }
+
 
 window.yhSetLandingGlobeData = function yhSetLandingGlobeData(next = {}) {
     if (Array.isArray(next.points)) {
@@ -1378,12 +1395,12 @@ function applyLandingReferenceGlobeLighting(world) {
     }
 }
 
+
 async function initLandingMapShell() {
     const mapEl = document.getElementById('yh-world-map');
     if (!mapEl) return;
 
-    // Prevent browser zoom gesture (ctrl+wheel / trackpad pinch) while hovering the globe.
-    // This keeps the globe from shrinking into a distorted-looking speck.
+    // Prevent browser zoom gesture while hovering the globe.
     if (mapEl.dataset.yhZoomGuard !== 'true') {
         mapEl.dataset.yhZoomGuard = 'true';
         mapEl.addEventListener('wheel', (e) => {
@@ -1408,10 +1425,10 @@ async function initLandingMapShell() {
         retryDelay: 320
     });
 
-    if (!depsReady || !window.Globe || !window.THREE) {
-        console.warn('Landing globe bootstrap failed after retries.', {
-            hasGlobe: !!window.Globe,
-            hasTHREE: !!window.THREE
+    if (!depsReady || !window.THREE || !window.THREE.OrbitControls) {
+        console.warn('Landing Three.js globe bootstrap failed after retries.', {
+            hasTHREE: !!window.THREE,
+            hasOrbitControls: !!(window.THREE && window.THREE.OrbitControls)
         });
 
         renderLandingMapFallback();
@@ -1420,176 +1437,260 @@ async function initLandingMapShell() {
 
     if (yhLandingMapInstance) {
         syncLandingGlobeSize();
-        applyLandingGlobeData();
         return;
     }
 
+    if (yhLandingMapSpinRaf) {
+        cancelAnimationFrame(yhLandingMapSpinRaf);
+        yhLandingMapSpinRaf = null;
+    }
+
     mapEl.innerHTML = '';
+    mapEl.dataset.yhGlobeEngine = 'shubham-three';
 
-    const world = new window.Globe(mapEl, { animateIn: false })
-        .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
-        .bumpImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png')
-        .backgroundColor('rgba(0,0,0,0)')
-        .showAtmosphere(true)
-        .atmosphereColor('#bfefff')
-        .atmosphereAltitude(0.038)
-        .showPointerCursor((objType, objData) => {
-            return (objType === 'point' || objType === 'ring') && !!objData;
+    const THREE = window.THREE;
+    const textureLoader = new THREE.TextureLoader();
+    if (typeof textureLoader.setCrossOrigin === 'function') {
+        textureLoader.setCrossOrigin('anonymous');
+    }
+
+    const scene = new THREE.Scene();
+    scene.background = null;
+
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    camera.position.set(0, 0, 3.08);
+
+    const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: 'high-performance'
+    });
+
+    renderer.setClearColor(0x000000, 0);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.domElement.setAttribute('aria-hidden', 'true');
+    renderer.domElement.style.display = 'block';
+    renderer.domElement.style.background = 'transparent';
+
+    renderer.domElement.addEventListener('webglcontextlost', (event) => {
+        event.preventDefault();
+        console.warn('Landing globe WebGL context lost. Browser will attempt restore.');
+    }, false);
+
+    renderer.domElement.addEventListener('webglcontextrestored', () => {
+        syncLandingGlobeSize();
+    }, false);
+
+    mapEl.appendChild(renderer.domElement);
+
+    const globeGroup = new THREE.Group();
+    globeGroup.rotation.z = -0.17;
+    scene.add(globeGroup);
+
+    const earthTexture = textureLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_atmos_2048.jpg');
+    const earthBumpTexture = textureLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_bump_2048.jpg');
+    const earthSpecularTexture = textureLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_specular_2048.jpg');
+
+    const earthGeometry = new THREE.SphereGeometry(1, 96, 96);
+    const earthMaterial = new THREE.MeshPhongMaterial({
+        map: earthTexture,
+        bumpMap: earthBumpTexture,
+        bumpScale: 0.035,
+        specularMap: earthSpecularTexture,
+        shininess: 14,
+        specular: new THREE.Color(0x2f5f7f)
+    });
+
+    const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+    globeGroup.add(earth);
+
+    const cloudsTexture = textureLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_clouds_1024.png');
+    const clouds = new THREE.Mesh(
+        new THREE.SphereGeometry(1.014, 96, 96),
+        new THREE.MeshPhongMaterial({
+            map: cloudsTexture,
+            transparent: true,
+            opacity: 0.24,
+            depthWrite: false
         })
-        .onPointClick((point) => {
-            focusLandingGlowPoint(point);
-            showToast(`${point.label || 'Universe network light'} selected`);
-        });
+    );
+    globeGroup.add(clouds);
 
+    const atmosphere = new THREE.Mesh(
+        new THREE.SphereGeometry(1.035, 96, 96),
+        new THREE.MeshBasicMaterial({
+            color: 0x7dd3fc,
+            transparent: true,
+            opacity: 0.075,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        })
+    );
+    globeGroup.add(atmosphere);
 
-    yhLandingMapInstance = world;
+    const satelliteGeometry = new THREE.SphereGeometry(0.018, 16, 16);
+    const satelliteMaterial = new THREE.MeshBasicMaterial({
+        color: 0xdff7ff
+    });
 
-    let renderer = null;
-    if (typeof world.renderer === 'function') {
-        renderer = world.renderer();
-        if (renderer && typeof renderer.setClearColor === 'function') {
-            renderer.setClearColor(0x000000, 0);
-        }
-    }
-
-    applyLandingReferenceGlobeLighting(world);
-
-    if (typeof world.pointOfView === 'function') {
-        world.pointOfView({ lat: 34, lng: -92, altitude: 1.92 }, 0);
-    }
-    const controls = typeof world.controls === 'function' ? world.controls() : null;
-
-    if (controls) {
-        controls.autoRotate = true;
-        controls.autoRotateSpeed = 0.07;
-        controls.enablePan = false;
-        controls.enableRotate = true;
-        controls.enableZoom = false;
-        controls.zoomSpeed = 0;
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-
-        if (typeof world.getGlobeRadius === 'function') {
-            const globeRadius = world.getGlobeRadius();
-            controls.minDistance = globeRadius * 1.95;
-            controls.maxDistance = globeRadius * 4.35;
-        }
-    }
-
-    const isPointerOnVisibleGlobe = (clientX, clientY) => {
-        if (
-            !renderer ||
-            !renderer.domElement ||
-            !window.THREE ||
-            typeof world.camera !== 'function' ||
-            typeof world.getGlobeRadius !== 'function'
-        ) {
-            return false;
-        }
-
-        const camera = world.camera();
-        if (!camera) return false;
-
-        if (typeof camera.updateMatrixWorld === 'function') {
-            camera.updateMatrixWorld();
-        }
-        if (typeof camera.updateProjectionMatrix === 'function') {
-            camera.updateProjectionMatrix();
-        }
-
-        const rect = renderer.domElement.getBoundingClientRect();
-        if (
-            clientX < rect.left ||
-            clientX > rect.right ||
-            clientY < rect.top ||
-            clientY > rect.bottom
-        ) {
-            return false;
-        }
-
-        const projectToScreen = (vector) => {
-            const projected = vector.clone().project(camera);
-            return {
-                x: ((projected.x + 1) * 0.5 * rect.width) + rect.left,
-                y: ((-projected.y + 1) * 0.5 * rect.height) + rect.top
-            };
+    const satellites = Array.from({ length: 7 }, (_, index) => {
+        const satellite = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
+        satellite.userData = {
+            phase: index * 0.9,
+            speed: 0.00034 + (index * 0.000027),
+            orbitX: 1.28 + ((index % 3) * 0.1),
+            orbitZ: 1.74 + ((index % 2) * 0.18),
+            orbitTilt: ((index - 3) * 0.16)
         };
-
-        const center = projectToScreen(new window.THREE.Vector3(0, 0, 0));
-        const globeRadius = world.getGlobeRadius();
-
-        const edgeX = projectToScreen(new window.THREE.Vector3(globeRadius, 0, 0));
-        const edgeY = projectToScreen(new window.THREE.Vector3(0, globeRadius, 0));
-
-        const screenRadius = Math.max(
-            Math.hypot(edgeX.x - center.x, edgeX.y - center.y),
-            Math.hypot(edgeY.x - center.x, edgeY.y - center.y)
-        );
-
-        if (!Number.isFinite(screenRadius) || screenRadius <= 0) return false;
-
-        const pointerDistance = Math.hypot(clientX - center.x, clientY - center.y);
-        return pointerDistance <= screenRadius;
-    };
-
-    const syncZoomGate = () => {
-        if (!controls) return;
-        controls.enableZoom = false;
-    };
-
-    const wheelTarget = (
-        renderer &&
-        renderer.domElement
-    ) ? renderer.domElement : mapEl;
-
-    const handleWheelZoomGate = () => {
-        if (!controls) return;
-        controls.enableZoom = false;
-    };
-
-    mapEl.addEventListener('pointermove', (event) => {
-        syncZoomGate(event.clientX, event.clientY);
-    }, { passive: true });
-
-    mapEl.addEventListener('pointerleave', () => {
-        if (controls) controls.enableZoom = false;
-    }, { passive: true });
-
-    wheelTarget.addEventListener('wheel', handleWheelZoomGate, {
-        passive: true,
-        capture: true
+        scene.add(satellite);
+        return satellite;
     });
 
-    mapEl.addEventListener('wheel', handleWheelZoomGate, {
-        passive: true,
-        capture: true
-    });
+    scene.add(new THREE.AmbientLight(0x9fb7d7, 0.42));
 
-    world.pointOfView({ lat: 34, lng: -92, altitude: 1.92 }, 0);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.05);
+    keyLight.position.set(2.6, 1.8, 4.2);
+    scene.add(keyLight);
 
-    if (controls) {
-        if (typeof controls.update === 'function') {
-            controls.update();
-        }
+    const rimLight = new THREE.DirectionalLight(0x7dd3fc, 0.78);
+    rimLight.position.set(-4.2, 1.4, 2.2);
+    scene.add(rimLight);
 
-        if (typeof controls.getDistance === 'function') {
-            const currentDistance = controls.getDistance();
-            if (Number.isFinite(currentDistance) && currentDistance > 0) {
-                controls.minDistance = currentDistance;
+    const warmEdge = new THREE.PointLight(0xfff36a, 0.32, 7);
+    warmEdge.position.set(1.8, -0.9, 2.4);
+    scene.add(warmEdge);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.enablePan = false;
+    controls.enableRotate = true;
+    controls.enableZoom = true;
+    controls.minDistance = 2.2;
+    controls.maxDistance = 4.05;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.18;
+
+    const state = {
+        width: 1,
+        height: 1,
+        destroyed: false
+    };
+
+    const api = {
+        __yhEngine: 'shubham-three',
+        width(value) {
+            state.width = Math.max(1, Math.round(Number(value) || 1));
+            renderer.setSize(state.width, state.height, false);
+            return api;
+        },
+        height(value) {
+            state.height = Math.max(1, Math.round(Number(value) || 1));
+            renderer.setSize(state.width, state.height, false);
+            camera.aspect = state.width / state.height;
+            camera.updateProjectionMatrix();
+            return api;
+        },
+        renderer() {
+            return renderer;
+        },
+        scene() {
+            return scene;
+        },
+        camera() {
+            return camera;
+        },
+        controls() {
+            return controls;
+        },
+        getGlobeRadius() {
+            return 1;
+        },
+        pointOfView(point = {}, duration = 0) {
+            const lat = Number(point.lat);
+            const lng = Number(point.lng);
+            const altitude = Number.isFinite(Number(point.altitude)) ? Number(point.altitude) : 2.72;
+
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return api;
+
+            const radius = Math.max(2.2, Math.min(4.05, altitude * 1.28));
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lng + 180) * (Math.PI / 180);
+            const target = new THREE.Vector3(
+                -(radius * Math.sin(phi) * Math.cos(theta)),
+                radius * Math.cos(phi),
+                radius * Math.sin(phi) * Math.sin(theta)
+            );
+
+            if (duration > 0 && typeof performance !== 'undefined') {
+                const start = camera.position.clone();
+                const startTime = performance.now();
+
+                const tween = (now) => {
+                    if (state.destroyed) return;
+
+                    const progress = Math.min((now - startTime) / duration, 1);
+                    const eased = 1 - Math.pow(1 - progress, 3);
+
+                    camera.position.lerpVectors(start, target, eased);
+                    camera.lookAt(0, 0, 0);
+                    controls.update();
+
+                    if (progress < 1) requestAnimationFrame(tween);
+                };
+
+                requestAnimationFrame(tween);
+            } else {
+                camera.position.copy(target);
+                camera.lookAt(0, 0, 0);
+                controls.update();
             }
+
+            return api;
+        },
+        destroy() {
+            state.destroyed = true;
+            renderer.dispose();
+            earthGeometry.dispose();
+            satelliteGeometry.dispose();
         }
-    }
+    };
 
-    applyLandingGlobeData();
+    yhLandingMapInstance = api;
 
-    if (Array.isArray(yhLandingGlobeData.points) && yhLandingGlobeData.points.length) {
-        focusLandingGlowPoint(yhLandingGlobeData.points[0]);
-    }
-
-    addLandingGlobeClouds(world);
     syncLandingGlobeSize();
     bindLandingGlobeResize();
+
+    const animate = (now = 0) => {
+        if (state.destroyed || yhLandingMapInstance !== api) return;
+
+        const isPaused = document.hidden || document.body?.classList.contains('yh-landing-is-scrolling');
+
+        if (!isPaused) {
+            earth.rotation.y += 0.001;
+            clouds.rotation.y += 0.00125;
+            atmosphere.rotation.y += 0.0008;
+
+            satellites.forEach((satellite, index) => {
+                const meta = satellite.userData || {};
+                const t = (now * (meta.speed || 0.00034)) + (meta.phase || 0);
+                const x = Math.sin(t) * (meta.orbitX || 1.32);
+                const z = Math.cos(t) * (meta.orbitZ || 1.8);
+                const y = Math.sin(t + (meta.orbitTilt || 0)) * 0.34;
+
+                satellite.position.set(x, y, z);
+                satellite.rotation.y += 0.003 + (index * 0.0003);
+            });
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+        yhLandingMapSpinRaf = requestAnimationFrame(animate);
+    };
+
+    yhLandingMapSpinRaf = requestAnimationFrame(animate);
 }
+
 
 window.addEventListener('load', () => {
     captureYHUniverseReferralFromUrl();
