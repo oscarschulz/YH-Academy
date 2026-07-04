@@ -10813,7 +10813,8 @@ function enforceDashboardInlineFederationScroll(frame, doc = null) {
         shell.style.setProperty('height', '100%', 'important');
         shell.style.setProperty('max-height', '100%', 'important');
         shell.style.setProperty('min-height', '0', 'important');
-        shell.style.setProperty('display', 'grid', 'important');        shell.style.setProperty('grid-template-rows', 'minmax(0, 1fr)', 'important');
+        shell.style.setProperty('display', 'grid', 'important');
+        shell.style.setProperty('grid-template-rows', 'minmax(0, 1fr)', 'important');
         shell.style.setProperty('gap', 'clamp(12px, 1.1vw, 18px)', 'important');
         shell.style.setProperty('padding', 'clamp(10px, 1vw, 16px)', 'important');
         shell.style.setProperty('overflow', 'hidden', 'important');
@@ -10821,7 +10822,8 @@ function enforceDashboardInlineFederationScroll(frame, doc = null) {
         shell.style.setProperty('overflow-anchor', 'none', 'important');
     }
 
-    if (main instanceof HTMLElement) {        main.style.setProperty('width', '100%', 'important');
+    if (main instanceof HTMLElement) {
+        main.style.setProperty('width', '100%', 'important');
         main.style.setProperty('height', '100%', 'important');
         main.style.setProperty('max-height', '100%', 'important');
         main.style.setProperty('min-height', '0', 'important');
@@ -13032,7 +13034,298 @@ window.persistDashboardWalletTab = persistDashboardWalletTab;
 window.restoreDashboardPersistentUiState = restoreDashboardPersistentUiState;
 window.__yhDashboardUnifiedWorkspaceReady = true;
 
+/* PATCH: Dashboard mobile app navigation shell v1 */
+function installDashboardMobileAppShellV1() {
+    if (window.__yhDashboardMobileAppShellV1Installed) return;
+    window.__yhDashboardMobileAppShellV1Installed = true;
+
+    const shell = document.getElementById('yh-mobile-app-shell');
+    if (!shell) return;
+
+    const sheet = document.getElementById('yh-mobile-command-sheet');
+    const backButton = document.getElementById('yh-mobile-app-back');
+    const title = document.getElementById('yh-mobile-app-title');
+    const kicker = document.getElementById('yh-mobile-app-kicker');
+    const profileButton = document.getElementById('yh-mobile-app-profile');
+    const profileInitial = document.getElementById('yh-mobile-app-profile-initial');
+
+    const appBackStack = [];
+
+    const titleMap = {
+        overview: ['YH Universe', 'Dashboard'],
+        academy: ['YH Universe', 'Academy'],
+        'academy-roadmap': ['Academy', 'Roadmap'],
+        'academy-missions': ['Academy', 'Missions'],
+        'academy-community': ['Academy', 'Community Feed'],
+        'academy-messages': ['Academy', 'Messages'],
+        'academy-voice': ['Academy', 'Live Voice Lounge'],
+        'academy-profile': ['Academy', 'Profile'],
+
+        plazas: ['YH Universe', 'Plazas'],
+        'plazas-feed': ['Plazas', 'Feed'],
+        'plazas-inbox': ['Plazas', 'Inbox'],
+        'plazas-conversations': ['Plazas', 'Conversations'],
+        'plazas-meetups': ['Plazas', 'Meetups'],
+        'plazas-opportunities': ['Plazas', 'Opportunities'],
+        'plazas-directory': ['Plazas', 'Directory'],
+        'plazas-regions': ['Plazas', 'Regions'],
+        'plazas-atlas': ['Plazas', 'Atlas'],
+        'plazas-patron': ['Plazas', 'Patron'],
+        'plazas-bridge': ['Plazas', 'Bridge'],
+        'plazas-requests': ['Plazas', 'Requests'],
+
+        federation: ['YH Universe', 'Federation'],
+        'federation-command': ['Federation', 'Command'],
+        'federation-connect': ['Federation', 'Connect'],
+        'federation-deal-rooms': ['Federation', 'Deal Rooms'],
+        'federation-directory': ['Federation', 'Directory'],
+        'federation-access': ['Federation', 'My Access'],
+        'federation-requests': ['Federation', 'Requests'],
+        'federation-referrals': ['Federation', 'Referrals'],
+
+        wallet: ['Command', 'Wallet'],
+        'business-chats': ['Command', 'Business Chats'],
+        resources: ['Command', 'Resources']
+    };
+
+    function getCurrentWorkspaceKey() {
+        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview').trim().toLowerCase() || 'overview';
+    }
+
+    function getCurrentDivision() {
+        return String(document.body?.getAttribute('data-yh-unified-division') || 'overview').trim().toLowerCase() || 'overview';
+    }
+
+    function getParentKeyForWorkspace(key = '') {
+        const cleanKey = String(key || '').trim().toLowerCase();
+
+        if (cleanKey.startsWith('academy-')) return 'academy';
+        if (cleanKey.startsWith('plazas-')) return 'plazas';
+        if (cleanKey.startsWith('federation-')) return 'federation';
+
+        if (['academy', 'plazas', 'federation', 'overview'].includes(cleanKey)) {
+            return 'overview';
+        }
+
+        return 'overview';
+    }
+
+    function closeCommandSheet() {
+        if (!sheet) return;
+
+        sheet.classList.remove('is-open');
+        sheet.setAttribute('aria-hidden', 'true');
+
+        document
+            .querySelector('[data-yh-mobile-nav="command"]')
+            ?.classList.remove('is-active');
+    }
+
+    function openCommandSheet() {
+        if (!sheet) return;
+
+        sheet.classList.add('is-open');
+        sheet.setAttribute('aria-hidden', 'false');
+
+        document
+            .querySelector('[data-yh-mobile-nav="command"]')
+            ?.classList.add('is-active');
+    }
+
+    function syncProfileInitial() {
+        const source =
+            document.getElementById('top-nav-name')?.textContent ||
+            localStorage.getItem('yh_user_name') ||
+            localStorage.getItem('yh_user_full_name') ||
+            'Y';
+
+        const clean = String(source || 'Y').trim();
+        if (profileInitial) {
+            profileInitial.textContent = clean ? clean.charAt(0).toUpperCase() : 'Y';
+        }
+    }
+
+    function syncMobileAppState() {
+        const activeKey = getCurrentWorkspaceKey();
+        const activeDivision = getCurrentDivision();
+        const resolvedTitle = titleMap[activeKey] || titleMap[activeDivision] || titleMap.overview;
+
+        if (kicker) kicker.textContent = resolvedTitle[0];
+        if (title) title.textContent = resolvedTitle[1];
+
+        document.querySelectorAll('[data-yh-mobile-nav]').forEach((button) => {
+            const key = String(button.getAttribute('data-yh-mobile-nav') || '').trim().toLowerCase();
+
+            const isActive =
+                key === activeKey ||
+                (key === 'academy' && activeDivision === 'academy') ||
+                (key === 'plazas' && activeDivision === 'plazas') ||
+                (key === 'federation' && activeDivision === 'federation');
+
+            if (key !== 'command') {
+                button.classList.toggle('is-active', isActive);
+            }
+        });
+
+        document.querySelectorAll('[data-yh-mobile-subtab]').forEach((button) => {
+            const key = String(button.getAttribute('data-yh-mobile-subtab') || '').trim().toLowerCase();
+            button.classList.toggle('is-active', key === activeKey);
+        });
+
+        const canGoBack =
+            appBackStack.length > 0 ||
+            activeKey.startsWith('academy-') ||
+            activeKey.startsWith('plazas-') ||
+            activeKey.startsWith('federation-');
+
+        if (backButton) {
+            backButton.setAttribute('aria-disabled', canGoBack ? 'false' : 'true');
+        }
+
+        syncProfileInitial();
+    }
+
+    function navigateMobileWorkspace(key = 'overview', options = {}) {
+        const cleanKey = String(key || 'overview').trim().toLowerCase() || 'overview';
+        const shouldPush = options.push !== false;
+        const currentKey = getCurrentWorkspaceKey();
+
+        closeCommandSheet();
+
+        if (shouldPush && currentKey && currentKey !== cleanKey) {
+            appBackStack.push(currentKey);
+        }
+
+        if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
+            window.activateDashboardUnifiedWorkspace(cleanKey, {
+                animate: false,
+                scroll: true,
+                persist: true
+            });
+        } else {
+            document.querySelector('[data-yh-dashboard-shell="' + cleanKey + '"]')?.click();
+            document.querySelector('[data-yh-sidebar-child="' + cleanKey + '"]')?.click();
+        }
+
+        window.setTimeout(syncMobileAppState, 40);
+        window.setTimeout(syncMobileAppState, 180);
+    }
+
+    function goMobileBack() {
+        if (sheet?.classList.contains('is-open')) {
+            closeCommandSheet();
+            return;
+        }
+
+        const currentKey = getCurrentWorkspaceKey();
+        const previousKey = appBackStack.pop();
+
+        if (previousKey) {
+            navigateMobileWorkspace(previousKey, { push: false });
+            return;
+        }
+
+        navigateMobileWorkspace(getParentKeyForWorkspace(currentKey), { push: false });
+    }
+
+    shell.addEventListener('click', function (event) {
+        const navButton = event.target?.closest?.('[data-yh-mobile-nav]');
+        const subtabButton = event.target?.closest?.('[data-yh-mobile-subtab]');
+        const commandButton = event.target?.closest?.('[data-yh-mobile-command-target]');
+        const closeButton = event.target?.closest?.('[data-yh-mobile-command-close]');
+
+        if (closeButton) {
+            event.preventDefault();
+            closeCommandSheet();
+            return;
+        }
+
+        if (navButton) {
+            event.preventDefault();
+
+            const key = String(navButton.getAttribute('data-yh-mobile-nav') || '').trim().toLowerCase();
+
+            if (key === 'command') {
+                openCommandSheet();
+                return;
+            }
+
+            navigateMobileWorkspace(key);
+            return;
+        }
+
+        if (subtabButton) {
+            event.preventDefault();
+
+            const key = String(subtabButton.getAttribute('data-yh-mobile-subtab') || '').trim().toLowerCase();
+            if (key) navigateMobileWorkspace(key);
+            return;
+        }
+
+        if (commandButton) {
+            event.preventDefault();
+
+            const target = String(commandButton.getAttribute('data-yh-mobile-command-target') || '').trim().toLowerCase();
+
+            if (target === 'wallet' || target === 'business-chats' || target === 'resources') {
+                navigateMobileWorkspace(target);
+                return;
+            }
+
+            closeCommandSheet();
+
+            if (target === 'settings') {
+                document.getElementById('btn-open-dashboard-settings')?.click();
+                return;
+            }
+
+            if (target === 'edit-profile') {
+                document.getElementById('btn-open-dashboard-profile-editor')?.click();
+                return;
+            }
+
+            if (target === 'logout') {
+                if (typeof logoutUser === 'function') logoutUser();
+            }
+        }
+    });
+
+    backButton?.addEventListener('click', function (event) {
+        event.preventDefault();
+        goMobileBack();
+    });
+
+    profileButton?.addEventListener('click', function (event) {
+        event.preventDefault();
+        document.getElementById('yh-command-top-profile')?.click();
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            closeCommandSheet();
+        }
+    });
+
+    try {
+        const observer = new MutationObserver(function () {
+            window.clearTimeout(window.__yhDashboardMobileAppShellV1SyncTimer);
+            window.__yhDashboardMobileAppShellV1SyncTimer = window.setTimeout(syncMobileAppState, 30);
+        });
+
+        observer.observe(document.body, {
+            attributes: true,
+            attributeFilter: ['data-yh-unified-workspace', 'data-yh-unified-division']
+        });
+    } catch (_) {}
+
+    [40, 160, 420, 900, 1600].forEach(function (delay) {
+        window.setTimeout(syncMobileAppState, delay);
+    });
+}
+/* END PATCH: Dashboard mobile app navigation shell v1 */
+
 bootDashboardUnifiedSidebarWorkspace();
+installDashboardMobileAppShellV1();
 
 function openDivisionPreview(targetDivision = 'plazas', options = {}) {
     const division = normalizeUniverseDivision(targetDivision);

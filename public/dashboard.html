@@ -9,8 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 <link rel="stylesheet" href="/css/style.css?v=20260627-yh-live-cache-v4">
-<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260702-yh-dashboard-minimal-premium-v2">
-<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260702-yh-dashboard-minimal-v1">
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260702-yh-dashboard-minimal-clean-v3">
+<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260705-yh-dashboard-app-nav-v1">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
 
@@ -60,6 +60,107 @@
         <div class="yh-tab-loader-card">
             <img src="/images/logo.avif" alt="Young Hustlers" class="yh-tab-loader-logo">
             <div class="yh-tab-loader-text" id="yh-tab-loader-text">Loading...</div>
+        </div>
+    </div>
+
+    <div class="yh-mobile-app-shell" id="yh-mobile-app-shell" aria-label="YH Universe mobile app navigation">
+        <header class="yh-mobile-app-header">
+            <button type="button" class="yh-mobile-app-back" id="yh-mobile-app-back" aria-label="Go back">
+                ‹
+            </button>
+
+            <div class="yh-mobile-app-title-wrap">
+                <small id="yh-mobile-app-kicker">YH Universe</small>
+                <strong id="yh-mobile-app-title">Dashboard</strong>
+            </div>
+
+            <button type="button" class="yh-mobile-app-profile" id="yh-mobile-app-profile" aria-label="Open profile">
+                <span id="yh-mobile-app-profile-initial">Y</span>
+            </button>
+        </header>
+
+        <nav class="yh-mobile-app-subtabs" id="yh-mobile-app-subtabs" aria-label="Section tabs">
+            <div class="yh-mobile-subnav-group" data-yh-mobile-subnav-group="academy">
+                <button type="button" data-yh-mobile-subtab="academy-roadmap">Roadmap</button>
+                <button type="button" data-yh-mobile-subtab="academy-missions">Missions</button>
+                <button type="button" data-yh-mobile-subtab="academy-community">Community</button>
+                <button type="button" data-yh-mobile-subtab="academy-messages">Messages</button>
+                <button type="button" data-yh-mobile-subtab="academy-voice">Voice</button>
+                <button type="button" data-yh-mobile-subtab="academy-profile">Profile</button>
+            </div>
+
+            <div class="yh-mobile-subnav-group" data-yh-mobile-subnav-group="plazas">
+                <button type="button" data-yh-mobile-subtab="plazas-feed">Feed</button>
+                <button type="button" data-yh-mobile-subtab="plazas-inbox">Inbox</button>
+                <button type="button" data-yh-mobile-subtab="plazas-conversations">Conversations</button>
+                <button type="button" data-yh-mobile-subtab="plazas-meetups">Meetups</button>
+                <button type="button" data-yh-mobile-subtab="plazas-opportunities">Opportunities</button>
+                <button type="button" data-yh-mobile-subtab="plazas-directory">Directory</button>
+                <button type="button" data-yh-mobile-subtab="plazas-regions">Regions</button>
+                <button type="button" data-yh-mobile-subtab="plazas-atlas">Atlas</button>
+                <button type="button" data-yh-mobile-subtab="plazas-patron">Patron</button>
+                <button type="button" data-yh-mobile-subtab="plazas-bridge">Bridge</button>
+                <button type="button" data-yh-mobile-subtab="plazas-requests">Requests</button>
+            </div>
+
+            <div class="yh-mobile-subnav-group" data-yh-mobile-subnav-group="federation">
+                <button type="button" data-yh-mobile-subtab="federation-command">Command</button>
+                <button type="button" data-yh-mobile-subtab="federation-connect">Connect</button>
+                <button type="button" data-yh-mobile-subtab="federation-deal-rooms">Deal Rooms</button>
+                <button type="button" data-yh-mobile-subtab="federation-directory">Directory</button>
+                <button type="button" data-yh-mobile-subtab="federation-access">My Access</button>
+                <button type="button" data-yh-mobile-subtab="federation-requests">Requests</button>
+                <button type="button" data-yh-mobile-subtab="federation-referrals">Referrals</button>
+            </div>
+        </nav>
+
+        <nav class="yh-mobile-bottom-nav" aria-label="Main app navigation">
+            <button type="button" data-yh-mobile-nav="overview">
+                <span>▦</span>
+                <small>Dashboard</small>
+            </button>
+
+            <button type="button" data-yh-mobile-nav="academy">
+                <span>✦</span>
+                <small>Academy</small>
+            </button>
+
+            <button type="button" class="yh-mobile-command-orb" data-yh-mobile-nav="command" aria-label="Open command">
+                <span>◆</span>
+                <small>Command</small>
+            </button>
+
+            <button type="button" data-yh-mobile-nav="plazas">
+                <span>◎</span>
+                <small>Plazas</small>
+            </button>
+
+            <button type="button" data-yh-mobile-nav="federation">
+                <span>⬡</span>
+                <small>Federation</small>
+            </button>
+        </nav>
+
+        <div class="yh-mobile-command-sheet" id="yh-mobile-command-sheet" aria-hidden="true">
+            <button type="button" class="yh-mobile-command-backdrop" data-yh-mobile-command-close aria-label="Close command"></button>
+
+            <section class="yh-mobile-command-panel" role="dialog" aria-modal="true" aria-label="Command menu">
+                <div class="yh-mobile-command-handle" aria-hidden="true"></div>
+
+                <div class="yh-mobile-command-head">
+                    <small>Command Sheet</small>
+                    <strong>Utilities & System</strong>
+                </div>
+
+                <div class="yh-mobile-command-grid">
+                    <button type="button" data-yh-mobile-command-target="wallet">Wallet</button>
+                    <button type="button" data-yh-mobile-command-target="business-chats">Business Chats</button>
+                    <button type="button" data-yh-mobile-command-target="resources">Resources</button>
+                    <button type="button" data-yh-mobile-command-target="settings">Settings</button>
+                    <button type="button" data-yh-mobile-command-target="edit-profile">Edit Profile</button>
+                    <button type="button" data-yh-mobile-command-target="logout">Log out</button>
+                </div>
+            </section>
         </div>
     </div>
 
@@ -566,15 +667,9 @@
                         <div class="yh-command-overview-kicker">YH Universe Command Center</div>
                         <h1 class="yh-command-dashboard-title">Welcome back, <span id="yh-command-profile-name">Hustler</span>.</h1>
                         <p class="yh-command-dashboard-copy" id="yh-command-profile-bio">
-                            Here is your universe overview. Review your access, movement, wallet, referrals, and next action without leaving the dashboard.
+                            Your access, progress, and network overview.
                         </p>
                     </div>
-
-                    <aside class="yh-command-dashboard-quote" aria-label="Universe quote">
-                        <span aria-hidden="true">“</span>
-                        <p>The future belongs to those who build it.</p>
-                        <strong>— YH Universe Core</strong>
-                    </aside>
                 </header>
                 <section class="yh-academy-parent-hero-header hidden-step" aria-label="Academy workspace overview" aria-hidden="true">
                     <div class="yh-academy-parent-hero-kicker yh-universe-kicker">Academy Workspace</div>
@@ -709,7 +804,7 @@
                         <div class="yh-command-card-content">
                             <div class="yh-command-overview-kicker">Academy Access</div>
                             <h2>Access <span id="yh-command-academy-status">Loading...</span></h2>
-                            <p id="yh-command-academy-copy">Your Academy access state will appear here. Use this card as your main entry point once access is ready.</p>
+                            <p id="yh-command-academy-copy">Main entry point for missions and execution.</p>
 
                             <button
                                 type="button"
@@ -723,38 +818,6 @@
                         <div class="yh-command-access-orb" aria-hidden="true">
                             <img src="/assets/dashboard/academy.png" alt="">
                         </div>
-                    </article>
-
-                    <article class="yh-command-overview-card yh-command-division-card">
-                        <div class="yh-command-overview-kicker">Your Division</div>
-                        <h3 id="yh-command-trust-tier">Loading...</h3>
-                        <p>Your current trust layer inside the YH Universe.</p>
-
-                        <div class="yh-command-progress-line" aria-hidden="true">
-                            <span></span>
-                        </div>
-
-                        <button
-                            type="button"
-                            class="btn-secondary yh-command-overview-action"
-                            onclick="document.querySelector('[data-yh-sidebar-child=&quot;academy-roadmap&quot;]')?.click();"
-                        >
-                            View Roadmap →
-                        </button>
-                    </article>
-
-                    <article class="yh-command-overview-card yh-command-readiness-card">
-                        <div class="yh-command-overview-kicker">Readiness Signal</div>
-                        <div class="yh-command-readiness-main">
-                            <strong>62%</strong>
-                            <span>Overall Progress</span>
-                        </div>
-
-                        <div class="yh-command-readiness-ring" aria-hidden="true">
-                            <span></span>
-                        </div>
-
-                        <p id="yh-command-next-action">Checking your next action...</p>
                     </article>
 
                     <article class="yh-command-overview-card yh-command-metric-card">
@@ -793,7 +856,7 @@
                         </div>
                     </article>
 
-                    <article class="yh-command-overview-card yh-command-progress-card">
+                    <article class="yh-command-overview-card yh-command-progress-card yh-command-network-card">
                         <div class="yh-command-panel-head">
                             <div>
                                 <div class="yh-command-overview-kicker">Your Network</div>
@@ -804,26 +867,28 @@
                             </button>
                         </div>
 
-                        <div class="yh-command-progress-body">
-                            <div class="yh-command-network-orb" aria-hidden="true">
-                                <span>Invited</span>
-                                <span class="yh-command-network-separator" aria-hidden="true">→</span>
-                                <strong id="yh-command-network-score">0</strong>
-                            </div>
+                        <div class="yh-command-progress-body yh-command-network-body">
+                            <div class="yh-command-progress-list yh-command-network-stat-grid">
+                                <div class="yh-command-network-stat-card">
+                                    <span>Total Invited</span>
+                                    <span class="yh-command-progress-separator" aria-hidden="true">→</span>
+                                    <strong id="yh-command-network-score">0</strong>
+                                </div>
 
-                            <div class="yh-command-progress-list">
-                                <div class="yh-command-referral-code-row">
+                                <div class="yh-command-network-stat-card yh-command-referral-code-row">
                                     <span>Referral Code</span>
                                     <span class="yh-command-progress-separator" aria-hidden="true">→</span>
                                     <strong id="yh-command-referral-code">Loading...</strong>
                                     <button type="button" class="btn-secondary yh-command-referral-copy-btn" id="yh-command-referral-copy-btn" aria-label="Copy referral link" aria-live="polite" onclick="copyYHCommandReferralLink()">Copy Link</button>
                                 </div>
-                                <div>
+
+                                <div class="yh-command-network-stat-card">
                                     <span>Paying Referrals</span>
                                     <span class="yh-command-progress-separator" aria-hidden="true">→</span>
                                     <strong id="yh-command-referral-qualified">0</strong>
                                 </div>
-                                <div>
+
+                                <div class="yh-command-network-stat-card">
                                     <span>Total Earned</span>
                                     <span class="yh-command-progress-separator" aria-hidden="true">→</span>
                                     <strong id="yh-command-referral-earned">$0.00</strong>
@@ -2476,8 +2541,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260627-yh-live-cache-v4"></script>
 <script src="/js/yh-shared-runtime.js?v=20260627-yh-live-cache-v4"></script>
-<script src="/js/dashboard.js?v=20260627-yh-live-cache-v4"></script>
-
+<script src="/js/dashboard.js?v=20260705-yh-dashboard-app-nav-v1"></script>
 <!-- PATCH: Entry buttons direct Feed Command route v138 -->
 <script>
 (function installYHEntryButtonsDirectFeedCommandV138() {
