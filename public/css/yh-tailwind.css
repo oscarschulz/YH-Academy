@@ -3229,6 +3229,126 @@ body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-
   }
 }
 
+@media (min-width: 1281px) and (max-width: 1440px) and (max-height: 900px) {
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-shell {
+    padding: 16px 20px 10px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-hero-grid {
+    min-height: clamp(540px, 68dvh, 610px);
+    padding: clamp(24px, 3.4dvh, 38px) clamp(330px, 23vw, 380px) clamp(118px, 13dvh, 138px) 0;
+    grid-template-columns: minmax(310px, 440px) minmax(460px, 1fr);
+    gap: 20px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-hero-copy {
+    z-index: 58;
+    max-width: 450px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-title {
+    font-size: clamp(2.55rem, 3.46vw, 3.72rem);
+    letter-spacing: 0.06em;
+    line-height: 1.02;
+    margin-bottom: 12px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-narrative {
+    font-size: 0.82rem;
+    line-height: 1.36;
+    margin-bottom: 10px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-subtitle {
+    max-width: 390px;
+    font-size: 0.74rem;
+    line-height: 1.44;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-hero-visual {
+    z-index: 10;
+    top: clamp(300px, 52dvh, 430px);
+    width: min(102vw, 1360px);
+    height: min(94vw, 940px);
+    min-height: 680px;
+    transform: translate(-50%, -45%);
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-globe-stage {
+    width: min(100vw, 1320px);
+    height: min(92vw, 920px);
+    min-height: 680px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section.yh-landing-auth-wrap {
+    z-index: 62;
+    top: clamp(62px, 7.6dvh, 82px);
+    right: 22px;
+    width: clamp(300px, 20.8vw, 340px);
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-inner {
+    min-height: clamp(342px, 45dvh, 398px);
+    height: clamp(342px, 45dvh, 398px);
+    max-height: calc(100dvh - 96px);
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-front,
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back {
+    max-height: calc(100dvh - 96px);
+    padding: 12px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section.yh-landing-section {
+    z-index: 64;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0 18px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-division-grid {
+    gap: 12px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-division-card {
+    min-height: 126px;
+    padding: 12px 16px 16px 86px;
+    overflow: visible;
+    border-radius: 14px 14px 0 0;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-division-card::after {
+    inset: auto 16px 10px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-icon {
+    left: 18px;
+    top: 35px;
+    width: 52px;
+    height: 52px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-division-card h3 {
+    width: 100%;
+    margin: 0 0 5px;
+    font-size: clamp(0.86rem, 0.92vw, 1.06rem);
+    letter-spacing: 0.16em;
+    line-height: 1;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-future-card-federation-skin h3 {
+    font-size: clamp(0.82rem, 0.88vw, 1rem);
+    letter-spacing: 0.12em;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-division-card p {
+    width: 100%;
+    font-size: 0.66rem;
+    line-height: 1.28;
+  }
+}
+
 @media (max-width: 1100px) {
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 {
     position: static;
