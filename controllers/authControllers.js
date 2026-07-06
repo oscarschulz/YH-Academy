@@ -10,7 +10,7 @@ const USERS_COLLECTION = 'users';
 const UNIVERSE_REFERRAL_LEDGER_COLLECTION = 'universeReferralLedger';
 const UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT = Number(process.env.UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT || 2.81);
 const UNIVERSE_REFERRAL_COMMISSION_CURRENCY = String(process.env.UNIVERSE_REFERRAL_COMMISSION_CURRENCY || 'USD').trim().toUpperCase() || 'USD';
-const OTP_FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'YH Universe <support@younghustlersuniverse.com>';
+const OTP_FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'YH Universe <otp@younghustlersuniverse.com>';
 const OTP_REPLY_TO = process.env.OTP_REPLY_TO || 'support@younghustlersuniverse.com';
 const OTP_SUPPORT_EMAIL = process.env.OTP_SUPPORT_EMAIL || OTP_REPLY_TO || 'support@younghustlersuniverse.com';
 
@@ -30,31 +30,23 @@ const transporter = nodemailer.createTransport({
         : undefined
 });
 
-function buildOtpPlainText({ subject = '', html = '' } = {}) {
-    const cleanSubject = String(subject || 'YH Universe Verification Code').trim();
-    const cleanText = String(html || '')
-        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/&nbsp;/gi, ' ')
-        .replace(/&amp;/gi, '&')
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/&quot;/gi, '"')
-        .replace(/&#39;/gi, "'")
-        .replace(/\s+/g, ' ')
-        .trim();
-
+function buildOtpPlainText({ title = 'YH Universe verification code', intro = '', otpCode = '', note = '' } = {}) {
     return [
-        cleanSubject,
+        title,
         '',
-        cleanText || 'Use the verification code in this email to continue with your YH Universe account.',
+        intro || 'Use this code to continue with your YH Universe account.',
         '',
-        `Support: ${OTP_SUPPORT_EMAIL}`
+        `Code: ${otpCode}`,
+        '',
+        note || 'If you did not request this code, you can ignore this email.',
+        '',
+        `Support: ${OTP_SUPPORT_EMAIL}`,
+        '',
+        'YH Universe'
     ].join('\n');
 }
 
-async function sendOtpMail({ to, subject, html }) {
+async function sendOtpMail({ to, subject, html, text }) {
     if (!process.env.RESEND_API_KEY) {
         throw new Error('Missing RESEND_API_KEY environment variable.');
     }
@@ -64,13 +56,13 @@ async function sendOtpMail({ to, subject, html }) {
         replyTo: OTP_REPLY_TO,
         to,
         subject,
-        text: buildOtpPlainText({ subject, html }),
+        text: text || 'Use the verification code from this YH Universe email to continue.',
         html
     });
 }
 
-async function sendSystemMail({ to, subject, html }) {
-    return sendOtpMail({ to, subject, html });
+async function sendSystemMail({ to, subject, html, text }) {
+    return sendOtpMail({ to, subject, html, text });
 }
 
 exports.sendSystemMail = sendSystemMail;
@@ -856,31 +848,105 @@ function renderPremiumOtpEmail({
     `;
 }
 
+function renderSimpleOtpEmail({
+    title = 'Verify your email',
+    intro = 'Use the code below to continue with your YH Universe account.',
+    otpCode = '',
+    note = 'If you did not request this code, you can ignore this email.'
+} = {}) {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+</head>
+<body style="margin:0; padding:0; background:#ffffff; color:#111827; font-family:Arial, Helvetica, sans-serif;">
+  <div style="max-width:520px; margin:0 auto; padding:28px 20px;">
+    <div style="font-size:18px; line-height:1.4; font-weight:700; color:#111827; margin-bottom:18px;">
+      YH Universe
+    </div>
+
+    <h1 style="font-size:22px; line-height:1.3; margin:0 0 12px; color:#111827;">
+      ${title}
+    </h1>
+
+    <p style="font-size:15px; line-height:1.6; margin:0 0 22px; color:#374151;">
+      ${intro}
+    </p>
+
+    <div style="font-size:32px; line-height:1; letter-spacing:8px; font-weight:700; color:#111827; margin:0 0 22px;">
+      ${otpCode}
+    </div>
+
+    <p style="font-size:14px; line-height:1.6; margin:0 0 18px; color:#4b5563;">
+      ${note}
+    </p>
+
+    <p style="font-size:13px; line-height:1.6; margin:0 0 22px; color:#6b7280;">
+      This code is private. Do not share it with anyone.
+    </p>
+
+    <hr style="border:none; border-top:1px solid #e5e7eb; margin:24px 0;">
+
+    <p style="font-size:13px; line-height:1.6; margin:0; color:#6b7280;">
+      Need help? Contact ${OTP_SUPPORT_EMAIL}
+    </p>
+  </div>
+</body>
+</html>
+    `.trim();
+}
+
 function verificationMailHtml(otpCode) {
-    return renderPremiumOtpEmail({
-        badge: 'Email Verification',
+    return renderSimpleOtpEmail({
         title: 'Verify your email',
-        intro: 'Welcome to the YH Universe. Use the code below to verify your email and continue your onboarding.',
+        intro: 'Use this code to verify your YH Universe email and continue your onboarding.',
+        otpCode,
+        note: 'This verification code will expire soon.'
+    });
+}
+
+function verificationMailText(otpCode) {
+    return buildOtpPlainText({
+        title: 'Verify your email',
+        intro: 'Use this code to verify your YH Universe email and continue your onboarding.',
         otpCode,
         note: 'This verification code will expire soon.'
     });
 }
 
 function resendVerificationMailHtml(otpCode) {
-    return renderPremiumOtpEmail({
-        badge: 'New Verification Code',
-        title: 'Your new code is ready',
-        intro: 'You requested another verification code. Use the latest code below to continue accessing your account.',
+    return renderSimpleOtpEmail({
+        title: 'Your new verification code',
+        intro: 'Use the latest code below to continue accessing your YH Universe account.',
+        otpCode,
+        note: 'Only the most recently issued code should be used.'
+    });
+}
+
+function resendVerificationMailText(otpCode) {
+    return buildOtpPlainText({
+        title: 'Your new verification code',
+        intro: 'Use the latest code below to continue accessing your YH Universe account.',
         otpCode,
         note: 'Only the most recently issued code should be used.'
     });
 }
 
 function forgotPasswordMailHtml(otpCode) {
-    return renderPremiumOtpEmail({
-        badge: 'Password Reset',
+    return renderSimpleOtpEmail({
         title: 'Reset your password',
-        intro: 'We received a password reset request for your YH Universe account. Use the code below to continue.',
+        intro: 'Use this code to continue resetting your YH Universe password.',
+        otpCode,
+        note: 'If you did not request this reset, you can safely ignore this email.'
+    });
+}
+
+function forgotPasswordMailText(otpCode) {
+    return buildOtpPlainText({
+        title: 'Reset your password',
+        intro: 'Use this code to continue resetting your YH Universe password.',
         otpCode,
         note: 'If you did not request this reset, you can safely ignore this email.'
     });
@@ -1096,11 +1162,12 @@ exports.registerUser = async (req, res) => {
                 updatedAt: issuedAt
             });
 
-            await sendOtpMail({
-                to: email,
-                subject: 'YH Universe - Verification Code',
-                html: verificationMailHtml(otpCode)
-            });
+await sendOtpMail({
+    to: email,
+    subject: 'YH Universe - Verification Code',
+    html: verificationMailHtml(otpCode),
+    text: verificationMailText(otpCode)
+});
 
             return res.json({
                 success: true,
@@ -1194,11 +1261,12 @@ exports.registerUser = async (req, res) => {
             });
         }
 
-        await sendOtpMail({
-            to: email,
-            subject: 'YH Universe - Verification Code',
-            html: verificationMailHtml(otpCode)
-        });
+await sendOtpMail({
+    to: email,
+    subject: 'YH Universe - Verification Code',
+    html: verificationMailHtml(otpCode),
+    text: verificationMailText(otpCode)
+});
 
         return res.json({
             success: true,
@@ -1327,11 +1395,12 @@ exports.resendOTP = async (req, res) => {
             updatedAt: nowIso()
         });
 
-        await sendOtpMail({
-            to: email,
-            subject: 'YH Universe - Verification Code',
-            html: resendVerificationMailHtml(otpCode)
-        });
+await sendOtpMail({
+    to: email,
+    subject: 'YH Universe - Verification Code',
+    html: verificationMailHtml(otpCode),
+    text: verificationMailText(otpCode)
+});
 
         return res.json({
             success: true,
@@ -1533,9 +1602,10 @@ exports.loginUser = async (req, res) => {
             });
 
             await sendOtpMail({
-                to: user.email,
+                to: user.email || '',
                 subject: 'YH Universe - Verification Code',
-                html: verificationMailHtml(otpCode)
+                html: verificationMailHtml(otpCode),
+                text: verificationMailText(otpCode)
             });
 
             return res.status(403).json({
@@ -1783,7 +1853,8 @@ exports.forgotPassword = async (req, res) => {
         await sendOtpMail({
             to: email,
             subject: 'YH Universe - Password Reset Code',
-            html: forgotPasswordMailHtml(otpCode)
+            html: forgotPasswordMailHtml(otpCode),
+            text: forgotPasswordMailText(otpCode)
         });
 
         return res.json({
