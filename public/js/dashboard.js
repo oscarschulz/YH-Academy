@@ -237,6 +237,20 @@ const socket = io({
 });
 
 const myName = getStoredUserValue('yh_user_name', "Hustler");
+function clearDashboardDeletedAccountClientState() {
+    try {
+        if (typeof window.YHSharedRuntime?.clearYHClientAuthStateForInvalidSession === 'function') {
+            window.YHSharedRuntime.clearYHClientAuthStateForInvalidSession();
+            return;
+        }
+    } catch (_) {}
+
+    try {
+        localStorage.clear();
+        sessionStorage.clear();
+    } catch (_) {}
+}
+
 function enforceDashboardClientAuthGate() {
     const token = typeof getStoredAuthToken === 'function'
         ? String(getStoredAuthToken() || '').trim()
@@ -280,6 +294,16 @@ function enforceDashboardClientAuthGate() {
 if (!enforceDashboardClientAuthGate()) {
     throw new Error('Dashboard auth token missing.');
 }
+
+window.addEventListener('pageshow', () => {
+    enforceDashboardClientAuthGate();
+});
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        enforceDashboardClientAuthGate();
+    }
+});
 function decodeDashboardJwtPayload(token = '') {
     const cleanToken = String(token || '').trim();
     const parts = cleanToken.split('.');
@@ -14096,8 +14120,11 @@ document.getElementById('academy-member-browser-close')?.addEventListener('click
     closeDashboardMemberBrowserModal();
 });
 
-document.getElementById('academy-profile-dashboard-close')?.addEventListener('click', () => {
-    closeDashboardUniverseProfileView();
+document.getElementById('academy-profile-dashboard-close')?.addEventListener('click', (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+
+    closeDashboardUniverseProfileView({ useBrowserBack: true });
 });
 
 document.getElementById('academy-member-browser-modal')?.addEventListener('click', (event) => {
@@ -21309,32 +21336,80 @@ function renderAcademyProfileRecentPosts(posts = [], options = {}) {
         list.insertAdjacentElement('beforebegin', controls);
     }
 
-    const currentValue = String(document.getElementById('yh-universe-profile-activity-filter')?.value || 'all').trim();
-    const safeValue = currentValue === 'all' || availableDivisionKeys.includes(currentValue)
-        ? currentValue
-        : 'all';
-
-    const optionHtml = [
-        availableDivisionKeys.length > 1 ? `<option value="all">All Activity</option>` : '',
+    const activityFilterOptions = [
+        ...(availableDivisionKeys.length > 1
+            ? [{ value: 'all', label: 'All Activity' }]
+            : []),
         ...availableDivisionKeys.map((key) => {
             const label = YH_UNIVERSE_PROFILE_DIVISION_LABELS[key] || key;
-            return `<option value="${academyFeedEscapeHtml(key)}">${academyFeedEscapeHtml(label)} Activity</option>`;
+
+            return {
+                value: key,
+                label: `${label} Activity`
+            };
         })
-    ].join('');
+    ];
+
+    const currentValue = String(document.getElementById('yh-universe-profile-activity-filter')?.value || '').trim();
+    const safeValue = activityFilterOptions.some((option) => option.value === currentValue)
+        ? currentValue
+        : (activityFilterOptions[0]?.value || 'all');
+
+    const selectedOption =
+        activityFilterOptions.find((option) => option.value === safeValue) ||
+        activityFilterOptions[0] ||
+        { value: 'all', label: 'All Activity' };
+
+    const optionHtml = activityFilterOptions.map((option) => {
+        const isSelected = option.value === safeValue;
+
+        return `
+            <button
+                type="button"
+                class="yh-universe-profile-activity-option${isSelected ? ' is-active' : ''}"
+                role="option"
+                aria-selected="${isSelected ? 'true' : 'false'}"
+                data-yh-profile-activity-option="${academyFeedEscapeHtml(option.value)}"
+            >
+                ${academyFeedEscapeHtml(option.label)}
+            </button>
+        `;
+    }).join('');
 
     controls.innerHTML = `
-        <label for="yh-universe-profile-activity-filter">Activity scope</label>
-        <select id="yh-universe-profile-activity-filter" class="yh-universe-profile-activity-filter">
-            ${optionHtml}
-        </select>
+        <label id="yh-universe-profile-activity-label">Activity scope</label>
+
+        <div class="yh-universe-profile-activity-menu-wrap" data-yh-profile-activity-menu-wrap>
+            <input
+                type="hidden"
+                id="yh-universe-profile-activity-filter"
+                class="yh-universe-profile-activity-filter"
+                value="${academyFeedEscapeHtml(selectedOption.value)}"
+            >
+
+            <button
+                type="button"
+                id="yh-universe-profile-activity-trigger"
+                class="yh-universe-profile-activity-trigger"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-labelledby="yh-universe-profile-activity-label"
+            >
+                <span>${academyFeedEscapeHtml(selectedOption.label)}</span>
+                <i aria-hidden="true">⌄</i>
+            </button>
+
+            <div
+                class="yh-universe-profile-activity-menu"
+                role="listbox"
+                aria-labelledby="yh-universe-profile-activity-label"
+            >
+                ${optionHtml}
+            </div>
+        </div>
     `;
 
-    const select = document.getElementById('yh-universe-profile-activity-filter');
-    if (select) {
-        select.value = safeValue;
-    }
-
-    const selectedDivision = String(select?.value || safeValue || 'all').trim();
+    const selectedDivision = String(selectedOption.value || safeValue || 'all').trim();
     const filteredActivities = activities.filter((activity) => {
         return selectedDivision === 'all' || activity.division === selectedDivision;
     });
@@ -23973,19 +24048,77 @@ async function deleteDashboardAccountWithPassword(button = null) {
             throw new Error(result?.message || 'Failed to delete account.');
         }
 
-        try {
-            localStorage.clear();
-            sessionStorage.clear();
-        } catch (_) {}
+        clearDashboardDeletedAccountClientState();
 
         showToast('Account deleted.', 'success');
 
         window.setTimeout(() => {
-            window.location.href = '/';
+            window.location.replace('/');
         }, 500);
     });
 }
-function closeDashboardUniverseProfileView() {
+const YH_DASHBOARD_PROFILE_HISTORY_LAYER = 'yh-dashboard-profile-layer';
+let yhDashboardProfileHistoryClosing = false;
+
+function isDashboardProfileHistoryState(state = window.history?.state) {
+    return Boolean(
+        state &&
+        typeof state === 'object' &&
+        state.yhDashboardLayer === YH_DASHBOARD_PROFILE_HISTORY_LAYER
+    );
+}
+
+function isDashboardUniverseProfileVisible() {
+    const profileView = document.getElementById('academy-profile-view');
+
+    return Boolean(
+        profileView &&
+        !profileView.classList.contains('hidden-step') &&
+        profileView.getAttribute('aria-hidden') !== 'true'
+    );
+}
+
+function dashboardPushProfileHistoryState() {
+    if (yhDashboardProfileHistoryClosing) return;
+    if (isDashboardProfileHistoryState()) return;
+
+    const isDashboard =
+        typeof isStandaloneDashboardPage === 'function'
+            ? isStandaloneDashboardPage()
+            : document.body?.getAttribute('data-yh-page') === 'dashboard';
+
+    if (!isDashboard) return;
+
+    try {
+        const currentState =
+            window.history &&
+            window.history.state &&
+            typeof window.history.state === 'object'
+                ? window.history.state
+                : {};
+
+        const currentWorkspace = String(
+            document.body?.getAttribute('data-yh-unified-workspace') || 'overview'
+        ).trim() || 'overview';
+
+        const currentDivision = String(
+            document.body?.getAttribute('data-yh-unified-division') || 'overview'
+        ).trim() || 'overview';
+
+        window.history.pushState(
+            {
+                ...currentState,
+                yhDashboardLayer: YH_DASHBOARD_PROFILE_HISTORY_LAYER,
+                yhDashboardProfileWorkspace: currentWorkspace,
+                yhDashboardProfileDivision: currentDivision
+            },
+            '',
+            window.location.href
+        );
+    } catch (_) {}
+}
+
+function dashboardCloseProfileWithoutHistoryMutation() {
     const profileView = document.getElementById('academy-profile-view');
     if (!profileView) return;
 
@@ -23998,9 +24131,48 @@ function closeDashboardUniverseProfileView() {
     clearDashboardPersistentProfileState();
 }
 
+function closeDashboardUniverseProfileView(options = {}) {
+    const shouldUseBrowserBack =
+        options?.useBrowserBack === true &&
+        isDashboardProfileHistoryState() &&
+        !yhDashboardProfileHistoryClosing;
+
+    if (shouldUseBrowserBack) {
+        yhDashboardProfileHistoryClosing = true;
+
+        try {
+            window.history.back();
+        } catch (_) {
+            dashboardCloseProfileWithoutHistoryMutation();
+            yhDashboardProfileHistoryClosing = false;
+            return;
+        }
+
+        window.setTimeout(() => {
+            if (isDashboardUniverseProfileVisible()) {
+                dashboardCloseProfileWithoutHistoryMutation();
+            }
+
+            yhDashboardProfileHistoryClosing = false;
+        }, 180);
+
+        return;
+    }
+
+    dashboardCloseProfileWithoutHistoryMutation();
+}
+
 function revealAcademyProfileView() {
     const profileView = document.getElementById('academy-profile-view');
     if (!profileView) return;
+
+    const profileWasClosed =
+        profileView.classList.contains('hidden-step') ||
+        profileView.getAttribute('aria-hidden') === 'true';
+
+    if (profileWasClosed) {
+        dashboardPushProfileHistoryState();
+    }
 
     document.body?.classList.add('yh-universe-profile-open');
 
@@ -24020,6 +24192,29 @@ function revealAcademyProfileView() {
 
     void profileView.offsetWidth;
     profileView.classList.add('fade-in');
+}
+
+if (!window.__yhDashboardProfileHistoryBackV1Installed) {
+    window.__yhDashboardProfileHistoryBackV1Installed = true;
+
+    window.addEventListener('popstate', function (event) {
+        if (!isDashboardUniverseProfileVisible()) {
+            yhDashboardProfileHistoryClosing = false;
+            return;
+        }
+
+        if (isDashboardProfileHistoryState(event.state)) {
+            yhDashboardProfileHistoryClosing = false;
+            return;
+        }
+
+        yhDashboardProfileHistoryClosing = true;
+        dashboardCloseProfileWithoutHistoryMutation();
+
+        window.setTimeout(() => {
+            yhDashboardProfileHistoryClosing = false;
+        }, 80);
+    });
 }
 
 async function fetchAcademyMemberProfile(memberId = '') {
@@ -27427,8 +27622,41 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
     });
 });
 
-document.getElementById('academy-profile-view')?.addEventListener('change', (event) => {
-    if (event.target?.id !== 'yh-universe-profile-activity-filter') return;
+document.getElementById('academy-profile-view')?.addEventListener('click', (event) => {
+    const activityTrigger = event.target?.closest?.('#yh-universe-profile-activity-trigger');
+    const activityOption = event.target?.closest?.('[data-yh-profile-activity-option]');
+    const activeWrap = event.target?.closest?.('[data-yh-profile-activity-menu-wrap]');
+
+    document.querySelectorAll('.yh-universe-profile-activity-menu-wrap.is-open').forEach((wrap) => {
+        if (activeWrap && wrap === activeWrap) return;
+
+        wrap.classList.remove('is-open');
+        wrap.querySelector('#yh-universe-profile-activity-trigger')?.setAttribute('aria-expanded', 'false');
+    });
+
+    if (activityTrigger) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const wrap = activityTrigger.closest('[data-yh-profile-activity-menu-wrap]');
+        const isOpen = wrap?.classList.contains('is-open');
+
+        wrap?.classList.toggle('is-open', !isOpen);
+        activityTrigger.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+        return;
+    }
+
+    if (!activityOption) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const selectedValue = String(activityOption.getAttribute('data-yh-profile-activity-option') || '').trim();
+    const hiddenInput = document.getElementById('yh-universe-profile-activity-filter');
+
+    if (hiddenInput) {
+        hiddenInput.value = selectedValue;
+    }
 
     const activeProfile = academyProfileViewState?.profile;
     if (!activeProfile) return;

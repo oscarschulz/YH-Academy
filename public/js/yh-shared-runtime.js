@@ -309,6 +309,72 @@
         return writeDashboardViewState({ view: 'academy', division: 'academy', academySection: section });
     }
 
+    function clearYHClientAuthStateForInvalidSession() {
+        const explicitKeys = [
+            'yh_user_loggedIn',
+            'yh_user_name',
+            'yh_user_full_name',
+            'yh_user_display_name',
+            'yh_user_username',
+            'yh_user_email',
+            'yh_user_avatar',
+            'yh_user_cover_photo',
+            'yh_user_first_name',
+            'yh_user_firstname',
+            'yh_user_surname',
+            'yh_user_last_name',
+            'yh_user_lastname',
+            'yh_user_city',
+            'yh_user_location_city',
+            'yh_user_country',
+            'yh_user_country_of_residence',
+            'yh_user_location_country',
+            'yh_current_user',
+            'yh_user',
+            'currentUser',
+            'user',
+            'yh_token',
+            'token',
+            'yh_academy_access',
+            'yh_academy_home',
+            'yh_academy_membership_status_v1',
+            'yh_academy_application_profile',
+            'yh_academy_roadmap_profile_v1',
+            'yh_academy_roadmap_locked_v1',
+            'yh_academy_profile_cache_v1',
+            'yh_universe_visited_profile_cache_v1',
+            'yh_dashboard_view_state_v1',
+            'yhPlazaDirectoryStatusV1',
+            'yh_federation_ladder_outcome_v1',
+            'yh_plaza_access_status_v1',
+            'yh_federation_access_status_v1',
+            'yh_post_login_dashboard_bootstrap_v1'
+        ];
+
+        [localStorage, sessionStorage].forEach((store) => {
+            try {
+                explicitKeys.forEach((key) => store.removeItem(key));
+
+                for (let index = store.length - 1; index >= 0; index -= 1) {
+                    const key = store.key(index);
+                    if (!key) continue;
+
+                    if (key.startsWith('yh_') || key.startsWith('YH_')) {
+                        store.removeItem(key);
+                    }
+                }
+            } catch (_) {}
+        });
+    }
+
+    function redirectYHClientToLoggedOutHome() {
+        try {
+            window.history.replaceState(null, '', '/');
+        } catch (_) {}
+
+        window.location.replace('/');
+    }
+
     async function academyAuthedFetch(url, options = {}) {
         const token = typeof getStoredAuthToken === 'function' ? getStoredAuthToken() : '';
 
@@ -340,11 +406,19 @@
             return error;
         };
 
-        if (response.status === 401) {
+        if (response.status === 401 || response.status === 410 || result?.accountDeleted === true) {
+            clearYHClientAuthStateForInvalidSession();
+
             if (typeof showToast === 'function') {
-                showToast('Your session expired. Please log in again.', 'error');
+                showToast(
+                    result?.accountDeleted === true
+                        ? 'This account has been deleted. Please register again.'
+                        : 'Your session expired. Please log in again.',
+                    'error'
+                );
             }
-            window.location.href = '/';
+
+            redirectYHClientToLoggedOutHome();
             throw buildRequestError('Session expired.');
         }
 
@@ -718,6 +792,8 @@
         saveUniverseViewState,
         saveAcademyViewState,
         academyAuthedFetch,
+        clearYHClientAuthStateForInvalidSession,
+        redirectYHClientToLoggedOutHome,
         normalizeRoomKey,
         getDashboardState,
         getIncomingRoomId,

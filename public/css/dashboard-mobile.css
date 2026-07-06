@@ -15,6 +15,112 @@ body[data-yh-view="hub"] canvas {
     height: auto;
 }
 
+@media (min-width: 769px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-recent-card {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view #yh-universe-profile-activity-controls {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) !important;
+        align-items: center !important;
+        gap: 14px !important;
+        margin: 16px 0 14px !important;
+        padding: 14px 16px !important;
+        border: 1px solid rgba(103, 232, 249, 0.18) !important;
+        border-radius: 16px !important;
+        background:
+            radial-gradient(circle at 14% 0%, rgba(56, 189, 248, 0.12), transparent 38%),
+            linear-gradient(180deg, rgba(8, 18, 38, 0.7), rgba(3, 8, 20, 0.58)) !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view #yh-universe-profile-activity-controls label {
+        min-width: 0 !important;
+        margin: 0 !important;
+        font-size: 0.92rem !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .yh-universe-profile-activity-filter {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 240px !important;
+        height: 42px !important;
+        min-height: 42px !important;
+        justify-self: end !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-list {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)) !important;
+        gap: 14px !important;
+        max-height: none !important;
+        overflow: visible !important;
+        padding-right: 0 !important;
+        align-items: stretch !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-card,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .yh-universe-activity-card {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        min-height: 238px !important;
+        display: grid !important;
+        grid-template-rows: auto minmax(0, 1fr) auto !important;
+        align-content: stretch !important;
+        gap: 18px !important;
+        padding: 18px 18px !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .yh-universe-activity-head {
+        width: 100% !important;
+        min-width: 0 !important;
+        display: grid !important;
+        grid-template-columns: max-content minmax(0, 1fr) !important;
+        align-items: center !important;
+        gap: 10px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-meta {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        line-height: 1.28 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-body {
+        min-width: 0 !important;
+        width: 100% !important;
+        display: grid !important;
+        align-content: start !important;
+        gap: 10px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-body strong,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-body p,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-stats {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+    }
+}
+
 /* ========================================================= */
 /* HUB CTA CLICK SAFETY                                      */
 /* ========================================================= */
@@ -1224,16 +1330,16 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         top: 0 !important;
         left: 0 !important;
         right: 0 !important;
-        min-height: calc(64px + env(safe-area-inset-top, 0px)) !important;
+        min-height: calc(76px + max(18px, env(safe-area-inset-top, 0px))) !important;
         display: grid !important;
         grid-template-columns: 42px minmax(0, 1fr) 42px !important;
         align-items: end !important;
         gap: 10px !important;
-        padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px !important;
+        padding: calc(18px + max(18px, env(safe-area-inset-top, 0px))) 14px 12px !important;
         border-bottom: 1px solid rgba(147, 197, 253, 0.14) !important;
         background:
             radial-gradient(circle at 18% 0%, rgba(103, 232, 249, 0.12), transparent 42%),
-            linear-gradient(180deg, rgba(2, 6, 23, 0.96), rgba(2, 6, 23, 0.78)) !important;
+            linear-gradient(180deg, rgba(2, 6, 23, 0.98), rgba(2, 6, 23, 0.82)) !important;
         backdrop-filter: blur(18px) saturate(1.08) !important;
         -webkit-backdrop-filter: blur(18px) saturate(1.08) !important;
         box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34) !important;
@@ -1272,17 +1378,40 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-profile {
+        justify-self: end !important;
         border-radius: 999px !important;
         font-size: 0.92rem !important;
         font-weight: 800 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-brand {
+        min-width: 0 !important;
+        width: 100% !important;
+        display: grid !important;
+        grid-template-columns: 28px minmax(0, 1fr) !important;
+        align-items: center !important;
+        justify-self: start !important;
+        gap: 9px !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-logo {
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+        object-fit: contain !important;
+        filter:
+            drop-shadow(0 0 10px rgba(96, 165, 250, 0.48))
+            drop-shadow(0 0 14px rgba(139, 92, 246, 0.22)) !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-title-wrap {
         min-width: 0 !important;
         display: grid !important;
         gap: 2px !important;
-        justify-items: center !important;
-        text-align: center !important;
+        justify-items: start !important;
+        text-align: left !important;
+        overflow: hidden !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-title-wrap small {
@@ -1291,7 +1420,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         font-family: var(--yh-font-subheader, "Orbitron", sans-serif) !important;
         font-size: 0.58rem !important;
         font-weight: 800 !important;
-        letter-spacing: 0.18em !important;
+        letter-spacing: 0.16em !important;
         line-height: 1 !important;
         text-transform: uppercase !important;
         white-space: nowrap !important;
@@ -1303,18 +1432,681 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         max-width: 100% !important;
         color: #f8fbff !important;
         font-family: var(--yh-font-header, "Rajdhani", sans-serif) !important;
-        font-size: 1.2rem !important;
+        font-size: 1.18rem !important;
         font-weight: 800 !important;
-        letter-spacing: 0.04em !important;
+        letter-spacing: 0.035em !important;
         line-height: 1 !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
     }
 
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-universe-profile-host {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-universe-profile-header {
+        position: relative !important;
+        z-index: 30 !important;
+        width: min(100%, 300px) !important;
+        max-width: calc(100vw - 36px) !important;
+        margin: 0 auto 14px !important;
+        padding: 10px !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 8px !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-universe-profile-header .header-left {
+        min-width: 0 !important;
+        width: 100% !important;
+        min-height: 48px !important;
+        display: grid !important;
+        grid-template-columns: 22px minmax(0, 1fr) !important;
+        align-items: center !important;
+        gap: 8px !important;
+        padding: 0 12px !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(103, 232, 249, 0.2) !important;
+        background:
+            radial-gradient(circle at 10% 0%, rgba(56, 189, 248, 0.1), transparent 42%),
+            rgba(3, 9, 24, 0.72) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-universe-profile-header .hash-big {
+        width: 22px !important;
+        height: 22px !important;
+        min-width: 22px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-universe-profile-header h3 {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        color: #f8fbff !important;
+        font-size: 0.82rem !important;
+        line-height: 1.05 !important;
+        letter-spacing: -0.01em !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-header-right {
+        width: 100% !important;
+        display: flex !important;
+        justify-content: center !important;
+        position: relative !important;
+        z-index: 32 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-profile-close {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: 32px !important;
+        height: 32px !important;
+        margin: 0 auto !important;
+        padding: 0 12px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 9px !important;
+        font-size: 0.68rem !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        position: relative !important;
+        z-index: 33 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-universe-profile-scroll {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-shell {
+        width: min(100%, 300px) !important;
+        max-width: calc(100vw - 36px) !important;
+        margin: 0 auto !important;
+        padding: 0 0 calc(108px + env(safe-area-inset-bottom, 0px)) !important;
+        display: grid !important;
+        gap: 12px !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-card,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-hero-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 auto !important;
+        overflow: hidden !important;
+        position: relative !important;
+        z-index: 2 !important;
+        border-radius: 18px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-band {
+        min-height: 104px !important;
+        height: 104px !important;
+        max-height: 104px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-body {
+        min-width: 0 !important;
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 10px !important;
+        padding: 0 14px 14px !important;
+        margin-top: -42px !important;
+        text-align: center !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-left {
+        min-width: 0 !important;
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 8px !important;
+        text-align: center !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-avatar-wrap {
+        width: 80px !important;
+        height: 80px !important;
+        min-width: 80px !important;
+        min-height: 80px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 auto !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-avatar {
+        width: 80px !important;
+        height: 80px !important;
+        min-width: 80px !important;
+        min-height: 80px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 1.72rem !important;
+        line-height: 1 !important;
+        margin: 0 auto !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-identity-block {
+        min-width: 0 !important;
+        width: 100% !important;
+        display: grid !important;
+        justify-items: center !important;
+        align-content: start !important;
+        gap: 4px !important;
+        padding: 0 !important;
+        text-align: center !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-name {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        font-size: 1.22rem !important;
+        line-height: 1.02 !important;
+        text-align: center !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-username,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-role {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        font-size: 0.78rem !important;
+        line-height: 1.12 !important;
+        text-align: center !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-subline,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-tag-list {
+        min-width: 0 !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        text-align: center !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-pill {
+        width: max-content !important;
+        max-width: 100% !important;
+        min-height: 27px !important;
+        padding: 0 12px !important;
+        font-size: 0.66rem !important;
+        line-height: 27px !important;
+        white-space: nowrap !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-hero-actions {
+        width: 100% !important;
+        min-width: 0 !important;
+        margin: 8px 0 0 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-action-row {
+        width: 100% !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-action-btn {
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 36px !important;
+        height: 36px !important;
+        padding: 0 12px !important;
+        font-size: 0.74rem !important;
+        line-height: 1 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-social-strip,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-content-grid {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-main-column,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-side-column,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-card {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-card {
+        padding: 14px 12px !important;
+        border-radius: 16px !important;
+    }    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-universe-profile-scroll {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-shell {
+        width: min(100%, 320px) !important;
+        max-width: calc(100vw - 32px) !important;
+        margin: 0 auto !important;
+        padding: 0 0 calc(108px + env(safe-area-inset-bottom, 0px)) !important;
+        display: grid !important;
+        gap: 13px !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-card,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-hero-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 auto !important;
+        overflow: hidden !important;
+        position: relative !important;
+        z-index: 2 !important;
+        border-radius: 18px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-band {
+        min-height: 100px !important;
+        height: 100px !important;
+        max-height: 100px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-body {
+        min-width: 0 !important;
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 12px !important;
+        padding: 0 12px 14px !important;
+        margin-top: -40px !important;
+        text-align: center !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-left {
+        min-width: 0 !important;
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 8px !important;
+        text-align: center !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-avatar-wrap {
+        width: 82px !important;
+        height: 82px !important;
+        min-width: 82px !important;
+        min-height: 82px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 auto !important;
+        flex: 0 0 auto !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-avatar {
+        width: 82px !important;
+        height: 82px !important;
+        min-width: 82px !important;
+        min-height: 82px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 auto !important;
+        font-size: 1.72rem !important;
+        line-height: 1 !important;
+        flex: 0 0 auto !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-identity-block {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        display: grid !important;
+        justify-items: center !important;
+        align-content: start !important;
+        gap: 4px !important;
+        padding: 0 !important;
+        text-align: center !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-name {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        font-size: 1.16rem !important;
+        line-height: 1.06 !important;
+        text-align: center !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-username,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-role {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        font-size: 0.76rem !important;
+        line-height: 1.12 !important;
+        text-align: center !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-subline,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-tag-list {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        text-align: center !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-pill {
+        width: max-content !important;
+        max-width: 100% !important;
+        min-height: 26px !important;
+        padding: 0 11px !important;
+        font-size: 0.64rem !important;
+        line-height: 26px !important;
+        white-space: nowrap !important;
+        margin: 0 auto !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-hero-actions {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        margin: 8px 0 0 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-action-row {
+        width: 100% !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-action-btn {
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 36px !important;
+        height: 36px !important;
+        padding: 0 12px !important;
+        font-size: 0.72rem !important;
+        line-height: 1 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-social-strip,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-content-grid {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-main-column,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-side-column,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-card {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-card {
+        padding: 14px 12px !important;
+        border-radius: 16px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-controls,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-menu-wrap,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-trigger,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-card select {
+        max-width: 100% !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-controls {
+        width: 100% !important;
+        min-width: 0 !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+        overflow: visible !important;
+        position: relative !important;
+        z-index: 40 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-controls label {
+        width: 100% !important;
+        min-width: 0 !important;
+        display: block !important;
+        font-size: 0.82rem !important;
+        line-height: 1.1 !important;
+        text-align: left !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-filter {
+        display: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-menu-wrap {
+        position: relative !important;
+        z-index: 50 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        justify-self: stretch !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-trigger {
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 42px !important;
+        height: 42px !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) 18px !important;
+        align-items: center !important;
+        gap: 8px !important;
+        padding: 0 12px 0 13px !important;
+        border: 1px solid rgba(103, 232, 249, 0.26) !important;
+        border-radius: 12px !important;
+        background:
+            linear-gradient(180deg, rgba(6, 18, 38, 0.92), rgba(3, 8, 20, 0.88)) !important;
+        color: rgba(248, 251, 255, 0.94) !important;
+        font-family: var(--yh-font-body, "Poppins", sans-serif) !important;
+        font-size: 0.86rem !important;
+        font-weight: 600 !important;
+        line-height: 1 !important;
+        text-align: left !important;
+        outline: none !important;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.055),
+            0 10px 22px rgba(0, 0, 0, 0.18) !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-trigger span {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        display: block !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-trigger i {
+        display: inline-grid !important;
+        place-items: center !important;
+        color: rgba(103, 232, 249, 0.9) !important;
+        font-style: normal !important;
+        line-height: 1 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-menu {
+        position: absolute !important;
+        z-index: 999 !important;
+        top: calc(100% + 6px) !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-height: 178px !important;
+        display: none !important;
+        padding: 6px !important;
+        border: 1px solid rgba(103, 232, 249, 0.32) !important;
+        border-radius: 12px !important;
+        background:
+            radial-gradient(circle at 10% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+            linear-gradient(180deg, rgba(5, 14, 32, 0.98), rgba(2, 6, 18, 0.98)) !important;
+        box-shadow:
+            0 18px 42px rgba(0, 0, 0, 0.45),
+            inset 0 1px 0 rgba(255, 255, 255, 0.055) !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-menu-wrap.is-open .yh-universe-profile-activity-menu {
+        display: grid !important;
+        gap: 4px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-option {
+        width: 100% !important;
+        min-height: 34px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        padding: 0 10px !important;
+        border: 1px solid transparent !important;
+        border-radius: 9px !important;
+        background: transparent !important;
+        color: rgba(248, 251, 255, 0.9) !important;
+        font-family: var(--yh-font-body, "Poppins", sans-serif) !important;
+        font-size: 0.84rem !important;
+        font-weight: 600 !important;
+        line-height: 1 !important;
+        text-align: left !important;
+        white-space: nowrap !important;
+        cursor: pointer !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-option:hover,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-option.is-active {
+        border-color: rgba(103, 232, 249, 0.22) !important;
+        background: rgba(56, 189, 248, 0.12) !important;
+        color: #f8fbff !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-list {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-card,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-activity-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        min-height: auto !important;
+        display: grid !important;
+        gap: 16px !important;
+        padding: 16px 14px !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-activity-head {
+        width: 100% !important;
+        min-width: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 10px !important;
+        flex-wrap: wrap !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-activity-division,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-meta {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-body {
+        width: 100% !important;
+        min-width: 0 !important;
+        display: grid !important;
+        gap: 10px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-body strong,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-body p,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-stats {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        text-align: left !important;
+    }
+
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtabs {
         position: fixed !important;
-        top: calc(64px + env(safe-area-inset-top, 0px)) !important;
+        top: calc(76px + max(18px, env(safe-area-inset-top, 0px))) !important;
         left: 0 !important;
         right: 0 !important;
         min-height: 48px !important;
@@ -1772,14 +2564,14 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
 
     body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="academy"]) #universe-hub-view,
     body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="academy"]) .universe-hub-view {
-        padding: calc(122px + env(safe-area-inset-top, 0px)) 12px calc(104px + env(safe-area-inset-bottom, 0px)) !important;
+        padding: calc(136px + max(18px, env(safe-area-inset-top, 0px))) 12px calc(104px + env(safe-area-inset-bottom, 0px)) !important;
         align-items: stretch !important;
         justify-content: flex-start !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #universe-hub-view,
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .universe-hub-view {
-        padding-top: calc(122px + env(safe-area-inset-top, 0px)) !important;
+        padding-top: calc(136px + max(18px, env(safe-area-inset-top, 0px))) !important;
         padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)) !important;
     }
 
@@ -1791,12 +2583,101 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         margin-right: 0 !important;
     }
 
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card {
+        grid-column: span 12 !important;
+        min-height: 60px !important;
+        display: grid !important;
+        grid-template-columns: 42px minmax(0, 1fr) !important;
+        align-items: center !important;
+        align-content: center !important;
+        column-gap: 12px !important;
+        row-gap: 0 !important;
+        padding: 10px 14px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-command-metric-card
+        .yh-command-metric-icon {
+        width: 38px !important;
+        height: 38px !important;
+        min-width: 38px !important;
+        min-height: 38px !important;
+        align-self: center !important;
+        justify-self: center !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-command-metric-card
+        > div:not(.yh-command-metric-icon) {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        display: grid !important;
+        grid-template-columns: minmax(102px, 112px) 14px minmax(0, 1fr) !important;
+        align-items: center !important;
+        justify-content: start !important;
+        column-gap: 5px !important;
+        row-gap: 0 !important;
+        overflow: hidden !important;
+        transform: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-command-metric-card
+        span {
+        grid-column: 1 !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        display: block !important;
+        font-size: 0.78rem !important;
+        line-height: 1 !important;
+        letter-spacing: 0.015em !important;
+        text-align: left !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-command-metric-card
+        .yh-command-metric-separator {
+        grid-column: 2 !important;
+        width: 14px !important;
+        min-width: 14px !important;
+        max-width: 14px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 0.78rem !important;
+        line-height: 1 !important;
+        text-align: center !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-command-metric-card
+        strong {
+        grid-column: 3 !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        display: block !important;
+        font-size: 0.78rem !important;
+        line-height: 1 !important;
+        letter-spacing: 0 !important;
+        text-align: left !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-head {
         display: grid !important;
         grid-template-columns: minmax(0, 1fr) !important;
         gap: 12px !important;
     }
-
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-title,
     body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="academy"]) .yh-universe-title {
         font-size: clamp(1.45rem, 7vw, 2.15rem) !important;

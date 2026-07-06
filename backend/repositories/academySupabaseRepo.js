@@ -188,6 +188,28 @@ async function getRows(recordType, uid, options = {}) {
     return rows;
 }
 
+async function deleteAllCoreRecordsByUserId(uid = '') {
+    const cleanUid = sanitizeString(uid);
+
+    if (!cleanUid) {
+        return { deleted: 0, skipped: true, reason: 'missing_uid' };
+    }
+
+    const { data, error } = await yhuSupabaseAdmin
+        .from(TABLE)
+        .delete()
+        .eq('user_id', cleanUid)
+        .select('id');
+
+    if (error) {
+        throw new Error(`Academy Supabase account wipe failed (${cleanUid}): ${error.message}`);
+    }
+
+    return {
+        deleted: Array.isArray(data) ? data.length : 0
+    };
+}
+
 async function getOne(recordType, uid, docId) {
     const { data, error } = await yhuSupabaseAdmin
         .from(TABLE)
@@ -1172,6 +1194,7 @@ async function persistRoadmapBundle(uid, profile = {}, plan = {}) {
 module.exports = {
     getCurrentProfile,
     setCurrentProfile,
+    deleteAllCoreRecordsByUserId,
     deleteCurrentProfile,
     getAccessState,
     setAccessUnlocked,

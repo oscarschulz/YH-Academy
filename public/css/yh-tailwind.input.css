@@ -5696,12 +5696,12 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card {
   grid-column: span 3 !important;
   min-height: 108px !important;
   display: grid !important;
-  grid-template-columns: 56px minmax(0, 1fr) !important;
+  grid-template-columns: 48px minmax(0, 1fr) !important;
   align-items: center !important;
   align-content: center !important;
-  column-gap: 18px !important;
+  column-gap: 14px !important;
   row-gap: 0 !important;
-  padding: 20px 24px !important;
+  padding: 16px 18px !important;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
@@ -5729,14 +5729,12 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
   width: 100% !important;
   max-width: 100% !important;
   height: auto !important;
-  display: grid !important;
-  grid-template-columns: minmax(112px, 136px) 18px minmax(0, 1fr) !important;
+  display: flex !important;
   align-items: center !important;
-  justify-content: stretch !important;
-  column-gap: 8px !important;
-  row-gap: 0 !important;
+  justify-content: flex-start !important;
+  gap: 7px !important;
   line-height: 1 !important;
-  overflow: hidden !important;
+  overflow: visible !important;
   transform: none !important;
 }
 
@@ -5744,49 +5742,52 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-command-metric-card
   span {
   min-width: 0 !important;
-  max-width: 100% !important;
+  max-width: none !important;
+  flex: 0 1 auto !important;
   color: rgba(223, 247, 255, 0.9) !important;
   font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  font-size: clamp(1.02rem, 1.05vw, 1.16rem);
+  font-size: clamp(0.9rem, 0.94vw, 1.02rem);
   font-weight: 700;
   line-height: 1;
-  letter-spacing: 0.035em;
+  letter-spacing: 0.02em;
   white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-command-metric-card
   strong {
-  min-width: 0 !important;
-  max-width: 100% !important;
+  min-width: max-content !important;
+  max-width: none !important;
+  flex: 0 0 auto !important;
   color: rgba(248, 251, 255, 0.98) !important;
   font-family: "Poppins", "Rajdhani", system-ui, sans-serif;
-  font-size: clamp(1rem, 1.02vw, 1.12rem);
-  font-weight: 500;
+  font-size: clamp(0.9rem, 0.94vw, 1.02rem);
+  font-weight: 600;
   line-height: 1;
-  letter-spacing: 0.005em;
+  letter-spacing: 0;
   text-transform: none;
   text-shadow: none;
   white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
   justify-self: start !important;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-command-metric-card
   .yh-command-metric-separator {
-  width: 18px !important;
-  min-width: 18px !important;
-  max-width: 18px !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  max-width: 16px !important;
+  flex: 0 0 16px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   color: rgba(103, 232, 249, 0.82) !important;
   font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  font-size: clamp(1rem, 1vw, 1.12rem);
+  font-size: clamp(0.9rem, 0.94vw, 1.02rem);
   font-weight: 700;
   line-height: 1;
   opacity: 0.95;
@@ -5797,17 +5798,21 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-command-metric-card
   .yh-command-metric-icon {
-  width: 48px !important;
-  height: 48px !important;
-  min-width: 48px !important;
-  min-height: 48px !important;
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
   display: grid !important;
   place-items: center !important;
   align-self: center !important;
   justify-self: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
   font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  font-size: 1.14rem !important;
+  font-size: 1.04rem !important;
   line-height: 1 !important;
+  text-align: center !important;
+  transform: none !important;
 }
 
 @media (max-width: 1280px) {

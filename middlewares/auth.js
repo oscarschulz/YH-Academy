@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { firestore } = require('../config/firebaseAdmin');
 
 function parseCookies(req) {
     const raw = req.headers.cookie || '';
@@ -18,7 +19,62 @@ function parseCookies(req) {
     return out;
 }
 
-module.exports = (req, res, next) => {
+function cleanText(value = '') {
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+}
+
+function normalizeStatus(value = '') {
+    return cleanText(value).toLowerCase().replace(/\s+/g, '_');
+}
+
+function isDeletedAccountRecord(user = {}) {
+    if (!user || typeof user !== 'object') return false;
+
+    const status = normalizeStatus(user.accountStatus || user.userStatus || user.status || '');
+    const deletionStatus = normalizeStatus(user.deletionStatus || user.deleteStatus || '');
+
+    return (
+        user.deleted === true ||
+        user.isDeleted === true ||
+        user.accountDeleted === true ||
+        user.isAccountDeleted === true ||
+        user.disabled === true ||
+        user.isDisabled === true ||
+        Boolean(user.deletedAt || user.accountDeletedAt || user.disabledAt) ||
+        ['deleted', 'disabled', 'deactivated', 'removed', 'archived'].includes(status) ||
+        ['deleted', 'soft_deleted', 'hard_deleted', 'disabled', 'deactivated'].includes(deletionStatus)
+    );
+}
+
+function buildExpiredAuthCookie() {
+    const cookieParts = [
+        'yh_auth_token=',
+        'HttpOnly',
+        'Path=/',
+        'SameSite=Strict',
+        'Max-Age=0'
+    ];
+
+    if (process.env.NODE_ENV === 'production') {
+        cookieParts.push('Secure');
+    }
+
+    return cookieParts.join('; ');
+}
+
+function sendDeletedAccountResponse(res) {
+    res.setHeader('Set-Cookie', buildExpiredAuthCookie());
+
+    return res.status(401).json({
+        success: false,
+        accountDeleted: true,
+        registrationRequired: true,
+        message: 'This account has been deleted. Please register again.'
+    });
+}
+
+module.exports = async (req, res, next) => {
     const headerToken = req.header('Authorization');
     const cookies = parseCookies(req);
     const cookieToken = cookies.yh_auth_token || '';
@@ -36,8 +92,28 @@ module.exports = (req, res, next) => {
 
     try {
         const verified = jwt.verify(rawToken, process.env.JWT_SECRET);
-        req.user = verified;
-        next();
+        const uid = cleanText(verified?.id || verified?.uid || verified?.firebaseUid);
+
+        if (!uid) {
+            return sendDeletedAccountResponse(res);
+        }
+
+        if (uid !== 'local-superdev') {
+            const userSnapshot = await firestore.collection('users').doc(uid).get();
+
+            if (!userSnapshot.exists || isDeletedAccountRecord(userSnapshot.data() || {})) {
+                return sendDeletedAccountResponse(res);
+            }
+        }
+
+        req.user = {
+            ...verified,
+            id: uid,
+            uid,
+            firebaseUid: uid
+        };
+
+        return next();
     } catch (error) {
         return res.status(400).json({
             success: false,

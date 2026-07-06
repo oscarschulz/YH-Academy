@@ -11,6 +11,8 @@ const publicLandingEventsRepo = require('./backend/repositories/publicLandingEve
 const universeCollectionMirrorRepo = require('./backend/repositories/universeCollectionMirrorRepo');
 const { firestore } = require('./config/firebaseAdmin');
 const academyMemberProfileSupabaseRepo = require('./backend/repositories/academyMemberProfileSupabaseRepo');
+const academySupabaseRepo = require('./backend/repositories/academySupabaseRepo');
+const yhuSupabaseMirrorRepo = require('./backend/repositories/yhuSupabaseMirrorRepo');
 const yhuUsersSupabaseRepo = require('./backend/repositories/yhuUsersSupabaseRepo');
 
 const ACADEMY_UPLOADS_ROOT = path.resolve(
@@ -5646,6 +5648,44 @@ async function hardDeleteUserAccountFromFirestore(userRef) {
     };
 }
 
+async function cleanupYHUSupabaseAccountArtifacts({ uid = '', email = '' } = {}) {
+    const cleanUid = sanitize(uid);
+    const cleanEmail = sanitize(email).toLowerCase();
+
+    if (!cleanUid && !cleanEmail) {
+        return { cleaned: false, skipped: true, reason: 'missing_uid_or_email' };
+    }
+
+    const tasks = [
+        ['yhu_users', () => yhuUsersSupabaseRepo.deleteByUidAndEmail({ uid: cleanUid, email: cleanEmail })],
+        ['yhu_academy_member_profiles', () => academyMemberProfileSupabaseRepo.deleteByUidAndEmail({ uid: cleanUid, email: cleanEmail })],
+        ['yhu_academy_core_records', () => academySupabaseRepo.deleteAllCoreRecordsByUserId(cleanUid)],
+        ['yhu_supabase_mirror', () => yhuSupabaseMirrorRepo.deleteUserMirror({ uid: cleanUid, email: cleanEmail })]
+    ];
+
+    const results = [];
+
+    for (const [name, run] of tasks) {
+        if (typeof run !== 'function') continue;
+
+        try {
+            results.push({
+                name,
+                success: true,
+                result: await run()
+            });
+        } catch (error) {
+            error.message = `Supabase account cleanup failed at ${name}: ${error.message || error}`;
+            throw error;
+        }
+    }
+
+    return {
+        cleaned: true,
+        results
+    };
+}
+
 function buildExpiredAuthCookie() {
     const cookieParts = [
         'yh_auth_token=',
@@ -5714,6 +5754,11 @@ exports.deleteCurrentAccount = async (req, res) => {
             });
         }
 
+        const supabaseCleanupResult = await cleanupYHUSupabaseAccountArtifacts({
+            uid,
+            email: userData.email || userData.emailLower || userData.userEmail || ''
+        });
+
         const deletionResult = await hardDeleteUserAccountFromFirestore(userRef);
 
         res.setHeader('Set-Cookie', buildExpiredAuthCookie());
@@ -5724,6 +5769,7 @@ exports.deleteCurrentAccount = async (req, res) => {
             hardDeleted: true,
             uid,
             deletion: deletionResult,
+            supabaseCleanup: supabaseCleanupResult,
             message: 'Account deleted successfully.'
         });
     } catch (error) {

@@ -8,9 +8,9 @@
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" href="/css/style.css?v=20260627-yh-live-cache-v4">
+<link rel="stylesheet" href="/css/style.css?v=20260705-yh-profile-activity-dropdown-v1">
 <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260702-yh-dashboard-minimal-clean-v3">
-<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260705-yh-dashboard-app-nav-v1">
+<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260705-yh-profile-mobile-card-v1">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
 
@@ -69,9 +69,12 @@
                 ‹
             </button>
 
-            <div class="yh-mobile-app-title-wrap">
-                <small id="yh-mobile-app-kicker">YH Universe</small>
-                <strong id="yh-mobile-app-title">Dashboard</strong>
+            <div class="yh-mobile-app-brand">
+                <img src="/images/logo.avif" alt="" class="yh-mobile-app-logo" aria-hidden="true">
+                <div class="yh-mobile-app-title-wrap">
+                    <small id="yh-mobile-app-kicker">YH Universe</small>
+                    <strong id="yh-mobile-app-title">Dashboard</strong>
+                </div>
             </div>
 
             <button type="button" class="yh-mobile-app-profile" id="yh-mobile-app-profile" aria-label="Open profile">
@@ -2540,8 +2543,8 @@
 </script>
 
 <script src="/js/yh-shared-core.js?v=20260627-yh-live-cache-v4"></script>
-<script src="/js/yh-shared-runtime.js?v=20260627-yh-live-cache-v4"></script>
-<script src="/js/dashboard.js?v=20260705-yh-dashboard-app-nav-v1"></script>
+<script src="/js/yh-shared-runtime.js?v=20260706-yh-account-delete-hard-wipe-v1"></script>
+<script src="/js/dashboard.js?v=20260706-yh-account-delete-hard-wipe-v1"></script>
 <!-- PATCH: Entry buttons direct Feed Command route v138 -->
 <script>
 (function installYHEntryButtonsDirectFeedCommandV138() {

@@ -437,6 +437,80 @@ function mapSupabaseUserRowToAuthUser(row = {}) {
   };
 }
 
+async function deleteMirrorRowsByColumn(tableName = '', column = '', value = '') {
+  const client = getSupabaseClient();
+  const cleanTableName = cleanText(tableName);
+  const cleanColumn = cleanText(column);
+  const cleanValue = cleanText(value);
+
+  if (!client) {
+    return { ok: false, skipped: true, reason: 'missing_supabase_env' };
+  }
+
+  if (!cleanTableName || !cleanColumn || !cleanValue) {
+    return { ok: false, skipped: true, reason: 'missing_delete_target' };
+  }
+
+  const { data, error } = await client
+    .from(cleanTableName)
+    .delete()
+    .eq(cleanColumn, cleanValue)
+    .select('id');
+
+  if (error) {
+    console.error('[YHU Supabase Mirror] Delete failed:', cleanTableName, cleanColumn, error.message);
+    throw error;
+  }
+
+  return {
+    ok: true,
+    tableName: cleanTableName,
+    column: cleanColumn,
+    value: cleanValue,
+    deleted: Array.isArray(data) ? data.length : 0
+  };
+}
+
+async function deleteUserMirror({ uid = '', email = '' } = {}) {
+  const cleanUid = cleanText(uid);
+  const cleanEmail = cleanText(email).toLowerCase();
+
+  if (!cleanUid && !cleanEmail) {
+    return { ok: false, skipped: true, reason: 'missing_uid_or_email' };
+  }
+
+  const targets = [];
+
+  if (cleanUid) {
+    targets.push(
+      ['user_id', cleanUid],
+      ['firebase_uid', cleanUid],
+      ['source_document_id', cleanUid],
+      ['firebase_document_id', cleanUid]
+    );
+  }
+
+  if (cleanEmail) {
+    targets.push(['email', cleanEmail]);
+  }
+
+  const seen = new Set();
+  const results = [];
+
+  for (const [column, value] of targets) {
+    const key = `${column}:${value}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push(await deleteMirrorRowsByColumn('yhu_users', column, value));
+  }
+
+  return {
+    ok: true,
+    deleted: results.reduce((sum, item) => sum + Number(item.deleted || 0), 0),
+    results
+  };
+}
+
 async function findUserByIdentifier(identifier = '') {
   const cleanIdentifier = cleanText(identifier).toLowerCase();
 
@@ -519,5 +593,6 @@ module.exports = {
   listFederationRequestsByRequester,
   getFederationRequestByDocumentId,
   mapSupabaseUserRowToAuthUser,
+  deleteUserMirror,
   findUserByIdentifier
 };

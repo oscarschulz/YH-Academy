@@ -1441,22 +1441,84 @@ function getSocketToken(socket) {
     return sanitizeText(cookies[AUTH_COOKIE_NAME]);
 }
 
-function verifySocketUser(socket) {
-    const token = getSocketToken(socket);
-    if (!token) return null;
+function normalizeServerAuthStatus(value = '') {
+    return sanitizeText(value).toLowerCase().replace(/\s+/g, '_');
+}
+
+function isDeletedServerAccountRecord(userData = {}) {
+    if (!userData || typeof userData !== 'object') return false;
+
+    const status = normalizeServerAuthStatus(userData.accountStatus || userData.userStatus || userData.status || '');
+    const deletionStatus = normalizeServerAuthStatus(userData.deletionStatus || userData.deleteStatus || '');
+
+    return (
+        userData.deleted === true ||
+        userData.isDeleted === true ||
+        userData.accountDeleted === true ||
+        userData.isAccountDeleted === true ||
+        userData.disabled === true ||
+        userData.isDisabled === true ||
+        Boolean(userData.deletedAt || userData.accountDeletedAt || userData.disabledAt) ||
+        ['deleted', 'disabled', 'deactivated', 'removed', 'archived'].includes(status) ||
+        ['deleted', 'soft_deleted', 'hard_deleted', 'disabled', 'deactivated'].includes(deletionStatus)
+    );
+}
+
+async function resolveActiveServerAuthUserFromToken(token = '') {
+    const cleanToken = sanitizeText(token);
+    if (!cleanToken) return null;
 
     try {
-        const verified = jwt.verify(token, process.env.JWT_SECRET);
+        const verified = jwt.verify(cleanToken, process.env.JWT_SECRET);
+        const uid = sanitizeText(verified?.id || verified?.uid || verified?.firebaseUid);
+
+        if (!uid) return null;
+
+        if (uid === 'local-superdev') {
+            return {
+                id: uid,
+                firebaseUid: uid,
+                email: sanitizeText(verified?.email).toLowerCase(),
+                username: sanitizeText(verified?.username),
+                name: sanitizeText(verified?.name || verified?.username || 'Hustler')
+            };
+        }
+
+        const userSnapshot = await firestore.collection('users').doc(uid).get();
+
+        if (!userSnapshot.exists) {
+            return null;
+        }
+
+        const userData = userSnapshot.data() || {};
+
+        if (isDeletedServerAccountRecord(userData)) {
+            return null;
+        }
+
         return {
-            id: sanitizeText(verified?.id || verified?.firebaseUid),
-            firebaseUid: sanitizeText(verified?.firebaseUid || verified?.id),
-            email: sanitizeText(verified?.email).toLowerCase(),
-            username: sanitizeText(verified?.username),
-            name: sanitizeText(verified?.name || verified?.username || 'Hustler')
+            id: uid,
+            firebaseUid: uid,
+            email: sanitizeText(userData.email || verified?.email).toLowerCase(),
+            username: sanitizeText(userData.username || verified?.username),
+            name: sanitizeText(
+                userData.fullName ||
+                userData.displayName ||
+                userData.name ||
+                verified?.name ||
+                userData.username ||
+                verified?.username ||
+                'Hustler'
+            )
         };
     } catch (_) {
         return null;
     }
+}
+
+async function verifySocketUser(socket) {
+    const token = getSocketToken(socket);
+    return resolveActiveServerAuthUserFromToken(token);
 }
 function getRequestToken(req) {
     const authHeader = sanitizeText(req.headers?.authorization || '');
@@ -1471,31 +1533,38 @@ function getRequestToken(req) {
     return sanitizeText(cookies[AUTH_COOKIE_NAME]);
 }
 
-function verifyRequestUser(req) {
+async function verifyRequestUser(req) {
     const token = getRequestToken(req);
-    if (!token) return null;
-
-    try {
-        const verified = jwt.verify(token, process.env.JWT_SECRET);
-        return {
-            id: sanitizeText(verified?.id || verified?.firebaseUid),
-            firebaseUid: sanitizeText(verified?.firebaseUid || verified?.id),
-            email: sanitizeText(verified?.email).toLowerCase(),
-            username: sanitizeText(verified?.username),
-            name: sanitizeText(verified?.name || verified?.username || 'Hustler')
-        };
-    } catch (_) {
-        return null;
-    }
+    return resolveActiveServerAuthUserFromToken(token);
 }
 
-function requireApiUser(req, res, next) {
-    const user = verifyRequestUser(req);
+function buildExpiredServerAuthCookie() {
+    const cookieParts = [
+        `${AUTH_COOKIE_NAME}=`,
+        'HttpOnly',
+        'Path=/',
+        'SameSite=Strict',
+        'Max-Age=0'
+    ];
+
+    if (process.env.NODE_ENV === 'production') {
+        cookieParts.push('Secure');
+    }
+
+    return cookieParts.join('; ');
+}
+
+async function requireApiUser(req, res, next) {
+    const user = await verifyRequestUser(req);
 
     if (!user?.id) {
+        res.setHeader('Set-Cookie', buildExpiredServerAuthCookie());
+
         return res.status(401).json({
             success: false,
-            message: 'Unauthorized.'
+            accountDeleted: true,
+            registrationRequired: true,
+            message: 'Unauthorized or deleted account.'
         });
     }
 
@@ -1513,7 +1582,7 @@ function requireApiUser(req, res, next) {
         console.error('YHU Supabase user mirror error:', mirrorError?.message || mirrorError);
     });
 
-    next();
+    return next();
 }
 
 function isLocalSuperdevRuntimeEnabled() {
@@ -2639,8 +2708,9 @@ global.yhEmitPlazaBusinessConversationUpdated = emitBusinessChatConversationById
 // ==========================================
 // ⚡ REAL-TIME SOCKET.IO LOGIC
 // ==========================================
-io.on('connection', (socket) => {
-    const socketUser = verifySocketUser(socket);
+io.on('connection', async (socket) => {
+    const socketUser = await verifySocketUser(socket);
+
 
     if (!socketUser?.id) {
         socket.emit('socketAuthError', { message: 'Unauthorized socket session.' });
@@ -4543,14 +4613,14 @@ app.get('/collections-assets/collections.js', (req, res) => {
     return sendPrivateCollectionsFile(req, res, 'collections.js');
 });
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
     const pathName = String(req.path || '').replace(/\/+$/, '') || '/';
 
     if (pathName !== '/plaza' && pathName !== '/plaza.html') {
         return next();
     }
 
-    const user = verifyRequestUser(req);
+    const user = await verifyRequestUser(req);
 
     if (!user?.id) {
         return res.redirect('/?redirect=plaza');
@@ -4736,8 +4806,8 @@ const { pageRouter: adminPageRouter, apiRouter: adminApiRouter } = createAdminRo
 app.use(adminApiRouter);
 app.use(adminPageRouter);
 
-function sendYHProtectedPage(req, res, fileName = 'dashboard.html', redirectKey = 'dashboard') {
-    const user = verifyRequestUser(req);
+async function sendYHProtectedPage(req, res, fileName = 'dashboard.html', redirectKey = 'dashboard') {
+    const user = await verifyRequestUser(req);
 
     if (!user?.id) {
         return res.redirect(`/?redirect=${encodeURIComponent(redirectKey)}`);

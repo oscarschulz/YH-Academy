@@ -200,6 +200,70 @@ async function getByUid(uid = '') {
     return null;
 }
 
+async function deleteByColumn(column = '', value = '') {
+    const cleanColumn = cleanText(column);
+    const cleanValue = cleanText(value);
+
+    if (!cleanColumn || !cleanValue) {
+        return { column: cleanColumn, value: cleanValue, deleted: 0, skipped: true };
+    }
+
+    const { data, error } = await yhuSupabaseAdmin
+        .from(TABLE)
+        .delete()
+        .eq(cleanColumn, cleanValue)
+        .select('id');
+
+    if (error) {
+        throw new Error(error.message || error.details || String(error));
+    }
+
+    return {
+        column: cleanColumn,
+        value: cleanValue,
+        deleted: Array.isArray(data) ? data.length : 0
+    };
+}
+
+async function deleteByUidAndEmail({ uid = '', email = '' } = {}) {
+    const cleanUid = cleanText(uid);
+    const cleanEmail = lowerEmail(email);
+
+    if (!cleanUid && !cleanEmail) {
+        return { deleted: 0, skipped: true, reason: 'missing_uid_or_email' };
+    }
+
+    const targets = [];
+
+    if (cleanUid) {
+        targets.push(
+            ['user_id', cleanUid],
+            ['firebase_uid', cleanUid],
+            ['source_document_id', cleanUid],
+            ['firebase_document_id', cleanUid]
+        );
+    }
+
+    if (cleanEmail) {
+        targets.push(['email', cleanEmail]);
+    }
+
+    const seen = new Set();
+    const results = [];
+
+    for (const [column, value] of targets) {
+        const key = `${column}:${value}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        results.push(await deleteByColumn(column, value));
+    }
+
+    return {
+        deleted: results.reduce((sum, item) => sum + Number(item.deleted || 0), 0),
+        results
+    };
+}
+
 async function upsertFromFirestoreUser(uid = '', user = {}, context = {}) {
     const cleanUid = cleanText(uid || user.uid || user.userId || user.firebaseUid);
     if (!cleanUid) return null;
@@ -264,6 +328,7 @@ module.exports = {
     buildPayloadFromFirestoreUser,
     countUsers,
     getByUid,
+    deleteByUidAndEmail,
     stripSensitiveUserFields,
     syncFromFirestoreUserRef,
     upsertFromFirestoreUser
