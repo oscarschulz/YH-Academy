@@ -10,9 +10,9 @@ const USERS_COLLECTION = 'users';
 const UNIVERSE_REFERRAL_LEDGER_COLLECTION = 'universeReferralLedger';
 const UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT = Number(process.env.UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT || 2.81);
 const UNIVERSE_REFERRAL_COMMISSION_CURRENCY = String(process.env.UNIVERSE_REFERRAL_COMMISSION_CURRENCY || 'USD').trim().toUpperCase() || 'USD';
-const OTP_FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'YH Universe <noreply@younghustlers.net>';
-const OTP_REPLY_TO = process.env.OTP_REPLY_TO || 'support@younghustlers.net';
-const OTP_SUPPORT_EMAIL = process.env.OTP_SUPPORT_EMAIL || 'support@younghustlers.net';
+const OTP_FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'YH Universe <support@younghustlersuniverse.com>';
+const OTP_REPLY_TO = process.env.OTP_REPLY_TO || 'support@younghustlersuniverse.com';
+const OTP_SUPPORT_EMAIL = process.env.OTP_SUPPORT_EMAIL || OTP_REPLY_TO || 'support@younghustlersuniverse.com';
 
 const ALLOW_INSECURE_SMTP_TLS =
     String(process.env.ALLOW_INSECURE_SMTP_TLS || '').trim().toLowerCase() === 'true';
@@ -30,6 +30,30 @@ const transporter = nodemailer.createTransport({
         : undefined
 });
 
+function buildOtpPlainText({ subject = '', html = '' } = {}) {
+    const cleanSubject = String(subject || 'YH Universe Verification Code').trim();
+    const cleanText = String(html || '')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    return [
+        cleanSubject,
+        '',
+        cleanText || 'Use the verification code in this email to continue with your YH Universe account.',
+        '',
+        `Support: ${OTP_SUPPORT_EMAIL}`
+    ].join('\n');
+}
+
 async function sendOtpMail({ to, subject, html }) {
     if (!process.env.RESEND_API_KEY) {
         throw new Error('Missing RESEND_API_KEY environment variable.');
@@ -40,6 +64,7 @@ async function sendOtpMail({ to, subject, html }) {
         replyTo: OTP_REPLY_TO,
         to,
         subject,
+        text: buildOtpPlainText({ subject, html }),
         html
     });
 }
