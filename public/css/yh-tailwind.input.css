@@ -3310,74 +3310,120 @@ body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-
   }
 }
 
-@media (min-width: 1281px) and (max-width: 1440px) and (max-height: 900px) {
+@media (min-width: 1101px) and (max-width: 1440px) and (max-height: 900px) {
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-shell {
-    padding: 16px 20px 10px;
+    padding: 14px 18px 0;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-hero-grid {
-    min-height: clamp(540px, 68dvh, 610px);
-    padding: clamp(24px, 3.4dvh, 38px) clamp(330px, 23vw, 380px) clamp(118px, 13dvh, 138px) 0;
-    grid-template-columns: minmax(310px, 440px) minmax(460px, 1fr);
-    gap: 20px;
+    min-height: calc(100dvh - 112px);
+    padding: clamp(24px, 3.4dvh, 36px) clamp(306px, 23vw, 372px) clamp(102px, 13dvh, 122px) 0;
+    grid-template-columns: minmax(330px, 470px) minmax(420px, 1fr);
+    gap: 16px;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-hero-copy {
     z-index: 58;
-    max-width: 450px;
+    max-width: 470px;
+    overflow: visible;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-title {
-    font-size: clamp(2.55rem, 3.46vw, 3.72rem);
-    letter-spacing: 0.06em;
-    line-height: 1.02;
-    margin-bottom: 12px;
+    max-width: none;
+    font-size: clamp(2.42rem, 3.22vw, 3.42rem);
+    letter-spacing: 0.048em;
+    line-height: 0.99;
+    margin-bottom: 10px;
+    overflow: visible;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-title-gradient {
+    width: auto;
+    max-width: none;
+    padding-right: 0.08em;
+    white-space: nowrap;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-narrative {
     font-size: 0.82rem;
-    line-height: 1.36;
-    margin-bottom: 10px;
+    line-height: 1.34;
+    margin-bottom: 8px;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-subtitle {
-    max-width: 390px;
-    font-size: 0.74rem;
-    line-height: 1.44;
+    max-width: 410px;
+    font-size: 0.72rem;
+    line-height: 1.4;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-hero-visual {
     z-index: 10;
-    top: clamp(300px, 52dvh, 430px);
-    width: min(102vw, 1360px);
-    height: min(94vw, 940px);
-    min-height: 680px;
+    top: clamp(286px, 50dvh, 420px);
+    width: min(100vw, 1320px);
+    height: min(88vw, 880px);
+    min-height: 620px;
     transform: translate(-50%, -45%);
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-globe-stage {
-    width: min(100vw, 1320px);
-    height: min(92vw, 920px);
-    min-height: 680px;
+    width: min(98vw, 1280px);
+    height: min(86vw, 860px);
+    min-height: 620px;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section.yh-landing-auth-wrap {
     z-index: 62;
-    top: clamp(62px, 7.6dvh, 82px);
-    right: 22px;
-    width: clamp(300px, 20.8vw, 340px);
+    top: clamp(58px, 7.2dvh, 76px);
+    right: 18px;
+    width: clamp(288px, 21vw, 326px);
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-inner {
-    min-height: clamp(342px, 45dvh, 398px);
-    height: clamp(342px, 45dvh, 398px);
-    max-height: calc(100dvh - 96px);
+    min-height: clamp(318px, 45dvh, 368px);
+    height: clamp(318px, 45dvh, 368px);
+    max-height: calc(100dvh - 86px);
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-front,
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back {
-    max-height: calc(100dvh - 96px);
-    padding: 12px;
+    max-height: calc(100dvh - 86px);
+    padding: 10px 12px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .auth-center-wrapper {
+    gap: 9px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .login-ui-container {
+    gap: 8px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .pill-input,
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-login-password-shell {
+    min-height: 38px;
+    height: 38px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-password-shell .pill-input {
+    height: 38px;
+    min-height: 38px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .pill-btn-login {
+    min-height: 40px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-terminal-create-account-btn {
+    min-height: 38px;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .forgot-link {
+    margin: 0 0 2px;
+    font-size: 0.68rem;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-terminal-auth-divider {
+    gap: 8px;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section.yh-landing-section {
@@ -3385,48 +3431,48 @@ body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-
     left: 0;
     right: 0;
     bottom: 0;
-    padding: 0 18px;
+    padding: 0 16px;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-division-grid {
-    gap: 12px;
+    gap: 10px;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-division-card {
-    min-height: 126px;
-    padding: 12px 16px 16px 86px;
+    min-height: clamp(98px, 17.5dvh, 116px);
+    padding: 11px 14px 13px 76px;
     overflow: visible;
-    border-radius: 14px 14px 0 0;
+    border-radius: 13px 13px 0 0;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-division-card::after {
-    inset: auto 16px 10px;
+    inset: auto 14px 8px;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-icon {
-    left: 18px;
-    top: 35px;
-    width: 52px;
-    height: 52px;
+    left: 16px;
+    top: 31px;
+    width: 48px;
+    height: 48px;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-division-card h3 {
     width: 100%;
     margin: 0 0 5px;
-    font-size: clamp(0.86rem, 0.92vw, 1.06rem);
-    letter-spacing: 0.16em;
+    font-size: clamp(0.78rem, 0.86vw, 0.98rem);
+    letter-spacing: 0.15em;
     line-height: 1;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-future-card-federation-skin h3 {
-    font-size: clamp(0.82rem, 0.88vw, 1rem);
-    letter-spacing: 0.12em;
+    font-size: clamp(0.74rem, 0.82vw, 0.92rem);
+    letter-spacing: 0.11em;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-divisions-section .yh-landing-division-card p {
     width: 100%;
-    font-size: 0.66rem;
-    line-height: 1.28;
+    font-size: 0.61rem;
+    line-height: 1.22;
   }
 }
 
