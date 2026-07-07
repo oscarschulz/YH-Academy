@@ -33791,3 +33791,119 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 })();
 /* END PATCH: Dashboard division application modal safety v1 */
 
+
+/* PATCH: Force Dashboard Plazas application renderer v1 */
+(function installYHForceDashboardPlazaApplicationRendererV1() {
+    if (window.__yhForceDashboardPlazaApplicationRendererV1Installed) return;
+    window.__yhForceDashboardPlazaApplicationRendererV1Installed = true;
+
+    function isPlazaModalOpen() {
+        const modal = document.getElementById('plaza-apply-modal');
+        return Boolean(modal && !modal.classList.contains('hidden-step'));
+    }
+
+    function plazaFormIsRendered() {
+        return Boolean(document.getElementById('form-plaza-apply'));
+    }
+
+    function plazaModalStillPlaceholder() {
+        const modal = document.getElementById('plaza-apply-modal');
+        if (!modal) return false;
+
+        const text = String(modal.textContent || '').toLowerCase();
+        return text.includes('preparing application') || text.includes('dynamic plazas questions will load here');
+    }
+
+    function forceRenderDashboardPlazaApplicationFormV1(reason = 'manual') {
+        const modal = document.getElementById('plaza-apply-modal');
+        const card = modal?.querySelector?.('.modal-content');
+
+        if (!modal || !card) return false;
+        if (plazaFormIsRendered() && !plazaModalStillPlaceholder()) return true;
+
+        if (typeof renderDashboardPlazaApplicationForm !== 'function') {
+            console.warn('Plaza application renderer is not available yet:', reason);
+            return false;
+        }
+
+        try {
+            renderDashboardPlazaApplicationForm();
+
+            modal.classList.remove('hidden-step');
+            modal.classList.add('yh-dashboard-division-apply-modal');
+            card.classList.add('yh-dashboard-division-apply-card');
+            document.body?.classList.add('plaza-application-open');
+
+            if (typeof prefillDashboardPlazaApplicationFromAcademy === 'function') {
+                prefillDashboardPlazaApplicationFromAcademy();
+            }
+
+            let restoredDraft = false;
+            if (typeof restoreDashboardPlazaApplicationDraft === 'function') {
+                restoredDraft = restoreDashboardPlazaApplicationDraft();
+            }
+
+            if (!restoredDraft && typeof resetDashboardPlazaApplicationFlow === 'function') {
+                resetDashboardPlazaApplicationFlow();
+            }
+
+            if (typeof syncDashboardPlazaApplicationLabels === 'function') {
+                syncDashboardPlazaApplicationLabels();
+            }
+
+            if (typeof syncDashboardPlazaProgress === 'function') {
+                syncDashboardPlazaProgress(
+                    typeof dashboardPlazaApplicationCurrentStep !== 'undefined'
+                        ? dashboardPlazaApplicationCurrentStep
+                        : 'membershipType'
+                );
+            }
+
+            if (typeof bindDashboardPlazaApplicationFormEvents === 'function') {
+                bindDashboardPlazaApplicationFormEvents();
+            }
+
+            return plazaFormIsRendered();
+        } catch (error) {
+            console.error('forceRenderDashboardPlazaApplicationFormV1 error:', error);
+            return false;
+        }
+    }
+
+    function schedulePlazaRenderChecks(reason = 'open') {
+        [0, 40, 120, 260, 520, 900, 1400].forEach((delay) => {
+            window.setTimeout(() => {
+                if (!isPlazaModalOpen()) return;
+                if (plazaFormIsRendered() && !plazaModalStillPlaceholder()) return;
+                forceRenderDashboardPlazaApplicationFormV1(reason + '-' + delay);
+            }, delay);
+        });
+    }
+
+    document.addEventListener('click', (event) => {
+        if (
+            event.target?.closest?.('#btn-open-plazas-preview, .yh-plaza-gate-btn, [data-yh-dashboard-shell="plazas"]')
+        ) {
+            schedulePlazaRenderChecks('plaza-click');
+        }
+    }, true);
+
+    const observer = new MutationObserver(() => {
+        if (!isPlazaModalOpen()) return;
+        if (plazaFormIsRendered() && !plazaModalStillPlaceholder()) return;
+        schedulePlazaRenderChecks('plaza-modal-mutation');
+    });
+
+    try {
+        observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'hidden', 'style']
+        });
+    } catch (_) {}
+
+    window.yhForceRenderDashboardPlazaApplicationFormV1 = forceRenderDashboardPlazaApplicationFormV1;
+})();
+/* END PATCH: Force Dashboard Plazas application renderer v1 */
+
