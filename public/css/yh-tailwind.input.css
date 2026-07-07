@@ -15519,3 +15519,25 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   }
   /* END PATCH: Landing full page zoom lock v1 */
 
+
+  /* PATCH: Landing globe brightness normalization visual v1 */
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-world-map canvas {
+    filter: brightness(1.08) contrast(1.02) saturate(1.04) !important;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-overlay {
+    background:
+      radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.045), transparent 26%),
+      radial-gradient(circle at 50% 52%, rgba(64, 160, 255, 0.045), transparent 40%),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.05), transparent 28%, transparent 72%, rgba(0, 0, 0, 0.05)) !important;
+    mix-blend-mode: screen !important;
+    opacity: 0.58 !important;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-stage-wrap {
+    filter:
+      drop-shadow(0 0 10px rgba(255, 255, 255, 0.05))
+      drop-shadow(0 0 28px rgba(71, 163, 255, 0.08)) !important;
+  }
+  /* END PATCH: Landing globe brightness normalization visual v1 */
+

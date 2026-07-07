@@ -3998,3 +3998,174 @@ if (formRegisterSimple) {
 })();
 /* END PATCH: Landing full page zoom lock runtime v1 */
 
+
+/* PATCH: Landing globe brightness normalization runtime v1 */
+(function installYHLandingGlobeBrightnessNormalizationRuntimeV1() {
+    if (window.__yhLandingGlobeBrightnessNormalizationRuntimeV1Installed) return;
+    window.__yhLandingGlobeBrightnessNormalizationRuntimeV1Installed = true;
+
+    function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+    }
+
+    function getSceneCandidates() {
+        const out = [];
+
+        if (window.yhLandingMapInstance) {
+            if (typeof window.yhLandingMapInstance.scene === 'function') {
+                try { out.push(window.yhLandingMapInstance.scene()); } catch (_) {}
+            }
+            if (window.yhLandingMapInstance.scene) {
+                out.push(window.yhLandingMapInstance.scene);
+            }
+        }
+
+        if (window.scene) out.push(window.scene);
+        return out.filter(Boolean);
+    }
+
+    function getRendererCandidate() {
+        if (window.yhLandingMapInstance && typeof window.yhLandingMapInstance.renderer === 'function') {
+            try { return window.yhLandingMapInstance.renderer(); } catch (_) {}
+        }
+        return null;
+    }
+
+    function normalizeLightRig(scene) {
+        if (!scene) return false;
+
+        const THREE = window.THREE || null;
+        let ambientFound = false;
+        let hemiFound = false;
+        let changed = false;
+
+        scene.traverse?.((node) => {
+            if (!node) return;
+
+            const type = String(node.type || '');
+
+            if (type === 'AmbientLight') {
+                node.intensity = Math.max(Number(node.intensity || 0), 1.4);
+                ambientFound = true;
+                changed = true;
+            }
+
+            if (type === 'HemisphereLight') {
+                node.intensity = Math.max(Number(node.intensity || 0), 1.1);
+                hemiFound = true;
+                changed = true;
+            }
+
+            if (type === 'DirectionalLight') {
+                node.intensity = clamp(Math.max(Number(node.intensity || 0), 0.8), 0.8, 1.15);
+                changed = true;
+            }
+
+            if (node.material) {
+                const materials = Array.isArray(node.material) ? node.material : [node.material];
+
+                materials.forEach((mat) => {
+                    if (!mat) return;
+
+                    if ('roughness' in mat && Number.isFinite(Number(mat.roughness))) {
+                        mat.roughness = clamp(Number(mat.roughness) * 0.92, 0, 1);
+                    }
+
+                    if ('metalness' in mat && Number.isFinite(Number(mat.metalness))) {
+                        mat.metalness = clamp(Number(mat.metalness) * 0.88, 0, 1);
+                    }
+
+                    if ('emissiveIntensity' in mat) {
+                        mat.emissiveIntensity = Math.max(Number(mat.emissiveIntensity || 0), 0.15);
+                    }
+
+                    if ('toneMapped' in mat) {
+                        mat.toneMapped = true;
+                    }
+
+                    mat.needsUpdate = true;
+                    changed = true;
+                });
+            }
+        });
+
+        if (THREE && !ambientFound) {
+            try {
+                const ambient = new THREE.AmbientLight(0xffffff, 1.42);
+                ambient.name = 'yhLandingAmbientNormalizeV1';
+                scene.add(ambient);
+                changed = true;
+            } catch (_) {}
+        }
+
+        if (THREE && !hemiFound) {
+            try {
+                const hemi = new THREE.HemisphereLight(0xffffff, 0x18345a, 1.08);
+                hemi.name = 'yhLandingHemisphereNormalizeV1';
+                scene.add(hemi);
+                changed = true;
+            } catch (_) {}
+        }
+
+        return changed;
+    }
+
+    function normalizeRenderer(renderer) {
+        if (!renderer) return false;
+        let changed = false;
+
+        try {
+            if ('toneMappingExposure' in renderer) {
+                renderer.toneMappingExposure = Math.max(Number(renderer.toneMappingExposure || 1), 1.14);
+                changed = true;
+            }
+        } catch (_) {}
+
+        try {
+            if ('outputColorSpace' in renderer && window.THREE?.SRGBColorSpace) {
+                renderer.outputColorSpace = window.THREE.SRGBColorSpace;
+                changed = true;
+            }
+        } catch (_) {}
+
+        return changed;
+    }
+
+    function runNormalization() {
+        let touched = false;
+
+        getSceneCandidates().forEach((scene) => {
+            if (normalizeLightRig(scene)) {
+                touched = true;
+            }
+        });
+
+        if (normalizeRenderer(getRendererCandidate())) {
+            touched = true;
+        }
+
+        return touched;
+    }
+
+    function schedule() {
+        window.clearTimeout(window.__yhLandingGlobeBrightnessNormalizationTimerV1);
+        window.__yhLandingGlobeBrightnessNormalizationTimerV1 = window.setTimeout(runNormalization, 40);
+    }
+
+    window.yhNormalizeLandingGlobeBrightnessV1 = runNormalization;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', schedule);
+    } else {
+        schedule();
+    }
+
+    window.addEventListener('load', schedule, { passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
+
+    [80, 220, 500, 1000, 1800, 3200].forEach((delay) => {
+        window.setTimeout(runNormalization, delay);
+    });
+})();
+/* END PATCH: Landing globe brightness normalization runtime v1 */
+
