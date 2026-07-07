@@ -30,17 +30,27 @@ const transporter = nodemailer.createTransport({
         : undefined
 });
 
-function buildOtpPlainText({ title = 'YH Universe verification code', intro = '', otpCode = '', note = '' } = {}) {
+function buildOtpPlainText({
+    title = 'Your YH Universe code',
+    intro = '',
+    otpCode = '',
+    note = '',
+    expiryText = ''
+} = {}) {
     return [
         title,
         '',
-        intro || 'Use this code to continue with your YH Universe account.',
+        intro || 'Use the code below to continue with your YH Universe account.',
         '',
         `Code: ${otpCode}`,
         '',
+        expiryText || 'This code expires soon.',
+        '',
+        'Do not share this code with anyone. YH Universe will never ask for it outside the login or account verification screen.',
+        '',
         note || 'If you did not request this code, you can ignore this email.',
         '',
-        `Support: ${OTP_SUPPORT_EMAIL}`,
+        `Help: ${OTP_SUPPORT_EMAIL}`,
         '',
         'YH Universe'
     ].join('\n');
@@ -849,50 +859,109 @@ function renderPremiumOtpEmail({
 }
 
 function renderSimpleOtpEmail({
-    title = 'Verify your email',
+    title = 'Your YH Universe code',
     intro = 'Use the code below to continue with your YH Universe account.',
     otpCode = '',
-    note = 'If you did not request this code, you can ignore this email.'
+    note = 'If you did not request this code, you can ignore this email.',
+    expiryText = 'This code expires soon.'
 } = {}) {
+    const safeTitle = String(title || 'Your YH Universe code').trim();
+    const safeIntro = String(intro || 'Use the code below to continue with your YH Universe account.').trim();
+    const safeOtp = String(otpCode || '').trim().replace(/[^0-9]/g, '').slice(0, 6);
+    const safeNote = String(note || 'If you did not request this code, you can ignore this email.').trim();
+    const safeExpiryText = String(expiryText || 'This code expires soon.').trim();
+
     return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${title}</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${safeTitle}</title>
 </head>
-<body style="margin:0; padding:0; background:#ffffff; color:#111827; font-family:Arial, Helvetica, sans-serif;">
-  <div style="max-width:520px; margin:0 auto; padding:28px 20px;">
-    <div style="font-size:18px; line-height:1.4; font-weight:700; color:#111827; margin-bottom:18px;">
-      YH Universe
-    </div>
-
-    <h1 style="font-size:22px; line-height:1.3; margin:0 0 12px; color:#111827;">
-      ${title}
-    </h1>
-
-    <p style="font-size:15px; line-height:1.6; margin:0 0 22px; color:#374151;">
-      ${intro}
-    </p>
-
-    <div style="font-size:32px; line-height:1; letter-spacing:8px; font-weight:700; color:#111827; margin:0 0 22px;">
-      ${otpCode}
-    </div>
-
-    <p style="font-size:14px; line-height:1.6; margin:0 0 18px; color:#4b5563;">
-      ${note}
-    </p>
-
-    <p style="font-size:13px; line-height:1.6; margin:0 0 22px; color:#6b7280;">
-      This code is private. Do not share it with anyone.
-    </p>
-
-    <hr style="border:none; border-top:1px solid #e5e7eb; margin:24px 0;">
-
-    <p style="font-size:13px; line-height:1.6; margin:0; color:#6b7280;">
-      Need help? Contact ${OTP_SUPPORT_EMAIL}
-    </p>
+<body style="margin:0; padding:0; background:#f6f7f9; color:#111827; font-family:Arial, Helvetica, sans-serif;">
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
+    Use this YH Universe security code to continue.
   </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9; border-collapse:collapse;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px; background:#ffffff; border:1px solid #e5e7eb; border-radius:14px; border-collapse:separate;">
+          <tr>
+            <td style="padding:28px 28px 8px 28px;">
+              <div style="font-size:16px; line-height:1.4; font-weight:700; color:#111827;">
+                YH Universe
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:8px 28px 0 28px;">
+              <h1 style="font-size:21px; line-height:1.35; margin:0; color:#111827; font-weight:700;">
+                ${safeTitle}
+              </h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:12px 28px 0 28px;">
+              <p style="font-size:15px; line-height:1.65; margin:0; color:#374151;">
+                ${safeIntro}
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding:26px 28px 22px 28px;">
+              <div style="display:inline-block; font-size:34px; line-height:1; letter-spacing:8px; font-weight:700; color:#111827; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:12px; padding:18px 20px;">
+                ${safeOtp}
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0 28px 0 28px;">
+              <p style="font-size:14px; line-height:1.65; margin:0; color:#4b5563;">
+                ${safeExpiryText}
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:12px 28px 0 28px;">
+              <p style="font-size:14px; line-height:1.65; margin:0; color:#4b5563;">
+                Do not share this code with anyone. YH Universe will never ask for it outside the login or account verification screen.
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:12px 28px 24px 28px;">
+              <p style="font-size:14px; line-height:1.65; margin:0; color:#4b5563;">
+                ${safeNote}
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:18px 28px 26px 28px; border-top:1px solid #e5e7eb;">
+              <p style="font-size:12px; line-height:1.6; margin:0; color:#6b7280;">
+                Need help? Contact ${OTP_SUPPORT_EMAIL}
+              </p>
+              <p style="font-size:12px; line-height:1.6; margin:8px 0 0 0; color:#9ca3af;">
+                This is an automated security email from YH Universe.
+              </p>
+            </td>
+          </tr>
+        </table>
+
+        <p style="font-size:12px; line-height:1.6; margin:16px 0 0 0; color:#9ca3af;">
+          © YH Universe
+        </p>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
     `.trim();
@@ -900,55 +969,61 @@ function renderSimpleOtpEmail({
 
 function verificationMailHtml(otpCode) {
     return renderSimpleOtpEmail({
-        title: 'Verify your email',
-        intro: 'Use this code to verify your YH Universe email and continue your onboarding.',
+        title: 'Your YH Universe verification code',
+        intro: 'Use this code to verify your email address and finish creating your YH Universe account.',
         otpCode,
-        note: 'This verification code will expire soon.'
+        expiryText: `This code expires in ${ACCOUNT_VERIFICATION_OTP_TTL_MINUTES} minutes.`,
+        note: 'If you did not create a YH Universe account, you can ignore this email.'
     });
 }
 
 function verificationMailText(otpCode) {
     return buildOtpPlainText({
-        title: 'Verify your email',
-        intro: 'Use this code to verify your YH Universe email and continue your onboarding.',
+        title: 'Your YH Universe verification code',
+        intro: 'Use this code to verify your email address and finish creating your YH Universe account.',
         otpCode,
-        note: 'This verification code will expire soon.'
+        expiryText: `This code expires in ${ACCOUNT_VERIFICATION_OTP_TTL_MINUTES} minutes.`,
+        note: 'If you did not create a YH Universe account, you can ignore this email.'
     });
 }
 
 function resendVerificationMailHtml(otpCode) {
     return renderSimpleOtpEmail({
-        title: 'Your new verification code',
-        intro: 'Use the latest code below to continue accessing your YH Universe account.',
+        title: 'Your new YH Universe verification code',
+        intro: 'Use this latest code to verify your email address and continue with your YH Universe account.',
         otpCode,
-        note: 'Only the most recently issued code should be used.'
+        expiryText: `This code expires in ${ACCOUNT_VERIFICATION_OTP_TTL_MINUTES} minutes.`,
+        note: 'Only the most recently requested code will work.'
     });
 }
 
 function resendVerificationMailText(otpCode) {
     return buildOtpPlainText({
-        title: 'Your new verification code',
-        intro: 'Use the latest code below to continue accessing your YH Universe account.',
+        title: 'Your new YH Universe verification code',
+        intro: 'Use this latest code to verify your email address and continue with your YH Universe account.',
         otpCode,
-        note: 'Only the most recently issued code should be used.'
+        expiryText: `This code expires in ${ACCOUNT_VERIFICATION_OTP_TTL_MINUTES} minutes.`,
+        note: 'Only the most recently requested code will work.'
     });
 }
 
 function forgotPasswordMailHtml(otpCode) {
     return renderSimpleOtpEmail({
-        title: 'Reset your password',
-        intro: 'Use this code to continue resetting your YH Universe password.',
+        title: 'Your YH Universe password reset code',
+        intro: 'Use this code to continue resetting the password for your YH Universe account.',
         otpCode,
-        note: 'If you did not request this reset, you can safely ignore this email.'
+        expiryText: `This code expires in ${PASSWORD_RESET_OTP_TTL_MINUTES} minutes.`,
+        note: 'If you did not request a password reset, you can ignore this email.'
     });
 }
 
 function forgotPasswordMailText(otpCode) {
     return buildOtpPlainText({
-        title: 'Reset your password',
-        intro: 'Use this code to continue resetting your YH Universe password.',
+        title: 'Your YH Universe password reset code',
+        intro: 'Use this code to continue resetting the password for your YH Universe account.',
         otpCode,
-        note: 'If you did not request this reset, you can safely ignore this email.'
+        expiryText: `This code expires in ${PASSWORD_RESET_OTP_TTL_MINUTES} minutes.`,
+        note: 'If you did not request a password reset, you can ignore this email.'
     });
 }
 
@@ -1164,9 +1239,9 @@ exports.registerUser = async (req, res) => {
 
 await sendOtpMail({
     to: email,
-    subject: 'YH Universe - Verification Code',
-    html: verificationMailHtml(otpCode),
-    text: verificationMailText(otpCode)
+    subject: 'Your new YH Universe verification code',
+    html: resendVerificationMailHtml(otpCode),
+    text: resendVerificationMailText(otpCode)
 });
 
             return res.json({
@@ -1263,7 +1338,7 @@ await sendOtpMail({
 
 await sendOtpMail({
     to: email,
-    subject: 'YH Universe - Verification Code',
+subject: 'Your YH Universe verification code',
     html: verificationMailHtml(otpCode),
     text: verificationMailText(otpCode)
 });
@@ -1397,7 +1472,7 @@ exports.resendOTP = async (req, res) => {
 
 await sendOtpMail({
     to: email,
-    subject: 'YH Universe - Verification Code',
+subject: 'Your YH Universe verification code',
     html: verificationMailHtml(otpCode),
     text: verificationMailText(otpCode)
 });
@@ -1603,7 +1678,7 @@ exports.loginUser = async (req, res) => {
 
             await sendOtpMail({
                 to: user.email || '',
-                subject: 'YH Universe - Verification Code',
+subject: 'Your YH Universe verification code',
                 html: verificationMailHtml(otpCode),
                 text: verificationMailText(otpCode)
             });
@@ -1852,7 +1927,7 @@ exports.forgotPassword = async (req, res) => {
 
         await sendOtpMail({
             to: email,
-            subject: 'YH Universe - Password Reset Code',
+            subject: 'Your YH Universe password reset code',
             html: forgotPasswordMailHtml(otpCode),
             text: forgotPasswordMailText(otpCode)
         });
