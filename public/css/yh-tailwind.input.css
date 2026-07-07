@@ -15466,29 +15466,56 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   /* END PATCH: Landing NETWORKING final letter render safety v1 */
 
 
-  /* PATCH: Landing globe zoom compensation v2
-     Keeps the original/default globe layout size.
-     Only counter-scales the globe visual when browser zoom changes.
-     Does NOT override original width/height/top/left sizing rules.
+  /* PATCH: Landing full page zoom lock v1
+     Locks the full Step 1 landing visual state against browser zoom.
+     Browser zoom can still happen, but the landing canvas is counter-scaled
+     so sections/elements do not visually reflow or shift.
   */
-  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 {
-    --yh-globe-zoom-compensation: 1;
+  body[data-yh-page="apply"].yh-landing-zoom-locked {
+    overflow: hidden !important;
   }
 
-  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-hero-visual {
-    transform:
-      translate(-50%, -44%)
-      scale(var(--yh-globe-zoom-compensation, 1)) !important;
-    transform-origin: center center !important;
+  body[data-yh-page="apply"].yh-landing-zoom-locked #step-1.yh-solo-system-v34 {
+    --yh-landing-lock-scale: 1;
+    --yh-landing-lock-width: 100vw;
+    --yh-landing-lock-height: 100dvh;
+    position: fixed !important;
+    inset: 0 auto auto 0 !important;
+    width: var(--yh-landing-lock-width) !important;
+    height: var(--yh-landing-lock-height) !important;
+    min-width: var(--yh-landing-lock-width) !important;
+    min-height: var(--yh-landing-lock-height) !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: hidden !important;
+    transform: scale(var(--yh-landing-lock-scale)) !important;
+    transform-origin: top left !important;
     will-change: transform;
+    backface-visibility: hidden;
+    contain: layout size style paint;
   }
 
-  @media (max-width: 820px) {
-    body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-hero-visual {
-      transform:
-        translate(-50%, -44%)
-        scale(var(--yh-globe-zoom-compensation, 1)) !important;
-    }
+  body[data-yh-page="apply"].yh-landing-zoom-locked #step-1.yh-solo-system-v34 .yh-landing-shell {
+    width: var(--yh-landing-lock-width) !important;
+    height: var(--yh-landing-lock-height) !important;
+    min-width: var(--yh-landing-lock-width) !important;
+    min-height: var(--yh-landing-lock-height) !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: hidden !important;
   }
-  /* END PATCH: Landing globe zoom compensation v2 */
+
+  body[data-yh-page="apply"].yh-landing-zoom-locked #step-1.yh-solo-system-v34 .yh-landing-bg,
+  body[data-yh-page="apply"].yh-landing-zoom-locked #step-1.yh-solo-system-v34 .yh-landing-bg-overlay,
+  body[data-yh-page="apply"].yh-landing-zoom-locked #step-1.yh-solo-system-v34 .yh-landing-shell::before,
+  body[data-yh-page="apply"].yh-landing-zoom-locked #step-1.yh-solo-system-v34 .yh-landing-shell::after {
+    width: var(--yh-landing-lock-width) !important;
+    height: var(--yh-landing-lock-height) !important;
+  }
+
+  body[data-yh-page="apply"].yh-landing-zoom-locked #step-2,
+  body[data-yh-page="apply"].yh-landing-zoom-locked #step-3 {
+    transform-origin: top left;
+  }
+  /* END PATCH: Landing full page zoom lock v1 */
 

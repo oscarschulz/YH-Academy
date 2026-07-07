@@ -3875,35 +3875,52 @@ if (formRegisterSimple) {
 });
 
 
-/* PATCH: Landing globe zoom compensation runtime v2 */
-(function installYHLandingGlobeZoomCompensationRuntimeV2() {
-    if (window.__yhLandingGlobeZoomCompensationRuntimeV2Installed) return;
-    window.__yhLandingGlobeZoomCompensationRuntimeV2Installed = true;
+/* PATCH: Landing full page zoom lock runtime v1 */
+(function installYHLandingFullPageZoomLockRuntimeV1() {
+    if (window.__yhLandingFullPageZoomLockRuntimeV1Installed) return;
+    window.__yhLandingFullPageZoomLockRuntimeV1Installed = true;
+
+    const STORAGE_KEY = 'yh_landing_full_zoom_lock_baseline_v1';
 
     function isApplyPage() {
         return document.body?.getAttribute('data-yh-page') === 'apply';
     }
 
-    function getRoot() {
-        return document.getElementById('step-1') || document.body || document.documentElement;
-    }
-
-    function getCurrentZoomSignal() {
+    function getCurrentSignal() {
         const dpr = Number(window.devicePixelRatio || 1);
-        return Number.isFinite(dpr) && dpr > 0 ? dpr : 1;
+        const width = Number(window.innerWidth || document.documentElement.clientWidth || 0);
+        const height = Number(window.innerHeight || document.documentElement.clientHeight || 0);
+
+        return {
+            dpr: Number.isFinite(dpr) && dpr > 0 ? dpr : 1,
+            width: Number.isFinite(width) && width > 0 ? width : 1440,
+            height: Number.isFinite(height) && height > 0 ? height : 900
+        };
     }
 
-    function getBaselineZoomSignal() {
-        const key = 'yh_landing_globe_baseline_dpr_v2';
-        const current = getCurrentZoomSignal();
+    function readBaseline() {
+        const current = getCurrentSignal();
 
         try {
-            const stored = Number(sessionStorage.getItem(key) || '');
-            if (Number.isFinite(stored) && stored > 0) {
-                return stored;
+            const parsed = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null');
+
+            if (
+                parsed &&
+                Number.isFinite(Number(parsed.dpr)) &&
+                Number.isFinite(Number(parsed.width)) &&
+                Number.isFinite(Number(parsed.height)) &&
+                Number(parsed.dpr) > 0 &&
+                Number(parsed.width) > 0 &&
+                Number(parsed.height) > 0
+            ) {
+                return {
+                    dpr: Number(parsed.dpr),
+                    width: Number(parsed.width),
+                    height: Number(parsed.height)
+                };
             }
 
-            sessionStorage.setItem(key, String(current));
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(current));
         } catch (_) {}
 
         return current;
@@ -3913,42 +3930,52 @@ if (formRegisterSimple) {
         return Math.min(max, Math.max(min, value));
     }
 
-    function syncGlobeZoomCompensation() {
+    function syncLandingFullPageZoomLock() {
         if (!isApplyPage()) return;
 
-        const root = getRoot();
-        const baseline = getBaselineZoomSignal();
-        const current = getCurrentZoomSignal();
+        const step = document.getElementById('step-1');
+        if (!step) return;
 
-        let scale = baseline / current;
+        const baseline = readBaseline();
+        const current = getCurrentSignal();
 
-        // Safety clamp only, not a visual redesign.
-        scale = clamp(scale, 0.68, 1.55);
+        /*
+          Browser zoom changes devicePixelRatio and CSS viewport size.
+          We preserve the baseline layout dimensions, then counter-scale the
+          whole landing stage so the visible output remains stable.
+        */
+        let scale = baseline.dpr / current.dpr;
 
-        root.style.setProperty('--yh-globe-zoom-compensation', String(scale));
-
-        const visual = document.querySelector(
-            'body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-hero-visual'
-        );
-
-        if (visual) {
-            visual.setAttribute('data-yh-globe-zoom-compensation', String(scale));
+        if (!Number.isFinite(scale) || scale <= 0) {
+            scale = current.width / baseline.width;
         }
+
+        scale = clamp(scale, 0.45, 2.4);
+
+        document.body.classList.add('yh-landing-zoom-locked');
+
+        step.style.setProperty('--yh-landing-lock-scale', String(scale));
+        step.style.setProperty('--yh-landing-lock-width', `${baseline.width}px`);
+        step.style.setProperty('--yh-landing-lock-height', `${baseline.height}px`);
+
+        step.setAttribute('data-yh-landing-lock-scale', String(scale));
+        step.setAttribute('data-yh-landing-lock-baseline', `${baseline.width}x${baseline.height}@${baseline.dpr}`);
     }
 
     function scheduleSync() {
-        window.clearTimeout(window.__yhLandingGlobeZoomCompensationTimerV2);
-        window.__yhLandingGlobeZoomCompensationTimerV2 = window.setTimeout(syncGlobeZoomCompensation, 40);
+        window.clearTimeout(window.__yhLandingFullPageZoomLockTimerV1);
+        window.__yhLandingFullPageZoomLockTimerV1 = window.setTimeout(syncLandingFullPageZoomLock, 25);
     }
 
-    window.yhResetLandingGlobeZoomBaselineV2 = function yhResetLandingGlobeZoomBaselineV2() {
+    window.yhResetLandingFullPageZoomLockV1 = function yhResetLandingFullPageZoomLockV1() {
         try {
-            sessionStorage.removeItem('yh_landing_globe_baseline_dpr_v2');
+            sessionStorage.removeItem(STORAGE_KEY);
         } catch (_) {}
-        syncGlobeZoomCompensation();
+
+        scheduleSync();
     };
 
-    window.yhSyncLandingGlobeZoomCompensationV2 = syncGlobeZoomCompensation;
+    window.yhSyncLandingFullPageZoomLockV1 = syncLandingFullPageZoomLock;
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', scheduleSync);
@@ -3965,9 +3992,9 @@ if (formRegisterSimple) {
         window.visualViewport.addEventListener('scroll', scheduleSync, { passive: true });
     }
 
-    [80, 180, 420, 900, 1600].forEach((delay) => {
-        window.setTimeout(syncGlobeZoomCompensation, delay);
+    [60, 140, 320, 700, 1200, 2200].forEach((delay) => {
+        window.setTimeout(syncLandingFullPageZoomLock, delay);
     });
 })();
-/* END PATCH: Landing globe zoom compensation runtime v2 */
+/* END PATCH: Landing full page zoom lock runtime v1 */
 
