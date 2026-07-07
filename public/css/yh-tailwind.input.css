@@ -15520,24 +15520,25 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   /* END PATCH: Landing full page zoom lock v1 */
 
 
-  /* PATCH: Landing globe brightness normalization visual v1 */
+  /* PATCH: Landing globe brightness normalization visual v2 */
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-world-map canvas {
-    filter: brightness(1.08) contrast(1.02) saturate(1.04) !important;
+    filter: brightness(1.02) contrast(1.01) saturate(1.03) !important;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-overlay {
     background:
-      radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.045), transparent 26%),
-      radial-gradient(circle at 50% 52%, rgba(64, 160, 255, 0.045), transparent 40%),
-      linear-gradient(90deg, rgba(0, 0, 0, 0.05), transparent 28%, transparent 72%, rgba(0, 0, 0, 0.05)) !important;
+      radial-gradient(circle at 44% 66%, rgba(2, 10, 24, 0.13), transparent 24%),
+      radial-gradient(circle at 50% 49%, rgba(255, 255, 255, 0.03), transparent 24%),
+      radial-gradient(circle at 50% 52%, rgba(64, 160, 255, 0.03), transparent 38%),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.06), transparent 28%, transparent 72%, rgba(0, 0, 0, 0.06)) !important;
     mix-blend-mode: screen !important;
-    opacity: 0.58 !important;
+    opacity: 0.40 !important;
   }
 
   body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-stage-wrap {
     filter:
-      drop-shadow(0 0 10px rgba(255, 255, 255, 0.05))
-      drop-shadow(0 0 28px rgba(71, 163, 255, 0.08)) !important;
+      drop-shadow(0 0 7px rgba(255, 255, 255, 0.035))
+      drop-shadow(0 0 18px rgba(71, 163, 255, 0.055)) !important;
   }
-  /* END PATCH: Landing globe brightness normalization visual v1 */
+  /* END PATCH: Landing globe brightness normalization visual v2 */
 

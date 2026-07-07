@@ -3999,10 +3999,10 @@ if (formRegisterSimple) {
 /* END PATCH: Landing full page zoom lock runtime v1 */
 
 
-/* PATCH: Landing globe brightness normalization runtime v1 */
-(function installYHLandingGlobeBrightnessNormalizationRuntimeV1() {
-    if (window.__yhLandingGlobeBrightnessNormalizationRuntimeV1Installed) return;
-    window.__yhLandingGlobeBrightnessNormalizationRuntimeV1Installed = true;
+/* PATCH: Landing globe brightness normalization runtime v2 */
+(function installYHLandingGlobeBrightnessNormalizationRuntimeV2() {
+    if (window.__yhLandingGlobeBrightnessNormalizationRuntimeV2Installed) return;
+    window.__yhLandingGlobeBrightnessNormalizationRuntimeV2Installed = true;
 
     function clamp(value, min, max) {
         return Math.min(max, Math.max(min, value));
@@ -4045,19 +4045,19 @@ if (formRegisterSimple) {
             const type = String(node.type || '');
 
             if (type === 'AmbientLight') {
-                node.intensity = Math.max(Number(node.intensity || 0), 1.4);
+                node.intensity = clamp(Math.max(Number(node.intensity || 0), 1.16), 1.16, 1.22);
                 ambientFound = true;
                 changed = true;
             }
 
             if (type === 'HemisphereLight') {
-                node.intensity = Math.max(Number(node.intensity || 0), 1.1);
+                node.intensity = clamp(Math.max(Number(node.intensity || 0), 0.88), 0.88, 0.96);
                 hemiFound = true;
                 changed = true;
             }
 
             if (type === 'DirectionalLight') {
-                node.intensity = clamp(Math.max(Number(node.intensity || 0), 0.8), 0.8, 1.15);
+                node.intensity = clamp(Math.max(Number(node.intensity || 0), 0.76), 0.76, 0.98);
                 changed = true;
             }
 
@@ -4068,15 +4068,15 @@ if (formRegisterSimple) {
                     if (!mat) return;
 
                     if ('roughness' in mat && Number.isFinite(Number(mat.roughness))) {
-                        mat.roughness = clamp(Number(mat.roughness) * 0.92, 0, 1);
+                        mat.roughness = clamp(Number(mat.roughness) * 0.97, 0, 1);
                     }
 
                     if ('metalness' in mat && Number.isFinite(Number(mat.metalness))) {
-                        mat.metalness = clamp(Number(mat.metalness) * 0.88, 0, 1);
+                        mat.metalness = clamp(Number(mat.metalness) * 0.94, 0, 1);
                     }
 
                     if ('emissiveIntensity' in mat) {
-                        mat.emissiveIntensity = Math.max(Number(mat.emissiveIntensity || 0), 0.15);
+                        mat.emissiveIntensity = clamp(Math.max(Number(mat.emissiveIntensity || 0), 0.08), 0.08, 0.12);
                     }
 
                     if ('toneMapped' in mat) {
@@ -4091,8 +4091,8 @@ if (formRegisterSimple) {
 
         if (THREE && !ambientFound) {
             try {
-                const ambient = new THREE.AmbientLight(0xffffff, 1.42);
-                ambient.name = 'yhLandingAmbientNormalizeV1';
+                const ambient = new THREE.AmbientLight(0xffffff, 1.18);
+                ambient.name = 'yhLandingAmbientNormalizeV2';
                 scene.add(ambient);
                 changed = true;
             } catch (_) {}
@@ -4100,8 +4100,8 @@ if (formRegisterSimple) {
 
         if (THREE && !hemiFound) {
             try {
-                const hemi = new THREE.HemisphereLight(0xffffff, 0x18345a, 1.08);
-                hemi.name = 'yhLandingHemisphereNormalizeV1';
+                const hemi = new THREE.HemisphereLight(0xffffff, 0x18345a, 0.92);
+                hemi.name = 'yhLandingHemisphereNormalizeV2';
                 scene.add(hemi);
                 changed = true;
             } catch (_) {}
@@ -4116,7 +4116,7 @@ if (formRegisterSimple) {
 
         try {
             if ('toneMappingExposure' in renderer) {
-                renderer.toneMappingExposure = Math.max(Number(renderer.toneMappingExposure || 1), 1.14);
+                renderer.toneMappingExposure = clamp(Math.max(Number(renderer.toneMappingExposure || 1), 1.03), 1.03, 1.08);
                 changed = true;
             }
         } catch (_) {}
@@ -4148,11 +4148,11 @@ if (formRegisterSimple) {
     }
 
     function schedule() {
-        window.clearTimeout(window.__yhLandingGlobeBrightnessNormalizationTimerV1);
-        window.__yhLandingGlobeBrightnessNormalizationTimerV1 = window.setTimeout(runNormalization, 40);
+        window.clearTimeout(window.__yhLandingGlobeBrightnessNormalizationTimerV2);
+        window.__yhLandingGlobeBrightnessNormalizationTimerV2 = window.setTimeout(runNormalization, 40);
     }
 
-    window.yhNormalizeLandingGlobeBrightnessV1 = runNormalization;
+    window.yhNormalizeLandingGlobeBrightnessV2 = runNormalization;
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', schedule);
@@ -4167,5 +4167,5 @@ if (formRegisterSimple) {
         window.setTimeout(runNormalization, delay);
     });
 })();
-/* END PATCH: Landing globe brightness normalization runtime v1 */
+/* END PATCH: Landing globe brightness normalization runtime v2 */
 
