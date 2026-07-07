@@ -3875,100 +3875,99 @@ if (formRegisterSimple) {
 });
 
 
-/* PATCH: Landing globe locked render size v1 */
-(function installYHLandingGlobeLockedRenderSizeV1() {
-    if (window.__yhLandingGlobeLockedRenderSizeV1Installed) return;
-    window.__yhLandingGlobeLockedRenderSizeV1Installed = true;
+/* PATCH: Landing globe zoom compensation runtime v2 */
+(function installYHLandingGlobeZoomCompensationRuntimeV2() {
+    if (window.__yhLandingGlobeZoomCompensationRuntimeV2Installed) return;
+    window.__yhLandingGlobeZoomCompensationRuntimeV2Installed = true;
 
     function isApplyPage() {
         return document.body?.getAttribute('data-yh-page') === 'apply';
     }
 
-    function getLockedGlobeSize() {
-        const root = document.getElementById('step-1') || document.body;
-        const styles = window.getComputedStyle(root);
-        const raw = String(styles.getPropertyValue('--yh-locked-globe-size') || '').trim();
-        const parsed = Number.parseFloat(raw);
-        return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 1180;
+    function getRoot() {
+        return document.getElementById('step-1') || document.body || document.documentElement;
     }
 
-    function lockGlobeDomSize() {
-        if (!isApplyPage()) return false;
+    function getCurrentZoomSignal() {
+        const dpr = Number(window.devicePixelRatio || 1);
+        return Number.isFinite(dpr) && dpr > 0 ? dpr : 1;
+    }
 
-        const mapEl = document.getElementById('yh-world-map');
-        if (!mapEl) return false;
-
-        const size = getLockedGlobeSize();
-        const stageWrap = mapEl.closest('.yh-landing-map-stage-wrap');
-        const globeStage = mapEl.closest('.yh-landing-globe-stage');
-        const visual = mapEl.closest('.yh-landing-hero-visual');
-        const renderer = window.yhLandingMapInstance && typeof window.yhLandingMapInstance.renderer === 'function'
-            ? window.yhLandingMapInstance.renderer()
-            : null;
-        const canvasEl = renderer?.domElement || mapEl.querySelector('canvas');
-
-        [visual, globeStage, stageWrap, mapEl, canvasEl].forEach((node) => {
-            if (!node || !node.style) return;
-            node.style.setProperty('width', `${size}px`, 'important');
-            node.style.setProperty('height', `${size}px`, 'important');
-            node.style.setProperty('min-width', `${size}px`, 'important');
-            node.style.setProperty('min-height', `${size}px`, 'important');
-            node.style.setProperty('max-width', 'none', 'important');
-            node.style.setProperty('max-height', 'none', 'important');
-            node.style.setProperty('overflow', 'visible', 'important');
-            node.style.setProperty('transform-origin', 'center center', 'important');
-        });
-
-        mapEl.style.setProperty('position', 'absolute', 'important');
-        mapEl.style.setProperty('left', '50%', 'important');
-        mapEl.style.setProperty('top', '50%', 'important');
-        mapEl.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
-
-        if (canvasEl) {
-            canvasEl.style.setProperty('position', 'absolute', 'important');
-            canvasEl.style.setProperty('left', '50%', 'important');
-            canvasEl.style.setProperty('top', '50%', 'important');
-            canvasEl.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
-        }
+    function getBaselineZoomSignal() {
+        const key = 'yh_landing_globe_baseline_dpr_v2';
+        const current = getCurrentZoomSignal();
 
         try {
-            if (window.yhLandingMapInstance && typeof window.yhLandingMapInstance.width === 'function') {
-                window.yhLandingMapInstance.width(size).height(size);
+            const stored = Number(sessionStorage.getItem(key) || '');
+            if (Number.isFinite(stored) && stored > 0) {
+                return stored;
             }
+
+            sessionStorage.setItem(key, String(current));
         } catch (_) {}
 
-        return true;
+        return current;
     }
 
-    const schedule = () => {
-        window.clearTimeout(window.__yhLandingGlobeLockedRenderTimerV1);
-        window.__yhLandingGlobeLockedRenderTimerV1 = window.setTimeout(lockGlobeDomSize, 40);
+    function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+    }
+
+    function syncGlobeZoomCompensation() {
+        if (!isApplyPage()) return;
+
+        const root = getRoot();
+        const baseline = getBaselineZoomSignal();
+        const current = getCurrentZoomSignal();
+
+        let scale = baseline / current;
+
+        // Safety clamp only, not a visual redesign.
+        scale = clamp(scale, 0.68, 1.55);
+
+        root.style.setProperty('--yh-globe-zoom-compensation', String(scale));
+
+        const visual = document.querySelector(
+            'body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-hero-visual'
+        );
+
+        if (visual) {
+            visual.setAttribute('data-yh-globe-zoom-compensation', String(scale));
+        }
+    }
+
+    function scheduleSync() {
+        window.clearTimeout(window.__yhLandingGlobeZoomCompensationTimerV2);
+        window.__yhLandingGlobeZoomCompensationTimerV2 = window.setTimeout(syncGlobeZoomCompensation, 40);
+    }
+
+    window.yhResetLandingGlobeZoomBaselineV2 = function yhResetLandingGlobeZoomBaselineV2() {
+        try {
+            sessionStorage.removeItem('yh_landing_globe_baseline_dpr_v2');
+        } catch (_) {}
+        syncGlobeZoomCompensation();
     };
 
-    window.yhLockLandingGlobeDefaultStateV1 = lockGlobeDomSize;
+    window.yhSyncLandingGlobeZoomCompensationV2 = syncGlobeZoomCompensation;
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', schedule);
+        document.addEventListener('DOMContentLoaded', scheduleSync);
     } else {
-        schedule();
+        scheduleSync();
     }
 
-    window.addEventListener('load', schedule, { passive: true });
-    window.addEventListener('resize', schedule, { passive: true });
-    window.addEventListener('orientationchange', schedule, { passive: true });
+    window.addEventListener('load', scheduleSync, { passive: true });
+    window.addEventListener('resize', scheduleSync, { passive: true });
+    window.addEventListener('orientationchange', scheduleSync, { passive: true });
 
-    [120, 320, 700, 1400, 2600].forEach((delay) => window.setTimeout(lockGlobeDomSize, delay));
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', scheduleSync, { passive: true });
+        window.visualViewport.addEventListener('scroll', scheduleSync, { passive: true });
+    }
 
-    try {
-        const observer = new MutationObserver(() => schedule());
-        observer.observe(document.documentElement, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['style', 'class']
-        });
-        window.__yhLandingGlobeLockedRenderObserverV1 = observer;
-    } catch (_) {}
+    [80, 180, 420, 900, 1600].forEach((delay) => {
+        window.setTimeout(syncGlobeZoomCompensation, delay);
+    });
 })();
-/* END PATCH: Landing globe locked render size v1 */
+/* END PATCH: Landing globe zoom compensation runtime v2 */
 
