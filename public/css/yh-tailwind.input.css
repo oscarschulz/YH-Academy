@@ -15369,3 +15369,51 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
 }
 /* END PATCH: Dashboard division application modal visual parity v1 */
 
+
+  /* PATCH: Landing globe brightness softening v1 */
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-world-map canvas {
+    filter: brightness(0.84) contrast(1.18) saturate(1.18) !important;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-visual-glow {
+    opacity: 0.14 !important;
+    background:
+      radial-gradient(circle at 74% 42%, rgba(255, 255, 188, 0.055), transparent 18%),
+      radial-gradient(circle at 63% 54%, rgba(255, 246, 72, 0.045), transparent 25%),
+      radial-gradient(circle at 82% 46%, rgba(255, 255, 228, 0.035), transparent 16%) !important;
+    filter: blur(42px) !important;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-visual-noise {
+    opacity: 0.22 !important;
+    filter: brightness(0.72) saturate(0.78) !important;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-stage-wrap {
+    filter:
+      drop-shadow(0 0 5px rgba(223, 247, 255, 0.035))
+      drop-shadow(0 0 16px rgba(37, 99, 235, 0.025)) !important;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-overlay {
+    background:
+      radial-gradient(circle at 69% 42%, rgba(1, 4, 11, 0.34) 0 6%, rgba(1, 4, 11, 0.18) 13%, transparent 26%),
+      radial-gradient(circle at 54% 45%, rgba(1, 4, 11, 0.035) 0 42%, rgba(1, 4, 11, 0.06) 58%, rgba(1, 4, 11, 0.16) 86%),
+      linear-gradient(90deg, rgba(1, 4, 11, 0.04), transparent 44%, rgba(1, 4, 11, 0.18)) !important;
+    mix-blend-mode: multiply;
+  }
+
+  @keyframes yhPremiumGlobeBreathe {
+    0% {
+      filter:
+        drop-shadow(0 0 5px rgba(223, 247, 255, 0.035))
+        drop-shadow(0 0 16px rgba(37, 99, 235, 0.025));
+    }
+    to {
+      filter:
+        drop-shadow(0 0 8px rgba(223, 247, 255, 0.055))
+        drop-shadow(0 0 24px rgba(37, 99, 235, 0.045));
+    }
+  }
+  /* END PATCH: Landing globe brightness softening v1 */
+
