@@ -15486,3 +15486,75 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   }
   /* END PATCH: Landing globe brightness normalization visual v2 */
 
+
+  /* PATCH: Landing globe vertical edge artifact fix v1
+     Removes visible rectangular left/right canvas edges when the globe is zoomed in.
+     This does not lock or change browser zoom behavior.
+  */
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-hero-visual,
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-globe-stage,
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-stage-wrap,
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-world-map,
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-world-map > div,
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-world-map canvas {
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none;
+    background-color: transparent !important;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-hero-visual,
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-globe-stage,
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-stage-wrap,
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-world-map {
+    overflow: visible !important;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-stage-wrap {
+    position: relative;
+    isolation: isolate;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-stage-wrap::before,
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-stage-wrap::after {
+    content: "";
+    position: absolute;
+    top: -8%;
+    bottom: -8%;
+    width: clamp(90px, 8vw, 170px);
+    z-index: 12;
+    pointer-events: none;
+    opacity: 0.96;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-stage-wrap::before {
+    left: -2px;
+    background: linear-gradient(
+      90deg,
+      rgba(1, 4, 11, 0.82) 0%,
+      rgba(1, 4, 11, 0.48) 36%,
+      rgba(1, 4, 11, 0.16) 68%,
+      transparent 100%
+    );
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-stage-wrap::after {
+    right: -2px;
+    background: linear-gradient(
+      270deg,
+      rgba(1, 4, 11, 0.82) 0%,
+      rgba(1, 4, 11, 0.48) 36%,
+      rgba(1, 4, 11, 0.16) 68%,
+      transparent 100%
+    );
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-overlay {
+    inset: -2px !important;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-world-map canvas {
+    clip-path: inset(0 round 9999px);
+  }
+  /* END PATCH: Landing globe vertical edge artifact fix v1 */
+
