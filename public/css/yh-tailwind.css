@@ -1717,15 +1717,18 @@ body[data-yh-page="apply"] .yh-register-modal-panel .auth-center-wrapper {
   position: relative;
   z-index: 1;
   width: min(640px, calc(100vw - 32px));
-  max-height: none;
+  max-height: calc(100dvh - 36px);
   min-height: auto;
   margin: 0 auto;
-  padding: clamp(20px, 1.55vw, 26px);
+  padding: clamp(18px, 1.35vw, 24px);
   display: grid;
   align-content: start;
   justify-items: stretch;
-  gap: 11px;
-  overflow: visible;
+  gap: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid rgba(147, 197, 253, 0.38);
   border-radius: 22px;
   background:
@@ -2273,6 +2276,172 @@ body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(14px) saturate(1.12);
   -webkit-backdrop-filter: blur(14px) saturate(1.12);
+}
+
+@media (min-width: 721px) and (max-height: 820px) {
+  body[data-yh-page="apply"] .yh-register-modal-panel,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back {
+    padding: max(10px, env(safe-area-inset-top)) clamp(12px, 2vw, 28px) max(10px, env(safe-area-inset-bottom));
+    place-items: start center;
+    align-items: start;
+    justify-items: center;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .auth-center-wrapper,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .auth-center-wrapper {
+    width: min(610px, calc(100vw - 28px));
+    max-height: calc(100dvh - 20px);
+    padding: 14px 18px;
+    gap: 7px;
+    border-radius: 18px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .auth-center-wrapper::before,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .auth-center-wrapper::before {
+    border-radius: 17px;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .text-center.mb-large.mt-small,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .text-center.mb-large.mt-small {
+    margin: 0 0 5px;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .step1-logo,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .step1-logo {
+    width: 28px;
+    height: 28px;
+    margin-bottom: 4px;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .main-title,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .main-title {
+    font-size: clamp(0.98rem, 1vw, 1.12rem);
+    letter-spacing: 0.14em;
+    line-height: 1;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .subtitle,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .subtitle {
+    font-size: 0.72rem;
+    line-height: 1.18;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .yh-register-form,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-register-form {
+    gap: 7px;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .form-row,
+  body[data-yh-page="apply"] .yh-register-modal-panel .form-row-last,
+  body[data-yh-page="apply"] .yh-register-modal-panel .yh-auth-geo-row,
+  body[data-yh-page="apply"] .yh-register-modal-panel .yh-auth-password-row,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .form-row,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .form-row-last,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-auth-geo-row,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .yh-auth-password-row {
+    gap: 9px;
+    margin-bottom: 0;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .form-group,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .form-group {
+    margin-bottom: 0;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .form-group label,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .form-group label {
+    margin-bottom: 3px;
+    font-size: 0.72rem;
+    line-height: 1.05;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .input-field,
+  body[data-yh-page="apply"] .yh-register-modal-panel .pill-input,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .input-field,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .pill-input {
+    height: 34px;
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 0.78rem;
+    line-height: 1;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .yh-password-shell,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .yh-password-shell {
+    min-height: 34px;
+    height: 34px;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .yh-password-shell .input-field,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .yh-password-shell .input-field {
+    height: 34px;
+    min-height: 34px;
+    line-height: 34px;
+    padding-right: 54px;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .yh-password-toggle,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .yh-password-toggle {
+    right: 6px;
+    width: 56px;
+    min-width: 56px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0 8px;
+    font-size: 0.56rem;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .yh-upload-label,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .yh-upload-label {
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 0.76rem;
+    letter-spacing: 0.12em;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .yh-upload-preview,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .yh-upload-preview {
+    min-height: 54px;
+    padding: 4px 0 0;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .yh-upload-preview-img,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .yh-upload-preview-img {
+    width: 48px;
+    height: 48px;
+    box-shadow:
+      0 0 0 4px rgba(56, 189, 248, 0.045),
+      0 0 16px rgba(56, 189, 248, 0.14),
+      0 8px 18px rgba(0, 0, 0, 0.22);
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .yh-upload-recrop-btn,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .yh-upload-recrop-btn {
+    min-height: 26px;
+    margin: -2px 0 0;
+    padding: 0 12px;
+    font-size: 0.56rem;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .yh-upload-help,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .yh-upload-help {
+    padding-top: 1px;
+    font-size: 0.63rem;
+    line-height: 1.18;
+  }
+
+  body[data-yh-page="apply"] .yh-register-modal-panel .btn-primary.btn-large,
+  body[data-yh-page="apply"] .yh-register-modal-panel #btn-register,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back .btn-primary.btn-large,
+  body.yh-register-modal-open[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .flip-card-back #btn-register {
+    min-height: 36px;
+    margin-top: 0;
+    padding: 0 12px;
+    font-size: 0.72rem;
+    line-height: 1;
+  }
 }
 
 @media (max-width: 720px) {
