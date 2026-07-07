@@ -3873,132 +3873,6 @@ if (formRegisterSimple) {
 
     initLandingSectionReveal();
 });
-
-
-/* PATCH: Landing full page zoom lock runtime v1 */
-(function installYHLandingFullPageZoomLockRuntimeV1() {
-    if (window.__yhLandingFullPageZoomLockRuntimeV1Installed) return;
-    window.__yhLandingFullPageZoomLockRuntimeV1Installed = true;
-
-    const STORAGE_KEY = 'yh_landing_full_zoom_lock_baseline_v1';
-
-    function isApplyPage() {
-        return document.body?.getAttribute('data-yh-page') === 'apply';
-    }
-
-    function getCurrentSignal() {
-        const dpr = Number(window.devicePixelRatio || 1);
-        const width = Number(window.innerWidth || document.documentElement.clientWidth || 0);
-        const height = Number(window.innerHeight || document.documentElement.clientHeight || 0);
-
-        return {
-            dpr: Number.isFinite(dpr) && dpr > 0 ? dpr : 1,
-            width: Number.isFinite(width) && width > 0 ? width : 1440,
-            height: Number.isFinite(height) && height > 0 ? height : 900
-        };
-    }
-
-    function readBaseline() {
-        const current = getCurrentSignal();
-
-        try {
-            const parsed = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null');
-
-            if (
-                parsed &&
-                Number.isFinite(Number(parsed.dpr)) &&
-                Number.isFinite(Number(parsed.width)) &&
-                Number.isFinite(Number(parsed.height)) &&
-                Number(parsed.dpr) > 0 &&
-                Number(parsed.width) > 0 &&
-                Number(parsed.height) > 0
-            ) {
-                return {
-                    dpr: Number(parsed.dpr),
-                    width: Number(parsed.width),
-                    height: Number(parsed.height)
-                };
-            }
-
-            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-        } catch (_) {}
-
-        return current;
-    }
-
-    function clamp(value, min, max) {
-        return Math.min(max, Math.max(min, value));
-    }
-
-    function syncLandingFullPageZoomLock() {
-        if (!isApplyPage()) return;
-
-        const step = document.getElementById('step-1');
-        if (!step) return;
-
-        const baseline = readBaseline();
-        const current = getCurrentSignal();
-
-        /*
-          Browser zoom changes devicePixelRatio and CSS viewport size.
-          We preserve the baseline layout dimensions, then counter-scale the
-          whole landing stage so the visible output remains stable.
-        */
-        let scale = baseline.dpr / current.dpr;
-
-        if (!Number.isFinite(scale) || scale <= 0) {
-            scale = current.width / baseline.width;
-        }
-
-        scale = clamp(scale, 0.45, 2.4);
-
-        document.body.classList.add('yh-landing-zoom-locked');
-
-        step.style.setProperty('--yh-landing-lock-scale', String(scale));
-        step.style.setProperty('--yh-landing-lock-width', `${baseline.width}px`);
-        step.style.setProperty('--yh-landing-lock-height', `${baseline.height}px`);
-
-        step.setAttribute('data-yh-landing-lock-scale', String(scale));
-        step.setAttribute('data-yh-landing-lock-baseline', `${baseline.width}x${baseline.height}@${baseline.dpr}`);
-    }
-
-    function scheduleSync() {
-        window.clearTimeout(window.__yhLandingFullPageZoomLockTimerV1);
-        window.__yhLandingFullPageZoomLockTimerV1 = window.setTimeout(syncLandingFullPageZoomLock, 25);
-    }
-
-    window.yhResetLandingFullPageZoomLockV1 = function yhResetLandingFullPageZoomLockV1() {
-        try {
-            sessionStorage.removeItem(STORAGE_KEY);
-        } catch (_) {}
-
-        scheduleSync();
-    };
-
-    window.yhSyncLandingFullPageZoomLockV1 = syncLandingFullPageZoomLock;
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', scheduleSync);
-    } else {
-        scheduleSync();
-    }
-
-    window.addEventListener('load', scheduleSync, { passive: true });
-    window.addEventListener('resize', scheduleSync, { passive: true });
-    window.addEventListener('orientationchange', scheduleSync, { passive: true });
-
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', scheduleSync, { passive: true });
-        window.visualViewport.addEventListener('scroll', scheduleSync, { passive: true });
-    }
-
-    [60, 140, 320, 700, 1200, 2200].forEach((delay) => {
-        window.setTimeout(syncLandingFullPageZoomLock, delay);
-    });
-})();
-/* END PATCH: Landing full page zoom lock runtime v1 */
-
-
 /* PATCH: Landing globe brightness normalization runtime v2 */
 (function installYHLandingGlobeBrightnessNormalizationRuntimeV2() {
     if (window.__yhLandingGlobeBrightnessNormalizationRuntimeV2Installed) return;
@@ -4168,4 +4042,26 @@ if (formRegisterSimple) {
     });
 })();
 /* END PATCH: Landing globe brightness normalization runtime v2 */
+
+
+/* PATCH: Landing zoom lock cleanup v1 */
+(function cleanupYHLandingZoomLockV1() {
+    try {
+        document.body?.classList.remove('yh-landing-zoom-locked');
+
+        const step = document.getElementById('step-1');
+        if (step) {
+            step.style.removeProperty('--yh-landing-lock-scale');
+            step.style.removeProperty('--yh-landing-lock-width');
+            step.style.removeProperty('--yh-landing-lock-height');
+            step.style.removeProperty('--yh-globe-zoom-compensation');
+            step.removeAttribute('data-yh-landing-lock-scale');
+            step.removeAttribute('data-yh-landing-lock-baseline');
+        }
+
+        sessionStorage.removeItem('yh_landing_full_zoom_lock_baseline_v1');
+        sessionStorage.removeItem('yh_landing_globe_baseline_dpr_v2');
+    } catch (_) {}
+})();
+/* END PATCH: Landing zoom lock cleanup v1 */
 
