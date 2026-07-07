@@ -15465,3 +15465,118 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   }
   /* END PATCH: Landing NETWORKING final letter render safety v1 */
 
+
+  /* PATCH: Landing globe default-state lock v1
+     Goal:
+     - Keep the globe stage visually stable across browser zoom states.
+     - Do not let zoom-sensitive responsive rules change the globe container.
+     - Only the actual globe/canvas should remain movable/interactive.
+  */
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 {
+    --yh-locked-globe-size: 1180px;
+    --yh-locked-globe-x: 50vw;
+    --yh-locked-globe-y: 57vh;
+    --yh-locked-globe-shift-x: -50%;
+    --yh-locked-globe-shift-y: -44%;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-hero-visual {
+    position: fixed !important;
+    left: var(--yh-locked-globe-x) !important;
+    top: var(--yh-locked-globe-y) !important;
+    right: auto !important;
+    bottom: auto !important;
+    z-index: 12 !important;
+    width: var(--yh-locked-globe-size) !important;
+    height: var(--yh-locked-globe-size) !important;
+    min-width: var(--yh-locked-globe-size) !important;
+    min-height: var(--yh-locked-globe-size) !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    overflow: visible !important;
+    pointer-events: none !important;
+    transform: translate(var(--yh-locked-globe-shift-x), var(--yh-locked-globe-shift-y)) !important;
+    transform-origin: center center !important;
+    contain: layout size style !important;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-globe-stage,
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-stage-wrap {
+    position: relative !important;
+    width: var(--yh-locked-globe-size) !important;
+    height: var(--yh-locked-globe-size) !important;
+    min-width: var(--yh-locked-globe-size) !important;
+    min-height: var(--yh-locked-globe-size) !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    overflow: visible !important;
+    transform-origin: center center !important;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-map-stage-wrap {
+    transform: translateY(3%) !important;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-world-map {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    width: var(--yh-locked-globe-size) !important;
+    height: var(--yh-locked-globe-size) !important;
+    min-width: var(--yh-locked-globe-size) !important;
+    min-height: var(--yh-locked-globe-size) !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    pointer-events: auto !important;
+    transform: translate(-50%, -50%) !important;
+    transform-origin: center center !important;
+  }
+
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-world-map > div,
+  body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-world-map canvas {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    width: var(--yh-locked-globe-size) !important;
+    height: var(--yh-locked-globe-size) !important;
+    min-width: var(--yh-locked-globe-size) !important;
+    min-height: var(--yh-locked-globe-size) !important;
+    max-width: none !important;
+    max-height: none !important;
+    transform: translate(-50%, -50%) !important;
+    transform-origin: center center !important;
+  }
+
+  @media (max-width: 1100px) {
+    body[data-yh-page="apply"] #step-1.yh-solo-system-v34 {
+      --yh-locked-globe-size: 820px;
+      --yh-locked-globe-y: 39vh;
+      --yh-locked-globe-shift-y: -42%;
+    }
+  }
+
+  @media (max-width: 820px) {
+    body[data-yh-page="apply"] #step-1.yh-solo-system-v34 {
+      --yh-locked-globe-size: 460px;
+      --yh-locked-globe-y: 27vh;
+      --yh-locked-globe-shift-y: -50%;
+    }
+  }
+
+  @media (max-width: 520px) {
+    body[data-yh-page="apply"] #step-1.yh-solo-system-v34 {
+      --yh-locked-globe-size: 420px;
+      --yh-locked-globe-y: 25vh;
+    }
+  }
+  /* END PATCH: Landing globe default-state lock v1 */
+

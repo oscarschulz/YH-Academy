@@ -3873,3 +3873,102 @@ if (formRegisterSimple) {
 
     initLandingSectionReveal();
 });
+
+
+/* PATCH: Landing globe locked render size v1 */
+(function installYHLandingGlobeLockedRenderSizeV1() {
+    if (window.__yhLandingGlobeLockedRenderSizeV1Installed) return;
+    window.__yhLandingGlobeLockedRenderSizeV1Installed = true;
+
+    function isApplyPage() {
+        return document.body?.getAttribute('data-yh-page') === 'apply';
+    }
+
+    function getLockedGlobeSize() {
+        const root = document.getElementById('step-1') || document.body;
+        const styles = window.getComputedStyle(root);
+        const raw = String(styles.getPropertyValue('--yh-locked-globe-size') || '').trim();
+        const parsed = Number.parseFloat(raw);
+        return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 1180;
+    }
+
+    function lockGlobeDomSize() {
+        if (!isApplyPage()) return false;
+
+        const mapEl = document.getElementById('yh-world-map');
+        if (!mapEl) return false;
+
+        const size = getLockedGlobeSize();
+        const stageWrap = mapEl.closest('.yh-landing-map-stage-wrap');
+        const globeStage = mapEl.closest('.yh-landing-globe-stage');
+        const visual = mapEl.closest('.yh-landing-hero-visual');
+        const renderer = window.yhLandingMapInstance && typeof window.yhLandingMapInstance.renderer === 'function'
+            ? window.yhLandingMapInstance.renderer()
+            : null;
+        const canvasEl = renderer?.domElement || mapEl.querySelector('canvas');
+
+        [visual, globeStage, stageWrap, mapEl, canvasEl].forEach((node) => {
+            if (!node || !node.style) return;
+            node.style.setProperty('width', `${size}px`, 'important');
+            node.style.setProperty('height', `${size}px`, 'important');
+            node.style.setProperty('min-width', `${size}px`, 'important');
+            node.style.setProperty('min-height', `${size}px`, 'important');
+            node.style.setProperty('max-width', 'none', 'important');
+            node.style.setProperty('max-height', 'none', 'important');
+            node.style.setProperty('overflow', 'visible', 'important');
+            node.style.setProperty('transform-origin', 'center center', 'important');
+        });
+
+        mapEl.style.setProperty('position', 'absolute', 'important');
+        mapEl.style.setProperty('left', '50%', 'important');
+        mapEl.style.setProperty('top', '50%', 'important');
+        mapEl.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
+
+        if (canvasEl) {
+            canvasEl.style.setProperty('position', 'absolute', 'important');
+            canvasEl.style.setProperty('left', '50%', 'important');
+            canvasEl.style.setProperty('top', '50%', 'important');
+            canvasEl.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
+        }
+
+        try {
+            if (window.yhLandingMapInstance && typeof window.yhLandingMapInstance.width === 'function') {
+                window.yhLandingMapInstance.width(size).height(size);
+            }
+        } catch (_) {}
+
+        return true;
+    }
+
+    const schedule = () => {
+        window.clearTimeout(window.__yhLandingGlobeLockedRenderTimerV1);
+        window.__yhLandingGlobeLockedRenderTimerV1 = window.setTimeout(lockGlobeDomSize, 40);
+    };
+
+    window.yhLockLandingGlobeDefaultStateV1 = lockGlobeDomSize;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', schedule);
+    } else {
+        schedule();
+    }
+
+    window.addEventListener('load', schedule, { passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
+    window.addEventListener('orientationchange', schedule, { passive: true });
+
+    [120, 320, 700, 1400, 2600].forEach((delay) => window.setTimeout(lockGlobeDomSize, delay));
+
+    try {
+        const observer = new MutationObserver(() => schedule());
+        observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['style', 'class']
+        });
+        window.__yhLandingGlobeLockedRenderObserverV1 = observer;
+    } catch (_) {}
+})();
+/* END PATCH: Landing globe locked render size v1 */
+
