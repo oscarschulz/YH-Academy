@@ -6453,6 +6453,170 @@ window.addEventListener("storage", (event) => {
   });
 });
 
+/* PATCH: Federation mobile custom select controls v1 */
+const FEDERATION_MOBILE_SELECT_QUERY =
+  ".fed-input-wrap select:not([multiple]), .fed-directory-toolbar select:not([multiple])";
+
+function getFederationMobileSelectLabel(select) {
+  if (!select) return "";
+
+  const selected = select.options && select.selectedIndex >= 0
+    ? select.options[select.selectedIndex]
+    : null;
+
+  return String(
+    selected?.textContent ||
+    selected?.label ||
+    select.value ||
+    "Select option"
+  ).trim();
+}
+
+function closeFederationMobileSelects(exceptShell = null) {
+  qsa(".fed-mobile-select.is-open").forEach((shell) => {
+    if (exceptShell && shell === exceptShell) return;
+
+    shell.classList.remove("is-open", "is-drop-up");
+
+    const button = shell.querySelector(".fed-mobile-select-button");
+    if (button) button.setAttribute("aria-expanded", "false");
+  });
+}
+
+function positionFederationMobileSelect(shell) {
+  if (!shell) return;
+
+  shell.classList.remove("is-drop-up");
+
+  const rect = shell.getBoundingClientRect();
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const spaceBelow = viewportHeight - rect.bottom;
+  const spaceAbove = rect.top;
+
+  if (spaceBelow < 250 && spaceAbove > spaceBelow) {
+    shell.classList.add("is-drop-up");
+  }
+}
+
+function syncFederationMobileSelectControl(select) {
+  if (!select) return;
+
+  const shell = select.nextElementSibling;
+  if (!shell || !shell.classList || !shell.classList.contains("fed-mobile-select")) return;
+
+  const valueLabel = shell.querySelector(".fed-mobile-select-value");
+  if (valueLabel) {
+    valueLabel.textContent = getFederationMobileSelectLabel(select);
+  }
+
+  qsa(".fed-mobile-select-option", shell).forEach((optionButton) => {
+    const isActive = String(optionButton.dataset.value || "") === String(select.value || "");
+    optionButton.classList.toggle("is-active", isActive);
+    optionButton.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+}
+
+function buildFederationMobileSelect(select) {
+  if (!select || select.multiple || select.dataset.fedMobileSelectReady === "true") return;
+
+  select.dataset.fedMobileSelectReady = "true";
+  select.classList.add("fed-native-select--mobile-custom");
+
+  const shell = document.createElement("div");
+  shell.className = "fed-mobile-select";
+  shell.dataset.fedMobileSelect = select.id || select.name || "select";
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "fed-mobile-select-button";
+  button.setAttribute("aria-haspopup", "listbox");
+  button.setAttribute("aria-expanded", "false");
+
+  const value = document.createElement("span");
+  value.className = "fed-mobile-select-value";
+  value.textContent = getFederationMobileSelectLabel(select);
+  button.appendChild(value);
+
+  const menu = document.createElement("div");
+  menu.className = "fed-mobile-select-menu";
+  menu.setAttribute("role", "listbox");
+
+  Array.from(select.options || []).forEach((option) => {
+    const optionButton = document.createElement("button");
+    optionButton.type = "button";
+    optionButton.className = "fed-mobile-select-option";
+    optionButton.dataset.value = option.value;
+    optionButton.textContent = String(option.textContent || option.label || option.value || "").trim();
+    optionButton.disabled = option.disabled;
+    optionButton.setAttribute("role", "option");
+
+    optionButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (optionButton.disabled) return;
+
+      select.value = option.value;
+      select.dispatchEvent(new Event("input", { bubbles: true }));
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+
+      syncFederationMobileSelectControl(select);
+      closeFederationMobileSelects();
+    });
+
+    menu.appendChild(optionButton);
+  });
+
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const willOpen = !shell.classList.contains("is-open");
+    closeFederationMobileSelects(shell);
+
+    shell.classList.toggle("is-open", willOpen);
+    button.setAttribute("aria-expanded", willOpen ? "true" : "false");
+
+    if (willOpen) {
+      positionFederationMobileSelect(shell);
+    }
+  });
+
+  select.addEventListener("change", () => {
+    syncFederationMobileSelectControl(select);
+  });
+
+  shell.appendChild(button);
+  shell.appendChild(menu);
+  select.insertAdjacentElement("afterend", shell);
+
+  syncFederationMobileSelectControl(select);
+}
+
+function initFederationMobileSelectControls() {
+  qsa(FEDERATION_MOBILE_SELECT_QUERY).forEach(buildFederationMobileSelect);
+
+  if (window.__yhFederationMobileSelectControlsBound) return;
+  window.__yhFederationMobileSelectControlsBound = true;
+
+  document.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target && target.closest(".fed-mobile-select")) return;
+    closeFederationMobileSelects();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeFederationMobileSelects();
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    closeFederationMobileSelects();
+  });
+}
+/* END PATCH: Federation mobile custom select controls v1 */
+
 document.addEventListener("DOMContentLoaded", async () => {
   ensureSeedMembers();
 
@@ -6460,6 +6624,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initSectionNavigation();
   installFederationDashboardEmbeddedScrollBridge();
   initMobileAppShell();
+  initFederationMobileSelectControls();
 
   initMapHover();
   initSectorExperience();

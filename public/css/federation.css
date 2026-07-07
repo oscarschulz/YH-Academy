@@ -1112,11 +1112,14 @@ textarea {
 .fed-referral-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 18px;
 }
 
 .fed-referral-card {
-  padding: 22px;
+  min-width: 0;
+  padding: 26px;
+  display: grid;
+  gap: 14px;
 }
 
 .fed-referral-card-full {
@@ -1124,59 +1127,74 @@ textarea {
 }
 
 .fed-referral-caption {
+  max-width: 100%;
   margin: 0;
-  line-height: 1.7;
+  line-height: 1.62;
+  overflow-wrap: break-word;
 }
 
 .fed-referral-code {
-  margin-top: 16px;
-  padding: 16px;
+  min-width: 0;
+  margin-top: 6px;
+  padding: 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 16px;
 }
 
 .fed-referral-code strong {
   display: block;
-  font-size: 1.2rem;
+  max-width: 100%;
+  font-size: 1.08rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  line-height: 1.16;
+  letter-spacing: 0.06em;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .fed-referral-list {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   margin-top: 16px;
 }
 
 .fed-referral-item {
-  padding: 18px;
+  min-width: 0;
+  padding: 20px;
 }
 
 .fed-referral-item-top {
+  min-width: 0;
   display: flex;
   align-items: start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.fed-referral-item-top > div {
+  min-width: 0;
 }
 
 .fed-referral-item-name {
-  font-size: 0.98rem;
+  font-size: 0.94rem;
   font-weight: 700;
-  margin-bottom: 4px;
+  line-height: 1.25;
+  margin-bottom: 5px;
+  overflow-wrap: anywhere;
 }
 
 .fed-referral-item-meta {
-  font-size: 1.03rem;
-  line-height: 1.5;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  overflow-wrap: break-word;
 }
 
 .fed-empty-block {
   padding: 18px;
-  line-height: 1.7;
+  line-height: 1.62;
 }
 
 @media (max-width: 1024px) {
@@ -1207,9 +1225,10 @@ textarea {
 }
 
 .fed-referral-link-label {
-  font-size: 0.95rem;
+  font-size: 0.78rem;
+  line-height: 1.15;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
 }
 
 .fed-referral-link-input {
@@ -1219,14 +1238,55 @@ textarea {
 }
 
 .fed-form-inline-note {
-  font-size: 1rem;
-  line-height: 1.5;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  overflow-wrap: break-word;
 }
 
 .fed-form-inline-note.is-valid {
 }
 
 .fed-form-inline-note.is-error {
+}
+
+@media (max-width: 640px) {
+  .fed-referral-layout {
+    gap: 14px;
+  }
+
+  .fed-referral-card {
+    padding: 18px;
+    gap: 12px;
+  }
+
+  .fed-referral-code {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .fed-referral-code strong {
+    font-size: 0.94rem;
+    letter-spacing: 0.04em;
+  }
+
+  .fed-referral-code-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .fed-referral-code-actions .fed-btn {
+    width: 100%;
+  }
+
+  .fed-referral-item {
+    padding: 16px;
+  }
+
+  .fed-referral-item-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 /* stronger YHA-style polish */
@@ -1700,6 +1760,14 @@ body[data-fed-state="member"] #overview .fed-chip {
   -moz-appearance: none;
   color-scheme: dark;
   padding-right: 48px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(223, 247, 255, 0.86) 50%),
+    linear-gradient(135deg, rgba(223, 247, 255, 0.86) 50%, transparent 50%);
+  background-position:
+    calc(100% - 22px) 50%,
+    calc(100% - 16px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
 }
 
 .fed-input-wrap select option,
@@ -1708,6 +1776,167 @@ body[data-fed-state="member"] #overview .fed-chip {
 .fed-directory-toolbar select optgroup {
   background: #07152b;
   color: #eef6ff;
+}
+
+.fed-mobile-select {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .fed-input-wrap,
+  .fed-directory-toolbar {
+    min-width: 0;
+  }
+
+  .fed-input-wrap select:not([multiple]).fed-native-select--mobile-custom,
+  .fed-directory-toolbar select:not([multiple]).fed-native-select--mobile-custom {
+    display: none;
+  }
+
+  .fed-mobile-select {
+    position: relative;
+    z-index: 24;
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .fed-mobile-select.is-open {
+    z-index: 260;
+  }
+
+  .fed-mobile-select-button {
+    position: relative;
+    width: 100%;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 42px 0 14px;
+    border: 1px solid rgba(223, 247, 255, 0.18);
+    border-radius: 0;
+    background:
+      radial-gradient(circle at 18% 0%, rgba(56, 189, 248, 0.13), transparent 44%),
+      linear-gradient(180deg, rgba(15, 13, 43, 0.86), rgba(5, 8, 24, 0.86));
+    color: #f8fbff;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.055),
+      0 0 16px rgba(56, 189, 248, 0.06);
+    clip-path: polygon(
+      10px 0,
+      calc(100% - 10px) 0,
+      100% 10px,
+      100% calc(100% - 10px),
+      calc(100% - 10px) 100%,
+      10px 100%,
+      0 calc(100% - 10px),
+      0 10px
+    );
+    font-family: var(--yh-font-body, "Poppins", system-ui, sans-serif);
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.1;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .fed-mobile-select-button::after {
+    content: "";
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid rgba(223, 247, 255, 0.82);
+    border-bottom: 2px solid rgba(223, 247, 255, 0.82);
+    transform: translateY(-64%) rotate(45deg);
+    pointer-events: none;
+  }
+
+  .fed-mobile-select.is-open .fed-mobile-select-button {
+    border-color: rgba(103, 232, 249, 0.46);
+    box-shadow:
+      0 0 0 3px rgba(56, 189, 248, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+
+  .fed-mobile-select.is-open .fed-mobile-select-button::after {
+    transform: translateY(-36%) rotate(225deg);
+  }
+
+  .fed-mobile-select-value {
+    min-width: 0;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .fed-mobile-select-menu {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 280;
+    display: none;
+    max-height: min(238px, 42dvh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 6px;
+    border: 1px solid rgba(147, 197, 253, 0.24);
+    background:
+      radial-gradient(circle at 18% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+      linear-gradient(180deg, rgba(5, 16, 37, 0.98), rgba(2, 8, 23, 0.98));
+    box-shadow:
+      0 22px 54px rgba(0, 0, 0, 0.52),
+      inset 0 1px 0 rgba(255, 255, 255, 0.055);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(103, 232, 249, 0.44) rgba(2, 8, 23, 0.2);
+  }
+
+  .fed-mobile-select.is-drop-up .fed-mobile-select-menu {
+    top: auto;
+    bottom: calc(100% + 6px);
+  }
+
+  .fed-mobile-select.is-open .fed-mobile-select-menu {
+    display: grid;
+    gap: 4px;
+  }
+
+  .fed-mobile-select-option {
+    width: 100%;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 9px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: rgba(248, 251, 255, 0.9);
+    font-family: var(--yh-font-body, "Poppins", system-ui, sans-serif);
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.18;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .fed-mobile-select-option:hover,
+  .fed-mobile-select-option.is-active {
+    background:
+      radial-gradient(circle at 16% 0%, rgba(103, 232, 249, 0.18), transparent 42%),
+      linear-gradient(180deg, rgba(15, 47, 122, 0.76), rgba(6, 30, 64, 0.66));
+    color: #ffffff;
+  }
+
+  .fed-mobile-select-option:disabled {
+    opacity: 0.48;
+    cursor: not-allowed;
+  }
 }.fed-map {
   position: relative;
   isolation: isolate;
@@ -2002,16 +2231,28 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-referral-code-main {
+  min-width: 0;
   display: grid;
   gap: 8px;
 }
 
 .fed-referral-code strong {
-  font-size: clamp(1.12rem, 2vw, 1.36rem);
+  max-width: 100%;
+  font-size: clamp(1rem, 1.3vw, 1.12rem);
+  line-height: 1.16;
+  letter-spacing: 0.05em;
+  overflow-wrap: anywhere;
 }
 
 .fed-referral-list {
   gap: 14px;
+}
+
+@media (max-width: 640px) {
+  .fed-referral-code strong {
+    font-size: 0.94rem;
+    letter-spacing: 0.04em;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -2051,46 +2292,202 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 }
 /* ================================
-   Command positioning card spacing fix
+   Federation Command tab breathing room + mobile spacing fix
 ================================ */
 
-.fed-command-card-positioning {
+body[data-yh-page="federation"] #command {
+  overflow: visible;
+}
+
+body[data-yh-page="federation"] #command .fed-section-head {
+  min-width: 0;
+  margin-bottom: clamp(20px, 1.6vw, 28px);
+  padding: clamp(24px, 2.1vw, 34px) clamp(28px, 2.4vw, 40px);
+  overflow: visible;
+}
+
+body[data-yh-page="federation"] #command .fed-section-head h3 {
+  margin: 0 0 12px;
+  line-height: 1.12;
+}
+
+body[data-yh-page="federation"] #command .fed-section-head p {
+  max-width: 980px;
+  margin: 0;
+  line-height: 1.72;
+  overflow-wrap: break-word;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel.fed-command-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.48fr) minmax(320px, 0.76fr);
+  gap: clamp(18px, 1.45vw, 26px);
+  align-items: stretch;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card {
+  min-width: 0;
+  padding: clamp(22px, 1.65vw, 30px);
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  overflow: visible;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-hero {
+  grid-column: auto;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-full,
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-positioning {
   grid-column: 1 / -1;
 }
 
-.fed-command-card-positioning .fed-state-grid {
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card h4 {
+  margin: 0;
+  line-height: 1.22;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-copy {
+  max-width: 920px;
+  line-height: 1.72;
+  overflow-wrap: break-word;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-pills {
+  margin-top: 2px;
+  gap: 10px;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-pills span {
+  min-width: 0;
+  max-width: 100%;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-actions {
+  width: 100%;
+  margin-top: 4px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(136px, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-actions .fed-btn,
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-actions a.fed-btn {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 12px 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card > .fed-state-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-full .fed-state-grid,
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-positioning .fed-state-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
-.fed-command-card-positioning .fed-state-metric {
-  min-height: 118px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric {
+  min-width: 0;
+  min-height: 120px;
+  padding: 18px;
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+  overflow: visible;
 }
 
-.fed-command-card-positioning .fed-state-metric strong {
-  font-size: 1.06rem;
-  line-height: 1.3;
-  word-break: break-word;
+body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric strong {
+  display: block;
+  min-width: 0;
+  font-size: clamp(1rem, 0.92vw, 1.08rem);
+  line-height: 1.28;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
-.fed-command-card-positioning .fed-state-metric small {
-  line-height: 1.5;
+body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric small {
+  display: block;
+  line-height: 1.45;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
-@media (max-width: 1180px) {
-  .fed-command-card-positioning .fed-state-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
+@media (max-width: 1100px) {
+  body[data-yh-page="federation"] #memberCommandPanel.fed-command-layout {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-hero,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-full,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-positioning {
+    grid-column: 1 / -1;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-full .fed-state-grid,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-positioning .fed-state-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-@media (max-width: 640px) {
-  .fed-command-card-positioning .fed-state-grid {
-  grid-template-columns: 1fr;
-}
+@media (max-width: 768px) {
+  body[data-yh-page="federation"] #command {
+    padding: 14px;
+  }
+
+  body[data-yh-page="federation"] #command .fed-section-head {
+    padding: 18px 18px 20px;
+    margin-bottom: 14px;
+  }
+
+  body[data-yh-page="federation"] #command .fed-section-head p {
+    max-width: 100%;
+    line-height: 1.6;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel.fed-command-layout {
+    gap: 12px;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card {
+    padding: 18px;
+    gap: 12px;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-actions {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-actions .fed-btn,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-actions a.fed-btn {
+    min-height: 44px;
+    white-space: normal;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card > .fed-state-grid,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-full .fed-state-grid,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-positioning .fed-state-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric {
+    min-height: 96px;
+    padding: 16px;
+  }
 }
 /* more believable world surface */
 .fed-map-shell::before {
@@ -2681,8 +3078,9 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-state-points span,
   .fed-admin-meta span,
   .fed-map-overlay-stats span {
-  padding: 8.5px 10.5px;
-  font-size: 0.95rem;
+  padding: 7px 9px;
+  font-size: 0.78rem;
+  line-height: 1.16;
 }
 
   .fed-panel-emphasis {
@@ -2801,7 +3199,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   gap: 6px;
 }
 
-  .fed-app-bottom-nav {
+  body:not(.yh-dashboard-federation-embed-body):not(.yh-dashboard-federation-scroll-child-main):not(.yh-dashboard-inline-embed-body) .fed-app-bottom-nav {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: stretch;
@@ -2811,39 +3209,76 @@ body[data-fed-state="member"] #overview .fed-chip {
   bottom: calc(8px + env(safe-area-inset-bottom));
   z-index: 60;
   padding: 6px;
-  gap: 6px;
+  gap: 5px;
+  border: 1px solid rgba(147, 197, 253, 0.18);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(103, 232, 249, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.94), rgba(2, 6, 23, 0.84));
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
 }
 
   .fed-app-bottom-link {
-  min-height: 52px;
+  min-width: 0;
+  min-height: 50px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 6px 4px;
+  gap: 3px;
+  padding: 6px 3px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: rgba(220, 232, 247, 0.72);
   appearance: none;
+  -webkit-appearance: none;
   cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+  .fed-app-bottom-more {
+  font: inherit;
 }
 
   .fed-app-bottom-icon {
-  font-size: 1rem;
+  font-size: 0.96rem;
+  line-height: 1;
 }
 
   .fed-app-bottom-label {
-  font-size: 0.91rem;
-  letter-spacing: 0;
+  max-width: 100%;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
   .fed-app-bottom-link.fed-nav-link.active,
   .fed-app-bottom-link:hover,
   .fed-app-bottom-more[aria-expanded="true"] {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(103, 232, 249, 0.18), transparent 46%),
+    linear-gradient(180deg, rgba(15, 47, 122, 0.62), rgba(6, 30, 64, 0.46));
+  color: #f8fbff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
   .fed-app-more-backdrop {
   position: fixed;
   inset: 0;
   z-index: 58;
+  background: rgba(0, 0, 0, 0.58);
 }
 
   .fed-app-more-sheet {
@@ -2853,6 +3288,11 @@ body[data-fed-state="member"] #overview .fed-chip {
   bottom: calc(76px + env(safe-area-inset-bottom));
   z-index: 59;
   padding: 12px;
+  border: 1px solid rgba(147, 197, 253, 0.2);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(103, 232, 249, 0.13), transparent 44%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.98), rgba(2, 8, 23, 0.94));
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.5);
 }
 
   .fed-app-more-sheet-head {
@@ -2864,19 +3304,20 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-app-more-link strong {
-  font-size: 1.03rem;
+  font-size: 0.88rem;
+  line-height: 1.15;
 }
 
   .fed-app-more-link small {
-  font-size: 1rem;
-  line-height: 1.4;
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
-  .fed-mobile-more-open .fed-app-more-backdrop {
+  body:not(.yh-dashboard-federation-embed-body):not(.yh-dashboard-federation-scroll-child-main):not(.yh-dashboard-inline-embed-body).fed-mobile-more-open .fed-app-more-backdrop {
   display: block;
 }
 
-  .fed-mobile-more-open .fed-app-more-sheet {
+  body:not(.yh-dashboard-federation-embed-body):not(.yh-dashboard-federation-scroll-child-main):not(.yh-dashboard-inline-embed-body).fed-mobile-more-open .fed-app-more-sheet {
   display: block;
 }
 }
@@ -3443,9 +3884,10 @@ body[data-fed-state="member"] #overview .fed-chip {
 
   .fed-topbar-actions .fed-btn {
   width: 100%;
-  min-height: 40px;
-  padding: 9px 10px;
-  font-size: 1rem;
+  min-height: 38px;
+  padding: 8px 10px;
+  font-size: 0.84rem;
+  line-height: 1.05;
 }
 
   .fed-section {
@@ -3473,8 +3915,9 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-state-text,
   .fed-referral-caption,
   .fed-command-copy {
-  font-size: 1.03rem;
-  line-height: 1.56;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  letter-spacing: 0.002em;
 }
 
   .fed-hero,
@@ -3519,8 +3962,8 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-hero-text {
-  font-size: 1.03rem;
-  line-height: 1.55;
+  font-size: 0.88rem;
+  line-height: 1.5;
   margin-bottom: 12px;
 }
 
@@ -3537,8 +3980,9 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-state-points span,
   .fed-admin-meta span,
   .fed-map-overlay-stats span {
-  padding: 8.5px 10.5px;
-  font-size: 0.95rem;
+  padding: 7px 9px;
+  font-size: 0.78rem;
+  line-height: 1.16;
 }
 
   .fed-panel-emphasis {
@@ -3634,7 +4078,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   gap: 8px;
 }
 
-  .fed-app-bottom-nav {
+  body:not(.yh-dashboard-federation-embed-body):not(.yh-dashboard-federation-scroll-child-main):not(.yh-dashboard-inline-embed-body) .fed-app-bottom-nav {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: stretch;
@@ -3644,40 +4088,81 @@ body[data-fed-state="member"] #overview .fed-chip {
   bottom: calc(8px + env(safe-area-inset-bottom));
   z-index: 60;
   padding: 6px;
-  gap: 6px;
+  gap: 5px;
+  border: 1px solid rgba(147, 197, 253, 0.18);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(103, 232, 249, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.94), rgba(2, 6, 23, 0.84));
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
 }
 
   .fed-app-bottom-link {
-  min-height: 52px;
+  min-width: 0;
+  min-height: 50px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 6px 4px;
+  gap: 3px;
+  padding: 6px 3px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: rgba(220, 232, 247, 0.72);
   appearance: none;
+  -webkit-appearance: none;
   cursor: pointer;
-  transition: 0.18s ease;
+  text-align: center;
+  text-decoration: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+  .fed-app-bottom-more {
+  font: inherit;
 }
 
   .fed-app-bottom-icon {
-  font-size: 1rem;
+  font-size: 0.96rem;
+  line-height: 1;
 }
 
   .fed-app-bottom-label {
-  font-size: 0.91rem;
-  letter-spacing: 0;
+  max-width: 100%;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
   .fed-app-bottom-link.fed-nav-link.active,
   .fed-app-bottom-link:hover,
   .fed-app-bottom-more[aria-expanded="true"] {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(103, 232, 249, 0.18), transparent 46%),
+    linear-gradient(180deg, rgba(15, 47, 122, 0.62), rgba(6, 30, 64, 0.46));
+  color: #f8fbff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
   .fed-app-more-backdrop {
   position: fixed;
   inset: 0;
   z-index: 58;
+  background: rgba(0, 0, 0, 0.58);
 }
 
   .fed-app-more-sheet {
@@ -3689,6 +4174,11 @@ body[data-fed-state="member"] #overview .fed-chip {
   padding: 12px;
   max-height: min(62vh, 520px);
   overflow: auto;
+  border: 1px solid rgba(147, 197, 253, 0.2);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(103, 232, 249, 0.13), transparent 44%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.98), rgba(2, 8, 23, 0.94));
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.5);
 }
 
   .fed-app-more-sheet-head {
@@ -3700,19 +4190,20 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-app-more-link strong {
-  font-size: 1.03rem;
+  font-size: 0.88rem;
+  line-height: 1.15;
 }
 
   .fed-app-more-link small {
-  font-size: 1rem;
-  line-height: 1.4;
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
-  .fed-mobile-more-open .fed-app-more-backdrop {
+  body:not(.yh-dashboard-federation-embed-body):not(.yh-dashboard-federation-scroll-child-main):not(.yh-dashboard-inline-embed-body).fed-mobile-more-open .fed-app-more-backdrop {
   display: block;
 }
 
-  .fed-mobile-more-open .fed-app-more-sheet {
+  body:not(.yh-dashboard-federation-embed-body):not(.yh-dashboard-federation-scroll-child-main):not(.yh-dashboard-inline-embed-body).fed-mobile-more-open .fed-app-more-sheet {
   display: block;
 }
 }
@@ -3763,7 +4254,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-app-bottom-label {
-  font-size: 0.85rem;
+  font-size: 0.68rem;
 }
 
   .fed-app-more-sheet {
@@ -3859,78 +4350,97 @@ body[data-fed-state="member"] #overview .fed-chip {
 .fed-connect-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
-  gap: 14px;
-  margin-bottom: 16px;
+  gap: 18px;
+  margin-bottom: 18px;
 }
 
 .fed-connect-hero-card {
+  min-width: 0;
   min-height: 100%;
 }
 
 .fed-connect-toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(180px, 0.5fr) minmax(180px, 0.5fr);
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
 .fed-connect-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 .fed-connect-card {
-  padding: 24px;
+  min-width: 0;
+  padding: 26px;
   display: grid;
-  gap: 16px;
+  gap: 18px;
   min-height: 250px;
+  overflow: visible;
 }
 
 .fed-connect-card-top {
+  min-width: 0;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
+  gap: 14px;
+}
+
+.fed-connect-card-top > div {
+  min-width: 0;
 }
 
 .fed-connect-card h4 {
-  margin: 6px 0 0;
-  font-size: 1.05rem;
-  line-height: 1.35;
+  max-width: 100%;
+  margin: 7px 0 0;
+  font-size: 1.03rem;
+  line-height: 1.38;
+  overflow-wrap: anywhere;
 }
 
 .fed-connect-value {
   flex: 0 0 auto;
+  max-width: 100%;
   padding: 6px 10px;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 800;
+  line-height: 1.15;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
+  white-space: normal;
 }
 
 .fed-connect-meta {
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
 .fed-connect-meta span {
+  min-width: 0;
+  max-width: 100%;
   padding: 6px 9px;
-  font-size: 0.95rem;
-  line-height: 1.2;
+  font-size: 0.78rem;
+  line-height: 1.22;
+  overflow-wrap: break-word;
 }
 
 .fed-connect-card-foot {
+  min-width: 0;
   margin-top: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
 }
 
 .fed-connect-card-foot small {
-  line-height: 1.4;
+  line-height: 1.45;
+  overflow-wrap: break-word;
 }
 
 .fed-connect-card-foot .fed-btn {
@@ -3943,9 +4453,10 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-connect-request-panel {
-  margin-top: 16px;
-  margin-bottom: 16px;
-  padding: 30px 36px 32px;
+  min-width: 0;
+  margin-top: 18px;
+  margin-bottom: 18px;
+  padding: 32px 38px 34px;
   overflow: visible;
 }
 
@@ -3954,44 +4465,50 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-connect-selected {
-  margin: 8px 0 4px;
+  margin: 10px 0 4px;
   font-weight: 600;
   line-height: 1.58;
   padding-left: 0;
   padding-right: 0;
   max-width: 980px;
+  overflow-wrap: break-word;
 }
 
 .fed-connect-requests {
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
 .fed-connect-request-list {
   display: grid;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .fed-connect-request-item {
+  min-width: 0;
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px;
+  gap: 14px;
+  padding: 16px;
 }
 
 .fed-connect-request-item div {
+  min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: 5px;
 }
 
 .fed-connect-request-item strong {
-  font-size: 1.03rem;
+  font-size: 0.94rem;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
 }
 
 .fed-connect-request-item small,
 .fed-connect-request-item span {
-  font-size: 1rem;
-  line-height: 1.4;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  overflow-wrap: break-word;
 }
 
 @media (max-width: 1024px) {
@@ -4000,6 +4517,11 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-connect-grid {
   grid-template-columns: 1fr;
 }
+
+  .fed-connect-card {
+    padding: 20px;
+    gap: 16px;
+  }
 
   .fed-connect-card-foot,
   .fed-connect-request-item {
@@ -4010,6 +4532,43 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-connect-card-foot .fed-btn {
   width: 100%;
 }
+
+  .fed-connect-request-panel {
+    padding: 22px;
+  }
+}
+
+@media (max-width: 640px) {
+  .fed-connect-hero,
+  .fed-connect-toolbar,
+  .fed-connect-grid {
+    gap: 14px;
+  }
+
+  .fed-connect-card {
+    padding: 18px;
+    gap: 14px;
+  }
+
+  .fed-connect-card-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .fed-connect-card h4 {
+    font-size: 0.94rem;
+    line-height: 1.32;
+  }
+
+  .fed-connect-request-panel {
+    padding: 20px 18px;
+  }
+
+  .fed-connect-selected {
+    font-size: 0.82rem;
+    line-height: 1.52;
+  }
 }
 /* ========================================================= */
 /* Federation Simplified Server-Backed Layout                 */
@@ -4140,32 +4699,63 @@ body[data-fed-state="member"] #overview .fed-chip {
 .fed-requests-toolbar {
   display: grid;
   grid-template-columns: minmax(180px, 280px);
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
 .fed-requests-list {
   display: grid;
-  gap: 14px;
-}
-
-.fed-request-card {
-  padding: 24px;
-  display: grid;
   gap: 16px;
 }
 
+.fed-request-card {
+  min-width: 0;
+  padding: 28px;
+  display: grid;
+  gap: 18px;
+  overflow: visible;
+}
+
 .fed-request-card-head {
+  min-width: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
+  gap: 16px;
+}
+
+.fed-request-card-head > div {
+  min-width: 0;
 }
 
 .fed-request-card h4 {
-  margin: 6px 0 0;
-  font-size: 1.05rem;
-  line-height: 1.35;
+  max-width: 100%;
+  margin: 7px 0 0;
+  font-size: 1.04rem;
+  line-height: 1.38;
+  overflow-wrap: anywhere;
+}
+
+.fed-request-card .fed-command-copy {
+  margin: 0;
+  max-width: 100%;
+  line-height: 1.62;
+  overflow-wrap: break-word;
+}
+
+.fed-request-card .fed-state-grid {
+  gap: 14px;
+}
+
+.fed-request-card .fed-state-metric {
+  min-width: 0;
+  padding: 18px;
+}
+
+.fed-request-card .fed-state-metric strong,
+.fed-request-card .fed-state-metric small {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .fed-section.is-panel-hidden {
@@ -4187,8 +4777,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-main {
-  padding: 14px;
-  padding-bottom: 82px;
+  padding: 16px 14px calc(96px + env(safe-area-inset-bottom));
 }
 
   .fed-topbar {
@@ -4207,22 +4796,343 @@ body[data-fed-state="member"] #overview .fed-chip {
   flex: 0 0 auto;
 }
 
+  #command,
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals {
+    min-width: 0;
+    padding: 24px 22px 26px;
+    overflow: visible;
+  }
+
+  #command .fed-section-head,
+  #connect .fed-section-head,
+  #deal-rooms .fed-section-head,
+  #directory .fed-section-head,
+  #requests .fed-section-head,
+  #referrals .fed-section-head {
+    min-width: 0;
+    display: grid;
+    gap: 8px;
+    padding: 22px;
+    margin-bottom: 22px;
+    overflow: visible;
+  }
+
+  #command .fed-section-head .fed-kicker,
+  #connect .fed-section-head .fed-kicker,
+  #deal-rooms .fed-section-head .fed-kicker,
+  #directory .fed-section-head .fed-kicker,
+  #requests .fed-section-head .fed-kicker,
+  #referrals .fed-section-head .fed-kicker {
+    margin-bottom: 2px;
+    line-height: 1.18;
+  }
+
+  #command .fed-section-head h3,
+  #connect .fed-section-head h3,
+  #deal-rooms .fed-section-head h3,
+  #directory .fed-section-head h3,
+  #requests .fed-section-head h3,
+  #referrals .fed-section-head h3 {
+    margin: 0;
+    line-height: 1.18;
+  }
+
+  #command .fed-section-head p,
+  #connect .fed-section-head p,
+  #deal-rooms .fed-section-head p,
+  #directory .fed-section-head p,
+  #requests .fed-section-head p,
+  #referrals .fed-section-head p {
+    margin: 0;
+    max-width: 100%;
+    line-height: 1.64;
+    overflow-wrap: break-word;
+  }
+
+  #memberCommandPanel.fed-command-layout,
+  #connect .fed-connect-hero,
+  #deal-rooms .fed-connect-hero,
+  #directory .fed-directory-grid,
+  #requests .fed-requests-list,
+  #referrals .fed-referral-layout {
+    gap: 20px;
+  }
+
+  #command .fed-command-card,
+  #connect .fed-command-card,
+  #deal-rooms .fed-command-card,
+  #connect .fed-connect-card,
+  #deal-rooms .fed-connect-card,
+  #directory .fed-member-card,
+  #requests .fed-request-card,
+  #referrals .fed-referral-card {
+    min-width: 0;
+    padding: 24px;
+    display: grid;
+    gap: 18px;
+    overflow: visible;
+  }
+
+  #command .fed-sidebar-card-label,
+  #connect .fed-sidebar-card-label,
+  #deal-rooms .fed-sidebar-card-label,
+  #directory .fed-sidebar-card-label,
+  #requests .fed-sidebar-card-label,
+  #referrals .fed-sidebar-card-label {
+    margin-bottom: 8px;
+    line-height: 1.18;
+  }
+
+  #command .fed-command-card h4,
+  #connect .fed-command-card h4,
+  #deal-rooms .fed-command-card h4,
+  #connect .fed-connect-card h4,
+  #deal-rooms .fed-connect-card h4,
+  #requests .fed-request-card h4 {
+    max-width: 100%;
+    margin: 2px 0 0;
+    line-height: 1.34;
+    overflow-wrap: anywhere;
+  }
+
+  #command .fed-command-copy,
+  #connect .fed-command-copy,
+  #deal-rooms .fed-command-copy,
+  #requests .fed-command-copy,
+  #referrals .fed-referral-caption {
+    margin: 0;
+    max-width: 100%;
+    line-height: 1.64;
+    overflow-wrap: break-word;
+  }
+
+  #command .fed-command-pills,
+  #connect .fed-command-pills,
+  #deal-rooms .fed-command-pills {
+    margin-top: 2px;
+    gap: 10px;
+  }
+
+  #command .fed-command-pills span,
+  #connect .fed-command-pills span,
+  #deal-rooms .fed-command-pills span {
+    min-width: 0;
+    max-width: 100%;
+    padding: 8px 10px;
+    line-height: 1.18;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  #command .fed-state-grid,
+  #connect .fed-state-grid,
+  #deal-rooms .fed-state-grid,
+  #requests .fed-state-grid,
+  #referrals .fed-state-grid {
+    gap: 14px;
+  }
+
+  #command .fed-state-metric,
+  #connect .fed-state-metric,
+  #deal-rooms .fed-state-metric,
+  #requests .fed-state-metric,
+  #referrals .fed-state-metric {
+    min-width: 0;
+    min-height: 0;
+    padding: 18px;
+    display: grid;
+    gap: 9px;
+    align-content: start;
+  }
+
+  #command .fed-state-metric strong,
+  #connect .fed-state-metric strong,
+  #deal-rooms .fed-state-metric strong,
+  #requests .fed-state-metric strong,
+  #referrals .fed-state-metric strong,
+  #command .fed-state-metric small,
+  #connect .fed-state-metric small,
+  #deal-rooms .fed-state-metric small,
+  #requests .fed-state-metric small,
+  #referrals .fed-state-metric small {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .fed-request-card-head {
-  flex-direction: column;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .fed-request-card .fed-state-badge {
+    width: max-content;
+    max-width: 100%;
+    white-space: normal;
+    line-height: 1.16;
+  }
+
+  .fed-request-card .fed-state-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .fed-request-card .fed-state-metric {
+    min-height: 0;
+    padding: 18px;
+  }
 }
+
+@media (max-width: 640px) {
+  #command,
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals {
+    padding: 20px 18px 22px;
+  }
+
+  #command .fed-section-head,
+  #connect .fed-section-head,
+  #deal-rooms .fed-section-head,
+  #directory .fed-section-head,
+  #requests .fed-section-head,
+  #referrals .fed-section-head {
+    padding: 18px;
+    margin-bottom: 20px;
+    gap: 7px;
+  }
+
+  #command .fed-section-head h3,
+  #connect .fed-section-head h3,
+  #deal-rooms .fed-section-head h3,
+  #directory .fed-section-head h3,
+  #requests .fed-section-head h3,
+  #referrals .fed-section-head h3 {
+    font-size: 1.06rem;
+    line-height: 1.2;
+  }
+
+  #command .fed-section-head p,
+  #connect .fed-section-head p,
+  #deal-rooms .fed-section-head p,
+  #directory .fed-section-head p,
+  #requests .fed-section-head p,
+  #referrals .fed-section-head p {
+    font-size: 0.84rem;
+    line-height: 1.62;
+  }
+
+  #memberCommandPanel.fed-command-layout,
+  #connect .fed-connect-hero,
+  #deal-rooms .fed-connect-hero,
+  #directory .fed-directory-grid,
+  #requests .fed-requests-list,
+  #referrals .fed-referral-layout {
+    gap: 16px;
+  }
+
+  #command .fed-command-card,
+  #connect .fed-command-card,
+  #deal-rooms .fed-command-card,
+  #connect .fed-connect-card,
+  #deal-rooms .fed-connect-card,
+  #directory .fed-member-card,
+  #requests .fed-request-card,
+  #referrals .fed-referral-card {
+    padding: 20px 18px;
+    gap: 16px;
+  }
+
+  #command .fed-sidebar-card-label,
+  #connect .fed-sidebar-card-label,
+  #deal-rooms .fed-sidebar-card-label,
+  #directory .fed-sidebar-card-label,
+  #requests .fed-sidebar-card-label,
+  #referrals .fed-sidebar-card-label {
+    margin-bottom: 9px;
+    font-size: 0.72rem;
+    line-height: 1.16;
+  }
+
+  #command .fed-command-card h4,
+  #connect .fed-command-card h4,
+  #deal-rooms .fed-command-card h4,
+  #connect .fed-connect-card h4,
+  #deal-rooms .fed-connect-card h4,
+  #requests .fed-request-card h4 {
+    font-size: 0.94rem;
+    line-height: 1.34;
+  }
+
+  #command .fed-command-copy,
+  #connect .fed-command-copy,
+  #deal-rooms .fed-command-copy,
+  #requests .fed-command-copy,
+  #referrals .fed-referral-caption {
+    font-size: 0.82rem;
+    line-height: 1.58;
+  }
+
+  #command .fed-command-pills,
+  #connect .fed-command-pills,
+  #deal-rooms .fed-command-pills {
+    margin-top: 4px;
+    gap: 9px;
+  }
+
+  #command .fed-command-pills span,
+  #connect .fed-command-pills span,
+  #deal-rooms .fed-command-pills span {
+    padding: 7px 9px;
+    font-size: 0.76rem;
+    line-height: 1.18;
+  }
+
+  .fed-requests-toolbar {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .fed-requests-list {
+    gap: 16px;
+  }
+
+  .fed-request-card {
+    padding: 20px 18px;
+    gap: 16px;
+  }
+
+  .fed-request-card h4 {
+    font-size: 0.94rem;
+    line-height: 1.34;
+  }
+
+  .fed-request-card .fed-command-copy {
+    font-size: 0.82rem;
+    line-height: 1.58;
+  }
 }
 /* ========================================================= */
 /* Federation Connect Request Form                           */
 /* ========================================================= */
 
 .fed-connect-request-panel {
-  margin-top: 16px;
-  margin-bottom: 16px;
-  padding: 30px 36px 32px;
+  min-width: 0;
+  margin-top: 18px;
+  margin-bottom: 18px;
+  padding: 32px 38px 34px;
   overflow: visible;
 }
 
 .fed-connect-request-form {
+  min-width: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px 28px;
@@ -4251,12 +5161,14 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-connect-request-form .fed-input-wrap {
-  gap: 9px;
+  min-width: 0;
+  gap: 10px;
 }
 
 .fed-connect-request-form label {
   padding-left: 2px;
   padding-right: 2px;
+  line-height: 1.28;
 }
 
 .fed-connect-request-form select {
@@ -4283,10 +5195,14 @@ body[data-fed-state="member"] #overview .fed-chip {
   color: rgba(226, 238, 255, 0.46);
 }
 
-
 @media (max-width: 760px) {
+  .fed-connect-request-panel {
+    padding: 20px 18px;
+  }
+
   .fed-connect-request-form {
   grid-template-columns: 1fr;
+  gap: 16px;
   padding: 0;
 }
 
@@ -4295,6 +5211,19 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-connect-request-form .fed-form-actions {
   grid-column: auto;
 }
+
+  .fed-connect-request-form input,
+  .fed-connect-request-form select,
+  .fed-connect-request-form textarea {
+    min-height: 48px;
+    padding: 13px 14px;
+    font-size: 0.84rem;
+    line-height: 1.38;
+  }
+
+  .fed-connect-request-form textarea {
+    min-height: 104px;
+  }
 }
 /* ========================================================= */
 /* Federation Network Desk + Deal Package                    */
@@ -4305,12 +5234,12 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .view-federation .panel-card + .panel-card {
-  margin-top: 20px;
+  margin-top: 22px;
 }
 
 .inline-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -4320,15 +5249,17 @@ body[data-fed-state="member"] #overview .fed-chip {
 
 .federation-match-box,
 .federation-deal-grid {
+  min-width: 0;
   display: grid;
-  gap: 10px;
+  gap: 14px;
 }
 
 .federation-match-label,
 .federation-deal-grid label span {
   color: var(--muted);
-  font-size: 1rem;
+  font-size: 0.88rem;
   font-weight: 600;
+  line-height: 1.32;
 }
 
 .federation-match-select,
@@ -4336,12 +5267,22 @@ body[data-fed-state="member"] #overview .fed-chip {
 .federation-deal-grid select,
 .federation-deal-grid textarea {
   width: 100%;
+  min-width: 0;
+}
+
+.federation-deal-grid input,
+.federation-deal-grid select,
+.federation-deal-grid textarea {
+  min-height: 48px;
+  padding: 13px 14px;
+  line-height: 1.42;
 }
 
 .federation-match-hint {
   color: var(--muted);
-  font-size: 1rem;
+  font-size: 0.84rem;
   line-height: 1.5;
+  overflow-wrap: break-word;
 }
 
 .federation-deal-grid {
@@ -4349,8 +5290,9 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .federation-deal-grid label {
+  min-width: 0;
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .federation-deal-full {
@@ -4369,6 +5311,23 @@ body[data-fed-state="member"] #overview .fed-chip {
 
   .view-federation .toolbar select {
     min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .federation-match-box,
+  .federation-deal-grid {
+    gap: 12px;
+  }
+
+  .inline-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .inline-actions .badge-btn,
+  .inline-actions .fed-btn {
+    width: 100%;
   }
 }
 /* =========================================================
@@ -4554,16 +5513,23 @@ textarea:focus,
   position: fixed;
   inset: 0;
   z-index: 11000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   opacity: 0;
+  visibility: hidden;
+  overflow: hidden;
   pointer-events: none;
-  transition: opacity 140ms ease;
+  contain: layout paint;
+  transition:
+    opacity 140ms ease,
+    visibility 140ms ease;
 }
 
 .yh-tab-loader[hidden] {
@@ -4572,7 +5538,18 @@ textarea:focus,
 
 .yh-tab-loader.is-active {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+}
+
+body.yh-dashboard-federation-embed-body .yh-tab-loader,
+body.yh-dashboard-federation-scroll-child-main .yh-tab-loader,
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .yh-tab-loader,
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .yh-tab-loader {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .yh-tab-loader-card {
@@ -4759,12 +5736,30 @@ textarea:focus,
   object-fit: cover;
 }
 
+.fed-universe-profile-main,
+.fed-profile-preview-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.fed-universe-profile-main > div:last-child,
+.fed-profile-preview-main > div:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
 .fed-universe-profile-main h4,
 .fed-profile-preview-main h4 {
+  max-width: 100%;
   margin: 0;
   color: #fff;
-  font-size: 1.14rem;
-  line-height: 1.1;
+  font-size: 1.08rem;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .fed-universe-profile-main p,
@@ -4773,9 +5768,17 @@ textarea:focus,
 .fed-universe-profile-note,
 .fed-profile-preview-copy,
 .fed-profile-preview-note {
+  max-width: 100%;
   line-height: 1.58;
   margin: 0;
   color: rgba(226, 238, 255, 0.82);
+  overflow-wrap: break-word;
+}
+
+.fed-universe-profile-body {
+  min-width: 0;
+  display: grid;
+  gap: 16px;
 }
 
 .fed-universe-profile-meta,
@@ -4784,6 +5787,7 @@ textarea:focus,
 .fed-profile-preview-meta,
 .fed-profile-preview-signal div,
 .fed-profile-preview-actions {
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -4793,22 +5797,28 @@ textarea:focus,
 .fed-universe-profile-signal span,
 .fed-profile-preview-meta span,
 .fed-profile-preview-signal span {
+  min-width: 0;
+  max-width: 100%;
   padding: 7px 10px;
   font-size: 0.76rem;
+  line-height: 1.22;
   border: 1px solid rgba(223, 247, 255, 0.14);
   background: rgba(2, 8, 23, 0.34);
+  overflow-wrap: break-word;
 }
 
 .fed-universe-profile-signal,
 .fed-profile-preview-signal {
+  min-width: 0;
   display: grid;
-  gap: 8px;
+  gap: 9px;
 }
 
 .fed-universe-profile-signal strong,
 .fed-profile-preview-signal strong {
   color: #dff7ff;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
+  line-height: 1.15;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -4827,19 +5837,82 @@ textarea:focus,
 
   .fed-universe-profile-card {
     width: min(100%, calc(100vw - 24px));
-    max-height: 88vh;
-    padding: 16px;
+    max-height: calc(100dvh - 24px);
+    padding: 18px;
+  }
+
+  .fed-universe-profile-body {
+    gap: 14px;
+  }
+
+  .fed-universe-profile-cover,
+  .fed-profile-preview-cover {
+    min-height: 82px;
+  }
+
+  .fed-universe-profile-cover img,
+  .fed-profile-preview-cover img {
+    min-height: 82px;
   }
 
   .fed-universe-profile-main,
   .fed-profile-preview-main {
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+  }
+
+  .fed-universe-profile-avatar,
+  .fed-profile-preview-avatar {
+    width: 52px;
+    height: 52px;
+    font-size: 0.95rem;
+  }
+
+  .fed-universe-profile-main h4,
+  .fed-profile-preview-main h4 {
+    font-size: 0.98rem;
+    line-height: 1.18;
+  }
+
+  .fed-universe-profile-main p,
+  .fed-profile-preview-main p,
+  .fed-universe-profile-copy,
+  .fed-universe-profile-note,
+  .fed-profile-preview-copy,
+  .fed-profile-preview-note {
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+
+  .fed-universe-profile-meta,
+  .fed-universe-profile-signal div,
+  .fed-profile-preview-meta,
+  .fed-profile-preview-signal div {
+    gap: 6px;
+  }
+
+  .fed-universe-profile-meta span,
+  .fed-universe-profile-signal span,
+  .fed-profile-preview-meta span,
+  .fed-profile-preview-signal span {
+    padding: 6px 8px;
+    font-size: 0.68rem;
+    line-height: 1.2;
   }
 
   .fed-member-actions,
   .fed-universe-profile-actions,
   .fed-profile-preview-actions {
     display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .fed-universe-profile-actions .fed-btn,
+  .fed-profile-preview-actions .fed-btn {
+    width: 100%;
   }
 }
 /* ========================================================= */
@@ -4923,21 +5996,23 @@ textarea:focus,
 
 .fed-card-owner-meta strong {
   min-width: 0;
-  font-size: 0.98rem;
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 0.94rem;
+  line-height: 1.18;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .fed-card-owner-meta small {
   min-width: 0;
   color: rgba(226, 238, 255, 0.72);
-  font-size: 0.84rem;
-  line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 0.76rem;
+  line-height: 1.28;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .fed-member-actions {
@@ -4975,9 +6050,10 @@ body[data-yh-page="federation"] .fed-member-actions .fed-btn {
 
 .fed-card-owner-name-text {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .fed-card-owner-name-line .yh-verified-badge-icon {

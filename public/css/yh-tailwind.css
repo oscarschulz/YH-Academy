@@ -11976,14 +11976,14 @@ body[data-yh-page="federation"] .yh-tab-loader.is-active {
   pointer-events: auto;
 }
 body[data-yh-page="federation"] .yh-tab-loader-card {
-  width: min(92vw, 520px);
-  min-height: 292px;
+  width: min(86vw, 320px);
+  min-height: 168px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 34px 34px 32px;
+  gap: 10px;
+  padding: 20px 18px 18px;
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -12010,12 +12010,13 @@ body[data-yh-page="federation"] .yh-tab-loader-card:before {
   z-index: 2;
   order: 2;
   display: block;
-  margin-top: 2px;
+  margin-top: 0;
   color: #67e8f9;
   font-family: Orbitron, Rajdhani, system-ui, sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.62rem;
   font-weight: 900;
-  letter-spacing: 0.26em;
+  letter-spacing: 0.18em;
+  line-height: 1;
   text-transform: uppercase;
 }
 body[data-yh-page="federation"] .yh-tab-loader-card:after {
@@ -12023,9 +12024,9 @@ body[data-yh-page="federation"] .yh-tab-loader-card:after {
   position: relative;
   z-index: 2;
   order: 4;
-  width: min(72%, 300px);
-  height: 7px;
-  margin-top: 8px;
+  width: min(72%, 220px);
+  height: 5px;
+  margin-top: 4px;
   border: 1px solid rgba(223, 247, 255, 0.12);
   border-radius: 999px;
   background:
@@ -12065,13 +12066,13 @@ body[data-yh-page="federation"] .yh-tab-loader-text {
   order: 3;
   position: relative;
   z-index: 2;
-  max-width: 420px;
+  max-width: 260px;
   color: #fff;
   font-family: Rajdhani, Poppins, system-ui, sans-serif;
-  font-size: clamp(1.45rem, 2.3vw, 2.05rem);
+  font-size: 0.94rem;
   font-weight: 900;
-  line-height: 1.08;
-  letter-spacing: -0.015em;
+  line-height: 1.15;
+  letter-spacing: -0.005em;
 }
 @keyframes yhFederationLoaderProgressV125 {
   0% {
@@ -12093,6 +12094,21 @@ body[data-yh-page="federation"] .yh-tab-loader-text {
     opacity: 0.54;
   }
 }
+
+body[data-yh-page="federation"] .yh-tab-loader[hidden] {
+  display: none !important;
+}
+
+body.yh-dashboard-federation-embed-body .yh-tab-loader,
+body.yh-dashboard-federation-scroll-child-main .yh-tab-loader,
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .yh-tab-loader,
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .yh-tab-loader {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 body.yh-dashboard-federation-embed-body .fed-shell,
 body.yh-dashboard-federation-scroll-child-main .fed-shell,
 body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-shell,

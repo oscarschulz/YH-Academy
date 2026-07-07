@@ -13645,6 +13645,78 @@ body[data-yh-page="federation"] img {
 }
 /* END PATCH: Federation clear transparent panels visual owner v147 */
 
+/* PATCH: Federation mobile loader scale owner v2 */
+body[data-yh-page="federation"] .yh-tab-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  contain: layout paint;
+}
+
+body[data-yh-page="federation"] .yh-tab-loader[hidden] {
+  display: none !important;
+}
+
+body[data-yh-page="federation"] .yh-tab-loader.is-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+body.yh-dashboard-federation-embed-body .yh-tab-loader,
+body.yh-dashboard-federation-scroll-child-main .yh-tab-loader,
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .yh-tab-loader,
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .yh-tab-loader {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body[data-yh-page="federation"] .yh-tab-loader-card {
+  width: min(86vw, 320px);
+  min-height: 168px;
+  gap: 10px;
+  padding: 20px 18px 18px;
+}
+
+body[data-yh-page="federation"] .yh-tab-loader-card::before {
+  margin-top: 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  line-height: 1;
+}
+
+body[data-yh-page="federation"] .yh-tab-loader-card::after {
+  width: min(72%, 220px);
+  height: 5px;
+  margin-top: 4px;
+}
+
+body[data-yh-page="federation"] .yh-tab-loader-logo {
+  width: 46px;
+  height: 46px;
+  padding: 9px;
+}
+
+body[data-yh-page="federation"] .yh-tab-loader-text {
+  max-width: 260px;
+  font-size: 0.94rem;
+  line-height: 1.15;
+  letter-spacing: -0.005em;
+}
+/* END PATCH: Federation mobile loader scale owner v2 */
+
 /* PATCH: Plaza dark canvas transparent panels visual owner v149 */
 html:has(body[data-yh-page="plaza"]),
 body[data-yh-page="plaza"].yh-plaza-page,

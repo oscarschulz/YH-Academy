@@ -930,6 +930,108 @@ function markUniverseDivisionNonBlockingSyncV1(label = '') {
         document.body?.removeAttribute('data-yh-tab-sync-label');
     }, 900);
 }
+/* PATCH: Dashboard mobile workspace stable boot lock v1 */
+function isDashboardMobileWorkspaceBootViewportV1() {
+    try {
+        return window.matchMedia('(max-width: 768px)').matches;
+    } catch (_) {
+        return window.innerWidth <= 768;
+    }
+}
+
+function setDashboardMobileWorkspaceBootLoaderV1(label = 'Loading...', active = true) {
+    const loader = document.getElementById('yh-tab-loader');
+    const text = document.getElementById('yh-tab-loader-text');
+
+    if (text) {
+        text.textContent = String(label || 'Loading...').trim() || 'Loading...';
+    }
+
+    if (!loader) return false;
+
+    if (active) {
+        loader.classList.remove('hidden-step');
+        loader.classList.add('is-active');
+        loader.setAttribute('aria-hidden', 'false');
+        loader.style.pointerEvents = 'auto';
+        return true;
+    }
+
+    loader.classList.remove('is-active');
+    loader.setAttribute('aria-hidden', 'true');
+    loader.style.pointerEvents = 'none';
+
+    window.setTimeout(() => {
+        if (!document.body?.classList.contains('yh-dashboard-mobile-workspace-booting')) {
+            loader.classList.add('hidden-step');
+        }
+    }, 180);
+
+    return true;
+}
+
+function startDashboardMobileWorkspaceStableBootV1(key = 'overview', label = 'Loading...') {
+    if (!isDashboardMobileWorkspaceBootViewportV1()) return false;
+
+    const cleanKey = String(key || 'overview').trim().toLowerCase() || 'overview';
+    const cleanLabel = String(label || cleanKey || 'Loading...').replace(/^Open\s+/i, '').trim() || 'Loading...';
+    const nextSeq = Number(window.__yhDashboardMobileWorkspaceBootSeqV1 || 0) + 1;
+
+    window.__yhDashboardMobileWorkspaceBootSeqV1 = nextSeq;
+
+    document.body?.classList.add('yh-dashboard-mobile-workspace-booting');
+    document.body?.setAttribute('data-yh-mobile-workspace-booting', cleanKey);
+    document.body?.setAttribute('data-yh-mobile-workspace-boot-seq', String(nextSeq));
+
+    setDashboardMobileWorkspaceBootLoaderV1(cleanLabel, true);
+
+    window.clearTimeout(window.__yhDashboardMobileWorkspaceBootFailSafeV1);
+    window.__yhDashboardMobileWorkspaceBootFailSafeV1 = window.setTimeout(() => {
+        finishDashboardMobileWorkspaceStableBootV1('failsafe');
+    }, cleanKey.startsWith('federation-') ? 3200 : 2600);
+
+    return true;
+}
+
+function finishDashboardMobileWorkspaceStableBootV1(reason = 'ready') {
+    if (!document.body?.classList.contains('yh-dashboard-mobile-workspace-booting')) return false;
+
+    const seq = Number(document.body?.getAttribute('data-yh-mobile-workspace-boot-seq') || 0);
+
+    window.clearTimeout(window.__yhDashboardMobileWorkspaceBootFailSafeV1);
+    window.clearTimeout(window.__yhDashboardMobileWorkspaceBootReleaseTimerV1);
+
+    window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+            window.setTimeout(() => {
+                const currentSeq = Number(document.body?.getAttribute('data-yh-mobile-workspace-boot-seq') || 0);
+                if (seq && currentSeq && seq !== currentSeq) return;
+
+                document.body?.classList.remove('yh-dashboard-mobile-workspace-booting');
+                document.body?.removeAttribute('data-yh-mobile-workspace-booting');
+                document.body?.removeAttribute('data-yh-mobile-workspace-boot-seq');
+                document.body?.setAttribute('data-yh-mobile-workspace-ready-reason', String(reason || 'ready'));
+
+                setDashboardMobileWorkspaceBootLoaderV1('Loading...', false);
+            }, 70);
+        });
+    });
+
+    return true;
+}
+
+function scheduleDashboardMobileWorkspaceStableBootReleaseV1(reason = 'ready', delayMs = 0) {
+    if (!document.body?.classList.contains('yh-dashboard-mobile-workspace-booting')) return false;
+
+    window.clearTimeout(window.__yhDashboardMobileWorkspaceBootReleaseTimerV1);
+    window.__yhDashboardMobileWorkspaceBootReleaseTimerV1 = window.setTimeout(() => {
+        finishDashboardMobileWorkspaceStableBootV1(reason);
+    }, Math.max(0, Number(delayMs || 0)));
+
+    return true;
+}
+/* END PATCH: Dashboard mobile workspace stable boot lock v1 */
+
 /* END PATCH: YHU instant dashboard parent-child navigation v1 */
 
 function showUniverseDivisionEntryLoader(label = 'Loading...') {
@@ -10367,12 +10469,16 @@ function showDashboardUnifiedChildWorkspaceLoader(key = 'overview', meta = {}) {
         loader.setAttribute('aria-hidden', 'false');
         loader.style.pointerEvents = 'auto';
 
-        window.__yhDashboardBalancedChildWorkspaceLoaderVisibleUntilV2 = Date.now() + 500;
+        const cleanLoaderKey = String(key || '').trim().toLowerCase();
+        const isMobileWorkspaceBoot = isDashboardMobileWorkspaceBootViewportV1();
+        const mobileFallbackMs = cleanLoaderKey.startsWith('federation-') ? 2400 : 1800;
+
+        window.__yhDashboardBalancedChildWorkspaceLoaderVisibleUntilV2 = Date.now() + (isMobileWorkspaceBoot ? 900 : 500);
 
         window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderFallback);
         window.__yhDashboardChildWorkspaceLoaderFallback = window.setTimeout(() => {
-            hideDashboardUnifiedChildWorkspaceLoader('balanced-1s-timeout');
-        }, 650);
+            hideDashboardUnifiedChildWorkspaceLoader(isMobileWorkspaceBoot ? 'mobile-balanced-timeout' : 'balanced-1s-timeout');
+        }, isMobileWorkspaceBoot ? mobileFallbackMs : 650);
 
         return true;
     }
@@ -10447,6 +10553,8 @@ function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready') {
         frameShell.classList.remove('is-switching', 'has-child-workspace-loader');
         frameShell.dataset.childLoaderReleased = reason;
     }
+
+    scheduleDashboardMobileWorkspaceStableBootReleaseV1(reason, reason === 'hard-timeout' ? 0 : 90);
 }
 
 function getDashboardInlineFrameDocument(frame) {
@@ -12844,6 +12952,8 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
     const dashboardWorkspaceActivationSeq = Number(window.__yhDashboardWorkspaceActivationSeq || 0) + 1;
     window.__yhDashboardWorkspaceActivationSeq = dashboardWorkspaceActivationSeq;
 
+    startDashboardMobileWorkspaceStableBootV1(copy.key, copy.title || copy.headline || copy.key);
+
     if (
         document.body?.classList.contains('yh-profile-follow-freeze') &&
         typeof academyShouldKeepProfileVisibleDuringFollow === 'function' &&
@@ -12912,6 +13022,10 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
             setDashboardUnifiedWorkspaceLauncher(copy.key);
         }
     }, 420);
+
+    if (!dashboardIsChildWorkspaceCleanV71(copy.key)) {
+        scheduleDashboardMobileWorkspaceStableBootReleaseV1('parent-workspace-ready', copy.key === 'overview' ? 120 : 220);
+    }
 
     if (shouldScroll) {
         document.getElementById('universe-hub-view')?.scrollTo({
