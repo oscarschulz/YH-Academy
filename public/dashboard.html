@@ -1474,8 +1474,8 @@
 </main>
     </div>
 
-<div id="federation-apply-modal" class="modal-overlay hidden-step yh-federation-apply-modal">
-    <div class="modal-content hide-scrollbar yh-federation-apply-card">
+<div id="federation-apply-modal" class="modal-overlay hidden-step yh-federation-apply-modal yh-dashboard-division-apply-modal">
+    <div class="modal-content hide-scrollbar yh-federation-apply-card" yh-dashboard-division-apply-card>
         <button
             id="btn-close-federation-apply"
             type="button"
@@ -1718,8 +1718,10 @@
             </div>
         </form>
     </div>
-</div><div id="plaza-apply-modal" class="modal-overlay hidden-step yh-federation-apply-modal">
-    <div class="modal-content hide-scrollbar yh-federation-apply-card">
+</div>
+
+<div id="plaza-apply-modal" class="modal-overlay hidden-step yh-federation-apply-modal yh-dashboard-division-apply-modal">
+    <div class="modal-content hide-scrollbar yh-federation-apply-card" yh-dashboard-division-apply-card>
         <button
             id="btn-close-plaza-apply"
             type="button"
@@ -1745,15 +1747,15 @@
         </div>
     </div>
 </div>
-    <div id="academy-apply-modal" class="modal-overlay hidden-step" style="z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
+    <div id="academy-apply-modal" class="modal-overlay hidden-step yh-dashboard-division-apply-modal yh-dashboard-academy-apply-modal" role="dialog" aria-modal="true" aria-labelledby="yh-dashboard-academy-apply-title">
         
-        <div class="modal-content hide-scrollbar" style="position: relative; max-width: 700px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 3rem 2.5rem; background: var(--panel-dark); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+        <div class="modal-content hide-scrollbar yh-dashboard-division-apply-card yh-dashboard-academy-apply-card">
             
-            <button id="close-academy-apply" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.05); border: none; color: var(--text-muted); width: 35px; height: 35px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: 0.2s;">✖</button>
+            <button id="close-academy-apply" type="button" class="yh-dashboard-division-apply-close" aria-label="Close Academy application">✖</button>
             
             <div id="ai-form-phase">
             <div class="text-center mb-1-25">
-                <h2 class="yh-title-small" style="color: var(--neon-blue);">Academy Application</h2>
+                <h2 id="yh-dashboard-academy-apply-title" class="yh-title-small">Academy Application</h2>
 <p class="yh-subtitle-small">Complete the Academy application below. Core identity details are pulled from the registration flow when available, and submission will send your application for manual admin review.</p>
             </div>
                 

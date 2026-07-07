@@ -15184,3 +15184,188 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
 }
 /* END PATCH: Academy roadmap visual owner v200 */
 
+
+/* PATCH: Dashboard division application modal visual parity v1 */
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(14px, 2vw, 28px);
+  background:
+    radial-gradient(circle at 18% 12%, rgba(56, 189, 248, 0.16), transparent 34%),
+    radial-gradient(circle at 82% 0%, rgba(103, 232, 249, 0.10), transparent 30%),
+    rgba(2, 6, 23, 0.78);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-modal.hidden-step {
+  display: none !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card {
+  position: relative;
+  width: min(920px, calc(100vw - 28px));
+  max-height: min(88vh, 860px);
+  overflow-y: auto;
+  padding: clamp(22px, 2.3vw, 36px);
+  border: 1px solid rgba(103, 232, 249, 0.24);
+  border-radius: 0;
+  clip-path: polygon(
+    18px 0,
+    calc(100% - 18px) 0,
+    100% 18px,
+    100% calc(100% - 18px),
+    calc(100% - 18px) 100%,
+    18px 100%,
+    0 calc(100% - 18px),
+    0 18px
+  );
+  background:
+    radial-gradient(circle at 14% 0%, rgba(56, 189, 248, 0.16), transparent 36%),
+    radial-gradient(circle at 100% 18%, rgba(103, 232, 249, 0.10), transparent 34%),
+    linear-gradient(180deg, rgba(8, 18, 38, 0.96), rgba(3, 8, 20, 0.94));
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.56),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: #f8fbff;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid rgba(223, 247, 255, 0.08);
+  clip-path: inherit;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-close,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .yh-federation-apply-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(223, 247, 255, 0.18);
+  border-radius: 0;
+  background: rgba(15, 23, 42, 0.72);
+  color: #dff7ff;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  z-index: 2;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-close:hover,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .yh-federation-apply-close:hover {
+  transform: translateY(-1px);
+  border-color: rgba(103, 232, 249, 0.48);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .yh-federation-apply-head,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-academy-apply-card .text-center {
+  margin: 0 44px 24px 0;
+  text-align: left;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .yh-dashboard-federation-kicker,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-academy-apply-card .yh-title-small::before {
+  display: inline-flex;
+  width: max-content;
+  margin-bottom: 10px;
+  padding: 7px 10px;
+  border: 1px solid rgba(103, 232, 249, 0.28);
+  background: rgba(56, 189, 248, 0.08);
+  color: #67e8f9;
+  font-family: var(--yh-font-subheader, "Rajdhani", sans-serif);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-academy-apply-card .yh-title-small::before {
+  content: "Academy Application";
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card h2,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card h3,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-academy-apply-card .yh-title-small {
+  color: #ffffff;
+  font-family: var(--yh-font-header, "Orbitron", sans-serif);
+  letter-spacing: -0.03em;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card p,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .subtitle,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-academy-apply-card .yh-subtitle-small {
+  color: #94a3b8;
+  line-height: 1.7;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .form-group,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card label {
+  color: #dff7ff;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .input-field,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card input,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card select,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card textarea {
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  background: rgba(2, 8, 23, 0.72);
+  color: #f8fbff;
+  outline: none;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .input-field:focus,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card input:focus,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card select:focus,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card textarea:focus {
+  border-color: rgba(103, 232, 249, 0.58);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.10);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .btn-primary,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .btn-secondary {
+  min-height: 44px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"].academy-launcher-open,
+body[data-yh-view="hub"][data-yh-page="dashboard"].plaza-application-open,
+body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-modal {
+    align-items: stretch;
+    padding: 10px;
+  }
+
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card {
+    width: 100%;
+    max-height: calc(100dvh - 20px);
+    padding: 22px 16px 26px;
+  }
+
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .yh-federation-form-grid,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .form-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .yh-federation-form-actions,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-apply-card .form-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+/* END PATCH: Dashboard division application modal visual parity v1 */
+

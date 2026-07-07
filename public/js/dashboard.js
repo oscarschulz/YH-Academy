@@ -33523,3 +33523,271 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
     window.addEventListener('pageshow', injectStyle);
 })();
  /* END PATCH: YH Universe profile context card fix v2 */
+
+
+/* PATCH: Dashboard division application modal safety v1 */
+(function installYHDashboardDivisionApplicationModalSafetyV1() {
+    if (window.__yhDashboardDivisionApplicationModalSafetyV1Installed) return;
+    window.__yhDashboardDivisionApplicationModalSafetyV1Installed = true;
+
+    const pendingStatuses = new Set([
+        'pending',
+        'under_review',
+        'under review',
+        'review',
+        'pending_review',
+        'screening',
+        'shortlisted',
+        'waitlisted'
+    ]);
+
+    function clean(value = '') {
+        return String(value || '').trim();
+    }
+
+    function normalizeStatus(value = '') {
+        return clean(value).toLowerCase().replace(/\s+/g, '_');
+    }
+
+    function getToken() {
+        try {
+            return (
+                sessionStorage.getItem('yh_token') ||
+                localStorage.getItem('yh_token') ||
+                sessionStorage.getItem('token') ||
+                localStorage.getItem('token') ||
+                ''
+            ).trim();
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function toast(message, type = 'success') {
+        if (typeof showToast === 'function') {
+            showToast(message, type);
+            return;
+        }
+
+        console[type === 'error' ? 'warn' : 'log'](message);
+    }
+
+    async function getJson(url) {
+        const token = getToken();
+        const headers = { Accept: 'application/json' };
+        if (token) headers.Authorization = 'Bearer ' + token;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            credentials: 'include',
+            headers
+        });
+
+        const text = await response.text();
+        let data = {};
+
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (_) {
+            data = {};
+        }
+
+        if (!response.ok) {
+            throw new Error(data?.message || 'Status check failed.');
+        }
+
+        return data;
+    }
+
+    function isApprovedStatus(status = '') {
+        const normalized = normalizeStatus(status);
+        return normalized === 'approved' || normalized === 'active' || normalized === 'member';
+    }
+
+    function isPendingStatus(status = '') {
+        const normalized = normalizeStatus(status);
+        return pendingStatuses.has(normalized) || pendingStatuses.has(normalized.replace(/_/g, ' '));
+    }
+
+    function redirectDivision(division) {
+        if (division === 'academy') {
+            window.location.href = '/academy';
+            return;
+        }
+
+        if (division === 'plazas') {
+            if (typeof redirectToPlazaPage === 'function') {
+                redirectToPlazaPage();
+                return;
+            }
+
+            if (typeof buildPlazaUrl === 'function') {
+                window.location.href = buildPlazaUrl('feed');
+                return;
+            }
+
+            window.location.href = '/plaza.html?tab=feed';
+            return;
+        }
+
+        if (division === 'federation') {
+            window.location.href = '/federation';
+        }
+    }
+
+    function openDivisionApplication(division) {
+        if (division === 'academy') {
+            if (typeof openAcademyLauncher === 'function') {
+                openAcademyLauncher();
+                return true;
+            }
+
+            const modal = document.getElementById('academy-apply-modal');
+            if (modal) {
+                modal.classList.remove('hidden-step');
+                document.body?.classList.add('academy-launcher-open');
+                return true;
+            }
+        }
+
+        if (division === 'plazas') {
+            if (typeof openPlazaApplicationModal === 'function') {
+                openPlazaApplicationModal();
+                return true;
+            }
+
+            const modal = document.getElementById('plaza-apply-modal');
+            if (modal) {
+                modal.classList.remove('hidden-step');
+                document.body?.classList.add('plaza-application-open');
+                return true;
+            }
+        }
+
+        if (division === 'federation') {
+            if (typeof openFederationApplicationModal === 'function') {
+                openFederationApplicationModal();
+                return true;
+            }
+
+            const modal = document.getElementById('federation-apply-modal');
+            if (modal) {
+                modal.classList.remove('hidden-step');
+                document.body?.classList.add('federation-application-open');
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    async function getDivisionSnapshot(division) {
+        if (division === 'academy') {
+            const data = await getJson('/api/academy/membership-status');
+            const application = data?.application && typeof data.application === 'object' ? data.application : null;
+            const status = data?.applicationStatus || data?.status || application?.status || '';
+            return {
+                canEnter: data?.canEnterAcademy === true || data?.hasAcademyAccess === true || isApprovedStatus(status),
+                hasApplication: data?.hasApplication === true || Boolean(application) || Boolean(status),
+                status
+            };
+        }
+
+        if (division === 'plazas') {
+            const data = await getJson('/api/plaza/application-status');
+            const application = data?.application && typeof data.application === 'object' ? data.application : null;
+            const status = data?.applicationStatus || data?.status || application?.status || '';
+            return {
+                canEnter: data?.canEnterPlaza === true || isApprovedStatus(status),
+                hasApplication: data?.hasApplication === true || Boolean(application) || Boolean(status),
+                status
+            };
+        }
+
+        if (division === 'federation') {
+            const data = await getJson('/api/federation/application-status');
+            const application = data?.application && typeof data.application === 'object' ? data.application : null;
+            const status = data?.applicationStatus || data?.status || application?.status || '';
+            return {
+                canEnter: data?.canEnterFederation === true || isApprovedStatus(status),
+                hasApplication: data?.hasApplication === true || Boolean(application) || Boolean(status),
+                status
+            };
+        }
+
+        return {
+            canEnter: false,
+            hasApplication: false,
+            status: ''
+        };
+    }
+
+    async function handleDivisionApplyIntent(division, event) {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        event?.stopImmediatePropagation?.();
+
+        const target = event?.target?.closest?.('button, .academy-entry-button-shell, a') || null;
+        const originalText = target && target.tagName === 'BUTTON' ? target.textContent : '';
+
+        if (target && target.tagName === 'BUTTON') {
+            target.disabled = true;
+            target.setAttribute('aria-disabled', 'true');
+        }
+
+        try {
+            const snapshot = await getDivisionSnapshot(division);
+
+            if (snapshot.canEnter) {
+                redirectDivision(division);
+                return;
+            }
+
+            if (snapshot.hasApplication && isPendingStatus(snapshot.status)) {
+                const label = division === 'plazas'
+                    ? 'Plazas'
+                    : division === 'federation'
+                        ? 'Federation'
+                        : 'Academy';
+
+                toast(`Your ${label} application is still in review.`, 'error');
+                return;
+            }
+
+            if (!openDivisionApplication(division)) {
+                toast('Application form is not available on this Dashboard. Refresh and try again.', 'error');
+            }
+        } catch (error) {
+            if (!openDivisionApplication(division)) {
+                toast(error?.message || 'Could not open application form.', 'error');
+            }
+        } finally {
+            if (target && target.tagName === 'BUTTON') {
+                target.disabled = false;
+                target.removeAttribute('aria-disabled');
+                if (originalText) target.textContent = originalText;
+            }
+        }
+    }
+
+    const divisionSelectors = [
+        ['academy', '#btn-open-academy-apply, .academy-entry-button-shell'],
+        ['plazas', '#btn-open-plazas-preview, .yh-plaza-gate-btn'],
+        ['federation', '#btn-open-federation-preview, #btn-open-federation-application-from-lock, .yh-federation-gate-btn']
+    ];
+
+    document.addEventListener('click', (event) => {
+        for (const [division, selector] of divisionSelectors) {
+            if (event.target?.closest?.(selector)) {
+                handleDivisionApplyIntent(division, event);
+                return;
+            }
+        }
+    }, true);
+
+    window.yhOpenDashboardDivisionApplication = function yhOpenDashboardDivisionApplication(division) {
+        return handleDivisionApplyIntent(String(division || '').trim().toLowerCase(), null);
+    };
+})();
+/* END PATCH: Dashboard division application modal safety v1 */
+
