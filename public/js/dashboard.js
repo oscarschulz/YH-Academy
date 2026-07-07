@@ -33907,3 +33907,456 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 })();
 /* END PATCH: Force Dashboard Plazas application renderer v1 */
 
+
+/* PATCH: Dashboard Plazas static application controller v1 */
+(function installYHDashboardPlazasStaticApplicationControllerV1() {
+    if (window.__yhDashboardPlazasStaticApplicationControllerV1Installed) return;
+    window.__yhDashboardPlazasStaticApplicationControllerV1Installed = true;
+
+    const STEPS = [
+        'membershipType',
+        'email',
+        'fullName',
+        'age',
+        'currentProject',
+        'resourcesNeeded',
+        'joinedAt',
+        'learntSoFar',
+        'contribution',
+        'plazaIntent',
+        'finalReview'
+    ];
+
+    const DRAFT_KEY = 'yh_dashboard_plaza_application_draft_v1';
+
+    function $(id) {
+        return document.getElementById(id);
+    }
+
+    function clean(value = '') {
+        return String(value || '').trim();
+    }
+
+    function getStoredToken() {
+        try {
+            return (
+                sessionStorage.getItem('yh_token') ||
+                localStorage.getItem('yh_token') ||
+                sessionStorage.getItem('token') ||
+                localStorage.getItem('token') ||
+                ''
+            ).trim();
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function toast(message, type = 'success') {
+        if (typeof showToast === 'function') {
+            showToast(message, type);
+            return;
+        }
+        console[type === 'error' ? 'warn' : 'log'](message);
+    }
+
+    function getModal() {
+        return $('plaza-apply-modal');
+    }
+
+    function getForm() {
+        return $('form-plaza-apply');
+    }
+
+    function getActiveStepKey() {
+        const active = document.querySelector('#form-plaza-apply .yh-dashboard-plaza-step:not([hidden])');
+        return active?.dataset?.dashboardPlazaStep || STEPS[0];
+    }
+
+    function setProgress(stepKey) {
+        const index = Math.max(0, STEPS.indexOf(stepKey));
+        const text = $('dashboardPlazaProgressText');
+        const bar = $('dashboardPlazaProgressBar');
+        const pct = Math.round(((index + 1) / STEPS.length) * 100);
+
+        if (text) text.textContent = `Question ${index + 1} of ${STEPS.length}`;
+        if (bar) bar.style.width = `${pct}%`;
+    }
+
+    function setStep(stepKey) {
+        const safeKey = STEPS.includes(stepKey) ? stepKey : STEPS[0];
+
+        document.querySelectorAll('#form-plaza-apply .yh-dashboard-plaza-step').forEach((step) => {
+            step.hidden = step.dataset.dashboardPlazaStep !== safeKey;
+        });
+
+        setProgress(safeKey);
+        writeDraft();
+
+        window.setTimeout(() => {
+            const activeStep = document.querySelector(`#form-plaza-apply .yh-dashboard-plaza-step[data-dashboard-plaza-step="${safeKey}"]`);
+            const field = activeStep?.querySelector?.('input, select, textarea, button');
+            field?.focus?.();
+        }, 30);
+    }
+
+    function validateStep(stepKey) {
+        const step = document.querySelector(`#form-plaza-apply .yh-dashboard-plaza-step[data-dashboard-plaza-step="${stepKey}"]`);
+        if (!step) return true;
+
+        const fields = Array.from(step.querySelectorAll('input, select, textarea'))
+            .filter((field) => !field.disabled && field.offsetParent !== null);
+
+        for (const field of fields) {
+            if (field.required) {
+                if (field.type === 'checkbox' && !field.checked) {
+                    field.focus?.();
+                    toast('Please complete the required confirmation.', 'error');
+                    return false;
+                }
+
+                if (field.type !== 'checkbox' && !clean(field.value)) {
+                    field.focus?.();
+                    toast('Please complete this question before continuing.', 'error');
+                    return false;
+                }
+            }
+        }
+
+        if (stepKey === 'membershipType' && $('plazaAppMembershipType')?.value === 'not_yet') {
+            toast('Only Academy, Federation, or direct high-value strategic applicants can apply for Plaza access.', 'error');
+            return false;
+        }
+
+        return true;
+    }
+
+    function nextStep() {
+        const current = getActiveStepKey();
+
+        if (!validateStep(current)) return;
+
+        const index = STEPS.indexOf(current);
+        setStep(STEPS[Math.min(STEPS.length - 1, index + 1)]);
+    }
+
+    function applyMembershipLabels() {
+        const membership = $('plazaAppMembershipType')?.value || '';
+
+        const labels = {
+            academy: {
+                joined: '7. When did you join The Academy approximately?',
+                learnt: '8. What have you learnt so far in The Academy?',
+                contribution: '9. What can you contribute as an Academy member?'
+            },
+            federation: {
+                joined: '7. When did you join The Federation approximately?',
+                learnt: '8. What have you learnt so far in The Federation?',
+                contribution: '9. What can you contribute as a Federation member?'
+            },
+            direct_strategic: {
+                joined: '7. What is your current professional or strategic background?',
+                learnt: '8. What proof, experience, audience, capital, network, or access do you already have?',
+                contribution: '9. What high-value contribution can you bring into the Plazas?'
+            }
+        };
+
+        const selected = labels[membership] || {
+            joined: '7. When did you join or discover Young Hustlers?',
+            learnt: '8. What have you learnt so far from Young Hustlers?',
+            contribution: '9. What can you contribute to the Plazas?'
+        };
+
+        if ($('plazaAppJoinedLabel')) $('plazaAppJoinedLabel').textContent = selected.joined;
+        if ($('plazaAppLearntLabel')) $('plazaAppLearntLabel').textContent = selected.learnt;
+        if ($('plazaAppContributionLabel')) $('plazaAppContributionLabel').textContent = selected.contribution;
+    }
+
+    function readValue(id) {
+        return clean($(id)?.value || '');
+    }
+
+    function buildPayload() {
+        const now = new Date().toISOString();
+
+        return {
+            schemaVersion: 'plaza-dashboard-static-form-v1',
+            source: 'dashboard_static_form',
+            membershipType: readValue('plazaAppMembershipType'),
+            email: readValue('plazaAppEmail'),
+            fullName: readValue('plazaAppFullName'),
+            age: readValue('plazaAppAge'),
+            currentProject: readValue('plazaAppCurrentProject'),
+            resourcesNeeded: readValue('plazaAppResourcesNeeded'),
+            joinedAt: readValue('plazaAppJoinedAt'),
+            learntSoFar: readValue('plazaAppLearntSoFar'),
+            contribution: readValue('plazaAppContribution'),
+            wantsPatron: readValue('plazaAppWantsPatron'),
+            wantsMarketplace: readValue('plazaAppWantsMarketplace'),
+            country: readValue('plazaAppCountry'),
+            referredBy: readValue('plazaAppReferredBy'),
+            howHeard: readValue('plazaAppHowHeard'),
+            status: 'Under Review',
+            submittedAt: now,
+            updatedAt: now
+        };
+    }
+
+    function prefillIdentity() {
+        const name =
+            localStorage.getItem('yh_user_name') ||
+            localStorage.getItem('yh_user_full_name') ||
+            sessionStorage.getItem('yh_user_name') ||
+            '';
+
+        const email =
+            localStorage.getItem('yh_user_email') ||
+            sessionStorage.getItem('yh_user_email') ||
+            '';
+
+        const country =
+            localStorage.getItem('yh_user_country') ||
+            sessionStorage.getItem('yh_user_country') ||
+            '';
+
+        if ($('plazaAppFullName') && !$('plazaAppFullName').value) $('plazaAppFullName').value = clean(name);
+        if ($('plazaAppEmail') && !$('plazaAppEmail').value) $('plazaAppEmail').value = clean(email);
+        if ($('plazaAppCountry') && !$('plazaAppCountry').value) $('plazaAppCountry').value = clean(country);
+    }
+
+    function writeDraft() {
+        const form = getForm();
+        if (!form) return;
+
+        try {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify({
+                activeStep: getActiveStepKey(),
+                payload: buildPayload(),
+                declaration: $('plazaAppDeclaration')?.checked === true,
+                savedAt: new Date().toISOString()
+            }));
+        } catch (_) {}
+    }
+
+    function restoreDraft() {
+        let parsed = null;
+
+        try {
+            parsed = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
+        } catch (_) {
+            parsed = null;
+        }
+
+        if (!parsed || typeof parsed !== 'object') return false;
+
+        const payload = parsed.payload && typeof parsed.payload === 'object' ? parsed.payload : {};
+
+        const map = {
+            plazaAppMembershipType: payload.membershipType,
+            plazaAppEmail: payload.email,
+            plazaAppFullName: payload.fullName,
+            plazaAppAge: payload.age,
+            plazaAppCurrentProject: payload.currentProject,
+            plazaAppResourcesNeeded: payload.resourcesNeeded,
+            plazaAppJoinedAt: payload.joinedAt,
+            plazaAppLearntSoFar: payload.learntSoFar,
+            plazaAppContribution: payload.contribution,
+            plazaAppWantsPatron: payload.wantsPatron,
+            plazaAppWantsMarketplace: payload.wantsMarketplace,
+            plazaAppCountry: payload.country,
+            plazaAppReferredBy: payload.referredBy,
+            plazaAppHowHeard: payload.howHeard
+        };
+
+        Object.entries(map).forEach(([id, value]) => {
+            const field = $(id);
+            if (field && clean(value)) field.value = value;
+        });
+
+        if ($('plazaAppDeclaration')) {
+            $('plazaAppDeclaration').checked = parsed.declaration === true;
+        }
+
+        applyMembershipLabels();
+        setStep(STEPS.includes(parsed.activeStep) ? parsed.activeStep : STEPS[0]);
+        return true;
+    }
+
+    async function submitForm(event) {
+        event.preventDefault();
+
+        if (!validateStep(getActiveStepKey())) return;
+
+        const submitBtn = $('btn-submit-plaza-application');
+        const originalText = submitBtn?.textContent || 'Submit Plaza Application ➔';
+
+        try {
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Submitting...';
+            }
+
+            const token = getStoredToken();
+            const headers = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            };
+
+            if (token) headers.Authorization = `Bearer ${token}`;
+
+            const response = await fetch('/api/plaza/application', {
+                method: 'POST',
+                credentials: 'include',
+                headers,
+                body: JSON.stringify(buildPayload())
+            });
+
+            const text = await response.text();
+            let result = {};
+
+            try {
+                result = text ? JSON.parse(text) : {};
+            } catch (_) {
+                result = {};
+            }
+
+            if (!response.ok || result?.success === false) {
+                throw new Error(result?.message || 'Failed to submit Plaza application.');
+            }
+
+            localStorage.removeItem(DRAFT_KEY);
+
+            try {
+                localStorage.setItem('yh_plaza_access_status_v1', JSON.stringify({
+                    hasApplication: true,
+                    canEnterPlaza: result?.canEnterPlaza === true,
+                    applicationStatus: result?.applicationStatus || 'Under Review',
+                    application: result?.application || buildPayload(),
+                    updatedAt: new Date().toISOString()
+                }));
+            } catch (_) {}
+
+            closeModal({ preserveDraft: false });
+            toast('Plaza application submitted. Admin approval is required before entry.', 'success');
+
+            if (typeof syncPlazaEntryButton === 'function' && typeof getPlazaAccessSnapshot === 'function') {
+                syncPlazaEntryButton(getPlazaAccessSnapshot());
+            }
+        } catch (error) {
+            console.error('Dashboard static Plaza application submit error:', error);
+            toast(error?.message || 'Failed to submit Plaza application.', 'error');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        }
+    }
+
+    function openModal() {
+        const modal = getModal();
+        const form = getForm();
+
+        if (!modal || !form) {
+            toast('Plazas application form is missing from the Dashboard.', 'error');
+            return false;
+        }
+
+        modal.classList.remove('hidden-step');
+        modal.classList.add('yh-dashboard-division-apply-modal');
+        modal.querySelector('.modal-content')?.classList.add('yh-dashboard-division-apply-card');
+        document.body?.classList.add('plaza-application-open');
+
+        prefillIdentity();
+
+        if (!restoreDraft()) {
+            applyMembershipLabels();
+            setStep(STEPS[0]);
+        }
+
+        return true;
+    }
+
+    function closeModal(options = {}) {
+        const modal = getModal();
+        if (!modal) return;
+
+        if (options.preserveDraft !== false) {
+            writeDraft();
+        }
+
+        modal.classList.add('hidden-step');
+        document.body?.classList.remove('plaza-application-open');
+    }
+
+    function bindForm() {
+        const form = getForm();
+        if (!form || form.dataset.staticPlazaBound === 'true') return;
+
+        form.dataset.staticPlazaBound = 'true';
+
+        form.addEventListener('click', (event) => {
+            if (event.target?.closest?.('[data-dashboard-plaza-next]')) {
+                event.preventDefault();
+                nextStep();
+            }
+        });
+
+        form.addEventListener('input', (event) => {
+            if (event.target?.id === 'plazaAppMembershipType') {
+                applyMembershipLabels();
+            }
+            writeDraft();
+        });
+
+        form.addEventListener('change', (event) => {
+            if (event.target?.id === 'plazaAppMembershipType') {
+                applyMembershipLabels();
+            }
+            writeDraft();
+        });
+
+        form.addEventListener('submit', submitForm);
+
+        $('btn-close-plaza-apply')?.addEventListener('click', () => closeModal());
+        $('btn-cancel-plaza-apply')?.addEventListener('click', () => closeModal());
+
+        getModal()?.addEventListener('click', (event) => {
+            if (event.target === getModal()) closeModal();
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        bindForm();
+        prefillIdentity();
+        applyMembershipLabels();
+        setStep(STEPS[0]);
+    });
+
+    if (document.readyState !== 'loading') {
+        bindForm();
+        prefillIdentity();
+        applyMembershipLabels();
+        setStep(STEPS[0]);
+    }
+
+    document.addEventListener('click', (event) => {
+        const trigger = event.target?.closest?.('#btn-open-plazas-preview, .yh-plaza-gate-btn');
+
+        if (!trigger) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+
+        bindForm();
+        openModal();
+    }, true);
+
+    window.yhOpenDashboardStaticPlazaApplicationFormV1 = openModal;
+    window.openPlazaApplicationModal = async function patchedOpenPlazaApplicationModalV1() {
+        bindForm();
+        openModal();
+    };
+})();
+/* END PATCH: Dashboard Plazas static application controller v1 */
+
