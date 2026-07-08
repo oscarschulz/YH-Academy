@@ -22904,7 +22904,7 @@ function canvasToDashboardProfileBlob(canvas) {
             }
 
             resolve(blob);
-        }, 'image/jpeg', 0.92);
+        }, 'image/jpeg', 0.76);
     });
 }
 
@@ -23013,7 +23013,7 @@ async function uploadDashboardProfileAsset(file = null, kind = 'avatar') {
     }
 
     if (!response.ok || result?.success === false || !result?.media?.url) {
-        throw new Error(result?.message || 'Failed to upload profile image.');
+        throw new Error(result?.message || 'Failed to upload profile image. Please try a smaller image or save without changing the photo.');
     }
 
     return String(result.media.url || '').trim();

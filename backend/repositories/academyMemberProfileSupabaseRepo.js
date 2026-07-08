@@ -436,12 +436,141 @@ async function deleteByUidAndEmail({ uid = '', email = '' } = {}) {
     };
 }
 
+
+
+/* PATCH: Table-safe profile persistence mirrors v1 */
+function normalizePersistentProfileList(value = []) {
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => cleanText(item))
+            .filter(Boolean)
+            .slice(0, 12);
+    }
+
+    return String(value || '')
+        .split(',')
+        .map((item) => cleanText(item))
+        .filter(Boolean)
+        .slice(0, 12);
+}
+
+function buildPersistentProfileMirrorFields(user = {}) {
+    const searchTags = normalizePersistentProfileList(user.searchTags || user.search_tags || user.tags || []);
+    const lookingFor = normalizePersistentProfileList(user.lookingFor || user.looking_for || []);
+    const canOffer = normalizePersistentProfileList(user.canOffer || user.can_offer || []);
+
+    const marketplaceReady =
+        user.marketplaceReady === true ||
+        user.marketplace_ready === true ||
+        cleanText(user.marketplaceReady || user.marketplace_ready).toLowerCase() === 'yes' ||
+        cleanText(user.marketplaceReady || user.marketplace_ready).toLowerCase() === 'ready';
+
+    const coverPhoto = cleanText(user.coverPhoto || user.cover_photo || user.coverUrl || user.cover_url || '');
+    const bio = cleanText(user.bio || user.profileBio || user.about || user.description || '');
+
+    return {
+        coverPhoto,
+        cover_photo: coverPhoto,
+        coverUrl: coverPhoto,
+        cover_url: coverPhoto,
+
+        bio,
+        profileBio: bio,
+
+        searchTags,
+        search_tags: searchTags,
+        tags: searchTags,
+
+        roleTrack: cleanText(user.roleTrack || user.role_track || ''),
+        role_track: cleanText(user.roleTrack || user.role_track || ''),
+
+        lookingFor,
+        looking_for: lookingFor,
+
+        canOffer,
+        can_offer: canOffer,
+
+        availability: cleanText(user.availability || ''),
+
+        workMode: cleanText(user.workMode || user.work_mode || ''),
+        work_mode: cleanText(user.workMode || user.work_mode || ''),
+
+        proofFocus: cleanText(user.proofFocus || user.proof_focus || ''),
+        proof_focus: cleanText(user.proofFocus || user.proof_focus || ''),
+
+        marketplaceReady,
+        marketplace_ready: marketplaceReady
+    };
+}
+
+function sanitizeAcademyMemberProfilePayloadForTable(payload = {}, user = {}) {
+    const allowedColumns = new Set([
+        'firebase_uid',
+        'source_document_id',
+        'source_document_path',
+        'user_id',
+        'email',
+        'full_name',
+        'display_name',
+        'username',
+        'contact',
+        'country',
+        'country_code',
+        'city',
+        'lat',
+        'lng',
+        'is_verified',
+        'status',
+        'member_status',
+        'academy_membership_status',
+        'has_academy_access',
+        'academy_application_status',
+        'roadmap_application_status',
+        'avatar',
+        'profile_photo',
+        'photo_url',
+        'verification_badges',
+        'academy_application',
+        'roadmap_application',
+        'created_at_source',
+        'updated_at_source',
+        'public_meta',
+        'private_meta',
+        'data'
+    ]);
+
+    const mirrors = buildPersistentProfileMirrorFields(user);
+    const safePayload = {
+        ...(payload && typeof payload === 'object' ? payload : {})
+    };
+
+    safePayload.public_meta = {
+        ...(safePayload.public_meta && typeof safePayload.public_meta === 'object' ? safePayload.public_meta : {}),
+        ...mirrors
+    };
+
+    safePayload.data = {
+        ...(safePayload.data && typeof safePayload.data === 'object' ? safePayload.data : {}),
+        ...mirrors
+    };
+
+    const filtered = {};
+    Object.entries(safePayload).forEach(([key, value]) => {
+        if (allowedColumns.has(key)) {
+            filtered[key] = value;
+        }
+    });
+
+    return filtered;
+}
+/* END PATCH: Table-safe profile persistence mirrors v1 */
+
 async function upsertProfileFromUserData(uid = '', user = {}) {
     const cleanUid = cleanText(uid || user.uid || user.userId || user.firebaseUid);
     if (!cleanUid) return null;
 
     const existing = await getProfileByUid(cleanUid);
-    const payload = buildPayload(cleanUid, user || {}, existing || {});
+    const payload = sanitizeAcademyMemberProfilePayloadForTable(buildPayload(cleanUid, user || {}, existing || {}), user || {});
 
     if (existing?.id) {
         const { data, error } = await yhuSupabaseAdmin

@@ -3677,6 +3677,7 @@ async function saveAcademyMessageUploadToLocal({ buffer, mimeType = '', original
         originalName: baseOriginalName || fileName
     };
 }
+
 async function saveAcademyProfileUploadToLocal({
     buffer,
     mimeType = '',
@@ -3684,7 +3685,7 @@ async function saveAcademyProfileUploadToLocal({
     userId = '',
     assetKind = ''
 }) {
-    const cleanMimeType = sanitizeText(mimeType).toLowerCase().split(';')[0];
+    const cleanMimeType = sanitizeText(mimeType || 'image/jpeg').toLowerCase().split(';')[0] || 'image/jpeg';
     const safeUserId = sanitizeUploadSegment(userId || 'member');
     const safeAssetKind = sanitizeUploadSegment(assetKind || 'profile');
 
@@ -3702,19 +3703,39 @@ async function saveAcademyProfileUploadToLocal({
 
     const fileName = `${Date.now()}_${safeUserId}_${safeAssetKind}_${crypto.randomBytes(6).toString('hex')}_${safeBaseName}${fileExt}`;
 
-    await fs.promises.mkdir(ACADEMY_PROFILE_UPLOAD_DIR, { recursive: true });
+    try {
+        await fs.promises.mkdir(ACADEMY_PROFILE_UPLOAD_DIR, { recursive: true });
 
-    const filePath = path.join(ACADEMY_PROFILE_UPLOAD_DIR, fileName);
-    await fs.promises.writeFile(filePath, buffer);
+        const filePath = path.join(ACADEMY_PROFILE_UPLOAD_DIR, fileName);
+        await fs.promises.writeFile(filePath, buffer);
 
-    return {
-        url: `/uploads/academy-profile/${fileName}`,
-        kind: 'image',
-        mimeType: cleanMimeType,
-        sizeBytes: buffer.length,
-        originalName: baseOriginalName
-    };
+        return {
+            url: `/uploads/academy-profile/${fileName}`,
+            kind: 'image',
+            mimeType: cleanMimeType,
+            sizeBytes: buffer.length,
+            originalName: baseOriginalName,
+            storage: 'local'
+        };
+    } catch (error) {
+        console.warn('academy profile local upload fallback:', error?.message || error);
+
+        /*
+          Vercel/serverless deployments may not support persistent local writes.
+          For profile assets, return a compact inline data URL fallback so the
+          profile save can still persist instead of failing with 500.
+        */
+        return {
+            url: `data:${cleanMimeType};base64,${buffer.toString('base64')}`,
+            kind: 'image',
+            mimeType: cleanMimeType,
+            sizeBytes: buffer.length,
+            originalName: baseOriginalName,
+            storage: 'inline-data-url'
+        };
+    }
 }
+
 
 const allowedOrigins = String(process.env.CORS_ALLOWED_ORIGINS || '')
     .split(',')
