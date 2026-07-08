@@ -1597,6 +1597,7 @@ function normalizeAcademyProfileUsername(value = '', fallback = 'hustler') {
     return fallbackClean || 'hustler';
 }
 
+
 function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
     const universeProfile =
         userData.universeProfile && typeof userData.universeProfile === 'object'
@@ -1613,11 +1614,23 @@ function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
             ? userData.profile
             : {};
 
+    const rawData =
+        userData.data && typeof userData.data === 'object'
+            ? userData.data
+            : {};
+
+    const publicMeta =
+        userData.public_meta && typeof userData.public_meta === 'object'
+            ? userData.public_meta
+            : {};
+
     const profileSources = [
         storedProfile,
-        universeProfile,
         academyProfileFromUser,
+        universeProfile,
         genericProfile,
+        rawData,
+        publicMeta,
         userData
     ].filter((source) => source && typeof source === 'object');
 
@@ -1630,6 +1643,56 @@ function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
         }
 
         return '';
+    };
+
+    const pickProfileRaw = (...keys) => {
+        for (const source of profileSources) {
+            for (const key of keys) {
+                const value = source?.[key];
+
+                if (Array.isArray(value) && value.length) return value;
+                if (value && typeof value === 'object' && Object.keys(value).length) return value;
+
+                const clean = sanitize(value);
+                if (clean) return value;
+            }
+        }
+
+        return '';
+    };
+
+    const pickProfileList = (...keys) => {
+        for (const source of profileSources) {
+            for (const key of keys) {
+                const value = source?.[key];
+                const list = normalizeUniverseSignalList(value);
+
+                if (list.length) return list;
+            }
+        }
+
+        return [];
+    };
+
+    const pickProfileBool = (...keys) => {
+        for (const source of profileSources) {
+            for (const key of keys) {
+                if (!Object.prototype.hasOwnProperty.call(source || {}, key)) continue;
+
+                const value = source?.[key];
+                const clean = sanitize(value).toLowerCase();
+
+                if (value === true || value === 1 || clean === 'true' || clean === 'yes' || clean === 'ready') {
+                    return true;
+                }
+
+                if (value === false || value === 0 || clean === 'false' || clean === 'no' || clean === 'not_ready') {
+                    return false;
+                }
+            }
+        }
+
+        return false;
     };
 
     const displayName =
@@ -1690,39 +1753,125 @@ function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
         )
     );
 
+    const searchTags = normalizeAcademyProfileTags(
+        pickProfileRaw(
+            'search_tags',
+            'searchTags',
+            'tags',
+            'profileTags'
+        )
+    );
+
+    const lookingFor = pickProfileList('looking_for', 'lookingFor', 'needs', 'resourcesNeeded');
+    const canOffer = pickProfileList('can_offer', 'canOffer', 'offers', 'skillsOffered');
+    const roleTrack = sanitize(
+        pickProfileValue('role_track', 'roleTrack', 'track', 'roleFocus')
+    ).slice(0, 80);
+
+    const availability = sanitize(
+        pickProfileValue('availability', 'availabilityStatus')
+    ).slice(0, 48);
+
+    const workMode = sanitize(
+        pickProfileValue('work_mode', 'workMode', 'workPreference')
+    ).slice(0, 48);
+
+    const proofFocus = sanitize(
+        pickProfileValue('proof_focus', 'proofFocus', 'focusProof', 'executionFocus')
+    ).slice(0, 140);
+
+    const marketplaceReady = pickProfileBool('marketplace_ready', 'marketplaceReady');
+
+    const bio = sanitize(
+        pickProfileValue(
+            'bio',
+            'profileBio',
+            'about',
+            'description'
+        ) ||
+        'Focused on execution, consistency, and long-term growth inside The Academy.'
+    ) || 'Focused on execution, consistency, and long-term growth inside The Academy.';
+
+    const roleLabel = sanitize(
+        pickProfileValue(
+            'role_label',
+            'roleLabel',
+            'role'
+        ) ||
+        'Academy Member'
+    ) || 'Academy Member';
+
     return {
         id: sanitize(uid),
+        uid: sanitize(uid),
+        firebaseUid: sanitize(uid),
+        user_id: sanitize(uid),
+
+        email: sanitize(pickProfileValue('email', 'userEmail', 'emailLower')),
+
         full_name: canonicalFullName,
         fullName: canonicalFullName,
         display_name: displayName,
+        displayName,
+        name: displayName,
+
         username,
+
         avatar: avatarAsset,
         avatarUrl: avatarAsset,
+        avatar_url: avatarAsset,
         profilePhoto: avatarAsset,
+        profile_photo: avatarAsset,
         photoURL: avatarAsset,
+        photo_url: avatarAsset,
+
         cover_photo: coverAsset,
         coverPhoto: coverAsset,
         cover: coverAsset,
         coverUrl: coverAsset,
-        role_label: sanitize(
-            storedProfile.role_label ||
-            storedProfile.roleLabel ||
-            userData.roleLabel ||
-            userData.role ||
-            'Academy Member'
-        ) || 'Academy Member',
-        bio: sanitize(
-            storedProfile.bio ||
-            userData.bio ||
-            userData.profileBio ||
-            userData.about ||
-            userData.description ||
-            'Focused on execution, consistency, and long-term growth inside The Academy.'
-        ) || 'Focused on execution, consistency, and long-term growth inside The Academy.',
-        search_tags: normalizeAcademyProfileTags(
-            storedProfile.search_tags ||
-            storedProfile.searchTags ||
-            userData.searchTags
+        cover_url: coverAsset,
+
+        role_label: roleLabel,
+        roleLabel,
+
+        bio,
+        profileBio: bio,
+
+        search_tags: searchTags,
+        searchTags,
+        tags: searchTags,
+
+        role_track: roleTrack,
+        roleTrack,
+
+        looking_for: lookingFor,
+        lookingFor,
+
+        can_offer: canOffer,
+        canOffer,
+
+        availability,
+
+        work_mode: workMode,
+        workMode,
+
+        proof_focus: proofFocus,
+        proofFocus,
+
+        marketplace_ready: marketplaceReady,
+        marketplaceReady,
+
+        signals: {
+            lookingFor,
+            canOffer,
+            tags: searchTags
+        },
+
+        updatedAt: sanitize(
+            pickProfileValue('updatedAt', 'updated_at', 'updated_at_source')
+        ),
+        createdAt: sanitize(
+            pickProfileValue('createdAt', 'created_at', 'created_at_source')
         )
     };
 }
@@ -5404,12 +5553,114 @@ exports.updateCurrentProfile = async (req, res) => {
         };
 
         const savedProfile = await academyFirestoreRepo.setCurrentProfile(uid, payload);
-        const refreshedUserSnapshot = await userRef.get();
-        const refreshedUserData = refreshedUserSnapshot.exists ? (refreshedUserSnapshot.data() || {}) : {};
+
+        const savedProfileResponse = buildAcademyProfileResponse(
+            uid,
+            {
+                ...userData,
+                ...payload
+            },
+            savedProfile || payload
+        );
+
+        const now = new Date().toISOString();
+
+        const userMirrorPayload = {
+            displayName: savedProfileResponse.display_name,
+            fullName: savedProfileResponse.fullName || savedProfileResponse.display_name,
+            name: savedProfileResponse.display_name,
+            username: savedProfileResponse.username,
+
+            avatar: savedProfileResponse.avatar || '',
+            profilePhoto: savedProfileResponse.profilePhoto || savedProfileResponse.avatar || '',
+            photoURL: savedProfileResponse.photoURL || savedProfileResponse.avatar || '',
+
+            coverPhoto: savedProfileResponse.coverPhoto || savedProfileResponse.cover_photo || '',
+            cover_photo: savedProfileResponse.cover_photo || savedProfileResponse.coverPhoto || '',
+
+            bio: savedProfileResponse.bio || '',
+            profileBio: savedProfileResponse.bio || '',
+            roleLabel: savedProfileResponse.role_label || 'Academy Member',
+
+            searchTags: savedProfileResponse.search_tags || [],
+            tags: savedProfileResponse.search_tags || [],
+
+            roleTrack: savedProfileResponse.role_track || '',
+            role_track: savedProfileResponse.role_track || '',
+
+            lookingFor: savedProfileResponse.looking_for || [],
+            looking_for: savedProfileResponse.looking_for || [],
+
+            canOffer: savedProfileResponse.can_offer || [],
+            can_offer: savedProfileResponse.can_offer || [],
+
+            availability: savedProfileResponse.availability || '',
+
+            workMode: savedProfileResponse.work_mode || '',
+            work_mode: savedProfileResponse.work_mode || '',
+
+            proofFocus: savedProfileResponse.proof_focus || '',
+            proof_focus: savedProfileResponse.proof_focus || '',
+
+            marketplaceReady: savedProfileResponse.marketplace_ready === true,
+            marketplace_ready: savedProfileResponse.marketplace_ready === true,
+
+            academyProfile: {
+                ...(userData.academyProfile && typeof userData.academyProfile === 'object'
+                    ? userData.academyProfile
+                    : {}),
+                ...savedProfileResponse
+            },
+
+            universeProfile: {
+                ...(userData.universeProfile && typeof userData.universeProfile === 'object'
+                    ? userData.universeProfile
+                    : {}),
+                displayName: savedProfileResponse.display_name,
+                fullName: savedProfileResponse.fullName || savedProfileResponse.display_name,
+                username: savedProfileResponse.username,
+                avatar: savedProfileResponse.avatar || '',
+                coverPhoto: savedProfileResponse.coverPhoto || savedProfileResponse.cover_photo || '',
+                bio: savedProfileResponse.bio || '',
+                roleTrack: savedProfileResponse.role_track || '',
+                lookingFor: savedProfileResponse.looking_for || [],
+                canOffer: savedProfileResponse.can_offer || [],
+                availability: savedProfileResponse.availability || '',
+                workMode: savedProfileResponse.work_mode || '',
+                proofFocus: savedProfileResponse.proof_focus || '',
+                marketplaceReady: savedProfileResponse.marketplace_ready === true,
+                signals: savedProfileResponse.signals || {
+                    lookingFor: savedProfileResponse.looking_for || [],
+                    canOffer: savedProfileResponse.can_offer || [],
+                    tags: savedProfileResponse.search_tags || []
+                }
+            },
+
+            academyProfileUpdatedAt: now,
+            profileUpdatedAt: now,
+            updatedAt: now
+        };
+
+        await userRef.set(userMirrorPayload, { merge: true });
+
+        try {
+            await syncAcademyMemberProfileFromFirestoreUserRef(uid, userRef);
+        } catch (syncError) {
+            console.warn('updateCurrentProfile member profile Supabase sync skipped:', syncError?.message || syncError);
+        }
+
+        try {
+            await syncAcademyYhuUserToSupabase(userRef, 'academy_profile_update');
+        } catch (syncError) {
+            console.warn('updateCurrentProfile yhu_users Supabase sync skipped:', syncError?.message || syncError);
+        }
+
+        const refreshedUserSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        const refreshedUserData = refreshedUserSnapshot?.exists ? (refreshedUserSnapshot.data() || {}) : {};
 
         return res.json({
             success: true,
-            profile: buildAcademyProfileResponse(uid, refreshedUserData, savedProfile || payload)
+            profile: buildAcademyProfileResponse(uid, refreshedUserData, savedProfile || savedProfileResponse || payload)
         });
     } catch (error) {
         console.error('updateCurrentProfile error:', error);

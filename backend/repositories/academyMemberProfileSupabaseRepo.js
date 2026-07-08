@@ -109,6 +109,16 @@ function rowToFirestoreUser(row = {}) {
     const city = cleanText(row.city || source.city || '');
     const avatar = cleanText(row.avatar || row.photo_url || row.profile_photo || source.avatar || source.photoURL || source.profilePhoto || '');
     const profilePhoto = cleanText(row.profile_photo || row.photo_url || row.avatar || source.profilePhoto || source.photoURL || source.avatar || '');
+    const coverPhoto = cleanText(row.cover_photo || source.coverPhoto || source.cover_photo || source.coverUrl || source.cover_url || '');
+    const bio = cleanText(row.bio || row.profile_bio || source.bio || source.profileBio || source.about || source.description || '');
+    const roleTrack = cleanText(row.role_track || source.roleTrack || source.role_track || '');
+    const lookingFor = Array.isArray(row.looking_for) ? row.looking_for : Array.isArray(source.lookingFor) ? source.lookingFor : Array.isArray(source.looking_for) ? source.looking_for : [];
+    const canOffer = Array.isArray(row.can_offer) ? row.can_offer : Array.isArray(source.canOffer) ? source.canOffer : Array.isArray(source.can_offer) ? source.can_offer : [];
+    const availability = cleanText(row.availability || source.availability || '');
+    const workMode = cleanText(row.work_mode || source.workMode || source.work_mode || '');
+    const proofFocus = cleanText(row.proof_focus || source.proofFocus || source.proof_focus || '');
+    const marketplaceReady = row.marketplace_ready === true || source.marketplaceReady === true || source.marketplace_ready === true;
+    const searchTags = Array.isArray(row.search_tags) ? row.search_tags : Array.isArray(source.searchTags) ? source.searchTags : Array.isArray(source.search_tags) ? source.search_tags : Array.isArray(source.tags) ? source.tags : [];
 
     return {
         ...source,
@@ -138,6 +148,27 @@ function rowToFirestoreUser(row = {}) {
         avatar,
         profilePhoto,
         photoURL: cleanText(row.photo_url || source.photoURL || avatar || profilePhoto || ''),
+        coverPhoto,
+        cover_photo: coverPhoto,
+        coverUrl: coverPhoto,
+        bio,
+        profileBio: bio,
+        roleTrack,
+        role_track: roleTrack,
+        lookingFor,
+        looking_for: lookingFor,
+        canOffer,
+        can_offer: canOffer,
+        availability,
+        workMode,
+        work_mode: workMode,
+        proofFocus,
+        proof_focus: proofFocus,
+        marketplaceReady,
+        marketplace_ready: marketplaceReady,
+        searchTags,
+        search_tags: searchTags,
+        tags: searchTags,
         verificationBadges: row.verification_badges && typeof row.verification_badges === 'object'
             ? row.verification_badges
             : source.verificationBadges || {},
@@ -165,6 +196,16 @@ function buildPayload(uid = '', user = {}, existingRow = {}) {
     const city = cleanText(user.city || '');
     const avatar = cleanText(user.avatar || user.photoURL || user.photoUrl || user.profileImage || user.profilePhoto || '');
     const profilePhoto = cleanText(user.profilePhoto || user.photoURL || user.avatar || '');
+    const coverPhoto = cleanText(user.coverPhoto || user.cover_photo || user.coverUrl || user.cover_url || '');
+    const bio = cleanText(user.bio || user.profileBio || user.about || user.description || '');
+    const roleTrack = cleanText(user.roleTrack || user.role_track || '');
+    const availability = cleanText(user.availability || '');
+    const workMode = cleanText(user.workMode || user.work_mode || '');
+    const proofFocus = cleanText(user.proofFocus || user.proof_focus || '');
+    const lookingFor = Array.isArray(user.lookingFor) ? user.lookingFor : Array.isArray(user.looking_for) ? user.looking_for : [];
+    const canOffer = Array.isArray(user.canOffer) ? user.canOffer : Array.isArray(user.can_offer) ? user.can_offer : [];
+    const searchTags = Array.isArray(user.searchTags) ? user.searchTags : Array.isArray(user.search_tags) ? user.search_tags : Array.isArray(user.tags) ? user.tags : [];
+    const marketplaceReady = user.marketplaceReady === true || user.marketplace_ready === true || cleanText(user.marketplaceReady || user.marketplace_ready).toLowerCase() === 'yes';
     const status = cleanText(user.status || user.memberStatus || '');
     const memberStatus = cleanText(user.memberStatus || user.status || '');
     const academyMembershipStatus = cleanText(user.academyMembershipStatus || user.academyApplicationStatus || '');
@@ -196,6 +237,17 @@ function buildPayload(uid = '', user = {}, existingRow = {}) {
         avatar,
         profile_photo: profilePhoto,
         photo_url: cleanText(user.photoURL || user.photoUrl || avatar || profilePhoto || ''),
+        cover_photo: coverPhoto,
+        bio,
+        profile_bio: bio,
+        role_track: roleTrack,
+        looking_for: normalizeValue(lookingFor),
+        can_offer: normalizeValue(canOffer),
+        availability,
+        work_mode: workMode,
+        proof_focus: proofFocus,
+        marketplace_ready: marketplaceReady,
+        search_tags: normalizeValue(searchTags),
         verification_badges: normalizeValue(user.verificationBadges || {}),
         academy_application: normalizeValue(user.academyApplication || {}),
         roadmap_application: normalizeValue(user.roadmapApplication || {}),
@@ -211,6 +263,29 @@ function buildPayload(uid = '', user = {}, existingRow = {}) {
             country,
             countryCode,
             city,
+            avatar,
+            profilePhoto,
+            photoURL: cleanText(user.photoURL || user.photoUrl || avatar || profilePhoto || ''),
+            coverPhoto,
+            cover_photo: coverPhoto,
+            bio,
+            profileBio: bio,
+            roleTrack,
+            role_track: roleTrack,
+            lookingFor,
+            looking_for: lookingFor,
+            canOffer,
+            can_offer: canOffer,
+            availability,
+            workMode,
+            work_mode: workMode,
+            proofFocus,
+            proof_focus: proofFocus,
+            marketplaceReady,
+            marketplace_ready: marketplaceReady,
+            searchTags,
+            search_tags: searchTags,
+            tags: searchTags,
             isVerified: user.isVerified === true,
             status,
             memberStatus,

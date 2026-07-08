@@ -34360,3 +34360,110 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 })();
 /* END PATCH: Dashboard Plazas static application controller v1 */
 
+
+/* PATCH: Dashboard edit profile persistent field hydration v1 */
+(function installDashboardEditProfilePersistentFieldHydrationV1() {
+    if (window.__dashboardEditProfilePersistentFieldHydrationV1Installed) return;
+    window.__dashboardEditProfilePersistentFieldHydrationV1Installed = true;
+
+    function normalizeList(value) {
+        if (Array.isArray(value)) {
+            return value.map((item) => String(item || '').trim()).filter(Boolean);
+        }
+
+        return String(value || '')
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
+    }
+
+    function normalizePersistentProfileFields(profile = {}, fallback = {}) {
+        const source = profile && typeof profile === 'object' ? profile : {};
+        const base = fallback && typeof fallback === 'object' ? fallback : {};
+
+        const tags = normalizeList(
+            source.search_tags ||
+            source.searchTags ||
+            source.tags ||
+            base.search_tags ||
+            base.searchTags ||
+            base.tags ||
+            []
+        );
+
+        const lookingFor = normalizeList(
+            source.looking_for ||
+            source.lookingFor ||
+            base.looking_for ||
+            base.lookingFor ||
+            []
+        );
+
+        const canOffer = normalizeList(
+            source.can_offer ||
+            source.canOffer ||
+            base.can_offer ||
+            base.canOffer ||
+            []
+        );
+
+        const marketplaceReady =
+            source.marketplace_ready === true ||
+            source.marketplaceReady === true ||
+            base.marketplace_ready === true ||
+            base.marketplaceReady === true ||
+            String(source.marketplace_ready || source.marketplaceReady || base.marketplace_ready || base.marketplaceReady || '').trim().toLowerCase() === 'yes';
+
+        return {
+            ...base,
+            ...source,
+
+            search_tags: tags,
+            searchTags: tags,
+            tags,
+
+            looking_for: lookingFor,
+            lookingFor,
+
+            can_offer: canOffer,
+            canOffer,
+
+            role_track: String(source.role_track || source.roleTrack || base.role_track || base.roleTrack || '').trim(),
+            roleTrack: String(source.role_track || source.roleTrack || base.role_track || base.roleTrack || '').trim(),
+
+            availability: String(source.availability || base.availability || '').trim(),
+
+            work_mode: String(source.work_mode || source.workMode || base.work_mode || base.workMode || '').trim(),
+            workMode: String(source.work_mode || source.workMode || base.work_mode || base.workMode || '').trim(),
+
+            proof_focus: String(source.proof_focus || source.proofFocus || base.proof_focus || base.proofFocus || '').trim(),
+            proofFocus: String(source.proof_focus || source.proofFocus || base.proof_focus || base.proofFocus || '').trim(),
+
+            marketplace_ready: marketplaceReady,
+            marketplaceReady
+        };
+    }
+
+    window.yhNormalizeDashboardPersistentProfileFieldsV1 = normalizePersistentProfileFields;
+
+    const originalPersist =
+        typeof window.dashboardPersistSelfProfileCache === 'function'
+            ? window.dashboardPersistSelfProfileCache
+            : null;
+
+    if (originalPersist && !originalPersist.__persistentFieldWrappedV1) {
+        const wrapped = function dashboardPersistSelfProfileCachePersistentFieldsV1(profile = {}) {
+            const existing =
+                typeof window.dashboardGetSelfProfileCache === 'function'
+                    ? window.dashboardGetSelfProfileCache()
+                    : {};
+
+            return originalPersist(normalizePersistentProfileFields(profile, existing));
+        };
+
+        wrapped.__persistentFieldWrappedV1 = true;
+        window.dashboardPersistSelfProfileCache = wrapped;
+    }
+})();
+/* END PATCH: Dashboard edit profile persistent field hydration v1 */
+
