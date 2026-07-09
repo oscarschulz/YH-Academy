@@ -16766,3 +16766,19 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   }
   /* END PATCH: Dashboard persistent overview state styles v2 */
 
+
+  /* PATCH: Dashboard remove old overview grid flicker styles v1 */
+  body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-overview-grid,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card-large.yh-command-access-hero-card,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-old-overview-grid-removed-v1 {
+    display: none;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-row-v1 {
+    contain: layout paint;
+  }
+  /* END PATCH: Dashboard remove old overview grid flicker styles v1 */
+

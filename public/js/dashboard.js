@@ -36034,3 +36034,161 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 })();
 /* END PATCH: Dashboard persistent overview state v2 */
 
+
+/* PATCH: Dashboard remove old overview grid flicker guard v1 */
+(function installDashboardRemoveOldOverviewGridFlickerGuardV1() {
+    if (window.__yhDashboardRemoveOldOverviewGridFlickerGuardV1Installed) return;
+    window.__yhDashboardRemoveOldOverviewGridFlickerGuardV1Installed = true;
+
+    const HIDDEN_CLASS = 'yh-dashboard-old-overview-grid-removed-v1';
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return (
+            path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub'
+        );
+    }
+
+    function getWorkspace() {
+        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview')
+            .trim()
+            .toLowerCase() || 'overview';
+    }
+
+    function hideNode(node) {
+        if (!node || !(node instanceof HTMLElement)) return;
+
+        node.classList.add('hidden-step');
+        node.classList.add(HIDDEN_CLASS);
+        node.setAttribute('aria-hidden', 'true');
+        node.dataset.yhDashboardOldOverviewGridRemovedV1 = 'true';
+        node.style.display = 'none';
+        node.style.visibility = 'hidden';
+        node.style.pointerEvents = 'none';
+    }
+
+    function removeOldOverviewGrid() {
+        if (!isDashboardPage()) return;
+
+        const oldGrid = document.getElementById('yh-command-overview-grid');
+        if (oldGrid) hideNode(oldGrid);
+
+        document.querySelectorAll(
+            '.yh-command-access-hero-card, ' +
+            '.yh-command-overview-card-large.yh-command-access-hero-card'
+        ).forEach(hideNode);
+
+        /*
+          If older sync code sets overviewGrid visible again, immediately restore
+          the clean dashboard layout.
+        */
+        const dynamicRow = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
+        if (dynamicRow && getWorkspace() === 'overview') {
+            dynamicRow.classList.remove('hidden-step');
+            dynamicRow.setAttribute('aria-hidden', 'false');
+            dynamicRow.style.removeProperty('display');
+            dynamicRow.style.removeProperty('visibility');
+            dynamicRow.style.removeProperty('pointer-events');
+        }
+    }
+
+    function runCleanDashboardSync(reason = 'sync') {
+        if (!isDashboardPage()) return;
+
+        removeOldOverviewGrid();
+
+        try {
+            if (typeof window.yhSyncDashboardOverviewCleanupDynamicAccessRowV1 === 'function') {
+                window.yhSyncDashboardOverviewCleanupDynamicAccessRowV1();
+            }
+        } catch (_) {}
+
+        try {
+            if (typeof window.yhEnforceDashboardPersistentOverviewStateV2 === 'function') {
+                window.yhEnforceDashboardPersistentOverviewStateV2(reason);
+            }
+        } catch (_) {}
+
+        window.setTimeout(removeOldOverviewGrid, 0);
+        window.setTimeout(removeOldOverviewGrid, 80);
+        window.setTimeout(removeOldOverviewGrid, 240);
+        window.setTimeout(removeOldOverviewGrid, 700);
+    }
+
+    const nativeActivate = window.activateDashboardUnifiedWorkspace;
+
+    if (typeof nativeActivate === 'function' && nativeActivate.__yhOldOverviewGridGuardWrappedV1 !== true) {
+        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspaceOldGridGuardV1(key = 'overview', options = {}) {
+            const result = nativeActivate.call(this, key, options);
+
+            window.setTimeout(() => runCleanDashboardSync('activate-0'), 0);
+            window.setTimeout(() => runCleanDashboardSync('activate-80'), 80);
+            window.setTimeout(() => runCleanDashboardSync('activate-240'), 240);
+            window.setTimeout(() => runCleanDashboardSync('activate-700'), 700);
+
+            return result;
+        };
+
+        wrappedActivateDashboardUnifiedWorkspace.__yhOldOverviewGridGuardWrappedV1 = true;
+        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
+    }
+
+    document.addEventListener('click', (event) => {
+        const nav = event.target?.closest?.(
+            '[data-yh-dashboard-shell], ' +
+            '[data-yh-sidebar-child], ' +
+            '[data-yh-command-overview-open], ' +
+            '#nav-dashboard, ' +
+            '#btn-dashboard-overview'
+        );
+
+        if (!nav) return;
+
+        window.setTimeout(() => runCleanDashboardSync('click-0'), 0);
+        window.setTimeout(() => runCleanDashboardSync('click-120'), 120);
+        window.setTimeout(() => runCleanDashboardSync('click-420'), 420);
+    }, true);
+
+    window.yhRemoveOldDashboardOverviewGridV1 = removeOldOverviewGrid;
+    window.yhRunCleanDashboardSyncV1 = runCleanDashboardSync;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => runCleanDashboardSync('dom'));
+    } else {
+        runCleanDashboardSync('boot');
+    }
+
+    [20, 60, 140, 320, 800, 1600, 2800, 4600].forEach((delay) => {
+        window.setTimeout(() => runCleanDashboardSync('timer-' + delay), delay);
+    });
+
+    try {
+        const observer = new MutationObserver(() => {
+            if (!isDashboardPage()) return;
+
+            window.clearTimeout(window.__yhDashboardRemoveOldGridTimerV1);
+            window.__yhDashboardRemoveOldGridTimerV1 = window.setTimeout(() => {
+                removeOldOverviewGrid();
+            }, 25);
+        });
+
+        observer.observe(document.body || document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: [
+                'class',
+                'style',
+                'aria-hidden',
+                'data-yh-unified-workspace',
+                'data-yh-unified-division'
+            ]
+        });
+
+        window.__yhDashboardRemoveOldGridObserverV1 = observer;
+    } catch (_) {}
+})();
+/* END PATCH: Dashboard remove old overview grid flicker guard v1 */
+
