@@ -26704,7 +26704,12 @@ closeApplyBtn?.addEventListener('click', closeAcademyLauncher);
 
 applyModal?.addEventListener('click', (event) => {
     if (event.target === applyModal) {
-        closeAcademyLauncher();
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (typeof showToast === 'function') {
+            showToast('Use the close button if you want to exit the application form.', 'info');
+        }
     }
 });
 
@@ -27009,7 +27014,12 @@ closeRoadmapBtn?.addEventListener('click', closeRoadmapIntake);
 
 roadmapModal?.addEventListener('click', (event) => {
     if (event.target === roadmapModal) {
-        closeRoadmapIntake();
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (typeof showToast === 'function') {
+            showToast('Your roadmap form is still open. Use the close button if you want to exit.', 'info');
+        }
     }
 });
 
