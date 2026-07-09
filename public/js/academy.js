@@ -27209,7 +27209,7 @@ if (roadmapForm) {
         e.preventDefault();
 
         if (hasRoadmapIntakeAlreadyBeenFilled()) {
-            showToast('Roadmap setup has already been completed.', 'error');
+            showToast('Roadmap setup is already complete.', 'error');
             closeRoadmapIntake();
             return;
         }
@@ -27340,7 +27340,9 @@ if (roadmapForm) {
                 roadmapApplicationStatus: String(
                     roadmapApplication?.status || 'Approved'
                 ).trim().toLowerCase(),
-                hasRoadmapAccess: result?.hasRoadmapAccess === true
+                hasRoadmapAccess: true,
+                roadmapAccessStatus: 'unlocked',
+                canEnterAcademy: true
             };
 
             writeAcademyMembershipCache(nextSnapshot);
@@ -27348,9 +27350,10 @@ if (roadmapForm) {
 
             closeRoadmapIntake();
             syncRoadmapTabIndicator(nextSnapshot);
+            showAcademyRoadmapLoadingShell();
             openAcademyRoadmapView(true);
 
-            showToast('Your AI roadmap is ready.', 'success');
+            showToast('Roadmap setup complete. Your roadmap is now unlocked.', 'success');
         } catch (error) {
             localStorage.removeItem(YH_ROADMAP_LOCK_KEY);
 

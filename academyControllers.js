@@ -1876,6 +1876,43 @@ function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
     };
 }
 
+
+
+/* PATCH: Academy roadmap auto-unlock access helper v1 */
+function isRoadmapApplicationAutoUnlockedV1(roadmapApplication = null) {
+    if (!roadmapApplication || typeof roadmapApplication !== 'object') return false;
+
+    const status = sanitize(
+        roadmapApplication.status ||
+        roadmapApplication.reviewStatus ||
+        roadmapApplication.roadmapStatus ||
+        ''
+    ).toLowerCase();
+
+    return (
+        status === 'approved' ||
+        status === 'active' ||
+        status === 'unlocked' ||
+        status === 'auto-approved' ||
+        status === 'auto_approved'
+    );
+}
+
+async function ensureRoadmapAccessUnlockedFromApprovedApplicationV1(uid = '', roadmapApplication = null) {
+    if (!uid || !isRoadmapApplicationAutoUnlockedV1(roadmapApplication)) {
+        return false;
+    }
+
+    try {
+        await academyFirestoreRepo.setAccessUnlocked(uid);
+        return true;
+    } catch (error) {
+        console.warn('Roadmap auto-unlock self-heal skipped:', error?.message || error);
+        return false;
+    }
+}
+/* END PATCH: Academy roadmap auto-unlock access helper v1 */
+
 async function getAcademyUserAccessSnapshot(uid) {
     const userRef = firestore.collection('users').doc(uid);
     const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
@@ -1886,12 +1923,19 @@ async function getAcademyUserAccessSnapshot(uid) {
             ? userData.academyApplication
             : null;
 
+    const roadmapApplication =
+        userData.roadmapApplication && typeof userData.roadmapApplication === 'object'
+            ? userData.roadmapApplication
+            : null;
+
     const academyMembershipStatus = sanitize(
         userData.academyMembershipStatus ||
         userData.academyApplicationStatus ||
         academyApplication?.status ||
         'none'
     ).toLowerCase() || 'none';
+
+    const roadmapApplicationAutoUnlocked = isRoadmapApplicationAutoUnlockedV1(roadmapApplication);
 
     let accessState = null;
     try {
@@ -1900,11 +1944,17 @@ async function getAcademyUserAccessSnapshot(uid) {
         accessState = null;
     }
 
-    const hasRoadmapAccess = accessState?.accessState === 'unlocked';
+    let hasRoadmapAccess = accessState?.accessState === 'unlocked' || roadmapApplicationAutoUnlocked;
+
+    if (roadmapApplicationAutoUnlocked && accessState?.accessState !== 'unlocked') {
+        const healed = await ensureRoadmapAccessUnlockedFromApprovedApplicationV1(uid, roadmapApplication);
+        hasRoadmapAccess = hasRoadmapAccess || healed;
+    }
 
     return {
         userData,
         academyApplication,
+        roadmapApplication,
         academyMembershipStatus,
         hasRoadmapAccess
     };
@@ -6064,9 +6114,16 @@ exports.getMembershipStatus = async (req, res) => {
         let hasRoadmapAccess = false;
         try {
             const accessState = await academyFirestoreRepo.getAccessState(uid);
-            hasRoadmapAccess = accessState?.accessState === 'unlocked';
+            hasRoadmapAccess =
+                accessState?.accessState === 'unlocked' ||
+                isRoadmapApplicationAutoUnlockedV1(roadmapApplication);
+
+            if (isRoadmapApplicationAutoUnlockedV1(roadmapApplication) && accessState?.accessState !== 'unlocked') {
+                const healed = await ensureRoadmapAccessUnlockedFromApprovedApplicationV1(uid, roadmapApplication);
+                hasRoadmapAccess = hasRoadmapAccess || healed;
+            }
         } catch (_) {
-            hasRoadmapAccess = false;
+            hasRoadmapAccess = isRoadmapApplicationAutoUnlockedV1(roadmapApplication);
         }
 
         const canEnterAcademy = applicationStatus === 'approved';
@@ -6577,6 +6634,10 @@ exports.submitRoadmapApplication = async (req, res) => {
                 roadmapApplicationSubmittedAt: roadmapApplication.submittedAt,
                 roadmapApplicationReviewedAt: roadmapApplication.reviewedAt,
                 roadmapApplicationReviewedBy: roadmapApplication.reviewedBy,
+                hasRoadmapAccess: true,
+                roadmapAccessStatus: 'unlocked',
+                academyRoadmapAccess: true,
+                roadmapUnlockedAt: nowIso,
                 updatedAt: nowIso
             },
             { merge: true }
