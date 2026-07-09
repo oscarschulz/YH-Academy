@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 <link rel="stylesheet" href="/css/style.css?v=20260707-yhu-mobile-loader-v1">
 <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260708-yhu-cropper-apply-bright-v1">
-<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260707-yhu-mobile-workspace-stable-v1">
+<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260709-yhu-mobile-plaza-dropdown-v1">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
 
@@ -77,6 +77,55 @@
                 </div>
             </div>
 
+            <div class="yh-mobile-app-subtab-menu" id="yh-mobile-app-subtab-menu" hidden>
+                <button
+                    type="button"
+                    class="yh-mobile-app-subtab-menu-btn"
+                    id="yh-mobile-app-subtab-menu-btn"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    aria-label="Open section menu"
+                >
+                    <span id="yh-mobile-app-subtab-menu-label">Section</span>
+                    <span class="yh-mobile-app-subtab-menu-arrow" aria-hidden="true">⌄</span>
+                </button>
+
+                <div
+                    class="yh-mobile-app-subtab-menu-panel"
+                    id="yh-mobile-app-subtab-menu-panel"
+                    role="menu"
+                    aria-label="Section menu"
+                >
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="academy-roadmap">Roadmap</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="academy-missions">Missions</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="academy-community">Community Feed</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="academy-messages">Messages</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="academy-voice">Live Voice</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="academy-profile">Profile</button>
+
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-feed">Feed</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-inbox">Inbox</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-conversations">Conversations</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-meetups">Meetups</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-opportunities">Opportunities</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-directory">Directory</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-regions">Regions</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-atlas">Atlas</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-patron">Patron</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-patron-desk">Patron Desk</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-bridge">Bridge</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-requests">Requests</button>
+
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="federation-command">Command</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="federation-connect">Connect</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="federation-deal-rooms">Deal Rooms</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="federation-directory">Directory</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="federation-access">My Access</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="federation-requests">Requests</button>
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="federation-referrals">Referrals</button>
+                </div>
+            </div>
+
             <button type="button" class="yh-mobile-app-profile" id="yh-mobile-app-profile" aria-label="Open profile">
                 <span id="yh-mobile-app-profile-initial">Y</span>
             </button>
@@ -102,6 +151,7 @@
                 <button type="button" data-yh-mobile-subtab="plazas-regions">Regions</button>
                 <button type="button" data-yh-mobile-subtab="plazas-atlas">Atlas</button>
                 <button type="button" data-yh-mobile-subtab="plazas-patron">Patron</button>
+                <button type="button" data-yh-mobile-subtab="plazas-patron-desk">Patron Desk</button>
                 <button type="button" data-yh-mobile-subtab="plazas-bridge">Bridge</button>
                 <button type="button" data-yh-mobile-subtab="plazas-requests">Requests</button>
             </div>
@@ -2683,7 +2733,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260627-yh-live-cache-v4"></script>
 <script src="/js/yh-shared-runtime.js?v=20260706-yh-account-delete-hard-wipe-v1"></script>
-<script src="/js/dashboard.js?v=20260707-yhu-plaza-static-form-v1"></script>
+<script src="/js/dashboard.js?v=20260709-yhu-mobile-plaza-dropdown-v1"></script>
 <!-- PATCH: Entry buttons direct Feed Command route v138 -->
 <script>
 (function installYHEntryButtonsDirectFeedCommandV138() {

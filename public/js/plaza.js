@@ -11417,6 +11417,138 @@ async function ensurePlazaAccessBeforeBoot() {
     return false;
   }
 }
+function enhancePlazaSelectControls() {
+  const selector = [
+    ".yh-plaza-feed-composer-field select",
+    ".yh-plaza-field select"
+  ].join(", ");
+
+  const selects = Array.from(document.querySelectorAll(selector))
+    .filter((select) => select instanceof HTMLSelectElement);
+
+  function getSelectedLabel(select) {
+    const selected = select.options[select.selectedIndex] || null;
+    return String(selected?.textContent || selected?.label || select.value || "Select").trim() || "Select";
+  }
+
+  function closeAllCustomSelects(except = null) {
+    document.querySelectorAll(".yh-plaza-custom-select.is-open").forEach((node) => {
+      if (except && node === except) return;
+      node.classList.remove("is-open");
+      node.querySelector(".yh-plaza-custom-select-button")?.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  function syncCustomSelect(wrapper, select) {
+    const button = wrapper.querySelector(".yh-plaza-custom-select-button");
+    const valueNode = wrapper.querySelector(".yh-plaza-custom-select-value");
+    const list = wrapper.querySelector(".yh-plaza-custom-select-list");
+
+    if (!button || !valueNode || !list) return;
+
+    valueNode.textContent = getSelectedLabel(select);
+    list.innerHTML = "";
+
+    Array.from(select.options).forEach((option, index) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "yh-plaza-custom-select-option";
+      item.setAttribute("role", "option");
+      item.dataset.value = String(option.value || "");
+      item.dataset.optionIndex = String(index);
+      item.setAttribute("aria-selected", option.selected ? "true" : "false");
+      item.textContent = String(option.textContent || option.label || option.value || "Option").trim();
+
+      if (option.disabled) {
+        item.disabled = true;
+        item.setAttribute("aria-disabled", "true");
+      }
+
+      item.addEventListener("click", () => {
+        if (option.disabled) return;
+
+        select.selectedIndex = index;
+        select.value = option.value;
+        select.dispatchEvent(new Event("input", { bubbles: true }));
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+
+        syncCustomSelect(wrapper, select);
+        closeAllCustomSelects();
+      });
+
+      list.appendChild(item);
+    });
+  }
+
+  selects.forEach((select) => {
+    if (select.dataset.plazaCustomSelectReady === "true") return;
+
+    const wrapper = document.createElement("span");
+    wrapper.className = "yh-plaza-custom-select";
+    wrapper.dataset.selectId = select.id || "";
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "yh-plaza-custom-select-button";
+    button.setAttribute("aria-haspopup", "listbox");
+    button.setAttribute("aria-expanded", "false");
+
+    const value = document.createElement("span");
+    value.className = "yh-plaza-custom-select-value";
+
+    const arrow = document.createElement("span");
+    arrow.className = "yh-plaza-custom-select-arrow";
+    arrow.setAttribute("aria-hidden", "true");
+    arrow.textContent = "⌄";
+
+    const list = document.createElement("span");
+    list.className = "yh-plaza-custom-select-list";
+    list.setAttribute("role", "listbox");
+
+    button.append(value, arrow);
+    wrapper.append(button, list);
+
+    select.classList.add("yh-plaza-native-select-hidden");
+    select.dataset.plazaCustomSelectReady = "true";
+    select.insertAdjacentElement("afterend", wrapper);
+
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const nextOpen = !wrapper.classList.contains("is-open");
+      closeAllCustomSelects(wrapper);
+
+      wrapper.classList.toggle("is-open", nextOpen);
+      button.setAttribute("aria-expanded", nextOpen ? "true" : "false");
+    });
+
+    select.addEventListener("change", () => syncCustomSelect(wrapper, select));
+
+    try {
+      const observer = new MutationObserver(() => syncCustomSelect(wrapper, select));
+      observer.observe(select, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["selected", "disabled", "label", "value"]
+      });
+      wrapper.__plazaCustomSelectObserver = observer;
+    } catch (_) {}
+
+    syncCustomSelect(wrapper, select);
+  });
+
+  if (document.body?.dataset.plazaCustomSelectGlobalBound !== "true") {
+    document.body.dataset.plazaCustomSelectGlobalBound = "true";
+
+    document.addEventListener("click", () => closeAllCustomSelects());
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeAllCustomSelects();
+    });
+  }
+}
+
 async function initPlaza() {
   const canEnterPlaza = await ensurePlazaAccessBeforeBoot();
 
@@ -11460,6 +11592,7 @@ openScreen(restoredScreen, {
   deferDashboardReady: true
 });
   bindEvents();
+  enhancePlazaSelectControls();
 
   window.requestAnimationFrame(() => {
     markPlazaDashboardChildReady(restoredScreen, "active-screen-rendered");
@@ -11641,6 +11774,15 @@ initPlaza();
         document.body?.setAttribute('data-yh-dashboard-active-screen', screen);
         document.body?.setAttribute('data-yh-dashboard-child-ready-reason', reason);
         document.body?.setAttribute('data-yh-dashboard-child-ready-at', String(Date.now()));
+
+        document.querySelectorAll(
+            '.yh-plaza-app-header, .yh-plaza-sidebar, .yh-plaza-rail, .yh-plaza-workspace-head'
+        ).forEach((node) => {
+            if (!(node instanceof HTMLElement)) return;
+            node.hidden = true;
+            node.setAttribute('aria-hidden', 'true');
+            node.style.setProperty('display', 'none', 'important');
+        });
 
         const gate = document.getElementById('plazaAccessGate');
         if (gate) gate.hidden = true;

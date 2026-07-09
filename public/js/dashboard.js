@@ -11483,8 +11483,10 @@ function forceDashboardInlineFrameContentOnly(frame) {
         body.yh-dashboard-inline-embed-body .yh-top-nav,
         body.yh-dashboard-inline-embed-body .desktop-user-strip,
         body.yh-dashboard-inline-embed-body .nav-brand,
+        body.yh-dashboard-inline-embed-body .fed-topbar,
         body.yh-dashboard-inline-embed-body .fed-rightbar,
         body.yh-dashboard-inline-embed-body .yh-plaza-app-header,
+        body.yh-dashboard-inline-embed-body .yh-plaza-workspace-head,
         body.yh-dashboard-inline-embed-body .yh-plaza-sidebar,
         body.yh-dashboard-inline-embed-body .yh-plaza-side-nav,
         body.yh-dashboard-inline-embed-body .yh-plaza-access-brand,
@@ -11623,18 +11625,33 @@ function forceDashboardInlineFrameContentOnly(frame) {
             overflow: visible !important;
         }
 
-        body.yh-dashboard-inline-embed-body .yh-plaza-shell,
-        body.yh-dashboard-inline-embed-body .yh-plaza-app-grid {
+        body.yh-dashboard-inline-embed-body .yh-plaza-shell {
             width: 100% !important;
             height: 100% !important;
             min-height: 100% !important;
-            display: grid !important;
-            grid-template-columns: minmax(0, 1fr) !important;
+            display: flex !important;
+            flex-direction: column !important;
             gap: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
         }
 
+        body.yh-dashboard-inline-embed-body .yh-plaza-app-grid {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) !important;
+            grid-template-rows: minmax(0, 1fr) !important;
+            gap: 0 !important;
+            padding: 0 !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            -webkit-overflow-scrolling: touch !important;
+            overscroll-behavior: contain !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-workspace,
         body.yh-dashboard-inline-embed-body .yh-plaza-main,
         body.yh-dashboard-inline-embed-body .yh-plaza-content,
         body.yh-dashboard-inline-embed-body .yh-plaza-main-stage {
@@ -11642,7 +11659,25 @@ function forceDashboardInlineFrameContentOnly(frame) {
             width: 100% !important;
             height: 100% !important;
             min-height: 0 !important;
-            overflow: auto !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            -webkit-overflow-scrolling: touch !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-workspace-card,
+        body.yh-dashboard-inline-embed-body .yh-plaza-tab-panels {
+            min-width: 0 !important;
+            max-width: 100% !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-workspace-card {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            min-height: 0 !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-toolbar-stack {
+            margin-top: 0 !important;
         }
 
         body.yh-dashboard-inline-embed-body .dashboard-layout,
@@ -13186,6 +13221,9 @@ function installDashboardMobileAppShellV1() {
     const kicker = document.getElementById('yh-mobile-app-kicker');
     const profileButton = document.getElementById('yh-mobile-app-profile');
     const profileInitial = document.getElementById('yh-mobile-app-profile-initial');
+    const subtabMenu = document.getElementById('yh-mobile-app-subtab-menu');
+    const subtabMenuButton = document.getElementById('yh-mobile-app-subtab-menu-btn');
+    const subtabMenuLabel = document.getElementById('yh-mobile-app-subtab-menu-label');
 
     const appBackStack = [];
 
@@ -13209,6 +13247,7 @@ function installDashboardMobileAppShellV1() {
         'plazas-regions': ['Plazas', 'Regions'],
         'plazas-atlas': ['Plazas', 'Atlas'],
         'plazas-patron': ['Plazas', 'Patron'],
+        'plazas-patron-desk': ['Plazas', 'Patron Desk'],
         'plazas-bridge': ['Plazas', 'Bridge'],
         'plazas-requests': ['Plazas', 'Requests'],
 
@@ -13283,6 +13322,86 @@ function installDashboardMobileAppShellV1() {
         }
     }
 
+    function closeMobileSubtabMenu() {
+        if (!subtabMenu) return;
+
+        subtabMenu.classList.remove('is-open');
+        subtabMenuButton?.setAttribute('aria-expanded', 'false');
+    }
+
+    function syncMobileSubtabMenu(activeKey = 'overview', activeDivision = 'overview') {
+        if (!subtabMenu) return;
+
+        const cleanKey = String(activeKey || 'overview').trim().toLowerCase();
+        const cleanDivision = String(activeDivision || 'overview').trim().toLowerCase();
+
+        const menuConfigs = {
+            academy: {
+                prefix: 'academy',
+                defaultKey: 'academy-roadmap',
+                defaultLabel: 'Roadmap',
+                menuLabel: 'Academy sections',
+                ariaLabel: 'Academy'
+            },
+            plazas: {
+                prefix: 'plazas',
+                defaultKey: 'plazas-feed',
+                defaultLabel: 'Feed',
+                menuLabel: 'Plazas sections',
+                ariaLabel: 'Plazas'
+            },
+            federation: {
+                prefix: 'federation',
+                defaultKey: 'federation-command',
+                defaultLabel: 'Command',
+                menuLabel: 'Federation sections',
+                ariaLabel: 'Federation'
+            }
+        };
+
+        const activeMenuKey = cleanKey.startsWith('academy-')
+            ? 'academy'
+            : cleanKey.startsWith('plazas-')
+                ? 'plazas'
+                : cleanKey.startsWith('federation-')
+                    ? 'federation'
+                    : menuConfigs[cleanDivision]
+                        ? cleanDivision
+                        : '';
+
+        const config = menuConfigs[activeMenuKey] || null;
+        const isDropdownScope = Boolean(config);
+
+        subtabMenu.hidden = !isDropdownScope;
+        subtabMenu.setAttribute('aria-hidden', isDropdownScope ? 'false' : 'true');
+
+        if (!isDropdownScope) {
+            closeMobileSubtabMenu();
+            return;
+        }
+
+        const fallbackKey = cleanKey.startsWith(`${config.prefix}-`) ? cleanKey : config.defaultKey;
+        const resolved = titleMap[fallbackKey] || titleMap[config.defaultKey];
+
+        if (subtabMenuLabel) {
+            subtabMenuLabel.textContent = resolved?.[1] || config.defaultLabel;
+        }
+
+        subtabMenuButton?.setAttribute('aria-label', `Open ${config.ariaLabel || 'section'} section menu`);
+        subtabMenu.querySelector('.yh-mobile-app-subtab-menu-panel')?.setAttribute('aria-label', config.menuLabel);
+
+        subtabMenu.querySelectorAll('[data-yh-mobile-subtab-menu-option]').forEach((button) => {
+            const key = String(button.getAttribute('data-yh-mobile-subtab-menu-option') || '').trim().toLowerCase();
+            const belongsToActiveMenu = key.startsWith(`${config.prefix}-`);
+            const isActive = belongsToActiveMenu && key === fallbackKey;
+
+            button.hidden = !belongsToActiveMenu;
+            button.setAttribute('aria-hidden', belongsToActiveMenu ? 'false' : 'true');
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-current', isActive ? 'page' : 'false');
+        });
+    }
+
     function syncMobileAppState() {
         const activeKey = getCurrentWorkspaceKey();
         const activeDivision = getCurrentDivision();
@@ -13309,6 +13428,8 @@ function installDashboardMobileAppShellV1() {
             const key = String(button.getAttribute('data-yh-mobile-subtab') || '').trim().toLowerCase();
             button.classList.toggle('is-active', key === activeKey);
         });
+
+        syncMobileSubtabMenu(activeKey, activeDivision);
 
         const canGoBack =
             appBackStack.length > 0 ||
@@ -13369,17 +13490,43 @@ function installDashboardMobileAppShellV1() {
     shell.addEventListener('click', function (event) {
         const navButton = event.target?.closest?.('[data-yh-mobile-nav]');
         const subtabButton = event.target?.closest?.('[data-yh-mobile-subtab]');
+        const subtabMenuToggle = event.target?.closest?.('#yh-mobile-app-subtab-menu-btn');
+        const subtabMenuOption = event.target?.closest?.('[data-yh-mobile-subtab-menu-option]');
         const commandButton = event.target?.closest?.('[data-yh-mobile-command-target]');
         const closeButton = event.target?.closest?.('[data-yh-mobile-command-close]');
 
         if (closeButton) {
             event.preventDefault();
             closeCommandSheet();
+            closeMobileSubtabMenu();
+            return;
+        }
+
+        if (subtabMenuToggle) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const nextOpen = !subtabMenu?.classList.contains('is-open');
+            closeCommandSheet();
+
+            subtabMenu?.classList.toggle('is-open', nextOpen);
+            subtabMenuButton?.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+            return;
+        }
+
+        if (subtabMenuOption) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const key = String(subtabMenuOption.getAttribute('data-yh-mobile-subtab-menu-option') || '').trim().toLowerCase();
+            closeMobileSubtabMenu();
+            if (key) navigateMobileWorkspace(key);
             return;
         }
 
         if (navButton) {
             event.preventDefault();
+            closeMobileSubtabMenu();
 
             const key = String(navButton.getAttribute('data-yh-mobile-nav') || '').trim().toLowerCase();
 
@@ -13394,6 +13541,7 @@ function installDashboardMobileAppShellV1() {
 
         if (subtabButton) {
             event.preventDefault();
+            closeMobileSubtabMenu();
 
             const key = String(subtabButton.getAttribute('data-yh-mobile-subtab') || '').trim().toLowerCase();
             if (key) navigateMobileWorkspace(key);
@@ -13438,9 +13586,16 @@ function installDashboardMobileAppShellV1() {
         document.getElementById('yh-command-top-profile')?.click();
     });
 
+    document.addEventListener('click', function (event) {
+        if (!subtabMenu?.contains(event.target)) {
+            closeMobileSubtabMenu();
+        }
+    });
+
     document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') {
             closeCommandSheet();
+            closeMobileSubtabMenu();
         }
     });
 

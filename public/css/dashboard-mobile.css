@@ -1351,7 +1351,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         right: 0 !important;
         min-height: calc(76px + max(18px, env(safe-area-inset-top, 0px))) !important;
         display: grid !important;
-        grid-template-columns: 42px minmax(0, 1fr) 42px !important;
+        grid-template-columns: 42px minmax(0, 1fr) minmax(106px, 138px) 42px !important;
         align-items: end !important;
         gap: 10px !important;
         padding: calc(18px + max(18px, env(safe-area-inset-top, 0px))) 14px 12px !important;
@@ -1401,6 +1401,128 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         border-radius: 999px !important;
         font-size: 0.92rem !important;
         font-weight: 800 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtab-menu {
+        position: relative !important;
+        justify-self: end !important;
+        width: 100% !important;
+        max-width: 138px !important;
+        pointer-events: auto !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtab-menu[hidden] {
+        display: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtab-menu-btn {
+        width: 100% !important;
+        min-width: 0 !important;
+        height: 38px !important;
+        min-height: 38px !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) 16px !important;
+        align-items: center !important;
+        gap: 7px !important;
+        padding: 0 10px 0 12px !important;
+        border: 1px solid rgba(103, 232, 249, 0.28) !important;
+        border-radius: 999px !important;
+        background:
+            radial-gradient(circle at 18% 0%, rgba(103, 232, 249, 0.18), transparent 44%),
+            linear-gradient(180deg, rgba(15, 47, 122, 0.64), rgba(2, 8, 23, 0.78)) !important;
+        color: #f8fbff !important;
+        box-shadow:
+            0 12px 28px rgba(0, 0, 0, 0.26),
+            inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+        font-family: var(--yh-font-subheader, "Orbitron", sans-serif) !important;
+        font-size: 0.62rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.075em !important;
+        line-height: 1 !important;
+        text-transform: uppercase !important;
+        text-align: left !important;
+        cursor: pointer !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        -webkit-tap-highlight-color: transparent !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtab-menu-btn span:first-child {
+        min-width: 0 !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtab-menu-arrow {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        color: rgba(223, 247, 255, 0.82) !important;
+        font-size: 0.88rem !important;
+        line-height: 1 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtab-menu-panel {
+        position: absolute !important;
+        top: calc(100% + 9px) !important;
+        right: 0 !important;
+        z-index: 280 !important;
+        width: min(244px, calc(100vw - 28px)) !important;
+        max-height: min(420px, calc(100dvh - 180px)) !important;
+        display: none !important;
+        padding: 8px !important;
+        border: 1px solid rgba(103, 232, 249, 0.24) !important;
+        border-radius: 18px !important;
+        background:
+            radial-gradient(circle at 16% 0%, rgba(103, 232, 249, 0.16), transparent 40%),
+            linear-gradient(180deg, rgba(5, 13, 29, 0.98), rgba(2, 6, 23, 0.98)) !important;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.46) !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        scrollbar-width: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtab-menu-panel::-webkit-scrollbar {
+        width: 0 !important;
+        height: 0 !important;
+        display: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtab-menu.is-open .yh-mobile-app-subtab-menu-panel {
+        display: grid !important;
+        gap: 5px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtab-menu-panel button {
+        width: 100% !important;
+        min-height: 38px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        padding: 0 12px !important;
+        border: 1px solid transparent !important;
+        border-radius: 12px !important;
+        background: transparent !important;
+        color: rgba(220, 232, 247, 0.78) !important;
+        font-family: var(--yh-font-subheader, "Orbitron", sans-serif) !important;
+        font-size: 0.66rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.075em !important;
+        line-height: 1 !important;
+        text-align: left !important;
+        text-transform: uppercase !important;
+        cursor: pointer !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtab-menu-panel button[hidden] {
+        display: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtab-menu-panel button.is-active {
+        border-color: rgba(103, 232, 249, 0.34) !important;
+        background: rgba(37, 99, 235, 0.18) !important;
+        color: #f8fbff !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-brand {
@@ -2151,7 +2273,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] .yh-mobile-app-subtabs,
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] .yh-mobile-app-subtabs,
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] .yh-mobile-app-subtabs {
-        display: flex !important;
+        display: none !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-subnav-group {
@@ -2589,10 +2711,70 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         justify-content: flex-start !important;
     }
 
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #universe-hub-view,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] .universe-hub-view,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #universe-hub-view,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] .universe-hub-view,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #universe-hub-view,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] .universe-hub-view {
+        padding-top: calc(68px + max(10px, env(safe-area-inset-top, 0px))) !important;
+        padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #yh-universe-workspace-launch-card,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-universe-workspace-launch-card,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-launch-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        clip-path: none !important;
+        overflow: visible !important;
+        display: grid !important;
+        gap: 0 !important;
+        align-content: start !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-main,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-actions,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-main,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-actions,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-main,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-actions {
+        display: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #yh-universe-workspace-frame-shell,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-universe-workspace-frame-shell,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-frame-shell {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: calc(100dvh - 166px) !important;
+        min-height: calc(100dvh - 166px) !important;
+        max-height: none !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #yh-universe-workspace-inline-frame,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-universe-workspace-inline-frame,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-inline-frame {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        display: block !important;
+    }
+
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #universe-hub-view,
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .universe-hub-view {
-        padding-top: calc(136px + max(18px, env(safe-area-inset-top, 0px))) !important;
-        padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)) !important;
+        padding-top: calc(68px + max(10px, env(safe-area-inset-top, 0px))) !important;
+        padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)) !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-hub-shell,
@@ -2601,6 +2783,34 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         max-width: 100% !important;
         margin-left: 0 !important;
         margin-right: 0 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] .yh-universe-carousel-shell,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="academy-"] .yh-universe-carousel-shell,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] .yh-universe-carousel-shell,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="plazas-"] .yh-universe-carousel-shell,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] .yh-universe-carousel-shell,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="federation-"] .yh-universe-carousel-shell {
+        gap: 0 !important;
+        padding-top: 0 !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] .yh-universe-carousel-shell::before,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] .yh-universe-carousel-shell::after,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="academy-"] .yh-universe-carousel-shell::before,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="academy-"] .yh-universe-carousel-shell::after,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] .yh-universe-carousel-shell::before,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] .yh-universe-carousel-shell::after,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="plazas-"] .yh-universe-carousel-shell::before,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="plazas-"] .yh-universe-carousel-shell::after,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] .yh-universe-carousel-shell::before,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] .yh-universe-carousel-shell::after,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="federation-"] .yh-universe-carousel-shell::before,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="federation-"] .yh-universe-carousel-shell::after {
+        content: none !important;
+        display: none !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card {
@@ -2693,10 +2903,25 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         text-overflow: ellipsis !important;
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-head {
+    body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace]) .yh-command-dashboard-head,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .yh-command-dashboard-head {
         display: grid !important;
         grid-template-columns: minmax(0, 1fr) !important;
         gap: 12px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] .yh-command-dashboard-head,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="academy-"] .yh-command-dashboard-head,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] .yh-command-dashboard-head,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="plazas-"] .yh-command-dashboard-head,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] .yh-command-dashboard-head,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="federation-"] .yh-command-dashboard-head {
+        display: none !important;
+        min-height: 0 !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
     }
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-title,
     body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="academy"]) .yh-universe-title {
