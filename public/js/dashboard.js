@@ -24211,18 +24211,7 @@ function ensureDashboardDeleteAccountModal() {
             <div class="yh-dashboard-profile-modal-body hide-scrollbar">
                 <div class="yh-dashboard-danger-warning">
                     <strong>This action is serious.</strong>
-                    <span>Your password is required before the account can be deleted.</span>
-                </div>
-
-                <div class="yh-dashboard-profile-field">
-                    <label for="yh-dashboard-delete-account-password">Current password</label>
-                    <input
-                        type="password"
-                        id="yh-dashboard-delete-account-password"
-                        class="input-field"
-                        autocomplete="current-password"
-                        placeholder="Enter your password"
-                    >
+                    <span>Type DELETE below to confirm account deletion. No password is required for this action.</span>
                 </div>
 
                 <div class="yh-dashboard-profile-field">
@@ -24262,10 +24251,8 @@ function ensureDashboardDeleteAccountModal() {
 function openDashboardDeleteAccountModal() {
     const overlay = ensureDashboardDeleteAccountModal();
 
-    const passwordInput = document.getElementById('yh-dashboard-delete-account-password');
     const confirmInput = document.getElementById('yh-dashboard-delete-account-confirm');
 
-    if (passwordInput) passwordInput.value = '';
     if (confirmInput) confirmInput.value = '';
 
     overlay.classList.remove('hidden-step');
@@ -24276,17 +24263,8 @@ function closeDashboardDeleteAccountModal() {
 }
 
 async function deleteDashboardAccountWithPassword(button = null) {
-    const passwordInput = document.getElementById('yh-dashboard-delete-account-password');
     const confirmInput = document.getElementById('yh-dashboard-delete-account-confirm');
-
-    const password = String(passwordInput?.value || '');
     const confirmation = String(confirmInput?.value || '').trim();
-
-    if (!password.trim()) {
-        showToast('Enter your password first.', 'error');
-        passwordInput?.focus();
-        return;
-    }
 
     if (confirmation !== 'DELETE') {
         showToast('Type DELETE to confirm account deletion.', 'error');
@@ -24308,8 +24286,7 @@ async function deleteDashboardAccountWithPassword(button = null) {
         const result = await academyAuthedFetch('/api/account', {
             method: 'DELETE',
             body: JSON.stringify({
-                password,
-                currentPassword: password
+                confirmation: 'DELETE'
             })
         });
 

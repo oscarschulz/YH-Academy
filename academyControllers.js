@@ -6100,6 +6100,15 @@ exports.deleteCurrentAccount = async (req, res) => {
             });
         }
 
+        const confirmation = String(req.body?.confirmation || '').trim();
+
+        if (confirmation !== 'DELETE') {
+            return res.status(400).json({
+                success: false,
+                message: 'Type DELETE to confirm account deletion.'
+            });
+        }
+
         const password = String(
             req.body?.password ||
             req.body?.currentPassword ||
