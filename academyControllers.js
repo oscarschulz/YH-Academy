@@ -9869,3 +9869,271 @@ exports.getLeadMissionScripts = async (req, res) => {
         });
     }
 };
+
+
+/* PATCH: Academy Champions System controller v1 */
+function academyChampionsSafeNumberV1(value, fallback = 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function academyChampionsSafeArrayV1(value) {
+    return Array.isArray(value) ? value : [];
+}
+
+function academyChampionsCompletedMissionCountV1(homePayload = {}) {
+    const progress = homePayload.progress && typeof homePayload.progress === 'object'
+        ? homePayload.progress
+        : {};
+
+    const today = homePayload.today && typeof homePayload.today === 'object'
+        ? homePayload.today
+        : {};
+
+    const allMissions = academyChampionsSafeArrayV1(homePayload.allMissions);
+    const missions = academyChampionsSafeArrayV1(homePayload.missions);
+
+    const explicitCompleted =
+        progress.completed ??
+        today.missionsCompleted ??
+        homePayload.transformationSystem?.completedMissions;
+
+    if (Number.isFinite(Number(explicitCompleted))) {
+        return Math.max(0, academyChampionsSafeNumberV1(explicitCompleted, 0));
+    }
+
+    const source = allMissions.length ? allMissions : missions;
+
+    return source.filter((mission) => {
+        const status = String(mission?.status || '').trim().toLowerCase();
+        return status === 'completed' || mission?.completed === true || mission?.done === true;
+    }).length;
+}
+
+function academyChampionsTotalMissionCountV1(homePayload = {}) {
+    const progress = homePayload.progress && typeof homePayload.progress === 'object'
+        ? homePayload.progress
+        : {};
+
+    const today = homePayload.today && typeof homePayload.today === 'object'
+        ? homePayload.today
+        : {};
+
+    const allMissions = academyChampionsSafeArrayV1(homePayload.allMissions);
+    const missions = academyChampionsSafeArrayV1(homePayload.missions);
+
+    const explicitTotal =
+        progress.total ??
+        today.missionsTotal ??
+        homePayload.transformationSystem?.totalMissions;
+
+    if (Number.isFinite(Number(explicitTotal))) {
+        return Math.max(0, academyChampionsSafeNumberV1(explicitTotal, 0));
+    }
+
+    return Math.max(allMissions.length, missions.length, 0);
+}
+
+function academyChampionsRankFromXpV1(xp = 0) {
+    const score = Math.max(0, academyChampionsSafeNumberV1(xp, 0));
+
+    if (score >= 9000) return { key: 'academy_elite', label: 'Academy Elite', nextLabel: 'Max Rank', minXp: 9000, nextXp: 9000 };
+    if (score >= 6500) return { key: 'vanguard', label: 'Vanguard', nextLabel: 'Academy Elite', minXp: 6500, nextXp: 9000 };
+    if (score >= 4500) return { key: 'captain', label: 'Captain', nextLabel: 'Vanguard', minXp: 4500, nextXp: 6500 };
+    if (score >= 3000) return { key: 'strategist', label: 'Strategist', nextLabel: 'Captain', minXp: 3000, nextXp: 4500 };
+    if (score >= 1800) return { key: 'operator', label: 'Operator', nextLabel: 'Strategist', minXp: 1800, nextXp: 3000 };
+    if (score >= 900) return { key: 'executor', label: 'Executor', nextLabel: 'Operator', minXp: 900, nextXp: 1800 };
+    if (score >= 300) return { key: 'builder', label: 'Builder', nextLabel: 'Executor', minXp: 300, nextXp: 900 };
+
+    return { key: 'initiate', label: 'Initiate', nextLabel: 'Builder', minXp: 0, nextXp: 300 };
+}
+
+function academyChampionsLevelFromXpV1(xp = 0) {
+    const score = Math.max(0, academyChampionsSafeNumberV1(xp, 0));
+    return Math.max(1, Math.floor(score / 350) + 1);
+}
+
+function buildAcademyChampionsPayloadV1(uid = '', homePayload = {}, profile = {}) {
+    const completedMissions = academyChampionsCompletedMissionCountV1(homePayload);
+    const totalMissions = academyChampionsTotalMissionCountV1(homePayload);
+    const recentCheckins = academyChampionsSafeArrayV1(homePayload.recentCheckins);
+    const streakDays = Math.max(
+        0,
+        academyChampionsSafeNumberV1(
+            homePayload.streakDays ??
+            homePayload.today?.streakDays ??
+            homePayload.transformationSystem?.currentStreak,
+            0
+        )
+    );
+
+    const completionRate = totalMissions > 0
+        ? Math.round((completedMissions / totalMissions) * 100)
+        : 0;
+
+    const checkinCount = recentCheckins.length;
+    const helperScore = Math.max(
+        0,
+        academyChampionsSafeNumberV1(
+            profile.helperScore ??
+            profile.helper_score ??
+            profile.academyHelperScore ??
+            0,
+            0
+        )
+    );
+
+    const missionXp = completedMissions * 50;
+    const checkinXp = Math.min(checkinCount, 60) * 20;
+    const streakXp = streakDays * 25;
+    const helperXp = helperScore * 80;
+    const consistencyBonus = streakDays >= 7 ? 100 : streakDays >= 3 ? 35 : 0;
+    const completionBonus = completionRate >= 100 && totalMissions > 0 ? 250 : completionRate >= 70 ? 120 : completionRate >= 40 ? 50 : 0;
+
+    const xp = Math.max(
+        0,
+        Math.round(missionXp + checkinXp + streakXp + helperXp + consistencyBonus + completionBonus)
+    );
+
+    const rank = academyChampionsRankFromXpV1(xp);
+    const level = academyChampionsLevelFromXpV1(xp);
+    const nextXp = Math.max(rank.nextXp, xp);
+    const rankSpan = Math.max(1, rank.nextXp - rank.minXp);
+    const rankProgress = rank.nextXp === rank.minXp
+        ? 100
+        : Math.max(0, Math.min(100, Math.round(((xp - rank.minXp) / rankSpan) * 100)));
+
+    const displayName = sanitize(
+        profile.display_name ||
+        profile.displayName ||
+        profile.fullName ||
+        profile.full_name ||
+        profile.name ||
+        'You'
+    ) || 'You';
+
+    const username = sanitize(
+        profile.username ||
+        profile.handle ||
+        ''
+    );
+
+    const primaryPlayer = {
+        id: sanitize(uid),
+        name: displayName,
+        username,
+        xp,
+        level,
+        rank: rank.label,
+        rankKey: rank.key,
+        nextRank: rank.nextLabel,
+        nextXp,
+        rankProgress,
+        completedMissions,
+        totalMissions,
+        completionRate,
+        streakDays,
+        checkinCount,
+        helperScore,
+        badge: streakDays >= 7
+            ? 'Consistency Builder'
+            : completedMissions >= 10
+                ? 'Mission Finisher'
+                : completedMissions > 0
+                    ? 'First Wins'
+                    : 'New Challenger'
+    };
+
+    return {
+        success: true,
+        version: 'academy-champions-v1',
+        generatedAt: new Date().toISOString(),
+        player: primaryPlayer,
+        xpRules: {
+            missionCompleted: 50,
+            recentCheckin: 20,
+            streakDay: 25,
+            helperPoint: 80,
+            weeklyStreakBonus: 100
+        },
+        leaderboards: {
+            topBuilders: [
+                {
+                    ...primaryPlayer,
+                    position: 1,
+                    label: 'Your current execution score'
+                }
+            ],
+            mostConsistent: [
+                {
+                    ...primaryPlayer,
+                    position: 1,
+                    label: streakDays > 0 ? `${streakDays} day streak` : 'Start with today’s check-in'
+                }
+            ],
+            topHelpers: [
+                {
+                    ...primaryPlayer,
+                    position: 1,
+                    label: helperScore > 0 ? `${helperScore} helper score` : 'Helper score unlocks in Phase 2'
+                }
+            ]
+        },
+        quests: {
+            daily: [
+                {
+                    title: 'Complete one roadmap mission',
+                    xp: 50,
+                    status: completedMissions > 0 ? 'active' : 'recommended'
+                },
+                {
+                    title: 'Submit today’s check-in',
+                    xp: 20,
+                    status: checkinCount > 0 ? 'active' : 'recommended'
+                }
+            ],
+            weekly: [
+                {
+                    title: 'Maintain a 7-day streak',
+                    xp: 100,
+                    status: streakDays >= 7 ? 'completed' : 'in_progress'
+                }
+            ]
+        }
+    };
+}
+
+exports.getAcademyChampions = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({ success: false, message: 'Unauthorized.' });
+        }
+
+        const access = await requireApprovedRoadmapAccess(uid, res);
+        if (!access) return;
+
+        const [homePayload, profile] = await Promise.all([
+            academyFirestoreRepo.buildAcademyHomePayload(uid),
+            academyFirestoreRepo.getCurrentProfile(uid).catch(() => null)
+        ]);
+
+        if (!homePayload) {
+            return res.status(404).json({
+                success: false,
+                message: 'No active Academy roadmap yet.'
+            });
+        }
+
+        return res.json(buildAcademyChampionsPayloadV1(uid, homePayload, profile || {}));
+    } catch (error) {
+        console.error('Academy Champions Error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while loading Academy Champions.'
+        });
+    }
+};
+/* END PATCH: Academy Champions System controller v1 */
+

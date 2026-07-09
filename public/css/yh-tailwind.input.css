@@ -15610,3 +15610,185 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   }
   /* END PATCH: Dashboard cropper apply button brightness v1 */
 
+
+  /* PATCH: Academy Champions System styles v1 */
+  body[data-yh-view="academy"] .academy-champions-board-v1 {
+    display: grid;
+    gap: 12px;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-card-v1 {
+    position: relative;
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid rgba(103, 232, 249, 0.22);
+    background:
+      radial-gradient(circle at 18% 0%, rgba(56, 189, 248, 0.18), transparent 36%),
+      linear-gradient(180deg, rgba(8, 18, 35, 0.94), rgba(5, 10, 24, 0.9));
+    box-shadow:
+      0 18px 44px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  }
+
+  body[data-yh-view="academy"] .academy-champions-head-v1,
+  body[data-yh-view="academy"] .academy-champions-rank-v1,
+  body[data-yh-view="academy"] .academy-champions-row-v1,
+  body[data-yh-view="academy"] .academy-champions-badge-v1 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-kicker-v1,
+  body[data-yh-view="academy"] .academy-champions-next-v1 span,
+  body[data-yh-view="academy"] .academy-champions-rank-v1 span,
+  body[data-yh-view="academy"] .academy-champions-stat-grid-v1 span,
+  body[data-yh-view="academy"] .academy-champions-badge-v1 span,
+  body[data-yh-view="academy"] .academy-champions-list-title-v1 {
+    color: #67e8f9;
+    font-family: var(--yh-font-subheader, 'Rajdhani', sans-serif);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-head-v1 strong {
+    color: #ffffff;
+    font-family: var(--yh-font-header, 'Orbitron', sans-serif);
+    font-size: 0.95rem;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-rank-v1 strong {
+    display: block;
+    margin-top: 3px;
+    color: #ffffff;
+    font-family: var(--yh-font-header, 'Orbitron', sans-serif);
+    font-size: 1.02rem;
+    line-height: 1.08;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-rank-v1 em {
+    flex: 0 0 auto;
+    font-style: normal;
+    color: #dff7ff;
+    font-weight: 800;
+    padding: 6px 8px;
+    border: 1px solid rgba(223, 247, 255, 0.16);
+    background: rgba(255, 255, 255, 0.045);
+  }
+
+  body[data-yh-view="academy"] .academy-champions-track-v1 {
+    height: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(223, 247, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  body[data-yh-view="academy"] .academy-champions-track-v1 span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #38bdf8, #22c55e);
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.34);
+  }
+
+  body[data-yh-view="academy"] .academy-champions-next-v1 {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    color: #dbeafe;
+    font-size: 0.82rem;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-stat-grid-v1 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-stat-grid-v1 div {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+    padding: 9px 8px;
+    border: 1px solid rgba(223, 247, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  body[data-yh-view="academy"] .academy-champions-stat-grid-v1 strong {
+    color: #ffffff;
+    font-family: var(--yh-font-header, 'Orbitron', sans-serif);
+    font-size: 0.9rem;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-badge-v1 {
+    padding: 9px 10px;
+    border: 1px solid rgba(34, 197, 94, 0.18);
+    background:
+      radial-gradient(circle at 0 50%, rgba(34, 197, 94, 0.13), transparent 48%),
+      rgba(255, 255, 255, 0.035);
+  }
+
+  body[data-yh-view="academy"] .academy-champions-badge-v1 strong {
+    color: #bbf7d0;
+    font-size: 0.82rem;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-list-v1 {
+    display: grid;
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-list-title-v1 {
+    margin-top: 4px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-row-v1 {
+    padding: 8px;
+    border: 1px solid rgba(223, 247, 255, 0.1);
+    background: rgba(255, 255, 255, 0.035);
+  }
+
+  body[data-yh-view="academy"] .academy-champions-position-v1 {
+    flex: 0 0 auto;
+    color: #38bdf8;
+    font-family: var(--yh-font-header, 'Orbitron', sans-serif);
+    font-size: 0.75rem;
+    font-weight: 800;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-row-main-v1 {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+    flex: 1 1 auto;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-row-main-v1 strong {
+    color: #ffffff;
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-row-main-v1 small,
+  body[data-yh-view="academy"] .academy-champions-row-xp-v1,
+  body[data-yh-view="academy"] .academy-champions-empty-v1 {
+    color: rgba(203, 213, 225, 0.78);
+    font-size: 0.72rem;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-row-xp-v1 {
+    flex: 0 0 auto;
+    font-weight: 800;
+  }
+  /* END PATCH: Academy Champions System styles v1 */
+

@@ -72,6 +72,7 @@ router.post('/academy/membership-apply', auth, academyControllers.submitMembersh
 router.get('/academy/membership-status', auth, academyControllers.getMembershipStatus);
 router.post('/academy/roadmap-apply', auth, academyControllers.submitRoadmapApplication);
 router.get('/academy/home', auth, academyControllers.getAcademyHome);
+router.get('/academy/champions', auth, academyControllers.getAcademyChampions);
 router.get('/academy/profile', auth, academyControllers.getCurrentProfile);
 router.patch('/academy/profile', auth, academyControllers.updateCurrentProfile);
 router.patch('/academy/account/password', auth, academyControllers.changeCurrentPassword);

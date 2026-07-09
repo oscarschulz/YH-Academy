@@ -35409,3 +35409,287 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
     window.addEventListener('pageshow', injectStyle);
 })();
  /* END PATCH: YH Universe profile context card fix v2 */
+
+
+/* PATCH: Academy Champions System frontend v1 */
+(function installAcademyChampionsSystemV1() {
+    if (window.__yhAcademyChampionsSystemV1Installed) return;
+    window.__yhAcademyChampionsSystemV1Installed = true;
+
+    let championsState = null;
+    let renderLocked = false;
+
+    function safeText(value = '') {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function safeNumber(value = 0) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function getToken() {
+        try {
+            return (
+                (typeof getStoredAuthToken === 'function' ? getStoredAuthToken() : '') ||
+                sessionStorage.getItem('yh_token') ||
+                localStorage.getItem('yh_token') ||
+                sessionStorage.getItem('token') ||
+                localStorage.getItem('token') ||
+                ''
+            ).trim();
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function rankFromXp(xp = 0) {
+        const score = Math.max(0, safeNumber(xp));
+
+        if (score >= 9000) return { label: 'Academy Elite', nextLabel: 'Max Rank', minXp: 9000, nextXp: 9000 };
+        if (score >= 6500) return { label: 'Vanguard', nextLabel: 'Academy Elite', minXp: 6500, nextXp: 9000 };
+        if (score >= 4500) return { label: 'Captain', nextLabel: 'Vanguard', minXp: 4500, nextXp: 6500 };
+        if (score >= 3000) return { label: 'Strategist', nextLabel: 'Captain', minXp: 3000, nextXp: 4500 };
+        if (score >= 1800) return { label: 'Operator', nextLabel: 'Strategist', minXp: 1800, nextXp: 3000 };
+        if (score >= 900) return { label: 'Executor', nextLabel: 'Operator', minXp: 900, nextXp: 1800 };
+        if (score >= 300) return { label: 'Builder', nextLabel: 'Executor', minXp: 300, nextXp: 900 };
+
+        return { label: 'Initiate', nextLabel: 'Builder', minXp: 0, nextXp: 300 };
+    }
+
+    function buildFallbackChampionsFromHome(home = {}) {
+        const progress = home?.progress && typeof home.progress === 'object' ? home.progress : {};
+        const today = home?.today && typeof home.today === 'object' ? home.today : {};
+        const allMissions = Array.isArray(home?.allMissions) ? home.allMissions : [];
+        const missions = Array.isArray(home?.missions) ? home.missions : [];
+        const sourceMissions = allMissions.length ? allMissions : missions;
+
+        const completedMissions = Number.isFinite(Number(progress.completed ?? today.missionsCompleted))
+            ? safeNumber(progress.completed ?? today.missionsCompleted)
+            : sourceMissions.filter((mission) => {
+                const status = String(mission?.status || '').trim().toLowerCase();
+                return status === 'completed' || mission?.completed === true || mission?.done === true;
+            }).length;
+
+        const totalMissions = Number.isFinite(Number(progress.total ?? today.missionsTotal))
+            ? safeNumber(progress.total ?? today.missionsTotal)
+            : sourceMissions.length;
+
+        const streakDays = Math.max(0, safeNumber(home?.streakDays ?? today.streakDays ?? home?.transformationSystem?.currentStreak ?? 0));
+        const checkinCount = Array.isArray(home?.recentCheckins) ? home.recentCheckins.length : 0;
+        const completionRate = totalMissions > 0 ? Math.round((completedMissions / totalMissions) * 100) : 0;
+        const xp = Math.round((completedMissions * 50) + (Math.min(checkinCount, 60) * 20) + (streakDays * 25) + (completionRate >= 70 ? 120 : 0));
+        const rank = rankFromXp(xp);
+        const level = Math.max(1, Math.floor(xp / 350) + 1);
+        const span = Math.max(1, rank.nextXp - rank.minXp);
+        const rankProgress = rank.nextXp === rank.minXp ? 100 : Math.max(0, Math.min(100, Math.round(((xp - rank.minXp) / span) * 100)));
+
+        const player = {
+            name: 'You',
+            xp,
+            level,
+            rank: rank.label,
+            nextRank: rank.nextLabel,
+            nextXp: rank.nextXp,
+            rankProgress,
+            completedMissions,
+            totalMissions,
+            completionRate,
+            streakDays,
+            checkinCount,
+            helperScore: 0,
+            badge: streakDays >= 7 ? 'Consistency Builder' : completedMissions > 0 ? 'First Wins' : 'New Challenger'
+        };
+
+        return {
+            success: true,
+            version: 'academy-champions-v1-fallback',
+            player,
+            leaderboards: {
+                topBuilders: [{ ...player, position: 1, label: 'Your current execution score' }],
+                mostConsistent: [{ ...player, position: 1, label: streakDays > 0 ? `${streakDays} day streak` : 'Start with today’s check-in' }],
+                topHelpers: [{ ...player, position: 1, label: 'Helper score unlocks in Phase 2' }]
+            }
+        };
+    }
+
+    async function fetchChampions() {
+        const headers = { Accept: 'application/json' };
+        const token = getToken();
+
+        if (token) headers.Authorization = `Bearer ${token}`;
+
+        const response = await fetch('/api/academy/champions', {
+            method: 'GET',
+            credentials: 'include',
+            headers
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+            throw new Error(data?.message || 'Failed to load Academy Champions.');
+        }
+
+        return data;
+    }
+
+    function renderLeaderboardRows(items = [], type = 'builder') {
+        const safeItems = Array.isArray(items) ? items : [];
+
+        if (!safeItems.length) {
+            return '<div class="academy-champions-empty-v1">No champion data yet.</div>';
+        }
+
+        return safeItems.slice(0, 3).map((item, index) => {
+            const label = item.label || (type === 'helper' ? `${item.helperScore || 0} helper score` : `${item.xp || 0} XP`);
+
+            return `
+                <div class="academy-champions-row-v1">
+                    <span class="academy-champions-position-v1">#${safeText(item.position || index + 1)}</span>
+                    <span class="academy-champions-row-main-v1">
+                        <strong>${safeText(item.name || 'Academy Member')}</strong>
+                        <small>${safeText(label)}</small>
+                    </span>
+                    <span class="academy-champions-row-xp-v1">${safeText(item.xp || 0)} XP</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderChampionsBoard(data = null) {
+        const board = document.getElementById('leaderboard-list');
+        if (!board || renderLocked) return;
+
+        const payload = data || championsState || buildFallbackChampionsFromHome(
+            typeof readAcademyHomeCache === 'function' ? readAcademyHomeCache() : {}
+        );
+
+        if (!payload?.player) return;
+
+        const player = payload.player;
+        const progress = Math.max(0, Math.min(100, safeNumber(player.rankProgress)));
+
+        renderLocked = true;
+
+        board.classList.remove('academy-momentum-board-v96');
+        board.classList.add('academy-champions-board-v1');
+        board.setAttribute('data-yh-champions-board', 'v1');
+
+        board.innerHTML = `
+            <li class="academy-champions-card-v1">
+                <div class="academy-champions-head-v1">
+                    <span class="academy-champions-kicker-v1">ACADEMY QUEST LEAGUE</span>
+                    <strong>Lv. ${safeText(player.level || 1)}</strong>
+                </div>
+
+                <div class="academy-champions-rank-v1">
+                    <div>
+                        <span>Your Rank</span>
+                        <strong>${safeText(player.rank || 'Initiate')}</strong>
+                    </div>
+                    <em>${safeText(player.xp || 0)} XP</em>
+                </div>
+
+                <div class="academy-champions-track-v1" aria-hidden="true">
+                    <span style="width:${safeText(progress)}%;"></span>
+                </div>
+
+                <div class="academy-champions-next-v1">
+                    <span>Next Rank</span>
+                    <strong>${safeText(player.nextRank || 'Builder')}</strong>
+                </div>
+
+                <div class="academy-champions-stat-grid-v1">
+                    <div><span>Missions</span><strong>${safeText(player.completedMissions || 0)}/${safeText(player.totalMissions || 0)}</strong></div>
+                    <div><span>Streak</span><strong>${safeText(player.streakDays || 0)}D</strong></div>
+                    <div><span>Helper</span><strong>${safeText(player.helperScore || 0)}</strong></div>
+                </div>
+
+                <div class="academy-champions-badge-v1">
+                    <span>Badge</span>
+                    <strong>${safeText(player.badge || 'New Challenger')}</strong>
+                </div>
+
+                <div class="academy-champions-list-v1">
+                    <div class="academy-champions-list-title-v1">Top Builders</div>
+                    ${renderLeaderboardRows(payload.leaderboards?.topBuilders || [], 'builder')}
+
+                    <div class="academy-champions-list-title-v1">Most Consistent</div>
+                    ${renderLeaderboardRows(payload.leaderboards?.mostConsistent || [], 'consistent')}
+                </div>
+            </li>
+        `;
+
+        window.setTimeout(() => {
+            renderLocked = false;
+        }, 30);
+    }
+
+    async function syncChampionsBoard() {
+        try {
+            championsState = await fetchChampions();
+        } catch (error) {
+            const cachedHome = typeof readAcademyHomeCache === 'function' ? readAcademyHomeCache() : {};
+            championsState = buildFallbackChampionsFromHome(cachedHome || {});
+        }
+
+        renderChampionsBoard(championsState);
+    }
+
+    function scheduleSync(delay = 80) {
+        window.clearTimeout(window.__yhAcademyChampionsSystemTimerV1);
+        window.__yhAcademyChampionsSystemTimerV1 = window.setTimeout(syncChampionsBoard, delay);
+    }
+
+    window.yhSyncAcademyChampionsSystemV1 = syncChampionsBoard;
+    window.yhRenderAcademyChampionsBoardV1 = renderChampionsBoard;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => scheduleSync(120));
+    } else {
+        scheduleSync(120);
+    }
+
+    window.addEventListener('load', () => scheduleSync(180), { passive: true });
+    window.addEventListener('focus', () => scheduleSync(220), { passive: true });
+
+    ['click', 'academy:home-loaded', 'academy:mission-completed', 'academy:checkin-saved'].forEach((eventName) => {
+        document.addEventListener(eventName, () => scheduleSync(260), true);
+    });
+
+    [250, 700, 1400, 2600, 4200].forEach((delay) => {
+        window.setTimeout(() => scheduleSync(40), delay);
+    });
+
+    try {
+        const boardObserver = new MutationObserver(() => {
+            const board = document.getElementById('leaderboard-list');
+            if (!board || renderLocked) return;
+
+            if (board.getAttribute('data-yh-champions-board') !== 'v1') {
+                scheduleSync(60);
+            }
+        });
+
+        const startObserver = () => {
+            const board = document.getElementById('leaderboard-list');
+            if (board) {
+                boardObserver.observe(board, { childList: true, subtree: false, attributes: true, attributeFilter: ['data-yh-champions-board', 'class'] });
+            }
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startObserver);
+        } else {
+            startObserver();
+        }
+    } catch (_) {}
+})();
+/* END PATCH: Academy Champions System frontend v1 */
+
