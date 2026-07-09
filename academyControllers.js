@@ -2108,6 +2108,21 @@ function hasAcademyCoachSubscriberAccess(accessSnapshot = {}) {
     );
 }
 
+
+
+/* PATCH: Strict YHA Badge Learn From gate v1 */
+function hasAcademyCoachLearnFromAccess(accessSnapshot = {}) {
+    const userData = accessSnapshot?.userData && typeof accessSnapshot.userData === 'object'
+        ? accessSnapshot.userData
+        : {};
+
+    return (
+        isAcademyCoachYhaBadgeActive(userData) ||
+        isAcademyCoachDirectLearnFromAccessActive(userData.academyLearnFromAccess)
+    );
+}
+/* END PATCH: Strict YHA Badge Learn From gate v1 */
+
 function getAdaptiveTrendDirection(currentValue, previousValue, mode = 'higher') {
     if (
         previousValue === null ||
@@ -8669,7 +8684,15 @@ exports.chatWithAcademyCoach = async (req, res) => {
         if (!hasAcademyCoachSubscriberAccess(access)) {
             return res.status(403).json({
                 success: false,
-                message: 'Academy AI Coach is available to active Academy/YHA subscribers only.'
+                message: 'Academy AI Coach is available to active Academy users only.'
+            });
+        }
+
+        if (learnFromKey && !hasAcademyCoachLearnFromAccess(access)) {
+            return res.status(403).json({
+                success: false,
+                code: 'YHA_BADGE_REQUIRED_FOR_LEARN_FROM',
+                message: 'Learn From mode requires an active YHA Academy Verified Badge.'
             });
         }
 

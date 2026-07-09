@@ -31581,7 +31581,7 @@ function lockBotToVisibleBottom() {
     }
 
     function hasAcademyLearnFromAccess() {
-        return hasAcademyAiCoachSubscriberAccess();
+        return academyLearnFromAccess?.active === true || syncAcademyLearnFromAccessFromYhaBadge();
     }
 
     let academyYhaBadgePaymentProviderConfigCache = null;
@@ -32687,7 +32687,7 @@ function lockBotToVisibleBottom() {
         if (meta.key && !hasAcademyLearnFromAccess()) {
             select.value = '';
             select.classList.add('is-locked');
-            select.title = 'Specific Learn From modes unlock with an active YHA badge.';
+            select.title = 'Learn From modes unlock with an active YHA Academy Verified Badge.';
             return;
         }
 
@@ -32762,7 +32762,7 @@ function lockBotToVisibleBottom() {
                             </button>
                         </div>
 
-                        <div class="academy-ai-coach-learn-pay-status" id="${LEARN_FROM_PAY_STATUS_ID}">YHA badge subscription is required for Learn From mode.</div>
+                        <div class="academy-ai-coach-learn-pay-status" id="${LEARN_FROM_PAY_STATUS_ID}">Active YHA Academy Verified Badge is required for Learn From mode.</div>
                     </div>
                 </div>
             </div>
@@ -32905,7 +32905,7 @@ function lockBotToVisibleBottom() {
                 setStoredLearnFromKey('');
                 syncLearnFromSelect();
                 openLearnFromPayModal(learnFromMeta.key);
-                throw new Error('Only Accessible to Academy Subscribers.');
+                throw new Error('Learn From mode requires an active YHA Academy Verified Badge.');
             }
 
             const result = await coachFetch('/api/academy/assistant/chat', {
