@@ -9147,7 +9147,7 @@ const dashboardUnifiedWorkspaceCopy = {
         title: 'THE PLAZAS',
         intro: 'Feed, inbox, conversations, meetups, opportunities, directory, regions, atlas, patron tools, bridge, and requests.',
         eyebrow: 'Plazas Control',
-        headline: 'Select a Plazas section from the sidebar.',
+        headline: 'Your marketplace and networking layer.',
         body: 'Use the Plazas sidebar tabs to move across Feed, Inbox, Conversations, Meetups, Opportunities, Directory, Regions, Atlas, Patron tools, Bridge, and Requests inside the unified Dashboard shell.',
         focus: 'Plazas Access',
         mode: 'Movement Hub',
@@ -9316,7 +9316,7 @@ const dashboardUnifiedWorkspaceCopy = {
         title: 'THE FEDERATION',
         intro: 'Command, Connect, Deal Rooms, Directory, My Requests, Referrals, and My Access.',
         eyebrow: 'Federation Control',
-        headline: 'Select a Federation section from the sidebar.',
+        headline: 'Your strategic relationship layer.',
         body: 'Use the Federation sidebar tabs to move across Command, Connect, Deal Rooms, Directory, Requests, Referrals, and Access inside the unified Dashboard shell.',
         focus: 'Federation Access',
         mode: 'Strategic Network',
@@ -34840,4 +34840,328 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
     });
 })();
 /* END PATCH: Dashboard-only division parent routing v1 */
+
+
+/* PATCH: Dashboard division parent intros v1 */
+(function installDashboardDivisionParentIntrosV1() {
+    if (window.__yhDashboardDivisionParentIntrosV1Installed) return;
+    window.__yhDashboardDivisionParentIntrosV1Installed = true;
+
+    const INTRO_ID = 'yh-dashboard-division-parent-intro-v1';
+    const PARENT_KEYS = new Set(['academy', 'plazas', 'federation']);
+
+    const parentIntroConfig = {
+        academy: {
+            kicker: 'Academy Workspace',
+            title: 'The Academy',
+            headline: 'Execution, roadmap, missions, and self-improvement.',
+            body: 'Use the Academy as your guided execution layer. Build your roadmap, complete missions, join the community, message members, and enter live sessions without leaving the Dashboard.',
+            signal: 'Live Division',
+            status: 'Academy access controls Roadmap, Missions, Community, Messages, and Live Voice Lounge.',
+            icon: '/assets/academy/icons/academy-icon-roadmap.png',
+            children: [
+                { key: 'academy-roadmap', label: 'Roadmap', text: 'Build your execution path and next move.' },
+                { key: 'academy-missions', label: 'Missions', text: 'Work through lead missions and task flows.' },
+                { key: 'academy-community', label: 'Community Feed', text: 'Post, react, and build your Academy circle.' },
+                { key: 'academy-messages', label: 'Messages', text: 'Continue member conversations.' },
+                { key: 'academy-voice', label: 'Live Voice Lounge', text: 'Join live execution rooms.' }
+            ],
+            primary: { key: 'academy-roadmap', label: 'Open Roadmap' }
+        },
+        plazas: {
+            kicker: 'Plazas Workspace',
+            title: 'The Plazas',
+            headline: 'Application-gated marketplace and networking hub.',
+            body: 'Use the Plazas to discover opportunities, regional hubs, directories, bridge paths, requests, meetups, and member conversations. The parent tab introduces the division; child tabs open the active tools.',
+            signal: 'Strategic Review',
+            status: 'Plaza access unlocks Feed, Inbox, Conversations, Meetups, Opportunities, Directory, Regions, Atlas, Patron, Bridge, and Requests.',
+            icon: '/assets/academy/icons/academy-icon-community-feed.png',
+            children: [
+                { key: 'plazas-feed', label: 'Feed', text: 'See movement and marketplace updates.' },
+                { key: 'plazas-opportunities', label: 'Opportunities', text: 'Find services, offers, and monetization paths.' },
+                { key: 'plazas-directory', label: 'Directory', text: 'Search trusted members and operators.' },
+                { key: 'plazas-regions', label: 'Regions', text: 'Explore regional hubs and network routes.' },
+                { key: 'plazas-bridge', label: 'Bridge', text: 'Request bridge support and movement paths.' },
+                { key: 'plazas-requests', label: 'Requests', text: 'Track submitted Plaza requests.' }
+            ],
+            primary: { key: 'plazas-feed', label: 'Open Feed' }
+        },
+        federation: {
+            kicker: 'Federation Workspace',
+            title: 'The Federation',
+            headline: 'Selective strategic relationship network.',
+            body: 'Use the Federation for high-value relationships, verified introductions, deal rooms, protected directory access, requests, referrals, and long-term relationship capital.',
+            signal: 'Open Division',
+            status: 'Federation access controls Command, Connect, Deal Rooms, Directory, My Requests, Referrals, and My Access.',
+            icon: '/images/logo.avif',
+            children: [
+                { key: 'federation-command', label: 'Command', text: 'Review your Federation command layer.' },
+                { key: 'federation-connect', label: 'Connect', text: 'Request verified introductions.' },
+                { key: 'federation-deal-rooms', label: 'Deal Rooms', text: 'Enter strategic deal spaces.' },
+                { key: 'federation-directory', label: 'Directory', text: 'Browse approved Federation members.' },
+                { key: 'federation-requests', label: 'My Requests', text: 'Track access and intro requests.' },
+                { key: 'federation-access', label: 'My Access', text: 'Check your Federation access state.' }
+            ],
+            primary: { key: 'federation-command', label: 'Open Command' }
+        }
+    };
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return (
+            path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub'
+        );
+    }
+
+    function getCurrentWorkspace() {
+        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview')
+            .trim()
+            .toLowerCase() || 'overview';
+    }
+
+    function setVisible(node, visible, displayValue = '') {
+        if (!node) return;
+
+        node.classList.toggle('hidden-step', !visible);
+        node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+
+        if (visible) {
+            node.style.removeProperty('display');
+            if (displayValue) node.style.display = displayValue;
+            node.style.visibility = 'visible';
+            node.style.opacity = '1';
+            node.style.pointerEvents = 'auto';
+        } else {
+            node.style.display = 'none';
+            node.style.visibility = 'hidden';
+            node.style.opacity = '0';
+            node.style.pointerEvents = 'none';
+        }
+    }
+
+    function ensureIntroMount() {
+        let intro = document.getElementById(INTRO_ID);
+        if (intro) return intro;
+
+        intro = document.createElement('section');
+        intro.id = INTRO_ID;
+        intro.className = 'yh-dashboard-division-intro-v1 hidden-step';
+        intro.setAttribute('aria-hidden', 'true');
+
+        const commandHero = document.querySelector('.yh-universe-command-hero');
+        const overviewGrid = document.getElementById('yh-command-overview-grid');
+        const academyHero = document.querySelector('.yh-academy-parent-hero-header');
+        const commandHead = document.querySelector('.yh-command-dashboard-head');
+
+        if (commandHero?.parentElement) {
+            commandHero.insertAdjacentElement('afterend', intro);
+            return intro;
+        }
+
+        if (overviewGrid?.parentElement) {
+            overviewGrid.insertAdjacentElement('beforebegin', intro);
+            return intro;
+        }
+
+        if (academyHero?.parentElement) {
+            academyHero.insertAdjacentElement('afterend', intro);
+            return intro;
+        }
+
+        if (commandHead?.parentElement) {
+            commandHead.insertAdjacentElement('afterend', intro);
+            return intro;
+        }
+
+        const hub = document.getElementById('universe-hub-view') || document.querySelector('main') || document.body;
+        hub?.appendChild(intro);
+
+        return intro;
+    }
+
+    function escapeHtml(value = '') {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function renderIntro(workspaceKey) {
+        const config = parentIntroConfig[workspaceKey];
+        const intro = ensureIntroMount();
+
+        if (!config || !intro) {
+            setVisible(intro, false);
+            return;
+        }
+
+        const childCards = config.children.map((child) => `
+            <button type="button" class="yh-dashboard-division-child-card-v1" data-yh-division-intro-target="${escapeHtml(child.key)}">
+                <span>${escapeHtml(child.label)}</span>
+                <strong>${escapeHtml(child.text)}</strong>
+            </button>
+        `).join('');
+
+        intro.innerHTML = `
+            <div class="yh-dashboard-division-intro-hero-v1">
+                <div class="yh-dashboard-division-intro-copy-v1">
+                    <span class="yh-dashboard-division-intro-kicker-v1">${escapeHtml(config.kicker)}</span>
+                    <h2>${escapeHtml(config.title)}</h2>
+                    <h3>${escapeHtml(config.headline)}</h3>
+                    <p>${escapeHtml(config.body)}</p>
+
+                    <div class="yh-dashboard-division-intro-actions-v1">
+                        <button type="button" class="yh-dashboard-division-primary-btn-v1" data-yh-division-intro-target="${escapeHtml(config.primary.key)}">
+                            ${escapeHtml(config.primary.label)} →
+                        </button>
+                        <span>Use the sidebar child tabs for specific sections.</span>
+                    </div>
+                </div>
+
+                <div class="yh-dashboard-division-intro-signal-v1">
+                    <div class="yh-dashboard-division-intro-orb-v1">
+                        <img src="${escapeHtml(config.icon)}" alt="" loading="lazy" decoding="async">
+                    </div>
+                    <span>${escapeHtml(config.signal)}</span>
+                    <strong>${escapeHtml(config.status)}</strong>
+                </div>
+            </div>
+
+            <div class="yh-dashboard-division-child-grid-v1">
+                ${childCards}
+            </div>
+        `;
+
+        intro.querySelectorAll('[data-yh-division-intro-target]').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const target = String(button.getAttribute('data-yh-division-intro-target') || '').trim();
+
+                if (target && typeof window.activateDashboardUnifiedWorkspace === 'function') {
+                    window.activateDashboardUnifiedWorkspace(target, {
+                        animate: false,
+                        scroll: true,
+                        persist: true
+                    });
+                }
+            });
+        });
+
+        setVisible(intro, true, 'block');
+    }
+
+    function syncDashboardOverviewAndParentIntro(reason = 'sync') {
+        if (!isDashboardPage()) return;
+
+        const workspace = getCurrentWorkspace();
+        const isOverview = workspace === 'overview';
+        const isParent = PARENT_KEYS.has(workspace);
+
+        const intro = ensureIntroMount();
+
+        const overviewOnlyNodes = [
+            document.querySelector('.yh-command-dashboard-head'),
+            document.getElementById('yh-command-overview-grid'),
+            document.getElementById('yh-universe-academy-strip'),
+            document.getElementById('yh-universe-plaza-strip'),
+            document.getElementById('yh-universe-federation-strip')
+        ].filter(Boolean);
+
+        overviewOnlyNodes.forEach((node) => {
+            if (node.id === 'yh-universe-academy-strip' || node.id === 'yh-universe-plaza-strip' || node.id === 'yh-universe-federation-strip') {
+                node.classList.toggle('is-active', isOverview && node.id === 'yh-universe-academy-strip');
+            }
+
+            setVisible(node, isOverview, node.id === 'yh-command-overview-grid' ? 'grid' : 'block');
+        });
+
+        if (isParent) {
+            renderIntro(workspace);
+        } else {
+            setVisible(intro, false);
+        }
+
+        document.body?.classList.toggle('yh-dashboard-parent-intro-active-v1', isParent);
+        document.body?.classList.toggle('yh-dashboard-overview-command-active-v1', isOverview);
+
+        if (isParent) {
+            const division = workspace === 'plazas' ? 'plazas' : workspace === 'federation' ? 'federation' : 'academy';
+
+            try {
+                if (typeof setUniverseSlide === 'function') {
+                    setUniverseSlide(division, { animate: false });
+                }
+            } catch (_) {}
+        }
+
+        try {
+            if (typeof window.yhNormalizeDashboardEntryButtonsParentOnlyV1 === 'function') {
+                window.yhNormalizeDashboardEntryButtonsParentOnlyV1();
+            }
+        } catch (_) {}
+    }
+
+    const nativeActivate = window.activateDashboardUnifiedWorkspace;
+
+    if (typeof nativeActivate === 'function' && nativeActivate.__yhParentIntroWrappedV1 !== true) {
+        const wrapped = function activateDashboardUnifiedWorkspaceWithParentIntroV1(key = 'overview', options = {}) {
+            const result = nativeActivate.call(this, key, options);
+
+            window.setTimeout(() => syncDashboardOverviewAndParentIntro('activate-fast'), 0);
+            window.setTimeout(() => syncDashboardOverviewAndParentIntro('activate-mid'), 80);
+            window.setTimeout(() => syncDashboardOverviewAndParentIntro('activate-late'), 360);
+
+            return result;
+        };
+
+        wrapped.__yhParentIntroWrappedV1 = true;
+        window.activateDashboardUnifiedWorkspace = wrapped;
+    }
+
+    document.addEventListener('click', (event) => {
+        const parentButton = event.target?.closest?.('[data-yh-dashboard-shell="academy"], [data-yh-dashboard-shell="plazas"], [data-yh-dashboard-shell="federation"]');
+
+        if (!parentButton) return;
+
+        window.setTimeout(() => syncDashboardOverviewAndParentIntro('parent-click'), 0);
+        window.setTimeout(() => syncDashboardOverviewAndParentIntro('parent-click-late'), 140);
+    }, true);
+
+    window.yhSyncDashboardOverviewAndParentIntroV1 = syncDashboardOverviewAndParentIntro;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => syncDashboardOverviewAndParentIntro('dom'));
+    } else {
+        syncDashboardOverviewAndParentIntro('boot');
+    }
+
+    [60, 180, 500, 1100, 2200, 4200].forEach((delay) => {
+        window.setTimeout(() => syncDashboardOverviewAndParentIntro('timer-' + delay), delay);
+    });
+
+    try {
+        const observer = new MutationObserver(() => {
+            window.clearTimeout(window.__yhDashboardDivisionIntroSyncTimerV1);
+            window.__yhDashboardDivisionIntroSyncTimerV1 = window.setTimeout(() => {
+                syncDashboardOverviewAndParentIntro('mutation');
+            }, 30);
+        });
+
+        observer.observe(document.body || document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-yh-unified-workspace', 'data-yh-unified-division', 'class'],
+            childList: true,
+            subtree: true
+        });
+
+        window.__yhDashboardDivisionIntroObserverV1 = observer;
+    } catch (_) {}
+})();
+/* END PATCH: Dashboard division parent intros v1 */
 
