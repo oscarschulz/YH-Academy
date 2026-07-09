@@ -15792,3 +15792,77 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   }
   /* END PATCH: Academy Champions System styles v1 */
 
+
+  /* PATCH: Academy Champions sidebar overlap fix v1 */
+  body[data-yh-view="academy"] #academy-sidebar #nav-missions {
+    min-width: 0;
+    overflow: visible;
+  }
+
+  body[data-yh-view="academy"] #academy-sidebar #nav-missions .sidebar-text-group {
+    min-width: 0;
+    width: 100%;
+    display: grid;
+    gap: 4px;
+    align-content: center;
+    justify-items: start;
+    overflow: visible;
+  }
+
+  body[data-yh-view="academy"] #academy-sidebar #nav-missions .sidebar-text {
+    min-width: 0;
+    max-width: 100%;
+    line-height: 1.05;
+  }
+
+  body[data-yh-view="academy"] #academy-sidebar #roadmap-tab-state-badge {
+    position: static;
+    transform: none;
+    max-width: 100%;
+    min-width: 0;
+    width: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    font-size: clamp(0.56rem, 0.62vw, 0.68rem);
+    line-height: 1;
+    letter-spacing: 0.08em;
+    padding: 4px 7px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-stat-grid-v1 {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-stat-grid-v1 div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-stat-grid-v1 span {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    letter-spacing: 0.08em;
+    font-size: 0.68rem;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-stat-grid-v1 strong {
+    flex: 0 0 auto;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-card-v1 {
+    overflow: visible;
+  }
+  /* END PATCH: Academy Champions sidebar overlap fix v1 */
+
