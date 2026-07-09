@@ -10251,8 +10251,15 @@ function openAcademyRoadmapView(forceFresh = false) {
 
     Promise.resolve(loadAcademyHome(forceFresh))
         .catch((error) => {
-            console.error('loadAcademyHome error:', error);
-            showToast(error?.message || 'Failed to load roadmap.', 'error');
+            const message = String(error?.message || '').trim();
+            const isNoActiveRoadmap =
+                /no active academy roadmap yet/i.test(message) ||
+                /no active roadmap/i.test(message);
+
+            if (!isNoActiveRoadmap) {
+                console.error('loadAcademyHome error:', error);
+                showToast(message || 'Failed to load roadmap.', 'error');
+            }
         })
         .finally(() => {
             hideAcademyTabLoader();
@@ -23261,11 +23268,47 @@ async function loadAcademyHome(forceFresh = false) {
         renderAcademyHome(result);
         return result;
     } catch (error) {
+        const message = String(error?.message || '').trim();
+        const isNoActiveRoadmap =
+            /no active academy roadmap yet/i.test(message) ||
+            /no active roadmap/i.test(message);
+
         if (!cachedHome) {
+            if (isNoActiveRoadmap) {
+                const fallbackHome = {
+                    success: true,
+                    emptyRoadmap: true,
+                    roadmapPending: true,
+                    message: 'Roadmap setup is unlocked. Your first active roadmap is still being prepared.',
+                    progress: {
+                        completed: 0,
+                        total: 0,
+                        completionRate: 0
+                    },
+                    today: {
+                        missionsCompleted: 0,
+                        missionsTotal: 0,
+                        streakDays: 0
+                    },
+                    missions: [],
+                    allMissions: [],
+                    recentCheckins: [],
+                    transformationSystem: {
+                        currentStreak: 0,
+                        completedMissions: 0,
+                        totalMissions: 0
+                    }
+                };
+
+                renderAcademyHome(fallbackHome);
+                return fallbackHome;
+            }
+
             renderAcademyHome();
-            showToast(error.message || "Failed to load Academy home.", "error");
+            showToast(message || "Failed to load Academy home.", "error");
         }
-        return null;
+
+        return cachedHome || null;
     }
 }
 if (

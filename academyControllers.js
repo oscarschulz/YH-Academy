@@ -3315,9 +3315,29 @@ exports.getAcademyHome = async (req, res) => {
         const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid);
 
         if (!homePayload) {
-            return res.status(404).json({
-                success: false,
-                message: 'No active Academy roadmap yet.'
+            return res.json({
+                success: true,
+                emptyRoadmap: true,
+                roadmapPending: true,
+                message: 'Roadmap setup is unlocked. Your first active roadmap is still being prepared.',
+                progress: {
+                    completed: 0,
+                    total: 0,
+                    completionRate: 0
+                },
+                today: {
+                    missionsCompleted: 0,
+                    missionsTotal: 0,
+                    streakDays: 0
+                },
+                missions: [],
+                allMissions: [],
+                recentCheckins: [],
+                transformationSystem: {
+                    currentStreak: 0,
+                    completedMissions: 0,
+                    totalMissions: 0
+                }
             });
         }
 
@@ -3345,9 +3365,12 @@ exports.getActiveRoadmap = async (req, res) => {
         const roadmap = await academyFirestoreRepo.getActiveRoadmap(uid);
 
         if (!roadmap) {
-            return res.status(404).json({
-                success: false,
-                message: 'No active roadmap found.'
+            return res.json({
+                success: true,
+                emptyRoadmap: true,
+                roadmapPending: true,
+                message: 'Roadmap setup is unlocked. Your first active roadmap is still being prepared.',
+                roadmap: null
             });
         }
 
