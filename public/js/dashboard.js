@@ -24283,10 +24283,14 @@ async function deleteDashboardAccountWithPassword(button = null) {
     if (!confirmed) return;
 
     await runDashboardButtonAction(button, 'Deleting Account.', async () => {
-        const result = await academyAuthedFetch('/api/account', {
+        const result = await academyAuthedFetch('/api/account?confirmation=DELETE', {
             method: 'DELETE',
+            headers: {
+                'X-YH-Delete-Confirmation': 'DELETE'
+            },
             body: JSON.stringify({
-                confirmation: 'DELETE'
+                confirmation: 'DELETE',
+                deleteConfirmation: 'DELETE'
             })
         });
 
@@ -24296,11 +24300,13 @@ async function deleteDashboardAccountWithPassword(button = null) {
 
         clearDashboardDeletedAccountClientState();
 
-        showToast('Account deleted.', 'success');
+        try {
+            showToast('Account deleted.', 'success');
+        } catch (_) {}
 
         window.setTimeout(() => {
-            window.location.replace('/');
-        }, 500);
+            window.location.replace('/?accountDeleted=1');
+        }, 250);
     });
 }
 const YH_DASHBOARD_PROFILE_HISTORY_LAYER = 'yh-dashboard-profile-layer';

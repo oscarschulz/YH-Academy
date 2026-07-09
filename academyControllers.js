@@ -6100,25 +6100,19 @@ exports.deleteCurrentAccount = async (req, res) => {
             });
         }
 
-        const confirmation = String(req.body?.confirmation || '').trim();
+        const confirmation = String(
+            req.body?.confirmation ||
+            req.body?.deleteConfirmation ||
+            req.query?.confirmation ||
+            req.headers?.['x-yh-delete-confirmation'] ||
+            ''
+        ).trim();
 
         if (confirmation !== 'DELETE') {
             return res.status(400).json({
                 success: false,
+                code: 'DELETE_CONFIRMATION_REQUIRED',
                 message: 'Type DELETE to confirm account deletion.'
-            });
-        }
-
-        const password = String(
-            req.body?.password ||
-            req.body?.currentPassword ||
-            ''
-        );
-
-        if (!password.trim()) {
-            return res.status(400).json({
-                success: false,
-                message: 'Account password is required.'
             });
         }
 
@@ -6126,35 +6120,41 @@ exports.deleteCurrentAccount = async (req, res) => {
         const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
 
         if (!userSnapshot.exists) {
-            return res.status(404).json({
-                success: false,
-                message: 'User account not found.'
+            res.setHeader('Set-Cookie', buildExpiredAuthCookie());
+
+            return res.json({
+                success: true,
+                deleted: true,
+                alreadyDeleted: true,
+                accountDeleted: true,
+                uid,
+                message: 'Account already deleted.'
             });
         }
 
         const userData = userSnapshot.data() || {};
-        const passwordHash = String(userData.password || userData.passwordHash || '');
+        const email = userData.email || userData.emailLower || userData.userEmail || '';
 
-        if (!passwordHash) {
-            return res.status(400).json({
-                success: false,
-                message: 'This account does not have a password configured.'
+        let supabaseCleanupResult = {
+            cleaned: false,
+            skipped: true,
+            reason: 'not_started'
+        };
+
+        try {
+            supabaseCleanupResult = await cleanupYHUSupabaseAccountArtifacts({
+                uid,
+                email
             });
+        } catch (cleanupError) {
+            console.warn('deleteCurrentAccount Supabase cleanup skipped:', cleanupError?.message || cleanupError);
+
+            supabaseCleanupResult = {
+                cleaned: false,
+                skipped: true,
+                warning: cleanupError?.message || String(cleanupError || 'Supabase cleanup failed')
+            };
         }
-
-        const passwordMatches = await bcrypt.compare(password, passwordHash).catch(() => false);
-
-        if (!passwordMatches) {
-            return res.status(403).json({
-                success: false,
-                message: 'Incorrect account password.'
-            });
-        }
-
-        const supabaseCleanupResult = await cleanupYHUSupabaseAccountArtifacts({
-            uid,
-            email: userData.email || userData.emailLower || userData.userEmail || ''
-        });
 
         const deletionResult = await hardDeleteUserAccountFromFirestore(userRef);
 
@@ -6164,6 +6164,7 @@ exports.deleteCurrentAccount = async (req, res) => {
             success: true,
             deleted: true,
             hardDeleted: true,
+            accountDeleted: true,
             uid,
             deletion: deletionResult,
             supabaseCleanup: supabaseCleanupResult,
