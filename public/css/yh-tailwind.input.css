@@ -16741,3 +16741,28 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   }
   /* END PATCH: Dashboard overview cleanup dynamic access row styles v1 */
 
+
+  /* PATCH: Dashboard persistent overview state styles v2 */
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"]
+    .yh-dashboard-overview-force-hidden-v2 {
+    display: none;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"]
+    #yh-dashboard-division-parent-intro-v1,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"]
+    .yh-dashboard-division-intro-v1,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"]
+    .yh-dashboard-division-child-grid-v1,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"]
+    .yh-academy-parent-hero-header,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"]
+    .yh-academy-parent-vision-scope {
+    display: none;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  /* END PATCH: Dashboard persistent overview state styles v2 */
+

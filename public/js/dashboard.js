@@ -35605,7 +35605,7 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 
         const hardSelectors = [
             '.yh-academy-parent-hero-header',
-            '#yh-dashboard-division-parent-intro-v1',
+            '#yh-dashboard-division-parent-intro-v1, #yh-dashboard-division-parent-intro-v1',
             '.yh-dashboard-division-child-grid-v1'
         ];
 
@@ -35740,4 +35740,297 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
     } catch (_) {}
 })();
 /* END PATCH: Dashboard overview cleanup dynamic access row v1 */
+
+
+/* PATCH: Dashboard persistent overview state v2 */
+(function installDashboardPersistentOverviewStateV2() {
+    if (window.__yhDashboardPersistentOverviewStateV2Installed) return;
+    window.__yhDashboardPersistentOverviewStateV2Installed = true;
+
+    const OVERVIEW_ONLY_VISIBLE_IDS = new Set([
+        'yh-dashboard-overview-dynamic-access-row-v1',
+        'yh-command-overview-grid'
+    ]);
+
+    const HIDDEN_CLASS = 'yh-dashboard-overview-force-hidden-v2';
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return (
+            path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub'
+        );
+    }
+
+    function getWorkspace() {
+        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview')
+            .trim()
+            .toLowerCase() || 'overview';
+    }
+
+    function isOverview() {
+        return getWorkspace() === 'overview';
+    }
+
+    function hideNode(node) {
+        if (!node || !(node instanceof HTMLElement)) return;
+
+        node.classList.add('hidden-step');
+        node.classList.add(HIDDEN_CLASS);
+        node.setAttribute('aria-hidden', 'true');
+        node.dataset.yhDashboardOverviewForcedHiddenV2 = 'true';
+        node.style.display = 'none';
+        node.style.visibility = 'hidden';
+        node.style.pointerEvents = 'none';
+    }
+
+    function showNode(node, displayValue = '') {
+        if (!node || !(node instanceof HTMLElement)) return;
+
+        node.classList.remove(HIDDEN_CLASS);
+        node.removeAttribute('data-yh-dashboard-overview-forced-hidden-v2');
+        node.setAttribute('aria-hidden', 'false');
+
+        if (!node.classList.contains('hidden-step')) {
+            node.style.removeProperty('display');
+            node.style.removeProperty('visibility');
+            node.style.removeProperty('pointer-events');
+            return;
+        }
+
+        node.classList.remove('hidden-step');
+        node.style.removeProperty('display');
+        node.style.removeProperty('visibility');
+        node.style.removeProperty('pointer-events');
+
+        if (displayValue) node.style.display = displayValue;
+    }
+
+    function closestSafeSection(node) {
+        if (!node || !(node instanceof HTMLElement)) return null;
+
+        const protectedIds = new Set([
+            'universe-hub-view',
+            'yh-command-overview-grid',
+            'yh-dashboard-overview-dynamic-access-row-v1'
+        ]);
+
+        let current = node;
+
+        while (current && current !== document.body) {
+            if (protectedIds.has(current.id)) return node;
+            if (
+                current.matches?.(
+                    '#yh-dashboard-division-parent-intro-v1, ' +
+                    '.yh-dashboard-division-intro-v1, ' +
+                    '.yh-dashboard-division-intro-hero-v1, ' +
+                    '.yh-dashboard-division-child-grid-v1, ' +
+                    '.yh-academy-parent-hero-header, ' +
+                    '.yh-academy-parent-vision-scope, ' +
+                    '.yh-universe-command-hero, ' +
+                    '.yh-universe-stage-nav, ' +
+                    'section, article'
+                )
+            ) {
+                return current;
+            }
+
+            current = current.parentElement;
+        }
+
+        return node;
+    }
+
+    function forceHideParentIntroArtifactsOnOverview() {
+        if (!isDashboardPage() || !isOverview()) return;
+
+        const directSelectors = [
+            '#yh-dashboard-division-parent-intro-v1',
+            '.yh-dashboard-division-intro-v1',
+            '.yh-dashboard-division-intro-hero-v1',
+            '.yh-dashboard-division-child-grid-v1',
+            '.yh-academy-parent-hero-header',
+            '.yh-academy-parent-vision-scope'
+        ];
+
+        directSelectors.forEach((selector) => {
+            document.querySelectorAll(selector).forEach((node) => {
+                hideNode(closestSafeSection(node));
+            });
+        });
+
+        const staleTextPatterns = [
+            /\bacademy workspace\b/i,
+            /\bthe academy\b[\s\S]{0,160}\bexecution, roadmap, missions/i,
+            /\byour execution and self-improvement layer\b/i,
+            /\broadmap\b[\s\S]{0,80}\bbuild your execution path and next move\b/i,
+            /\bmissions\b[\s\S]{0,80}\bwork through lead missions and task flows\b/i,
+            /\bcommunity feed\b[\s\S]{0,100}\bpost, react, and build your academy circle\b/i,
+            /\bmessages\b[\s\S]{0,80}\bcontinue member conversations\b/i,
+            /\blive voice lounge\b[\s\S]{0,80}\bjoin live execution rooms\b/i,
+            /\bacademy access\b[\s\S]{0,180}\baccess not applied\b/i
+        ];
+
+        Array.from(document.querySelectorAll('section, article, div'))
+            .filter((node) => node instanceof HTMLElement)
+            .filter((node) => {
+                if (OVERVIEW_ONLY_VISIBLE_IDS.has(node.id)) return false;
+                if (node.closest?.('#yh-dashboard-overview-dynamic-access-row-v1')) return false;
+                if (node.closest?.('#yh-command-overview-grid')) return false;
+
+                const text = String(node.textContent || '').replace(/\s+/g, ' ').trim();
+                if (!text || text.length > 2200) return false;
+
+                return staleTextPatterns.some((pattern) => pattern.test(text));
+            })
+            .forEach((node) => {
+                const target = closestSafeSection(node);
+                if (!target || target.id === 'universe-hub-view') return;
+                hideNode(target);
+            });
+
+        const intro = document.getElementById('yh-dashboard-division-parent-intro-v1');
+        if (intro) hideNode(intro);
+
+        const row = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
+        if (row) showNode(row, 'grid');
+
+        const overviewGrid = document.getElementById('yh-command-overview-grid');
+        if (overviewGrid) {
+            showNode(overviewGrid, 'grid');
+        }
+    }
+
+    function restoreParentIntroWhenNotOverview() {
+        if (!isDashboardPage() || isOverview()) return;
+
+        document.querySelectorAll('.' + HIDDEN_CLASS).forEach((node) => {
+            const id = node.id || '';
+
+            if (
+                id === 'yh-dashboard-overview-dynamic-access-row-v1' ||
+                id === 'yh-command-overview-grid'
+            ) {
+                hideNode(node);
+                return;
+            }
+
+            if (
+                node.matches?.(
+                    '#yh-dashboard-division-parent-intro-v1, ' +
+                    '.yh-dashboard-division-intro-v1, ' +
+                    '.yh-dashboard-division-intro-hero-v1, ' +
+                    '.yh-dashboard-division-child-grid-v1'
+                )
+            ) {
+                showNode(node);
+            }
+        });
+
+        const row = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
+        if (row) hideNode(row);
+    }
+
+    function enforceDashboardPersistentOverviewState(reason = 'sync') {
+        if (!isDashboardPage()) return;
+
+        if (isOverview()) {
+            document.body?.classList.add('yh-dashboard-overview-clean-v2');
+            document.body?.classList.remove('yh-dashboard-parent-intro-clean-v2');
+
+            forceHideParentIntroArtifactsOnOverview();
+
+            try {
+                if (typeof window.yhRenderDashboardOverviewDynamicAccessRowV1 === 'function') {
+                    window.yhRenderDashboardOverviewDynamicAccessRowV1();
+                }
+            } catch (_) {}
+
+            window.setTimeout(forceHideParentIntroArtifactsOnOverview, 0);
+            window.setTimeout(forceHideParentIntroArtifactsOnOverview, 90);
+            window.setTimeout(forceHideParentIntroArtifactsOnOverview, 280);
+            window.setTimeout(forceHideParentIntroArtifactsOnOverview, 700);
+            return;
+        }
+
+        document.body?.classList.remove('yh-dashboard-overview-clean-v2');
+        document.body?.classList.add('yh-dashboard-parent-intro-clean-v2');
+        restoreParentIntroWhenNotOverview();
+    }
+
+    const nativeActivate = window.activateDashboardUnifiedWorkspace;
+
+    if (typeof nativeActivate === 'function' && nativeActivate.__yhPersistentOverviewStateWrappedV2 !== true) {
+        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspacePersistentOverviewV2(key = 'overview', options = {}) {
+            const result = nativeActivate.call(this, key, options);
+
+            window.setTimeout(() => enforceDashboardPersistentOverviewState('activate-0'), 0);
+            window.setTimeout(() => enforceDashboardPersistentOverviewState('activate-80'), 80);
+            window.setTimeout(() => enforceDashboardPersistentOverviewState('activate-240'), 240);
+            window.setTimeout(() => enforceDashboardPersistentOverviewState('activate-700'), 700);
+
+            return result;
+        };
+
+        wrappedActivateDashboardUnifiedWorkspace.__yhPersistentOverviewStateWrappedV2 = true;
+        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
+    }
+
+    document.addEventListener('click', (event) => {
+        const dashboardButton = event.target?.closest?.(
+            '[data-yh-dashboard-shell="overview"], ' +
+            '[data-yh-sidebar-child="overview"], ' +
+            '[data-yh-command-overview-open="overview"], ' +
+            '#nav-dashboard, ' +
+            '#btn-dashboard-overview'
+        );
+
+        if (!dashboardButton) return;
+
+        window.setTimeout(() => enforceDashboardPersistentOverviewState('dashboard-click-0'), 0);
+        window.setTimeout(() => enforceDashboardPersistentOverviewState('dashboard-click-120'), 120);
+        window.setTimeout(() => enforceDashboardPersistentOverviewState('dashboard-click-420'), 420);
+        window.setTimeout(() => enforceDashboardPersistentOverviewState('dashboard-click-900'), 900);
+    }, true);
+
+    window.yhEnforceDashboardPersistentOverviewStateV2 = enforceDashboardPersistentOverviewState;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => enforceDashboardPersistentOverviewState('dom'));
+    } else {
+        enforceDashboardPersistentOverviewState('boot');
+    }
+
+    [60, 180, 420, 900, 1600, 2600, 4200].forEach((delay) => {
+        window.setTimeout(() => enforceDashboardPersistentOverviewState('timer-' + delay), delay);
+    });
+
+    try {
+        const observer = new MutationObserver(() => {
+            if (!isDashboardPage()) return;
+
+            window.clearTimeout(window.__yhDashboardPersistentOverviewStateTimerV2);
+            window.__yhDashboardPersistentOverviewStateTimerV2 = window.setTimeout(() => {
+                enforceDashboardPersistentOverviewState('mutation');
+            }, 35);
+        });
+
+        observer.observe(document.body || document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: [
+                'class',
+                'style',
+                'data-yh-unified-workspace',
+                'data-yh-unified-division',
+                'aria-hidden'
+            ]
+        });
+
+        window.__yhDashboardPersistentOverviewStateObserverV2 = observer;
+    } catch (_) {}
+})();
+/* END PATCH: Dashboard persistent overview state v2 */
 
