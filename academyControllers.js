@@ -1887,15 +1887,41 @@ function isRoadmapApplicationAutoUnlockedV1(roadmapApplication = null) {
         roadmapApplication.reviewStatus ||
         roadmapApplication.roadmapStatus ||
         ''
-    ).toLowerCase();
+    )
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ')
+        .trim();
 
-    return (
+    const blockedStatuses = new Set([
+        'rejected',
+        'declined',
+        'denied',
+        'cancelled',
+        'canceled'
+    ]);
+
+    if (blockedStatuses.has(status)) return false;
+
+    /*
+      Roadmap is now an intake/setup form, not a second admin-approval gate.
+      Once an Academy-approved user has submitted a roadmap application/intake,
+      the roadmap should be treated as unlocked.
+    */
+    if (
         status === 'approved' ||
         status === 'active' ||
         status === 'unlocked' ||
-        status === 'auto-approved' ||
-        status === 'auto_approved'
-    );
+        status === 'auto approved' ||
+        status === 'submitted' ||
+        status === 'pending' ||
+        status === 'under review' ||
+        status === 'in review' ||
+        status === 'waiting'
+    ) {
+        return true;
+    }
+
+    return Object.keys(roadmapApplication || {}).length > 0;
 }
 
 async function ensureRoadmapAccessUnlockedFromApprovedApplicationV1(uid = '', roadmapApplication = null) {
@@ -1978,7 +2004,18 @@ async function requireApprovedRoadmapAccess(uid, res) {
     const snapshot = await requireApprovedAcademyMembership(uid, res);
     if (!snapshot) return null;
 
-    if (!snapshot.hasRoadmapAccess) {
+    const userData = snapshot.userData && typeof snapshot.userData === 'object'
+        ? snapshot.userData
+        : {};
+
+    const directRoadmapAccess =
+        snapshot.hasRoadmapAccess === true ||
+        userData.hasRoadmapAccess === true ||
+        userData.academyRoadmapAccess === true ||
+        sanitize(userData.roadmapAccessStatus).toLowerCase() === 'unlocked' ||
+        isRoadmapApplicationAutoUnlockedV1(snapshot.roadmapApplication || userData.roadmapApplication);
+
+    if (!directRoadmapAccess) {
         res.status(403).json({
             success: false,
             message: 'Roadmap access not approved yet.'
@@ -1986,7 +2023,19 @@ async function requireApprovedRoadmapAccess(uid, res) {
         return null;
     }
 
-    return snapshot;
+    if (snapshot.hasRoadmapAccess !== true) {
+        try {
+            await academyFirestoreRepo.setAccessUnlocked(uid);
+            snapshot.hasRoadmapAccess = true;
+        } catch (error) {
+            console.warn('Roadmap access self-heal from require gate skipped:', error?.message || error);
+        }
+    }
+
+    return {
+        ...snapshot,
+        hasRoadmapAccess: true
+    };
 }
 
 function normalizeAcademyCoachAccessStatus(value = '') {
@@ -6348,10 +6397,64 @@ exports.submitRoadmapApplication = async (req, res) => {
                 : null;
 
         if (existingRoadmapApplication) {
-            return res.json({
-                success: true,
-                alreadyExists: true,
-                roadmapApplication: existingRoadmapApplication
+            const existingStatus = sanitize(existingRoadmapApplication.status || existingRoadmapApplication.reviewStatus || '').toLowerCase();
+
+            if (!['rejected', 'declined', 'denied', 'cancelled', 'canceled'].includes(existingStatus)) {
+                const nowIso = new Date().toISOString();
+                const unlockedRoadmapApplication = {
+                    ...existingRoadmapApplication,
+                    status: 'Approved',
+                    reviewedAt: existingRoadmapApplication.reviewedAt || nowIso,
+                    reviewedBy: existingRoadmapApplication.reviewedBy || 'system:auto-unlock',
+                    updatedAt: nowIso,
+                    notes: Array.isArray(existingRoadmapApplication.notes)
+                        ? [
+                            ...existingRoadmapApplication.notes,
+                            'Roadmap access auto-unlocked because Roadmap is an intake/setup flow.'
+                        ]
+                        : ['Roadmap access auto-unlocked because Roadmap is an intake/setup flow.']
+                };
+
+                await academyFirestoreRepo.setAccessUnlocked(uid);
+
+                await userRef.set(
+                    {
+                        roadmapApplication: unlockedRoadmapApplication,
+                        roadmapApplicationStatus: 'Approved',
+                        hasRoadmapAccess: true,
+                        roadmapAccessStatus: 'unlocked',
+                        academyRoadmapAccess: true,
+                        roadmapUnlockedAt: nowIso,
+                        updatedAt: nowIso
+                    },
+                    { merge: true }
+                );
+
+                try {
+                    await syncAcademyYhuUserToSupabase(userRef, 'academy:roadmap-existing-auto-unlock');
+                } catch (syncError) {
+                    console.warn('existing roadmap yhu_users sync skipped:', syncError?.message || syncError);
+                }
+
+                try {
+                    await syncAcademyMemberProfileFromFirestoreUserRef(uid, userRef);
+                } catch (syncError) {
+                    console.warn('existing roadmap member profile sync skipped:', syncError?.message || syncError);
+                }
+
+                return res.json({
+                    success: true,
+                    alreadyExists: true,
+                    roadmapApplication: unlockedRoadmapApplication,
+                    hasRoadmapAccess: true,
+                    roadmapAccessStatus: 'unlocked',
+                    message: 'Roadmap setup already exists. Roadmap access is unlocked.'
+                });
+            }
+
+            return res.status(403).json({
+                success: false,
+                message: 'Your previous roadmap setup was not approved. Please contact support.'
             });
         }
 
@@ -10172,22 +10275,29 @@ exports.getAcademyChampions = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
 
-        const access = await requireApprovedRoadmapAccess(uid, res);
+        /*
+          Champions is a game/progress surface. It should be visible to
+          Academy-approved users even while Roadmap setup is being initialized.
+          Do not hard-block it behind the Roadmap access gate.
+        */
+        const access = await requireApprovedAcademyMembership(uid, res);
         if (!access) return;
 
         const [homePayload, profile] = await Promise.all([
-            academyFirestoreRepo.buildAcademyHomePayload(uid),
+            academyFirestoreRepo.buildAcademyHomePayload(uid).catch((error) => {
+                console.warn('Academy Champions home fallback:', error?.message || error);
+                return null;
+            }),
             academyFirestoreRepo.getCurrentProfile(uid).catch(() => null)
         ]);
 
-        if (!homePayload) {
-            return res.status(404).json({
-                success: false,
-                message: 'No active Academy roadmap yet.'
-            });
-        }
-
-        return res.json(buildAcademyChampionsPayloadV1(uid, homePayload, profile || {}));
+        return res.json(
+            buildAcademyChampionsPayloadV1(
+                uid,
+                homePayload || {},
+                profile || access.userData || {}
+            )
+        );
     } catch (error) {
         console.error('Academy Champions Error:', error);
         return res.status(500).json({

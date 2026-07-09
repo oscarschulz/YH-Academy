@@ -35650,7 +35650,10 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         const data = await response.json().catch(() => null);
 
         if (!response.ok || !data?.success) {
-            throw new Error(data?.message || 'Failed to load Academy Champions.');
+            const error = new Error(data?.message || 'Failed to load Academy Champions.');
+            error.status = response.status;
+            error.silent = response.status === 403;
+            throw error;
         }
 
         return data;
@@ -35945,7 +35948,10 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         const data = await response.json().catch(() => null);
 
         if (!response.ok || !data?.success) {
-            throw new Error(data?.message || 'Unable to load Academy Quest League.');
+            const error = new Error(data?.message || 'Unable to load Academy Quest League.');
+            error.status = response.status;
+            error.silent = response.status === 403;
+            throw error;
         }
 
         return data;
