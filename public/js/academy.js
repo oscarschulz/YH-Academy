@@ -9686,6 +9686,103 @@ function academyBuildRoadmapTabbedShellFromCurrentDom() {
 
     academySetRoadmapInnerTab(academyGetSavedRoadmapInnerTab());
 }
+
+
+/* PATCH: Academy roadmap no-access apply state v1 */
+function shouldShowAcademyRoadmapApplyStateAfterClose() {
+    try {
+        const snapshot = typeof readAcademyMembershipCache === 'function'
+            ? readAcademyMembershipCache()
+            : null;
+
+        const membershipStatus = String(snapshot?.applicationStatus || '').trim().toLowerCase();
+        const hasRoadmapAccess = snapshot?.hasRoadmapAccess === true;
+
+        return membershipStatus === 'approved' && !hasRoadmapAccess;
+    } catch (_) {
+        return false;
+    }
+}
+
+function showAcademyRoadmapApplyState(snapshot = null) {
+    academyResetCoachMode();
+    hideAcademyViewsForFeed();
+    setAcademySidebarActive('nav-missions');
+    academySetMessagesChatMode('home');
+
+    const academyChat = document.getElementById('academy-chat');
+    const chatHeaderTitle = document.getElementById('chat-header-title');
+    const chatHeaderTopic = document.getElementById('chat-header-topic');
+    const chatWelcomeBox = document.getElementById('chat-welcome-box');
+    const chatPinnedMessage = document.getElementById('chat-pinned-message');
+    const dynamicChatContainer = document.getElementById('dynamic-chat-history');
+
+    if (academyChat) {
+        academyChat.classList.remove('hidden-step');
+        academyChat.classList.remove('fade-in');
+        void academyChat.offsetWidth;
+        academyChat.classList.add('fade-in');
+    }
+
+    if (typeof academySetRoadmapHeader === 'function') {
+        academySetRoadmapHeader();
+    } else if (chatHeaderTitle) {
+        chatHeaderTitle.textContent = 'Roadmap';
+    }
+
+    if (chatHeaderTopic) {
+        chatHeaderTopic.textContent = 'Apply for Roadmap access to unlock your AI-guided missions and execution plan.';
+    }
+
+    if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
+    if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
+
+    const status = String(snapshot?.roadmapApplicationStatus || snapshot?.roadmapStatus || '').trim();
+    const statusCopy = status
+        ? `Current roadmap request status: ${status}.`
+        : 'Your Academy account is active. Roadmap access still needs a short setup application.';
+
+    if (dynamicChatContainer) {
+        dynamicChatContainer.innerHTML = `
+            <div class="academy-roadmap-apply-state-v1">
+                <section class="academy-roadmap-apply-card-v1">
+                    <div class="academy-roadmap-apply-orb-v1" aria-hidden="true">
+                        <img src="/images/logo.avif" alt="" loading="eager" decoding="async">
+                    </div>
+
+                    <div class="academy-roadmap-apply-kicker-v1">ROADMAP ACCESS</div>
+                    <h3>Build your Academy roadmap</h3>
+                    <p>
+                        ${statusCopy}
+                    </p>
+                    <p>
+                        Start the form to generate the roadmap structure that will power your missions, check-ins,
+                        XP, and Academy Quest League progress.
+                    </p>
+
+                    <div class="academy-roadmap-apply-actions-v1">
+                        <button type="button" id="academy-roadmap-apply-state-open" class="academy-roadmap-apply-btn-v1">
+                            Apply for Roadmap Access →
+                        </button>
+                    </div>
+                </section>
+            </div>
+        `;
+
+        dynamicChatContainer.querySelector('#academy-roadmap-apply-state-open')?.addEventListener('click', () => {
+            openRoadmapIntake();
+        });
+    }
+
+    currentRoom = null;
+    currentRoomId = null;
+    currentRoomMeta = null;
+}
+
+window.showAcademyRoadmapApplyState = showAcademyRoadmapApplyState;
+window.shouldShowAcademyRoadmapApplyStateAfterClose = shouldShowAcademyRoadmapApplyStateAfterClose;
+/* END PATCH: Academy roadmap no-access apply state v1 */
+
 function showAcademyRoadmapLoadingShell() {
     closeRoadmapIntake();
     academyResetCoachMode();
@@ -25760,6 +25857,12 @@ function closeRoadmapIntake() {
     roadmapModal.classList.add('hidden-step');
     document.body?.classList.remove('academy-launcher-open');
     resetRoadmapIntakeModalState();
+
+    try {
+        if (typeof shouldShowAcademyRoadmapApplyStateAfterClose === 'function' && shouldShowAcademyRoadmapApplyStateAfterClose()) {
+            showAcademyRoadmapApplyState(readAcademyMembershipCache() || {});
+        }
+    } catch (_) {}
 }
 
 function maybeOpenPostAuthAcademyApplication() {
@@ -25779,11 +25882,10 @@ function maybeOpenRoadmapIntakeOnce() {
 async function handleAcademyRoadmapTabIntent() {
     academyRememberLastNonProfileLocation('roadmap');
 
-    showAcademyTabLoader('Loading roadmap...');
+    showAcademyTabLoader('Checking roadmap access...');
     try {
         academyPushFeedFallbackHistory('home');
         closeRoadmapIntake();
-        showAcademyRoadmapLoadingShell();
 
         let membershipSnapshot = null;
 
@@ -25808,10 +25910,12 @@ async function handleAcademyRoadmapTabIntent() {
         }
 
         if (hasRoadmapAccess) {
+            showAcademyRoadmapLoadingShell();
             openAcademyRoadmapView(true);
             return;
         }
 
+        showAcademyRoadmapApplyState(membershipSnapshot);
         openRoadmapIntake();
     } finally {
         hideAcademyTabLoader();
