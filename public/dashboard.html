@@ -2733,7 +2733,50 @@
 
 <script src="/js/yh-shared-core.js?v=20260627-yh-live-cache-v4"></script>
 <script src="/js/yh-shared-runtime.js?v=20260706-yh-account-delete-hard-wipe-v1"></script>
-<script src="/js/dashboard.js?v=20260709-account-delete-production-v2"></script>
+
+<!-- PATCH: Dashboard-only division parent route safety v1 -->
+<script>
+(function installDashboardOnlyParentRouteSafetyV1() {
+  if (window.__yhDashboardOnlyParentRouteSafetyV1Installed) return;
+  window.__yhDashboardOnlyParentRouteSafetyV1Installed = true;
+
+  function openParentDivision(key) {
+    if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
+      window.activateDashboardUnifiedWorkspace(key, {
+        animate: false,
+        scroll: true,
+        persist: true
+      });
+      return true;
+    }
+    return false;
+  }
+
+  document.addEventListener('click', function (event) {
+    var target = event.target && event.target.closest
+      ? event.target.closest('#btn-open-academy-preview, #btn-dashboard-enter-academy, #btn-open-plazas-preview, #btn-dashboard-enter-plazas, #btn-open-federation-preview, #btn-dashboard-enter-federation')
+      : null;
+
+    if (!target) return;
+
+    var id = target.id || '';
+    var key = '';
+
+    if (id.indexOf('academy') >= 0) key = 'academy';
+    if (id.indexOf('plazas') >= 0) key = 'plazas';
+    if (id.indexOf('federation') >= 0) key = 'federation';
+
+    if (!key) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    openParentDivision(key);
+  }, true);
+})();
+</script>
+<!-- END PATCH: Dashboard-only division parent route safety v1 -->
+
+<script src="/js/dashboard.js?v=20260709-dashboard-only-parent-routing-v1"></script>
 <!-- PATCH: Entry buttons direct Feed Command route v138 -->
 <script>
 (function installYHEntryButtonsDirectFeedCommandV138() {
@@ -2741,8 +2784,8 @@
     window.__yhEntryButtonsDirectFeedCommandV138Installed = true;
 
     const ROUTES = {
-                'btn-open-federation-preview': 'federation-command',
-        'btn-dashboard-enter-federation': 'federation-command'
+                'btn-open-federation-preview': 'federation',
+        'btn-dashboard-enter-federation': 'federation'
     };
 
     function enableEntryButtons() {

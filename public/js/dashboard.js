@@ -9067,13 +9067,13 @@ const dashboardUnifiedWorkspaceCopy = {
         division: 'academy',
         kicker: 'Academy Workspace',
         title: 'ACADEMY',
-        intro: 'Roadmaps, execution missions, community, messages, and live voice sessions inside the Academy layer.',
-        eyebrow: 'Academy Control',
-        headline: 'Select an Academy section from the sidebar.',
-        body: 'Use the Academy sidebar tabs to move between Roadmap, Missions, Community Feed, Messages, and Live Voice Lounge. The full workspace connection comes in the next patch.',
-        focus: 'Academy Access',
-        mode: 'Execution Layer',
-        stage: 'Academy Preview'
+        intro: 'Roadmaps, missions, community, messages, and live voice sessions inside the Academy layer.',
+        eyebrow: 'Academy Introduction',
+        headline: 'Your execution and self-improvement layer.',
+        body: 'The Academy parent tab is an introduction screen. Use the child tabs in the sidebar to open Roadmap, Missions, Community Feed, Messages, or Live Voice Lounge inside this Dashboard shell.',
+        focus: 'Roadmap',
+        mode: 'Missions',
+        stage: 'Community'
     },
     'academy-roadmap': {
         key: 'academy-roadmap',
@@ -12827,8 +12827,8 @@ function getDashboardEffectiveUnifiedWorkspaceKey(key = 'overview') {
 
     if (!cleanKey) return 'overview';
     if (cleanKey === 'academy') return 'academy';
-    if (cleanKey === 'plazas') return 'plazas-feed';
-    if (cleanKey === 'federation') return 'federation-command';
+    if (cleanKey === 'plazas') return 'plazas';
+    if (cleanKey === 'federation') return 'federation';
 
     return dashboardUnifiedWorkspaceCopy[cleanKey] ? cleanKey : 'overview';
 }
@@ -34614,4 +34614,230 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
     }
 })();
 /* END PATCH: Dashboard edit profile persistent field hydration v1 */
+
+
+/* PATCH: Dashboard-only division parent routing v1 */
+(function installDashboardOnlyDivisionParentRoutingV1() {
+    if (window.__yhDashboardOnlyDivisionParentRoutingV1Installed) return;
+    window.__yhDashboardOnlyDivisionParentRoutingV1Installed = true;
+
+    const PARENT_KEYS = new Set(['academy', 'plazas', 'federation']);
+
+    function isDashboardShell() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return (
+            path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub'
+        );
+    }
+
+    function normalizeDashboardOnlyParentKey(key = '') {
+        const clean = String(key || '').trim().toLowerCase();
+
+        if (clean === 'academy') return 'academy';
+        if (clean === 'plazas') return 'plazas';
+        if (clean === 'plaza') return 'plazas';
+        if (clean === 'federation') return 'federation';
+
+        if (clean === 'plazas-feed-parent') return 'plazas';
+        if (clean === 'federation-command-parent') return 'federation';
+
+        return clean;
+    }
+
+    function routeStandaloneUrlToDashboardWorkspace(url = '') {
+        const raw = String(url || '').trim();
+        if (!raw) return '';
+
+        let parsed = null;
+
+        try {
+            parsed = new URL(raw, window.location.origin);
+        } catch (_) {
+            return '';
+        }
+
+        const path = String(parsed.pathname || '').replace(/\/+$/, '').toLowerCase();
+        const hash = String(parsed.hash || '').replace(/^#/, '').trim().toLowerCase();
+        const tab = String(parsed.searchParams.get('tab') || parsed.searchParams.get('section') || '').trim().toLowerCase();
+
+        if (path === '/academy') {
+            if (tab === 'roadmap' || tab === 'home' || tab === 'missions') return 'academy-roadmap';
+            if (tab === 'lead-missions') return 'academy-missions';
+            if (tab === 'community') return 'academy-community';
+            if (tab === 'messages') return 'academy-messages';
+            if (tab === 'voice') return 'academy-voice';
+            if (tab === 'profile') return 'academy-profile';
+            return 'academy';
+        }
+
+        if (path === '/plaza' || path === '/plaza.html') {
+            if (tab === 'inbox') return 'plazas-inbox';
+            if (tab === 'messages' || tab === 'conversations') return 'plazas-conversations';
+            if (tab === 'meetups') return 'plazas-meetups';
+            if (tab === 'opportunities') return 'plazas-opportunities';
+            if (tab === 'directory') return 'plazas-directory';
+            if (tab === 'regions') return 'plazas-regions';
+            if (tab === 'atlas') return 'plazas-atlas';
+            if (tab === 'patron') return 'plazas-patron';
+            if (tab === 'bridge') return 'plazas-bridge';
+            if (tab === 'requests') return 'plazas-requests';
+            if (tab === 'feed') return 'plazas-feed';
+            return 'plazas';
+        }
+
+        if (path === '/federation' || path === '/federation.html') {
+            const target = tab || hash;
+
+            if (target === 'connect') return 'federation-connect';
+            if (target === 'deal-rooms') return 'federation-deal-rooms';
+            if (target === 'directory') return 'federation-directory';
+            if (target === 'requests' || target === 'my-requests') return 'federation-requests';
+            if (target === 'referrals') return 'federation-referrals';
+            if (target === 'status' || target === 'access' || target === 'my-access') return 'federation-access';
+            if (target === 'command') return 'federation-command';
+            return 'federation';
+        }
+
+        return '';
+    }
+
+    function openDashboardOnlyWorkspace(key = '', options = {}) {
+        const normalized = normalizeDashboardOnlyParentKey(key);
+        if (!normalized) return false;
+
+        if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
+            window.activateDashboardUnifiedWorkspace(normalized, {
+                animate: false,
+                scroll: options.scroll !== false,
+                persist: options.persist !== false
+            });
+            return true;
+        }
+
+        return false;
+    }
+
+    const nativeActivate = window.activateDashboardUnifiedWorkspace;
+
+    if (typeof nativeActivate === 'function' && nativeActivate.__yhDashboardOnlyParentWrappedV1 !== true) {
+        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspaceV1(key = 'overview', options = {}) {
+            const normalized = normalizeDashboardOnlyParentKey(key);
+            return nativeActivate.call(this, normalized, options);
+        };
+
+        wrappedActivateDashboardUnifiedWorkspace.__yhDashboardOnlyParentWrappedV1 = true;
+        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
+    }
+
+    document.addEventListener('click', (event) => {
+        if (!isDashboardShell()) return;
+
+        const directWorkspaceTarget = event.target?.closest?.('[data-yh-dashboard-shell], [data-yh-command-overview-open], [data-yh-sidebar-child]');
+        if (directWorkspaceTarget) {
+            const rawKey =
+                directWorkspaceTarget.getAttribute('data-yh-dashboard-shell') ||
+                directWorkspaceTarget.getAttribute('data-yh-command-overview-open') ||
+                directWorkspaceTarget.getAttribute('data-yh-sidebar-child') ||
+                '';
+
+            const normalizedKey = normalizeDashboardOnlyParentKey(rawKey);
+
+            if (PARENT_KEYS.has(normalizedKey)) {
+                event.preventDefault();
+                event.stopPropagation();
+                openDashboardOnlyWorkspace(normalizedKey, { scroll: true, persist: true });
+                return;
+            }
+        }
+
+        const link = event.target?.closest?.('a[href]');
+        if (!link) return;
+
+        const workspaceKey = routeStandaloneUrlToDashboardWorkspace(link.getAttribute('href') || '');
+        if (!workspaceKey) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        openDashboardOnlyWorkspace(workspaceKey, { scroll: true, persist: true });
+    }, true);
+
+    document.addEventListener('submit', (event) => {
+        if (!isDashboardShell()) return;
+
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement)) return;
+
+        const workspaceKey = routeStandaloneUrlToDashboardWorkspace(form.getAttribute('action') || '');
+        if (!workspaceKey) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        openDashboardOnlyWorkspace(workspaceKey, { scroll: true, persist: true });
+    }, true);
+
+    function normalizeEntryButtons() {
+        if (!isDashboardShell()) return;
+
+        const parentMap = {
+            'btn-open-academy-preview': 'academy',
+            'btn-dashboard-enter-academy': 'academy',
+            'btn-open-plazas-preview': 'plazas',
+            'btn-dashboard-enter-plazas': 'plazas',
+            'btn-open-federation-preview': 'federation',
+            'btn-dashboard-enter-federation': 'federation'
+        };
+
+        Object.keys(parentMap).forEach((id) => {
+            const button = document.getElementById(id);
+            if (!button || button.dataset.yhDashboardOnlyParentBoundV1 === 'true') return;
+
+            button.dataset.yhDashboardOnlyParentBoundV1 = 'true';
+            button.dataset.yhDashboardShell = parentMap[id];
+
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                openDashboardOnlyWorkspace(parentMap[id], { scroll: true, persist: true });
+            }, true);
+        });
+    }
+
+    function normalizeParentStateFromForcedChild() {
+        if (!isDashboardShell()) return;
+
+        const current = String(document.body?.getAttribute('data-yh-unified-workspace') || '').trim().toLowerCase();
+
+        if (current === 'plazas-feed' && sessionStorage.getItem('yh_dashboard_force_plazas_child_v1') !== '1') {
+            openDashboardOnlyWorkspace('plazas', { scroll: false, persist: true });
+            return;
+        }
+
+        if (current === 'federation-command' && sessionStorage.getItem('yh_dashboard_force_federation_child_v1') !== '1') {
+            openDashboardOnlyWorkspace('federation', { scroll: false, persist: true });
+        }
+    }
+
+    window.yhNormalizeDashboardEntryButtonsParentOnlyV1 = normalizeEntryButtons;
+    window.yhNormalizeDashboardParentStateV1 = normalizeParentStateFromForcedChild;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            normalizeEntryButtons();
+            window.setTimeout(normalizeParentStateFromForcedChild, 180);
+        });
+    } else {
+        normalizeEntryButtons();
+        window.setTimeout(normalizeParentStateFromForcedChild, 180);
+    }
+
+    [80, 240, 700, 1400, 2600].forEach((delay) => {
+        window.setTimeout(() => {
+            normalizeEntryButtons();
+            normalizeParentStateFromForcedChild();
+        }, delay);
+    });
+})();
+/* END PATCH: Dashboard-only division parent routing v1 */
 
