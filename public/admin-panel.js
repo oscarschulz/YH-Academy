@@ -4626,9 +4626,9 @@ if (type === 'application') {
         <h4>Mission Review Actions</h4>
         <p class="muted">This lead mission is waiting for admin review. Approval will compute payout by backend tier rules and auto-route when Plaza/Federation ready.</p>
         <div class="inline-actions">
-          <button class="badge-btn" data-action="lead-review-approve" data-id="${record.id}">Approve Mission</button>
+          <button class="badge-btn" data-action="lead-review-approve" data-id="${record.id}">Approve Lead</button>
           <button class="badge-btn" data-action="lead-review-revision" data-id="${record.id}">Request Revision</button>
-          <button class="badge-btn" data-action="lead-review-reject" data-id="${record.id}">Reject Mission</button>
+          <button class="badge-btn" data-action="lead-review-reject" data-id="${record.id}">Reject Lead</button>
         </div>
       </div>
     ` : '';
@@ -5612,22 +5612,22 @@ async function reviewAcademyRoutedMission(record, decision = '') {
   const modalResult = await openAdminInlineModal({
     title:
       cleanDecision === 'approved'
-        ? 'Approve Academy Mission'
+        ? 'Approve Academy Lead'
         : cleanDecision === 'revision_requested'
-          ? 'Request Mission Revision'
-          : 'Reject Academy Mission',
+          ? 'Request Lead Revision'
+          : 'Reject Academy Lead',
     description:
       cleanDecision === 'approved'
         ? `Backend will compute payout from tier (${tierLabel}) and auto-route when marked: ${routeTargets}. Add approval reason before approving.`
         : cleanDecision === 'revision_requested'
           ? 'Tell the operator what needs to be corrected before approval.'
-          : 'Add the reason this mission is being rejected. No payout or auto-route will be created.',
+          : 'Add the reason this lead is being rejected. No payout or auto-route will be created.',
     submitLabel:
       cleanDecision === 'approved'
-        ? 'Approve Mission'
+        ? 'Approve Lead'
         : cleanDecision === 'revision_requested'
-          ? 'Send Revision'
-          : 'Reject Mission',
+          ? 'Send Lead Revision'
+          : 'Reject Lead',
     fields: [
       {
         name: 'adminNote',

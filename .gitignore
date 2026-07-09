@@ -28,3 +28,6 @@ collections-service-account.base64.txt
 .env
 .env.local
 .env.supabase.local
+
+.vercel
+.env*
