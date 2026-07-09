@@ -35165,3 +35165,579 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 })();
 /* END PATCH: Dashboard division parent intros v1 */
 
+
+/* PATCH: Dashboard overview cleanup dynamic access row v1 */
+(function installDashboardOverviewCleanupDynamicAccessRowV1() {
+    if (window.__yhDashboardOverviewCleanupDynamicAccessRowV1Installed) return;
+    window.__yhDashboardOverviewCleanupDynamicAccessRowV1Installed = true;
+
+    const ROW_ID = 'yh-dashboard-overview-dynamic-access-row-v1';
+    const HIDDEN_CLASS = 'yh-dashboard-overview-removed-v1';
+
+    const divisionConfig = {
+        academy: {
+            label: 'Academy',
+            icon: 'fa-graduation-cap',
+            applyLabel: 'Apply',
+            enterLabel: 'Enter',
+            pendingLabel: 'Pending',
+            applyTarget: 'academy-roadmap',
+            enterTarget: 'academy'
+        },
+        plazas: {
+            label: 'Plazas',
+            icon: 'fa-people-roof',
+            applyLabel: 'Apply',
+            enterLabel: 'Enter',
+            pendingLabel: 'Pending',
+            applyTarget: 'plazas-feed',
+            enterTarget: 'plazas'
+        },
+        federation: {
+            label: 'Federation',
+            icon: 'fa-gem',
+            applyLabel: 'Apply',
+            enterLabel: 'Enter',
+            pendingLabel: 'Pending',
+            applyTarget: 'federation-command',
+            enterTarget: 'federation'
+        }
+    };
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return (
+            path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub'
+        );
+    }
+
+    function getCurrentWorkspace() {
+        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview')
+            .trim()
+            .toLowerCase() || 'overview';
+    }
+
+    function isOverviewWorkspace() {
+        return getCurrentWorkspace() === 'overview';
+    }
+
+    function setNodeHidden(node, hidden = true) {
+        if (!node || !(node instanceof HTMLElement)) return;
+
+        node.classList.toggle('hidden-step', hidden);
+        node.classList.toggle(HIDDEN_CLASS, hidden);
+        node.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+
+        if (hidden) {
+            node.style.display = 'none';
+            node.style.visibility = 'hidden';
+            node.style.pointerEvents = 'none';
+        } else {
+            node.style.removeProperty('display');
+            node.style.removeProperty('visibility');
+            node.style.removeProperty('pointer-events');
+        }
+    }
+
+    function normalizeStatus(value = '', fallback = 'Not Applied') {
+        const raw = String(value || fallback || '').trim();
+        const clean = raw.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+        if (!clean) return 'Not Applied';
+
+        if (
+            clean === 'approved' ||
+            clean === 'active' ||
+            clean === 'unlocked' ||
+            clean === 'accepted' ||
+            clean === 'verified' ||
+            clean === 'access granted'
+        ) {
+            return 'Approved';
+        }
+
+        if (
+            clean === 'under review' ||
+            clean === 'pending' ||
+            clean === 'pending review' ||
+            clean === 'new' ||
+            clean === 'screening' ||
+            clean === 'shortlisted' ||
+            clean === 'waitlisted' ||
+            clean === 'submitted'
+        ) {
+            return 'Pending';
+        }
+
+        if (
+            clean === 'rejected' ||
+            clean === 'declined' ||
+            clean === 'denied'
+        ) {
+            return 'Rejected';
+        }
+
+        if (
+            clean === 'not applied' ||
+            clean === 'none' ||
+            clean === 'guest' ||
+            clean === 'locked' ||
+            clean === 'plazas first'
+        ) {
+            return 'Not Applied';
+        }
+
+        return raw
+            .split(' ')
+            .map((part) => part ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase() : '')
+            .join(' ')
+            .trim() || 'Not Applied';
+    }
+
+    function readText(id = '', fallback = '') {
+        const node = document.getElementById(id);
+        return String(node?.textContent || fallback || '').trim();
+    }
+
+    function readAcademySnapshot() {
+        try {
+            if (typeof window.readAcademyMembershipCache === 'function') {
+                return window.readAcademyMembershipCache() || {};
+            }
+        } catch (_) {}
+
+        return {};
+    }
+
+    function readPlazaSnapshot() {
+        try {
+            if (typeof window.getPlazaAccessSnapshot === 'function') {
+                return window.getPlazaAccessSnapshot() || {};
+            }
+        } catch (_) {}
+
+        try {
+            if (typeof window.readDashboardPlazaAccessSnapshot === 'function') {
+                return window.readDashboardPlazaAccessSnapshot() || {};
+            }
+        } catch (_) {}
+
+        return {};
+    }
+
+    function readFederationSnapshot() {
+        try {
+            if (typeof window.getFederationAccessSnapshot === 'function') {
+                return window.getFederationAccessSnapshot() || {};
+            }
+        } catch (_) {}
+
+        try {
+            if (typeof window.readDashboardFederationAccessSnapshot === 'function') {
+                return window.readDashboardFederationAccessSnapshot() || {};
+            }
+        } catch (_) {}
+
+        return {};
+    }
+
+    function getDivisionState(division = '') {
+        const clean = String(division || '').trim().toLowerCase();
+
+        if (clean === 'academy') {
+            const snapshot = readAcademySnapshot();
+            const status = normalizeStatus(
+                snapshot.applicationStatus ||
+                snapshot.academyApplicationStatus ||
+                snapshot.status ||
+                readText('yh-command-academy-status', 'Not Applied'),
+                snapshot.canEnterAcademy === true ? 'Approved' : 'Not Applied'
+            );
+
+            return {
+                status,
+                approved: snapshot.canEnterAcademy === true || status === 'Approved',
+                pending: status === 'Pending',
+                rejected: status === 'Rejected'
+            };
+        }
+
+        if (clean === 'plazas') {
+            const snapshot = readPlazaSnapshot();
+            const status = normalizeStatus(
+                snapshot.applicationStatus ||
+                snapshot.plazaApplicationStatus ||
+                snapshot.status ||
+                readText('yh-command-plazas-status', 'Not Applied'),
+                snapshot.canEnterPlaza === true ? 'Approved' : 'Not Applied'
+            );
+
+            return {
+                status,
+                approved: snapshot.canEnterPlaza === true || status === 'Approved',
+                pending: status === 'Pending',
+                rejected: status === 'Rejected'
+            };
+        }
+
+        if (clean === 'federation') {
+            const snapshot = readFederationSnapshot();
+            const status = normalizeStatus(
+                snapshot.applicationStatus ||
+                snapshot.federationApplicationStatus ||
+                snapshot.status ||
+                readText('yh-command-federation-status', 'Not Applied'),
+                snapshot.canEnterFederation === true ? 'Approved' : 'Not Applied'
+            );
+
+            return {
+                status,
+                approved: snapshot.canEnterFederation === true || status === 'Approved',
+                pending: status === 'Pending',
+                rejected: status === 'Rejected'
+            };
+        }
+
+        return {
+            status: 'Not Applied',
+            approved: false,
+            pending: false,
+            rejected: false
+        };
+    }
+
+    function getActionForState(state = {}, config = {}) {
+        if (state.approved) {
+            return {
+                label: config.enterLabel || 'Enter',
+                kind: 'enter',
+                disabled: false,
+                target: config.enterTarget
+            };
+        }
+
+        if (state.pending) {
+            return {
+                label: config.pendingLabel || 'Pending',
+                kind: 'pending',
+                disabled: true,
+                target: ''
+            };
+        }
+
+        if (state.rejected) {
+            return {
+                label: 'Contact Admin',
+                kind: 'rejected',
+                disabled: true,
+                target: ''
+            };
+        }
+
+        return {
+            label: config.applyLabel || 'Apply',
+            kind: 'apply',
+            disabled: false,
+            target: config.applyTarget
+        };
+    }
+
+    function ensureAccessRow() {
+        let row = document.getElementById(ROW_ID);
+        if (row) return row;
+
+        row = document.createElement('section');
+        row.id = ROW_ID;
+        row.className = 'yh-dashboard-overview-access-row-v1';
+        row.setAttribute('aria-label', 'Division access shortcuts');
+
+        const header = document.querySelector('.yh-command-dashboard-head');
+        const overviewGrid = document.getElementById('yh-command-overview-grid');
+        const hubShell = document.querySelector('.yh-universe-carousel-shell') || document.getElementById('universe-hub-view') || document.body;
+
+        if (header?.parentElement) {
+            header.insertAdjacentElement('afterend', row);
+        } else if (overviewGrid?.parentElement) {
+            overviewGrid.insertAdjacentElement('beforebegin', row);
+        } else {
+            hubShell?.prepend(row);
+        }
+
+        return row;
+    }
+
+    function renderAccessRow() {
+        const row = ensureAccessRow();
+
+        if (!row) return;
+
+        const businessCount = readText('yh-command-business-chat-count', '0') || '0';
+        const totalInvited = readText('yh-command-referral-total', '0') || readText('yh-command-network-score', '0') || '0';
+
+        const divisionCards = Object.entries(divisionConfig).map(([key, config]) => {
+            const state = getDivisionState(key);
+            const action = getActionForState(state, config);
+            const statusClass = action.kind;
+
+            return `
+                <article class="yh-dashboard-overview-access-card-v1 is-${statusClass}" data-yh-overview-division-card="${key}">
+                    <div class="yh-dashboard-overview-access-icon-v1" aria-hidden="true">
+                        <i class="fa-solid ${config.icon}"></i>
+                    </div>
+                    <div class="yh-dashboard-overview-access-copy-v1">
+                        <strong>${config.label}</strong>
+                        <span class="yh-dashboard-overview-access-status-v1">${state.status}</span>
+                    </div>
+                    <button
+                        type="button"
+                        class="yh-dashboard-overview-access-action-v1"
+                        data-yh-overview-division-action="${key}"
+                        data-yh-overview-division-action-kind="${action.kind}"
+                        data-yh-overview-division-target="${action.target || ''}"
+                        ${action.disabled ? 'disabled aria-disabled="true"' : ''}
+                    >${action.label}</button>
+                </article>
+            `;
+        }).join('');
+
+        row.innerHTML = `
+            ${divisionCards}
+
+            <article class="yh-dashboard-overview-access-card-v1 is-metric" data-yh-overview-metric-card="business-chats">
+                <div class="yh-dashboard-overview-access-icon-v1" aria-hidden="true">
+                    <i class="fa-solid fa-list-check"></i>
+                </div>
+                <div class="yh-dashboard-overview-access-copy-v1">
+                    <strong>Business Chats</strong>
+                    <span>${businessCount}</span>
+                </div>
+                <button type="button" class="yh-dashboard-overview-access-action-v1" data-yh-overview-division-target="business-chats">Open</button>
+            </article>
+
+            <article class="yh-dashboard-overview-access-card-v1 is-metric" data-yh-overview-metric-card="total-invited">
+                <div class="yh-dashboard-overview-access-icon-v1" aria-hidden="true">
+                    <i class="fa-solid fa-arrow-trend-up"></i>
+                </div>
+                <div class="yh-dashboard-overview-access-copy-v1">
+                    <strong>Total Invited</strong>
+                    <span>${totalInvited}</span>
+                </div>
+                <button type="button" class="yh-dashboard-overview-access-action-v1" data-yh-overview-division-target="overview">View</button>
+            </article>
+        `;
+
+        row.querySelectorAll('[data-yh-overview-division-action]').forEach((button) => {
+            button.addEventListener('click', async (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (button.disabled) return;
+
+                const target = String(button.getAttribute('data-yh-overview-division-target') || '').trim();
+                const kind = String(button.getAttribute('data-yh-overview-division-action-kind') || '').trim();
+
+                if (!target) return;
+
+                if (kind === 'apply' && typeof window.openDashboardUnifiedWorkspaceLaunch === 'function') {
+                    await window.openDashboardUnifiedWorkspaceLaunch(target);
+                    return;
+                }
+
+                if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
+                    window.activateDashboardUnifiedWorkspace(target, {
+                        animate: false,
+                        scroll: true,
+                        persist: true
+                    });
+                }
+            });
+        });
+
+        row.querySelectorAll('[data-yh-overview-division-target]:not([data-yh-overview-division-action])').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const target = String(button.getAttribute('data-yh-overview-division-target') || '').trim() || 'overview';
+
+                if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
+                    window.activateDashboardUnifiedWorkspace(target, {
+                        animate: false,
+                        scroll: true,
+                        persist: true
+                    });
+                }
+            });
+        });
+
+        setNodeHidden(row, !isOverviewWorkspace());
+    }
+
+    function closestCompactCard(node) {
+        if (!node || !(node instanceof HTMLElement)) return null;
+
+        const selectors = [
+            'section',
+            'article',
+            '.yh-universe-command-card',
+            '.yh-command-overview-card',
+            '.yh-universe-stage-card',
+            '.yh-academy-parent-hero-header',
+            '.yh-universe-command-hero',
+            '.yh-universe-stage-nav',
+            '.yh-dashboard-division-child-grid-v1'
+        ];
+
+        for (const selector of selectors) {
+            const match = node.closest?.(selector);
+            if (match && match instanceof HTMLElement) return match;
+        }
+
+        return node;
+    }
+
+    function hideOverviewOnlyRemovedCards() {
+        if (!isDashboardPage()) return;
+
+        const overview = isOverviewWorkspace();
+
+        const hardSelectors = [
+            '.yh-academy-parent-hero-header',
+            '#yh-dashboard-division-parent-intro-v1',
+            '.yh-dashboard-division-child-grid-v1'
+        ];
+
+        hardSelectors.forEach((selector) => {
+            document.querySelectorAll(selector).forEach((node) => {
+                setNodeHidden(node, true);
+            });
+        });
+
+        if (!overview) {
+            const row = document.getElementById(ROW_ID);
+            setNodeHidden(row, true);
+            return;
+        }
+
+        const removableTextPatterns = [
+            /academy\s+workspace/i,
+            /academy\s+access/i,
+            /access\s+not\s+applied/i,
+            /roadmap\s+build your execution path/i,
+            /missions\s+work through lead missions/i,
+            /community\s+feed\s+post,?\s*react/i,
+            /messages\s+continue member conversations/i,
+            /live\s+voice\s+lounge\s+join live execution rooms/i
+        ];
+
+        const candidates = Array.from(document.querySelectorAll('section, article, div, aside'))
+            .filter((node) => node instanceof HTMLElement)
+            .filter((node) => node.id !== ROW_ID)
+            .filter((node) => !node.closest(`#${ROW_ID}`))
+            .filter((node) => {
+                const text = String(node.textContent || '').replace(/\s+/g, ' ').trim();
+                if (!text || text.length > 2600) return false;
+                return removableTextPatterns.some((pattern) => pattern.test(text));
+            });
+
+        candidates.forEach((node) => {
+            const target = closestCompactCard(node);
+            if (!target || target.id === 'universe-hub-view' || target.classList.contains('yh-universe-hub-shell')) return;
+            setNodeHidden(target, true);
+        });
+
+        const overviewGrid = document.getElementById('yh-command-overview-grid');
+        if (overviewGrid) {
+            const statusIds = [
+                'yh-command-academy-status',
+                'yh-command-academy-copy'
+            ];
+
+            statusIds.forEach((id) => {
+                const node = document.getElementById(id);
+                const card = node?.closest?.('article, section, .yh-command-overview-card, .yh-universe-command-card, div');
+                if (card && card !== overviewGrid) {
+                    setNodeHidden(card, true);
+                }
+            });
+        }
+
+        renderAccessRow();
+    }
+
+    function syncDashboardOverviewCleanup(reason = 'sync') {
+        if (!isDashboardPage()) return;
+
+        if (isOverviewWorkspace()) {
+            renderAccessRow();
+        }
+
+        hideOverviewOnlyRemovedCards();
+    }
+
+    const nativeSetText = window.setDashboardCommandOverviewText;
+    if (typeof nativeSetText === 'function' && nativeSetText.__yhOverviewCleanupWrappedV1 !== true) {
+        const wrappedSetDashboardCommandOverviewText = function wrappedSetDashboardCommandOverviewTextV1() {
+            const result = nativeSetText.apply(this, arguments);
+            window.clearTimeout(window.__yhOverviewDynamicAccessRowTextTimerV1);
+            window.__yhOverviewDynamicAccessRowTextTimerV1 = window.setTimeout(() => {
+                try { renderAccessRow(); } catch (_) {}
+            }, 40);
+            return result;
+        };
+
+        wrappedSetDashboardCommandOverviewText.__yhOverviewCleanupWrappedV1 = true;
+        window.setDashboardCommandOverviewText = wrappedSetDashboardCommandOverviewText;
+    }
+
+    const nativeActivate = window.activateDashboardUnifiedWorkspace;
+    if (typeof nativeActivate === 'function' && nativeActivate.__yhOverviewCleanupWrappedV1 !== true) {
+        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspaceV1(key = 'overview', options = {}) {
+            const result = nativeActivate.call(this, key, options);
+
+            window.setTimeout(() => syncDashboardOverviewCleanup('activate-fast'), 0);
+            window.setTimeout(() => syncDashboardOverviewCleanup('activate-mid'), 100);
+            window.setTimeout(() => syncDashboardOverviewCleanup('activate-late'), 420);
+
+            return result;
+        };
+
+        wrappedActivateDashboardUnifiedWorkspace.__yhOverviewCleanupWrappedV1 = true;
+        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
+    }
+
+    window.yhSyncDashboardOverviewCleanupDynamicAccessRowV1 = syncDashboardOverviewCleanup;
+    window.yhRenderDashboardOverviewDynamicAccessRowV1 = renderAccessRow;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => syncDashboardOverviewCleanup('dom'));
+    } else {
+        syncDashboardOverviewCleanup('boot');
+    }
+
+    [60, 180, 500, 1100, 2200, 4200].forEach((delay) => {
+        window.setTimeout(() => syncDashboardOverviewCleanup('timer-' + delay), delay);
+    });
+
+    try {
+        const observer = new MutationObserver(() => {
+            window.clearTimeout(window.__yhDashboardOverviewCleanupObserverTimerV1);
+            window.__yhDashboardOverviewCleanupObserverTimerV1 = window.setTimeout(() => {
+                syncDashboardOverviewCleanup('mutation');
+            }, 60);
+        });
+
+        observer.observe(document.body || document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style', 'data-yh-unified-workspace', 'data-yh-unified-division']
+        });
+
+        window.__yhDashboardOverviewCleanupObserverV1 = observer;
+    } catch (_) {}
+})();
+/* END PATCH: Dashboard overview cleanup dynamic access row v1 */
+
