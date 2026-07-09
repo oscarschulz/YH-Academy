@@ -15866,3 +15866,156 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   }
   /* END PATCH: Academy Champions sidebar overlap fix v1 */
 
+
+  /* PATCH: Academy Champions vertical cutoff fix v1 */
+  body[data-yh-view="academy"] .yh-right-sidebar,
+  body[data-yh-view="academy"] #academy-right-sidebar,
+  body[data-yh-view="academy"] .academy-right-sidebar {
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  body[data-yh-view="academy"] .yh-right-sidebar::-webkit-scrollbar,
+  body[data-yh-view="academy"] #academy-right-sidebar::-webkit-scrollbar,
+  body[data-yh-view="academy"] .academy-right-sidebar::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  body[data-yh-view="academy"] #leaderboard-list.academy-champions-board-v1,
+  body[data-yh-view="academy"] .academy-champions-board-v1 {
+    width: 100%;
+    max-width: 100%;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+    padding: 0;
+    margin-bottom: 10px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-card-v1 {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    max-height: none;
+    overflow: visible;
+    gap: 8px;
+    padding: 10px;
+    clip-path: none;
+    border-radius: 0;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-head-v1 {
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-kicker-v1 {
+    max-width: 112px;
+    white-space: normal;
+    line-height: 1.04;
+    letter-spacing: 0.08em;
+    font-size: 0.66rem;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-head-v1 strong {
+    flex: 0 0 auto;
+    font-size: 0.75rem;
+    line-height: 1;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-rank-v1 {
+    align-items: center;
+    gap: 8px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-rank-v1 strong {
+    font-size: 0.82rem;
+    line-height: 1.02;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-rank-v1 em {
+    padding: 5px 7px;
+    font-size: 0.78rem;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-track-v1 {
+    height: 6px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-next-v1 {
+    font-size: 0.74rem;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-stat-grid-v1 {
+    gap: 6px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-stat-grid-v1 div {
+    min-height: 34px;
+    padding: 6px 8px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-stat-grid-v1 span {
+    font-size: 0.62rem;
+    letter-spacing: 0.075em;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-stat-grid-v1 strong {
+    font-size: 0.76rem;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-badge-v1 {
+    min-height: 38px;
+    padding: 7px 8px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-badge-v1 span {
+    font-size: 0.62rem;
+    letter-spacing: 0.075em;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-badge-v1 strong {
+    font-size: 0.72rem;
+    line-height: 1.05;
+    text-align: right;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-list-v1 {
+    gap: 6px;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-list-title-v1 {
+    margin-top: 2px;
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-row-v1 {
+    min-height: 38px;
+    padding: 6px 7px;
+    align-items: center;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-row-main-v1 strong {
+    font-size: 0.72rem;
+    line-height: 1;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-row-main-v1 small,
+  body[data-yh-view="academy"] .academy-champions-row-xp-v1 {
+    font-size: 0.64rem;
+    line-height: 1.1;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-position-v1 {
+    font-size: 0.66rem;
+  }
+
+  body[data-yh-view="academy"] .academy-champions-row-xp-v1 {
+    white-space: nowrap;
+  }
+  /* END PATCH: Academy Champions vertical cutoff fix v1 */
+
