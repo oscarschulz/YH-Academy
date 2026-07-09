@@ -36192,3 +36192,228 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 })();
 /* END PATCH: Dashboard remove old overview grid flicker guard v1 */
 
+
+/* PATCH: Dashboard single carousel referral v1 */
+(function installDashboardSingleCarouselReferralV1() {
+    if (window.__yhDashboardSingleCarouselReferralV1Installed) return;
+    window.__yhDashboardSingleCarouselReferralV1Installed = true;
+
+    const HIDDEN_CLASS = 'yh-dashboard-old-carousel-hidden-v1';
+    const REFERRAL_MARKER_CLASS = 'yh-dashboard-referral-dashboard-only-v1';
+    const LIVE_MARKER_CLASS = 'yh-dashboard-live-activity-only-v1';
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return (
+            path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub'
+        );
+    }
+
+    function getWorkspace() {
+        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview')
+            .trim()
+            .toLowerCase() || 'overview';
+    }
+
+    function isOverview() {
+        return getWorkspace() === 'overview';
+    }
+
+    function hideNode(node) {
+        if (!node || !(node instanceof HTMLElement)) return;
+
+        node.classList.add('hidden-step');
+        node.classList.add(HIDDEN_CLASS);
+        node.setAttribute('aria-hidden', 'true');
+        node.dataset.yhDashboardOldCarouselHiddenV1 = 'true';
+        node.style.display = 'none';
+        node.style.visibility = 'hidden';
+        node.style.pointerEvents = 'none';
+    }
+
+    function showNode(node, displayValue = 'block') {
+        if (!node || !(node instanceof HTMLElement)) return;
+
+        node.classList.remove('hidden-step');
+        node.classList.remove(HIDDEN_CLASS);
+        node.removeAttribute('data-yh-dashboard-old-carousel-hidden-v1');
+        node.setAttribute('aria-hidden', 'false');
+        node.style.removeProperty('display');
+        node.style.removeProperty('visibility');
+        node.style.removeProperty('pointer-events');
+
+        if (displayValue) node.style.display = displayValue;
+    }
+
+    function getLiveActivityStrip() {
+        return document.getElementById('yh-universe-academy-strip');
+    }
+
+    function getReferralCard() {
+        return document.getElementById('yh-universe-referral-card');
+    }
+
+    function hideOldSplitCarousels() {
+        if (!isDashboardPage()) return;
+
+        [
+            document.querySelector('.yh-universe-carousel-column'),
+            document.getElementById('yh-universe-carousel'),
+            document.getElementById('yh-universe-plaza-strip'),
+            document.getElementById('yh-universe-federation-strip')
+        ].filter(Boolean).forEach(hideNode);
+
+        document.querySelectorAll('[aria-label="Plazas visual carousel"], [aria-label="Federation visual carousel"]').forEach(hideNode);
+
+        /*
+          Safety text guard: if any old carousel section gets reinserted by old
+          render logic, hide only the split/division rails, not Live Universe Activity.
+        */
+        Array.from(document.querySelectorAll('section, div'))
+            .filter((node) => node instanceof HTMLElement)
+            .filter((node) => {
+                if (node.id === 'yh-universe-academy-strip') return false;
+                if (node.id === 'yh-universe-referral-card') return false;
+                if (node.closest?.('#yh-universe-academy-strip')) return false;
+                if (node.closest?.('#yh-universe-referral-card')) return false;
+
+                const text = String(node.textContent || '').replace(/\s+/g, ' ').trim();
+                if (!text || text.length > 1800) return false;
+
+                return (
+                    /strategic universe activity/i.test(text) ||
+                    /plazas visual carousel/i.test(String(node.getAttribute('aria-label') || '')) ||
+                    /federation visual carousel/i.test(String(node.getAttribute('aria-label') || '')) ||
+                    (/live division/i.test(text) && /the academy/i.test(text) && /the plazas/i.test(text) && /the federation/i.test(text))
+                );
+            })
+            .forEach((node) => {
+                if (node.id === 'universe-hub-view') return;
+                hideNode(node);
+            });
+    }
+
+    function placeReferralAboveLiveActivity() {
+        if (!isDashboardPage()) return;
+
+        const referral = getReferralCard();
+        const liveStrip = getLiveActivityStrip();
+
+        if (!referral || !liveStrip) return;
+
+        referral.classList.add(REFERRAL_MARKER_CLASS);
+        liveStrip.classList.add(LIVE_MARKER_CLASS);
+
+        if (referral.nextElementSibling !== liveStrip) {
+            liveStrip.parentNode?.insertBefore(referral, liveStrip);
+        }
+    }
+
+    function syncSingleDashboardCarouselAndReferral(reason = 'sync') {
+        if (!isDashboardPage()) return;
+
+        hideOldSplitCarousels();
+        placeReferralAboveLiveActivity();
+
+        const liveStrip = getLiveActivityStrip();
+        const referral = getReferralCard();
+
+        if (isOverview()) {
+            if (referral) showNode(referral, 'block');
+
+            if (liveStrip) {
+                liveStrip.classList.add('is-active');
+                showNode(liveStrip, 'block');
+            }
+        } else {
+            /*
+              Referral and Live Activity are Dashboard overview-only.
+              Parent tabs and child tabs should render their own content.
+            */
+            if (referral) hideNode(referral);
+            if (liveStrip) hideNode(liveStrip);
+        }
+
+        window.setTimeout(hideOldSplitCarousels, 0);
+        window.setTimeout(hideOldSplitCarousels, 90);
+        window.setTimeout(hideOldSplitCarousels, 280);
+        window.setTimeout(hideOldSplitCarousels, 700);
+    }
+
+    const nativeActivate = window.activateDashboardUnifiedWorkspace;
+
+    if (typeof nativeActivate === 'function' && nativeActivate.__yhSingleCarouselReferralWrappedV1 !== true) {
+        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspaceSingleCarouselReferralV1(key = 'overview', options = {}) {
+            const result = nativeActivate.call(this, key, options);
+
+            window.setTimeout(() => syncSingleDashboardCarouselAndReferral('activate-0'), 0);
+            window.setTimeout(() => syncSingleDashboardCarouselAndReferral('activate-80'), 80);
+            window.setTimeout(() => syncSingleDashboardCarouselAndReferral('activate-240'), 240);
+            window.setTimeout(() => syncSingleDashboardCarouselAndReferral('activate-700'), 700);
+
+            return result;
+        };
+
+        wrappedActivateDashboardUnifiedWorkspace.__yhSingleCarouselReferralWrappedV1 = true;
+        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
+    }
+
+    document.addEventListener('click', (event) => {
+        const nav = event.target?.closest?.(
+            '[data-yh-dashboard-shell], ' +
+            '[data-yh-sidebar-child], ' +
+            '[data-yh-command-overview-open], ' +
+            '#nav-dashboard, ' +
+            '#btn-dashboard-overview'
+        );
+
+        if (!nav) return;
+
+        window.setTimeout(() => syncSingleDashboardCarouselAndReferral('click-0'), 0);
+        window.setTimeout(() => syncSingleDashboardCarouselAndReferral('click-120'), 120);
+        window.setTimeout(() => syncSingleDashboardCarouselAndReferral('click-420'), 420);
+    }, true);
+
+    window.yhSyncDashboardSingleCarouselReferralV1 = syncSingleDashboardCarouselAndReferral;
+    window.yhHideOldDashboardSplitCarouselsV1 = hideOldSplitCarousels;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => syncSingleDashboardCarouselAndReferral('dom'));
+    } else {
+        syncSingleDashboardCarouselAndReferral('boot');
+    }
+
+    [20, 60, 140, 320, 800, 1600, 2800, 4600].forEach((delay) => {
+        window.setTimeout(() => syncSingleDashboardCarouselAndReferral('timer-' + delay), delay);
+    });
+
+    try {
+        const observer = new MutationObserver(() => {
+            if (!isDashboardPage()) return;
+
+            window.clearTimeout(window.__yhDashboardSingleCarouselReferralTimerV1);
+            window.__yhDashboardSingleCarouselReferralTimerV1 = window.setTimeout(() => {
+                syncSingleDashboardCarouselAndReferral('mutation');
+            }, 35);
+        });
+
+        observer.observe(document.body || document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: [
+                'class',
+                'style',
+                'aria-hidden',
+                'data-yh-unified-workspace',
+                'data-yh-unified-division'
+            ]
+        });
+
+        window.__yhDashboardSingleCarouselReferralObserverV1 = observer;
+    } catch (_) {}
+})();
+/* END PATCH: Dashboard single carousel referral v1 */
+
