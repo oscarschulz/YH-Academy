@@ -16019,3 +16019,238 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   }
   /* END PATCH: Academy Champions vertical cutoff fix v1 */
 
+
+  /* PATCH: Academy Quest main card styles v1 */
+  body[data-yh-view="academy"] .academy-quest-main-card-v1 {
+    position: relative;
+    isolation: isolate;
+    width: 100%;
+    margin: 0 0 16px;
+    padding: clamp(16px, 1.4vw, 22px);
+    overflow: hidden;
+    border: 1px solid rgba(103, 232, 249, 0.24);
+    background:
+      radial-gradient(circle at 8% 0%, rgba(56, 189, 248, 0.22), transparent 34%),
+      radial-gradient(circle at 86% 18%, rgba(99, 102, 241, 0.16), transparent 36%),
+      linear-gradient(180deg, rgba(8, 18, 35, 0.96), rgba(4, 9, 22, 0.9));
+    box-shadow:
+      0 22px 60px rgba(0, 0, 0, 0.34),
+      0 0 34px rgba(56, 189, 248, 0.11),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    clip-path: polygon(
+      18px 0,
+      calc(100% - 18px) 0,
+      100% 18px,
+      100% 100%,
+      0 100%,
+      0 18px
+    );
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-orb-v1 {
+    position: absolute;
+    right: -80px;
+    top: -96px;
+    width: 260px;
+    height: 260px;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle, rgba(103, 232, 249, 0.2), transparent 62%),
+      radial-gradient(circle, rgba(99, 102, 241, 0.16), transparent 70%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-head-v1 {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: start;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-head-v1 span,
+  body[data-yh-view="academy"] .academy-quest-main-track-meta-v1 span,
+  body[data-yh-view="academy"] .academy-quest-main-track-foot-v1,
+  body[data-yh-view="academy"] .academy-quest-main-stat-grid-v1 span,
+  body[data-yh-view="academy"] .academy-quest-main-section-title-v1,
+  body[data-yh-view="academy"] .academy-quest-main-quest-v1 span {
+    color: #67e8f9;
+    font-family: var(--yh-font-subheader, "Rajdhani", sans-serif);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-head-v1 h2 {
+    margin: 5px 0 6px;
+    color: #ffffff;
+    font-family: var(--yh-font-header, "Orbitron", sans-serif);
+    font-size: clamp(1.35rem, 1.6vw, 2rem);
+    line-height: 1.05;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-head-v1 p {
+    max-width: 680px;
+    margin: 0;
+    color: rgba(226, 232, 240, 0.78);
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-xp-v1 {
+    min-width: 112px;
+    padding: 12px 14px;
+    text-align: center;
+    border: 1px solid rgba(223, 247, 255, 0.16);
+    background:
+      radial-gradient(circle at 50% 0%, rgba(223, 247, 255, 0.12), transparent 48%),
+      rgba(255, 255, 255, 0.045);
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-xp-v1 strong {
+    display: block;
+    color: #ffffff;
+    font-family: var(--yh-font-header, "Orbitron", sans-serif);
+    font-size: clamp(1.5rem, 2vw, 2.35rem);
+    line-height: 1;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-xp-v1 span {
+    display: block;
+    margin-top: 4px;
+    color: #bae6fd;
+    font-size: 0.72rem;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-track-wrap-v1 {
+    display: grid;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-track-meta-v1,
+  body[data-yh-view="academy"] .academy-quest-main-track-foot-v1 {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-track-meta-v1 strong {
+    color: #ffffff;
+    font-family: var(--yh-font-header, "Orbitron", sans-serif);
+    font-size: 0.92rem;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-track-v1 {
+    height: 11px;
+    overflow: hidden;
+    border: 1px solid rgba(223, 247, 255, 0.14);
+    background: rgba(255, 255, 255, 0.055);
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-track-v1 span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #38bdf8, #22c55e);
+    box-shadow: 0 0 24px rgba(56, 189, 248, 0.34);
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-track-foot-v1 {
+    color: rgba(203, 213, 225, 0.72);
+    font-size: 0.7rem;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-stat-grid-v1 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-stat-grid-v1 article {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid rgba(223, 247, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-stat-grid-v1 strong {
+    min-width: 0;
+    color: #ffffff;
+    font-family: var(--yh-font-header, "Orbitron", sans-serif);
+    font-size: 0.94rem;
+    line-height: 1.12;
+    overflow-wrap: anywhere;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-quests-v1 {
+    display: grid;
+    gap: 9px;
+    margin-top: 16px;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-section-title-v1 {
+    color: #22d3ee;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-quest-v1 {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    padding: 11px 12px;
+    border: 1px solid rgba(103, 232, 249, 0.14);
+    background:
+      linear-gradient(90deg, rgba(56, 189, 248, 0.08), transparent 70%),
+      rgba(255, 255, 255, 0.035);
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-quest-v1 strong {
+    display: block;
+    color: #ffffff;
+    font-size: 0.88rem;
+    line-height: 1.18;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-quest-v1 span {
+    display: block;
+    margin-top: 3px;
+    color: rgba(186, 230, 253, 0.74);
+    font-size: 0.64rem;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-quest-v1 em {
+    flex: 0 0 auto;
+    color: #bbf7d0;
+    font-style: normal;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  body[data-yh-view="academy"] .academy-quest-main-empty-v1 {
+    color: rgba(226, 232, 240, 0.74);
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  @media (max-width: 900px) {
+    body[data-yh-view="academy"] .academy-quest-main-head-v1,
+    body[data-yh-view="academy"] .academy-quest-main-stat-grid-v1 {
+      grid-template-columns: 1fr;
+    }
+
+    body[data-yh-view="academy"] .academy-quest-main-xp-v1 {
+      width: 100%;
+      text-align: left;
+    }
+
+    body[data-yh-view="academy"] .academy-quest-main-quest-v1 {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+  /* END PATCH: Academy Quest main card styles v1 */
+

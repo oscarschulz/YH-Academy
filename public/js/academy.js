@@ -35693,3 +35693,346 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 })();
 /* END PATCH: Academy Champions System frontend v1 */
 
+
+/* PATCH: Academy Quest main card frontend v1 */
+(function installAcademyQuestMainCardV1() {
+    if (window.__yhAcademyQuestMainCardV1Installed) return;
+    window.__yhAcademyQuestMainCardV1Installed = true;
+
+    let questState = null;
+    let renderBusy = false;
+
+    function escapeHtml(value = '') {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function toNumber(value = 0) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function getAuthToken() {
+        try {
+            return (
+                (typeof getStoredAuthToken === 'function' ? getStoredAuthToken() : '') ||
+                sessionStorage.getItem('yh_token') ||
+                localStorage.getItem('yh_token') ||
+                sessionStorage.getItem('token') ||
+                localStorage.getItem('token') ||
+                ''
+            ).trim();
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function getFallbackHome() {
+        try {
+            return typeof readAcademyHomeCache === 'function' ? readAcademyHomeCache() : {};
+        } catch (_) {
+            return {};
+        }
+    }
+
+    function rankFromXp(xp = 0) {
+        const score = Math.max(0, toNumber(xp));
+
+        if (score >= 9000) return { label: 'Academy Elite', nextLabel: 'Max Rank', minXp: 9000, nextXp: 9000 };
+        if (score >= 6500) return { label: 'Vanguard', nextLabel: 'Academy Elite', minXp: 6500, nextXp: 9000 };
+        if (score >= 4500) return { label: 'Captain', nextLabel: 'Vanguard', minXp: 4500, nextXp: 6500 };
+        if (score >= 3000) return { label: 'Strategist', nextLabel: 'Captain', minXp: 3000, nextXp: 4500 };
+        if (score >= 1800) return { label: 'Operator', nextLabel: 'Strategist', minXp: 1800, nextXp: 3000 };
+        if (score >= 900) return { label: 'Executor', nextLabel: 'Operator', minXp: 900, nextXp: 1800 };
+        if (score >= 300) return { label: 'Builder', nextLabel: 'Executor', minXp: 300, nextXp: 900 };
+
+        return { label: 'Initiate', nextLabel: 'Builder', minXp: 0, nextXp: 300 };
+    }
+
+    function buildFallbackChampions(home = {}) {
+        const today = home?.today && typeof home.today === 'object' ? home.today : {};
+        const progress = home?.progress && typeof home.progress === 'object' ? home.progress : {};
+        const missions = Array.isArray(home?.allMissions)
+            ? home.allMissions
+            : Array.isArray(home?.missions)
+                ? home.missions
+                : [];
+
+        const completedMissions = Number.isFinite(Number(progress.completed ?? today.missionsCompleted))
+            ? toNumber(progress.completed ?? today.missionsCompleted)
+            : missions.filter((mission) => {
+                const status = String(mission?.status || '').toLowerCase();
+                return status === 'completed' || mission?.completed === true || mission?.done === true;
+            }).length;
+
+        const totalMissions = Number.isFinite(Number(progress.total ?? today.missionsTotal))
+            ? toNumber(progress.total ?? today.missionsTotal)
+            : missions.length;
+
+        const streakDays = Math.max(0, toNumber(home?.streakDays ?? today.streakDays ?? home?.transformationSystem?.currentStreak ?? 0));
+        const checkinCount = Array.isArray(home?.recentCheckins) ? home.recentCheckins.length : 0;
+        const completionRate = totalMissions > 0 ? Math.round((completedMissions / totalMissions) * 100) : 0;
+        const xp = Math.max(0, Math.round((completedMissions * 50) + (Math.min(checkinCount, 60) * 20) + (streakDays * 25)));
+        const rank = rankFromXp(xp);
+        const level = Math.max(1, Math.floor(xp / 350) + 1);
+        const span = Math.max(1, rank.nextXp - rank.minXp);
+        const rankProgress = rank.nextXp === rank.minXp ? 100 : Math.max(0, Math.min(100, Math.round(((xp - rank.minXp) / span) * 100)));
+
+        return {
+            success: true,
+            version: 'academy-quest-main-card-fallback-v1',
+            player: {
+                name: 'You',
+                xp,
+                level,
+                rank: rank.label,
+                nextRank: rank.nextLabel,
+                nextXp: rank.nextXp,
+                rankProgress,
+                completedMissions,
+                totalMissions,
+                completionRate,
+                streakDays,
+                checkinCount,
+                helperScore: 0,
+                badge: streakDays >= 7 ? 'Consistency Builder' : completedMissions > 0 ? 'First Wins' : 'New Challenger'
+            },
+            quests: {
+                daily: [
+                    { title: 'Complete one roadmap mission', xp: 50, status: completedMissions > 0 ? 'active' : 'recommended' },
+                    { title: 'Submit today’s check-in', xp: 20, status: checkinCount > 0 ? 'active' : 'recommended' }
+                ],
+                weekly: [
+                    { title: 'Maintain a 7-day streak', xp: 100, status: streakDays >= 7 ? 'completed' : 'in_progress' }
+                ]
+            }
+        };
+    }
+
+    async function fetchQuestState() {
+        const headers = { Accept: 'application/json' };
+        const token = getAuthToken();
+
+        if (token) headers.Authorization = `Bearer ${token}`;
+
+        const response = await fetch('/api/academy/champions', {
+            method: 'GET',
+            credentials: 'include',
+            headers
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+            throw new Error(data?.message || 'Unable to load Academy Quest League.');
+        }
+
+        return data;
+    }
+
+    function isRoadmapVisible() {
+        const activeNav =
+            document.getElementById('nav-missions')?.classList.contains('is-active') ||
+            document.getElementById('nav-missions')?.getAttribute('aria-current') === 'page';
+
+        const section = String(new URL(window.location.href).searchParams.get('section') || '').trim().toLowerCase();
+
+        return activeNav || section === 'home' || section === 'missions' || Boolean(document.querySelector('[data-academy-roadmap-inner-panel]'));
+    }
+
+    function findMainCardMount() {
+        if (!isRoadmapVisible()) return null;
+
+        const existing = document.getElementById('academy-quest-main-card-v1');
+        if (existing?.parentElement) return existing.parentElement;
+
+        const roadmapShell =
+            document.querySelector('.academy-roadmap-inner-shell') ||
+            document.querySelector('.academy-roadmap-shell') ||
+            document.querySelector('[data-academy-roadmap-shell]');
+
+        if (roadmapShell) return roadmapShell;
+
+        const firstPanel = document.querySelector('[data-academy-roadmap-inner-panel]');
+        if (firstPanel?.parentElement) return firstPanel.parentElement;
+
+        return (
+            document.getElementById('chat-welcome-box') ||
+            document.getElementById('dynamic-chat-container') ||
+            document.querySelector('.academy-main-content') ||
+            document.querySelector('.academy-content-panel')
+        );
+    }
+
+    function buildQuestRows(payload = {}) {
+        const daily = Array.isArray(payload?.quests?.daily) ? payload.quests.daily : [];
+        const weekly = Array.isArray(payload?.quests?.weekly) ? payload.quests.weekly : [];
+        const quests = [...daily, ...weekly].slice(0, 3);
+
+        if (!quests.length) {
+            return `
+                <div class="academy-quest-main-empty-v1">
+                    Complete a mission or submit a check-in to activate your Quest League.
+                </div>
+            `;
+        }
+
+        return quests.map((quest) => {
+            const status = String(quest.status || 'recommended').replace(/_/g, ' ');
+
+            return `
+                <article class="academy-quest-main-quest-v1">
+                    <div>
+                        <strong>${escapeHtml(quest.title || 'Academy Quest')}</strong>
+                        <span>${escapeHtml(status)}</span>
+                    </div>
+                    <em>+${escapeHtml(quest.xp || 0)} XP</em>
+                </article>
+            `;
+        }).join('');
+    }
+
+    function renderMainCard(payload = null) {
+        if (renderBusy) return;
+
+        const mount = findMainCardMount();
+        if (!mount) return;
+
+        const data = payload || questState || buildFallbackChampions(getFallbackHome());
+        const player = data?.player || {};
+        const progress = Math.max(0, Math.min(100, toNumber(player.rankProgress)));
+
+        renderBusy = true;
+
+        let card = document.getElementById('academy-quest-main-card-v1');
+
+        if (!card) {
+            card = document.createElement('section');
+            card.id = 'academy-quest-main-card-v1';
+            card.className = 'academy-quest-main-card-v1';
+            card.setAttribute('aria-label', 'Academy Quest League progress');
+
+            const firstPanel = mount.querySelector?.('[data-academy-roadmap-inner-panel]') || null;
+            if (firstPanel) {
+                mount.insertBefore(card, firstPanel);
+            } else {
+                mount.prepend(card);
+            }
+        }
+
+        card.innerHTML = `
+            <div class="academy-quest-main-orb-v1" aria-hidden="true"></div>
+
+            <div class="academy-quest-main-head-v1">
+                <div>
+                    <span>ACADEMY QUEST LEAGUE</span>
+                    <h2>Level ${escapeHtml(player.level || 1)} · ${escapeHtml(player.rank || 'Initiate')}</h2>
+                    <p>Complete missions, submit check-ins, and build consistency to climb the Academy ranks.</p>
+                </div>
+
+                <div class="academy-quest-main-xp-v1">
+                    <strong>${escapeHtml(player.xp || 0)}</strong>
+                    <span>XP</span>
+                </div>
+            </div>
+
+            <div class="academy-quest-main-track-wrap-v1">
+                <div class="academy-quest-main-track-meta-v1">
+                    <span>Next Rank</span>
+                    <strong>${escapeHtml(player.nextRank || 'Builder')}</strong>
+                </div>
+                <div class="academy-quest-main-track-v1" aria-hidden="true">
+                    <span style="width:${escapeHtml(progress)}%;"></span>
+                </div>
+                <div class="academy-quest-main-track-foot-v1">
+                    <span>${escapeHtml(progress)}% progress</span>
+                    <span>${escapeHtml(player.nextXp || 300)} XP target</span>
+                </div>
+            </div>
+
+            <div class="academy-quest-main-stat-grid-v1">
+                <article>
+                    <span>Missions</span>
+                    <strong>${escapeHtml(player.completedMissions || 0)}/${escapeHtml(player.totalMissions || 0)}</strong>
+                </article>
+                <article>
+                    <span>Streak</span>
+                    <strong>${escapeHtml(player.streakDays || 0)}D</strong>
+                </article>
+                <article>
+                    <span>Badge</span>
+                    <strong>${escapeHtml(player.badge || 'New Challenger')}</strong>
+                </article>
+            </div>
+
+            <div class="academy-quest-main-quests-v1">
+                <div class="academy-quest-main-section-title-v1">Today’s Quests</div>
+                ${buildQuestRows(data)}
+            </div>
+        `;
+
+        window.setTimeout(() => {
+            renderBusy = false;
+        }, 30);
+    }
+
+    async function syncMainCard() {
+        try {
+            questState = await fetchQuestState();
+        } catch (_) {
+            questState = buildFallbackChampions(getFallbackHome());
+        }
+
+        renderMainCard(questState);
+    }
+
+    function scheduleSync(delay = 120) {
+        window.clearTimeout(window.__yhAcademyQuestMainCardTimerV1);
+        window.__yhAcademyQuestMainCardTimerV1 = window.setTimeout(syncMainCard, delay);
+    }
+
+    window.yhSyncAcademyQuestMainCardV1 = syncMainCard;
+    window.yhRenderAcademyQuestMainCardV1 = renderMainCard;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => scheduleSync(180));
+    } else {
+        scheduleSync(180);
+    }
+
+    window.addEventListener('load', () => scheduleSync(260), { passive: true });
+    window.addEventListener('focus', () => scheduleSync(320), { passive: true });
+
+    ['click', 'academy:home-loaded', 'academy:mission-completed', 'academy:checkin-saved'].forEach((eventName) => {
+        document.addEventListener(eventName, () => scheduleSync(260), true);
+    });
+
+    try {
+        const observer = new MutationObserver(() => {
+            if (renderBusy) return;
+            const card = document.getElementById('academy-quest-main-card-v1');
+            const mount = findMainCardMount();
+
+            if (mount && (!card || !mount.contains(card))) {
+                scheduleSync(80);
+            }
+        });
+
+        observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true
+        });
+
+        window.__yhAcademyQuestMainCardObserverV1 = observer;
+    } catch (_) {}
+
+    [400, 900, 1800, 3200].forEach((delay) => {
+        window.setTimeout(() => scheduleSync(40), delay);
+    });
+})();
+/* END PATCH: Academy Quest main card frontend v1 */
+
