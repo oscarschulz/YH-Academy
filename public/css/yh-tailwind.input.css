@@ -16818,3 +16818,40 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   }
   /* END PATCH: Dashboard single carousel referral styles v1 */
 
+
+  /* PATCH: Dashboard core render flicker fix styles v1 */
+  body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-overview-grid,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card-large.yh-command-access-hero-card,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-carousel-column,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-universe-carousel,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-universe-plaza-strip,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-universe-federation-strip,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-core-old-ui-hidden-v1 {
+    display: none;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-dashboard-overview-dynamic-access-row-v1 {
+    display: grid;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-referral-card,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-academy-strip {
+    display: block;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="overview"]) #yh-dashboard-overview-dynamic-access-row-v1,
+  body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="overview"]) #yh-universe-referral-card,
+  body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="overview"]) #yh-universe-academy-strip {
+    display: none;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  /* END PATCH: Dashboard core render flicker fix styles v1 */
+
