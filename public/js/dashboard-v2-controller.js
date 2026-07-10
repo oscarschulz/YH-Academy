@@ -871,3 +871,197 @@
 })();
 /* END PATCH: Dashboard V2 render lock v1 */
 
+
+/* PATCH: Dashboard V2 instant parent render v1 */
+(function installDashboardV2InstantParentRenderV1() {
+    if (window.__yhDashboardV2InstantParentRenderV1Installed) return;
+    window.__yhDashboardV2InstantParentRenderV1Installed = true;
+
+    const PARENT_KEYS = new Set(['academy', 'plazas', 'federation']);
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub';
+    }
+
+    function cleanParentKey(value = '') {
+        const key = String(value || '').trim().toLowerCase();
+        if (key === 'plaza') return 'plazas';
+        return PARENT_KEYS.has(key) ? key : '';
+    }
+
+    function setVisible(node, visible, display = '') {
+        if (!node || !(node instanceof HTMLElement)) return;
+
+        node.classList.toggle('hidden-step', !visible);
+        node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+
+        if (visible) {
+            node.style.removeProperty('display');
+            if (display) node.style.display = display;
+            node.style.removeProperty('visibility');
+            node.style.removeProperty('opacity');
+            node.style.removeProperty('pointer-events');
+            return;
+        }
+
+        node.style.display = 'none';
+        node.style.visibility = 'hidden';
+        node.style.opacity = '0';
+        node.style.pointerEvents = 'none';
+    }
+
+    function getParentKeyFromEvent(event) {
+        const parent = event.target?.closest?.(
+            '[data-yh-dashboard-shell="academy"], ' +
+            '[data-yh-dashboard-shell="plazas"], ' +
+            '[data-yh-dashboard-shell="federation"]'
+        );
+
+        if (!parent) return '';
+
+        return cleanParentKey(parent.getAttribute('data-yh-dashboard-shell'));
+    }
+
+    function hideOldSurfacesForParent() {
+        [
+            '.yh-command-dashboard-head',
+            '#yh-dashboard-overview-dynamic-access-row-v1',
+            '#yh-universe-referral-card',
+            '#yh-universe-academy-strip',
+            '#yh-command-overview-grid',
+            '#yh-universe-carousel',
+            '#yh-universe-plaza-strip',
+            '#yh-universe-federation-strip',
+            '.yh-universe-carousel-column',
+            '#yh-dashboard-division-parent-intro-v1',
+            '.yh-dashboard-division-intro-v1',
+            '.yh-dashboard-division-intro-hero-v1',
+            '.yh-dashboard-division-child-grid-v1',
+            '.yh-academy-parent-hero-header',
+            '.yh-academy-parent-vision-scope',
+            '.yh-universe-command-hero',
+            '.yh-universe-stage-nav',
+            '.yh-universe-dots',
+            '#yh-universe-progress-rail',
+            '#yh-econ-bridge-card'
+        ].forEach((selector) => {
+            document.querySelectorAll(selector).forEach((node) => {
+                setVisible(node, false, 'block');
+            });
+        });
+    }
+
+    function forceInstantParent(key, reason = 'instant') {
+        if (!isDashboardPage()) return false;
+
+        const clean = cleanParentKey(key);
+        if (!clean) return false;
+
+        document.body?.setAttribute('data-yh-dashboard-v2-active', clean);
+        document.body?.setAttribute('data-yh-unified-workspace', clean);
+        document.body?.setAttribute('data-yh-unified-division', clean);
+        document.body?.setAttribute('data-yh-dashboard-v2-lock', clean);
+        document.body?.setAttribute('data-yh-dashboard-v2-instant-parent', clean);
+
+        /*
+          Important: render first, then hide old surfaces.
+          This prevents the visible content area from becoming empty between old and new renderers.
+        */
+        if (typeof window.yhDashboardV2RenderParent === 'function') {
+            try {
+                window.yhDashboardV2RenderParent(clean);
+            } catch (error) {
+                console.error('Dashboard V2 instant parent render failed:', error);
+            }
+        }
+
+        const mount = document.getElementById('yh-dashboard-v2-parent-shell');
+        setVisible(mount, true, 'block');
+
+        hideOldSurfacesForParent();
+
+        if (typeof window.yhDashboardV2LockParentV1 === 'function') {
+            try {
+                window.yhDashboardV2LockParentV1(clean, reason);
+            } catch (_) {}
+        }
+
+        return true;
+    }
+
+    function scheduleInstantParent(key, reason = 'schedule') {
+        forceInstantParent(key, reason + '-now');
+
+        if (window.requestAnimationFrame) {
+            window.requestAnimationFrame(() => forceInstantParent(key, reason + '-raf'));
+        }
+
+        [16, 40, 90, 180, 360, 720].forEach((delay) => {
+            window.setTimeout(() => forceInstantParent(key, reason + '-' + delay), delay);
+        });
+    }
+
+    function interceptParentPointer(event) {
+        const key = getParentKeyFromEvent(event);
+        if (!key) return;
+
+        /*
+          Pointerdown/mousedown fires before click.
+          This lets V2 paint immediately before legacy click handlers can blank the stage.
+        */
+        scheduleInstantParent(key, event.type);
+    }
+
+    document.addEventListener('pointerdown', interceptParentPointer, true);
+    document.addEventListener('mousedown', interceptParentPointer, true);
+    document.addEventListener('touchstart', interceptParentPointer, true);
+
+    document.addEventListener('click', (event) => {
+        const key = getParentKeyFromEvent(event);
+        if (!key) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+
+        scheduleInstantParent(key, 'click');
+    }, true);
+
+    /*
+      If the old renderer blanks the stage after the parent is already active,
+      restore the V2 parent shell immediately.
+    */
+    try {
+        const observer = new MutationObserver(() => {
+            const active = cleanParentKey(document.body?.getAttribute('data-yh-dashboard-v2-active'));
+            if (!active) return;
+
+            window.clearTimeout(window.__yhDashboardV2InstantParentTimerV1);
+            window.__yhDashboardV2InstantParentTimerV1 = window.setTimeout(() => {
+                forceInstantParent(active, 'mutation');
+            }, 24);
+        });
+
+        observer.observe(document.body || document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: [
+                'style',
+                'class',
+                'data-yh-unified-workspace',
+                'data-yh-dashboard-v2-active',
+                'data-yh-dashboard-v2-lock'
+            ]
+        });
+
+        window.__yhDashboardV2InstantParentObserverV1 = observer;
+    } catch (_) {}
+
+    window.yhDashboardV2InstantParentRenderV1 = forceInstantParent;
+})();
+/* END PATCH: Dashboard V2 instant parent render v1 */
+
