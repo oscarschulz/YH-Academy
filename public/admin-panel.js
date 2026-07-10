@@ -6389,13 +6389,8 @@ case 'approve-application': {
       showToast('Application approved.');
     }
   } catch (error) {
-    try {
-      applyLocalApplicationReview(id, 'Approved');
-      showToast('Application approved locally.');
-    } catch (fallbackError) {
-      if (error?.message !== 'No active admin session.') {
-        showToast(fallbackError.message || error.message || 'Failed to approve application.');
-      }
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to approve application. Backend review did not complete.');
     }
   }
   break;
@@ -6414,13 +6409,8 @@ case 'reject-application': {
     await loadAdminBootstrap();
     showToast('Application rejected.');
   } catch (error) {
-    try {
-      applyLocalApplicationReview(id, 'Rejected');
-      showToast('Application rejected locally.');
-    } catch (fallbackError) {
-      if (error?.message !== 'No active admin session.') {
-        showToast(fallbackError.message || error.message || 'Failed to reject application.');
-      }
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to reject application. Backend review did not complete.');
     }
   }
   break;
@@ -6439,13 +6429,8 @@ case 'waitlist-application': {
     await loadAdminBootstrap();
     showToast('Application waitlisted.');
   } catch (error) {
-    try {
-      applyLocalApplicationReview(id, 'Waitlisted');
-      showToast('Application waitlisted locally.');
-    } catch (fallbackError) {
-      if (error?.message !== 'No active admin session.') {
-        showToast(fallbackError.message || error.message || 'Failed to waitlist application.');
-      }
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to waitlist application. Backend review did not complete.');
     }
   }
   break;
@@ -7498,3 +7483,25 @@ if (enforceAdminPanelAccess()) {
   bindEvents();
   loadAdminBootstrap();
 }
+
+
+/* PATCH: Admin backend-only application review v1 */
+(function installAdminBackendOnlyApplicationReviewV1() {
+  if (window.__yhAdminBackendOnlyApplicationReviewV1Installed) return;
+  window.__yhAdminBackendOnlyApplicationReviewV1Installed = true;
+
+  try {
+    [
+      'yh_academy_membership_status_v1',
+      'yh_plaza_access_status_v1',
+      'yh_federation_access_status_v1'
+    ].forEach((key) => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+  } catch (_) {}
+
+  window.__yhAdminApplicationReviewRequiresBackendV1 = true;
+})();
+/* END PATCH: Admin backend-only application review v1 */
+
