@@ -3157,3 +3157,116 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
 }
 /* END PATCH: Dashboard resources transparency tune v194 */
 
+
+/* PATCH: Academy parent econ layout styles v1 */
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-econ-bridge-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-universe-feature-panel:has(#yh-universe-feature-kicker) {
+    display: none;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail.yh-academy-parent-econ-hero-v1 {
+    width: 100%;
+    max-width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    margin: clamp(22px, 2vw, 34px) 0 0;
+    grid-column: 1 / -1;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail.yh-academy-parent-econ-hero-v1 .yh-universe-progress-card {
+    width: 100%;
+    max-width: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(260px, 0.78fr) minmax(420px, 1.22fr);
+    grid-template-areas:
+        "head statuses"
+        "copy statuses"
+        "tier statuses";
+    align-items: stretch;
+    gap: clamp(14px, 1.45vw, 24px);
+    padding: clamp(20px, 2vw, 30px);
+    border: 1px solid rgba(103, 232, 249, 0.24);
+    background:
+        radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.15), transparent 34%),
+        radial-gradient(circle at 92% 15%, rgba(37, 99, 235, 0.14), transparent 38%),
+        linear-gradient(180deg, rgba(8, 24, 45, 0.86), rgba(3, 9, 24, 0.78));
+    box-shadow:
+        0 22px 54px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.055);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail.yh-academy-parent-econ-hero-v1 .yh-universe-progress-kicker {
+    grid-area: head;
+    align-self: end;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail.yh-academy-parent-econ-hero-v1 .yh-universe-progress-title {
+    grid-area: head;
+    margin-top: 26px;
+    max-width: 420px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail.yh-academy-parent-econ-hero-v1 .yh-universe-progress-copy {
+    grid-area: copy;
+    max-width: 560px;
+    font-size: clamp(0.98rem, 1vw, 1.05rem);
+    line-height: 1.52;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail.yh-academy-parent-econ-hero-v1 .yh-universe-progress-tier {
+    grid-area: tier;
+    align-self: end;
+    min-height: 54px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail.yh-academy-parent-econ-hero-v1 .yh-universe-progress-status-list {
+    grid-area: statuses;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(10px, 0.9vw, 14px);
+    align-content: stretch;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail.yh-academy-parent-econ-hero-v1 .yh-universe-progress-status-row {
+    min-width: 0;
+    min-height: 58px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail.yh-academy-parent-econ-hero-v1 .yh-universe-progress-status-row span,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail.yh-academy-parent-econ-hero-v1 .yh-universe-progress-status-row strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 1100px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail.yh-academy-parent-econ-hero-v1 .yh-universe-progress-card {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "head"
+            "copy"
+            "tier"
+            "statuses";
+    }
+}
+
+@media (max-width: 760px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail.yh-academy-parent-econ-hero-v1 .yh-universe-progress-status-list {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail.yh-academy-parent-econ-hero-v1 .yh-universe-progress-status-row {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+    }
+}
+/* END PATCH: Academy parent econ layout styles v1 */
+

@@ -36036,3 +36036,173 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 })();
 /* END PATCH: Dashboard state owner final v3 */
 
+
+/* PATCH: Academy parent econ layout v1 */
+(function installAcademyParentEconLayoutV1() {
+    if (window.__yhAcademyParentEconLayoutV1Installed) return;
+    window.__yhAcademyParentEconLayoutV1Installed = true;
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return (
+            path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub'
+        );
+    }
+
+    function getWorkspace() {
+        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview')
+            .trim()
+            .toLowerCase() || 'overview';
+    }
+
+    function setNodeVisible(node, visible, displayValue = '') {
+        if (!node || !(node instanceof HTMLElement)) return;
+
+        node.classList.toggle('hidden-step', !visible);
+        node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+
+        if (visible) {
+            node.style.removeProperty('display');
+            if (displayValue) node.style.display = displayValue;
+            node.style.visibility = 'visible';
+            node.style.opacity = '1';
+            node.style.pointerEvents = 'auto';
+            return;
+        }
+
+        node.style.display = 'none';
+        node.style.visibility = 'hidden';
+        node.style.opacity = '0';
+        node.style.pointerEvents = 'none';
+    }
+
+    function findFeaturePanel() {
+        const kicker = document.getElementById('yh-universe-feature-kicker');
+        return kicker?.closest?.('.yh-universe-feature-panel, article, section, div') || null;
+    }
+
+    function applyAcademyParentEconLayoutV1(reason = 'sync') {
+        if (!isDashboardPage()) return;
+
+        const isAcademyParent = getWorkspace() === 'academy';
+
+        const rail = document.getElementById('yh-universe-progress-rail');
+        const econCard = rail?.querySelector?.('.yh-universe-progress-card') || null;
+        const bridgeCard = document.getElementById('yh-econ-bridge-card');
+        const featurePanel = findFeaturePanel();
+
+        if (rail) {
+            rail.classList.toggle('yh-academy-parent-econ-hero-v1', isAcademyParent);
+            rail.setAttribute('data-yh-academy-parent-econ', isAcademyParent ? 'active' : 'inactive');
+        }
+
+        if (econCard) {
+            econCard.classList.toggle('yh-academy-parent-econ-card-v1', isAcademyParent);
+        }
+
+        if (isAcademyParent) {
+            setNodeVisible(rail, true, 'grid');
+            setNodeVisible(econCard, true, 'grid');
+
+            /*
+              Academy parent now uses Economic Snapshot as the supporting card.
+              Remove the duplicate Academy Features card and Bridge Signal card.
+            */
+            setNodeVisible(bridgeCard, false, 'block');
+            setNodeVisible(featurePanel, false, 'block');
+
+            document.body?.classList.add('yh-academy-parent-econ-polished-v1');
+            return;
+        }
+
+        document.body?.classList.remove('yh-academy-parent-econ-polished-v1');
+
+        if (bridgeCard) bridgeCard.style.removeProperty('display');
+        if (featurePanel) featurePanel.style.removeProperty('display');
+    }
+
+    const nativeSyncBridge = window.syncUniverseBridgeCardVisibility;
+    if (typeof nativeSyncBridge === 'function' && nativeSyncBridge.__yhAcademyParentEconLayoutWrappedV1 !== true) {
+        const wrappedSyncUniverseBridgeCardVisibility = function wrappedSyncUniverseBridgeCardVisibilityV1(targetDivision = 'academy') {
+            const result = nativeSyncBridge.apply(this, arguments);
+
+            const division = String(targetDivision || '').trim().toLowerCase();
+            if (division === 'academy') {
+                const bridgeCard = document.getElementById('yh-econ-bridge-card');
+                setNodeVisible(bridgeCard, false, 'block');
+            }
+
+            applyAcademyParentEconLayoutV1('bridge-sync');
+            return result;
+        };
+
+        wrappedSyncUniverseBridgeCardVisibility.__yhAcademyParentEconLayoutWrappedV1 = true;
+        window.syncUniverseBridgeCardVisibility = wrappedSyncUniverseBridgeCardVisibility;
+    }
+
+    const nativeSyncFeature = window.syncUniverseFeaturePanel;
+    if (typeof nativeSyncFeature === 'function' && nativeSyncFeature.__yhAcademyParentEconLayoutWrappedV1 !== true) {
+        const wrappedSyncUniverseFeaturePanel = function wrappedSyncUniverseFeaturePanelV1(targetDivision = 'academy') {
+            const result = nativeSyncFeature.apply(this, arguments);
+
+            const division = String(targetDivision || '').trim().toLowerCase();
+            if (division === 'academy') {
+                setNodeVisible(findFeaturePanel(), false, 'block');
+            }
+
+            applyAcademyParentEconLayoutV1('feature-sync');
+            return result;
+        };
+
+        wrappedSyncUniverseFeaturePanel.__yhAcademyParentEconLayoutWrappedV1 = true;
+        window.syncUniverseFeaturePanel = wrappedSyncUniverseFeaturePanel;
+    }
+
+    const nativeSetUniverseSlide = window.setUniverseSlide;
+    if (typeof nativeSetUniverseSlide === 'function' && nativeSetUniverseSlide.__yhAcademyParentEconLayoutWrappedV1 !== true) {
+        const wrappedSetUniverseSlide = function wrappedSetUniverseSlideV1(targetDivision = 'academy', options = {}) {
+            const result = nativeSetUniverseSlide.apply(this, arguments);
+
+            window.requestAnimationFrame?.(() => applyAcademyParentEconLayoutV1('slide-raf'));
+            window.setTimeout(() => applyAcademyParentEconLayoutV1('slide-80'), 80);
+            window.setTimeout(() => applyAcademyParentEconLayoutV1('slide-260'), 260);
+
+            return result;
+        };
+
+        wrappedSetUniverseSlide.__yhAcademyParentEconLayoutWrappedV1 = true;
+        window.setUniverseSlide = wrappedSetUniverseSlide;
+    }
+
+    const nativeActivate = window.activateDashboardUnifiedWorkspace;
+    if (typeof nativeActivate === 'function' && nativeActivate.__yhAcademyParentEconLayoutWrappedV1 !== true) {
+        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspaceV1(key = 'overview', options = {}) {
+            const result = nativeActivate.apply(this, arguments);
+
+            window.requestAnimationFrame?.(() => applyAcademyParentEconLayoutV1('activate-raf'));
+            window.setTimeout(() => applyAcademyParentEconLayoutV1('activate-90'), 90);
+            window.setTimeout(() => applyAcademyParentEconLayoutV1('activate-420'), 420);
+
+            return result;
+        };
+
+        wrappedActivateDashboardUnifiedWorkspace.__yhAcademyParentEconLayoutWrappedV1 = true;
+        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
+    }
+
+    window.yhApplyAcademyParentEconLayoutV1 = applyAcademyParentEconLayoutV1;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => applyAcademyParentEconLayoutV1('dom'));
+    } else {
+        applyAcademyParentEconLayoutV1('boot');
+    }
+
+    [60, 180, 420, 900, 1600].forEach((delay) => {
+        window.setTimeout(() => applyAcademyParentEconLayoutV1('timer-' + delay), delay);
+    });
+})();
+/* END PATCH: Academy parent econ layout v1 */
+
