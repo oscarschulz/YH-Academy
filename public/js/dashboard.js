@@ -2414,7 +2414,9 @@ function renderYHEconomicSnapshot() {
         ).trim();
     }
 
-    safeRenderDashboardCommandOverview('data-refresh');
+    if (typeof window.yhRenderDashboardOverviewDynamicAccessRowV1 === 'function') {
+        try { window.yhRenderDashboardOverviewDynamicAccessRowV1(); } catch (_) {}
+    }
 }
 function setDashboardCommandOverviewText(id = '', value = '', fallback = '—') {
     const el = document.getElementById(id);
@@ -3144,7 +3146,9 @@ function renderYHWalletSnapshot(snapshot = {}) {
     renderYHWalletLedger('yh-wallet-payments-list', snapshot.payments || [], 'payment');
     renderYHWalletLedger('yh-wallet-payouts-list', snapshot.payouts || [], 'payout');
 
-    safeRenderDashboardCommandOverview('data-refresh');
+    if (typeof window.yhRenderDashboardOverviewDynamicAccessRowV1 === 'function') {
+        try { window.yhRenderDashboardOverviewDynamicAccessRowV1(); } catch (_) {}
+    }
 }
 
 async function refreshYHWalletSnapshot(forceFresh = false) {
@@ -6882,7 +6886,9 @@ function renderYHUniverseReferralSnapshot(snapshot = {}) {
 
     renderYHUniverseReferralList(referrals);
 
-    safeRenderDashboardCommandOverview('data-refresh');
+    if (typeof window.yhRenderDashboardOverviewDynamicAccessRowV1 === 'function') {
+        try { window.yhRenderDashboardOverviewDynamicAccessRowV1(); } catch (_) {}
+    }
 }
 
 async function refreshYHUniverseReferralSnapshot(forceFresh = false) {
@@ -12759,63 +12765,110 @@ function dashboardResetWorkspaceFrameV68() {
 
 function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     const copy = getDashboardUnifiedWorkspaceCopy(key);
-    const cleanKey = String(copy.key || 'overview').trim().toLowerCase();
-    const cleanDivision = String(copy.division || 'overview').trim().toLowerCase();
+    const cleanKey = String(copy.key || 'overview').trim().toLowerCase() || 'overview';
+    const cleanDivision = String(copy.division || 'overview').trim().toLowerCase() || 'overview';
 
     const isOverview = cleanKey === 'overview';
     const isAcademyParent = cleanKey === 'academy';
     const isPlazasParent = cleanKey === 'plazas';
     const isFederationParent = cleanKey === 'federation';
-    const isParentWorkspace = dashboardIsUnifiedParentWorkspaceV68(cleanKey);
-    const isChildWorkspace = !isParentWorkspace;
+    const isDivisionParent = isAcademyParent || isPlazasParent || isFederationParent;
+    const isChildWorkspace = typeof dashboardIsChildWorkspaceCleanV71 === 'function'
+        ? dashboardIsChildWorkspaceCleanV71(cleanKey)
+        : !(cleanKey === 'overview' || isDivisionParent);
 
+    const commandHead = document.querySelector('.yh-command-dashboard-head');
     const overviewGrid = document.getElementById('yh-command-overview-grid');
     const academyHero = document.querySelector('.yh-academy-parent-hero-header');
     const academyCommandHero = document.querySelector('.yh-universe-command-hero');
     const universeStage = document.querySelector('.yh-universe-stage-nav');
     const universeDots = document.querySelector('.yh-universe-dots');
 
+    const dynamicAccessRow = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
+    const referralCard = document.getElementById('yh-universe-referral-card');
+
     const academyStrip = document.getElementById('yh-universe-academy-strip');
     const plazaStrip = document.getElementById('yh-universe-plaza-strip');
     const federationStrip = document.getElementById('yh-universe-federation-strip');
 
+    const oldCarousel = document.getElementById('yh-universe-carousel');
+    const oldCarouselColumn = document.querySelector('.yh-universe-carousel-column');
+
+    const setVisible = (node, visible, displayValue = '') => {
+        if (!node) return;
+
+        node.classList.toggle('hidden-step', !visible);
+        node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+
+        if (visible) {
+            node.style.removeProperty('display');
+            if (displayValue) node.style.display = displayValue;
+            node.style.visibility = 'visible';
+            node.style.opacity = '1';
+            node.style.pointerEvents = 'auto';
+            return;
+        }
+
+        node.style.display = 'none';
+        node.style.visibility = 'hidden';
+        node.style.opacity = '0';
+        node.style.pointerEvents = 'none';
+    };
+
     document.body?.setAttribute('data-yh-unified-workspace', cleanKey);
     document.body?.setAttribute('data-yh-unified-division', cleanDivision);
+    document.body?.classList.toggle('yh-dashboard-child-workspace-active', isChildWorkspace);
     document.body?.classList.remove('yh-dashboard-inline-child-active');
 
-    dashboardSetWorkspaceNodeVisibleV68(overviewGrid, isOverview, 'grid');
-    dashboardSetWorkspaceNodeVisibleV68(academyHero, isAcademyParent, 'block');
-    dashboardSetWorkspaceNodeVisibleV68(academyCommandHero, isAcademyParent, 'grid');
-    dashboardSetWorkspaceNodeVisibleV68(universeStage, isAcademyParent, 'flex');
-    dashboardSetWorkspaceNodeVisibleV68(universeDots, false, 'flex');
+    /*
+      Dashboard overview owns only:
+      - command header
+      - dynamic access row
+      - YHU referral card
+      - one Live Universe Activity carousel
+
+      The old overview grid and split division carousel rails are never shown.
+    */
+    setVisible(commandHead, isOverview, 'grid');
+    setVisible(overviewGrid, false, 'grid');
+    setVisible(dynamicAccessRow, isOverview, 'grid');
+    setVisible(referralCard, isOverview, 'block');
 
     [academyStrip, plazaStrip, federationStrip].forEach((strip) => {
         if (!strip) return;
         strip.classList.remove('is-active');
-        dashboardSetWorkspaceNodeVisibleV68(strip, false, 'block');
+        setVisible(strip, false, 'block');
     });
 
-    const activeStrip = isOverview
-        ? academyStrip
-        : isPlazasParent
-            ? plazaStrip
-            : isFederationParent
-                ? federationStrip
-                : null;
-
-    if (activeStrip) {
-        activeStrip.classList.add('is-active');
-        dashboardSetWorkspaceNodeVisibleV68(activeStrip, true, 'block');
+    if (academyStrip && isOverview) {
+        academyStrip.classList.add('is-active');
+        setVisible(academyStrip, true, 'block');
     }
 
-    if (isParentWorkspace) {
+    setVisible(plazaStrip, false, 'block');
+    setVisible(federationStrip, false, 'block');
+    setVisible(oldCarousel, false, 'block');
+    setVisible(oldCarouselColumn, false, 'block');
+
+    /*
+      Parent tabs keep their own intro flow. Dashboard-only cards do not bleed
+      into parent/child tabs.
+    */
+    setVisible(academyHero, isAcademyParent, 'block');
+    setVisible(academyCommandHero, isAcademyParent, 'grid');
+    setVisible(universeStage, isDivisionParent, 'block');
+    setVisible(universeDots, false, 'flex');
+
+    if (!isChildWorkspace && typeof dashboardResetWorkspaceLaunchSurfaceCleanV71 === 'function') {
+        dashboardResetWorkspaceLaunchSurfaceCleanV71();
+    } else if (!isChildWorkspace && typeof dashboardResetWorkspaceFrameV68 === 'function') {
         dashboardResetWorkspaceFrameV68();
     }
 
-    if (isChildWorkspace) {
-        document.body?.classList.add('yh-dashboard-child-workspace-active');
-    } else {
-        document.body?.classList.remove('yh-dashboard-child-workspace-active');
+    if (isOverview && typeof window.yhRenderDashboardOverviewDynamicAccessRowV1 === 'function') {
+        try {
+            window.yhRenderDashboardOverviewDynamicAccessRowV1();
+        } catch (_) {}
     }
 }
 
@@ -12920,7 +12973,9 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     const isPlazasParent = cleanKey === 'plazas';
     const isFederationParent = cleanKey === 'federation';
     const isDivisionParent = isAcademyParent || isPlazasParent || isFederationParent;
-    const isChildWorkspace = dashboardIsChildWorkspaceCleanV71(cleanKey);
+    const isChildWorkspace = typeof dashboardIsChildWorkspaceCleanV71 === 'function'
+        ? dashboardIsChildWorkspaceCleanV71(cleanKey)
+        : !(cleanKey === 'overview' || isDivisionParent);
 
     const commandHead = document.querySelector('.yh-command-dashboard-head');
     const overviewGrid = document.getElementById('yh-command-overview-grid');
@@ -12929,52 +12984,91 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     const universeStage = document.querySelector('.yh-universe-stage-nav');
     const universeDots = document.querySelector('.yh-universe-dots');
 
+    const dynamicAccessRow = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
+    const referralCard = document.getElementById('yh-universe-referral-card');
+
     const academyStrip = document.getElementById('yh-universe-academy-strip');
     const plazaStrip = document.getElementById('yh-universe-plaza-strip');
     const federationStrip = document.getElementById('yh-universe-federation-strip');
+
+    const oldCarousel = document.getElementById('yh-universe-carousel');
+    const oldCarouselColumn = document.querySelector('.yh-universe-carousel-column');
+
+    const setVisible = (node, visible, displayValue = '') => {
+        if (!node) return;
+
+        node.classList.toggle('hidden-step', !visible);
+        node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+
+        if (visible) {
+            node.style.removeProperty('display');
+            if (displayValue) node.style.display = displayValue;
+            node.style.visibility = 'visible';
+            node.style.opacity = '1';
+            node.style.pointerEvents = 'auto';
+            return;
+        }
+
+        node.style.display = 'none';
+        node.style.visibility = 'hidden';
+        node.style.opacity = '0';
+        node.style.pointerEvents = 'none';
+    };
 
     document.body?.setAttribute('data-yh-unified-workspace', cleanKey);
     document.body?.setAttribute('data-yh-unified-division', cleanDivision);
     document.body?.classList.toggle('yh-dashboard-child-workspace-active', isChildWorkspace);
     document.body?.classList.remove('yh-dashboard-inline-child-active');
 
-    dashboardSetNodeVisibleCleanV71(commandHead, isOverview, 'grid');
-    dashboardSetNodeVisibleCleanV71(overviewGrid, isOverview, 'grid');
+    /*
+      Dashboard overview owns only:
+      - command header
+      - dynamic access row
+      - YHU referral card
+      - one Live Universe Activity carousel
 
-    dashboardSetNodeVisibleCleanV71(academyHero, isAcademyParent, 'block');
-    dashboardSetNodeVisibleCleanV71(academyCommandHero, isAcademyParent, 'grid');
-    dashboardSetNodeVisibleCleanV71(universeStage, isDivisionParent, 'block');
-    dashboardSetNodeVisibleCleanV71(universeDots, false, 'flex');
+      The old overview grid and split division carousel rails are never shown.
+    */
+    setVisible(commandHead, isOverview, 'grid');
+    setVisible(overviewGrid, false, 'grid');
+    setVisible(dynamicAccessRow, isOverview, 'grid');
+    setVisible(referralCard, isOverview, 'block');
 
     [academyStrip, plazaStrip, federationStrip].forEach((strip) => {
         if (!strip) return;
         strip.classList.remove('is-active');
-        dashboardSetNodeVisibleCleanV71(strip, false, 'block');
+        setVisible(strip, false, 'block');
     });
 
-    const activeStrip = isOverview
-        ? academyStrip
-        : isPlazasParent
-            ? plazaStrip
-            : isFederationParent
-                ? federationStrip
-                : null;
-
-    if (activeStrip) {
-        activeStrip.classList.add('is-active');
-        dashboardSetNodeVisibleCleanV71(activeStrip, true, 'block');
+    if (academyStrip && isOverview) {
+        academyStrip.classList.add('is-active');
+        setVisible(academyStrip, true, 'block');
     }
 
-    if (isDivisionParent) {
-        setUniverseSlide(cleanDivision, { animate: false });
-    }
+    setVisible(plazaStrip, false, 'block');
+    setVisible(federationStrip, false, 'block');
+    setVisible(oldCarousel, false, 'block');
+    setVisible(oldCarouselColumn, false, 'block');
 
-    if (!isChildWorkspace) {
+    /*
+      Parent tabs keep their own intro flow. Dashboard-only cards do not bleed
+      into parent/child tabs.
+    */
+    setVisible(academyHero, isAcademyParent, 'block');
+    setVisible(academyCommandHero, isAcademyParent, 'grid');
+    setVisible(universeStage, isDivisionParent, 'block');
+    setVisible(universeDots, false, 'flex');
+
+    if (!isChildWorkspace && typeof dashboardResetWorkspaceLaunchSurfaceCleanV71 === 'function') {
         dashboardResetWorkspaceLaunchSurfaceCleanV71();
+    } else if (!isChildWorkspace && typeof dashboardResetWorkspaceFrameV68 === 'function') {
+        dashboardResetWorkspaceFrameV68();
     }
 
-    if (isOverview && typeof safeRenderDashboardCommandOverview === 'function') {
-        /* disabled by dashboard core render flicker fix v1: old workspace carousel restore */
+    if (isOverview && typeof window.yhRenderDashboardOverviewDynamicAccessRowV1 === 'function') {
+        try {
+            window.yhRenderDashboardOverviewDynamicAccessRowV1();
+        } catch (_) {}
     }
 }
 
@@ -35740,978 +35834,3 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
     } catch (_) {}
 })();
 /* END PATCH: Dashboard overview cleanup dynamic access row v1 */
-
-
-/* PATCH: Dashboard persistent overview state v2 */
-(function installDashboardPersistentOverviewStateV2() {
-    if (window.__yhDashboardPersistentOverviewStateV2Installed) return;
-    window.__yhDashboardPersistentOverviewStateV2Installed = true;
-
-    const OVERVIEW_ONLY_VISIBLE_IDS = new Set([
-        'yh-dashboard-overview-dynamic-access-row-v1',
-        'yh-command-overview-grid'
-    ]);
-
-    const HIDDEN_CLASS = 'yh-dashboard-overview-force-hidden-v2';
-
-    function isDashboardPage() {
-        const path = String(window.location.pathname || '').replace(/\/+$/, '');
-        return (
-            path === '/dashboard' ||
-            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
-            document.body?.getAttribute('data-yh-view') === 'hub'
-        );
-    }
-
-    function getWorkspace() {
-        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview')
-            .trim()
-            .toLowerCase() || 'overview';
-    }
-
-    function isOverview() {
-        return getWorkspace() === 'overview';
-    }
-
-    function hideNode(node) {
-        if (!node || !(node instanceof HTMLElement)) return;
-
-        node.classList.add('hidden-step');
-        node.classList.add(HIDDEN_CLASS);
-        node.setAttribute('aria-hidden', 'true');
-        node.dataset.yhDashboardOverviewForcedHiddenV2 = 'true';
-        node.style.display = 'none';
-        node.style.visibility = 'hidden';
-        node.style.pointerEvents = 'none';
-    }
-
-    function showNode(node, displayValue = '') {
-        if (!node || !(node instanceof HTMLElement)) return;
-
-        node.classList.remove(HIDDEN_CLASS);
-        node.removeAttribute('data-yh-dashboard-overview-forced-hidden-v2');
-        node.setAttribute('aria-hidden', 'false');
-
-        if (!node.classList.contains('hidden-step')) {
-            node.style.removeProperty('display');
-            node.style.removeProperty('visibility');
-            node.style.removeProperty('pointer-events');
-            return;
-        }
-
-        node.classList.remove('hidden-step');
-        node.style.removeProperty('display');
-        node.style.removeProperty('visibility');
-        node.style.removeProperty('pointer-events');
-
-        if (displayValue) node.style.display = displayValue;
-    }
-
-    function closestSafeSection(node) {
-        if (!node || !(node instanceof HTMLElement)) return null;
-
-        const protectedIds = new Set([
-            'universe-hub-view',
-            'yh-command-overview-grid',
-            'yh-dashboard-overview-dynamic-access-row-v1'
-        ]);
-
-        let current = node;
-
-        while (current && current !== document.body) {
-            if (protectedIds.has(current.id)) return node;
-            if (
-                current.matches?.(
-                    '#yh-dashboard-division-parent-intro-v1, ' +
-                    '.yh-dashboard-division-intro-v1, ' +
-                    '.yh-dashboard-division-intro-hero-v1, ' +
-                    '.yh-dashboard-division-child-grid-v1, ' +
-                    '.yh-academy-parent-hero-header, ' +
-                    '.yh-academy-parent-vision-scope, ' +
-                    '.yh-universe-command-hero, ' +
-                    '.yh-universe-stage-nav, ' +
-                    'section, article'
-                )
-            ) {
-                return current;
-            }
-
-            current = current.parentElement;
-        }
-
-        return node;
-    }
-
-    function forceHideParentIntroArtifactsOnOverview() {
-        if (!isDashboardPage() || !isOverview()) return;
-
-        const directSelectors = [
-            '#yh-dashboard-division-parent-intro-v1',
-            '.yh-dashboard-division-intro-v1',
-            '.yh-dashboard-division-intro-hero-v1',
-            '.yh-dashboard-division-child-grid-v1',
-            '.yh-academy-parent-hero-header',
-            '.yh-academy-parent-vision-scope'
-        ];
-
-        directSelectors.forEach((selector) => {
-            document.querySelectorAll(selector).forEach((node) => {
-                hideNode(closestSafeSection(node));
-            });
-        });
-
-        const staleTextPatterns = [
-            /\bacademy workspace\b/i,
-            /\bthe academy\b[\s\S]{0,160}\bexecution, roadmap, missions/i,
-            /\byour execution and self-improvement layer\b/i,
-            /\broadmap\b[\s\S]{0,80}\bbuild your execution path and next move\b/i,
-            /\bmissions\b[\s\S]{0,80}\bwork through lead missions and task flows\b/i,
-            /\bcommunity feed\b[\s\S]{0,100}\bpost, react, and build your academy circle\b/i,
-            /\bmessages\b[\s\S]{0,80}\bcontinue member conversations\b/i,
-            /\blive voice lounge\b[\s\S]{0,80}\bjoin live execution rooms\b/i,
-            /\bacademy access\b[\s\S]{0,180}\baccess not applied\b/i
-        ];
-
-        Array.from(document.querySelectorAll('section, article, div'))
-            .filter((node) => node instanceof HTMLElement)
-            .filter((node) => {
-                if (OVERVIEW_ONLY_VISIBLE_IDS.has(node.id)) return false;
-                if (node.closest?.('#yh-dashboard-overview-dynamic-access-row-v1')) return false;
-                if (node.closest?.('#yh-command-overview-grid')) return false;
-
-                const text = String(node.textContent || '').replace(/\s+/g, ' ').trim();
-                if (!text || text.length > 2200) return false;
-
-                return staleTextPatterns.some((pattern) => pattern.test(text));
-            })
-            .forEach((node) => {
-                const target = closestSafeSection(node);
-                if (!target || target.id === 'universe-hub-view') return;
-                hideNode(target);
-            });
-
-        const intro = document.getElementById('yh-dashboard-division-parent-intro-v1');
-        if (intro) hideNode(intro);
-
-        const row = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
-        if (row) showNode(row, 'grid');
-
-        const overviewGrid = document.getElementById('yh-command-overview-grid');
-        if (overviewGrid) {
-            showNode(overviewGrid, 'grid');
-        }
-    }
-
-    function restoreParentIntroWhenNotOverview() {
-        if (!isDashboardPage() || isOverview()) return;
-
-        document.querySelectorAll('.' + HIDDEN_CLASS).forEach((node) => {
-            const id = node.id || '';
-
-            if (
-                id === 'yh-dashboard-overview-dynamic-access-row-v1' ||
-                id === 'yh-command-overview-grid'
-            ) {
-                hideNode(node);
-                return;
-            }
-
-            if (
-                node.matches?.(
-                    '#yh-dashboard-division-parent-intro-v1, ' +
-                    '.yh-dashboard-division-intro-v1, ' +
-                    '.yh-dashboard-division-intro-hero-v1, ' +
-                    '.yh-dashboard-division-child-grid-v1'
-                )
-            ) {
-                showNode(node);
-            }
-        });
-
-        const row = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
-        if (row) hideNode(row);
-    }
-
-    function enforceDashboardPersistentOverviewState(reason = 'sync') {
-        if (!isDashboardPage()) return;
-
-        if (isOverview()) {
-            document.body?.classList.add('yh-dashboard-overview-clean-v2');
-            document.body?.classList.remove('yh-dashboard-parent-intro-clean-v2');
-
-            forceHideParentIntroArtifactsOnOverview();
-
-            try {
-                if (typeof window.yhRenderDashboardOverviewDynamicAccessRowV1 === 'function') {
-                    window.yhRenderDashboardOverviewDynamicAccessRowV1();
-                }
-            } catch (_) {}
-
-            window.setTimeout(forceHideParentIntroArtifactsOnOverview, 0);
-            window.setTimeout(forceHideParentIntroArtifactsOnOverview, 90);
-            window.setTimeout(forceHideParentIntroArtifactsOnOverview, 280);
-            window.setTimeout(forceHideParentIntroArtifactsOnOverview, 700);
-            return;
-        }
-
-        document.body?.classList.remove('yh-dashboard-overview-clean-v2');
-        document.body?.classList.add('yh-dashboard-parent-intro-clean-v2');
-        restoreParentIntroWhenNotOverview();
-    }
-
-    const nativeActivate = window.activateDashboardUnifiedWorkspace;
-
-    if (typeof nativeActivate === 'function' && nativeActivate.__yhPersistentOverviewStateWrappedV2 !== true) {
-        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspacePersistentOverviewV2(key = 'overview', options = {}) {
-            const result = nativeActivate.call(this, key, options);
-
-            window.setTimeout(() => enforceDashboardPersistentOverviewState('activate-0'), 0);
-            window.setTimeout(() => enforceDashboardPersistentOverviewState('activate-80'), 80);
-            window.setTimeout(() => enforceDashboardPersistentOverviewState('activate-240'), 240);
-            window.setTimeout(() => enforceDashboardPersistentOverviewState('activate-700'), 700);
-
-            return result;
-        };
-
-        wrappedActivateDashboardUnifiedWorkspace.__yhPersistentOverviewStateWrappedV2 = true;
-        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
-    }
-
-    document.addEventListener('click', (event) => {
-        const dashboardButton = event.target?.closest?.(
-            '[data-yh-dashboard-shell="overview"], ' +
-            '[data-yh-sidebar-child="overview"], ' +
-            '[data-yh-command-overview-open="overview"], ' +
-            '#nav-dashboard, ' +
-            '#btn-dashboard-overview'
-        );
-
-        if (!dashboardButton) return;
-
-        window.setTimeout(() => enforceDashboardPersistentOverviewState('dashboard-click-0'), 0);
-        window.setTimeout(() => enforceDashboardPersistentOverviewState('dashboard-click-120'), 120);
-        window.setTimeout(() => enforceDashboardPersistentOverviewState('dashboard-click-420'), 420);
-        window.setTimeout(() => enforceDashboardPersistentOverviewState('dashboard-click-900'), 900);
-    }, true);
-
-    window.yhEnforceDashboardPersistentOverviewStateV2 = enforceDashboardPersistentOverviewState;
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => enforceDashboardPersistentOverviewState('dom'));
-    } else {
-        enforceDashboardPersistentOverviewState('boot');
-    }
-
-    [60, 180, 420, 900, 1600, 2600, 4200].forEach((delay) => {
-        window.setTimeout(() => enforceDashboardPersistentOverviewState('timer-' + delay), delay);
-    });
-
-    try {
-        const observer = new MutationObserver(() => {
-            if (!isDashboardPage()) return;
-
-            window.clearTimeout(window.__yhDashboardPersistentOverviewStateTimerV2);
-            window.__yhDashboardPersistentOverviewStateTimerV2 = window.setTimeout(() => {
-                enforceDashboardPersistentOverviewState('mutation');
-            }, 35);
-        });
-
-        observer.observe(document.body || document.documentElement, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: [
-                'class',
-                'style',
-                'data-yh-unified-workspace',
-                'data-yh-unified-division',
-                'aria-hidden'
-            ]
-        });
-
-        window.__yhDashboardPersistentOverviewStateObserverV2 = observer;
-    } catch (_) {}
-})();
-/* END PATCH: Dashboard persistent overview state v2 */
-
-
-/* PATCH: Dashboard remove old overview grid flicker guard v1 */
-(function installDashboardRemoveOldOverviewGridFlickerGuardV1() {
-    if (window.__yhDashboardRemoveOldOverviewGridFlickerGuardV1Installed) return;
-    window.__yhDashboardRemoveOldOverviewGridFlickerGuardV1Installed = true;
-
-    const HIDDEN_CLASS = 'yh-dashboard-old-overview-grid-removed-v1';
-
-    function isDashboardPage() {
-        const path = String(window.location.pathname || '').replace(/\/+$/, '');
-        return (
-            path === '/dashboard' ||
-            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
-            document.body?.getAttribute('data-yh-view') === 'hub'
-        );
-    }
-
-    function getWorkspace() {
-        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview')
-            .trim()
-            .toLowerCase() || 'overview';
-    }
-
-    function hideNode(node) {
-        if (!node || !(node instanceof HTMLElement)) return;
-
-        node.classList.add('hidden-step');
-        node.classList.add(HIDDEN_CLASS);
-        node.setAttribute('aria-hidden', 'true');
-        node.dataset.yhDashboardOldOverviewGridRemovedV1 = 'true';
-        node.style.display = 'none';
-        node.style.visibility = 'hidden';
-        node.style.pointerEvents = 'none';
-    }
-
-    function removeOldOverviewGrid() {
-        if (!isDashboardPage()) return;
-
-        const oldGrid = document.getElementById('yh-command-overview-grid');
-        if (oldGrid) hideNode(oldGrid);
-
-        document.querySelectorAll(
-            '.yh-command-access-hero-card, ' +
-            '.yh-command-overview-card-large.yh-command-access-hero-card'
-        ).forEach(hideNode);
-
-        /*
-          If older sync code sets overviewGrid visible again, immediately restore
-          the clean dashboard layout.
-        */
-        const dynamicRow = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
-        if (dynamicRow && getWorkspace() === 'overview') {
-            dynamicRow.classList.remove('hidden-step');
-            dynamicRow.setAttribute('aria-hidden', 'false');
-            dynamicRow.style.removeProperty('display');
-            dynamicRow.style.removeProperty('visibility');
-            dynamicRow.style.removeProperty('pointer-events');
-        }
-    }
-
-    function runCleanDashboardSync(reason = 'sync') {
-        if (!isDashboardPage()) return;
-
-        removeOldOverviewGrid();
-
-        try {
-            if (typeof window.yhSyncDashboardOverviewCleanupDynamicAccessRowV1 === 'function') {
-                window.yhSyncDashboardOverviewCleanupDynamicAccessRowV1();
-            }
-        } catch (_) {}
-
-        try {
-            if (typeof window.yhEnforceDashboardPersistentOverviewStateV2 === 'function') {
-                window.yhEnforceDashboardPersistentOverviewStateV2(reason);
-            }
-        } catch (_) {}
-
-        window.setTimeout(removeOldOverviewGrid, 0);
-        window.setTimeout(removeOldOverviewGrid, 80);
-        window.setTimeout(removeOldOverviewGrid, 240);
-        window.setTimeout(removeOldOverviewGrid, 700);
-    }
-
-    const nativeActivate = window.activateDashboardUnifiedWorkspace;
-
-    if (typeof nativeActivate === 'function' && nativeActivate.__yhOldOverviewGridGuardWrappedV1 !== true) {
-        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspaceOldGridGuardV1(key = 'overview', options = {}) {
-            const result = nativeActivate.call(this, key, options);
-
-            window.setTimeout(() => runCleanDashboardSync('activate-0'), 0);
-            window.setTimeout(() => runCleanDashboardSync('activate-80'), 80);
-            window.setTimeout(() => runCleanDashboardSync('activate-240'), 240);
-            window.setTimeout(() => runCleanDashboardSync('activate-700'), 700);
-
-            return result;
-        };
-
-        wrappedActivateDashboardUnifiedWorkspace.__yhOldOverviewGridGuardWrappedV1 = true;
-        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
-    }
-
-    document.addEventListener('click', (event) => {
-        const nav = event.target?.closest?.(
-            '[data-yh-dashboard-shell], ' +
-            '[data-yh-sidebar-child], ' +
-            '[data-yh-command-overview-open], ' +
-            '#nav-dashboard, ' +
-            '#btn-dashboard-overview'
-        );
-
-        if (!nav) return;
-
-        window.setTimeout(() => runCleanDashboardSync('click-0'), 0);
-        window.setTimeout(() => runCleanDashboardSync('click-120'), 120);
-        window.setTimeout(() => runCleanDashboardSync('click-420'), 420);
-    }, true);
-
-    window.yhRemoveOldDashboardOverviewGridV1 = removeOldOverviewGrid;
-    window.yhRunCleanDashboardSyncV1 = runCleanDashboardSync;
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => runCleanDashboardSync('dom'));
-    } else {
-        runCleanDashboardSync('boot');
-    }
-
-    [20, 60, 140, 320, 800, 1600, 2800, 4600].forEach((delay) => {
-        window.setTimeout(() => runCleanDashboardSync('timer-' + delay), delay);
-    });
-
-    try {
-        const observer = new MutationObserver(() => {
-            if (!isDashboardPage()) return;
-
-            window.clearTimeout(window.__yhDashboardRemoveOldGridTimerV1);
-            window.__yhDashboardRemoveOldGridTimerV1 = window.setTimeout(() => {
-                removeOldOverviewGrid();
-            }, 25);
-        });
-
-        observer.observe(document.body || document.documentElement, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: [
-                'class',
-                'style',
-                'aria-hidden',
-                'data-yh-unified-workspace',
-                'data-yh-unified-division'
-            ]
-        });
-
-        window.__yhDashboardRemoveOldGridObserverV1 = observer;
-    } catch (_) {}
-})();
-/* END PATCH: Dashboard remove old overview grid flicker guard v1 */
-
-
-/* PATCH: Dashboard single carousel referral v1 */
-(function installDashboardSingleCarouselReferralV1() {
-    if (window.__yhDashboardSingleCarouselReferralV1Installed) return;
-    window.__yhDashboardSingleCarouselReferralV1Installed = true;
-
-    const HIDDEN_CLASS = 'yh-dashboard-old-carousel-hidden-v1';
-    const REFERRAL_MARKER_CLASS = 'yh-dashboard-referral-dashboard-only-v1';
-    const LIVE_MARKER_CLASS = 'yh-dashboard-live-activity-only-v1';
-
-    function isDashboardPage() {
-        const path = String(window.location.pathname || '').replace(/\/+$/, '');
-        return (
-            path === '/dashboard' ||
-            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
-            document.body?.getAttribute('data-yh-view') === 'hub'
-        );
-    }
-
-    function getWorkspace() {
-        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview')
-            .trim()
-            .toLowerCase() || 'overview';
-    }
-
-    function isOverview() {
-        return getWorkspace() === 'overview';
-    }
-
-    function hideNode(node) {
-        if (!node || !(node instanceof HTMLElement)) return;
-
-        node.classList.add('hidden-step');
-        node.classList.add(HIDDEN_CLASS);
-        node.setAttribute('aria-hidden', 'true');
-        node.dataset.yhDashboardOldCarouselHiddenV1 = 'true';
-        node.style.display = 'none';
-        node.style.visibility = 'hidden';
-        node.style.pointerEvents = 'none';
-    }
-
-    function showNode(node, displayValue = 'block') {
-        if (!node || !(node instanceof HTMLElement)) return;
-
-        node.classList.remove('hidden-step');
-        node.classList.remove(HIDDEN_CLASS);
-        node.removeAttribute('data-yh-dashboard-old-carousel-hidden-v1');
-        node.setAttribute('aria-hidden', 'false');
-        node.style.removeProperty('display');
-        node.style.removeProperty('visibility');
-        node.style.removeProperty('pointer-events');
-
-        if (displayValue) node.style.display = displayValue;
-    }
-
-    function getLiveActivityStrip() {
-        return document.getElementById('yh-universe-academy-strip');
-    }
-
-    function getReferralCard() {
-        return document.getElementById('yh-universe-referral-card');
-    }
-
-    function hideOldSplitCarousels() {
-        if (!isDashboardPage()) return;
-
-        [
-            document.querySelector('.yh-universe-carousel-column'),
-            document.getElementById('yh-universe-carousel'),
-            document.getElementById('yh-universe-plaza-strip'),
-            document.getElementById('yh-universe-federation-strip')
-        ].filter(Boolean).forEach(hideNode);
-
-        document.querySelectorAll('[aria-label="Plazas visual carousel"], [aria-label="Federation visual carousel"]').forEach(hideNode);
-
-        /*
-          Safety text guard: if any old carousel section gets reinserted by old
-          render logic, hide only the split/division rails, not Live Universe Activity.
-        */
-        Array.from(document.querySelectorAll('section, div'))
-            .filter((node) => node instanceof HTMLElement)
-            .filter((node) => {
-                if (node.id === 'yh-universe-academy-strip') return false;
-                if (node.id === 'yh-universe-referral-card') return false;
-                if (node.closest?.('#yh-universe-academy-strip')) return false;
-                if (node.closest?.('#yh-universe-referral-card')) return false;
-
-                const text = String(node.textContent || '').replace(/\s+/g, ' ').trim();
-                if (!text || text.length > 1800) return false;
-
-                return (
-                    /strategic universe activity/i.test(text) ||
-                    /plazas visual carousel/i.test(String(node.getAttribute('aria-label') || '')) ||
-                    /federation visual carousel/i.test(String(node.getAttribute('aria-label') || '')) ||
-                    (/live division/i.test(text) && /the academy/i.test(text) && /the plazas/i.test(text) && /the federation/i.test(text))
-                );
-            })
-            .forEach((node) => {
-                if (node.id === 'universe-hub-view') return;
-                hideNode(node);
-            });
-    }
-
-    function placeReferralAboveLiveActivity() {
-        if (!isDashboardPage()) return;
-
-        const referral = getReferralCard();
-        const liveStrip = getLiveActivityStrip();
-
-        if (!referral || !liveStrip) return;
-
-        referral.classList.add(REFERRAL_MARKER_CLASS);
-        liveStrip.classList.add(LIVE_MARKER_CLASS);
-
-        if (referral.nextElementSibling !== liveStrip) {
-            liveStrip.parentNode?.insertBefore(referral, liveStrip);
-        }
-    }
-
-    function syncSingleDashboardCarouselAndReferral(reason = 'sync') {
-        if (!isDashboardPage()) return;
-
-        hideOldSplitCarousels();
-        placeReferralAboveLiveActivity();
-
-        const liveStrip = getLiveActivityStrip();
-        const referral = getReferralCard();
-
-        if (isOverview()) {
-            if (referral) showNode(referral, 'block');
-
-            if (liveStrip) {
-                liveStrip.classList.add('is-active');
-                showNode(liveStrip, 'block');
-            }
-        } else {
-            /*
-              Referral and Live Activity are Dashboard overview-only.
-              Parent tabs and child tabs should render their own content.
-            */
-            if (referral) hideNode(referral);
-            if (liveStrip) hideNode(liveStrip);
-        }
-
-        window.setTimeout(hideOldSplitCarousels, 0);
-        window.setTimeout(hideOldSplitCarousels, 90);
-        window.setTimeout(hideOldSplitCarousels, 280);
-        window.setTimeout(hideOldSplitCarousels, 700);
-    }
-
-    const nativeActivate = window.activateDashboardUnifiedWorkspace;
-
-    if (typeof nativeActivate === 'function' && nativeActivate.__yhSingleCarouselReferralWrappedV1 !== true) {
-        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspaceSingleCarouselReferralV1(key = 'overview', options = {}) {
-            const result = nativeActivate.call(this, key, options);
-
-            window.setTimeout(() => syncSingleDashboardCarouselAndReferral('activate-0'), 0);
-            window.setTimeout(() => syncSingleDashboardCarouselAndReferral('activate-80'), 80);
-            window.setTimeout(() => syncSingleDashboardCarouselAndReferral('activate-240'), 240);
-            window.setTimeout(() => syncSingleDashboardCarouselAndReferral('activate-700'), 700);
-
-            return result;
-        };
-
-        wrappedActivateDashboardUnifiedWorkspace.__yhSingleCarouselReferralWrappedV1 = true;
-        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
-    }
-
-    document.addEventListener('click', (event) => {
-        const nav = event.target?.closest?.(
-            '[data-yh-dashboard-shell], ' +
-            '[data-yh-sidebar-child], ' +
-            '[data-yh-command-overview-open], ' +
-            '#nav-dashboard, ' +
-            '#btn-dashboard-overview'
-        );
-
-        if (!nav) return;
-
-        window.setTimeout(() => syncSingleDashboardCarouselAndReferral('click-0'), 0);
-        window.setTimeout(() => syncSingleDashboardCarouselAndReferral('click-120'), 120);
-        window.setTimeout(() => syncSingleDashboardCarouselAndReferral('click-420'), 420);
-    }, true);
-
-    window.yhSyncDashboardSingleCarouselReferralV1 = syncSingleDashboardCarouselAndReferral;
-    window.yhHideOldDashboardSplitCarouselsV1 = hideOldSplitCarousels;
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => syncSingleDashboardCarouselAndReferral('dom'));
-    } else {
-        syncSingleDashboardCarouselAndReferral('boot');
-    }
-
-    [20, 60, 140, 320, 800, 1600, 2800, 4600].forEach((delay) => {
-        window.setTimeout(() => syncSingleDashboardCarouselAndReferral('timer-' + delay), delay);
-    });
-
-    try {
-        const observer = new MutationObserver(() => {
-            if (!isDashboardPage()) return;
-
-            window.clearTimeout(window.__yhDashboardSingleCarouselReferralTimerV1);
-            window.__yhDashboardSingleCarouselReferralTimerV1 = window.setTimeout(() => {
-                syncSingleDashboardCarouselAndReferral('mutation');
-            }, 35);
-        });
-
-        observer.observe(document.body || document.documentElement, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: [
-                'class',
-                'style',
-                'aria-hidden',
-                'data-yh-unified-workspace',
-                'data-yh-unified-division'
-            ]
-        });
-
-        window.__yhDashboardSingleCarouselReferralObserverV1 = observer;
-    } catch (_) {}
-})();
-/* END PATCH: Dashboard single carousel referral v1 */
-
-
-/* PATCH: Dashboard core render flicker fix v1 */
-(function installDashboardCoreRenderFlickerFixV1() {
-    if (window.__yhDashboardCoreRenderFlickerFixV1Installed) return;
-    window.__yhDashboardCoreRenderFlickerFixV1Installed = true;
-
-    const OLD_UI_CLASS = 'yh-dashboard-core-old-ui-hidden-v1';
-
-    const OLD_UI_SELECTORS = [
-        '#yh-command-overview-grid',
-        '.yh-command-access-hero-card',
-        '.yh-command-overview-card-large.yh-command-access-hero-card',
-        '.yh-universe-carousel-column',
-        '#yh-universe-carousel',
-        '#yh-universe-plaza-strip',
-        '#yh-universe-federation-strip',
-        '[aria-label="Plazas visual carousel"]',
-        '[aria-label="Federation visual carousel"]'
-    ];
-
-    function isDashboardPage() {
-        const path = String(window.location.pathname || '').replace(/\/+$/, '');
-        return (
-            path === '/dashboard' ||
-            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
-            document.body?.getAttribute('data-yh-view') === 'hub'
-        );
-    }
-
-    function getWorkspace() {
-        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview')
-            .trim()
-            .toLowerCase() || 'overview';
-    }
-
-    function isOverview() {
-        return getWorkspace() === 'overview';
-    }
-
-    function hideNode(node) {
-        if (!node || !(node instanceof HTMLElement)) return;
-
-        node.classList.add('hidden-step');
-        node.classList.add(OLD_UI_CLASS);
-        node.setAttribute('aria-hidden', 'true');
-        node.dataset.yhDashboardCoreOldUiHiddenV1 = 'true';
-        node.style.display = 'none';
-        node.style.visibility = 'hidden';
-        node.style.pointerEvents = 'none';
-    }
-
-    function showNode(node, displayValue = '') {
-        if (!node || !(node instanceof HTMLElement)) return;
-
-        node.classList.remove('hidden-step');
-        node.classList.remove(OLD_UI_CLASS);
-        node.removeAttribute('data-yh-dashboard-core-old-ui-hidden-v1');
-        node.setAttribute('aria-hidden', 'false');
-        node.style.removeProperty('visibility');
-        node.style.removeProperty('pointer-events');
-
-        if (displayValue) {
-            node.style.display = displayValue;
-        } else {
-            node.style.removeProperty('display');
-        }
-    }
-
-    function hideOldDashboardUi() {
-        if (!isDashboardPage()) return;
-
-        OLD_UI_SELECTORS.forEach((selector) => {
-            document.querySelectorAll(selector).forEach(hideNode);
-        });
-
-        /*
-          Text fallback for old split carousel rails that can be regenerated
-          without stable IDs/classes.
-        */
-        Array.from(document.querySelectorAll('section, article, div'))
-            .filter((node) => node instanceof HTMLElement)
-            .filter((node) => {
-                if (node.id === 'yh-universe-academy-strip') return false;
-                if (node.id === 'yh-universe-referral-card') return false;
-                if (node.id === 'yh-dashboard-overview-dynamic-access-row-v1') return false;
-                if (node.closest?.('#yh-universe-academy-strip')) return false;
-                if (node.closest?.('#yh-universe-referral-card')) return false;
-                if (node.closest?.('#yh-dashboard-overview-dynamic-access-row-v1')) return false;
-
-                const text = String(node.textContent || '').replace(/\s+/g, ' ').trim();
-                if (!text || text.length > 2000) return false;
-
-                return (
-                    /strategic universe activity/i.test(text) ||
-                    (/live division/i.test(text) && /the academy/i.test(text) && /the plazas/i.test(text) && /the federation/i.test(text)) ||
-                    (/academy workspace/i.test(text) && /the academy/i.test(text) && /roadmap/i.test(text)) ||
-                    (/academy access/i.test(text) && /access not applied/i.test(text))
-                );
-            })
-            .forEach((node) => {
-                if (node.id === 'universe-hub-view') return;
-                hideNode(node);
-            });
-    }
-
-    function enforceCleanOverviewAllowedUi() {
-        if (!isDashboardPage()) return;
-
-        hideOldDashboardUi();
-
-        const row = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
-        const referral = document.getElementById('yh-universe-referral-card');
-        const live = document.getElementById('yh-universe-academy-strip');
-
-        if (isOverview()) {
-            if (row) showNode(row, 'grid');
-
-            if (referral) {
-                referral.classList.add('yh-dashboard-referral-dashboard-only-v1');
-                showNode(referral, 'block');
-            }
-
-            if (live) {
-                live.classList.add('is-active');
-                live.classList.add('yh-dashboard-live-activity-only-v1');
-                showNode(live, 'block');
-            }
-
-            if (referral && live && referral.nextElementSibling !== live) {
-                live.parentNode?.insertBefore(referral, live);
-            }
-        } else {
-            if (row) hideNode(row);
-            if (referral) hideNode(referral);
-            if (live) hideNode(live);
-        }
-    }
-
-    function scheduleClean(reason = 'sync') {
-        if (!isDashboardPage()) return;
-
-        hideOldDashboardUi();
-        enforceCleanOverviewAllowedUi();
-
-        window.requestAnimationFrame?.(() => {
-            hideOldDashboardUi();
-            enforceCleanOverviewAllowedUi();
-        });
-
-        [0, 40, 100, 220, 520, 1100].forEach((delay) => {
-            window.setTimeout(() => {
-                hideOldDashboardUi();
-                enforceCleanOverviewAllowedUi();
-            }, delay);
-        });
-    }
-
-    /*
-      Block the old carousel-restore render reason. This prevents the old UI
-      from being restored in the first place.
-    */
-    const originalSafeRender = window.safeRenderDashboardCommandOverview;
-
-    if (typeof originalSafeRender === 'function' && originalSafeRender.__yhCoreFlickerWrappedV1 !== true) {
-        const wrappedSafeRenderDashboardCommandOverview = function wrappedSafeRenderDashboardCommandOverviewV1(reason) {
-            const reasonText = String(reason || '');
-
-            if (
-                /workspace-carousel-restore/i.test(reasonText) ||
-                /carousel-restore/i.test(reasonText) ||
-                /old-overview-grid/i.test(reasonText)
-            ) {
-                hideOldDashboardUi();
-                enforceCleanOverviewAllowedUi();
-                return null;
-            }
-
-            hideOldDashboardUi();
-            const result = originalSafeRender.apply(this, arguments);
-            enforceCleanOverviewAllowedUi();
-            return result;
-        };
-
-        wrappedSafeRenderDashboardCommandOverview.__yhCoreFlickerWrappedV1 = true;
-        window.safeRenderDashboardCommandOverview = wrappedSafeRenderDashboardCommandOverview;
-    }
-
-    /*
-      Wrap the surface-state function. The old implementation may try to show
-      overviewGrid/plazaStrip/federationStrip; this wrapper hides them before
-      and immediately after the native synchronous render.
-    */
-    const originalSurfaceState = window.setDashboardUnifiedWorkspaceSurfaceState;
-
-    if (typeof originalSurfaceState === 'function' && originalSurfaceState.__yhCoreFlickerWrappedV1 !== true) {
-        const wrappedSetDashboardUnifiedWorkspaceSurfaceState = function wrappedSetDashboardUnifiedWorkspaceSurfaceStateV1() {
-            hideOldDashboardUi();
-
-            const result = originalSurfaceState.apply(this, arguments);
-
-            hideOldDashboardUi();
-            enforceCleanOverviewAllowedUi();
-
-            window.requestAnimationFrame?.(() => {
-                hideOldDashboardUi();
-                enforceCleanOverviewAllowedUi();
-            });
-
-            return result;
-        };
-
-        wrappedSetDashboardUnifiedWorkspaceSurfaceState.__yhCoreFlickerWrappedV1 = true;
-        window.setDashboardUnifiedWorkspaceSurfaceState = wrappedSetDashboardUnifiedWorkspaceSurfaceState;
-    }
-
-    const originalActivate = window.activateDashboardUnifiedWorkspace;
-
-    if (typeof originalActivate === 'function' && originalActivate.__yhCoreFlickerWrappedV1 !== true) {
-        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspaceV1(key = 'overview', options = {}) {
-            hideOldDashboardUi();
-
-            const result = originalActivate.call(this, key, options);
-
-            enforceCleanOverviewAllowedUi();
-
-            window.requestAnimationFrame?.(() => {
-                enforceCleanOverviewAllowedUi();
-            });
-
-            [40, 120, 300, 700].forEach((delay) => {
-                window.setTimeout(() => enforceCleanOverviewAllowedUi(), delay);
-            });
-
-            return result;
-        };
-
-        wrappedActivateDashboardUnifiedWorkspace.__yhCoreFlickerWrappedV1 = true;
-        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
-    }
-
-    document.addEventListener('click', (event) => {
-        const nav = event.target?.closest?.(
-            '[data-yh-dashboard-shell], ' +
-            '[data-yh-sidebar-child], ' +
-            '[data-yh-command-overview-open], ' +
-            '#nav-dashboard, ' +
-            '#btn-dashboard-overview'
-        );
-
-        if (!nav) return;
-
-        hideOldDashboardUi();
-        window.setTimeout(() => scheduleClean('nav-click'), 0);
-    }, true);
-
-    window.yhDashboardHideOldUiBeforePaintV1 = hideOldDashboardUi;
-    window.yhDashboardEnforceCleanOverviewV1 = enforceCleanOverviewAllowedUi;
-    window.yhDashboardCoreFlickerScheduleCleanV1 = scheduleClean;
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => scheduleClean('dom'));
-    } else {
-        scheduleClean('boot');
-    }
-
-    [10, 30, 60, 120, 240, 520, 1000, 1800, 3200].forEach((delay) => {
-        window.setTimeout(() => scheduleClean('timer-' + delay), delay);
-    });
-
-    try {
-        const observer = new MutationObserver(() => {
-            if (!isDashboardPage()) return;
-
-            window.clearTimeout(window.__yhDashboardCoreFlickerTimerV1);
-            window.__yhDashboardCoreFlickerTimerV1 = window.setTimeout(() => {
-                hideOldDashboardUi();
-                enforceCleanOverviewAllowedUi();
-            }, 16);
-        });
-
-        observer.observe(document.body || document.documentElement, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: [
-                'class',
-                'style',
-                'aria-hidden',
-                'data-yh-unified-workspace',
-                'data-yh-unified-division'
-            ]
-        });
-
-        window.__yhDashboardCoreFlickerObserverV1 = observer;
-    } catch (_) {}
-})();
-/* END PATCH: Dashboard core render flicker fix v1 */
-
