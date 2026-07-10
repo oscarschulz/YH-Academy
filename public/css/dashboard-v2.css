@@ -504,3 +504,30 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-tab-transit
 }
 /* END PATCH: Dashboard V2 loader gate authority styles v2 */
 
+
+/* PATCH: Dashboard V2 overview polish styles v1 */
+body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-dashboard-overview-dynamic-access-row-v1 {
+    margin-top: clamp(18px, 2vw, 28px);
+    margin-bottom: clamp(14px, 1.4vw, 22px);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-universe-referral-card {
+    margin-top: 0;
+    margin-bottom: clamp(16px, 1.6vw, 24px);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-dashboard-overview-dynamic-access-row-v1 + #yh-universe-referral-card {
+    margin-top: 0;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-action-v1[data-yh-overview-division-action-kind="apply"] {
+    cursor: pointer;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-action-v1[data-yh-overview-division-action-kind="apply"]:hover {
+    transform: translateY(-1px);
+    border-color: rgba(103, 232, 249, 0.72);
+    box-shadow: 0 12px 26px rgba(37, 99, 235, 0.22);
+}
+/* END PATCH: Dashboard V2 overview polish styles v1 */
+

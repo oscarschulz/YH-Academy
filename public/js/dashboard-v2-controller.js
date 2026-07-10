@@ -1163,3 +1163,419 @@
 })();
 /* END PATCH: Dashboard V2 loader gate authority v2 */
 
+
+/* PATCH: Dashboard V2 overview polish v1 */
+(function installDashboardV2OverviewPolishV1() {
+    if (window.__yhDashboardV2OverviewPolishV1Installed) return;
+    window.__yhDashboardV2OverviewPolishV1Installed = true;
+
+    let profileFetchStarted = false;
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub';
+    }
+
+    function normalizeName(value = '') {
+        const clean = String(value || '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (!clean) return '';
+
+        const lower = clean.toLowerCase();
+
+        if (
+            lower === 'hustler' ||
+            lower === 'guest' ||
+            lower === 'username not set' ||
+            lower === 'user' ||
+            lower === 'member' ||
+            lower === 'profile'
+        ) {
+            return '';
+        }
+
+        if (clean.includes('@')) {
+            const local = clean.split('@')[0].replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim();
+            return local && local.toLowerCase() !== 'hustler' ? local : '';
+        }
+
+        return clean;
+    }
+
+    function readJsonFromStorage(key = '') {
+        const cleanKey = String(key || '').trim();
+        if (!cleanKey) return null;
+
+        const stores = [localStorage, sessionStorage];
+
+        for (const store of stores) {
+            try {
+                const raw = store.getItem(cleanKey);
+                if (!raw) continue;
+
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    return parsed;
+                }
+            } catch (_) {}
+        }
+
+        return null;
+    }
+
+    function pickNameFromObject(obj = {}) {
+        if (!obj || typeof obj !== 'object') return '';
+
+        const nestedUser = obj.user && typeof obj.user === 'object' ? obj.user : null;
+        const nestedProfile = obj.profile && typeof obj.profile === 'object' ? obj.profile : null;
+
+        const candidates = [
+            obj.display_name,
+            obj.displayName,
+            obj.fullName,
+            obj.full_name,
+            obj.name,
+            obj.firstName && obj.lastName ? `${obj.firstName} ${obj.lastName}` : '',
+            obj.first_name && obj.last_name ? `${obj.first_name} ${obj.last_name}` : '',
+            nestedProfile ? pickNameFromObject(nestedProfile) : '',
+            nestedUser ? pickNameFromObject(nestedUser) : '',
+            obj.username,
+            obj.userName,
+            obj.handle,
+            obj.email
+        ];
+
+        for (const value of candidates) {
+            const clean = normalizeName(value);
+            if (clean) return clean;
+        }
+
+        return '';
+    }
+
+    function resolveDashboardDisplayName() {
+        const storageStringKeys = [
+            'yh_user_display_name',
+            'yh_user_full_name',
+            'yh_user_name',
+            'yh_user_username',
+            'yh_user_email'
+        ];
+
+        for (const key of storageStringKeys) {
+            try {
+                const clean = normalizeName(localStorage.getItem(key) || sessionStorage.getItem(key) || '');
+                if (clean) return clean;
+            } catch (_) {}
+        }
+
+        const storageObjectKeys = [
+            'yh_academy_profile_cache_v1',
+            'yh_dashboard_self_profile_cache_v1',
+            'yh_user_profile_cache_v1',
+            'yh_current_user',
+            'yh_user',
+            'currentUser',
+            'user'
+        ];
+
+        for (const key of storageObjectKeys) {
+            const clean = pickNameFromObject(readJsonFromStorage(key));
+            if (clean) return clean;
+        }
+
+        const domCandidates = [
+            document.getElementById('top-nav-name')?.textContent,
+            document.querySelector('[data-yh-profile-name]')?.textContent,
+            document.querySelector('.yh-profile-name')?.textContent
+        ];
+
+        for (const value of domCandidates) {
+            const clean = normalizeName(value);
+            if (clean) return clean;
+        }
+
+        return '';
+    }
+
+    function applyDashboardDisplayName(name = '') {
+        const clean = normalizeName(name) || resolveDashboardDisplayName();
+        if (!clean) return false;
+
+        const nameNodes = [
+            document.getElementById('yh-command-profile-name'),
+            document.getElementById('top-nav-name')
+        ].filter(Boolean);
+
+        nameNodes.forEach((node) => {
+            node.textContent = clean;
+        });
+
+        try {
+            localStorage.setItem('yh_user_name', clean);
+            localStorage.setItem('yh_user_display_name', clean);
+            localStorage.setItem('yh_user_full_name', clean);
+        } catch (_) {}
+
+        return true;
+    }
+
+    async function fetchDashboardDisplayNameOnce() {
+        if (profileFetchStarted || !isDashboardPage()) return;
+        profileFetchStarted = true;
+
+        const token = (() => {
+            try {
+                return String(window.YHSharedCore?.getStoredAuthToken?.() || '').trim();
+            } catch (_) {
+                return '';
+            }
+        })();
+
+        const headers = { Accept: 'application/json' };
+        if (token) headers.Authorization = `Bearer ${token}`;
+
+        const endpoints = [
+            '/api/universe/profile',
+            '/api/academy/profile'
+        ];
+
+        for (const endpoint of endpoints) {
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers
+                });
+
+                if (!response.ok) continue;
+
+                const result = await response.json().catch(() => ({}));
+                const profile = result?.profile && typeof result.profile === 'object'
+                    ? result.profile
+                    : result;
+
+                const name = pickNameFromObject(profile);
+                if (!name) continue;
+
+                try {
+                    const cached = readJsonFromStorage('yh_academy_profile_cache_v1') || {};
+                    localStorage.setItem('yh_academy_profile_cache_v1', JSON.stringify({
+                        ...cached,
+                        ...profile,
+                        display_name: name,
+                        displayName: name,
+                        fullName: profile.fullName || profile.full_name || name,
+                        updatedAt: new Date().toISOString()
+                    }));
+                } catch (_) {}
+
+                applyDashboardDisplayName(name);
+                return;
+            } catch (_) {}
+        }
+    }
+
+    function syncDashboardDisplayName(reason = 'sync') {
+        if (!isDashboardPage()) return;
+
+        const currentNode = document.getElementById('yh-command-profile-name');
+        const current = normalizeName(currentNode?.textContent || '');
+
+        if (current) return;
+
+        const resolved = resolveDashboardDisplayName();
+
+        if (resolved) {
+            applyDashboardDisplayName(resolved);
+            return;
+        }
+
+        fetchDashboardDisplayNameOnce();
+    }
+
+    function compactDashboardOverviewLayout() {
+        if (!isDashboardPage()) return;
+
+        const workspace = String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview').trim().toLowerCase();
+        const activeParent = String(document.body?.getAttribute('data-yh-dashboard-v2-active') || '').trim();
+
+        if (workspace !== 'overview' || activeParent) return;
+
+        const row = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
+        const referral = document.getElementById('yh-universe-referral-card');
+        const live = document.getElementById('yh-universe-academy-strip');
+
+        if (row && referral && row.nextElementSibling !== referral) {
+            row.parentNode?.insertBefore(referral, row.nextSibling);
+        }
+
+        if (referral && live && referral.nextElementSibling !== live) {
+            referral.parentNode?.insertBefore(live, referral.nextSibling);
+        }
+
+        if (row) {
+            row.style.marginBottom = 'clamp(14px, 1.4vw, 22px)';
+        }
+
+        if (referral) {
+            referral.style.marginTop = '0';
+            referral.style.marginBottom = 'clamp(16px, 1.6vw, 24px)';
+        }
+    }
+
+    function closeDashboardTabLoaderIfOpen() {
+        try {
+            window.yhDashboardV2LoaderGateAuthorityV2?.hideLoader?.();
+        } catch (_) {}
+
+        document.body?.removeAttribute('data-yh-dashboard-tab-transitioning');
+
+        document.querySelectorAll('#yh-dashboard-tab-transition-loader-v1, #yh-dashboard-tab-transition-loader-v2').forEach((loader) => {
+            loader.classList.remove('is-active');
+            loader.classList.add('hidden-step');
+            loader.setAttribute('aria-hidden', 'true');
+        });
+    }
+
+    function openDivisionApplicationModal(division = '') {
+        const clean = String(division || '').trim().toLowerCase();
+
+        closeDashboardTabLoaderIfOpen();
+
+        if (clean === 'academy') {
+            if (typeof window.openAcademyLauncher === 'function') {
+                window.openAcademyLauncher();
+                return true;
+            }
+
+            if (typeof window.handleAcademyLaunchClick === 'function') {
+                Promise.resolve(window.handleAcademyLaunchClick(null)).catch(() => {});
+                return true;
+            }
+
+            if (typeof window.openDashboardUnifiedWorkspaceLaunch === 'function') {
+                Promise.resolve(window.openDashboardUnifiedWorkspaceLaunch('academy-roadmap')).catch(() => {});
+                return true;
+            }
+        }
+
+        if (clean === 'plazas') {
+            if (typeof window.openPlazaApplicationModal === 'function') {
+                Promise.resolve(window.openPlazaApplicationModal()).catch((error) => {
+                    console.error('openPlazaApplicationModal error:', error);
+                });
+                return true;
+            }
+
+            if (typeof window.openDashboardUnifiedWorkspaceLaunch === 'function') {
+                Promise.resolve(window.openDashboardUnifiedWorkspaceLaunch('plazas-feed')).catch(() => {});
+                return true;
+            }
+        }
+
+        if (clean === 'federation') {
+            if (typeof window.openFederationApplicationModal === 'function') {
+                Promise.resolve(window.openFederationApplicationModal()).catch((error) => {
+                    console.error('openFederationApplicationModal error:', error);
+                });
+                return true;
+            }
+
+            if (typeof window.openDashboardUnifiedWorkspaceLaunch === 'function') {
+                Promise.resolve(window.openDashboardUnifiedWorkspaceLaunch('federation-command')).catch(() => {});
+                return true;
+            }
+        }
+
+        if (typeof window.showToast === 'function') {
+            window.showToast('Application form is not ready yet. Please refresh and try again.', 'error');
+        }
+
+        return false;
+    }
+
+    function interceptOverviewApplyButtons(event) {
+        if (!isDashboardPage()) return;
+
+        const button = event.target?.closest?.('[data-yh-overview-division-action]');
+        if (!button) return;
+
+        const kind = String(button.getAttribute('data-yh-overview-division-action-kind') || '').trim().toLowerCase();
+        const division = String(button.getAttribute('data-yh-overview-division-action') || '').trim().toLowerCase();
+
+        if (kind !== 'apply') return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+
+        openDivisionApplicationModal(division);
+    }
+
+    window.addEventListener('click', interceptOverviewApplyButtons, true);
+    window.addEventListener('pointerdown', (event) => {
+        const button = event.target?.closest?.('[data-yh-overview-division-action]');
+        if (!button) return;
+
+        const kind = String(button.getAttribute('data-yh-overview-division-action-kind') || '').trim().toLowerCase();
+        if (kind !== 'apply') return;
+
+        /*
+          Prevent the loader gate from treating apply as navigation.
+          Actual modal opening stays on click so keyboard activation still works.
+        */
+        event.stopPropagation();
+    }, true);
+
+    function syncAll(reason = 'sync') {
+        syncDashboardDisplayName(reason);
+        compactDashboardOverviewLayout();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => syncAll('dom'));
+    } else {
+        syncAll('boot');
+    }
+
+    [40, 120, 300, 700, 1400, 2400, 4200].forEach((delay) => {
+        window.setTimeout(() => syncAll('timer-' + delay), delay);
+    });
+
+    try {
+        const observer = new MutationObserver(() => {
+            window.clearTimeout(window.__yhDashboardOverviewPolishTimerV1);
+            window.__yhDashboardOverviewPolishTimerV1 = window.setTimeout(() => {
+                syncAll('mutation');
+            }, 70);
+        });
+
+        observer.observe(document.body || document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: [
+                'class',
+                'style',
+                'data-yh-unified-workspace',
+                'data-yh-dashboard-v2-active'
+            ]
+        });
+
+        window.__yhDashboardOverviewPolishObserverV1 = observer;
+    } catch (_) {}
+
+    window.yhDashboardV2OverviewPolishV1 = {
+        sync: syncAll,
+        applyName: applyDashboardDisplayName,
+        openDivisionApplicationModal,
+        compactLayout: compactDashboardOverviewLayout
+    };
+})();
+/* END PATCH: Dashboard V2 overview polish v1 */
+
