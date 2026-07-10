@@ -1983,57 +1983,45 @@
 /* END PATCH: Dashboard parent child access authority v1 */
 
 
-/* PATCH: Dashboard division apply gate v1 */
-(function installDashboardDivisionApplyGateV1() {
-    if (window.__yhDashboardDivisionApplyGateV1Installed) return;
-    window.__yhDashboardDivisionApplyGateV1Installed = true;
-
-    const NAV_DELAY_MS = 1150;
+/* PATCH: Dashboard division state title final v2 */
+(function installDashboardDivisionStateTitleFinalV2() {
+    if (window.__yhDashboardDivisionStateTitleFinalV2Installed) return;
+    window.__yhDashboardDivisionStateTitleFinalV2Installed = true;
 
     const DIVISIONS = {
         academy: {
             label: 'Academy',
-            card: 'academy',
-            applyLabel: 'Apply',
-            enterLabel: 'Enter',
-            pendingLabel: 'Pending',
+            childTarget: 'academy-roadmap',
             applyFns: ['openAcademyLauncher', 'openAcademyApplicationModal', 'openAcademyApplyModal'],
+            refreshFns: ['refreshAcademyMembershipStatus'],
             snapshotFns: ['readAcademyMembershipCache'],
             canEnterKeys: ['canEnterAcademy', 'canEnter', 'hasAccess', 'hasAcademyAccess'],
             statusKeys: ['applicationStatus', 'academyApplicationStatus', 'status', 'accessStatus', 'membershipStatus'],
-            hasApplicationKeys: ['hasApplication', 'academyHasApplication'],
-            childTarget: 'academy-roadmap'
+            hasApplicationKeys: ['hasApplication', 'academyHasApplication']
         },
         plazas: {
             label: 'Plazas',
-            card: 'plazas',
-            applyLabel: 'Apply',
-            enterLabel: 'Enter',
-            pendingLabel: 'Pending',
+            childTarget: 'plazas-feed',
             applyFns: ['openPlazaApplicationModal'],
+            refreshFns: ['refreshPlazaAccessStatusFromBackend'],
             snapshotFns: ['getPlazaAccessSnapshot', 'readDashboardPlazaAccessSnapshot'],
             canEnterKeys: ['canEnterPlaza', 'canEnter', 'hasAccess', 'hasPlazaAccess'],
             statusKeys: ['applicationStatus', 'plazaApplicationStatus', 'status', 'accessStatus'],
-            hasApplicationKeys: ['hasApplication', 'plazaHasApplication'],
-            childTarget: 'plazas-feed'
+            hasApplicationKeys: ['hasApplication', 'plazaHasApplication']
         },
         federation: {
             label: 'Federation',
-            card: 'federation',
-            applyLabel: 'Apply',
-            enterLabel: 'Enter',
-            pendingLabel: 'Pending',
+            childTarget: 'federation-command',
             applyFns: ['openFederationApplicationModal'],
+            refreshFns: ['refreshFederationAccessStatusFromBackend'],
             snapshotFns: ['getFederationAccessSnapshot', 'readDashboardFederationAccessSnapshot'],
             canEnterKeys: ['canEnterFederation', 'canEnter', 'hasAccess', 'hasFederationAccess'],
             statusKeys: ['applicationStatus', 'federationApplicationStatus', 'status', 'accessStatus'],
-            hasApplicationKeys: ['hasApplication', 'federationHasApplication'],
-            childTarget: 'federation-command'
+            hasApplicationKeys: ['hasApplication', 'federationHasApplication']
         }
     };
 
-    let transitionTimer = null;
-    let pendingTarget = null;
+    let refreshStarted = false;
 
     function isDashboardPage() {
         const path = String(window.location.pathname || '').replace(/\/+$/, '');
@@ -2042,33 +2030,26 @@
             document.body?.getAttribute('data-yh-view') === 'hub';
     }
 
-    function cleanKey(value = '') {
+    function cleanDivision(value = '') {
         const key = String(value || '').trim().toLowerCase();
         if (key === 'plaza') return 'plazas';
-        if (key === 'dashboard' || key === 'hub') return 'overview';
         return key;
     }
 
-    function isDivisionKey(value = '') {
-        return Boolean(DIVISIONS[cleanKey(value)]);
-    }
-
-    function isTruthyValue(value) {
-        return value === true || String(value || '').trim().toLowerCase() === 'true';
-    }
-
-    function normalizeStatus(value = '', fallback = '') {
-        const raw = String(value || fallback || '').trim();
+    function normalizeStatus(value = '') {
+        const raw = String(value || '').trim();
         const clean = raw.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 
         if (
             !clean ||
             clean === 'loading' ||
             clean === 'loading...' ||
-            clean === 'syncing' ||
             clean === 'checking' ||
             clean === 'checking...' ||
+            clean === 'syncing' ||
+            clean === 'syncing...' ||
             clean === 'preparing' ||
+            clean === 'preparing...' ||
             clean === 'unknown' ||
             clean === 'n/a'
         ) {
@@ -2088,10 +2069,9 @@
         }
 
         if (
-            clean === 'pending' ||
             clean === 'under review' ||
+            clean === 'pending' ||
             clean === 'pending review' ||
-            clean === 'review' ||
             clean === 'new' ||
             clean === 'screening' ||
             clean === 'shortlisted' ||
@@ -2123,37 +2103,33 @@
         return 'not_applied';
     }
 
-    function readJsonStorage(key = '') {
-        const stores = [localStorage, sessionStorage];
-
-        for (const store of stores) {
-            try {
-                const raw = store.getItem(key);
-                if (!raw) continue;
-                const parsed = JSON.parse(raw);
-                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
-            } catch (_) {}
-        }
-
-        return null;
+    function stateLabel(status = 'not_applied') {
+        if (status === 'approved') return 'Approved';
+        if (status === 'pending') return 'Pending';
+        if (status === 'rejected') return 'Rejected';
+        return 'Not Applied';
     }
 
-    function pickFromObject(obj = {}, keys = []) {
-        if (!obj || typeof obj !== 'object') return undefined;
-
-        for (const key of keys) {
-            if (Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];
-        }
-
-        return undefined;
+    function actionForStatus(status = 'not_applied') {
+        if (status === 'approved') return 'enter';
+        if (status === 'pending') return 'pending';
+        if (status === 'rejected') return 'rejected';
+        return 'apply';
     }
 
-    function readSnapshotFromFunctions(config) {
+    function isTruthy(value) {
+        return value === true || String(value || '').trim().toLowerCase() === 'true';
+    }
+
+    function readSnapshot(key = '') {
+        const config = DIVISIONS[key];
+        if (!config) return {};
+
         for (const fnName of config.snapshotFns) {
             try {
                 if (typeof window[fnName] === 'function') {
-                    const value = window[fnName]();
-                    if (value && typeof value === 'object') return value;
+                    const snapshot = window[fnName]();
+                    if (snapshot && typeof snapshot === 'object') return snapshot;
                 }
             } catch (_) {}
         }
@@ -2161,147 +2137,125 @@
         return {};
     }
 
-    function readSnapshotFromCaches(key = '') {
-        const cacheKeys = [
-            'yh_dashboard_self_profile_cache_v1',
-            'yh_academy_profile_cache_v1',
-            'yh_user_profile_cache_v1',
-            'yh_current_user',
-            'yh_user'
-        ];
+    function pick(obj = {}, keys = []) {
+        if (!obj || typeof obj !== 'object') return undefined;
 
-        for (const cacheKey of cacheKeys) {
-            const profile = readJsonStorage(cacheKey);
-            if (!profile || typeof profile !== 'object') continue;
-
-            const divisions = profile.divisions && typeof profile.divisions === 'object' ? profile.divisions : {};
-            const candidate =
-                divisions[key] ||
-                divisions[key === 'plazas' ? 'plaza' : key] ||
-                profile[key] ||
-                profile[`${key}Application`] ||
-                profile[key === 'plazas' ? 'plazaApplication' : `${key}Application`];
-
-            if (candidate && typeof candidate === 'object') return candidate;
+        for (const key of keys) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                return obj[key];
+            }
         }
 
-        return {};
+        return undefined;
     }
 
-    function readStatusFromCard(key = '') {
-        const card = document.querySelector(`[data-yh-overview-division-card="${key}"]`);
-        const statusText = String(card?.querySelector?.('.yh-dashboard-overview-access-status-v1')?.textContent || '').trim();
-
-        return normalizeStatus(statusText);
+    function getCard(key = '') {
+        return document.querySelector(`[data-yh-overview-division-card="${key}"]`);
     }
 
-    function getDivisionState(key = '') {
-        const clean = cleanKey(key);
+    function getCardDomStatus(key = '') {
+        const card = getCard(key);
+        return normalizeStatus(card?.querySelector?.('.yh-dashboard-overview-access-status-v1')?.textContent || '');
+    }
+
+    function getDivisionStatus(key = '') {
+        const clean = cleanDivision(key);
         const config = DIVISIONS[clean];
+        if (!config) return 'not_applied';
 
-        if (!config) {
-            return { status: 'not_applied', label: 'Not Applied', approved: false, pending: false, rejected: false, action: 'apply' };
-        }
+        const snapshot = readSnapshot(clean);
+        const canEnter = config.canEnterKeys.some((field) => isTruthy(snapshot[field]));
+        if (canEnter) return 'approved';
 
-        const functionSnapshot = readSnapshotFromFunctions(config);
-        const cacheSnapshot = readSnapshotFromCaches(clean);
-        const snapshot = {
-            ...cacheSnapshot,
-            ...functionSnapshot
-        };
-
-        const canEnter = config.canEnterKeys.some((field) => isTruthyValue(snapshot[field]));
-        const rawStatus = pickFromObject(snapshot, config.statusKeys);
+        const rawStatus = pick(snapshot, config.statusKeys);
         let status = normalizeStatus(rawStatus);
 
-        const hasApplication = config.hasApplicationKeys.some((field) => isTruthyValue(snapshot[field]));
-
-        if (canEnter) status = 'approved';
-        else if (hasApplication && status === 'not_applied') status = 'pending';
-
-        if (status === 'not_applied') {
-            const domStatus = readStatusFromCard(clean);
-            if (domStatus !== 'not_applied') status = domStatus;
+        const hasApplication = config.hasApplicationKeys.some((field) => isTruthy(snapshot[field]));
+        if (status === 'not_applied' && hasApplication) {
+            status = 'pending';
         }
 
-        const approved = status === 'approved';
-        const pending = status === 'pending';
-        const rejected = status === 'rejected';
+        if (status !== 'not_applied') return status;
 
-        return {
-            status,
-            approved,
-            pending,
-            rejected,
-            action: approved ? 'enter' : pending ? 'pending' : rejected ? 'rejected' : 'apply',
-            label: approved ? 'Approved' : pending ? 'Pending' : rejected ? 'Rejected' : 'Not Applied'
-        };
+        return getCardDomStatus(clean);
     }
 
-    function setCardClass(card, action) {
-        if (!card) return;
-
-        ['is-apply', 'is-enter', 'is-pending', 'is-rejected', 'is-approved'].forEach((name) => {
-            card.classList.remove(name);
-        });
-
-        card.classList.add(`is-${action}`);
-        card.setAttribute('data-yh-division-access-state', action);
-    }
-
-    function syncAccessCard(key = '') {
-        const clean = cleanKey(key);
+    function applyCardState(key = '') {
+        const clean = cleanDivision(key);
         const config = DIVISIONS[clean];
-        if (!config) return;
+        const card = getCard(clean);
 
-        const card = document.querySelector(`[data-yh-overview-division-card="${clean}"]`);
-        if (!card) return;
+        if (!config || !card) return;
 
-        const state = getDivisionState(clean);
+        const status = getDivisionStatus(clean);
+        const action = actionForStatus(status);
         const statusNode = card.querySelector('.yh-dashboard-overview-access-status-v1');
         const button = card.querySelector('[data-yh-overview-division-action]');
 
-        setCardClass(card, state.action);
+        card.setAttribute('data-yh-division-access-state', action);
+        card.classList.remove('is-apply', 'is-enter', 'is-pending', 'is-rejected', 'is-approved');
+        card.classList.add(`is-${action}`);
 
         if (statusNode) {
-            statusNode.textContent = state.label;
+            statusNode.textContent = stateLabel(status);
         }
 
         if (!button) return;
 
         button.setAttribute('data-yh-overview-division-action', clean);
-        button.setAttribute('data-yh-overview-division-action-kind', state.action);
-        button.setAttribute('data-yh-overview-division-target', state.approved ? config.childTarget : '');
+        button.setAttribute('data-yh-overview-division-action-kind', action);
+        button.setAttribute('data-yh-overview-division-target', action === 'enter' ? config.childTarget : '');
 
-        if (state.approved) {
-            button.textContent = config.enterLabel;
+        if (action === 'enter') {
+            button.textContent = 'Enter';
             button.disabled = false;
             button.removeAttribute('aria-disabled');
             return;
         }
 
-        if (state.pending) {
-            button.textContent = config.pendingLabel;
+        if (action === 'pending') {
+            button.textContent = 'Pending';
             button.disabled = true;
             button.setAttribute('aria-disabled', 'true');
             return;
         }
 
-        if (state.rejected) {
+        if (action === 'rejected') {
             button.textContent = 'Contact Admin';
             button.disabled = true;
             button.setAttribute('aria-disabled', 'true');
             return;
         }
 
-        button.textContent = config.applyLabel;
+        button.textContent = 'Apply';
         button.disabled = false;
         button.removeAttribute('aria-disabled');
     }
 
-    function syncAccessCards(reason = 'sync') {
+    function syncCards() {
         if (!isDashboardPage()) return;
-        Object.keys(DIVISIONS).forEach(syncAccessCard);
+        Object.keys(DIVISIONS).forEach(applyCardState);
+    }
+
+    async function refreshAccessStateOnce() {
+        if (refreshStarted || !isDashboardPage()) return;
+        refreshStarted = true;
+
+        for (const [key, config] of Object.entries(DIVISIONS)) {
+            for (const fnName of config.refreshFns) {
+                try {
+                    if (typeof window[fnName] === 'function') {
+                        const result = window[fnName](key === 'federation' ? false : true);
+                        if (result && typeof result.then === 'function') {
+                            await result.catch(() => null);
+                        }
+                        break;
+                    }
+                } catch (_) {}
+            }
+
+            applyCardState(key);
+        }
     }
 
     function showToastMessage(message = '', type = 'error') {
@@ -2310,10 +2264,11 @@
         }
     }
 
-    function closeTransitionLoaders() {
-        try {
-            window.yhDashboardV2LoaderGateAuthorityV2?.hideLoader?.();
-        } catch (_) {}
+    function openApplyModal(key = '') {
+        const clean = cleanDivision(key);
+        const config = DIVISIONS[clean];
+
+        if (!config) return false;
 
         document.body?.removeAttribute('data-yh-dashboard-tab-transitioning');
 
@@ -2322,22 +2277,6 @@
             loader.classList.add('hidden-step');
             loader.setAttribute('aria-hidden', 'true');
         });
-    }
-
-    function openDivisionApplication(key = '') {
-        const clean = cleanKey(key);
-        const config = DIVISIONS[clean];
-
-        if (!config) return false;
-
-        closeTransitionLoaders();
-
-        const polishApi = window.yhDashboardV2OverviewPolishV1;
-        if (polishApi && typeof polishApi.openDivisionApplicationModal === 'function') {
-            try {
-                if (polishApi.openDivisionApplicationModal(clean)) return true;
-            } catch (_) {}
-        }
 
         for (const fnName of config.applyFns) {
             try {
@@ -2346,6 +2285,8 @@
                     if (result && typeof result.then === 'function') {
                         result.catch((error) => console.error(`${fnName} failed:`, error));
                     }
+                    window.setTimeout(cleanAcademyApplyTitle, 80);
+                    window.setTimeout(cleanAcademyApplyTitle, 280);
                     return true;
                 }
             } catch (error) {
@@ -2357,268 +2298,130 @@
         return false;
     }
 
-    function handleNotApprovedParentClick(key = '') {
-        const clean = cleanKey(key);
-        const config = DIVISIONS[clean];
+    function cleanAcademyApplyTitle() {
+        const title = document.getElementById('yh-dashboard-academy-apply-title');
+        if (!title) return;
 
-        if (!config) return;
-
-        closeTransitionLoaders();
-
-        showToastMessage(`${config.label} access is not approved yet. Please complete your application first.`, 'error');
-
-        window.setTimeout(() => {
-            openDivisionApplication(clean);
-        }, 420);
+        title.classList.add('yh-dashboard-academy-apply-title-clean');
+        title.setAttribute('aria-label', 'Academy Application');
+        title.textContent = '';
     }
 
-    function ensureLoader() {
-        let loader = document.getElementById('yh-dashboard-tab-transition-loader-v3');
-        if (loader) return loader;
+    function handleNavigationClick(event) {
+        if (!isDashboardPage() || !event?.target) return;
 
-        loader = document.createElement('div');
-        loader.id = 'yh-dashboard-tab-transition-loader-v3';
-        loader.className = 'yh-dashboard-tab-transition-loader-v3 hidden-step';
-        loader.setAttribute('aria-hidden', 'true');
-        loader.innerHTML = `
-            <div class="yh-dashboard-tab-transition-card-v3">
-                <div class="yh-dashboard-tab-transition-orb-v3" aria-hidden="true">
-                    <img src="/images/logo.avif" alt="">
-                </div>
-                <span>SYNCING VIEW</span>
-                <strong id="yh-dashboard-tab-transition-title-v3">Opening Dashboard</strong>
-                <p>Preparing the selected workspace.</p>
-                <div class="yh-dashboard-tab-transition-bar-v3" aria-hidden="true"><i></i></div>
-            </div>
-        `;
+        const actionButton = event.target.closest('[data-yh-overview-division-action]');
+        if (actionButton) {
+            const key = cleanDivision(actionButton.getAttribute('data-yh-overview-division-action') || '');
+            if (!DIVISIONS[key]) return;
 
-        document.body.appendChild(loader);
-        return loader;
-    }
+            syncCards();
 
-    function showLoader(label = 'Opening Dashboard') {
-        const loader = ensureLoader();
-        const title = document.getElementById('yh-dashboard-tab-transition-title-v3');
+            const status = getDivisionStatus(key);
+            const action = actionForStatus(status);
 
-        if (title) title.textContent = label;
+            if (action === 'apply') {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation?.();
 
-        document.body?.setAttribute('data-yh-dashboard-tab-transitioning', 'true');
-
-        loader.classList.remove('hidden-step');
-        loader.classList.add('is-active');
-        loader.setAttribute('aria-hidden', 'false');
-    }
-
-    function hideLoader() {
-        const loader = document.getElementById('yh-dashboard-tab-transition-loader-v3');
-
-        document.body?.removeAttribute('data-yh-dashboard-tab-transitioning');
-
-        if (!loader) return;
-
-        loader.classList.remove('is-active');
-        loader.setAttribute('aria-hidden', 'true');
-
-        window.setTimeout(() => {
-            if (!loader.classList.contains('is-active')) loader.classList.add('hidden-step');
-        }, 180);
-    }
-
-    function runTarget(target) {
-        if (!target) return;
-
-        if (target.kind === 'overview') {
-            if (typeof window.yhDashboardV2ShowOverviewShellV1 === 'function') {
-                window.yhDashboardV2ShowOverviewShellV1('division-apply-gate-v1');
-                window.setTimeout(() => window.yhDashboardV2ShowOverviewShellV1('division-apply-gate-v1-late'), 90);
-            } else if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
-                window.activateDashboardUnifiedWorkspace('overview', { animate: false, scroll: false, persist: true });
+                showToastMessage(`${DIVISIONS[key].label} access is not approved yet. Please complete your application first.`, 'error');
+                window.setTimeout(() => openApplyModal(key), 320);
+                return;
             }
 
-            window.setTimeout(syncAccessCards, 120);
+            if (action === 'pending') {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation?.();
+                showToastMessage(`${DIVISIONS[key].label} application is still under review.`, 'error');
+                return;
+            }
+
             return;
         }
 
-        if (target.kind === 'parent') {
-            const state = getDivisionState(target.key);
+        const parent = event.target.closest('[data-yh-dashboard-shell="academy"], [data-yh-dashboard-shell="plazas"], [data-yh-dashboard-shell="federation"]');
+        if (!parent) return;
 
-            if (!state.approved && !state.pending) {
-                handleNotApprovedParentClick(target.key);
-                return;
-            }
+        const key = cleanDivision(parent.getAttribute('data-yh-dashboard-shell') || '');
+        if (!DIVISIONS[key]) return;
+
+        syncCards();
+
+        const status = getDivisionStatus(key);
+        const action = actionForStatus(status);
+
+        if (action === 'apply') {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation?.();
+
+            showToastMessage(`${DIVISIONS[key].label} access is not approved yet. Please complete your application first.`, 'error');
+            window.setTimeout(() => openApplyModal(key), 320);
+            return;
+        }
+
+        if (action === 'pending') {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation?.();
+
+            showToastMessage(`${DIVISIONS[key].label} application is still under review.`, 'error');
 
             if (typeof window.yhDashboardV2ShowParentShellV1 === 'function') {
-                window.yhDashboardV2ShowParentShellV1(target.key, 'division-apply-gate-v1');
-                window.setTimeout(() => window.yhDashboardV2ShowParentShellV1(target.key, 'division-apply-gate-v1-late'), 90);
-                return;
-            }
-
-            if (typeof window.yhDashboardV2RenderParent === 'function') {
-                window.yhDashboardV2RenderParent(target.key);
-            }
-
-            return;
-        }
-
-        if (target.kind === 'child') {
-            if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
-                window.activateDashboardUnifiedWorkspace(target.key, {
-                    animate: false,
-                    scroll: true,
-                    persist: true
-                });
+                window.yhDashboardV2ShowParentShellV1(key, 'pending-parent');
             }
         }
     }
 
-    function queueNavigation(target) {
-        if (!target) return;
+    window.addEventListener('click', handleNavigationClick, true);
 
-        syncAccessCards('before-navigation');
-
-        if (target.kind === 'parent') {
-            const state = getDivisionState(target.key);
-
-            if (!state.approved && !state.pending) {
-                handleNotApprovedParentClick(target.key);
-                return;
-            }
-
-            if (state.pending) {
-                showToastMessage(`${DIVISIONS[target.key].label} application is still under review.`, 'error');
-            }
-        }
-
-        pendingTarget = target;
-        showLoader(target.label || 'Opening Dashboard');
-
-        window.clearTimeout(transitionTimer);
-        transitionTimer = window.setTimeout(() => {
-            const next = pendingTarget;
-            pendingTarget = null;
-
-            runTarget(next);
-
-            window.setTimeout(hideLoader, 180);
-        }, NAV_DELAY_MS);
-    }
-
-    function getTargetFromEvent(event) {
-        if (!event?.target || !isDashboardPage()) return null;
-
-        if (event.target.closest?.('#yh-dashboard-tab-transition-loader-v3, .yh-modal, .modal, [role="dialog"]')) {
-            return null;
-        }
-
-        const applyButton = event.target.closest?.('[data-yh-overview-division-action]');
-        if (applyButton) {
-            const division = cleanKey(applyButton.getAttribute('data-yh-overview-division-action') || '');
-            const kind = String(applyButton.getAttribute('data-yh-overview-division-action-kind') || '').trim().toLowerCase();
-
-            if (isDivisionKey(division)) {
-                if (kind === 'apply') {
-                    return { kind: 'apply', key: division, label: `Opening ${DIVISIONS[division].label} Application` };
-                }
-
-                if (kind === 'enter') {
-                    return { kind: 'child', key: DIVISIONS[division].childTarget, label: `Opening ${DIVISIONS[division].label}` };
-                }
-            }
-        }
-
-        const shell = event.target.closest?.('[data-yh-dashboard-shell]');
-        if (shell) {
-            const key = cleanKey(shell.getAttribute('data-yh-dashboard-shell') || '');
-
-            if (key === 'overview') {
-                return { kind: 'overview', key, label: 'Opening Dashboard' };
-            }
-
-            if (isDivisionKey(key)) {
-                return { kind: 'parent', key, label: `Opening ${DIVISIONS[key].label}` };
-            }
-        }
-
-        const child = event.target.closest?.('[data-yh-sidebar-child], [data-yh-mobile-subtab-menu-option], [data-yh-dashboard-v2-child]');
-        if (child) {
-            const key = (
-                child.getAttribute('data-yh-sidebar-child') ||
-                child.getAttribute('data-yh-mobile-subtab-menu-option') ||
-                child.getAttribute('data-yh-dashboard-v2-child') ||
-                ''
-            ).trim();
-
-            if (key) return { kind: 'child', key, label: 'Opening section' };
-        }
-
-        return null;
-    }
-
-    function interceptDashboardNavigation(event) {
-        const target = getTargetFromEvent(event);
-        if (!target) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation?.();
-
-        if (target.kind === 'apply') {
-            showToastMessage(`${DIVISIONS[target.key].label} access is not approved yet. Please complete your application first.`, 'error');
-            window.setTimeout(() => openDivisionApplication(target.key), 320);
-            return;
-        }
-
-        queueNavigation(target);
-    }
-
-    window.addEventListener('click', interceptDashboardNavigation, true);
-
-    function scheduleSync(reason = 'sync') {
-        if (!isDashboardPage()) return;
-
-        [0, 80, 240, 700, 1400, 2600, 4200].forEach((delay) => {
-            window.setTimeout(() => syncAccessCards(`${reason}-${delay}`), delay);
-        });
+    function boot() {
+        syncCards();
+        cleanAcademyApplyTitle();
+        window.setTimeout(syncCards, 60);
+        window.setTimeout(syncCards, 220);
+        window.setTimeout(syncCards, 700);
+        window.setTimeout(refreshAccessStateOnce, 900);
+        window.setTimeout(syncCards, 1600);
+        window.setTimeout(syncCards, 3000);
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => scheduleSync('dom'));
+        document.addEventListener('DOMContentLoaded', boot);
     } else {
-        scheduleSync('boot');
+        boot();
     }
 
-    window.addEventListener('pageshow', () => scheduleSync('pageshow'));
+    window.addEventListener('pageshow', boot);
 
     try {
         const observer = new MutationObserver(() => {
-            window.clearTimeout(window.__yhDashboardDivisionApplyGateTimerV1);
-            window.__yhDashboardDivisionApplyGateTimerV1 = window.setTimeout(() => {
-                syncAccessCards('mutation');
-            }, 80);
+            window.clearTimeout(window.__yhDashboardDivisionStateTitleFinalTimerV2);
+            window.__yhDashboardDivisionStateTitleFinalTimerV2 = window.setTimeout(() => {
+                syncCards();
+                cleanAcademyApplyTitle();
+            }, 45);
         });
 
         observer.observe(document.body || document.documentElement, {
             childList: true,
             subtree: true,
             attributes: true,
-            attributeFilter: [
-                'class',
-                'style',
-                'data-yh-unified-workspace',
-                'data-yh-dashboard-v2-active'
-            ]
+            attributeFilter: ['class', 'style', 'data-yh-unified-workspace', 'data-yh-dashboard-v2-active']
         });
 
-        window.__yhDashboardDivisionApplyGateObserverV1 = observer;
+        window.__yhDashboardDivisionStateTitleFinalObserverV2 = observer;
     } catch (_) {}
 
-    window.yhDashboardDivisionApplyGateV1 = {
-        syncAccessCards,
-        getDivisionState,
-        openDivisionApplication,
-        handleNotApprovedParentClick,
-        queueNavigation
+    window.yhDashboardDivisionStateTitleFinalV2 = {
+        syncCards,
+        refreshAccessStateOnce,
+        getDivisionStatus,
+        openApplyModal,
+        cleanAcademyApplyTitle
     };
 })();
-/* END PATCH: Dashboard division apply gate v1 */
+/* END PATCH: Dashboard division state title final v2 */
 

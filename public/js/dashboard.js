@@ -2428,7 +2428,7 @@ function setDashboardCommandOverviewText(id = '', value = '', fallback = '—') 
 
 function normalizeDashboardCommandOverviewAssetUrl(value = '') {
     const clean = String(value || '').trim();
-    if (!clean) return '';
+    if (!clean || clean === 'loading' || clean === 'loading...' || clean === 'checking' || clean === 'checking...' || clean === 'syncing' || clean === 'syncing...' || clean === 'preparing' || clean === 'preparing...') return '';
 
     if (typeof sharedNormalizeAvatarUrl === 'function') {
         const sharedResolved = sharedNormalizeAvatarUrl(clean);
@@ -4550,7 +4550,7 @@ function dashboardIsSettingsBadgeActive(profile = {}, division = 'academy') {
 
 function dashboardFormatSettingsBadgeDate(value = '') {
     const clean = String(value || '').trim();
-    if (!clean) return '';
+    if (!clean || clean === 'loading' || clean === 'loading...' || clean === 'checking' || clean === 'checking...' || clean === 'syncing' || clean === 'syncing...' || clean === 'preparing' || clean === 'preparing...') return '';
 
     const parsed = new Date(clean);
     if (Number.isNaN(parsed.getTime())) return clean;
@@ -4733,7 +4733,7 @@ function dashboardSettingsFormatMoney(amount = 0, currency = 'USD') {
 function dashboardSettingsFormatPlanText(value = '') {
     const clean = String(value || '').trim();
 
-    if (!clean) return '';
+    if (!clean || clean === 'loading' || clean === 'loading...' || clean === 'checking' || clean === 'checking...' || clean === 'syncing' || clean === 'syncing...' || clean === 'preparing' || clean === 'preparing...') return '';
 
     const normalized = clean.toLowerCase();
 
@@ -4748,7 +4748,7 @@ function dashboardSettingsFormatPlanText(value = '') {
 
 function dashboardSettingsFormatDate(value = '') {
     const clean = String(value || '').trim();
-    if (!clean) return '';
+    if (!clean || clean === 'loading' || clean === 'loading...' || clean === 'checking' || clean === 'checking...' || clean === 'syncing' || clean === 'syncing...' || clean === 'preparing' || clean === 'preparing...') return '';
 
     const parsed = new Date(clean);
     if (Number.isNaN(parsed.getTime())) return clean;
@@ -4762,7 +4762,7 @@ function dashboardSettingsFormatDate(value = '') {
 
 function dashboardSettingsFormatDateTime(value = '') {
     const clean = String(value || '').trim();
-    if (!clean) return '';
+    if (!clean || clean === 'loading' || clean === 'loading...' || clean === 'checking' || clean === 'checking...' || clean === 'syncing' || clean === 'syncing...' || clean === 'preparing' || clean === 'preparing...') return '';
 
     const parsed = new Date(clean);
     if (Number.isNaN(parsed.getTime())) return clean;
@@ -22510,7 +22510,7 @@ const dashboardProfileEditorAssetState = {
 
 function normalizeDashboardProfileAssetUrl(value = '') {
     const clean = String(value || '').trim();
-    if (!clean) return '';
+    if (!clean || clean === 'loading' || clean === 'loading...' || clean === 'checking' || clean === 'checking...' || clean === 'syncing' || clean === 'syncing...' || clean === 'preparing' || clean === 'preparing...') return '';
 
     if (
         clean.startsWith('http://') ||
@@ -35375,7 +35375,7 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         const raw = String(value || fallback || '').trim();
         const clean = raw.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 
-        if (!clean) return 'Not Applied';
+        if (!clean || clean === 'loading' || clean === 'loading...' || clean === 'checking' || clean === 'checking...' || clean === 'syncing' || clean === 'syncing...' || clean === 'preparing' || clean === 'preparing...') return 'Not Applied';
 
         if (
             clean === 'approved' ||
