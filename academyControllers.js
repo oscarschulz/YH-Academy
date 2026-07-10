@@ -4292,6 +4292,173 @@ function resolveUniverseDivisionStatus(values = [], fallback = 'not_applied') {
 }
 /* END PATCH: Universe canonical Firestore access source v1 */
 
+/* PATCH: Universe profile canonical access self-heal v1 */
+function buildUniverseProfileCanonicalAccessSelfHealPatchV1(userData = {}) {
+    const patch = {};
+    const nowIso = new Date().toISOString();
+
+    const academyApplication =
+        userData.academyApplication && typeof userData.academyApplication === 'object'
+            ? userData.academyApplication
+            : null;
+
+    const plazaApplication =
+        userData.plazaApplication && typeof userData.plazaApplication === 'object'
+            ? userData.plazaApplication
+            : null;
+
+    const federationApplication =
+        userData.federationApplication && typeof userData.federationApplication === 'object'
+            ? userData.federationApplication
+            : null;
+
+    const academyStatus = resolveUniverseDivisionStatus([
+        userData.hasAcademyAccess === true ? 'approved' : '',
+        userData.canEnterAcademy === true ? 'approved' : '',
+        academyApplication?.status,
+        userData.academyMembershipStatus,
+        userData.academyApplicationStatus
+    ], '');
+
+    if (academyStatus === 'approved') {
+        patch.academyApplicationStatus = 'Approved';
+        patch.academyMembershipStatus = 'approved';
+        patch.canEnterAcademy = true;
+        patch.hasAcademyAccess = true;
+        patch.hasRoadmapAccess = true;
+        patch.academyRoadmapAccess = true;
+        patch.roadmapApplicationStatus = 'Approved';
+        patch.roadmapAccessStatus = 'unlocked';
+        patch.accessState = 'unlocked';
+
+        if (academyApplication) {
+            patch.academyApplication = {
+                ...academyApplication,
+                status: 'Approved',
+                updatedAt: academyApplication.updatedAt || nowIso
+            };
+        }
+    } else if (academyStatus === 'rejected') {
+        patch.academyApplicationStatus = 'Rejected';
+        patch.academyMembershipStatus = 'rejected';
+        patch.canEnterAcademy = false;
+        patch.hasAcademyAccess = false;
+        patch.hasRoadmapAccess = false;
+        patch.academyRoadmapAccess = false;
+        patch.roadmapAccessStatus = 'locked';
+        patch.accessState = 'locked';
+
+        if (academyApplication) {
+            patch.academyApplication = {
+                ...academyApplication,
+                status: 'Rejected',
+                updatedAt: academyApplication.updatedAt || nowIso
+            };
+        }
+    }
+
+    const plazaStatus = resolveUniverseDivisionStatus([
+        userData.hasPlazaAccess === true ? 'approved' : '',
+        userData.canEnterPlaza === true ? 'approved' : '',
+        plazaApplication?.status,
+        userData.plazaAccessStatus,
+        userData.plazaMembershipStatus,
+        userData.plazaApplicationStatus
+    ], '');
+
+    if (plazaStatus === 'approved') {
+        patch.plazaApplicationStatus = 'Approved';
+        patch.plazaMembershipStatus = 'approved';
+        patch.plazaAccessStatus = 'approved';
+        patch.canEnterPlaza = true;
+        patch.hasPlazaAccess = true;
+
+        if (plazaApplication) {
+            patch.plazaApplication = {
+                ...plazaApplication,
+                status: 'Approved',
+                updatedAt: plazaApplication.updatedAt || nowIso
+            };
+        }
+    } else if (plazaStatus === 'rejected') {
+        patch.plazaApplicationStatus = 'Rejected';
+        patch.plazaMembershipStatus = 'rejected';
+        patch.plazaAccessStatus = 'rejected';
+        patch.canEnterPlaza = false;
+        patch.hasPlazaAccess = false;
+
+        if (plazaApplication) {
+            patch.plazaApplication = {
+                ...plazaApplication,
+                status: 'Rejected',
+                updatedAt: plazaApplication.updatedAt || nowIso
+            };
+        }
+    }
+
+    const federationStatus = resolveUniverseDivisionStatus([
+        userData.hasFederationAccess === true ? 'approved' : '',
+        userData.canEnterFederation === true ? 'approved' : '',
+        federationApplication?.status,
+        userData.federationMembershipStatus,
+        userData.federationApplicationStatus
+    ], '');
+
+    if (federationStatus === 'approved') {
+        patch.federationApplicationStatus = 'Approved';
+        patch.federationMembershipStatus = 'approved';
+        patch.canEnterFederation = true;
+        patch.hasFederationAccess = true;
+
+        if (federationApplication) {
+            patch.federationApplication = {
+                ...federationApplication,
+                status: 'Approved',
+                updatedAt: federationApplication.updatedAt || nowIso
+            };
+        }
+    } else if (federationStatus === 'rejected') {
+        patch.federationApplicationStatus = 'Rejected';
+        patch.federationMembershipStatus = 'rejected';
+        patch.canEnterFederation = false;
+        patch.hasFederationAccess = false;
+
+        if (federationApplication) {
+            patch.federationApplication = {
+                ...federationApplication,
+                status: 'Rejected',
+                updatedAt: federationApplication.updatedAt || nowIso
+            };
+        }
+    }
+
+    if (Object.keys(patch).length) {
+        patch.updatedAt = nowIso;
+    }
+
+    return patch;
+}
+
+function mergeUniverseProfileSelfHealPatchV1(userData = {}, patch = {}) {
+    const next = {
+        ...userData,
+        ...patch
+    };
+
+    ['academyApplication', 'plazaApplication', 'federationApplication'].forEach((key) => {
+        if (patch[key] && typeof patch[key] === 'object') {
+            next[key] = {
+                ...(userData[key] && typeof userData[key] === 'object' ? userData[key] : {}),
+                ...patch[key]
+            };
+        }
+    });
+
+    return next;
+}
+/* END PATCH: Universe profile canonical access self-heal v1 */
+
+
 function getUniverseStatusLabel(status = '') {
     const normalized = normalizeUniverseDivisionStatus(status);
 
@@ -4492,7 +4659,31 @@ exports.getUniverseProfile = async (req, res) => {
             });
         }
 
-        const userData = userSnapshot.data() || {};
+        let userData = userSnapshot.data() || {};
+        const canonicalAccessRepairPatchV1 = buildUniverseProfileCanonicalAccessSelfHealPatchV1(userData);
+
+        if (
+            Object.keys(canonicalAccessRepairPatchV1).length &&
+            userSnapshot.ref &&
+            typeof userSnapshot.ref.set === 'function'
+        ) {
+            await userSnapshot.ref.set(canonicalAccessRepairPatchV1, { merge: true }).catch((error) => {
+                console.warn('Universe profile canonical access self-heal skipped:', error?.message || error);
+            });
+
+            userData = mergeUniverseProfileSelfHealPatchV1(userData, canonicalAccessRepairPatchV1);
+
+            await yhuUsersSupabaseRepo.syncFromFirestoreUserRef(userRef, {
+                source: 'universe-profile:canonical-access-self-heal'
+            }).catch((error) => {
+                console.warn('Universe profile yhu_users self-heal sync skipped:', error?.message || error);
+            });
+
+            await academyMemberProfileSupabaseRepo.upsertProfileFromUserData(uid, userData).catch((error) => {
+                console.warn('Universe profile academy member self-heal sync skipped:', error?.message || error);
+            });
+        }
+
         const storedAcademyProfile = await withUniverseProfileTimeout(
             academyFirestoreRepo.getCurrentProfile(uid).catch(() => null),
             2500,

@@ -3648,6 +3648,121 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
 });
 /* END PATCH: Supabase Patron application admin review override v1 */
 
+
+/* PATCH: Admin division canonical approval repair v1 */
+async function repairAdminReviewedDivisionCanonicalAccessV1({
+  userRef = null,
+  userId = '',
+  matchedField = '',
+  nextStatus = '',
+  application = {},
+  reviewedBy = 'admin'
+} = {}) {
+  if (!userRef || typeof userRef.get !== 'function' || typeof userRef.set !== 'function') {
+    return null;
+  }
+
+  const cleanField = cleanText(matchedField);
+  const cleanStatus = cleanText(nextStatus);
+  const lowerStatus = cleanStatus.toLowerCase();
+  const nowIso = new Date().toISOString();
+
+  if (!cleanField || !cleanStatus) return null;
+
+  const snap = await userRef.get();
+  if (!snap.exists) return null;
+
+  const current = snap.data() || {};
+  const existingApplication =
+    current[cleanField] && typeof current[cleanField] === 'object'
+      ? current[cleanField]
+      : {};
+
+  const nextApplication = {
+    ...existingApplication,
+    ...(application && typeof application === 'object' ? application : {}),
+    status: cleanStatus,
+    reviewedAt: application?.reviewedAt || nowIso,
+    reviewedBy: cleanText(application?.reviewedBy || reviewedBy || 'admin'),
+    updatedAt: nowIso
+  };
+
+  const approved = cleanStatus === 'Approved';
+  const rejected = cleanStatus === 'Rejected';
+
+  const patch = {
+    updatedAt: nowIso,
+    [cleanField]: nextApplication,
+    [`${cleanField}Status`]: cleanStatus
+  };
+
+  if (cleanField === 'academyApplication') {
+    patch.academyApplicationStatus = cleanStatus;
+    patch.academyMembershipStatus = lowerStatus;
+    patch.canEnterAcademy = approved;
+    patch.hasAcademyAccess = approved;
+    patch.hasRoadmapAccess = approved;
+    patch.academyRoadmapAccess = approved;
+    patch.roadmapApplicationStatus = approved ? 'Approved' : cleanStatus;
+    patch.roadmapAccessStatus = approved ? 'unlocked' : 'locked';
+    patch.accessState = approved ? 'unlocked' : 'locked';
+
+    if (approved) {
+      patch.academyMembershipApprovedAt = current.academyMembershipApprovedAt || nowIso;
+      patch.academyApprovedAt = current.academyApprovedAt || nowIso;
+      patch.academyRejectedAt = '';
+    }
+
+    if (rejected) {
+      patch.academyRejectedAt = nowIso;
+    }
+  }
+
+  if (cleanField === 'plazaApplication') {
+    patch.plazaApplicationStatus = cleanStatus;
+    patch.plazaMembershipStatus = lowerStatus;
+    patch.plazaAccessStatus = lowerStatus;
+    patch.canEnterPlaza = approved;
+    patch.hasPlazaAccess = approved;
+
+    if (approved) {
+      patch.plazaApprovedAt = current.plazaApprovedAt || nowIso;
+      patch.plazaRejectedAt = '';
+    }
+
+    if (rejected) {
+      patch.plazaRejectedAt = nowIso;
+    }
+  }
+
+  if (cleanField === 'federationApplication') {
+    patch.federationApplicationStatus = cleanStatus;
+    patch.federationMembershipStatus = lowerStatus;
+    patch.canEnterFederation = approved;
+    patch.hasFederationAccess = approved;
+
+    if (approved) {
+      patch.federationApprovedAt = current.federationApprovedAt || nowIso;
+      patch.federationRejectedAt = '';
+    }
+
+    if (rejected) {
+      patch.federationRejectedAt = nowIso;
+    }
+  }
+
+  await userRef.set(patch, { merge: true });
+
+  if (cleanField === 'academyApplication' && approved && cleanText(userId)) {
+    await academyFirestoreRepo.setAccessUnlocked(cleanText(userId)).catch((error) => {
+      console.warn('Admin canonical Academy access unlock repair skipped:', error?.message || error);
+    });
+  }
+
+  return patch;
+}
+/* END PATCH: Admin division canonical approval repair v1 */
+
 apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async (req, res) => {
   try {
     const applicationId = cleanText(req.params.id);
@@ -4046,6 +4161,17 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
         approvalEmailError: ''
       };
     });
+
+    /* PATCH: Admin division canonical approval repair v1 */
+    await repairAdminReviewedDivisionCanonicalAccessV1({
+      userRef: matchedUserDoc.ref,
+      userId: matchedUserDoc.id,
+      matchedField,
+      nextStatus,
+      application: reviewResult.application,
+      reviewedBy: req.adminSession?.username || 'admin'
+    });
+    /* END PATCH: Admin division canonical approval repair v1 */
 
     /* PATCH: Admin User Notifications Supabase transaction sync */
     await syncAdminUserInProductNotificationsFromUserRef(

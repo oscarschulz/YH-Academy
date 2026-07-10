@@ -2402,12 +2402,27 @@
                 ? raw.application
                 : null;
 
-        const rawStatus =
-            firstTextFrom(raw, ['status', 'applicationStatus', 'membershipStatus', 'accessStatus', 'reviewStatus', 'statusLabel']) ||
-            firstTextFrom(application || {}, ['status', 'reviewStatus']) ||
-            firstTextFrom(profile, config.topStatusKeys);
+        const statusCandidates = [
+            raw.canEnter === true ? 'approved' : '',
+            raw.isMember === true ? 'approved' : '',
+            raw.hasAccess === true ? 'approved' : '',
+            firstBoolFrom(profile, config.topAccessKeys) ? 'approved' : '',
+            firstTextFrom(application || {}, ['status', 'reviewStatus']),
+            firstTextFrom(raw, ['status', 'applicationStatus', 'membershipStatus', 'accessStatus', 'reviewStatus', 'statusLabel']),
+            firstTextFrom(profile, config.topStatusKeys)
+        ]
+            .map((value) => normalizeStatus(value))
+            .filter((value) => value && value !== 'not_applied');
 
-        let status = normalizeStatus(rawStatus);
+        let status = 'not_applied';
+
+        if (statusCandidates.includes('approved')) {
+            status = 'approved';
+        } else if (statusCandidates.includes('rejected')) {
+            status = 'rejected';
+        } else if (statusCandidates.includes('pending')) {
+            status = 'pending';
+        }
 
         const canEnter =
             raw.canEnter === true ||
@@ -3567,4 +3582,47 @@
     }, true);
 })();
 /* END PATCH: Federation apply direct responder v1 */
+
+/* PATCH: Dashboard approved state resolver hardening v1 */
+(function installDashboardApprovedStateResolverHardeningV1() {
+    if (window.__yhDashboardApprovedStateResolverHardeningV1Installed) return;
+    window.__yhDashboardApprovedStateResolverHardeningV1Installed = true;
+
+    window.yhDashboardClearDivisionPendingLockV1 = function yhDashboardClearDivisionPendingLockV1(division = '') {
+        const clean = String(division || '').trim().toLowerCase();
+        const key = clean === 'plaza' ? 'plazas' : clean;
+        const tokenSources = [
+            'yh_dashboard_division_application_pending_locks_v1',
+            'yh_dashboard_division_application_pending_locks_v2'
+        ];
+
+        try {
+            const payload = window.YHSharedCore?.getStoredAuthToken?.() || localStorage.getItem('yh_auth_token') || sessionStorage.getItem('yh_auth_token') || '';
+            const parts = String(payload || '').split('.');
+            let scope = 'default';
+
+            if (parts.length >= 2) {
+                const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                const parsed = JSON.parse(atob(base64.padEnd(base64.length + ((4 - base64.length % 4) % 4), '='))) || {};
+                scope = String(parsed.sub || parsed.id || parsed.uid || parsed.email || 'default').toLowerCase();
+            }
+
+            tokenSources.forEach((base) => {
+                [`${base}:${scope}`, `${base}:default`].forEach((storageKey) => {
+                    [localStorage, sessionStorage].forEach((store) => {
+                        const raw = store.getItem(storageKey);
+                        if (!raw) return;
+
+                        const parsed = JSON.parse(raw);
+                        if (parsed && typeof parsed === 'object' && parsed[key]) {
+                            delete parsed[key];
+                            store.setItem(storageKey, JSON.stringify(parsed));
+                        }
+                    });
+                });
+            });
+        } catch (_) {}
+    };
+})();
+/* END PATCH: Dashboard approved state resolver hardening v1 */
 
