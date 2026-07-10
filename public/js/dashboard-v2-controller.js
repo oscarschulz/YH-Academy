@@ -582,3 +582,292 @@
     window.yhDashboardV2RenderParent = renderParent;
     window.yhDashboardV2OpenApplication = openApplication;
 })();
+
+
+/* PATCH: Dashboard V2 render lock v1 */
+(function installDashboardV2RenderLockV1() {
+    if (window.__yhDashboardV2RenderLockV1Installed) return;
+    window.__yhDashboardV2RenderLockV1Installed = true;
+
+    const PARENT_KEYS = new Set(['academy', 'plazas', 'federation']);
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub';
+    }
+
+    function getWorkspace() {
+        const active = String(document.body?.getAttribute('data-yh-dashboard-v2-active') || '').trim().toLowerCase();
+        if (PARENT_KEYS.has(active)) return active;
+
+        const unified = String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview').trim().toLowerCase();
+        return unified || 'overview';
+    }
+
+    function isParentWorkspace(key = getWorkspace()) {
+        return PARENT_KEYS.has(String(key || '').trim().toLowerCase());
+    }
+
+    function isOverviewWorkspace(key = getWorkspace()) {
+        const clean = String(key || '').trim().toLowerCase();
+        return !clean || clean === 'overview' || clean === 'hub' || clean === 'dashboard';
+    }
+
+    function setVisible(node, visible, display = '') {
+        if (!node || !(node instanceof HTMLElement)) return;
+
+        node.classList.toggle('hidden-step', !visible);
+        node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+
+        if (visible) {
+            node.style.removeProperty('display');
+            if (display) node.style.display = display;
+            node.style.removeProperty('visibility');
+            node.style.removeProperty('opacity');
+            node.style.removeProperty('pointer-events');
+            return;
+        }
+
+        node.style.display = 'none';
+        node.style.visibility = 'hidden';
+        node.style.opacity = '0';
+        node.style.pointerEvents = 'none';
+    }
+
+    function hideNodes(selectors) {
+        selectors.forEach((selector) => {
+            document.querySelectorAll(selector).forEach((node) => {
+                setVisible(node, false, 'block');
+            });
+        });
+    }
+
+    function showNode(node, display = 'block') {
+        setVisible(node, true, display);
+    }
+
+    function forceSingleCarouselOrder() {
+        const referral = document.getElementById('yh-universe-referral-card');
+        const live = document.getElementById('yh-universe-academy-strip');
+
+        if (referral && live && referral.nextElementSibling !== live) {
+            live.parentNode?.insertBefore(referral, live);
+        }
+    }
+
+    function lockOverview(reason = 'overview-lock') {
+        if (!isDashboardPage()) return;
+
+        document.body?.removeAttribute('data-yh-dashboard-v2-active');
+        document.body?.removeAttribute('data-yh-dashboard-v2-approved');
+        document.body?.removeAttribute('data-yh-dashboard-v2-status');
+        document.body?.setAttribute('data-yh-unified-workspace', 'overview');
+        document.body?.setAttribute('data-yh-unified-division', 'overview');
+        document.body?.setAttribute('data-yh-dashboard-v2-lock', 'overview');
+
+        const mount = document.getElementById('yh-dashboard-v2-parent-shell');
+        setVisible(mount, false, 'block');
+
+        const commandHead = document.querySelector('.yh-command-dashboard-head');
+        const dynamicAccess = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
+        const referral = document.getElementById('yh-universe-referral-card');
+        const live = document.getElementById('yh-universe-academy-strip');
+
+        /*
+          Keep the current clean overview pieces stable.
+          We do not rebuild them here; we only prevent old renderers from hiding/replacing them.
+        */
+        showNode(commandHead, 'grid');
+        showNode(dynamicAccess, 'grid');
+        showNode(referral, 'block');
+        showNode(live, 'block');
+
+        if (live) live.classList.add('is-active');
+
+        hideNodes([
+            '#yh-command-overview-grid',
+            '#yh-universe-carousel',
+            '#yh-universe-plaza-strip',
+            '#yh-universe-federation-strip',
+            '.yh-universe-carousel-column',
+            '#yh-dashboard-division-parent-intro-v1',
+            '.yh-dashboard-division-intro-v1',
+            '.yh-dashboard-division-intro-hero-v1',
+            '.yh-dashboard-division-child-grid-v1',
+            '.yh-academy-parent-hero-header',
+            '.yh-academy-parent-vision-scope',
+            '.yh-universe-command-hero',
+            '.yh-universe-stage-nav',
+            '.yh-universe-dots',
+            '#yh-universe-progress-rail',
+            '#yh-econ-bridge-card'
+        ]);
+
+        forceSingleCarouselOrder();
+    }
+
+    function lockParent(key = getWorkspace(), reason = 'parent-lock') {
+        if (!isDashboardPage()) return;
+
+        const clean = String(key || '').trim().toLowerCase();
+        if (!PARENT_KEYS.has(clean)) return;
+
+        document.body?.setAttribute('data-yh-dashboard-v2-active', clean);
+        document.body?.setAttribute('data-yh-unified-workspace', clean);
+        document.body?.setAttribute('data-yh-unified-division', clean);
+        document.body?.setAttribute('data-yh-dashboard-v2-lock', clean);
+
+        const mount = document.getElementById('yh-dashboard-v2-parent-shell');
+        showNode(mount, 'block');
+
+        hideNodes([
+            '.yh-command-dashboard-head',
+            '#yh-dashboard-overview-dynamic-access-row-v1',
+            '#yh-universe-referral-card',
+            '#yh-universe-academy-strip',
+            '#yh-command-overview-grid',
+            '#yh-universe-carousel',
+            '#yh-universe-plaza-strip',
+            '#yh-universe-federation-strip',
+            '.yh-universe-carousel-column',
+            '#yh-dashboard-division-parent-intro-v1',
+            '.yh-dashboard-division-intro-v1',
+            '.yh-dashboard-division-intro-hero-v1',
+            '.yh-dashboard-division-child-grid-v1',
+            '.yh-academy-parent-hero-header',
+            '.yh-academy-parent-vision-scope',
+            '.yh-universe-command-hero',
+            '.yh-universe-stage-nav',
+            '.yh-universe-dots',
+            '#yh-universe-progress-rail',
+            '#yh-econ-bridge-card'
+        ]);
+
+        if (typeof window.yhDashboardV2RenderParent === 'function') {
+            try {
+                window.yhDashboardV2RenderParent(clean);
+            } catch (error) {
+                console.error('Dashboard V2 parent render lock failed:', error);
+            }
+        }
+    }
+
+    function applyLock(reason = 'sync') {
+        if (!isDashboardPage()) return;
+
+        const key = getWorkspace();
+
+        if (isParentWorkspace(key)) {
+            lockParent(key, reason);
+            return;
+        }
+
+        if (isOverviewWorkspace(key)) {
+            lockOverview(reason);
+        }
+    }
+
+    function scheduleLock(reason = 'schedule') {
+        applyLock(reason + '-now');
+
+        if (window.requestAnimationFrame) {
+            window.requestAnimationFrame(() => applyLock(reason + '-raf'));
+        }
+
+        [30, 80, 160, 320, 640, 1200].forEach((delay) => {
+            window.setTimeout(() => applyLock(reason + '-' + delay), delay);
+        });
+    }
+
+    /*
+      Wrap the old entrypoint safely.
+      Old dashboard.js may still render after async profile/application refresh.
+      This wrapper does not break old functions; it only restores V2 visibility after them.
+    */
+    const nativeActivate = window.activateDashboardUnifiedWorkspace;
+    if (typeof nativeActivate === 'function' && nativeActivate.__yhDashboardV2RenderLockWrappedV1 !== true) {
+        const wrappedActivate = function activateDashboardUnifiedWorkspaceV2RenderLock(key = 'overview', options = {}) {
+            const result = nativeActivate.apply(this, arguments);
+            scheduleLock('activate-' + String(key || 'overview'));
+            return result;
+        };
+
+        wrappedActivate.__yhDashboardV2RenderLockWrappedV1 = true;
+        window.activateDashboardUnifiedWorkspace = wrappedActivate;
+    }
+
+    /*
+      Do not let old safeRenderDashboardCommandOverview become the final visible owner.
+      We allow it to run, then immediately restore the V2 overview if the user is on overview.
+    */
+    const nativeSafeOverview = window.safeRenderDashboardCommandOverview;
+    if (typeof nativeSafeOverview === 'function' && nativeSafeOverview.__yhDashboardV2RenderLockWrappedV1 !== true) {
+        const wrappedSafeOverview = function safeRenderDashboardCommandOverviewV2RenderLock(reason = 'legacy') {
+            const result = nativeSafeOverview.apply(this, arguments);
+            scheduleLock('safe-overview-' + String(reason || 'legacy'));
+            return result;
+        };
+
+        wrappedSafeOverview.__yhDashboardV2RenderLockWrappedV1 = true;
+        window.safeRenderDashboardCommandOverview = wrappedSafeOverview;
+    }
+
+    document.addEventListener('click', (event) => {
+        const parent = event.target?.closest?.('[data-yh-dashboard-shell="academy"], [data-yh-dashboard-shell="plazas"], [data-yh-dashboard-shell="federation"]');
+        if (parent) {
+            const key = String(parent.getAttribute('data-yh-dashboard-shell') || '').trim().toLowerCase();
+            scheduleLock('parent-click-' + key);
+            return;
+        }
+
+        const overview = event.target?.closest?.('[data-yh-dashboard-shell="overview"], #nav-dashboard, #btn-dashboard-overview');
+        if (overview) {
+            document.body?.removeAttribute('data-yh-dashboard-v2-active');
+            document.body?.setAttribute('data-yh-unified-workspace', 'overview');
+            document.body?.setAttribute('data-yh-unified-division', 'overview');
+            scheduleLock('overview-click');
+        }
+    }, true);
+
+    try {
+        const observer = new MutationObserver(() => {
+            window.clearTimeout(window.__yhDashboardV2RenderLockTimerV1);
+            window.__yhDashboardV2RenderLockTimerV1 = window.setTimeout(() => {
+                applyLock('mutation');
+            }, 45);
+        });
+
+        observer.observe(document.body || document.documentElement, {
+            attributes: true,
+            attributeFilter: [
+                'data-yh-unified-workspace',
+                'data-yh-unified-division',
+                'data-yh-dashboard-v2-active',
+                'class',
+                'style'
+            ],
+            childList: true,
+            subtree: true
+        });
+
+        window.__yhDashboardV2RenderLockObserverV1 = observer;
+    } catch (_) {}
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => scheduleLock('dom'));
+    } else {
+        scheduleLock('boot');
+    }
+
+    [80, 180, 420, 900, 1600, 2600, 4200].forEach((delay) => {
+        window.setTimeout(() => applyLock('boot-timer-' + delay), delay);
+    });
+
+    window.yhDashboardV2ApplyRenderLockV1 = applyLock;
+    window.yhDashboardV2LockOverviewV1 = lockOverview;
+    window.yhDashboardV2LockParentV1 = lockParent;
+})();
+/* END PATCH: Dashboard V2 render lock v1 */
+
