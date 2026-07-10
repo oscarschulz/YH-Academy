@@ -36037,10 +36037,46 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 /* END PATCH: Dashboard state owner final v3 */
 
 
-/* PATCH: Academy parent econ layout v1 */
-(function installAcademyParentEconLayoutV1() {
-    if (window.__yhAcademyParentEconLayoutV1Installed) return;
-    window.__yhAcademyParentEconLayoutV1Installed = true;
+/* PATCH: Division parent access gate v2 */
+(function installDivisionParentAccessGateV2() {
+    if (window.__yhDivisionParentAccessGateV2Installed) return;
+    window.__yhDivisionParentAccessGateV2Installed = true;
+
+    const DIVISIONS = {
+        academy: {
+            key: 'academy',
+            stateKey: 'academy',
+            label: 'Academy',
+            applyLabel: 'Apply for Academy Access',
+            pendingLabel: 'Application Under Review',
+            approvedLabel: 'Open Roadmap',
+            childWorkspace: 'academy-roadmap',
+            childLabels: ['Roadmap', 'Missions', 'Community Feed', 'Messages', 'Live Voice Lounge'],
+            applyFns: ['openAcademyLauncher', 'openAcademyApplicationModal', 'openAcademyApplyModal']
+        },
+        plazas: {
+            key: 'plazas',
+            stateKey: 'plaza',
+            label: 'Plazas',
+            applyLabel: 'Apply for Plazas Access',
+            pendingLabel: 'Application Under Review',
+            approvedLabel: 'Open Feed',
+            childWorkspace: 'plaza-feed',
+            childLabels: ['Feed', 'Inbox', 'Conversations', 'Meetups', 'Opportunities', 'Directory', 'Regions', 'Plaza Atlas', 'Become Patron', 'Patron Desk', 'Bridge', 'Requests'],
+            applyFns: ['openPlazaApplicationModal']
+        },
+        federation: {
+            key: 'federation',
+            stateKey: 'federation',
+            label: 'Federation',
+            applyLabel: 'Apply for Federation Access',
+            pendingLabel: 'Application Under Review',
+            approvedLabel: 'Open Command',
+            childWorkspace: 'federation-command',
+            childLabels: ['Command', 'Connect', 'Deal Rooms', 'Directory', 'My Requests', 'Referrals', 'My Access'],
+            applyFns: ['openFederationApplicationModal']
+        }
+    };
 
     function isDashboardPage() {
         const path = String(window.location.pathname || '').replace(/\/+$/, '');
@@ -36057,7 +36093,115 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
             .toLowerCase() || 'overview';
     }
 
-    function setNodeVisible(node, visible, displayValue = '') {
+    function normalizeParentKey(key = '') {
+        const clean = String(key || '').trim().toLowerCase();
+        if (clean === 'plaza') return 'plazas';
+        if (clean === 'academy' || clean === 'plazas' || clean === 'federation') return clean;
+        return '';
+    }
+
+    function safeJson(raw = '') {
+        try {
+            const parsed = JSON.parse(String(raw || '{}'));
+            return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+        } catch (_) {
+            return {};
+        }
+    }
+
+    function getCachedProfileCandidates() {
+        const candidates = [];
+
+        try {
+            if (window.__yhDivisionParentAccessGateProfileV2) {
+                candidates.push(window.__yhDivisionParentAccessGateProfileV2);
+            }
+        } catch (_) {}
+
+        try {
+            if (typeof dashboardGetSelfProfileCache === 'function') {
+                candidates.push(dashboardGetSelfProfileCache());
+            }
+        } catch (_) {}
+
+        try {
+            if (typeof dashboardGetTopProfileCache === 'function') {
+                candidates.push(dashboardGetTopProfileCache());
+            }
+        } catch (_) {}
+
+        try {
+            if (typeof buildAcademySelfProfilePayload === 'function') {
+                candidates.push(buildAcademySelfProfilePayload());
+            }
+        } catch (_) {}
+
+        try {
+            candidates.push(safeJson(localStorage.getItem('yh_dashboard_self_profile_cache_v1')));
+            candidates.push(safeJson(localStorage.getItem('yh_academy_profile_cache_v1')));
+            candidates.push(safeJson(sessionStorage.getItem('yh_dashboard_self_profile_cache_v1')));
+        } catch (_) {}
+
+        return candidates.filter((item) => item && typeof item === 'object' && !Array.isArray(item));
+    }
+
+    function normalizeDivisionState(raw = {}, parentKey = 'academy') {
+        const safe = raw && typeof raw === 'object' ? raw : {};
+        const status = String(safe.status || safe.applicationStatus || '').trim().toLowerCase();
+        const statusLabel = String(safe.statusLabel || safe.applicationStatusLabel || '').trim();
+
+        const isMember =
+            safe.isMember === true ||
+            safe.canEnter === true ||
+            safe.canEnterDivision === true ||
+            safe.hasAccess === true ||
+            status === 'approved' ||
+            status === 'active' ||
+            status === 'member';
+
+        const hasApplication =
+            safe.hasApplication === true ||
+            Boolean(safe.application && typeof safe.application === 'object') ||
+            ['pending', 'under_review', 'screening', 'waitlisted', 'shortlisted', 'rejected'].includes(status);
+
+        const isPending = ['pending', 'under_review', 'screening', 'waitlisted', 'shortlisted'].includes(status);
+
+        return {
+            isMember,
+            canEnter: isMember,
+            hasApplication,
+            isPending,
+            status,
+            statusLabel: isMember ? 'Approved' : (statusLabel || (hasApplication ? 'Under Review' : 'Not Applied'))
+        };
+    }
+
+    function getDivisionState(parentKey = 'academy') {
+        const config = DIVISIONS[parentKey];
+        if (!config) return normalizeDivisionState({}, parentKey);
+
+        const candidates = getCachedProfileCandidates();
+
+        for (const profile of candidates) {
+            const divisions = profile.divisions && typeof profile.divisions === 'object'
+                ? profile.divisions
+                : {};
+
+            const raw =
+                divisions[config.stateKey] ||
+                divisions[parentKey] ||
+                divisions[config.key] ||
+                null;
+
+            if (raw && typeof raw === 'object') {
+                return normalizeDivisionState(raw, parentKey);
+            }
+        }
+
+        return normalizeDivisionState({}, parentKey);
+    }
+
+    function setVisible(node, visible, displayValue = '') {
         if (!node || !(node instanceof HTMLElement)) return;
 
         node.classList.toggle('hidden-step', !visible);
@@ -36066,9 +36210,9 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         if (visible) {
             node.style.removeProperty('display');
             if (displayValue) node.style.display = displayValue;
-            node.style.visibility = 'visible';
-            node.style.opacity = '1';
-            node.style.pointerEvents = 'auto';
+            node.style.removeProperty('visibility');
+            node.style.removeProperty('opacity');
+            node.style.removeProperty('pointer-events');
             return;
         }
 
@@ -36078,131 +36222,350 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         node.style.pointerEvents = 'none';
     }
 
-    function findFeaturePanel() {
-        const kicker = document.getElementById('yh-universe-feature-kicker');
-        return kicker?.closest?.('.yh-universe-feature-panel, article, section, div') || null;
+    function textOf(node) {
+        return String(node?.textContent || '').replace(/\s+/g, ' ').trim();
     }
 
-    function applyAcademyParentEconLayoutV1(reason = 'sync') {
-        if (!isDashboardPage()) return;
+    function getParentIntro() {
+        return document.getElementById('yh-dashboard-division-parent-intro-v1') ||
+            document.querySelector('.yh-dashboard-division-intro-v1') ||
+            document.querySelector('.yh-academy-parent-hero-header') ||
+            null;
+    }
 
-        const isAcademyParent = getWorkspace() === 'academy';
+    function findParentCta(parentKey = 'academy') {
+        const intro = getParentIntro();
+        if (!intro) return null;
 
-        const rail = document.getElementById('yh-universe-progress-rail');
-        const econCard = rail?.querySelector?.('.yh-universe-progress-card') || null;
+        const existing = intro.querySelector('[data-yh-parent-access-cta-v2]');
+        if (existing) return existing;
+
+        const buttons = Array.from(intro.querySelectorAll('button, a, [role="button"]'));
+        const target = buttons.find((node) => {
+            const text = textOf(node).toLowerCase();
+            return (
+                /open roadmap|open feed|open command|apply|enter/.test(text) ||
+                text.includes(DIVISIONS[parentKey]?.label.toLowerCase() || '')
+            );
+        });
+
+        if (target) return target;
+
+        const footer = document.createElement('div');
+        footer.className = 'yh-parent-access-cta-wrap-v2';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'yh-parent-access-cta-v2';
+        button.setAttribute('data-yh-parent-access-cta-v2', parentKey);
+
+        footer.appendChild(button);
+        intro.appendChild(footer);
+
+        return button;
+    }
+
+    function hideDivisionChildCards(parentKey = 'academy', allowed = false) {
+        const config = DIVISIONS[parentKey];
+        if (!config) return;
+
+        const intro = getParentIntro();
+
+        const childContainers = [
+            intro?.querySelector?.('.yh-dashboard-division-child-grid-v1'),
+            intro?.querySelector?.('.yh-division-parent-child-grid-v1'),
+            intro?.querySelector?.('.yh-academy-parent-child-grid-v1'),
+            document.querySelector('.yh-dashboard-division-child-grid-v1'),
+            document.querySelector('.yh-division-parent-child-grid-v1'),
+            document.querySelector('.yh-academy-parent-child-grid-v1')
+        ].filter(Boolean);
+
+        childContainers.forEach((node) => {
+            node.classList.add('yh-parent-child-cards-gated-v2');
+            setVisible(node, allowed, 'grid');
+        });
+
+        if (!intro) return;
+
+        Array.from(intro.querySelectorAll('article, section, .yh-card, .yh-dashboard-card, div'))
+            .filter((node) => node instanceof HTMLElement)
+            .filter((node) => {
+                const text = textOf(node);
+                if (!text || text.length > 420) return false;
+
+                return config.childLabels.some((label) => {
+                    const pattern = new RegExp('^' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+                    return pattern.test(text);
+                });
+            })
+            .forEach((node) => {
+                node.classList.add('yh-parent-child-card-gated-v2');
+                setVisible(node, allowed, 'block');
+            });
+    }
+
+    function hideSidebarChildTabs(parentKey = 'academy', allowed = false) {
+        const config = DIVISIONS[parentKey];
+        if (!config) return;
+
+        const sidebar =
+            document.querySelector('aside') ||
+            document.querySelector('nav') ||
+            document.querySelector('.yh-dashboard-sidebar') ||
+            document.querySelector('.dashboard-sidebar') ||
+            document;
+
+        Array.from(sidebar.querySelectorAll('a, button, [role="button"], li, div'))
+            .filter((node) => node instanceof HTMLElement)
+            .filter((node) => {
+                const text = textOf(node);
+                if (!text || text.length > 80) return false;
+                return config.childLabels.some((label) => text === label || text.startsWith(label + ' '));
+            })
+            .forEach((node) => {
+                const target = node.closest('a, button, li, [role="button"]') || node;
+                target.classList.add('yh-parent-child-tab-gated-v2');
+                target.setAttribute('data-yh-parent-child-tab-v2', parentKey);
+                setVisible(target, allowed, target.tagName === 'LI' ? 'list-item' : '');
+            });
+    }
+
+    function hideAcademyExtraPanels(parentKey = 'academy', allowed = false) {
+        if (parentKey !== 'academy') return;
+
+        const progressRail = document.getElementById('yh-universe-progress-rail');
         const bridgeCard = document.getElementById('yh-econ-bridge-card');
-        const featurePanel = findFeaturePanel();
+        const featureKicker = document.getElementById('yh-universe-feature-kicker');
+        const featurePanel = featureKicker?.closest?.('.yh-universe-feature-panel, article, section, div');
 
-        if (rail) {
-            rail.classList.toggle('yh-academy-parent-econ-hero-v1', isAcademyParent);
-            rail.setAttribute('data-yh-academy-parent-econ', isAcademyParent ? 'active' : 'inactive');
+        if (progressRail) {
+            progressRail.classList.toggle('yh-academy-parent-econ-fixed-v2', allowed);
+            setVisible(progressRail, allowed, 'grid');
         }
 
-        if (econCard) {
-            econCard.classList.toggle('yh-academy-parent-econ-card-v1', isAcademyParent);
-        }
+        setVisible(bridgeCard, false, 'block');
+        setVisible(featurePanel, false, 'block');
+    }
 
-        if (isAcademyParent) {
-            setNodeVisible(rail, true, 'grid');
-            setNodeVisible(econCard, true, 'grid');
+    function updateParentIntroCta(parentKey = 'academy', state = null) {
+        const config = DIVISIONS[parentKey];
+        if (!config) return;
 
-            /*
-              Academy parent now uses Economic Snapshot as the supporting card.
-              Remove the duplicate Academy Features card and Bridge Signal card.
-            */
-            setNodeVisible(bridgeCard, false, 'block');
-            setNodeVisible(featurePanel, false, 'block');
+        const safeState = state || getDivisionState(parentKey);
+        const button = findParentCta(parentKey);
+        if (!button) return;
 
-            document.body?.classList.add('yh-academy-parent-econ-polished-v1');
+        button.setAttribute('data-yh-parent-access-cta-v2', parentKey);
+        button.classList.add('yh-parent-access-cta-v2');
+
+        button.classList.toggle('is-approved', safeState.canEnter === true);
+        button.classList.toggle('is-pending', safeState.canEnter !== true && safeState.isPending === true);
+        button.classList.toggle('is-locked', safeState.canEnter !== true && safeState.isPending !== true);
+
+        if (safeState.canEnter) {
+            button.textContent = config.approvedLabel;
+            button.removeAttribute('disabled');
+            button.setAttribute('aria-disabled', 'false');
+            button.style.pointerEvents = 'auto';
+
+            if (button.tagName === 'A') {
+                button.setAttribute('href', '#');
+            }
+
             return;
         }
 
-        document.body?.classList.remove('yh-academy-parent-econ-polished-v1');
+        if (safeState.isPending) {
+            button.textContent = safeState.statusLabel || config.pendingLabel;
+            button.setAttribute('disabled', 'disabled');
+            button.setAttribute('aria-disabled', 'true');
 
-        if (bridgeCard) bridgeCard.style.removeProperty('display');
-        if (featurePanel) featurePanel.style.removeProperty('display');
-    }
-
-    const nativeSyncBridge = window.syncUniverseBridgeCardVisibility;
-    if (typeof nativeSyncBridge === 'function' && nativeSyncBridge.__yhAcademyParentEconLayoutWrappedV1 !== true) {
-        const wrappedSyncUniverseBridgeCardVisibility = function wrappedSyncUniverseBridgeCardVisibilityV1(targetDivision = 'academy') {
-            const result = nativeSyncBridge.apply(this, arguments);
-
-            const division = String(targetDivision || '').trim().toLowerCase();
-            if (division === 'academy') {
-                const bridgeCard = document.getElementById('yh-econ-bridge-card');
-                setNodeVisible(bridgeCard, false, 'block');
+            if (button.tagName === 'A') {
+                button.removeAttribute('href');
             }
 
-            applyAcademyParentEconLayoutV1('bridge-sync');
-            return result;
-        };
+            return;
+        }
 
-        wrappedSyncUniverseBridgeCardVisibility.__yhAcademyParentEconLayoutWrappedV1 = true;
-        window.syncUniverseBridgeCardVisibility = wrappedSyncUniverseBridgeCardVisibility;
+        button.textContent = config.applyLabel;
+        button.removeAttribute('disabled');
+        button.setAttribute('aria-disabled', 'false');
+        button.style.pointerEvents = 'auto';
+
+        if (button.tagName === 'A') {
+            button.setAttribute('href', '#');
+        }
     }
 
-    const nativeSyncFeature = window.syncUniverseFeaturePanel;
-    if (typeof nativeSyncFeature === 'function' && nativeSyncFeature.__yhAcademyParentEconLayoutWrappedV1 !== true) {
-        const wrappedSyncUniverseFeaturePanel = function wrappedSyncUniverseFeaturePanelV1(targetDivision = 'academy') {
-            const result = nativeSyncFeature.apply(this, arguments);
+    function applyParentGate(parentKey = '') {
+        if (!isDashboardPage()) return;
 
-            const division = String(targetDivision || '').trim().toLowerCase();
-            if (division === 'academy') {
-                setNodeVisible(findFeaturePanel(), false, 'block');
+        const cleanParent = normalizeParentKey(parentKey || getWorkspace());
+        const config = DIVISIONS[cleanParent];
+
+        if (!config) {
+            document.body?.removeAttribute('data-yh-parent-division');
+            document.body?.removeAttribute('data-yh-parent-can-enter');
+            return;
+        }
+
+        const state = getDivisionState(cleanParent);
+        const allowed = state.canEnter === true;
+
+        document.body?.setAttribute('data-yh-parent-division', cleanParent);
+        document.body?.setAttribute('data-yh-parent-can-enter', allowed ? 'true' : 'false');
+        document.body?.setAttribute('data-yh-parent-application-state', state.isPending ? 'pending' : (allowed ? 'approved' : 'not-applied'));
+
+        hideSidebarChildTabs(cleanParent, allowed);
+        hideDivisionChildCards(cleanParent, allowed);
+        hideAcademyExtraPanels(cleanParent, allowed);
+        updateParentIntroCta(cleanParent, state);
+
+        if (typeof window.yhDashboardApplyStateOwnerFinalV3 === 'function') {
+            try {
+                window.yhDashboardApplyStateOwnerFinalV3(cleanParent);
+            } catch (_) {}
+        }
+    }
+
+    function openDivisionApplication(parentKey = 'academy') {
+        const config = DIVISIONS[parentKey];
+        if (!config) return false;
+
+        for (const fnName of config.applyFns) {
+            try {
+                if (typeof window[fnName] === 'function') {
+                    window[fnName]();
+                    return true;
+                }
+            } catch (_) {}
+        }
+
+        const fallbackSelectors = {
+            academy: '#btn-open-academy-apply, #btn-open-academy-application, [data-yh-open-academy-apply]',
+            plazas: '#btn-open-plaza-apply, #btn-open-plaza-application, [data-yh-open-plaza-apply]',
+            federation: '#btn-open-federation-apply, #btn-open-federation-application, [data-yh-open-federation-apply]'
+        };
+
+        const fallback = document.querySelector(fallbackSelectors[parentKey] || '');
+        if (fallback) {
+            fallback.click();
+            return true;
+        }
+
+        if (typeof showToast === 'function') {
+            showToast(`${config.label} application form is not available yet.`, 'error');
+        }
+
+        return false;
+    }
+
+    function openDivisionDefaultChild(parentKey = 'academy') {
+        const config = DIVISIONS[parentKey];
+        if (!config) return;
+
+        if (typeof activateDashboardUnifiedWorkspace === 'function') {
+            activateDashboardUnifiedWorkspace(config.childWorkspace);
+            return;
+        }
+
+        if (parentKey === 'academy') window.location.href = '/dashboard?section=academy-roadmap';
+        if (parentKey === 'plazas') window.location.href = '/dashboard?section=plaza-feed';
+        if (parentKey === 'federation') window.location.href = '/dashboard?section=federation-command';
+    }
+
+    document.addEventListener('click', (event) => {
+        const cta = event.target?.closest?.('[data-yh-parent-access-cta-v2]');
+        if (!cta) return;
+
+        const parentKey = normalizeParentKey(cta.getAttribute('data-yh-parent-access-cta-v2') || getWorkspace());
+        if (!parentKey) return;
+
+        const state = getDivisionState(parentKey);
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (state.canEnter) {
+            openDivisionDefaultChild(parentKey);
+            return;
+        }
+
+        if (state.isPending) {
+            if (typeof showToast === 'function') {
+                showToast(`${DIVISIONS[parentKey].label} application is still under review.`, 'error');
             }
+            return;
+        }
 
-            applyAcademyParentEconLayoutV1('feature-sync');
-            return result;
-        };
+        openDivisionApplication(parentKey);
+    }, true);
 
-        wrappedSyncUniverseFeaturePanel.__yhAcademyParentEconLayoutWrappedV1 = true;
-        window.syncUniverseFeaturePanel = wrappedSyncUniverseFeaturePanel;
-    }
+    document.addEventListener('click', (event) => {
+        const child = event.target?.closest?.('[data-yh-parent-child-tab-v2]');
+        if (!child) return;
 
-    const nativeSetUniverseSlide = window.setUniverseSlide;
-    if (typeof nativeSetUniverseSlide === 'function' && nativeSetUniverseSlide.__yhAcademyParentEconLayoutWrappedV1 !== true) {
-        const wrappedSetUniverseSlide = function wrappedSetUniverseSlideV1(targetDivision = 'academy', options = {}) {
-            const result = nativeSetUniverseSlide.apply(this, arguments);
+        const parentKey = normalizeParentKey(child.getAttribute('data-yh-parent-child-tab-v2') || getWorkspace());
+        if (!parentKey) return;
 
-            window.requestAnimationFrame?.(() => applyAcademyParentEconLayoutV1('slide-raf'));
-            window.setTimeout(() => applyAcademyParentEconLayoutV1('slide-80'), 80);
-            window.setTimeout(() => applyAcademyParentEconLayoutV1('slide-260'), 260);
+        const state = getDivisionState(parentKey);
+        if (state.canEnter) return;
 
-            return result;
-        };
+        event.preventDefault();
+        event.stopPropagation();
 
-        wrappedSetUniverseSlide.__yhAcademyParentEconLayoutWrappedV1 = true;
-        window.setUniverseSlide = wrappedSetUniverseSlide;
-    }
+        if (state.isPending) {
+            if (typeof showToast === 'function') {
+                showToast(`${DIVISIONS[parentKey].label} application is still under review.`, 'error');
+            }
+            return;
+        }
+
+        openDivisionApplication(parentKey);
+    }, true);
 
     const nativeActivate = window.activateDashboardUnifiedWorkspace;
-    if (typeof nativeActivate === 'function' && nativeActivate.__yhAcademyParentEconLayoutWrappedV1 !== true) {
-        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspaceV1(key = 'overview', options = {}) {
+    if (typeof nativeActivate === 'function' && nativeActivate.__yhDivisionParentAccessGateWrappedV2 !== true) {
+        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspaceAccessGateV2(key = 'overview', options = {}) {
             const result = nativeActivate.apply(this, arguments);
+            const cleanKey = normalizeParentKey(result?.key || key || getWorkspace());
 
-            window.requestAnimationFrame?.(() => applyAcademyParentEconLayoutV1('activate-raf'));
-            window.setTimeout(() => applyAcademyParentEconLayoutV1('activate-90'), 90);
-            window.setTimeout(() => applyAcademyParentEconLayoutV1('activate-420'), 420);
+            window.requestAnimationFrame?.(() => applyParentGate(cleanKey));
+            window.setTimeout(() => applyParentGate(cleanKey), 60);
+            window.setTimeout(() => applyParentGate(cleanKey), 180);
+            window.setTimeout(() => applyParentGate(cleanKey), 460);
 
             return result;
         };
 
-        wrappedActivateDashboardUnifiedWorkspace.__yhAcademyParentEconLayoutWrappedV1 = true;
+        wrappedActivateDashboardUnifiedWorkspace.__yhDivisionParentAccessGateWrappedV2 = true;
         window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
     }
 
-    window.yhApplyAcademyParentEconLayoutV1 = applyAcademyParentEconLayoutV1;
+    const nativePersist = window.dashboardPersistSelfProfileCache;
+    if (typeof nativePersist === 'function' && nativePersist.__yhDivisionParentAccessGateWrappedV2 !== true) {
+        const wrappedPersistSelfProfileCache = function wrappedPersistSelfProfileCacheAccessGateV2(profile = {}) {
+            window.__yhDivisionParentAccessGateProfileV2 = profile;
+            const result = nativePersist.apply(this, arguments);
+            window.setTimeout(() => applyParentGate(getWorkspace()), 30);
+            return result;
+        };
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => applyAcademyParentEconLayoutV1('dom'));
-    } else {
-        applyAcademyParentEconLayoutV1('boot');
+        wrappedPersistSelfProfileCache.__yhDivisionParentAccessGateWrappedV2 = true;
+        window.dashboardPersistSelfProfileCache = wrappedPersistSelfProfileCache;
     }
 
-    [60, 180, 420, 900, 1600].forEach((delay) => {
-        window.setTimeout(() => applyAcademyParentEconLayoutV1('timer-' + delay), delay);
+    window.yhApplyDivisionParentAccessGateV2 = applyParentGate;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => applyParentGate());
+    } else {
+        applyParentGate();
+    }
+
+    [60, 180, 420, 900, 1600, 2800].forEach((delay) => {
+        window.setTimeout(() => applyParentGate(), delay);
     });
 })();
-/* END PATCH: Academy parent econ layout v1 */
+/* END PATCH: Division parent access gate v2 */
 
