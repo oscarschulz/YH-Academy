@@ -1579,3 +1579,275 @@
 })();
 /* END PATCH: Dashboard V2 overview polish v1 */
 
+
+/* PATCH: Dashboard overview boot guard v1 */
+(function installDashboardOverviewBootGuardV1() {
+    if (window.__yhDashboardOverviewBootGuardV1Installed) return;
+    window.__yhDashboardOverviewBootGuardV1Installed = true;
+
+    const CHILD_PREFIXES = ['academy-', 'plazas-', 'federation-'];
+    const PARENT_KEYS = new Set(['academy', 'plazas', 'federation']);
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub';
+    }
+
+    function hasExplicitChildIntent() {
+        const params = new URLSearchParams(window.location.search || '');
+        const raw = String(
+            params.get('workspace') ||
+            params.get('section') ||
+            params.get('tab') ||
+            params.get('view') ||
+            ''
+        ).trim().toLowerCase();
+
+        if (!raw) return false;
+
+        return CHILD_PREFIXES.some((prefix) => raw.startsWith(prefix)) ||
+            ['roadmap', 'missions', 'community', 'messages', 'voice', 'feed', 'command', 'connect'].includes(raw);
+    }
+
+    function isChildKey(value = '') {
+        const clean = String(value || '').trim().toLowerCase();
+        return CHILD_PREFIXES.some((prefix) => clean.startsWith(prefix));
+    }
+
+    function setVisible(node, visible, display = '') {
+        if (!node || !(node instanceof HTMLElement)) return;
+
+        node.classList.toggle('hidden-step', !visible);
+        node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+
+        if (visible) {
+            node.style.removeProperty('display');
+            if (display) node.style.display = display;
+            node.style.removeProperty('visibility');
+            node.style.removeProperty('opacity');
+            node.style.removeProperty('pointer-events');
+            return;
+        }
+
+        node.style.display = 'none';
+        node.style.visibility = 'hidden';
+        node.style.opacity = '0';
+        node.style.pointerEvents = 'none';
+    }
+
+    function clearStaleChildWorkspaceStorage() {
+        const keys = [
+            'yh_dashboard_view_state_v1',
+            'yh_universe_view_state_v1',
+            'yh_dashboard_unified_workspace_v1',
+            'yh_dashboard_workspace_v1',
+            'yh_dashboard_last_workspace_v1'
+        ];
+
+        [localStorage, sessionStorage].forEach((store) => {
+            keys.forEach((key) => {
+                try {
+                    const raw = String(store.getItem(key) || '');
+                    if (!raw) return;
+
+                    const lower = raw.toLowerCase();
+                    const hasChild =
+                        lower.includes('academy-roadmap') ||
+                        lower.includes('academy-missions') ||
+                        lower.includes('academy-community') ||
+                        lower.includes('academy-messages') ||
+                        lower.includes('academy-voice') ||
+                        lower.includes('plazas-') ||
+                        lower.includes('federation-');
+
+                    if (hasChild) store.removeItem(key);
+                } catch (_) {}
+            });
+        });
+    }
+
+    function closeDivisionSubnavs() {
+        ['academy', 'plazas', 'federation'].forEach((division) => {
+            const parentButton = document.querySelector(`[data-yh-dashboard-shell="${division}"]`);
+            const subnav = document.getElementById(`yh-sidebar-subnav-${division}`);
+            const group = document.querySelector(`[data-yh-sidebar-division="${division}"]`);
+
+            if (parentButton) {
+                parentButton.classList.remove('active', 'is-active');
+                parentButton.setAttribute('aria-expanded', 'false');
+            }
+
+            if (group) {
+                group.classList.remove('is-open', 'is-active', 'active');
+                group.setAttribute('data-yh-sidebar-collapsed', 'true');
+            }
+
+            setVisible(subnav, false, 'block');
+        });
+
+        document.querySelectorAll('[data-yh-sidebar-child], [data-yh-mobile-subtab-menu-option]').forEach((node) => {
+            node.classList.remove('active', 'is-active');
+            node.setAttribute('aria-selected', 'false');
+        });
+
+        const dashboardButton = document.querySelector('[data-yh-dashboard-shell="overview"]');
+        if (dashboardButton) {
+            dashboardButton.classList.add('active', 'is-active');
+            dashboardButton.setAttribute('aria-selected', 'true');
+        }
+    }
+
+    function hideWorkspaceLauncher() {
+        const card = document.getElementById('yh-universe-workspace-launch-card');
+        const button = document.getElementById('yh-universe-workspace-launch-btn');
+        const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
+        const inlineHost = document.getElementById('yh-universe-workspace-inline-host');
+        const frame = document.getElementById('yh-universe-workspace-inline-frame');
+
+        setVisible(card, false, 'block');
+        setVisible(frameShell, false, 'block');
+        setVisible(inlineHost, false, 'block');
+
+        if (button) button.removeAttribute('data-yh-launch-workspace-key');
+
+        if (frame) {
+            frame.removeAttribute('src');
+            frame.removeAttribute('data-yh-dashboard-workspace-key');
+        }
+    }
+
+    function showOverviewPieces() {
+        const mount = document.getElementById('yh-dashboard-v2-parent-shell');
+
+        setVisible(mount, false, 'block');
+        setVisible(document.querySelector('.yh-command-dashboard-head'), true, 'grid');
+        setVisible(document.getElementById('yh-dashboard-overview-dynamic-access-row-v1'), true, 'grid');
+        setVisible(document.getElementById('yh-universe-referral-card'), true, 'block');
+        setVisible(document.getElementById('yh-universe-academy-strip'), true, 'block');
+
+        [
+            '#yh-dashboard-division-parent-intro-v1',
+            '.yh-dashboard-division-intro-v1',
+            '.yh-dashboard-division-intro-hero-v1',
+            '.yh-dashboard-division-child-grid-v1',
+            '.yh-academy-parent-hero-header',
+            '.yh-academy-parent-vision-scope',
+            '.yh-universe-command-hero',
+            '.yh-universe-stage-nav',
+            '.yh-universe-dots',
+            '#yh-universe-progress-rail',
+            '#yh-econ-bridge-card',
+            '#yh-command-overview-grid',
+            '#yh-universe-carousel',
+            '#yh-universe-plaza-strip',
+            '#yh-universe-federation-strip',
+            '.yh-universe-carousel-column'
+        ].forEach((selector) => {
+            document.querySelectorAll(selector).forEach((node) => setVisible(node, false, 'block'));
+        });
+
+        const referral = document.getElementById('yh-universe-referral-card');
+        const live = document.getElementById('yh-universe-academy-strip');
+
+        if (referral && live && referral.nextElementSibling !== live) {
+            referral.parentNode?.insertBefore(live, referral.nextSibling);
+        }
+    }
+
+    function forceDashboardOverview(reason = 'overview-boot') {
+        if (!isDashboardPage()) return;
+
+        const current = String(document.body?.getAttribute('data-yh-unified-workspace') || '').trim().toLowerCase();
+
+        if (hasExplicitChildIntent()) return;
+
+        /*
+          Cancel pending old async child callbacks from activateDashboardUnifiedWorkspace().
+          This is important because old dashboard.js schedules child launcher restore after 90ms and 420ms.
+        */
+        window.__yhDashboardWorkspaceActivationSeq = Number(window.__yhDashboardWorkspaceActivationSeq || 0) + 1;
+
+        clearStaleChildWorkspaceStorage();
+
+        document.body?.removeAttribute('data-yh-dashboard-v2-active');
+        document.body?.removeAttribute('data-yh-dashboard-v2-approved');
+        document.body?.removeAttribute('data-yh-dashboard-v2-status');
+        document.body?.removeAttribute('data-yh-dashboard-v2-lock');
+        document.body?.removeAttribute('data-yh-dashboard-v2-instant-parent');
+        document.body?.removeAttribute('data-yh-dashboard-tab-transitioning');
+
+        document.body?.classList.remove('yh-dashboard-child-workspace-active');
+        document.body?.classList.remove('yh-dashboard-inline-child-active');
+
+        document.body?.setAttribute('data-yh-unified-workspace', 'overview');
+        document.body?.setAttribute('data-yh-unified-division', 'overview');
+        document.body?.setAttribute('data-yh-dashboard-overview-guard', 'active');
+
+        closeDivisionSubnavs();
+        hideWorkspaceLauncher();
+        showOverviewPieces();
+
+        if (typeof window.yhDashboardV2ShowOverviewShellV1 === 'function') {
+            try {
+                window.yhDashboardV2ShowOverviewShellV1(reason);
+            } catch (_) {}
+        }
+    }
+
+    /*
+      Run after old boot restore has had a chance to run, then repeat to beat its delayed 90ms/420ms child callbacks.
+    */
+    function scheduleOverviewGuard(reason = 'boot') {
+        if (!isDashboardPage() || hasExplicitChildIntent()) return;
+
+        [0, 30, 90, 180, 430, 760, 1200, 2200].forEach((delay) => {
+            window.setTimeout(() => forceDashboardOverview(`${reason}-${delay}`), delay);
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => scheduleOverviewGuard('dom'));
+    } else {
+        scheduleOverviewGuard('boot');
+    }
+
+    window.addEventListener('pageshow', () => scheduleOverviewGuard('pageshow'));
+
+    /*
+      If any old renderer tries to put academy-roadmap back while body is overview, remove it immediately.
+    */
+    try {
+        const observer = new MutationObserver(() => {
+            if (!isDashboardPage() || hasExplicitChildIntent()) return;
+
+            const workspace = String(document.body?.getAttribute('data-yh-unified-workspace') || '').trim().toLowerCase();
+            const selectedDashboard = Boolean(document.querySelector('[data-yh-dashboard-shell="overview"].active, [data-yh-dashboard-shell="overview"].is-active'));
+
+            if (workspace === 'overview' || selectedDashboard) {
+                window.clearTimeout(window.__yhDashboardOverviewBootGuardTimerV1);
+                window.__yhDashboardOverviewBootGuardTimerV1 = window.setTimeout(() => forceDashboardOverview('mutation'), 35);
+            }
+        });
+
+        observer.observe(document.body || document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: [
+                'class',
+                'style',
+                'aria-hidden',
+                'data-yh-unified-workspace',
+                'data-yh-dashboard-v2-active'
+            ]
+        });
+
+        window.__yhDashboardOverviewBootGuardObserverV1 = observer;
+    } catch (_) {}
+
+    window.yhDashboardForceOverviewBootGuardV1 = forceDashboardOverview;
+})();
+/* END PATCH: Dashboard overview boot guard v1 */
+
