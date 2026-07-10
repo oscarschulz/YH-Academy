@@ -2652,7 +2652,7 @@
 
     function syncConsumers() {
         try { window.yhRenderDashboardOverviewDynamicAccessRowV1?.(); } catch (_) {}
-        try { window.renderDashboardCommandOverview?.(); } catch (_) {}
+        try { /* source-of-truth sync must not rerender full Dashboard overview */ } catch (_) {}
         try { window.renderYHEconomicSnapshot?.(); } catch (_) {}
     }
 
@@ -2947,4 +2947,87 @@
     };
 })();
 /* END PATCH: YHU division access source of truth v1 */
+
+
+/* PATCH: Dashboard topbar stability guard v1 */
+(function installDashboardTopbarStabilityGuardV1() {
+    if (window.__yhDashboardTopbarStabilityGuardV1Installed) return;
+    window.__yhDashboardTopbarStabilityGuardV1Installed = true;
+
+    const SELECTORS = [
+        '.desktop-user-strip',
+        '.desktop-user-strip-inner',
+        '.desktop-user-strip-left',
+        '.desktop-user-strip-right',
+        '.yh-dashboard-top-search',
+        '#yh-dashboard-top-search',
+        '#yh-dashboard-top-search-btn',
+        '#yh-command-top-wallet-chip',
+        '#yh-command-top-profile',
+        '#notif-bell'
+    ];
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub';
+    }
+
+    function syncDashboardTopbar() {
+        if (!isDashboardPage()) return;
+
+        SELECTORS.forEach((selector) => {
+            document.querySelectorAll(selector).forEach((node) => {
+                if (!(node instanceof HTMLElement)) return;
+
+                node.classList.remove('hidden-step');
+                node.removeAttribute('hidden');
+                node.setAttribute('aria-hidden', 'false');
+
+                node.style.removeProperty('display');
+                node.style.removeProperty('visibility');
+                node.style.removeProperty('opacity');
+                node.style.removeProperty('pointer-events');
+
+                if (selector.includes('desktop-user-strip-right')) {
+                    node.style.display = 'flex';
+                }
+
+                if (selector.includes('yh-dashboard-top-search')) {
+                    node.style.display = 'grid';
+                }
+            });
+        });
+    }
+
+    window.yhDashboardTopbarStabilityGuardV1 = {
+        sync: syncDashboardTopbar
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', syncDashboardTopbar);
+    } else {
+        syncDashboardTopbar();
+    }
+
+    [80, 240, 700, 1400, 2600, 4200, 6500].forEach((delay) => {
+        window.setTimeout(syncDashboardTopbar, delay);
+    });
+
+    try {
+        const observer = new MutationObserver(() => {
+            window.clearTimeout(window.__yhDashboardTopbarStabilityGuardTimerV1);
+            window.__yhDashboardTopbarStabilityGuardTimerV1 = window.setTimeout(syncDashboardTopbar, 40);
+        });
+
+        observer.observe(document.body || document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style', 'hidden', 'aria-hidden']
+        });
+    } catch (_) {}
+})();
+/* END PATCH: Dashboard topbar stability guard v1 */
 

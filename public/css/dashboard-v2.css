@@ -527,3 +527,49 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="
 }
 /* END PATCH: YHU division access source of truth styles v1 */
 
+
+/* PATCH: Dashboard topbar stability guard styles v1 */
+body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip.hidden-step,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip[hidden] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-inner.hidden-step,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-inner[hidden] {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-left.hidden-step,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-left[hidden],
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-top-search.hidden-step,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-top-search[hidden] {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right.hidden-step,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right[hidden] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-top-wallet-chip.hidden-step,
+body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-top-profile.hidden-step,
+body[data-yh-view="hub"][data-yh-page="dashboard"] #notif-bell.hidden-step {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+/* END PATCH: Dashboard topbar stability guard styles v1 */
+
