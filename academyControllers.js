@@ -1941,7 +1941,11 @@ async function ensureRoadmapAccessUnlockedFromApprovedApplicationV1(uid = '', ro
 
 async function getAcademyUserAccessSnapshot(uid) {
     const userRef = firestore.collection('users').doc(uid);
-    const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+    let userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        }
     const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
 
     const academyApplication =
@@ -3951,7 +3955,11 @@ exports.submitMembershipApplication = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        let userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        }
         const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
 
         const existingApplication =
@@ -4265,6 +4273,25 @@ function normalizeUniverseDivisionStatus(value = '', fallback = 'not_applied') {
     return raw.replace(/\s+/g, '_');
 }
 
+
+/* PATCH: Universe canonical Firestore access source v1 */
+function resolveUniverseDivisionStatus(values = [], fallback = 'not_applied') {
+    const source = Array.isArray(values) ? values : [values];
+    const normalized = source
+        .map((value) => normalizeUniverseDivisionStatus(value, ''))
+        .filter(Boolean);
+
+    if (normalized.includes('approved')) return 'approved';
+    if (normalized.includes('rejected')) return 'rejected';
+    if (normalized.includes('waitlisted')) return 'waitlisted';
+    if (normalized.includes('shortlisted')) return 'shortlisted';
+    if (normalized.includes('screening')) return 'screening';
+    if (normalized.includes('under_review')) return 'under_review';
+
+    return fallback;
+}
+/* END PATCH: Universe canonical Firestore access source v1 */
+
 function getUniverseStatusLabel(status = '') {
     const normalized = normalizeUniverseDivisionStatus(status);
 
@@ -4452,7 +4479,11 @@ exports.getUniverseProfile = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        let userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        }
 
         if (!userSnapshot.exists) {
             return res.status(404).json({
@@ -4518,27 +4549,28 @@ exports.getUniverseProfile = async (req, res) => {
                 ? userData.federationApplication
                 : null;
 
-        const academyStatus = normalizeUniverseDivisionStatus(
-            userData.academyMembershipStatus ||
-            userData.academyApplicationStatus ||
-            academyApplication?.status ||
-            ''
-        );
+        const academyStatus = resolveUniverseDivisionStatus([
+            userData.hasAcademyAccess === true ? 'approved' : '',
+            userData.canEnterAcademy === true ? 'approved' : '',
+            academyApplication?.status,
+            userData.academyMembershipStatus,
+            userData.academyApplicationStatus
+        ]);
 
-        const plazaStatus = normalizeUniverseDivisionStatus(
-            userData.plazaAccessStatus ||
-            userData.plazaMembershipStatus ||
-            userData.plazaApplicationStatus ||
-            plazaApplication?.status ||
-            ''
-        );
+        const plazaStatus = resolveUniverseDivisionStatus([
+            userData.hasPlazaAccess === true ? 'approved' : '',
+            plazaApplication?.status,
+            userData.plazaAccessStatus,
+            userData.plazaMembershipStatus,
+            userData.plazaApplicationStatus
+        ]);
 
-        const federationStatus = normalizeUniverseDivisionStatus(
-            userData.federationMembershipStatus ||
-            userData.federationApplicationStatus ||
-            federationApplication?.status ||
-            ''
-        );
+        const federationStatus = resolveUniverseDivisionStatus([
+            userData.hasFederationAccess === true ? 'approved' : '',
+            federationApplication?.status,
+            userData.federationMembershipStatus,
+            userData.federationApplicationStatus
+        ]);
 
         const isAcademyMember =
             userData.hasAcademyAccess === true ||
@@ -5127,7 +5159,11 @@ exports.getUniverseProfile = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        let userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        }
 
         if (!userSnapshot.exists) {
             return res.status(404).json({
@@ -5496,7 +5532,11 @@ exports.getCurrentProfile = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        let userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        }
         const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
         const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid) || {};
         const profileResponse = buildAcademyProfileResponse(uid, userData, storedProfile);
@@ -5557,7 +5597,11 @@ exports.updateCurrentProfile = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        let userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        }
         const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
         const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid) || {};
         const currentProfile = buildAcademyProfileResponse(uid, userData, storedProfile);
@@ -5864,7 +5908,11 @@ exports.changeCurrentPassword = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        let userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        }
 
         if (!userSnapshot.exists) {
             return res.status(404).json({
@@ -5956,7 +6004,11 @@ exports.deleteCurrentProfile = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        let userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        }
 
         if (!userSnapshot.exists) {
             return res.status(404).json({
@@ -6117,7 +6169,11 @@ exports.deleteCurrentAccount = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        let userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        }
 
         if (!userSnapshot.exists) {
             res.setHeader('Set-Cookie', buildExpiredAuthCookie());
@@ -6191,7 +6247,11 @@ exports.getMembershipStatus = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        let userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        }
         const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
 
         const application =
@@ -6422,7 +6482,11 @@ exports.submitRoadmapApplication = async (req, res) => {
         }
 
         const userRef = firestore.collection('users').doc(uid);
-        const userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        let userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+        }
         const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
 
         const academyApplication =

@@ -3766,15 +3766,7 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
         currentApplication.approvalEmailClaimedAt
       );
 
-      if (previousStatus && previousStatus === nextStatus.toLowerCase()) {
-        return {
-          alreadyReviewed: true,
-          application: currentApplication,
-          shouldSendApprovalEmail: false,
-          approvalEmailSent: false,
-          approvalEmailError: ''
-        };
-      }
+      const alreadyReviewedSameStatus = Boolean(previousStatus && previousStatus === nextStatus.toLowerCase());
 
       const nowIso = new Date().toISOString();
 
@@ -3797,7 +3789,7 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
         reviewedAt: nowIso,
         reviewedBy: req.adminSession.username,
         notes: [
-          `${reviewLabel} ${nextStatus.toLowerCase()} by admin.`,
+          ...(alreadyReviewedSameStatus ? [] : [`${reviewLabel} ${nextStatus.toLowerCase()} by admin.`]),
           ...(Array.isArray(currentApplication.notes) ? currentApplication.notes : [])
         ]
       };
@@ -3975,9 +3967,22 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
 
         if (nextStatus === 'Approved') {
           updatePayload.hasAcademyAccess = true;
+          updatePayload.hasRoadmapAccess = true;
+          updatePayload.academyRoadmapAccess = true;
+          updatePayload.roadmapAccessStatus = 'unlocked';
+          updatePayload.accessState = 'unlocked';
           updatePayload.academyMembershipApprovedAt = nowIso;
+          updatePayload.academyApprovedAt = nowIso;
         } else {
           updatePayload.hasAcademyAccess = false;
+          updatePayload.hasRoadmapAccess = false;
+          updatePayload.academyRoadmapAccess = false;
+
+          if (nextStatus === 'Rejected') {
+            updatePayload.roadmapAccessStatus = 'locked';
+            updatePayload.accessState = 'locked';
+            updatePayload.academyRejectedAt = nowIso;
+          }
         }
       }
 
@@ -4004,7 +4009,7 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
         if (!recipientEmail) {
           updatedApplication.approvalEmailError = 'No applicant email found for the approval notification.';
           updatePayload.academyApprovalEmailError = updatedApplication.approvalEmailError;
-        } else if (!approvalEmailAlreadySent && !approvalEmailAlreadyClaimed) {
+        } else if (!alreadyReviewedSameStatus && !approvalEmailAlreadySent && !approvalEmailAlreadyClaimed) {
           shouldSendApprovalEmail = true;
 
           updatedApplication.approvalEmailClaimedAt = nowIso;
@@ -4032,7 +4037,7 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
       transaction.set(matchedUserDoc.ref, updatePayload, { merge: true });
 
       return {
-        alreadyReviewed: false,
+        alreadyReviewed: alreadyReviewedSameStatus,
         application: updatedApplication,
         shouldSendApprovalEmail,
         recipientEmail,
@@ -4048,6 +4053,24 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
       'admin:application-review-transaction'
     );
     /* END PATCH: Admin User Notifications Supabase transaction sync */
+
+    /* PATCH: Admin canonical access mirror sync after application review v1 */
+    if (matchedField === 'academyApplication' && nextStatus === 'Approved') {
+      await academyFirestoreRepo.setAccessUnlocked(matchedUserDoc.id).catch((error) => {
+        console.warn('Admin Academy roadmap unlock sync skipped:', error?.message || error);
+      });
+    }
+
+    await syncAdminYhuUserToSupabase(
+      matchedUserDoc.ref,
+      `admin:application-review:${matchedField}`
+    );
+
+    await syncAdminAcademyMemberProfileFromFirestoreUserRef(
+      matchedUserDoc.id,
+      matchedUserDoc.ref
+    );
+    /* END PATCH: Admin canonical access mirror sync after application review v1 */
 
     let approvalEmailSent = false;
     let approvalEmailError = reviewResult.approvalEmailError || '';
