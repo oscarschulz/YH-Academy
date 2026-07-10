@@ -539,3 +539,22 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access
 }
 /* END PATCH: Dashboard division state title final styles v2 */
 
+
+/* PATCH: Dashboard application pending persistence styles v1 */
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-card-v1[data-yh-division-access-state="pending"] {
+    border-color: rgba(245, 158, 11, 0.36);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-card-v1[data-yh-division-access-state="pending"] .yh-dashboard-overview-access-status-v1 {
+    color: #fde68a;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-action-v1[data-yh-overview-division-action-kind="pending"] {
+    cursor: not-allowed;
+    opacity: 0.72;
+    background: linear-gradient(135deg, rgba(92, 72, 24, 0.72), rgba(120, 80, 20, 0.42));
+    border-color: rgba(245, 158, 11, 0.36);
+    color: #fde68a;
+}
+/* END PATCH: Dashboard application pending persistence styles v1 */
+
