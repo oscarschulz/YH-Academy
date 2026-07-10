@@ -5923,7 +5923,7 @@ function syncMemberFromApplication(application) {
 
   return newMemberId;
 }
-const FEDERATION_ACCESS_STATUS_CACHE_KEY = 'yh_federation_access_status_v1';
+const FEDERATION_ACCESS_STATUS_CACHE_KEY = 'yh_admin_federation_access_status_v1';
 const FEDERATION_LADDER_OUTCOME_CACHE_KEY = 'yh_federation_ladder_outcome_v1';
 const FEDERATION_APPLICATIONS_STORAGE_KEY = 'yh_federation_applications';
 const FEDERATION_MEMBERS_STORAGE_KEY = 'yh_federation_members';

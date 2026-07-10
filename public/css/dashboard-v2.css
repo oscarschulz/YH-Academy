@@ -488,36 +488,13 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="
 /* END PATCH: Dashboard parent child access authority styles v1 */
 
 
-/* PATCH: Dashboard division state title final styles v2 */
-body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-apply-modal #yh-dashboard-academy-apply-title.yh-dashboard-academy-apply-title-clean {
-    width: fit-content;
-    min-height: 0;
-    margin: 0 0 0.85rem;
-    padding: 0;
-    color: transparent;
-    font-size: 0;
-    line-height: 0;
-}
-
-body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-apply-modal #yh-dashboard-academy-apply-title.yh-dashboard-academy-apply-title-clean::before {
-    content: "ACADEMY APPLICATION";
-    display: inline-flex;
-    align-items: center;
-    width: fit-content;
-    padding: 5px 12px;
-    border: 1px solid rgba(103, 232, 249, 0.42);
-    background: rgba(14, 165, 233, 0.12);
-    color: #67e8f9;
-    font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
-    font-size: clamp(0.76rem, 0.78vw, 0.88rem);
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    line-height: 1;
-    text-transform: uppercase;
-}
-
+/* PATCH: YHU division access source of truth styles v1 */
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-card-v1[data-yh-division-access-state="apply"] .yh-dashboard-overview-access-status-v1 {
-    color: rgba(226, 232, 240, 0.92);
+    color: rgba(226, 232, 240, 0.94);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-card-v1[data-yh-division-access-state="pending"] {
+    border-color: rgba(245, 158, 11, 0.38);
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-card-v1[data-yh-division-access-state="pending"] .yh-dashboard-overview-access-status-v1 {
@@ -528,33 +505,25 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access
     color: #86efac;
 }
 
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-action-v1[data-yh-overview-division-action-kind="apply"] {
-    cursor: pointer;
-}
-
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-action-v1[data-yh-overview-division-action-kind="pending"],
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-action-v1[data-yh-overview-division-action-kind="rejected"] {
     cursor: not-allowed;
-    opacity: 0.72;
-}
-/* END PATCH: Dashboard division state title final styles v2 */
-
-
-/* PATCH: Dashboard application pending persistence styles v1 */
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-card-v1[data-yh-division-access-state="pending"] {
-    border-color: rgba(245, 158, 11, 0.36);
-}
-
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-card-v1[data-yh-division-access-state="pending"] .yh-dashboard-overview-access-status-v1 {
-    color: #fde68a;
+    opacity: 0.76;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-action-v1[data-yh-overview-division-action-kind="pending"] {
-    cursor: not-allowed;
-    opacity: 0.72;
-    background: linear-gradient(135deg, rgba(92, 72, 24, 0.72), rgba(120, 80, 20, 0.42));
-    border-color: rgba(245, 158, 11, 0.36);
+    background: linear-gradient(135deg, rgba(92, 72, 24, 0.78), rgba(120, 80, 20, 0.44));
+    border-color: rgba(245, 158, 11, 0.4);
     color: #fde68a;
 }
-/* END PATCH: Dashboard application pending persistence styles v1 */
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"]:not([data-yh-dashboard-v2-approved="true"]) #yh-sidebar-subnav-academy,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="plazas"]:not([data-yh-dashboard-v2-approved="true"]) #yh-sidebar-subnav-plazas,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"]:not([data-yh-dashboard-v2-approved="true"]) #yh-sidebar-subnav-federation {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+/* END PATCH: YHU division access source of truth styles v1 */
 

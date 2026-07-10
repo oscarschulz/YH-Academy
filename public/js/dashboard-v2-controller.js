@@ -1983,489 +1983,74 @@
 /* END PATCH: Dashboard parent child access authority v1 */
 
 
-/* PATCH: Dashboard division state title final v2 */
-(function installDashboardDivisionStateTitleFinalV2() {
-    if (window.__yhDashboardDivisionStateTitleFinalV2Installed) return;
-    window.__yhDashboardDivisionStateTitleFinalV2Installed = true;
-
-    const DIVISIONS = {
-        academy: {
-            label: 'Academy',
-            childTarget: 'academy-roadmap',
-            applyFns: ['openAcademyLauncher', 'openAcademyApplicationModal', 'openAcademyApplyModal'],
-            refreshFns: ['refreshAcademyMembershipStatus'],
-            snapshotFns: ['readAcademyMembershipCache'],
-            canEnterKeys: ['canEnterAcademy', 'canEnter', 'hasAccess', 'hasAcademyAccess'],
-            statusKeys: ['applicationStatus', 'academyApplicationStatus', 'status', 'accessStatus', 'membershipStatus'],
-            hasApplicationKeys: ['hasApplication', 'academyHasApplication']
-        },
-        plazas: {
-            label: 'Plazas',
-            childTarget: 'plazas-feed',
-            applyFns: ['openPlazaApplicationModal'],
-            refreshFns: ['refreshPlazaAccessStatusFromBackend'],
-            snapshotFns: ['getPlazaAccessSnapshot', 'readDashboardPlazaAccessSnapshot'],
-            canEnterKeys: ['canEnterPlaza', 'canEnter', 'hasAccess', 'hasPlazaAccess'],
-            statusKeys: ['applicationStatus', 'plazaApplicationStatus', 'status', 'accessStatus'],
-            hasApplicationKeys: ['hasApplication', 'plazaHasApplication']
-        },
-        federation: {
-            label: 'Federation',
-            childTarget: 'federation-command',
-            applyFns: ['openFederationApplicationModal'],
-            refreshFns: ['refreshFederationAccessStatusFromBackend'],
-            snapshotFns: ['getFederationAccessSnapshot', 'readDashboardFederationAccessSnapshot'],
-            canEnterKeys: ['canEnterFederation', 'canEnter', 'hasAccess', 'hasFederationAccess'],
-            statusKeys: ['applicationStatus', 'federationApplicationStatus', 'status', 'accessStatus'],
-            hasApplicationKeys: ['hasApplication', 'federationHasApplication']
-        }
-    };
-
-    let refreshStarted = false;
-
-    function isDashboardPage() {
-        const path = String(window.location.pathname || '').replace(/\/+$/, '');
-        return path === '/dashboard' ||
-            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
-            document.body?.getAttribute('data-yh-view') === 'hub';
-    }
-
-    function cleanDivision(value = '') {
-        const key = String(value || '').trim().toLowerCase();
-        if (key === 'plaza') return 'plazas';
-        return key;
-    }
-
-    function normalizeStatus(value = '') {
-        const raw = String(value || '').trim();
-        const clean = raw.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
-
-        if (
-            !clean ||
-            clean === 'loading' ||
-            clean === 'loading...' ||
-            clean === 'checking' ||
-            clean === 'checking...' ||
-            clean === 'syncing' ||
-            clean === 'syncing...' ||
-            clean === 'preparing' ||
-            clean === 'preparing...' ||
-            clean === 'unknown' ||
-            clean === 'n/a'
-        ) {
-            return 'not_applied';
-        }
-
-        if (
-            clean === 'approved' ||
-            clean === 'active' ||
-            clean === 'unlocked' ||
-            clean === 'accepted' ||
-            clean === 'verified' ||
-            clean === 'access granted' ||
-            clean === 'member'
-        ) {
-            return 'approved';
-        }
-
-        if (
-            clean === 'under review' ||
-            clean === 'pending' ||
-            clean === 'pending review' ||
-            clean === 'new' ||
-            clean === 'screening' ||
-            clean === 'shortlisted' ||
-            clean === 'waitlisted' ||
-            clean === 'submitted'
-        ) {
-            return 'pending';
-        }
-
-        if (
-            clean === 'rejected' ||
-            clean === 'declined' ||
-            clean === 'denied' ||
-            clean === 'not approved'
-        ) {
-            return 'rejected';
-        }
-
-        if (
-            clean === 'not applied' ||
-            clean === 'none' ||
-            clean === 'guest' ||
-            clean === 'locked' ||
-            clean === 'plazas first'
-        ) {
-            return 'not_applied';
-        }
-
-        return 'not_applied';
-    }
-
-    function stateLabel(status = 'not_applied') {
-        if (status === 'approved') return 'Approved';
-        if (status === 'pending') return 'Pending';
-        if (status === 'rejected') return 'Rejected';
-        return 'Not Applied';
-    }
-
-    function actionForStatus(status = 'not_applied') {
-        if (status === 'approved') return 'enter';
-        if (status === 'pending') return 'pending';
-        if (status === 'rejected') return 'rejected';
-        return 'apply';
-    }
-
-    function isTruthy(value) {
-        return value === true || String(value || '').trim().toLowerCase() === 'true';
-    }
-
-    function readSnapshot(key = '') {
-        const config = DIVISIONS[key];
-        if (!config) return {};
-
-        for (const fnName of config.snapshotFns) {
-            try {
-                if (typeof window[fnName] === 'function') {
-                    const snapshot = window[fnName]();
-                    if (snapshot && typeof snapshot === 'object') return snapshot;
-                }
-            } catch (_) {}
-        }
-
-        return {};
-    }
-
-    function pick(obj = {}, keys = []) {
-        if (!obj || typeof obj !== 'object') return undefined;
-
-        for (const key of keys) {
-            if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                return obj[key];
-            }
-        }
-
-        return undefined;
-    }
-
-    function getCard(key = '') {
-        return document.querySelector(`[data-yh-overview-division-card="${key}"]`);
-    }
-
-    function getCardDomStatus(key = '') {
-        const card = getCard(key);
-        return normalizeStatus(card?.querySelector?.('.yh-dashboard-overview-access-status-v1')?.textContent || '');
-    }
-
-    function getDivisionStatus(key = '') {
-        const clean = cleanDivision(key);
-        const config = DIVISIONS[clean];
-        if (!config) return 'not_applied';
-
-        const snapshot = readSnapshot(clean);
-        const canEnter = config.canEnterKeys.some((field) => isTruthy(snapshot[field]));
-        if (canEnter) return 'approved';
-
-        const rawStatus = pick(snapshot, config.statusKeys);
-        let status = normalizeStatus(rawStatus);
-
-        const hasApplication = config.hasApplicationKeys.some((field) => isTruthy(snapshot[field]));
-        if (status === 'not_applied' && hasApplication) {
-            status = 'pending';
-        }
-
-        if (status !== 'not_applied') return status;
-
-        return getCardDomStatus(clean);
-    }
-
-    function applyCardState(key = '') {
-        const clean = cleanDivision(key);
-        const config = DIVISIONS[clean];
-        const card = getCard(clean);
-
-        if (!config || !card) return;
-
-        const status = getDivisionStatus(clean);
-        const action = actionForStatus(status);
-        const statusNode = card.querySelector('.yh-dashboard-overview-access-status-v1');
-        const button = card.querySelector('[data-yh-overview-division-action]');
-
-        card.setAttribute('data-yh-division-access-state', action);
-        card.classList.remove('is-apply', 'is-enter', 'is-pending', 'is-rejected', 'is-approved');
-        card.classList.add(`is-${action}`);
-
-        if (statusNode) {
-            statusNode.textContent = stateLabel(status);
-        }
-
-        if (!button) return;
-
-        button.setAttribute('data-yh-overview-division-action', clean);
-        button.setAttribute('data-yh-overview-division-action-kind', action);
-        button.setAttribute('data-yh-overview-division-target', action === 'enter' ? config.childTarget : '');
-
-        if (action === 'enter') {
-            button.textContent = 'Enter';
-            button.disabled = false;
-            button.removeAttribute('aria-disabled');
-            return;
-        }
-
-        if (action === 'pending') {
-            button.textContent = 'Pending';
-            button.disabled = true;
-            button.setAttribute('aria-disabled', 'true');
-            return;
-        }
-
-        if (action === 'rejected') {
-            button.textContent = 'Contact Admin';
-            button.disabled = true;
-            button.setAttribute('aria-disabled', 'true');
-            return;
-        }
-
-        button.textContent = 'Apply';
-        button.disabled = false;
-        button.removeAttribute('aria-disabled');
-    }
-
-    function syncCards() {
-        if (!isDashboardPage()) return;
-        Object.keys(DIVISIONS).forEach(applyCardState);
-    }
-
-    async function refreshAccessStateOnce() {
-        if (refreshStarted || !isDashboardPage()) return;
-        refreshStarted = true;
-
-        for (const [key, config] of Object.entries(DIVISIONS)) {
-            for (const fnName of config.refreshFns) {
-                try {
-                    if (typeof window[fnName] === 'function') {
-                        const result = window[fnName](key === 'federation' ? false : true);
-                        if (result && typeof result.then === 'function') {
-                            await result.catch(() => null);
-                        }
-                        break;
-                    }
-                } catch (_) {}
-            }
-
-            applyCardState(key);
-        }
-    }
-
-    function showToastMessage(message = '', type = 'error') {
-        if (typeof window.showToast === 'function') {
-            window.showToast(message, type);
-        }
-    }
-
-    function openApplyModal(key = '') {
-        const clean = cleanDivision(key);
-        const config = DIVISIONS[clean];
-
-        if (!config) return false;
-
-        document.body?.removeAttribute('data-yh-dashboard-tab-transitioning');
-
-        document.querySelectorAll('#yh-dashboard-tab-transition-loader-v1, #yh-dashboard-tab-transition-loader-v2, #yh-dashboard-tab-transition-loader-v3').forEach((loader) => {
-            loader.classList.remove('is-active');
-            loader.classList.add('hidden-step');
-            loader.setAttribute('aria-hidden', 'true');
-        });
-
-        for (const fnName of config.applyFns) {
-            try {
-                if (typeof window[fnName] === 'function') {
-                    const result = window[fnName]();
-                    if (result && typeof result.then === 'function') {
-                        result.catch((error) => console.error(`${fnName} failed:`, error));
-                    }
-                    window.setTimeout(cleanAcademyApplyTitle, 80);
-                    window.setTimeout(cleanAcademyApplyTitle, 280);
-                    return true;
-                }
-            } catch (error) {
-                console.error(`${fnName} failed:`, error);
-            }
-        }
-
-        showToastMessage(`${config.label} application form is not ready yet. Please refresh and try again.`, 'error');
-        return false;
-    }
-
-    function cleanAcademyApplyTitle() {
-        const title = document.getElementById('yh-dashboard-academy-apply-title');
-        if (!title) return;
-
-        title.classList.add('yh-dashboard-academy-apply-title-clean');
-        title.setAttribute('aria-label', 'Academy Application');
-        title.textContent = '';
-    }
-
-    function handleNavigationClick(event) {
-        if (!isDashboardPage() || !event?.target) return;
-
-        const actionButton = event.target.closest('[data-yh-overview-division-action]');
-        if (actionButton) {
-            const key = cleanDivision(actionButton.getAttribute('data-yh-overview-division-action') || '');
-            if (!DIVISIONS[key]) return;
-
-            syncCards();
-
-            const status = getDivisionStatus(key);
-            const action = actionForStatus(status);
-
-            if (action === 'apply') {
-                event.preventDefault();
-                event.stopPropagation();
-                event.stopImmediatePropagation?.();
-
-                showToastMessage(`${DIVISIONS[key].label} access is not approved yet. Please complete your application first.`, 'error');
-                window.setTimeout(() => openApplyModal(key), 320);
-                return;
-            }
-
-            if (action === 'pending') {
-                event.preventDefault();
-                event.stopPropagation();
-                event.stopImmediatePropagation?.();
-                showToastMessage(`${DIVISIONS[key].label} application is still under review.`, 'error');
-                return;
-            }
-
-            return;
-        }
-
-        const parent = event.target.closest('[data-yh-dashboard-shell="academy"], [data-yh-dashboard-shell="plazas"], [data-yh-dashboard-shell="federation"]');
-        if (!parent) return;
-
-        const key = cleanDivision(parent.getAttribute('data-yh-dashboard-shell') || '');
-        if (!DIVISIONS[key]) return;
-
-        syncCards();
-
-        const status = getDivisionStatus(key);
-        const action = actionForStatus(status);
-
-        if (action === 'apply') {
-            event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation?.();
-
-            showToastMessage(`${DIVISIONS[key].label} access is not approved yet. Please complete your application first.`, 'error');
-            window.setTimeout(() => openApplyModal(key), 320);
-            return;
-        }
-
-        if (action === 'pending') {
-            event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation?.();
-
-            showToastMessage(`${DIVISIONS[key].label} application is still under review.`, 'error');
-
-            if (typeof window.yhDashboardV2ShowParentShellV1 === 'function') {
-                window.yhDashboardV2ShowParentShellV1(key, 'pending-parent');
-            }
-        }
-    }
-
-    window.addEventListener('click', handleNavigationClick, true);
-
-    function boot() {
-        syncCards();
-        cleanAcademyApplyTitle();
-        window.setTimeout(syncCards, 60);
-        window.setTimeout(syncCards, 220);
-        window.setTimeout(syncCards, 700);
-        window.setTimeout(refreshAccessStateOnce, 900);
-        window.setTimeout(syncCards, 1600);
-        window.setTimeout(syncCards, 3000);
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', boot);
-    } else {
-        boot();
-    }
-
-    window.addEventListener('pageshow', boot);
-
-    try {
-        const observer = new MutationObserver(() => {
-            window.clearTimeout(window.__yhDashboardDivisionStateTitleFinalTimerV2);
-            window.__yhDashboardDivisionStateTitleFinalTimerV2 = window.setTimeout(() => {
-                syncCards();
-                cleanAcademyApplyTitle();
-            }, 45);
-        });
-
-        observer.observe(document.body || document.documentElement, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['class', 'style', 'data-yh-unified-workspace', 'data-yh-dashboard-v2-active']
-        });
-
-        window.__yhDashboardDivisionStateTitleFinalObserverV2 = observer;
-    } catch (_) {}
-
-    window.yhDashboardDivisionStateTitleFinalV2 = {
-        syncCards,
-        refreshAccessStateOnce,
-        getDivisionStatus,
-        openApplyModal,
-        cleanAcademyApplyTitle
-    };
-})();
-/* END PATCH: Dashboard division state title final v2 */
-
-
-/* PATCH: Dashboard application pending persistence v1 */
-(function installDashboardApplicationPendingPersistenceV1() {
-    if (window.__yhDashboardApplicationPendingPersistenceV1Installed) return;
-    window.__yhDashboardApplicationPendingPersistenceV1Installed = true;
-
-    const BASE_KEY = 'yh_dashboard_division_application_pending_locks_v1';
+/* PATCH: YHU division access source of truth v1 */
+(function installYHUDivisionAccessSourceOfTruthV1() {
+    if (window.__yhDivisionAccessSourceOfTruthV1Installed) return;
+    window.__yhDivisionAccessSourceOfTruthV1Installed = true;
+
+    const PENDING_BASE_KEY = 'yh_dashboard_division_application_pending_locks_v2';
+    const OLD_PENDING_BASE_KEY = 'yh_dashboard_division_application_pending_locks_v1';
     const MAX_PENDING_AGE_MS = 1000 * 60 * 60 * 24 * 45;
 
     const DIVISIONS = {
         academy: {
             label: 'Academy',
-            postMatchers: ['/api/academy/membership-apply'],
-            statusEndpoint: '/api/academy/membership-status',
-            modalFns: ['openAcademyLauncher', 'openAcademyApplicationModal', 'openAcademyApplyModal'],
-            legacyStorageKey: 'yh_academy_membership_status_v1',
-            formIds: ['form-academy-apply'],
-            childTarget: 'academy-roadmap'
+            legacyKey: 'yh_academy_membership_status_v1',
+            applyFns: ['openAcademyLauncher', 'openAcademyApplicationModal', 'openAcademyApplyModal'],
+            postUrls: ['/api/academy/membership-apply'],
+            childTarget: 'academy-roadmap',
+            backendDivisionKeys: ['academy'],
+            topAccessKeys: ['hasAcademyAccess', 'hasRoadmapAccess'],
+            topStatusKeys: ['academyApplicationStatus', 'academyMembershipStatus', 'roadmapApplicationStatus']
         },
         plazas: {
             label: 'Plazas',
-            postMatchers: ['/api/plaza/application'],
-            statusEndpoint: '/api/plaza/application-status',
-            modalFns: ['openPlazaApplicationModal'],
-            legacyStorageKey: 'yh_plaza_access_status_v1',
-            formIds: ['form-plaza-apply'],
-            childTarget: 'plazas-feed'
+            legacyKey: 'yh_plaza_access_status_v1',
+            applyFns: ['openPlazaApplicationModal'],
+            postUrls: ['/api/plaza/application'],
+            childTarget: 'plazas-feed',
+            backendDivisionKeys: ['plaza', 'plazas'],
+            topAccessKeys: ['hasPlazaAccess'],
+            topStatusKeys: ['plazaApplicationStatus', 'plazasApplicationStatus']
         },
         federation: {
             label: 'Federation',
-            postMatchers: ['/api/federation/application'],
-            statusEndpoint: '/api/federation/application-status',
-            modalFns: ['openFederationApplicationModal'],
-            legacyStorageKey: 'yh_federation_access_status_v1',
-            formIds: ['form-federation-apply'],
-            childTarget: 'federation-command'
+            legacyKey: 'yh_federation_access_status_v1',
+            applyFns: ['openFederationApplicationModal'],
+            postUrls: ['/api/federation/application'],
+            childTarget: 'federation-command',
+            backendDivisionKeys: ['federation'],
+            topAccessKeys: ['hasFederationAccess'],
+            topStatusKeys: ['federationApplicationStatus', 'federationMembershipStatus']
         }
     };
 
+    let backendState = {
+        loaded: false,
+        loading: null,
+        updatedAt: 0,
+        divisions: makeDefaultState()
+    };
+
     const nativeFetch = window.fetch ? window.fetch.bind(window) : null;
-    const nativeModalFns = {};
+    const nativeApplyFns = {};
+
+    function makeDefaultState() {
+        return Object.fromEntries(
+            Object.keys(DIVISIONS).map((key) => [
+                key,
+                {
+                    key,
+                    label: DIVISIONS[key].label,
+                    status: 'not_applied',
+                    source: 'default',
+                    canEnter: false,
+                    hasApplication: false,
+                    application: null
+                }
+            ])
+        );
+    }
 
     function isDashboardPage() {
         const path = String(window.location.pathname || '').replace(/\/+$/, '');
@@ -2478,87 +2063,6 @@
         const key = String(value || '').trim().toLowerCase();
         if (key === 'plaza') return 'plazas';
         return DIVISIONS[key] ? key : '';
-    }
-
-    function decodeTokenPayload(token = '') {
-        const clean = String(token || '').trim();
-        const parts = clean.split('.');
-        if (parts.length < 2) return {};
-
-        try {
-            const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-            const padded = base64.padEnd(base64.length + ((4 - base64.length % 4) % 4), '=');
-            return JSON.parse(atob(padded)) || {};
-        } catch (_) {
-            return {};
-        }
-    }
-
-    function getStoredToken() {
-        try {
-            if (typeof window.YHSharedCore?.getStoredAuthToken === 'function') {
-                return String(window.YHSharedCore.getStoredAuthToken() || '').trim();
-            }
-        } catch (_) {}
-
-        try {
-            if (typeof window.getStoredAuthToken === 'function') {
-                return String(window.getStoredAuthToken() || '').trim();
-            }
-        } catch (_) {}
-
-        try {
-            return String(localStorage.getItem('yh_auth_token') || sessionStorage.getItem('yh_auth_token') || '').trim();
-        } catch (_) {
-            return '';
-        }
-    }
-
-    function getUserScope() {
-        const payload = decodeTokenPayload(getStoredToken());
-        const direct = String(
-            payload.sub ||
-            payload.id ||
-            payload.uid ||
-            payload.email ||
-            payload.username ||
-            ''
-        ).trim();
-
-        if (direct) return direct.toLowerCase();
-
-        try {
-            return String(
-                localStorage.getItem('yh_user_email') ||
-                localStorage.getItem('yh_user_username') ||
-                localStorage.getItem('yh_user_name') ||
-                'default'
-            ).trim().toLowerCase() || 'default';
-        } catch (_) {
-            return 'default';
-        }
-    }
-
-    function storageKey() {
-        return `${BASE_KEY}:${getUserScope()}`;
-    }
-
-    function readJson(key, store = localStorage, fallback = null) {
-        try {
-            const raw = store.getItem(key);
-            return raw ? JSON.parse(raw) : fallback;
-        } catch (_) {
-            return fallback;
-        }
-    }
-
-    function writeJson(key, value, store = localStorage) {
-        try {
-            store.setItem(key, JSON.stringify(value));
-            return true;
-        } catch (_) {
-            return false;
-        }
     }
 
     function normalizeStatus(value = '') {
@@ -2599,111 +2103,162 @@
         return 'not_applied';
     }
 
-    function labelForStatus(status = 'not_applied') {
+    function labelFor(status = 'not_applied') {
         if (status === 'approved') return 'Approved';
         if (status === 'pending') return 'Pending';
         if (status === 'rejected') return 'Rejected';
         return 'Not Applied';
     }
 
-    function actionForStatus(status = 'not_applied') {
+    function actionFor(status = 'not_applied') {
         if (status === 'approved') return 'enter';
         if (status === 'pending') return 'pending';
         if (status === 'rejected') return 'rejected';
         return 'apply';
     }
 
-    function getLocks() {
-        const parsed = readJson(storageKey(), localStorage, {});
-        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    function decodeJwtPayload(token = '') {
+        const clean = String(token || '').trim();
+        const parts = clean.split('.');
+        if (parts.length < 2) return {};
+
+        try {
+            const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            const padded = base64.padEnd(base64.length + ((4 - base64.length % 4) % 4), '=');
+            return JSON.parse(atob(padded)) || {};
+        } catch (_) {
+            return {};
+        }
     }
 
-    function saveLocks(locks = {}) {
-        writeJson(storageKey(), locks, localStorage);
-        writeJson(storageKey(), locks, sessionStorage);
+    function getStoredToken() {
+        try {
+            if (typeof window.YHSharedCore?.getStoredAuthToken === 'function') {
+                return String(window.YHSharedCore.getStoredAuthToken() || '').trim();
+            }
+        } catch (_) {}
+
+        try {
+            if (typeof window.getStoredAuthToken === 'function') {
+                return String(window.getStoredAuthToken() || '').trim();
+            }
+        } catch (_) {}
+
+        try {
+            return String(
+                localStorage.getItem('yh_auth_token') ||
+                sessionStorage.getItem('yh_auth_token') ||
+                localStorage.getItem('yh_token') ||
+                sessionStorage.getItem('yh_token') ||
+                localStorage.getItem('token') ||
+                sessionStorage.getItem('token') ||
+                ''
+            ).trim();
+        } catch (_) {
+            return '';
+        }
     }
 
-    function isFreshLock(lock = null) {
-        if (!lock || typeof lock !== 'object') return false;
-        const submittedAt = Number(lock.submittedAt || 0);
-        if (!submittedAt) return true;
-        return Date.now() - submittedAt < MAX_PENDING_AGE_MS;
+    function getUserScope() {
+        const payload = decodeJwtPayload(getStoredToken());
+
+        const direct = String(
+            payload.sub ||
+            payload.id ||
+            payload.uid ||
+            payload.firebaseUid ||
+            payload.email ||
+            payload.username ||
+            ''
+        ).trim();
+
+        if (direct) return direct.toLowerCase();
+
+        try {
+            return String(
+                localStorage.getItem('yh_user_email') ||
+                sessionStorage.getItem('yh_user_email') ||
+                localStorage.getItem('yh_user_username') ||
+                sessionStorage.getItem('yh_user_username') ||
+                localStorage.getItem('yh_user_name') ||
+                sessionStorage.getItem('yh_user_name') ||
+                'default'
+            ).trim().toLowerCase() || 'default';
+        } catch (_) {
+            return 'default';
+        }
+    }
+
+    function pendingKey(base = PENDING_BASE_KEY) {
+        return `${base}:${getUserScope()}`;
+    }
+
+    function readJson(key = '', store = localStorage, fallback = null) {
+        try {
+            const raw = store.getItem(key);
+            if (!raw) return fallback;
+            const parsed = JSON.parse(raw);
+            return parsed === null || parsed === undefined ? fallback : parsed;
+        } catch (_) {
+            return fallback;
+        }
+    }
+
+    function writeJson(key = '', value = {}, store = localStorage) {
+        try {
+            store.setItem(key, JSON.stringify(value));
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function readPendingLocks() {
+        const current =
+            readJson(pendingKey(PENDING_BASE_KEY), localStorage, null) ||
+            readJson(pendingKey(PENDING_BASE_KEY), sessionStorage, null);
+
+        if (current && typeof current === 'object' && !Array.isArray(current)) return current;
+
+        const old =
+            readJson(pendingKey(OLD_PENDING_BASE_KEY), localStorage, null) ||
+            readJson(pendingKey(OLD_PENDING_BASE_KEY), sessionStorage, null);
+
+        if (old && typeof old === 'object' && !Array.isArray(old)) {
+            writePendingLocks(old);
+            return old;
+        }
+
+        return {};
+    }
+
+    function writePendingLocks(locks = {}) {
+        writeJson(pendingKey(PENDING_BASE_KEY), locks, localStorage);
+        writeJson(pendingKey(PENDING_BASE_KEY), locks, sessionStorage);
     }
 
     function getPendingLock(division = '') {
         const key = cleanDivision(division);
-        const locks = getLocks();
+        const locks = readPendingLocks();
         const lock = locks[key];
 
-        if (!isFreshLock(lock)) {
-            if (lock) {
-                delete locks[key];
-                saveLocks(locks);
-            }
+        if (!lock || typeof lock !== 'object') return null;
+
+        const submittedAt = Number(lock.submittedAt || 0);
+        if (submittedAt && Date.now() - submittedAt > MAX_PENDING_AGE_MS) {
+            delete locks[key];
+            writePendingLocks(locks);
             return null;
         }
 
-        return lock || null;
-    }
-
-    function writeLegacyPendingSnapshot(division = '', application = null) {
-        const key = cleanDivision(division);
-        const config = DIVISIONS[key];
-        if (!config?.legacyStorageKey) return;
-
-        const base = {
-            hasApplication: true,
-            applicationStatus: 'under review',
-            status: 'under review',
-            application: application && typeof application === 'object' ? application : null,
-            member: null,
-            source: 'local-pending-persistence'
-        };
-
-        if (key === 'academy') {
-            base.canEnterAcademy = false;
-            base.hasAcademyAccess = false;
-            base.hasRoadmapAccess = false;
-        }
-
-        if (key === 'plazas') {
-            base.canEnterPlaza = false;
-            base.hasPlazaAccess = false;
-        }
-
-        if (key === 'federation') {
-            base.canEnterFederation = false;
-            base.hasFederationAccess = false;
-        }
-
-        writeJson(config.legacyStorageKey, base, localStorage);
-        writeJson(config.legacyStorageKey, base, sessionStorage);
-    }
-
-    function clearLegacyPendingSnapshotIfApprovedOrRejected(division = '', status = '') {
-        const key = cleanDivision(division);
-        const config = DIVISIONS[key];
-        if (!config?.legacyStorageKey) return;
-
-        const finalStatus = normalizeStatus(status);
-        if (finalStatus !== 'approved' && finalStatus !== 'rejected') return;
-
-        const existing = readJson(config.legacyStorageKey, localStorage, null);
-        if (!existing || typeof existing !== 'object') return;
-
-        const existingStatus = normalizeStatus(existing.applicationStatus || existing.status || '');
-        if (existingStatus === 'pending') {
-            try { localStorage.removeItem(config.legacyStorageKey); } catch (_) {}
-            try { sessionStorage.removeItem(config.legacyStorageKey); } catch (_) {}
-        }
+        return lock;
     }
 
     function markPending(division = '', application = null, source = 'submit') {
         const key = cleanDivision(division);
-        if (!key) return false;
+        if (!key) return;
 
-        const locks = getLocks();
-
+        const locks = readPendingLocks();
         locks[key] = {
             division: key,
             status: 'pending',
@@ -2712,222 +2267,345 @@
             application: application && typeof application === 'object' ? application : null
         };
 
-        saveLocks(locks);
-        writeLegacyPendingSnapshot(key, application);
-
-        document.body?.setAttribute(`data-yh-${key}-application-pending`, 'true');
-
-        if (!window.__yhDashboardApplicationPendingPersistenceSyncGuardV2) {
-            window.__yhDashboardApplicationPendingPersistenceSyncGuardV2 = true;
-
-            try {
-                syncCards();
-                syncSnapshotConsumers();
-            } finally {
-                window.__yhDashboardApplicationPendingPersistenceSyncGuardV2 = false;
-            }
-        }
-
-        return true;
+        writePendingLocks(locks);
+        writeLegacyPending(key, application);
+        syncCards();
+        syncConsumers();
     }
 
-    function clearPending(division = '', status = '') {
+    function clearPending(division = '') {
         const key = cleanDivision(division);
-        if (!key) return false;
+        if (!key) return;
 
-        const locks = getLocks();
+        const locks = readPendingLocks();
         if (locks[key]) {
             delete locks[key];
-            saveLocks(locks);
+            writePendingLocks(locks);
         }
-
-        document.body?.removeAttribute(`data-yh-${key}-application-pending`);
-        clearLegacyPendingSnapshotIfApprovedOrRejected(key, status);
-
-        return true;
     }
 
-    function getRequestUrl(input) {
-        try {
-            if (typeof input === 'string') return input;
-            if (input && typeof input.url === 'string') return input.url;
-        } catch (_) {}
-
-        return '';
-    }
-
-    function getRequestMethod(input, init = {}) {
-        try {
-            if (init?.method) return String(init.method || 'GET').toUpperCase();
-            if (input && typeof input.method === 'string') return String(input.method || 'GET').toUpperCase();
-        } catch (_) {}
-
-        return 'GET';
-    }
-
-    function divisionFromPostUrl(url = '') {
-        const cleanUrl = String(url || '');
-        for (const [key, config] of Object.entries(DIVISIONS)) {
-            if (config.postMatchers.some((needle) => cleanUrl.includes(needle))) return key;
-        }
-
-        return '';
-    }
-
-    function parseBackendDivisionResult(division = '', payload = {}) {
+    function writeLegacyPending(division = '', application = null) {
         const key = cleanDivision(division);
-        const body = payload && typeof payload === 'object' ? payload : {};
-        const application = body.application && typeof body.application === 'object'
-            ? body.application
-            : null;
+        const config = DIVISIONS[key];
+        if (!config) return;
 
-        let canEnter = false;
-        let rawStatus = '';
+        const snapshot = {
+            hasApplication: true,
+            applicationStatus: 'under review',
+            status: 'under review',
+            application: application && typeof application === 'object' ? application : null,
+            member: null,
+            source: 'user-pending-lock'
+        };
 
         if (key === 'academy') {
-            canEnter = body.canEnterAcademy === true ||
-                body.hasAcademyAccess === true ||
-                body.hasRoadmapAccess === true ||
-                body.canEnter === true;
-
-            rawStatus =
-                body.applicationStatus ||
-                body.academyApplicationStatus ||
-                body.membershipStatus ||
-                body.status ||
-                application?.status ||
-                '';
+            snapshot.canEnterAcademy = false;
+            snapshot.hasAcademyAccess = false;
+            snapshot.hasRoadmapAccess = false;
         }
 
         if (key === 'plazas') {
-            canEnter = body.canEnterPlaza === true ||
-                body.hasPlazaAccess === true ||
-                body.canEnter === true;
-
-            rawStatus =
-                body.applicationStatus ||
-                body.plazaApplicationStatus ||
-                body.status ||
-                application?.status ||
-                '';
+            snapshot.canEnterPlaza = false;
+            snapshot.hasPlazaAccess = false;
         }
 
         if (key === 'federation') {
-            canEnter = body.canEnterFederation === true ||
-                body.hasFederationAccess === true ||
-                body.canEnter === true;
-
-            rawStatus =
-                body.applicationStatus ||
-                body.federationApplicationStatus ||
-                body.status ||
-                application?.status ||
-                '';
+            snapshot.canEnterFederation = false;
+            snapshot.hasFederationAccess = false;
         }
 
+        writeJson(config.legacyKey, snapshot, localStorage);
+        writeJson(config.legacyKey, snapshot, sessionStorage);
+    }
+
+    function purgeUnsafeSharedAccessCaches() {
+        Object.entries(DIVISIONS).forEach(([key, config]) => {
+            [localStorage, sessionStorage].forEach((store) => {
+                const value = readJson(config.legacyKey, store, null);
+                if (!value || typeof value !== 'object') return;
+
+                const status = normalizeStatus(
+                    value.applicationStatus ||
+                    value.status ||
+                    value.membershipStatus ||
+                    value.application?.status ||
+                    ''
+                );
+
+                const approvedFlag =
+                    value.canEnter === true ||
+                    value.canEnterAcademy === true ||
+                    value.canEnterPlaza === true ||
+                    value.canEnterFederation === true ||
+                    value.hasAcademyAccess === true ||
+                    value.hasPlazaAccess === true ||
+                    value.hasFederationAccess === true ||
+                    status === 'approved';
+
+                const pendingFlag =
+                    status === 'pending' ||
+                    String(value.source || '').includes('pending') ||
+                    Boolean(getPendingLock(key));
+
+                if (approvedFlag || (!pendingFlag && String(value.source || '').includes('admin'))) {
+                    try { store.removeItem(config.legacyKey); } catch (_) {}
+                }
+            });
+        });
+    }
+
+    function firstTextFrom(source = {}, keys = []) {
+        for (const key of keys) {
+            const value = String(source?.[key] || '').trim();
+            if (value) return value;
+        }
+        return '';
+    }
+
+    function firstBoolFrom(source = {}, keys = []) {
+        return keys.some((key) => source?.[key] === true);
+    }
+
+    function extractBackendDivision(profile = {}, division = '') {
+        const key = cleanDivision(division);
+        const config = DIVISIONS[key];
+        if (!config) return makeDefaultState()[key];
+
+        const divisions = profile?.divisions && typeof profile.divisions === 'object'
+            ? profile.divisions
+            : {};
+
+        let raw = {};
+        for (const backendKey of config.backendDivisionKeys) {
+            if (divisions[backendKey] && typeof divisions[backendKey] === 'object') {
+                raw = divisions[backendKey];
+                break;
+            }
+        }
+
+        if (!raw || typeof raw !== 'object') raw = {};
+
+        const application =
+            raw.application && typeof raw.application === 'object'
+                ? raw.application
+                : null;
+
+        const rawStatus =
+            firstTextFrom(raw, ['status', 'applicationStatus', 'membershipStatus', 'accessStatus', 'reviewStatus', 'statusLabel']) ||
+            firstTextFrom(application || {}, ['status', 'reviewStatus']) ||
+            firstTextFrom(profile, config.topStatusKeys);
+
         let status = normalizeStatus(rawStatus);
+
+        const canEnter =
+            raw.canEnter === true ||
+            raw.isMember === true ||
+            raw.hasAccess === true ||
+            firstBoolFrom(profile, config.topAccessKeys) ||
+            status === 'approved';
 
         if (canEnter) status = 'approved';
 
         const hasApplication =
-            body.hasApplication === true ||
+            canEnter ||
+            raw.hasApplication === true ||
             Boolean(application) ||
             status === 'pending' ||
             status === 'rejected' ||
             status === 'approved';
 
         return {
-            division: key,
+            key,
+            label: config.label,
             status,
+            statusLabel: labelFor(status),
             canEnter,
             hasApplication,
             application,
-            raw: body
+            raw,
+            source: 'backend-profile'
         };
     }
 
-    async function fetchBackendStatus(division = '') {
-        const key = cleanDivision(division);
-        const config = DIVISIONS[key];
-        if (!nativeFetch || !config) return null;
+    function applyPendingLockIfNeeded(state = {}) {
+        const key = cleanDivision(state.key);
+        if (!key) return state;
 
-        const headers = { Accept: 'application/json' };
-        const token = getStoredToken();
-        if (token) headers.Authorization = `Bearer ${token}`;
+        if (state.status === 'approved' || state.status === 'rejected') {
+            clearPending(key);
+            return state;
+        }
 
-        try {
-            const response = await nativeFetch(config.statusEndpoint, {
+        const lock = getPendingLock(key);
+        if (!lock) return state;
+
+        return {
+            ...state,
+            status: 'pending',
+            statusLabel: 'Pending',
+            canEnter: false,
+            hasApplication: true,
+            application: state.application || lock.application || null,
+            source: 'local-pending-lock'
+        };
+    }
+
+    async function fetchBackendProfile(force = false) {
+        if (!isDashboardPage() || !nativeFetch) return backendState;
+
+        const now = Date.now();
+        if (!force && backendState.loaded && now - Number(backendState.updatedAt || 0) < 8000) return backendState;
+        if (backendState.loading) return backendState.loading;
+
+        backendState.loading = (async () => {
+            const token = getStoredToken();
+            const headers = { Accept: 'application/json' };
+            if (token) headers.Authorization = `Bearer ${token}`;
+
+            const response = await nativeFetch('/api/universe/profile', {
                 method: 'GET',
                 credentials: 'include',
                 headers
             });
 
-            if (!response.ok) return null;
+            if (!response.ok) throw new Error(`Universe profile failed: ${response.status}`);
 
-            const payload = await response.json().catch(() => ({}));
-            const parsed = parseBackendDivisionResult(key, payload);
+            const result = await response.json().catch(() => ({}));
+            const profile =
+                result?.profile && typeof result.profile === 'object'
+                    ? result.profile
+                    : result?.user && typeof result.user === 'object'
+                        ? result.user
+                        : result && typeof result === 'object'
+                            ? result
+                            : {};
 
-            if (parsed.status === 'approved' || parsed.status === 'rejected') {
-                clearPending(key, parsed.status);
-            }
+            const next = {};
+            Object.keys(DIVISIONS).forEach((key) => {
+                next[key] = applyPendingLockIfNeeded(extractBackendDivision(profile, key));
+            });
 
-            if (parsed.status === 'pending') {
-                markPending(key, parsed.application || payload.application || null, 'backend-status');
-            }
+            backendState = {
+                loaded: true,
+                loading: null,
+                updatedAt: Date.now(),
+                profile,
+                divisions: next
+            };
 
-            return parsed;
-        } catch (_) {
-            return null;
-        }
+            purgeUnsafeSharedAccessCaches();
+            syncCards();
+            syncConsumers();
+
+            return backendState;
+        })().catch((error) => {
+            console.warn('YHU division access profile sync failed:', error?.message || error);
+
+            const next = {};
+            Object.keys(DIVISIONS).forEach((key) => {
+                next[key] = applyPendingLockIfNeeded({
+                    ...makeDefaultState()[key],
+                    source: 'profile-sync-failed'
+                });
+            });
+
+            backendState = {
+                loaded: true,
+                loading: null,
+                updatedAt: Date.now(),
+                divisions: next
+            };
+
+            syncCards();
+            syncConsumers();
+
+            return backendState;
+        });
+
+        return backendState.loading;
     }
 
-    function getLocalLegacyStatus(division = '') {
+    function getState(division = '') {
         const key = cleanDivision(division);
-        const config = DIVISIONS[key];
-        if (!config?.legacyStorageKey) return 'not_applied';
-
-        const existing =
-            readJson(config.legacyStorageKey, localStorage, null) ||
-            readJson(config.legacyStorageKey, sessionStorage, null);
-
-        if (!existing || typeof existing !== 'object') return 'not_applied';
-
-        const parsed = parseBackendDivisionResult(key, existing);
-        return parsed.status;
+        if (!key) return null;
+        const current = backendState.divisions[key] || makeDefaultState()[key];
+        return applyPendingLockIfNeeded(current);
     }
 
-    function getResolvedStatus(division = '') {
+    function buildSnapshot(division = '') {
         const key = cleanDivision(division);
-        if (!key) return 'not_applied';
+        const state = getState(key) || makeDefaultState()[key];
 
-        const pendingLock = getPendingLock(key);
-        const legacyStatus = getLocalLegacyStatus(key);
+        const snapshot = {
+            hasApplication: state.hasApplication === true,
+            applicationStatus: state.status,
+            status: state.status,
+            statusLabel: labelFor(state.status),
+            application: state.application || null,
+            member: state.canEnter ? { status: 'Active', division: state.label } : null,
+            source: state.source || 'yhu-access-source-of-truth-v1'
+        };
 
-        if (legacyStatus === 'approved' || legacyStatus === 'rejected') {
-            clearPending(key, legacyStatus);
-            return legacyStatus;
+        if (key === 'academy') {
+            snapshot.canEnterAcademy = state.status === 'approved';
+            snapshot.hasAcademyAccess = state.status === 'approved';
+            snapshot.hasRoadmapAccess = state.status === 'approved';
+            snapshot.academyApplicationStatus = state.status;
         }
 
-        if (legacyStatus === 'pending') {
-            return 'pending';
+        if (key === 'plazas') {
+            snapshot.canEnterPlaza = state.status === 'approved';
+            snapshot.hasPlazaAccess = state.status === 'approved';
+            snapshot.plazaApplicationStatus = state.status;
         }
 
-        if (pendingLock) {
-            return 'pending';
+        if (key === 'federation') {
+            snapshot.canEnterFederation = state.status === 'approved';
+            snapshot.hasFederationAccess = state.status === 'approved';
+            snapshot.federationApplicationStatus = state.status;
         }
 
-        return 'not_applied';
+        return snapshot;
+    }
+
+    function overrideSnapshotFns() {
+        window.readAcademyMembershipCache = function readAcademyMembershipCacheSourceOfTruthV1() {
+            return buildSnapshot('academy');
+        };
+
+        window.getPlazaAccessSnapshot = function getPlazaAccessSnapshotSourceOfTruthV1() {
+            return buildSnapshot('plazas');
+        };
+        window.readDashboardPlazaAccessSnapshot = window.getPlazaAccessSnapshot;
+
+        window.getFederationAccessSnapshot = function getFederationAccessSnapshotSourceOfTruthV1() {
+            return buildSnapshot('federation');
+        };
+        window.readDashboardFederationAccessSnapshot = window.getFederationAccessSnapshot;
+
+        window.refreshPlazaAccessStatusFromBackend = async function refreshPlazaAccessStatusFromBackendSourceOfTruthV1(forceFresh = true) {
+            await fetchBackendProfile(Boolean(forceFresh));
+            return buildSnapshot('plazas');
+        };
+
+        window.refreshFederationAccessStatusFromBackend = async function refreshFederationAccessStatusFromBackendSourceOfTruthV1(forceFresh = true) {
+            await fetchBackendProfile(Boolean(forceFresh));
+            return buildSnapshot('federation');
+        };
+    }
+
+    function showToastMessage(message = '', type = 'error') {
+        if (typeof window.showToast === 'function') window.showToast(message, type);
     }
 
     function syncCard(division = '') {
-        if (!isDashboardPage()) return;
-
         const key = cleanDivision(division);
         const config = DIVISIONS[key];
-        if (!config) return;
+        const state = getState(key);
+        if (!config || !state) return;
 
-        const status = getResolvedStatus(key);
-        const action = actionForStatus(status);
+        const status = normalizeStatus(state.status);
+        const action = actionFor(status);
         const card = document.querySelector(`[data-yh-overview-division-card="${key}"]`);
         const statusNode = card?.querySelector?.('.yh-dashboard-overview-access-status-v1');
         const button = card?.querySelector?.('[data-yh-overview-division-action]');
@@ -2938,9 +2616,7 @@
             card.classList.add(`is-${action}`);
         }
 
-        if (statusNode) {
-            statusNode.textContent = labelForStatus(status);
-        }
+        if (statusNode) statusNode.textContent = labelFor(status);
 
         if (button) {
             button.setAttribute('data-yh-overview-division-action', key);
@@ -2965,6 +2641,8 @@
                 button.removeAttribute('aria-disabled');
             }
         }
+
+        syncSubnavAccess(key, status === 'approved');
     }
 
     function syncCards() {
@@ -2972,112 +2650,215 @@
         Object.keys(DIVISIONS).forEach(syncCard);
     }
 
-    function syncSnapshotConsumers() {
-        try { window.yhDashboardDivisionStateTitleFinalV2?.syncCards?.(); } catch (_) {}
-        try { window.yhDashboardCanonicalDivisionGateV1?.syncCards?.(); } catch (_) {}
+    function syncConsumers() {
         try { window.yhRenderDashboardOverviewDynamicAccessRowV1?.(); } catch (_) {}
+        try { window.renderDashboardCommandOverview?.(); } catch (_) {}
         try { window.renderYHEconomicSnapshot?.(); } catch (_) {}
     }
 
-    function pendingSnapshot(division = '', nativeSnapshot = {}) {
+    function syncSubnavAccess(division = '', approved = false) {
         const key = cleanDivision(division);
-        const existing = nativeSnapshot && typeof nativeSnapshot === 'object' ? nativeSnapshot : {};
-        const status = getResolvedStatus(key);
+        if (!key) return;
 
-        if (status !== 'pending') return existing;
+        const active = cleanDivision(document.body?.getAttribute('data-yh-dashboard-v2-active') || '') === key;
+        const shouldShow = approved && active;
 
-        const lock = getPendingLock(key);
+        const group = document.querySelector(`[data-yh-sidebar-division="${key}"]`);
+        const parent = document.querySelector(`[data-yh-dashboard-shell="${key}"]`);
+        const subnav = document.getElementById(`yh-sidebar-subnav-${key}`);
 
-        const snapshot = {
-            ...existing,
-            hasApplication: true,
-            applicationStatus: 'under review',
-            status: 'under review',
-            application: existing.application || lock?.application || null,
-            member: null,
-            source: 'pending-persistence'
-        };
-
-        if (key === 'academy') {
-            snapshot.canEnterAcademy = false;
-            snapshot.hasAcademyAccess = false;
-            snapshot.hasRoadmapAccess = false;
+        if (group) {
+            group.classList.toggle('is-expanded', shouldShow);
+            group.classList.toggle('is-open', shouldShow);
+            group.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
+            group.setAttribute('data-yh-sidebar-collapsed', shouldShow ? 'false' : 'true');
         }
 
-        if (key === 'plazas') {
-            snapshot.canEnterPlaza = false;
-            snapshot.hasPlazaAccess = false;
+        if (parent) parent.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
+
+        if (subnav) {
+            subnav.classList.toggle('hidden-step', !shouldShow);
+            subnav.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+
+            if (shouldShow) {
+                subnav.style.removeProperty('display');
+                subnav.style.removeProperty('visibility');
+                subnav.style.removeProperty('opacity');
+                subnav.style.removeProperty('pointer-events');
+            } else {
+                subnav.style.setProperty('display', 'none', 'important');
+                subnav.style.setProperty('visibility', 'hidden', 'important');
+                subnav.style.setProperty('opacity', '0', 'important');
+                subnav.style.setProperty('pointer-events', 'none', 'important');
+            }
         }
 
-        if (key === 'federation') {
-            snapshot.canEnterFederation = false;
-            snapshot.hasFederationAccess = false;
-        }
-
-        return snapshot;
-    }
-
-    function wrapSnapshotFns() {
-        if (window.__yhDashboardApplicationPendingPersistenceSnapshotFnsWrappedV1) return;
-        window.__yhDashboardApplicationPendingPersistenceSnapshotFnsWrappedV1 = true;
-
-        const nativeAcademy = window.readAcademyMembershipCache;
-        if (typeof nativeAcademy === 'function') {
-            window.readAcademyMembershipCache = function readAcademyMembershipCacheWithPendingV1() {
-                return pendingSnapshot('academy', nativeAcademy() || {});
-            };
-        }
-
-        const nativePlaza = window.getPlazaAccessSnapshot;
-        window.getPlazaAccessSnapshot = function getPlazaAccessSnapshotWithPendingV1() {
-            return pendingSnapshot('plazas', typeof nativePlaza === 'function' ? (nativePlaza() || {}) : {});
-        };
-        window.readDashboardPlazaAccessSnapshot = window.getPlazaAccessSnapshot;
-
-        const nativeFederation = window.getFederationAccessSnapshot;
-        window.getFederationAccessSnapshot = function getFederationAccessSnapshotWithPendingV1() {
-            return pendingSnapshot('federation', typeof nativeFederation === 'function' ? (nativeFederation() || {}) : {});
-        };
-        window.readDashboardFederationAccessSnapshot = window.getFederationAccessSnapshot;
-    }
-
-    function blockPendingModal(division = '') {
-        const key = cleanDivision(division);
-        const config = DIVISIONS[key];
-        if (!config) return;
-
-        config.modalFns.forEach((fnName) => {
-            if (nativeModalFns[fnName]) return;
-            if (typeof window[fnName] !== 'function') return;
-
-            nativeModalFns[fnName] = window[fnName];
-
-            window[fnName] = function pendingAwareApplicationModalV1() {
-                const status = getResolvedStatus(key);
-
-                if (status === 'pending') {
-                    if (typeof window.showToast === 'function') {
-                        window.showToast(`${config.label} application is still under admin review.`, 'error');
-                    }
-
-                    syncCards();
-                    return false;
-                }
-
-                return nativeModalFns[fnName].apply(this, arguments);
-            };
+        document.querySelectorAll(`[data-yh-sidebar-child^="${key}-"], [data-yh-mobile-subtab-menu-option^="${key}-"]`).forEach((node) => {
+            node.classList.toggle('hidden-step', !shouldShow);
+            node.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
         });
     }
 
-    function wrapModalFns() {
-        Object.keys(DIVISIONS).forEach(blockPendingModal);
+    function openApprovedParent(division = '') {
+        const key = cleanDivision(division);
+        const state = getState(key);
+        if (!key || normalizeStatus(state?.status || '') !== 'approved') return false;
+
+        if (typeof window.yhDashboardV2ShowParentShellV1 === 'function') {
+            window.yhDashboardV2ShowParentShellV1(key, 'source-of-truth-approved');
+        } else if (typeof window.yhDashboardV2RenderParent === 'function') {
+            window.yhDashboardV2RenderParent(key);
+        } else if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
+            window.activateDashboardUnifiedWorkspace(key, { animate: false, scroll: true, persist: true });
+        }
+
+        document.body?.setAttribute('data-yh-dashboard-v2-active', key);
+        document.body?.setAttribute('data-yh-dashboard-v2-approved', 'true');
+        document.body?.setAttribute('data-yh-dashboard-v2-status', 'approved');
+
+        syncSubnavAccess(key, true);
+        syncCards();
+
+        return true;
+    }
+
+    function openApplyModal(division = '') {
+        const key = cleanDivision(division);
+        const config = DIVISIONS[key];
+        if (!config) return false;
+
+        const state = getState(key);
+        const status = normalizeStatus(state?.status || '');
+
+        if (status === 'pending') {
+            showToastMessage(`${config.label} application is still under admin review.`, 'error');
+            return false;
+        }
+
+        if (status === 'approved') {
+            openApprovedParent(key);
+            return false;
+        }
+
+        for (const fnName of config.applyFns) {
+            try {
+                if (typeof window[fnName] === 'function') {
+                    const result = window[fnName]();
+                    if (result && typeof result.then === 'function') result.catch((error) => console.error(`${fnName} failed:`, error));
+                    return true;
+                }
+            } catch (error) {
+                console.error(`${fnName} failed:`, error);
+            }
+        }
+
+        showToastMessage(`${config.label} application form is not ready. Please refresh and try again.`, 'error');
+        return false;
+    }
+
+    function wrapApplyFns() {
+        Object.entries(DIVISIONS).forEach(([key, config]) => {
+            config.applyFns.forEach((fnName) => {
+                if (nativeApplyFns[fnName]) return;
+                if (typeof window[fnName] !== 'function') return;
+
+                nativeApplyFns[fnName] = window[fnName];
+
+                window[fnName] = function pendingAwareApplyFnSourceOfTruthV1() {
+                    const state = getState(key);
+                    const status = normalizeStatus(state?.status || '');
+
+                    if (status === 'pending') {
+                        showToastMessage(`${config.label} application is still under admin review.`, 'error');
+                        syncCards();
+                        return false;
+                    }
+
+                    if (status === 'approved') {
+                        openApprovedParent(key);
+                        return false;
+                    }
+
+                    return nativeApplyFns[fnName].apply(this, arguments);
+                };
+            });
+        });
+    }
+
+    function handleLockedDivision(division = '') {
+        const key = cleanDivision(division);
+        const config = DIVISIONS[key];
+        const state = getState(key);
+        const status = normalizeStatus(state?.status || '');
+
+        if (!config) return false;
+
+        if (status === 'approved') return openApprovedParent(key);
+
+        if (status === 'pending') {
+            showToastMessage(`${config.label} application is still under admin review.`, 'error');
+            syncCards();
+            return true;
+        }
+
+        if (status === 'rejected') {
+            showToastMessage(`${config.label} application needs admin follow-up before access can open.`, 'error');
+            syncCards();
+            return true;
+        }
+
+        showToastMessage(`${config.label} access is not approved yet. Please complete your application first.`, 'error');
+        window.setTimeout(() => openApplyModal(key), 260);
+        return true;
+    }
+
+    function handleNavigation(event) {
+        if (!isDashboardPage() || !event?.target) return;
+
+        const actionButton = event.target.closest?.('[data-yh-overview-division-action]');
+        const parentButton = event.target.closest?.('[data-yh-dashboard-shell="academy"], [data-yh-dashboard-shell="plazas"], [data-yh-dashboard-shell="federation"]');
+
+        const key = actionButton
+            ? cleanDivision(actionButton.getAttribute('data-yh-overview-division-action') || '')
+            : parentButton
+                ? cleanDivision(parentButton.getAttribute('data-yh-dashboard-shell') || '')
+                : '';
+
+        if (!key) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+
+        syncCards();
+        handleLockedDivision(key);
+    }
+
+    function getRequestUrl(input) {
+        if (typeof input === 'string') return input;
+        if (input && typeof input.url === 'string') return input.url;
+        return '';
+    }
+
+    function getRequestMethod(input, init = {}) {
+        if (init && init.method) return String(init.method || 'GET').toUpperCase();
+        if (input && typeof input.method === 'string') return String(input.method || 'GET').toUpperCase();
+        return 'GET';
+    }
+
+    function divisionFromPostUrl(url = '') {
+        const clean = String(url || '');
+        for (const [key, config] of Object.entries(DIVISIONS)) {
+            if (config.postUrls.some((needle) => clean.includes(needle))) return key;
+        }
+        return '';
     }
 
     function installFetchObserver() {
-        if (!nativeFetch || window.__yhDashboardApplicationPendingFetchObserverV1) return;
-        window.__yhDashboardApplicationPendingFetchObserverV1 = true;
+        if (!nativeFetch || window.__yhDivisionAccessSourceOfTruthFetchWrappedV1) return;
+        window.__yhDivisionAccessSourceOfTruthFetchWrappedV1 = true;
 
-        window.fetch = function yhDashboardApplicationPendingFetchV1(input, init) {
+        window.fetch = function yhuAccessSourceOfTruthFetchV1(input, init) {
             const url = getRequestUrl(input);
             const method = getRequestMethod(input, init);
             const division = method === 'POST' ? divisionFromPostUrl(url) : '';
@@ -3085,25 +2866,12 @@
             return nativeFetch.apply(this, arguments).then(async (response) => {
                 if (division && response?.ok) {
                     let payload = {};
-                    try {
-                        payload = await response.clone().json();
-                    } catch (_) {
-                        payload = {};
-                    }
+                    try { payload = await response.clone().json(); } catch (_) {}
 
-                    const parsed = parseBackendDivisionResult(division, payload);
-                    const app = parsed.application || payload.application || payload || null;
+                    markPending(division, payload?.application || payload || null, 'application-post-success');
 
-                    if (parsed.status === 'approved') {
-                        clearPending(division, 'approved');
-                    } else if (parsed.status === 'rejected') {
-                        clearPending(division, 'rejected');
-                    } else {
-                        markPending(division, app, 'fetch-post-success');
-                    }
-
-                    [250, 900, 1800, 3200].forEach((delay) => {
-                        window.setTimeout(() => fetchBackendStatus(division).then(syncCards), delay);
+                    [900, 1800, 3200, 5200].forEach((delay) => {
+                        window.setTimeout(() => fetchBackendProfile(true).catch(() => null), delay);
                     });
                 }
 
@@ -3112,105 +2880,29 @@
         };
     }
 
-    function divisionFromFormId(formId = '') {
-        const id = String(formId || '').trim();
-
-        for (const [key, config] of Object.entries(DIVISIONS)) {
-            if (config.formIds.includes(id)) return key;
-        }
-
-        return '';
-    }
-
-    function installSubmitFallback() {
-        if (window.__yhDashboardApplicationPendingSubmitFallbackV1) return;
-        window.__yhDashboardApplicationPendingSubmitFallbackV1 = true;
-
-        document.addEventListener('submit', (event) => {
-            const form = event.target;
-            const division = divisionFromFormId(form?.id || '');
-            if (!division) return;
-
-            if (typeof form.checkValidity === 'function' && !form.checkValidity()) return;
-
-            [1200, 2400, 4200].forEach((delay) => {
-                window.setTimeout(() => {
-                    const status = getLocalLegacyStatus(division);
-                    if (status === 'pending') {
-                        markPending(division, null, 'submit-fallback-cache');
-                    }
-
-                    syncCards();
-                }, delay);
-            });
-        }, true);
-    }
-
-    function interceptPendingNavigation(event) {
-        if (!isDashboardPage() || !event?.target) return;
-
-        const actionButton = event.target.closest?.('[data-yh-overview-division-action]');
-        const parentButton = event.target.closest?.('[data-yh-dashboard-shell="academy"], [data-yh-dashboard-shell="plazas"], [data-yh-dashboard-shell="federation"]');
-
-        const division = actionButton
-            ? cleanDivision(actionButton.getAttribute('data-yh-overview-division-action') || '')
-            : parentButton
-                ? cleanDivision(parentButton.getAttribute('data-yh-dashboard-shell') || '')
-                : '';
-
-        if (!division) return;
-
-        const status = getResolvedStatus(division);
-
-        if (status !== 'pending') return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation?.();
-
-        if (typeof window.showToast === 'function') {
-            window.showToast(`${DIVISIONS[division].label} application is still under admin review.`, 'error');
-        }
-
-        syncCards();
-    }
-
-    function refreshAllStatuses() {
-        Object.keys(DIVISIONS).forEach((key) => {
-            fetchBackendStatus(key).then(syncCards).catch(() => null);
-        });
-    }
-
     function boot() {
         if (!isDashboardPage()) return;
 
-        wrapSnapshotFns();
-        wrapModalFns();
+        purgeUnsafeSharedAccessCaches();
+        overrideSnapshotFns();
+        wrapApplyFns();
         installFetchObserver();
-        installSubmitFallback();
-
-        Object.keys(DIVISIONS).forEach((key) => {
-            if (getPendingLock(key)) {
-                writeLegacyPendingSnapshot(key, getPendingLock(key)?.application || null);
-            }
-        });
 
         syncCards();
-        syncSnapshotConsumers();
+        fetchBackendProfile(true).catch(() => null);
 
         [80, 240, 700, 1400, 2600, 4200].forEach((delay) => {
             window.setTimeout(() => {
-                wrapModalFns();
+                purgeUnsafeSharedAccessCaches();
+                overrideSnapshotFns();
+                wrapApplyFns();
                 syncCards();
             }, delay);
         });
-
-        window.setTimeout(refreshAllStatuses, 900);
-        window.setTimeout(refreshAllStatuses, 3200);
     }
 
-    window.addEventListener('click', interceptPendingNavigation, true);
-    window.addEventListener('pointerdown', interceptPendingNavigation, true);
+    window.addEventListener('pointerdown', handleNavigation, true);
+    window.addEventListener('click', handleNavigation, true);
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', boot);
@@ -3220,127 +2912,39 @@
 
     window.addEventListener('pageshow', boot);
     window.addEventListener('focus', () => {
+        fetchBackendProfile(true).catch(() => null);
         syncCards();
-        window.setTimeout(refreshAllStatuses, 300);
     });
 
     try {
         const observer = new MutationObserver(() => {
-            window.clearTimeout(window.__yhDashboardApplicationPendingPersistenceTimerV1);
-            window.__yhDashboardApplicationPendingPersistenceTimerV1 = window.setTimeout(() => {
-                wrapModalFns();
+            window.clearTimeout(window.__yhDivisionAccessSourceOfTruthMutationTimerV1);
+            window.__yhDivisionAccessSourceOfTruthMutationTimerV1 = window.setTimeout(() => {
+                overrideSnapshotFns();
+                wrapApplyFns();
                 syncCards();
-            }, 60);
+            }, 50);
         });
 
         observer.observe(document.body || document.documentElement, {
             childList: true,
             subtree: true,
             attributes: true,
-            attributeFilter: ['class', 'style', 'data-yh-unified-workspace', 'data-yh-dashboard-v2-active']
+            attributeFilter: ['class', 'style', 'data-yh-dashboard-v2-active', 'data-yh-dashboard-v2-approved', 'data-yh-unified-workspace']
         });
     } catch (_) {}
 
-    window.yhDashboardApplicationPendingPersistenceV1 = {
+    window.yhDivisionAccessSourceOfTruthV1 = {
+        fetchBackendProfile,
+        getState,
+        buildSnapshot,
         markPending,
         clearPending,
-        getPendingLock,
-        getResolvedStatus,
         syncCards,
-        refreshAllStatuses
+        openApplyModal,
+        openApprovedParent,
+        purgeUnsafeSharedAccessCaches
     };
 })();
-/* END PATCH: Dashboard application pending persistence v1 */
-
-
-/* PATCH: Dashboard pending recursion emergency apply guard v2 */
-(function installDashboardPendingRecursionEmergencyApplyGuardV2() {
-    if (window.__yhDashboardPendingRecursionEmergencyApplyGuardV2Installed) return;
-    window.__yhDashboardPendingRecursionEmergencyApplyGuardV2Installed = true;
-
-    const APPLY_FNS = {
-        academy: ['openAcademyLauncher', 'openAcademyApplicationModal', 'openAcademyApplyModal'],
-        plazas: ['openPlazaApplicationModal'],
-        federation: ['openFederationApplicationModal']
-    };
-
-    function isDashboardPage() {
-        const path = String(window.location.pathname || '').replace(/\/+$/, '');
-        return path === '/dashboard' ||
-            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
-            document.body?.getAttribute('data-yh-view') === 'hub';
-    }
-
-    function cleanDivision(value = '') {
-        const key = String(value || '').trim().toLowerCase();
-        if (key === 'plaza') return 'plazas';
-        return APPLY_FNS[key] ? key : '';
-    }
-
-    function getButtonState(button) {
-        return String(button?.getAttribute?.('data-yh-overview-division-action-kind') || '').trim().toLowerCase();
-    }
-
-    function showToastMessage(message = '', type = 'error') {
-        if (typeof window.showToast === 'function') {
-            window.showToast(message, type);
-        }
-    }
-
-    function openApply(division = '') {
-        const key = cleanDivision(division);
-        if (!key) return false;
-
-        const fns = APPLY_FNS[key] || [];
-
-        for (const fnName of fns) {
-            try {
-                if (typeof window[fnName] === 'function') {
-                    const result = window[fnName]();
-
-                    if (result && typeof result.then === 'function') {
-                        result.catch((error) => console.error(`${fnName} failed:`, error));
-                    }
-
-                    return true;
-                }
-            } catch (error) {
-                console.error(`${fnName} failed:`, error);
-            }
-        }
-
-        showToastMessage('Application form is not ready yet. Please refresh and try again.', 'error');
-        return false;
-    }
-
-    document.addEventListener('click', (event) => {
-        if (!isDashboardPage() || !event?.target) return;
-
-        const button = event.target.closest?.('[data-yh-overview-division-action]');
-        if (!button) return;
-
-        const division = cleanDivision(button.getAttribute('data-yh-overview-division-action') || '');
-        if (!division) return;
-
-        const state = getButtonState(button);
-
-        if (state === 'pending') {
-            event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation?.();
-
-            showToastMessage(`${division === 'academy' ? 'Academy' : division === 'plazas' ? 'Plazas' : 'Federation'} application is still under admin review.`, 'error');
-            return;
-        }
-
-        if (state === 'apply' || button.textContent.trim().toLowerCase() === 'apply') {
-            event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation?.();
-
-            window.setTimeout(() => openApply(division), 60);
-        }
-    }, true);
-})();
-/* END PATCH: Dashboard pending recursion emergency apply guard v2 */
+/* END PATCH: YHU division access source of truth v1 */
 
