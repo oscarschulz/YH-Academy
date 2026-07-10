@@ -907,263 +907,6 @@
     window.yhDashboardV2ShowParentShellV1 = showParentShell;
 })();
 /* END PATCH: Dashboard V2 stable shell owner v1 */
-
-
-/* PATCH: Dashboard V2 loader gate authority v2 */
-(function installDashboardV2LoaderGateAuthorityV2() {
-    if (window.__yhDashboardV2LoaderGateAuthorityV2Installed) return;
-    window.__yhDashboardV2LoaderGateAuthorityV2Installed = true;
-
-    const NAV_DELAY_MS = 1400;
-    const PARENT_KEYS = new Set(['academy', 'plazas', 'federation']);
-
-    let activeTimer = null;
-    let pendingTarget = null;
-    let navLocked = false;
-
-    function isDashboardPage() {
-        const path = String(window.location.pathname || '').replace(/\/+$/, '');
-        return path === '/dashboard' ||
-            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
-            document.body?.getAttribute('data-yh-view') === 'hub';
-    }
-
-    function cleanKey(value = '') {
-        const key = String(value || '').trim().toLowerCase();
-        if (key === 'plaza') return 'plazas';
-        if (key === 'dashboard' || key === 'hub') return 'overview';
-        return key;
-    }
-
-    function isParentKey(key = '') {
-        return PARENT_KEYS.has(cleanKey(key));
-    }
-
-    function titleCase(key = '') {
-        const clean = cleanKey(key);
-        if (clean === 'plazas') return 'Plazas';
-        return clean.charAt(0).toUpperCase() + clean.slice(1);
-    }
-
-    function setVisible(node, visible, display = '') {
-        if (!node || !(node instanceof HTMLElement)) return;
-
-        node.classList.toggle('hidden-step', !visible);
-        node.setAttribute('aria-hidden', visible ? 'false' : 'true');
-
-        if (visible) {
-            node.style.removeProperty('display');
-            if (display) node.style.display = display;
-            node.style.removeProperty('visibility');
-            node.style.removeProperty('opacity');
-            node.style.removeProperty('pointer-events');
-            return;
-        }
-
-        node.style.display = 'none';
-        node.style.visibility = 'hidden';
-        node.style.opacity = '0';
-        node.style.pointerEvents = 'none';
-    }
-
-    function ensureLoader() {
-        let loader = document.getElementById('yh-dashboard-tab-transition-loader-v2');
-        if (loader) return loader;
-
-        loader = document.createElement('div');
-        loader.id = 'yh-dashboard-tab-transition-loader-v2';
-        loader.className = 'yh-dashboard-tab-transition-loader-v2 hidden-step';
-        loader.setAttribute('aria-hidden', 'true');
-        loader.innerHTML = `
-            <div class="yh-dashboard-tab-transition-card-v2">
-                <div class="yh-dashboard-tab-transition-orb-v2" aria-hidden="true">
-                    <img src="/images/logo.avif" alt="">
-                </div>
-                <span>SYNCING VIEW</span>
-                <strong id="yh-dashboard-tab-transition-title-v2">Opening Dashboard</strong>
-                <p>Preparing the selected workspace.</p>
-                <div class="yh-dashboard-tab-transition-bar-v2" aria-hidden="true"><i></i></div>
-            </div>
-        `;
-
-        document.body.appendChild(loader);
-        return loader;
-    }
-
-    function showLoader(label) {
-        const loader = ensureLoader();
-        const title = document.getElementById('yh-dashboard-tab-transition-title-v2');
-
-        if (title) title.textContent = label || 'Opening Dashboard';
-
-        document.body.setAttribute('data-yh-dashboard-tab-transitioning', 'true');
-
-        loader.classList.remove('hidden-step');
-        loader.classList.add('is-active');
-        loader.setAttribute('aria-hidden', 'false');
-    }
-
-    function hideLoader() {
-        const loader = document.getElementById('yh-dashboard-tab-transition-loader-v2');
-
-        document.body.removeAttribute('data-yh-dashboard-tab-transitioning');
-
-        if (!loader) return;
-
-        loader.classList.remove('is-active');
-        loader.setAttribute('aria-hidden', 'true');
-
-        window.setTimeout(() => {
-            if (!loader.classList.contains('is-active')) loader.classList.add('hidden-step');
-        }, 180);
-    }
-
-    function getTargetFromEvent(event) {
-        if (!event?.target || !isDashboardPage()) return null;
-
-        if (event.target.closest?.('#yh-dashboard-tab-transition-loader-v2, .yh-modal, .modal, [role="dialog"]')) {
-            return null;
-        }
-
-        const shell = event.target.closest?.('[data-yh-dashboard-shell]');
-        if (shell) {
-            const key = cleanKey(shell.getAttribute('data-yh-dashboard-shell') || '');
-
-            if (key === 'overview') {
-                return { kind: 'overview', key, label: 'Opening Dashboard' };
-            }
-
-            if (isParentKey(key)) {
-                return { kind: 'parent', key, label: `Opening ${titleCase(key)}` };
-            }
-        }
-
-        const child = event.target.closest?.('[data-yh-sidebar-child], [data-yh-mobile-subtab-menu-option], [data-yh-dashboard-v2-child]');
-        if (child) {
-            const key = (
-                child.getAttribute('data-yh-sidebar-child') ||
-                child.getAttribute('data-yh-mobile-subtab-menu-option') ||
-                child.getAttribute('data-yh-dashboard-v2-child') ||
-                ''
-            ).trim();
-
-            if (key) return { kind: 'child', key, label: 'Opening section' };
-        }
-
-        return null;
-    }
-
-    function runTarget(target) {
-        if (!target) return;
-
-        if (target.kind === 'overview') {
-            if (typeof window.yhDashboardV2ShowOverviewShellV1 === 'function') {
-                window.yhDashboardV2ShowOverviewShellV1('loader-gate-v2');
-                window.setTimeout(() => window.yhDashboardV2ShowOverviewShellV1('loader-gate-v2-late'), 90);
-                return;
-            }
-
-            if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
-                window.activateDashboardUnifiedWorkspace('overview', { animate: false, scroll: false, persist: true });
-            }
-            return;
-        }
-
-        if (target.kind === 'parent') {
-            if (typeof window.yhDashboardV2ShowParentShellV1 === 'function') {
-                window.yhDashboardV2ShowParentShellV1(target.key, 'loader-gate-v2');
-                window.setTimeout(() => window.yhDashboardV2ShowParentShellV1(target.key, 'loader-gate-v2-late'), 90);
-                return;
-            }
-
-            if (typeof window.yhDashboardV2RenderParent === 'function') {
-                window.yhDashboardV2RenderParent(target.key);
-            }
-            return;
-        }
-
-        if (target.kind === 'child') {
-            if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
-                window.activateDashboardUnifiedWorkspace(target.key, {
-                    animate: false,
-                    scroll: true,
-                    persist: true
-                });
-            }
-        }
-    }
-
-    function queueNavigation(target) {
-        if (!target) return;
-
-        pendingTarget = target;
-        navLocked = true;
-
-        showLoader(target.label);
-
-        window.clearTimeout(activeTimer);
-        activeTimer = window.setTimeout(() => {
-            const finalTarget = pendingTarget;
-            pendingTarget = null;
-
-            runTarget(finalTarget);
-
-            window.setTimeout(() => {
-                navLocked = false;
-                hideLoader();
-            }, 180);
-        }, NAV_DELAY_MS);
-    }
-
-    function interceptNavigation(event) {
-        const target = getTargetFromEvent(event);
-        if (!target) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation?.();
-
-        queueNavigation(target);
-    }
-
-    /*
-      Capture on window and pointerdown/click.
-      Since the previous stable-shell instant interceptors are disabled above,
-      this is now the first and only navigation authority for Dashboard tabs.
-    */
-    window.addEventListener('pointerdown', interceptNavigation, true);
-    window.addEventListener('mousedown', interceptNavigation, true);
-    window.addEventListener('touchstart', interceptNavigation, true);
-    window.addEventListener('click', interceptNavigation, true);
-
-    /*
-      If user spams tabs during loader, keep only the last target.
-      The overlay blocks pointer events visually, but this guard also protects keyboard/click edge cases.
-    */
-    document.addEventListener('click', (event) => {
-        if (!navLocked) return;
-
-        const target = getTargetFromEvent(event);
-        if (!target) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation?.();
-
-        pendingTarget = target;
-        showLoader(target.label);
-    }, true);
-
-    window.yhDashboardV2LoaderGateAuthorityV2 = {
-        delay: NAV_DELAY_MS,
-        queueNavigation,
-        showLoader,
-        hideLoader
-    };
-})();
-/* END PATCH: Dashboard V2 loader gate authority v2 */
-
-
 /* PATCH: Dashboard V2 overview polish v1 */
 (function installDashboardV2OverviewPolishV1() {
     if (window.__yhDashboardV2OverviewPolishV1Installed) return;
@@ -2238,4 +1981,644 @@
     };
 })();
 /* END PATCH: Dashboard parent child access authority v1 */
+
+
+/* PATCH: Dashboard division apply gate v1 */
+(function installDashboardDivisionApplyGateV1() {
+    if (window.__yhDashboardDivisionApplyGateV1Installed) return;
+    window.__yhDashboardDivisionApplyGateV1Installed = true;
+
+    const NAV_DELAY_MS = 1150;
+
+    const DIVISIONS = {
+        academy: {
+            label: 'Academy',
+            card: 'academy',
+            applyLabel: 'Apply',
+            enterLabel: 'Enter',
+            pendingLabel: 'Pending',
+            applyFns: ['openAcademyLauncher', 'openAcademyApplicationModal', 'openAcademyApplyModal'],
+            snapshotFns: ['readAcademyMembershipCache'],
+            canEnterKeys: ['canEnterAcademy', 'canEnter', 'hasAccess', 'hasAcademyAccess'],
+            statusKeys: ['applicationStatus', 'academyApplicationStatus', 'status', 'accessStatus', 'membershipStatus'],
+            hasApplicationKeys: ['hasApplication', 'academyHasApplication'],
+            childTarget: 'academy-roadmap'
+        },
+        plazas: {
+            label: 'Plazas',
+            card: 'plazas',
+            applyLabel: 'Apply',
+            enterLabel: 'Enter',
+            pendingLabel: 'Pending',
+            applyFns: ['openPlazaApplicationModal'],
+            snapshotFns: ['getPlazaAccessSnapshot', 'readDashboardPlazaAccessSnapshot'],
+            canEnterKeys: ['canEnterPlaza', 'canEnter', 'hasAccess', 'hasPlazaAccess'],
+            statusKeys: ['applicationStatus', 'plazaApplicationStatus', 'status', 'accessStatus'],
+            hasApplicationKeys: ['hasApplication', 'plazaHasApplication'],
+            childTarget: 'plazas-feed'
+        },
+        federation: {
+            label: 'Federation',
+            card: 'federation',
+            applyLabel: 'Apply',
+            enterLabel: 'Enter',
+            pendingLabel: 'Pending',
+            applyFns: ['openFederationApplicationModal'],
+            snapshotFns: ['getFederationAccessSnapshot', 'readDashboardFederationAccessSnapshot'],
+            canEnterKeys: ['canEnterFederation', 'canEnter', 'hasAccess', 'hasFederationAccess'],
+            statusKeys: ['applicationStatus', 'federationApplicationStatus', 'status', 'accessStatus'],
+            hasApplicationKeys: ['hasApplication', 'federationHasApplication'],
+            childTarget: 'federation-command'
+        }
+    };
+
+    let transitionTimer = null;
+    let pendingTarget = null;
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub';
+    }
+
+    function cleanKey(value = '') {
+        const key = String(value || '').trim().toLowerCase();
+        if (key === 'plaza') return 'plazas';
+        if (key === 'dashboard' || key === 'hub') return 'overview';
+        return key;
+    }
+
+    function isDivisionKey(value = '') {
+        return Boolean(DIVISIONS[cleanKey(value)]);
+    }
+
+    function isTruthyValue(value) {
+        return value === true || String(value || '').trim().toLowerCase() === 'true';
+    }
+
+    function normalizeStatus(value = '', fallback = '') {
+        const raw = String(value || fallback || '').trim();
+        const clean = raw.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+        if (
+            !clean ||
+            clean === 'loading' ||
+            clean === 'loading...' ||
+            clean === 'syncing' ||
+            clean === 'checking' ||
+            clean === 'checking...' ||
+            clean === 'preparing' ||
+            clean === 'unknown' ||
+            clean === 'n/a'
+        ) {
+            return 'not_applied';
+        }
+
+        if (
+            clean === 'approved' ||
+            clean === 'active' ||
+            clean === 'unlocked' ||
+            clean === 'accepted' ||
+            clean === 'verified' ||
+            clean === 'access granted' ||
+            clean === 'member'
+        ) {
+            return 'approved';
+        }
+
+        if (
+            clean === 'pending' ||
+            clean === 'under review' ||
+            clean === 'pending review' ||
+            clean === 'review' ||
+            clean === 'new' ||
+            clean === 'screening' ||
+            clean === 'shortlisted' ||
+            clean === 'waitlisted' ||
+            clean === 'submitted'
+        ) {
+            return 'pending';
+        }
+
+        if (
+            clean === 'rejected' ||
+            clean === 'declined' ||
+            clean === 'denied' ||
+            clean === 'not approved'
+        ) {
+            return 'rejected';
+        }
+
+        if (
+            clean === 'not applied' ||
+            clean === 'none' ||
+            clean === 'guest' ||
+            clean === 'locked' ||
+            clean === 'plazas first'
+        ) {
+            return 'not_applied';
+        }
+
+        return 'not_applied';
+    }
+
+    function readJsonStorage(key = '') {
+        const stores = [localStorage, sessionStorage];
+
+        for (const store of stores) {
+            try {
+                const raw = store.getItem(key);
+                if (!raw) continue;
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+            } catch (_) {}
+        }
+
+        return null;
+    }
+
+    function pickFromObject(obj = {}, keys = []) {
+        if (!obj || typeof obj !== 'object') return undefined;
+
+        for (const key of keys) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];
+        }
+
+        return undefined;
+    }
+
+    function readSnapshotFromFunctions(config) {
+        for (const fnName of config.snapshotFns) {
+            try {
+                if (typeof window[fnName] === 'function') {
+                    const value = window[fnName]();
+                    if (value && typeof value === 'object') return value;
+                }
+            } catch (_) {}
+        }
+
+        return {};
+    }
+
+    function readSnapshotFromCaches(key = '') {
+        const cacheKeys = [
+            'yh_dashboard_self_profile_cache_v1',
+            'yh_academy_profile_cache_v1',
+            'yh_user_profile_cache_v1',
+            'yh_current_user',
+            'yh_user'
+        ];
+
+        for (const cacheKey of cacheKeys) {
+            const profile = readJsonStorage(cacheKey);
+            if (!profile || typeof profile !== 'object') continue;
+
+            const divisions = profile.divisions && typeof profile.divisions === 'object' ? profile.divisions : {};
+            const candidate =
+                divisions[key] ||
+                divisions[key === 'plazas' ? 'plaza' : key] ||
+                profile[key] ||
+                profile[`${key}Application`] ||
+                profile[key === 'plazas' ? 'plazaApplication' : `${key}Application`];
+
+            if (candidate && typeof candidate === 'object') return candidate;
+        }
+
+        return {};
+    }
+
+    function readStatusFromCard(key = '') {
+        const card = document.querySelector(`[data-yh-overview-division-card="${key}"]`);
+        const statusText = String(card?.querySelector?.('.yh-dashboard-overview-access-status-v1')?.textContent || '').trim();
+
+        return normalizeStatus(statusText);
+    }
+
+    function getDivisionState(key = '') {
+        const clean = cleanKey(key);
+        const config = DIVISIONS[clean];
+
+        if (!config) {
+            return { status: 'not_applied', label: 'Not Applied', approved: false, pending: false, rejected: false, action: 'apply' };
+        }
+
+        const functionSnapshot = readSnapshotFromFunctions(config);
+        const cacheSnapshot = readSnapshotFromCaches(clean);
+        const snapshot = {
+            ...cacheSnapshot,
+            ...functionSnapshot
+        };
+
+        const canEnter = config.canEnterKeys.some((field) => isTruthyValue(snapshot[field]));
+        const rawStatus = pickFromObject(snapshot, config.statusKeys);
+        let status = normalizeStatus(rawStatus);
+
+        const hasApplication = config.hasApplicationKeys.some((field) => isTruthyValue(snapshot[field]));
+
+        if (canEnter) status = 'approved';
+        else if (hasApplication && status === 'not_applied') status = 'pending';
+
+        if (status === 'not_applied') {
+            const domStatus = readStatusFromCard(clean);
+            if (domStatus !== 'not_applied') status = domStatus;
+        }
+
+        const approved = status === 'approved';
+        const pending = status === 'pending';
+        const rejected = status === 'rejected';
+
+        return {
+            status,
+            approved,
+            pending,
+            rejected,
+            action: approved ? 'enter' : pending ? 'pending' : rejected ? 'rejected' : 'apply',
+            label: approved ? 'Approved' : pending ? 'Pending' : rejected ? 'Rejected' : 'Not Applied'
+        };
+    }
+
+    function setCardClass(card, action) {
+        if (!card) return;
+
+        ['is-apply', 'is-enter', 'is-pending', 'is-rejected', 'is-approved'].forEach((name) => {
+            card.classList.remove(name);
+        });
+
+        card.classList.add(`is-${action}`);
+        card.setAttribute('data-yh-division-access-state', action);
+    }
+
+    function syncAccessCard(key = '') {
+        const clean = cleanKey(key);
+        const config = DIVISIONS[clean];
+        if (!config) return;
+
+        const card = document.querySelector(`[data-yh-overview-division-card="${clean}"]`);
+        if (!card) return;
+
+        const state = getDivisionState(clean);
+        const statusNode = card.querySelector('.yh-dashboard-overview-access-status-v1');
+        const button = card.querySelector('[data-yh-overview-division-action]');
+
+        setCardClass(card, state.action);
+
+        if (statusNode) {
+            statusNode.textContent = state.label;
+        }
+
+        if (!button) return;
+
+        button.setAttribute('data-yh-overview-division-action', clean);
+        button.setAttribute('data-yh-overview-division-action-kind', state.action);
+        button.setAttribute('data-yh-overview-division-target', state.approved ? config.childTarget : '');
+
+        if (state.approved) {
+            button.textContent = config.enterLabel;
+            button.disabled = false;
+            button.removeAttribute('aria-disabled');
+            return;
+        }
+
+        if (state.pending) {
+            button.textContent = config.pendingLabel;
+            button.disabled = true;
+            button.setAttribute('aria-disabled', 'true');
+            return;
+        }
+
+        if (state.rejected) {
+            button.textContent = 'Contact Admin';
+            button.disabled = true;
+            button.setAttribute('aria-disabled', 'true');
+            return;
+        }
+
+        button.textContent = config.applyLabel;
+        button.disabled = false;
+        button.removeAttribute('aria-disabled');
+    }
+
+    function syncAccessCards(reason = 'sync') {
+        if (!isDashboardPage()) return;
+        Object.keys(DIVISIONS).forEach(syncAccessCard);
+    }
+
+    function showToastMessage(message = '', type = 'error') {
+        if (typeof window.showToast === 'function') {
+            window.showToast(message, type);
+        }
+    }
+
+    function closeTransitionLoaders() {
+        try {
+            window.yhDashboardV2LoaderGateAuthorityV2?.hideLoader?.();
+        } catch (_) {}
+
+        document.body?.removeAttribute('data-yh-dashboard-tab-transitioning');
+
+        document.querySelectorAll('#yh-dashboard-tab-transition-loader-v1, #yh-dashboard-tab-transition-loader-v2, #yh-dashboard-tab-transition-loader-v3').forEach((loader) => {
+            loader.classList.remove('is-active');
+            loader.classList.add('hidden-step');
+            loader.setAttribute('aria-hidden', 'true');
+        });
+    }
+
+    function openDivisionApplication(key = '') {
+        const clean = cleanKey(key);
+        const config = DIVISIONS[clean];
+
+        if (!config) return false;
+
+        closeTransitionLoaders();
+
+        const polishApi = window.yhDashboardV2OverviewPolishV1;
+        if (polishApi && typeof polishApi.openDivisionApplicationModal === 'function') {
+            try {
+                if (polishApi.openDivisionApplicationModal(clean)) return true;
+            } catch (_) {}
+        }
+
+        for (const fnName of config.applyFns) {
+            try {
+                if (typeof window[fnName] === 'function') {
+                    const result = window[fnName]();
+                    if (result && typeof result.then === 'function') {
+                        result.catch((error) => console.error(`${fnName} failed:`, error));
+                    }
+                    return true;
+                }
+            } catch (error) {
+                console.error(`${fnName} failed:`, error);
+            }
+        }
+
+        showToastMessage(`${config.label} application form is not ready yet. Please refresh and try again.`, 'error');
+        return false;
+    }
+
+    function handleNotApprovedParentClick(key = '') {
+        const clean = cleanKey(key);
+        const config = DIVISIONS[clean];
+
+        if (!config) return;
+
+        closeTransitionLoaders();
+
+        showToastMessage(`${config.label} access is not approved yet. Please complete your application first.`, 'error');
+
+        window.setTimeout(() => {
+            openDivisionApplication(clean);
+        }, 420);
+    }
+
+    function ensureLoader() {
+        let loader = document.getElementById('yh-dashboard-tab-transition-loader-v3');
+        if (loader) return loader;
+
+        loader = document.createElement('div');
+        loader.id = 'yh-dashboard-tab-transition-loader-v3';
+        loader.className = 'yh-dashboard-tab-transition-loader-v3 hidden-step';
+        loader.setAttribute('aria-hidden', 'true');
+        loader.innerHTML = `
+            <div class="yh-dashboard-tab-transition-card-v3">
+                <div class="yh-dashboard-tab-transition-orb-v3" aria-hidden="true">
+                    <img src="/images/logo.avif" alt="">
+                </div>
+                <span>SYNCING VIEW</span>
+                <strong id="yh-dashboard-tab-transition-title-v3">Opening Dashboard</strong>
+                <p>Preparing the selected workspace.</p>
+                <div class="yh-dashboard-tab-transition-bar-v3" aria-hidden="true"><i></i></div>
+            </div>
+        `;
+
+        document.body.appendChild(loader);
+        return loader;
+    }
+
+    function showLoader(label = 'Opening Dashboard') {
+        const loader = ensureLoader();
+        const title = document.getElementById('yh-dashboard-tab-transition-title-v3');
+
+        if (title) title.textContent = label;
+
+        document.body?.setAttribute('data-yh-dashboard-tab-transitioning', 'true');
+
+        loader.classList.remove('hidden-step');
+        loader.classList.add('is-active');
+        loader.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideLoader() {
+        const loader = document.getElementById('yh-dashboard-tab-transition-loader-v3');
+
+        document.body?.removeAttribute('data-yh-dashboard-tab-transitioning');
+
+        if (!loader) return;
+
+        loader.classList.remove('is-active');
+        loader.setAttribute('aria-hidden', 'true');
+
+        window.setTimeout(() => {
+            if (!loader.classList.contains('is-active')) loader.classList.add('hidden-step');
+        }, 180);
+    }
+
+    function runTarget(target) {
+        if (!target) return;
+
+        if (target.kind === 'overview') {
+            if (typeof window.yhDashboardV2ShowOverviewShellV1 === 'function') {
+                window.yhDashboardV2ShowOverviewShellV1('division-apply-gate-v1');
+                window.setTimeout(() => window.yhDashboardV2ShowOverviewShellV1('division-apply-gate-v1-late'), 90);
+            } else if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
+                window.activateDashboardUnifiedWorkspace('overview', { animate: false, scroll: false, persist: true });
+            }
+
+            window.setTimeout(syncAccessCards, 120);
+            return;
+        }
+
+        if (target.kind === 'parent') {
+            const state = getDivisionState(target.key);
+
+            if (!state.approved && !state.pending) {
+                handleNotApprovedParentClick(target.key);
+                return;
+            }
+
+            if (typeof window.yhDashboardV2ShowParentShellV1 === 'function') {
+                window.yhDashboardV2ShowParentShellV1(target.key, 'division-apply-gate-v1');
+                window.setTimeout(() => window.yhDashboardV2ShowParentShellV1(target.key, 'division-apply-gate-v1-late'), 90);
+                return;
+            }
+
+            if (typeof window.yhDashboardV2RenderParent === 'function') {
+                window.yhDashboardV2RenderParent(target.key);
+            }
+
+            return;
+        }
+
+        if (target.kind === 'child') {
+            if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
+                window.activateDashboardUnifiedWorkspace(target.key, {
+                    animate: false,
+                    scroll: true,
+                    persist: true
+                });
+            }
+        }
+    }
+
+    function queueNavigation(target) {
+        if (!target) return;
+
+        syncAccessCards('before-navigation');
+
+        if (target.kind === 'parent') {
+            const state = getDivisionState(target.key);
+
+            if (!state.approved && !state.pending) {
+                handleNotApprovedParentClick(target.key);
+                return;
+            }
+
+            if (state.pending) {
+                showToastMessage(`${DIVISIONS[target.key].label} application is still under review.`, 'error');
+            }
+        }
+
+        pendingTarget = target;
+        showLoader(target.label || 'Opening Dashboard');
+
+        window.clearTimeout(transitionTimer);
+        transitionTimer = window.setTimeout(() => {
+            const next = pendingTarget;
+            pendingTarget = null;
+
+            runTarget(next);
+
+            window.setTimeout(hideLoader, 180);
+        }, NAV_DELAY_MS);
+    }
+
+    function getTargetFromEvent(event) {
+        if (!event?.target || !isDashboardPage()) return null;
+
+        if (event.target.closest?.('#yh-dashboard-tab-transition-loader-v3, .yh-modal, .modal, [role="dialog"]')) {
+            return null;
+        }
+
+        const applyButton = event.target.closest?.('[data-yh-overview-division-action]');
+        if (applyButton) {
+            const division = cleanKey(applyButton.getAttribute('data-yh-overview-division-action') || '');
+            const kind = String(applyButton.getAttribute('data-yh-overview-division-action-kind') || '').trim().toLowerCase();
+
+            if (isDivisionKey(division)) {
+                if (kind === 'apply') {
+                    return { kind: 'apply', key: division, label: `Opening ${DIVISIONS[division].label} Application` };
+                }
+
+                if (kind === 'enter') {
+                    return { kind: 'child', key: DIVISIONS[division].childTarget, label: `Opening ${DIVISIONS[division].label}` };
+                }
+            }
+        }
+
+        const shell = event.target.closest?.('[data-yh-dashboard-shell]');
+        if (shell) {
+            const key = cleanKey(shell.getAttribute('data-yh-dashboard-shell') || '');
+
+            if (key === 'overview') {
+                return { kind: 'overview', key, label: 'Opening Dashboard' };
+            }
+
+            if (isDivisionKey(key)) {
+                return { kind: 'parent', key, label: `Opening ${DIVISIONS[key].label}` };
+            }
+        }
+
+        const child = event.target.closest?.('[data-yh-sidebar-child], [data-yh-mobile-subtab-menu-option], [data-yh-dashboard-v2-child]');
+        if (child) {
+            const key = (
+                child.getAttribute('data-yh-sidebar-child') ||
+                child.getAttribute('data-yh-mobile-subtab-menu-option') ||
+                child.getAttribute('data-yh-dashboard-v2-child') ||
+                ''
+            ).trim();
+
+            if (key) return { kind: 'child', key, label: 'Opening section' };
+        }
+
+        return null;
+    }
+
+    function interceptDashboardNavigation(event) {
+        const target = getTargetFromEvent(event);
+        if (!target) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+
+        if (target.kind === 'apply') {
+            showToastMessage(`${DIVISIONS[target.key].label} access is not approved yet. Please complete your application first.`, 'error');
+            window.setTimeout(() => openDivisionApplication(target.key), 320);
+            return;
+        }
+
+        queueNavigation(target);
+    }
+
+    window.addEventListener('click', interceptDashboardNavigation, true);
+
+    function scheduleSync(reason = 'sync') {
+        if (!isDashboardPage()) return;
+
+        [0, 80, 240, 700, 1400, 2600, 4200].forEach((delay) => {
+            window.setTimeout(() => syncAccessCards(`${reason}-${delay}`), delay);
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => scheduleSync('dom'));
+    } else {
+        scheduleSync('boot');
+    }
+
+    window.addEventListener('pageshow', () => scheduleSync('pageshow'));
+
+    try {
+        const observer = new MutationObserver(() => {
+            window.clearTimeout(window.__yhDashboardDivisionApplyGateTimerV1);
+            window.__yhDashboardDivisionApplyGateTimerV1 = window.setTimeout(() => {
+                syncAccessCards('mutation');
+            }, 80);
+        });
+
+        observer.observe(document.body || document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: [
+                'class',
+                'style',
+                'data-yh-unified-workspace',
+                'data-yh-dashboard-v2-active'
+            ]
+        });
+
+        window.__yhDashboardDivisionApplyGateObserverV1 = observer;
+    } catch (_) {}
+
+    window.yhDashboardDivisionApplyGateV1 = {
+        syncAccessCards,
+        getDivisionState,
+        openDivisionApplication,
+        handleNotApprovedParentClick,
+        queueNavigation
+    };
+})();
+/* END PATCH: Dashboard division apply gate v1 */
 
