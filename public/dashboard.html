@@ -8,12 +8,12 @@
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" href="/css/style.css?v=20260707-yhu-mobile-loader-v1">
-<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260710-dashboard-referral-single-carousel-final-v2">
-<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260709-yhu-mobile-plaza-dropdown-v1">
+<link rel="stylesheet" href="/css/style.css?v=20260710-dashboard-state-owner-final-v3">
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260710-dashboard-state-owner-final-v3">
+<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260710-dashboard-state-owner-final-v3">
 
-<!-- PATCH: Dashboard final single carousel early paint v2 -->
-<style id="yh-dashboard-final-single-carousel-early-paint-v2">
+<!-- PATCH: Dashboard state owner early paint v3 -->
+<style id="yh-dashboard-state-owner-early-paint-v3">
   body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-overview-grid,
   body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card,
   body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card-large.yh-command-access-hero-card,
@@ -26,6 +26,26 @@
     pointer-events: none;
   }
 
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-dashboard-division-parent-intro-v1,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .yh-dashboard-division-intro-v1,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .yh-dashboard-division-intro-hero-v1,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .yh-dashboard-division-child-grid-v1,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .yh-academy-parent-hero-header,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .yh-academy-parent-vision-scope,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .yh-universe-command-hero,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .yh-universe-stage-nav {
+    display: none;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-dashboard-overview-dynamic-access-row-v1 {
+    display: grid;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-referral-card,
   body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-academy-strip {
     display: block;
@@ -33,13 +53,8 @@
     opacity: 1;
     pointer-events: auto;
   }
-
-  body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-universe-referral-card,
-  body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-universe-academy-strip {
-    contain: layout paint;
-  }
 </style>
-<!-- END PATCH: Dashboard final single carousel early paint v2 -->
+<!-- END PATCH: Dashboard state owner early paint v3 -->
 
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard" data-yh-unified-workspace="overview" data-yh-unified-division="overview">
@@ -2806,7 +2821,7 @@
 </script>
 <!-- END PATCH: Dashboard-only division parent route safety v1 -->
 
-<script src="/js/dashboard.js?v=20260710-dashboard-referral-single-carousel-final-v2"></script>
+<script src="/js/dashboard.js?v=20260710-dashboard-state-owner-final-v3"></script>
 <!-- PATCH: Entry buttons direct Feed Command route v138 -->
 <script>
 (function installYHEntryButtonsDirectFeedCommandV138() {

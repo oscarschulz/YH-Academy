@@ -12775,7 +12775,7 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     const isDivisionParent = isAcademyParent || isPlazasParent || isFederationParent;
     const isChildWorkspace = typeof dashboardIsChildWorkspaceCleanV71 === 'function'
         ? dashboardIsChildWorkspaceCleanV71(cleanKey)
-        : !(cleanKey === 'overview' || isDivisionParent);
+        : !(isOverview || isDivisionParent);
 
     const setVisible = (node, visible, displayValue = '') => {
         if (!node) return;
@@ -12801,13 +12801,14 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     const commandHead = document.querySelector('.yh-command-dashboard-head');
     const overviewGrid = document.getElementById('yh-command-overview-grid');
     const dynamicAccessRow = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
+    const referralCard = document.getElementById('yh-universe-referral-card');
 
+    const parentIntro = document.getElementById('yh-dashboard-division-parent-intro-v1');
     const academyHero = document.querySelector('.yh-academy-parent-hero-header');
     const academyCommandHero = document.querySelector('.yh-universe-command-hero');
     const universeStage = document.querySelector('.yh-universe-stage-nav');
     const universeDots = document.querySelector('.yh-universe-dots');
 
-    const referralCard = document.getElementById('yh-universe-referral-card');
     const academyStrip = document.getElementById('yh-universe-academy-strip');
     const plazaStrip = document.getElementById('yh-universe-plaza-strip');
     const federationStrip = document.getElementById('yh-universe-federation-strip');
@@ -12817,34 +12818,40 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     document.body?.setAttribute('data-yh-unified-workspace', cleanKey);
     document.body?.setAttribute('data-yh-unified-division', cleanDivision);
     document.body?.classList.toggle('yh-dashboard-child-workspace-active', isChildWorkspace);
+    document.body?.classList.toggle('yh-dashboard-overview-command-active-v1', isOverview);
+    document.body?.classList.toggle('yh-dashboard-parent-intro-active-v1', isDivisionParent);
     document.body?.classList.remove('yh-dashboard-inline-child-active');
 
     setVisible(commandHead, isOverview, 'grid');
     setVisible(overviewGrid, false, 'grid');
     setVisible(dynamicAccessRow, isOverview, 'grid');
-
     setVisible(referralCard, isOverview, 'block');
+
+    setVisible(parentIntro, isDivisionParent, 'block');
+    setVisible(academyHero, isAcademyParent, 'block');
+    setVisible(academyCommandHero, isAcademyParent, 'grid');
+    setVisible(universeStage, isDivisionParent, 'block');
+    setVisible(universeDots, false, 'flex');
+
     setVisible(academyStrip, isOverview, 'block');
+    setVisible(plazaStrip, false, 'block');
+    setVisible(federationStrip, false, 'block');
+    setVisible(oldCarousel, false, 'block');
+    setVisible(oldCarouselColumn, false, 'block');
 
-    [plazaStrip, federationStrip, oldCarousel, oldCarouselColumn].forEach((node) => setVisible(node, false, 'block'));
-
-    if (academyStrip) {
-        academyStrip.classList.toggle('is-active', isOverview);
-    }
-
-    [plazaStrip, federationStrip].forEach((strip) => {
-        if (!strip) return;
-        strip.classList.remove('is-active');
-    });
+    if (academyStrip) academyStrip.classList.toggle('is-active', isOverview);
+    if (plazaStrip) plazaStrip.classList.remove('is-active');
+    if (federationStrip) federationStrip.classList.remove('is-active');
 
     if (isOverview && referralCard && academyStrip && referralCard.nextElementSibling !== academyStrip) {
         academyStrip.parentNode?.insertBefore(referralCard, academyStrip);
     }
 
-    setVisible(academyHero, isAcademyParent, 'block');
-    setVisible(academyCommandHero, isAcademyParent, 'grid');
-    setVisible(universeStage, isDivisionParent, 'block');
-    setVisible(universeDots, false, 'flex');
+    if (isDivisionParent && typeof setUniverseSlide === 'function') {
+        try {
+            setUniverseSlide(cleanDivision, { animate: false });
+        } catch (_) {}
+    }
 
     if (!isChildWorkspace) {
         if (typeof dashboardResetWorkspaceLaunchSurfaceCleanV71 === 'function') {
@@ -12858,8 +12865,8 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
         try { window.yhRenderDashboardOverviewDynamicAccessRowV1(); } catch (_) {}
     }
 
-    if (isOverview && typeof window.yhDashboardForceDashboardOnlyReferralCarouselV2 === 'function') {
-        try { window.yhDashboardForceDashboardOnlyReferralCarouselV2(); } catch (_) {}
+    if (typeof window.yhDashboardApplyStateOwnerFinalV3 === 'function') {
+        try { window.yhDashboardApplyStateOwnerFinalV3(cleanKey); } catch (_) {}
     }
 }
 
@@ -12966,7 +12973,7 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     const isDivisionParent = isAcademyParent || isPlazasParent || isFederationParent;
     const isChildWorkspace = typeof dashboardIsChildWorkspaceCleanV71 === 'function'
         ? dashboardIsChildWorkspaceCleanV71(cleanKey)
-        : !(cleanKey === 'overview' || isDivisionParent);
+        : !(isOverview || isDivisionParent);
 
     const setVisible = (node, visible, displayValue = '') => {
         if (!node) return;
@@ -12992,13 +12999,14 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     const commandHead = document.querySelector('.yh-command-dashboard-head');
     const overviewGrid = document.getElementById('yh-command-overview-grid');
     const dynamicAccessRow = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
+    const referralCard = document.getElementById('yh-universe-referral-card');
 
+    const parentIntro = document.getElementById('yh-dashboard-division-parent-intro-v1');
     const academyHero = document.querySelector('.yh-academy-parent-hero-header');
     const academyCommandHero = document.querySelector('.yh-universe-command-hero');
     const universeStage = document.querySelector('.yh-universe-stage-nav');
     const universeDots = document.querySelector('.yh-universe-dots');
 
-    const referralCard = document.getElementById('yh-universe-referral-card');
     const academyStrip = document.getElementById('yh-universe-academy-strip');
     const plazaStrip = document.getElementById('yh-universe-plaza-strip');
     const federationStrip = document.getElementById('yh-universe-federation-strip');
@@ -13008,34 +13016,40 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     document.body?.setAttribute('data-yh-unified-workspace', cleanKey);
     document.body?.setAttribute('data-yh-unified-division', cleanDivision);
     document.body?.classList.toggle('yh-dashboard-child-workspace-active', isChildWorkspace);
+    document.body?.classList.toggle('yh-dashboard-overview-command-active-v1', isOverview);
+    document.body?.classList.toggle('yh-dashboard-parent-intro-active-v1', isDivisionParent);
     document.body?.classList.remove('yh-dashboard-inline-child-active');
 
     setVisible(commandHead, isOverview, 'grid');
     setVisible(overviewGrid, false, 'grid');
     setVisible(dynamicAccessRow, isOverview, 'grid');
-
     setVisible(referralCard, isOverview, 'block');
+
+    setVisible(parentIntro, isDivisionParent, 'block');
+    setVisible(academyHero, isAcademyParent, 'block');
+    setVisible(academyCommandHero, isAcademyParent, 'grid');
+    setVisible(universeStage, isDivisionParent, 'block');
+    setVisible(universeDots, false, 'flex');
+
     setVisible(academyStrip, isOverview, 'block');
+    setVisible(plazaStrip, false, 'block');
+    setVisible(federationStrip, false, 'block');
+    setVisible(oldCarousel, false, 'block');
+    setVisible(oldCarouselColumn, false, 'block');
 
-    [plazaStrip, federationStrip, oldCarousel, oldCarouselColumn].forEach((node) => setVisible(node, false, 'block'));
-
-    if (academyStrip) {
-        academyStrip.classList.toggle('is-active', isOverview);
-    }
-
-    [plazaStrip, federationStrip].forEach((strip) => {
-        if (!strip) return;
-        strip.classList.remove('is-active');
-    });
+    if (academyStrip) academyStrip.classList.toggle('is-active', isOverview);
+    if (plazaStrip) plazaStrip.classList.remove('is-active');
+    if (federationStrip) federationStrip.classList.remove('is-active');
 
     if (isOverview && referralCard && academyStrip && referralCard.nextElementSibling !== academyStrip) {
         academyStrip.parentNode?.insertBefore(referralCard, academyStrip);
     }
 
-    setVisible(academyHero, isAcademyParent, 'block');
-    setVisible(academyCommandHero, isAcademyParent, 'grid');
-    setVisible(universeStage, isDivisionParent, 'block');
-    setVisible(universeDots, false, 'flex');
+    if (isDivisionParent && typeof setUniverseSlide === 'function') {
+        try {
+            setUniverseSlide(cleanDivision, { animate: false });
+        } catch (_) {}
+    }
 
     if (!isChildWorkspace) {
         if (typeof dashboardResetWorkspaceLaunchSurfaceCleanV71 === 'function') {
@@ -13049,8 +13063,8 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
         try { window.yhRenderDashboardOverviewDynamicAccessRowV1(); } catch (_) {}
     }
 
-    if (isOverview && typeof window.yhDashboardForceDashboardOnlyReferralCarouselV2 === 'function') {
-        try { window.yhDashboardForceDashboardOnlyReferralCarouselV2(); } catch (_) {}
+    if (typeof window.yhDashboardApplyStateOwnerFinalV3 === 'function') {
+        try { window.yhDashboardApplyStateOwnerFinalV3(cleanKey); } catch (_) {}
     }
 }
 
@@ -35177,11 +35191,12 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         setDashboardNodeVisible(overviewGrid, false, 'grid');
         setDashboardNodeVisible(dynamicAccessRow, isOverview, 'grid');
         setDashboardNodeVisible(referralCard, isOverview, 'block');
-        setDashboardNodeVisible(academyStrip, isOverview, 'block');
 
-        [plazaStrip, federationStrip, oldCarousel, oldCarouselColumn].forEach((node) => {
-            setDashboardNodeVisible(node, false, 'block');
-        });
+        setDashboardNodeVisible(academyStrip, isOverview, 'block');
+        setDashboardNodeVisible(plazaStrip, false, 'block');
+        setDashboardNodeVisible(federationStrip, false, 'block');
+        setDashboardNodeVisible(oldCarousel, false, 'block');
+        setDashboardNodeVisible(oldCarouselColumn, false, 'block');
 
         if (academyStrip) academyStrip.classList.toggle('is-active', isOverview);
         if (plazaStrip) plazaStrip.classList.remove('is-active');
@@ -35194,7 +35209,8 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         if (isParent) {
             renderIntro(workspace);
         } else {
-            setVisible(intro, false);
+            setDashboardNodeVisible(intro, false, 'block');
+            intro.innerHTML = '';
         }
 
         document.body?.classList.toggle('yh-dashboard-parent-intro-active-v1', isParent);
@@ -35216,8 +35232,8 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
             }
         } catch (_) {}
 
-        if (isOverview && typeof window.yhDashboardForceDashboardOnlyReferralCarouselV2 === 'function') {
-            try { window.yhDashboardForceDashboardOnlyReferralCarouselV2(); } catch (_) {}
+        if (typeof window.yhDashboardApplyStateOwnerFinalV3 === 'function') {
+            try { window.yhDashboardApplyStateOwnerFinalV3(workspace); } catch (_) {}
         }
     }
 
@@ -35856,10 +35872,12 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 /* END PATCH: Dashboard overview cleanup dynamic access row v1 */
 
 
-/* PATCH: Dashboard final single carousel referral v2 */
-(function installDashboardFinalSingleCarouselReferralV2() {
-    if (window.__yhDashboardFinalSingleCarouselReferralV2Installed) return;
-    window.__yhDashboardFinalSingleCarouselReferralV2Installed = true;
+/* PATCH: Dashboard state owner final v3 */
+(function installDashboardStateOwnerFinalV3() {
+    if (window.__yhDashboardStateOwnerFinalV3Installed) return;
+    window.__yhDashboardStateOwnerFinalV3Installed = true;
+
+    const PARENT_KEYS = new Set(['academy', 'plazas', 'federation']);
 
     function isDashboardPage() {
         const path = String(window.location.pathname || '').replace(/\/+$/, '');
@@ -35870,8 +35888,10 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         );
     }
 
-    function isOverview() {
-        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview').trim().toLowerCase() === 'overview';
+    function getWorkspace(fallback = '') {
+        const fromBody = String(document.body?.getAttribute('data-yh-unified-workspace') || '').trim().toLowerCase();
+        const cleanFallback = String(fallback || '').trim().toLowerCase();
+        return fromBody || cleanFallback || 'overview';
     }
 
     function setVisible(node, visible, displayValue = '') {
@@ -35895,15 +35915,36 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         node.style.pointerEvents = 'none';
     }
 
-    function forceDashboardOnlyReferralCarousel() {
+    function hideAllParentIntroArtifacts() {
+        [
+            '#yh-dashboard-division-parent-intro-v1',
+            '.yh-dashboard-division-intro-v1',
+            '.yh-dashboard-division-intro-hero-v1',
+            '.yh-dashboard-division-child-grid-v1',
+            '.yh-academy-parent-hero-header',
+            '.yh-academy-parent-vision-scope',
+            '.yh-universe-command-hero',
+            '.yh-universe-stage-nav'
+        ].forEach((selector) => {
+            document.querySelectorAll(selector).forEach((node) => setVisible(node, false, 'block'));
+        });
+
+        const intro = document.getElementById('yh-dashboard-division-parent-intro-v1');
+        if (intro) intro.innerHTML = '';
+    }
+
+    function applyDashboardStateOwnerFinalV3(forcedKey = '') {
         if (!isDashboardPage()) return;
 
-        const overview = isOverview();
+        const workspace = getWorkspace(forcedKey);
+        const isOverview = workspace === 'overview';
+        const isParent = PARENT_KEYS.has(workspace);
 
         const dynamicAccessRow = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
         const referralCard = document.getElementById('yh-universe-referral-card');
         const liveActivity = document.getElementById('yh-universe-academy-strip');
 
+        const commandHead = document.querySelector('.yh-command-dashboard-head');
         const oldGrid = document.getElementById('yh-command-overview-grid');
         const oldCarousel = document.getElementById('yh-universe-carousel');
         const plazaStrip = document.getElementById('yh-universe-plaza-strip');
@@ -35919,43 +35960,79 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         if (plazaStrip) plazaStrip.classList.remove('is-active');
         if (federationStrip) federationStrip.classList.remove('is-active');
 
-        setVisible(dynamicAccessRow, overview, 'grid');
-        setVisible(referralCard, overview, 'block');
-        setVisible(liveActivity, overview, 'block');
+        setVisible(commandHead, isOverview, 'grid');
+        setVisible(dynamicAccessRow, isOverview, 'grid');
+        setVisible(referralCard, isOverview, 'block');
+        setVisible(liveActivity, isOverview, 'block');
 
-        if (liveActivity) liveActivity.classList.toggle('is-active', overview);
+        if (liveActivity) liveActivity.classList.toggle('is-active', isOverview);
 
-        if (overview && referralCard && liveActivity && referralCard.nextElementSibling !== liveActivity) {
-            liveActivity.parentNode?.insertBefore(referralCard, liveActivity);
+        if (isOverview) {
+            hideAllParentIntroArtifacts();
+
+            document.body?.setAttribute('data-yh-unified-workspace', 'overview');
+            document.body?.setAttribute('data-yh-unified-division', 'overview');
+            document.body?.classList.remove('yh-dashboard-parent-intro-active-v1');
+            document.body?.classList.add('yh-dashboard-overview-command-active-v1');
+
+            if (referralCard && liveActivity && referralCard.nextElementSibling !== liveActivity) {
+                liveActivity.parentNode?.insertBefore(referralCard, liveActivity);
+            }
+        } else {
+            setVisible(referralCard, false, 'block');
+            setVisible(liveActivity, false, 'block');
+            document.body?.classList.toggle('yh-dashboard-parent-intro-active-v1', isParent);
+            document.body?.classList.toggle('yh-dashboard-overview-command-active-v1', false);
         }
     }
 
-    window.yhDashboardForceDashboardOnlyReferralCarouselV2 = forceDashboardOnlyReferralCarousel;
+    window.yhDashboardApplyStateOwnerFinalV3 = applyDashboardStateOwnerFinalV3;
 
     const nativeActivate = window.activateDashboardUnifiedWorkspace;
-    if (typeof nativeActivate === 'function' && nativeActivate.__yhFinalSingleCarouselReferralWrappedV2 !== true) {
-        const wrappedActivate = function wrappedActivateDashboardUnifiedWorkspaceFinalSingleCarouselV2(key = 'overview', options = {}) {
+
+    if (typeof nativeActivate === 'function' && nativeActivate.__yhStateOwnerFinalV3Wrapped !== true) {
+        const wrappedActivateDashboardUnifiedWorkspaceFinalV3 = function wrappedActivateDashboardUnifiedWorkspaceFinalV3(key = 'overview', options = {}) {
             const result = nativeActivate.call(this, key, options);
-            forceDashboardOnlyReferralCarousel();
-            window.requestAnimationFrame?.(forceDashboardOnlyReferralCarousel);
-            window.setTimeout(forceDashboardOnlyReferralCarousel, 60);
-            window.setTimeout(forceDashboardOnlyReferralCarousel, 220);
+            const cleanKey = String(result?.key || key || 'overview').trim().toLowerCase() || 'overview';
+
+            applyDashboardStateOwnerFinalV3(cleanKey);
+            window.requestAnimationFrame?.(() => applyDashboardStateOwnerFinalV3(cleanKey));
+
+            [30, 90, 180, 360, 520, 900].forEach((delay) => {
+                window.setTimeout(() => applyDashboardStateOwnerFinalV3(cleanKey), delay);
+            });
+
             return result;
         };
 
-        wrappedActivate.__yhFinalSingleCarouselReferralWrappedV2 = true;
-        window.activateDashboardUnifiedWorkspace = wrappedActivate;
+        wrappedActivateDashboardUnifiedWorkspaceFinalV3.__yhStateOwnerFinalV3Wrapped = true;
+        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspaceFinalV3;
     }
+
+    document.addEventListener('click', (event) => {
+        const dashboardButton = event.target?.closest?.(
+            '[data-yh-dashboard-shell="overview"], ' +
+            '#nav-dashboard, ' +
+            '#btn-dashboard-overview, ' +
+            '[data-yh-command-overview-open="overview"]'
+        );
+
+        if (!dashboardButton) return;
+
+        window.setTimeout(() => applyDashboardStateOwnerFinalV3('overview'), 0);
+        window.setTimeout(() => applyDashboardStateOwnerFinalV3('overview'), 80);
+        window.setTimeout(() => applyDashboardStateOwnerFinalV3('overview'), 240);
+    }, true);
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', forceDashboardOnlyReferralCarousel);
+        document.addEventListener('DOMContentLoaded', () => applyDashboardStateOwnerFinalV3());
     } else {
-        forceDashboardOnlyReferralCarousel();
+        applyDashboardStateOwnerFinalV3();
     }
 
-    [20, 80, 180, 420, 900, 1800].forEach((delay) => {
-        window.setTimeout(forceDashboardOnlyReferralCarousel, delay);
+    [40, 120, 260, 600, 1200, 2400].forEach((delay) => {
+        window.setTimeout(() => applyDashboardStateOwnerFinalV3(), delay);
     });
 })();
-/* END PATCH: Dashboard final single carousel referral v2 */
+/* END PATCH: Dashboard state owner final v3 */
 
