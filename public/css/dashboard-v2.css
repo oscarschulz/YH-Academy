@@ -583,3 +583,42 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-overview-gu
 }
 /* END PATCH: Dashboard overview boot guard styles v1 */
 
+
+/* PATCH: Dashboard parent child access authority styles v1 */
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .yh-sidebar-division-group.is-expanded .yh-sidebar-subnav,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .yh-sidebar-subnav,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-child-authority="overview"] .yh-sidebar-subnav {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] [data-yh-sidebar-child],
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-child-authority="overview"] [data-yh-sidebar-child],
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-child-authority="overview"] [data-yh-mobile-subtab-menu-option] {
+    pointer-events: none !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"][data-yh-dashboard-v2-approved="false"] #yh-sidebar-subnav-academy,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="plazas"][data-yh-dashboard-v2-approved="false"] #yh-sidebar-subnav-plazas,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"][data-yh-dashboard-v2-approved="false"] #yh-sidebar-subnav-federation,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"][data-yh-dashboard-v2-approved="false"] [data-yh-sidebar-child^="academy-"],
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="plazas"][data-yh-dashboard-v2-approved="false"] [data-yh-sidebar-child^="plazas-"],
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"][data-yh-dashboard-v2-approved="false"] [data-yh-sidebar-child^="federation-"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"][data-yh-dashboard-v2-approved="true"] #yh-sidebar-subnav-academy,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="plazas"][data-yh-dashboard-v2-approved="true"] #yh-sidebar-subnav-plazas,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"][data-yh-dashboard-v2-approved="true"] #yh-sidebar-subnav-federation {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+/* END PATCH: Dashboard parent child access authority styles v1 */
+
