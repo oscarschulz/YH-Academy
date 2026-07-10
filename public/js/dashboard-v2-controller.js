@@ -584,12 +584,12 @@
 })();
 
 
-/* PATCH: Dashboard V2 render lock v1 */
-(function installDashboardV2RenderLockV1() {
-    if (window.__yhDashboardV2RenderLockV1Installed) return;
-    window.__yhDashboardV2RenderLockV1Installed = true;
+/* PATCH: Dashboard V2 stable shell owner v1 */
+(function installDashboardV2StableShellOwnerV1() {
+    if (window.__yhDashboardV2StableShellOwnerV1Installed) return;
+    window.__yhDashboardV2StableShellOwnerV1Installed = true;
 
-    const PARENT_KEYS = new Set(['academy', 'plazas', 'federation']);
+    const PARENTS = new Set(['academy', 'plazas', 'federation']);
 
     function isDashboardPage() {
         const path = String(window.location.pathname || '').replace(/\/+$/, '');
@@ -598,21 +598,14 @@
             document.body?.getAttribute('data-yh-view') === 'hub';
     }
 
-    function getWorkspace() {
-        const active = String(document.body?.getAttribute('data-yh-dashboard-v2-active') || '').trim().toLowerCase();
-        if (PARENT_KEYS.has(active)) return active;
-
-        const unified = String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview').trim().toLowerCase();
-        return unified || 'overview';
+    function normalizeKey(value = '') {
+        const key = String(value || '').trim().toLowerCase();
+        if (key === 'plaza') return 'plazas';
+        return key;
     }
 
-    function isParentWorkspace(key = getWorkspace()) {
-        return PARENT_KEYS.has(String(key || '').trim().toLowerCase());
-    }
-
-    function isOverviewWorkspace(key = getWorkspace()) {
-        const clean = String(key || '').trim().toLowerCase();
-        return !clean || clean === 'overview' || clean === 'hub' || clean === 'dashboard';
+    function isParentKey(value = '') {
+        return PARENTS.has(normalizeKey(value));
     }
 
     function setVisible(node, visible, display = '') {
@@ -636,432 +629,285 @@
         node.style.pointerEvents = 'none';
     }
 
-    function hideNodes(selectors) {
+    function hideAll(selectors) {
         selectors.forEach((selector) => {
-            document.querySelectorAll(selector).forEach((node) => {
-                setVisible(node, false, 'block');
-            });
+            document.querySelectorAll(selector).forEach((node) => setVisible(node, false, 'block'));
         });
     }
 
-    function showNode(node, display = 'block') {
-        setVisible(node, true, display);
+    function showOne(selector, display = 'block') {
+        setVisible(document.querySelector(selector), true, display);
     }
 
-    function forceSingleCarouselOrder() {
-        const referral = document.getElementById('yh-universe-referral-card');
-        const live = document.getElementById('yh-universe-academy-strip');
+    function clearV2ParentAttrs() {
+        document.body?.removeAttribute('data-yh-dashboard-v2-active');
+        document.body?.removeAttribute('data-yh-dashboard-v2-approved');
+        document.body?.removeAttribute('data-yh-dashboard-v2-status');
+        document.body?.removeAttribute('data-yh-dashboard-v2-lock');
+        document.body?.removeAttribute('data-yh-dashboard-v2-instant-parent');
+    }
 
+    function hideLegacyDivisionSurfaces() {
+        hideAll([
+            '#yh-command-overview-grid',
+            '#yh-universe-carousel',
+            '#yh-universe-plaza-strip',
+            '#yh-universe-federation-strip',
+            '.yh-universe-carousel-column',
+            '#yh-dashboard-division-parent-intro-v1',
+            '.yh-dashboard-division-intro-v1',
+            '.yh-dashboard-division-intro-hero-v1',
+            '.yh-dashboard-division-child-grid-v1',
+            '.yh-academy-parent-hero-header',
+            '.yh-academy-parent-vision-scope',
+            '.yh-universe-command-hero',
+            '.yh-universe-stage-nav',
+            '.yh-universe-dots',
+            '#yh-universe-progress-rail',
+            '#yh-econ-bridge-card'
+        ]);
+    }
+
+    function hideOverviewSurfaces() {
+        hideAll([
+            '.yh-command-dashboard-head',
+            '#yh-dashboard-overview-dynamic-access-row-v1',
+            '#yh-universe-referral-card',
+            '#yh-universe-academy-strip',
+            '#yh-command-overview-grid',
+            '#yh-universe-carousel',
+            '#yh-universe-plaza-strip',
+            '#yh-universe-federation-strip',
+            '.yh-universe-carousel-column',
+            '#yh-dashboard-division-parent-intro-v1',
+            '.yh-dashboard-division-intro-v1',
+            '.yh-dashboard-division-intro-hero-v1',
+            '.yh-dashboard-division-child-grid-v1',
+            '.yh-academy-parent-hero-header',
+            '.yh-academy-parent-vision-scope',
+            '.yh-universe-command-hero',
+            '.yh-universe-stage-nav',
+            '.yh-universe-dots',
+            '#yh-universe-progress-rail',
+            '#yh-econ-bridge-card'
+        ]);
+    }
+
+    function setSidebarParentActive(key = 'overview') {
+        document.querySelectorAll('[data-yh-dashboard-shell]').forEach((button) => {
+            const buttonKey = normalizeKey(button.getAttribute('data-yh-dashboard-shell') || '');
+            const active = buttonKey === key;
+
+            button.classList.toggle('active', active);
+            button.classList.toggle('is-active', active);
+
+            if (buttonKey && buttonKey !== 'overview') {
+                button.setAttribute('aria-expanded', active ? 'true' : 'false');
+            }
+        });
+    }
+
+    function closeAllSubnavs() {
+        ['academy', 'plazas', 'federation'].forEach((key) => {
+            const subnav = document.getElementById(`yh-sidebar-subnav-${key}`);
+            if (subnav) setVisible(subnav, false, 'block');
+        });
+    }
+
+    function showOverviewShell(reason = 'overview') {
+        if (!isDashboardPage()) return;
+
+        clearV2ParentAttrs();
+
+        document.body?.setAttribute('data-yh-unified-workspace', 'overview');
+        document.body?.setAttribute('data-yh-unified-division', 'overview');
+        document.body?.classList.remove('yh-dashboard-child-workspace-active');
+        document.body?.classList.remove('yh-dashboard-inline-child-active');
+
+        const mount = document.getElementById('yh-dashboard-v2-parent-shell');
+        setVisible(mount, false, 'block');
+
+        setSidebarParentActive('overview');
+        closeAllSubnavs();
+
+        showOne('.yh-command-dashboard-head', 'grid');
+        showOne('#yh-dashboard-overview-dynamic-access-row-v1', 'grid');
+        showOne('#yh-universe-referral-card', 'block');
+        showOne('#yh-universe-academy-strip', 'block');
+
+        const live = document.getElementById('yh-universe-academy-strip');
+        if (live) live.classList.add('is-active');
+
+        hideLegacyDivisionSurfaces();
+
+        const referral = document.getElementById('yh-universe-referral-card');
         if (referral && live && referral.nextElementSibling !== live) {
             live.parentNode?.insertBefore(referral, live);
         }
     }
 
-    function lockOverview(reason = 'overview-lock') {
+    function showParentShell(key = 'academy', reason = 'parent') {
         if (!isDashboardPage()) return;
 
-        document.body?.removeAttribute('data-yh-dashboard-v2-active');
-        document.body?.removeAttribute('data-yh-dashboard-v2-approved');
-        document.body?.removeAttribute('data-yh-dashboard-v2-status');
-        document.body?.setAttribute('data-yh-unified-workspace', 'overview');
-        document.body?.setAttribute('data-yh-unified-division', 'overview');
-        document.body?.setAttribute('data-yh-dashboard-v2-lock', 'overview');
-
-        const mount = document.getElementById('yh-dashboard-v2-parent-shell');
-        setVisible(mount, false, 'block');
-
-        const commandHead = document.querySelector('.yh-command-dashboard-head');
-        const dynamicAccess = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
-        const referral = document.getElementById('yh-universe-referral-card');
-        const live = document.getElementById('yh-universe-academy-strip');
-
-        /*
-          Keep the current clean overview pieces stable.
-          We do not rebuild them here; we only prevent old renderers from hiding/replacing them.
-        */
-        showNode(commandHead, 'grid');
-        showNode(dynamicAccess, 'grid');
-        showNode(referral, 'block');
-        showNode(live, 'block');
-
-        if (live) live.classList.add('is-active');
-
-        hideNodes([
-            '#yh-command-overview-grid',
-            '#yh-universe-carousel',
-            '#yh-universe-plaza-strip',
-            '#yh-universe-federation-strip',
-            '.yh-universe-carousel-column',
-            '#yh-dashboard-division-parent-intro-v1',
-            '.yh-dashboard-division-intro-v1',
-            '.yh-dashboard-division-intro-hero-v1',
-            '.yh-dashboard-division-child-grid-v1',
-            '.yh-academy-parent-hero-header',
-            '.yh-academy-parent-vision-scope',
-            '.yh-universe-command-hero',
-            '.yh-universe-stage-nav',
-            '.yh-universe-dots',
-            '#yh-universe-progress-rail',
-            '#yh-econ-bridge-card'
-        ]);
-
-        forceSingleCarouselOrder();
-    }
-
-    function lockParent(key = getWorkspace(), reason = 'parent-lock') {
-        if (!isDashboardPage()) return;
-
-        const clean = String(key || '').trim().toLowerCase();
-        if (!PARENT_KEYS.has(clean)) return;
+        const clean = normalizeKey(key);
+        if (!isParentKey(clean)) return;
 
         document.body?.setAttribute('data-yh-dashboard-v2-active', clean);
+        document.body?.setAttribute('data-yh-dashboard-v2-lock', clean);
+        document.body?.removeAttribute('data-yh-dashboard-v2-instant-parent');
         document.body?.setAttribute('data-yh-unified-workspace', clean);
         document.body?.setAttribute('data-yh-unified-division', clean);
-        document.body?.setAttribute('data-yh-dashboard-v2-lock', clean);
+        document.body?.classList.remove('yh-dashboard-child-workspace-active');
+        document.body?.classList.remove('yh-dashboard-inline-child-active');
 
-        const mount = document.getElementById('yh-dashboard-v2-parent-shell');
-        showNode(mount, 'block');
-
-        hideNodes([
-            '.yh-command-dashboard-head',
-            '#yh-dashboard-overview-dynamic-access-row-v1',
-            '#yh-universe-referral-card',
-            '#yh-universe-academy-strip',
-            '#yh-command-overview-grid',
-            '#yh-universe-carousel',
-            '#yh-universe-plaza-strip',
-            '#yh-universe-federation-strip',
-            '.yh-universe-carousel-column',
-            '#yh-dashboard-division-parent-intro-v1',
-            '.yh-dashboard-division-intro-v1',
-            '.yh-dashboard-division-intro-hero-v1',
-            '.yh-dashboard-division-child-grid-v1',
-            '.yh-academy-parent-hero-header',
-            '.yh-academy-parent-vision-scope',
-            '.yh-universe-command-hero',
-            '.yh-universe-stage-nav',
-            '.yh-universe-dots',
-            '#yh-universe-progress-rail',
-            '#yh-econ-bridge-card'
-        ]);
-
-        if (typeof window.yhDashboardV2RenderParent === 'function') {
-            try {
-                window.yhDashboardV2RenderParent(clean);
-            } catch (error) {
-                console.error('Dashboard V2 parent render lock failed:', error);
-            }
-        }
-    }
-
-    function applyLock(reason = 'sync') {
-        if (!isDashboardPage()) return;
-
-        const key = getWorkspace();
-
-        if (isParentWorkspace(key)) {
-            lockParent(key, reason);
-            return;
-        }
-
-        if (isOverviewWorkspace(key)) {
-            lockOverview(reason);
-        }
-    }
-
-    function scheduleLock(reason = 'schedule') {
-        applyLock(reason + '-now');
-
-        if (window.requestAnimationFrame) {
-            window.requestAnimationFrame(() => applyLock(reason + '-raf'));
-        }
-
-        [30, 80, 160, 320, 640, 1200].forEach((delay) => {
-            window.setTimeout(() => applyLock(reason + '-' + delay), delay);
-        });
-    }
-
-    /*
-      Wrap the old entrypoint safely.
-      Old dashboard.js may still render after async profile/application refresh.
-      This wrapper does not break old functions; it only restores V2 visibility after them.
-    */
-    const nativeActivate = window.activateDashboardUnifiedWorkspace;
-    if (typeof nativeActivate === 'function' && nativeActivate.__yhDashboardV2RenderLockWrappedV1 !== true) {
-        const wrappedActivate = function activateDashboardUnifiedWorkspaceV2RenderLock(key = 'overview', options = {}) {
-            const result = nativeActivate.apply(this, arguments);
-            scheduleLock('activate-' + String(key || 'overview'));
-            return result;
-        };
-
-        wrappedActivate.__yhDashboardV2RenderLockWrappedV1 = true;
-        window.activateDashboardUnifiedWorkspace = wrappedActivate;
-    }
-
-    /*
-      Do not let old safeRenderDashboardCommandOverview become the final visible owner.
-      We allow it to run, then immediately restore the V2 overview if the user is on overview.
-    */
-    const nativeSafeOverview = window.safeRenderDashboardCommandOverview;
-    if (typeof nativeSafeOverview === 'function' && nativeSafeOverview.__yhDashboardV2RenderLockWrappedV1 !== true) {
-        const wrappedSafeOverview = function safeRenderDashboardCommandOverviewV2RenderLock(reason = 'legacy') {
-            const result = nativeSafeOverview.apply(this, arguments);
-            scheduleLock('safe-overview-' + String(reason || 'legacy'));
-            return result;
-        };
-
-        wrappedSafeOverview.__yhDashboardV2RenderLockWrappedV1 = true;
-        window.safeRenderDashboardCommandOverview = wrappedSafeOverview;
-    }
-
-    document.addEventListener('click', (event) => {
-        const parent = event.target?.closest?.('[data-yh-dashboard-shell="academy"], [data-yh-dashboard-shell="plazas"], [data-yh-dashboard-shell="federation"]');
-        if (parent) {
-            const key = String(parent.getAttribute('data-yh-dashboard-shell') || '').trim().toLowerCase();
-            scheduleLock('parent-click-' + key);
-            return;
-        }
-
-        const overview = event.target?.closest?.('[data-yh-dashboard-shell="overview"], #nav-dashboard, #btn-dashboard-overview');
-        if (overview) {
-            document.body?.removeAttribute('data-yh-dashboard-v2-active');
-            document.body?.setAttribute('data-yh-unified-workspace', 'overview');
-            document.body?.setAttribute('data-yh-unified-division', 'overview');
-            scheduleLock('overview-click');
-        }
-    }, true);
-
-    try {
-        const observer = new MutationObserver(() => {
-            window.clearTimeout(window.__yhDashboardV2RenderLockTimerV1);
-            window.__yhDashboardV2RenderLockTimerV1 = window.setTimeout(() => {
-                applyLock('mutation');
-            }, 45);
-        });
-
-        observer.observe(document.body || document.documentElement, {
-            attributes: true,
-            attributeFilter: [
-                'data-yh-unified-workspace',
-                'data-yh-unified-division',
-                'data-yh-dashboard-v2-active',
-                'class',
-                'style'
-            ],
-            childList: true,
-            subtree: true
-        });
-
-        window.__yhDashboardV2RenderLockObserverV1 = observer;
-    } catch (_) {}
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => scheduleLock('dom'));
-    } else {
-        scheduleLock('boot');
-    }
-
-    [80, 180, 420, 900, 1600, 2600, 4200].forEach((delay) => {
-        window.setTimeout(() => applyLock('boot-timer-' + delay), delay);
-    });
-
-    window.yhDashboardV2ApplyRenderLockV1 = applyLock;
-    window.yhDashboardV2LockOverviewV1 = lockOverview;
-    window.yhDashboardV2LockParentV1 = lockParent;
-})();
-/* END PATCH: Dashboard V2 render lock v1 */
-
-
-/* PATCH: Dashboard V2 instant parent render v1 */
-(function installDashboardV2InstantParentRenderV1() {
-    if (window.__yhDashboardV2InstantParentRenderV1Installed) return;
-    window.__yhDashboardV2InstantParentRenderV1Installed = true;
-
-    const PARENT_KEYS = new Set(['academy', 'plazas', 'federation']);
-
-    function isDashboardPage() {
-        const path = String(window.location.pathname || '').replace(/\/+$/, '');
-        return path === '/dashboard' ||
-            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
-            document.body?.getAttribute('data-yh-view') === 'hub';
-    }
-
-    function cleanParentKey(value = '') {
-        const key = String(value || '').trim().toLowerCase();
-        if (key === 'plaza') return 'plazas';
-        return PARENT_KEYS.has(key) ? key : '';
-    }
-
-    function setVisible(node, visible, display = '') {
-        if (!node || !(node instanceof HTMLElement)) return;
-
-        node.classList.toggle('hidden-step', !visible);
-        node.setAttribute('aria-hidden', visible ? 'false' : 'true');
-
-        if (visible) {
-            node.style.removeProperty('display');
-            if (display) node.style.display = display;
-            node.style.removeProperty('visibility');
-            node.style.removeProperty('opacity');
-            node.style.removeProperty('pointer-events');
-            return;
-        }
-
-        node.style.display = 'none';
-        node.style.visibility = 'hidden';
-        node.style.opacity = '0';
-        node.style.pointerEvents = 'none';
-    }
-
-    function getParentKeyFromEvent(event) {
-        const parent = event.target?.closest?.(
-            '[data-yh-dashboard-shell="academy"], ' +
-            '[data-yh-dashboard-shell="plazas"], ' +
-            '[data-yh-dashboard-shell="federation"]'
-        );
-
-        if (!parent) return '';
-
-        return cleanParentKey(parent.getAttribute('data-yh-dashboard-shell'));
-    }
-
-    function hideOldSurfacesForParent() {
-        [
-            '.yh-command-dashboard-head',
-            '#yh-dashboard-overview-dynamic-access-row-v1',
-            '#yh-universe-referral-card',
-            '#yh-universe-academy-strip',
-            '#yh-command-overview-grid',
-            '#yh-universe-carousel',
-            '#yh-universe-plaza-strip',
-            '#yh-universe-federation-strip',
-            '.yh-universe-carousel-column',
-            '#yh-dashboard-division-parent-intro-v1',
-            '.yh-dashboard-division-intro-v1',
-            '.yh-dashboard-division-intro-hero-v1',
-            '.yh-dashboard-division-child-grid-v1',
-            '.yh-academy-parent-hero-header',
-            '.yh-academy-parent-vision-scope',
-            '.yh-universe-command-hero',
-            '.yh-universe-stage-nav',
-            '.yh-universe-dots',
-            '#yh-universe-progress-rail',
-            '#yh-econ-bridge-card'
-        ].forEach((selector) => {
-            document.querySelectorAll(selector).forEach((node) => {
-                setVisible(node, false, 'block');
-            });
-        });
-    }
-
-    function forceInstantParent(key, reason = 'instant') {
-        if (!isDashboardPage()) return false;
-
-        const clean = cleanParentKey(key);
-        if (!clean) return false;
-
-        document.body?.setAttribute('data-yh-dashboard-v2-active', clean);
-        document.body?.setAttribute('data-yh-unified-workspace', clean);
-        document.body?.setAttribute('data-yh-unified-division', clean);
-        document.body?.setAttribute('data-yh-dashboard-v2-lock', clean);
-        document.body?.setAttribute('data-yh-dashboard-v2-instant-parent', clean);
+        setSidebarParentActive(clean);
 
         /*
-          Important: render first, then hide old surfaces.
-          This prevents the visible content area from becoming empty between old and new renderers.
+          Render first so the stage is never empty.
+          The foundation render function owns copy, CTA, access gate, and child-card state.
         */
         if (typeof window.yhDashboardV2RenderParent === 'function') {
             try {
                 window.yhDashboardV2RenderParent(clean);
             } catch (error) {
-                console.error('Dashboard V2 instant parent render failed:', error);
+                console.error('Dashboard V2 stable parent render failed:', error);
             }
         }
 
         const mount = document.getElementById('yh-dashboard-v2-parent-shell');
         setVisible(mount, true, 'block');
 
-        hideOldSurfacesForParent();
-
-        if (typeof window.yhDashboardV2LockParentV1 === 'function') {
-            try {
-                window.yhDashboardV2LockParentV1(clean, reason);
-            } catch (_) {}
-        }
-
-        return true;
+        hideOverviewSurfaces();
     }
 
-    function scheduleInstantParent(key, reason = 'schedule') {
-        forceInstantParent(key, reason + '-now');
-
-        if (window.requestAnimationFrame) {
-            window.requestAnimationFrame(() => forceInstantParent(key, reason + '-raf'));
-        }
-
-        [16, 40, 90, 180, 360, 720].forEach((delay) => {
-            window.setTimeout(() => forceInstantParent(key, reason + '-' + delay), delay);
-        });
+    function getShellKeyFromTarget(target) {
+        const button = target && target.closest ? target.closest('[data-yh-dashboard-shell]') : null;
+        if (!button) return '';
+        return normalizeKey(button.getAttribute('data-yh-dashboard-shell') || '');
     }
 
-    function interceptParentPointer(event) {
-        const key = getParentKeyFromEvent(event);
+    function interceptShellNavigation(event) {
+        const key = getShellKeyFromTarget(event.target);
         if (!key) return;
 
         /*
-          Pointerdown/mousedown fires before click.
-          This lets V2 paint immediately before legacy click handlers can blank the stage.
+          Window capture runs before document-level legacy dashboard listeners.
+          This is the important part: the old parent renderer no longer gets the final word.
         */
-        scheduleInstantParent(key, event.type);
-    }
-
-    document.addEventListener('pointerdown', interceptParentPointer, true);
-    document.addEventListener('mousedown', interceptParentPointer, true);
-    document.addEventListener('touchstart', interceptParentPointer, true);
-
-    document.addEventListener('click', (event) => {
-        const key = getParentKeyFromEvent(event);
-        if (!key) return;
-
         event.preventDefault();
         event.stopPropagation();
-        event.stopImmediatePropagation?.();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
 
-        scheduleInstantParent(key, 'click');
-    }, true);
+        if (key === 'overview') {
+            if (typeof window.__yhDashboardV2NativeActivateWorkspaceV1 === 'function') {
+                try {
+                    window.__yhDashboardV2NativeActivateWorkspaceV1('overview', {
+                        animate: false,
+                        scroll: false,
+                        persist: true
+                    });
+                } catch (_) {}
+            }
+
+            showOverviewShell('shell-click');
+            [40, 120, 260, 520].forEach((delay) => {
+                window.setTimeout(() => showOverviewShell('shell-click-' + delay), delay);
+            });
+            return;
+        }
+
+        if (isParentKey(key)) {
+            showParentShell(key, 'shell-click');
+            [40, 120, 260, 520].forEach((delay) => {
+                window.setTimeout(() => showParentShell(key, 'shell-click-' + delay), delay);
+            });
+        }
+    }
 
     /*
-      If the old renderer blanks the stage after the parent is already active,
-      restore the V2 parent shell immediately.
+      Save the original activate function once.
+      Parent divisions are handled by V2; approved child workspaces still go through old dashboard.js.
     */
-    try {
-        const observer = new MutationObserver(() => {
-            const active = cleanParentKey(document.body?.getAttribute('data-yh-dashboard-v2-active'));
-            if (!active) return;
+    if (
+        typeof window.activateDashboardUnifiedWorkspace === 'function' &&
+        window.activateDashboardUnifiedWorkspace.__yhDashboardV2StableShellWrappedV1 !== true
+    ) {
+        const nativeActivate = window.activateDashboardUnifiedWorkspace;
+        window.__yhDashboardV2NativeActivateWorkspaceV1 = nativeActivate;
 
-            window.clearTimeout(window.__yhDashboardV2InstantParentTimerV1);
-            window.__yhDashboardV2InstantParentTimerV1 = window.setTimeout(() => {
-                forceInstantParent(active, 'mutation');
-            }, 24);
+        const wrappedActivate = function activateDashboardUnifiedWorkspaceStableShellV1(key = 'overview', options = {}) {
+            const clean = normalizeKey(key);
+
+            if (clean === 'overview' || clean === 'dashboard' || clean === 'hub' || !clean) {
+                const result = nativeActivate.call(this, 'overview', options);
+                window.setTimeout(() => showOverviewShell('activate-overview'), 0);
+                window.setTimeout(() => showOverviewShell('activate-overview-late'), 120);
+                return result;
+            }
+
+            if (isParentKey(clean)) {
+                showParentShell(clean, 'activate-parent');
+                return { key: clean, division: clean, source: 'dashboard-v2-stable-shell' };
+            }
+
+            /*
+              Child workspace: let old dashboard.js render it.
+              Remove V2 parent lock so child tabs can display real workspace content.
+            */
+            clearV2ParentAttrs();
+
+            const mount = document.getElementById('yh-dashboard-v2-parent-shell');
+            setVisible(mount, false, 'block');
+
+            return nativeActivate.apply(this, arguments);
+        };
+
+        wrappedActivate.__yhDashboardV2StableShellWrappedV1 = true;
+        window.activateDashboardUnifiedWorkspace = wrappedActivate;
+    }
+
+    /*
+      Also stop old safe overview from becoming the final owner after async profile refresh.
+    */
+    if (
+        typeof window.safeRenderDashboardCommandOverview === 'function' &&
+        window.safeRenderDashboardCommandOverview.__yhDashboardV2StableShellWrappedV1 !== true
+    ) {
+        const nativeOverview = window.safeRenderDashboardCommandOverview;
+
+        const wrappedOverview = function safeRenderDashboardCommandOverviewStableShellV1(reason = 'legacy') {
+            const result = nativeOverview.apply(this, arguments);
+
+            const active = normalizeKey(document.body?.getAttribute('data-yh-dashboard-v2-active') || '');
+            if (!active) {
+                window.setTimeout(() => showOverviewShell('safe-overview'), 0);
+                window.setTimeout(() => showOverviewShell('safe-overview-late'), 120);
+            }
+
+            return result;
+        };
+
+        wrappedOverview.__yhDashboardV2StableShellWrappedV1 = true;
+        window.safeRenderDashboardCommandOverview = wrappedOverview;
+    }
+
+    window.addEventListener('pointerdown', interceptShellNavigation, true);
+    window.addEventListener('mousedown', interceptShellNavigation, true);
+    window.addEventListener('touchstart', interceptShellNavigation, true);
+    window.addEventListener('click', interceptShellNavigation, true);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            window.setTimeout(() => showOverviewShell('dom'), 80);
+            window.setTimeout(() => showOverviewShell('dom-late'), 260);
         });
+    } else {
+        window.setTimeout(() => showOverviewShell('boot'), 80);
+        window.setTimeout(() => showOverviewShell('boot-late'), 260);
+    }
 
-        observer.observe(document.body || document.documentElement, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: [
-                'style',
-                'class',
-                'data-yh-unified-workspace',
-                'data-yh-dashboard-v2-active',
-                'data-yh-dashboard-v2-lock'
-            ]
-        });
-
-        window.__yhDashboardV2InstantParentObserverV1 = observer;
-    } catch (_) {}
-
-    window.yhDashboardV2InstantParentRenderV1 = forceInstantParent;
+    window.yhDashboardV2ShowOverviewShellV1 = showOverviewShell;
+    window.yhDashboardV2ShowParentShellV1 = showParentShell;
 })();
-/* END PATCH: Dashboard V2 instant parent render v1 */
+/* END PATCH: Dashboard V2 stable shell owner v1 */
 

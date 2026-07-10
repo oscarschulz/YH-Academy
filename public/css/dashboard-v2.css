@@ -307,113 +307,67 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active] 
 }
 
 
-/* PATCH: Dashboard V2 render lock styles v1 */
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] #yh-dashboard-v2-parent-shell,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] #yh-command-overview-grid,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] #yh-universe-carousel,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] #yh-universe-plaza-strip,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] #yh-universe-federation-strip,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] .yh-universe-carousel-column,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] #yh-dashboard-division-parent-intro-v1,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] .yh-dashboard-division-intro-v1,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] .yh-dashboard-division-intro-hero-v1,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] .yh-dashboard-division-child-grid-v1,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] .yh-academy-parent-hero-header,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] .yh-academy-parent-vision-scope,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] .yh-universe-command-hero,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] .yh-universe-stage-nav,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] .yh-universe-dots,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] #yh-universe-progress-rail,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] #yh-econ-bridge-card {
+/* PATCH: Dashboard V2 stable shell owner styles v1 */
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] #yh-dashboard-v2-parent-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="plazas"] #yh-dashboard-v2-parent-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"] #yh-dashboard-v2-parent-shell {
+    display: block;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] .yh-command-dashboard-head,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] #yh-dashboard-overview-dynamic-access-row-v1,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] #yh-universe-referral-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] #yh-universe-academy-strip,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] #yh-command-overview-grid,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] #yh-universe-carousel,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] #yh-universe-plaza-strip,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] #yh-universe-federation-strip,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] .yh-universe-carousel-column,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] #yh-dashboard-division-parent-intro-v1,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] .yh-academy-parent-hero-header,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] .yh-academy-parent-vision-scope,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] .yh-universe-command-hero,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] .yh-universe-stage-nav,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] #yh-universe-progress-rail,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"] #yh-econ-bridge-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="plazas"] .yh-command-dashboard-head,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="plazas"] #yh-dashboard-overview-dynamic-access-row-v1,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="plazas"] #yh-universe-referral-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="plazas"] #yh-universe-academy-strip,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"] .yh-command-dashboard-head,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"] #yh-dashboard-overview-dynamic-access-row-v1,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"] #yh-universe-referral-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"] #yh-universe-academy-strip {
     display: none;
     visibility: hidden;
     opacity: 0;
     pointer-events: none;
 }
 
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] .yh-command-dashboard-head,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] #yh-dashboard-overview-dynamic-access-row-v1 {
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-dashboard-v2-active]) #yh-dashboard-v2-parent-shell {
+    display: none;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-dashboard-v2-active]) .yh-command-dashboard-head,
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-dashboard-v2-active]) #yh-dashboard-overview-dynamic-access-row-v1 {
     display: grid;
     visibility: visible;
     opacity: 1;
     pointer-events: auto;
 }
 
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] #yh-universe-referral-card,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="overview"] #yh-universe-academy-strip {
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-dashboard-v2-active]) #yh-universe-referral-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-dashboard-v2-active]) #yh-universe-academy-strip {
     display: block;
     visibility: visible;
     opacity: 1;
     pointer-events: auto;
 }
-
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="academy"] .yh-command-dashboard-head,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="academy"] #yh-dashboard-overview-dynamic-access-row-v1,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="academy"] #yh-universe-referral-card,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="academy"] #yh-universe-academy-strip,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="academy"] #yh-dashboard-division-parent-intro-v1,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="academy"] .yh-academy-parent-hero-header,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="academy"] .yh-universe-command-hero,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="academy"] .yh-universe-stage-nav,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="plazas"] .yh-command-dashboard-head,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="plazas"] #yh-dashboard-overview-dynamic-access-row-v1,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="plazas"] #yh-universe-referral-card,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="plazas"] #yh-universe-academy-strip,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="federation"] .yh-command-dashboard-head,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="federation"] #yh-dashboard-overview-dynamic-access-row-v1,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="federation"] #yh-universe-referral-card,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="federation"] #yh-universe-academy-strip {
-    display: none;
-    visibility: hidden;
-    opacity: 0;
-    pointer-events: none;
-}
-
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="academy"] #yh-dashboard-v2-parent-shell,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="plazas"] #yh-dashboard-v2-parent-shell,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-lock="federation"] #yh-dashboard-v2-parent-shell {
-    display: block;
-    visibility: visible;
-    opacity: 1;
-    pointer-events: auto;
-}
-/* END PATCH: Dashboard V2 render lock styles v1 */
-
-
-/* PATCH: Dashboard V2 instant parent render styles v1 */
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] #yh-dashboard-v2-parent-shell {
-    display: block;
-    visibility: visible;
-    opacity: 1;
-    pointer-events: auto;
-    min-height: clamp(280px, 42vh, 520px);
-}
-
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] .yh-command-dashboard-head,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] #yh-dashboard-overview-dynamic-access-row-v1,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] #yh-universe-referral-card,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] #yh-universe-academy-strip,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] #yh-command-overview-grid,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] #yh-universe-carousel,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] #yh-universe-plaza-strip,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] #yh-universe-federation-strip,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] .yh-universe-carousel-column,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] #yh-dashboard-division-parent-intro-v1,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] .yh-dashboard-division-intro-v1,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] .yh-academy-parent-hero-header,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] .yh-academy-parent-vision-scope,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] .yh-universe-command-hero,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] .yh-universe-stage-nav,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] #yh-universe-progress-rail,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-instant-parent] #yh-econ-bridge-card {
-    display: none;
-    visibility: hidden;
-    opacity: 0;
-    pointer-events: none;
-}
-
-body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-dashboard-v2-parent-shell {
-    transition: opacity 120ms ease, transform 120ms ease;
-}
-/* END PATCH: Dashboard V2 instant parent render styles v1 */
+/* END PATCH: Dashboard V2 stable shell owner styles v1 */
 
