@@ -377,6 +377,10 @@
         const config = DIVISIONS[key];
         if (!config) return;
 
+        if (key === 'federation' && typeof window.yhDashboardOpenFederationApplicationModalDirectV1 === 'function') {
+            return window.yhDashboardOpenFederationApplicationModalDirectV1('source-of-truth-apply');
+        }
+
         for (const fnName of config.applyFns) {
             try {
                 if (typeof window[fnName] === 'function') {
@@ -1222,15 +1226,23 @@
         }
 
         if (clean === 'federation') {
+            if (typeof window.yhDashboardOpenFederationApplicationModalDirectV1 === 'function') {
+                return window.yhDashboardOpenFederationApplicationModalDirectV1('overview-apply-v2');
+            }
+
+            const modal = document.getElementById('federation-apply-modal');
+            if (modal) {
+                modal.classList.remove('hidden-step');
+                modal.removeAttribute('hidden');
+                modal.setAttribute('aria-hidden', 'false');
+                document.body?.classList.add('federation-application-open');
+                return true;
+            }
+
             if (typeof window.openFederationApplicationModal === 'function') {
                 Promise.resolve(window.openFederationApplicationModal()).catch((error) => {
                     console.error('openFederationApplicationModal error:', error);
                 });
-                return true;
-            }
-
-            if (typeof window.openDashboardUnifiedWorkspaceLaunch === 'function') {
-                Promise.resolve(window.openDashboardUnifiedWorkspaceLaunch('federation-command')).catch(() => {});
                 return true;
             }
         }
@@ -3483,4 +3495,76 @@
     };
 })();
 /* END PATCH: Academy application typeform wizard v1 */
+
+
+/* PATCH: Federation apply direct responder v1 */
+(function installFederationApplyDirectResponderV1() {
+    if (window.__yhFederationApplyDirectResponderV1Installed) return;
+    window.__yhFederationApplyDirectResponderV1Installed = true;
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub';
+    }
+
+    function getFederationStatus() {
+        try {
+            const state = window.yhDivisionAccessSourceOfTruthV1?.getState?.('federation');
+            return String(state?.status || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function openDirect(reason = 'backup') {
+        if (typeof window.yhDashboardOpenFederationApplicationModalDirectV1 === 'function') {
+            return window.yhDashboardOpenFederationApplicationModalDirectV1(reason);
+        }
+
+        const modal = document.getElementById('federation-apply-modal');
+        if (!modal) return false;
+
+        modal.classList.remove('hidden-step');
+        modal.removeAttribute('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body?.classList.add('federation-application-open');
+
+        try {
+            window.resetSingleQuestionApplicationForm?.('form-federation-apply');
+        } catch (_) {}
+
+        return true;
+    }
+
+    document.addEventListener('click', (event) => {
+        if (!isDashboardPage() || !event?.target) return;
+
+        const button = event.target.closest?.('[data-yh-overview-division-action="federation"]');
+        if (!button) return;
+
+        const kind = String(button.getAttribute('data-yh-overview-division-action-kind') || '').trim().toLowerCase();
+        if (kind !== 'apply') return;
+
+        const status = getFederationStatus();
+
+        if (status === 'pending' || status === 'under review') {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation?.();
+            window.showToast?.('Federation application is still under admin review.', 'error');
+            return;
+        }
+
+        if (status === 'approved') return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+
+        openDirect('backup-click');
+    }, true);
+})();
+/* END PATCH: Federation apply direct responder v1 */
 

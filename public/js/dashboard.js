@@ -27385,7 +27385,9 @@ function restoreDashboardViewState() {
             animate: false,
             persist: false
         });
-        dashboardForceOverviewVisibleV70();
+        if (typeof dashboardForceOverviewVisibleV70 === 'function') {
+            dashboardForceOverviewVisibleV70();
+        }
         return;
     }
 
@@ -30674,6 +30676,58 @@ function closeFederationApplicationModal() {
     modal.classList.add('hidden-step');
     document.body?.classList.remove('federation-application-open');
 }
+
+/* PATCH: Federation apply runtime guard v1 */
+(function installFederationApplyRuntimeGuardV1() {
+    if (window.__yhFederationApplyRuntimeGuardV1Installed) return;
+    window.__yhFederationApplyRuntimeGuardV1Installed = true;
+
+    window.yhDashboardOpenFederationApplicationModalDirectV1 = function yhDashboardOpenFederationApplicationModalDirectV1(reason = 'direct') {
+        const modal = document.getElementById('federation-apply-modal');
+
+        if (!modal) {
+            if (typeof showToast === 'function') {
+                showToast('Federation application form is not available. Please refresh and try again.', 'error');
+            }
+            return false;
+        }
+
+        try {
+            if (typeof prefillFederationApplicationForm === 'function') {
+                prefillFederationApplicationForm();
+            }
+        } catch (error) {
+            console.warn('Federation prefill skipped:', error?.message || error);
+        }
+
+        try {
+            if (typeof syncFederationDirectStrategicApplicationMode === 'function') {
+                syncFederationDirectStrategicApplicationMode();
+            }
+        } catch (error) {
+            console.warn('Federation strategic sync skipped:', error?.message || error);
+        }
+
+        modal.classList.remove('hidden-step');
+        modal.removeAttribute('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body?.classList.add('federation-application-open');
+
+        try {
+            if (typeof resetSingleQuestionApplicationForm === 'function') {
+                resetSingleQuestionApplicationForm('form-federation-apply');
+            }
+        } catch (error) {
+            console.warn('Federation one-question reset skipped:', error?.message || error);
+        }
+
+        return true;
+    };
+
+    window.openFederationApplicationModalDirect = window.yhDashboardOpenFederationApplicationModalDirectV1;
+})();
+/* END PATCH: Federation apply runtime guard v1 */
+
 function isDashboardFederationDirectStrategicMode() {
     const progressionGate = getDashboardDivisionProgressionGate('federation', getFederationAccessSnapshot());
     return progressionGate.track === 'direct_strategic';
