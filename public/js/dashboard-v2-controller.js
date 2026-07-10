@@ -3031,3 +3031,456 @@
 })();
 /* END PATCH: Dashboard topbar stability guard v1 */
 
+
+/* PATCH: Academy application typeform wizard v1 */
+(function installAcademyApplicationTypeformWizardV1() {
+    if (window.__yhAcademyApplicationTypeformWizardV1Installed) return;
+    window.__yhAcademyApplicationTypeformWizardV1Installed = true;
+
+    const FORM_ID = 'form-academy-apply';
+    const MODAL_ID = 'academy-apply-modal';
+
+    const QUESTION_COPY = {
+        'app-first-name': 'First Name',
+        'app-surname': 'Surname',
+        'app-location-country': 'Country of residence',
+        'app-city-residence': 'City of residence',
+        'app-country-origin': 'Country of origin',
+        'app-email': 'Drop your best e-mail address',
+        'app-age': 'Age',
+        'app-occupation': 'What do you currently do for a living?',
+        'app-skills': 'What are you good at? What are your skills?',
+        'app-referred-by': 'Who referred you?',
+        'app-hear-about': 'How did you hear about us?',
+        'app-seriousness': 'How serious are you about being accepted?',
+        'app-nonnegotiable': 'What trait or standard makes you a good fit?'
+    };
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub';
+    }
+
+    function getForm() {
+        return document.getElementById(FORM_ID);
+    }
+
+    function getModal() {
+        return document.getElementById(MODAL_ID);
+    }
+
+    function getStepControl(step) {
+        return step?.querySelector?.('input, select, textarea') || null;
+    }
+
+    function getStepTitle(step) {
+        const control = getStepControl(step);
+        const id = String(control?.id || '').trim();
+
+        if (QUESTION_COPY[id]) return QUESTION_COPY[id];
+
+        const text = String(
+            step?.querySelector?.('label')?.textContent ||
+            step?.textContent ||
+            'Application question'
+        )
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        return text || 'Application question';
+    }
+
+    function normalizeOldSingleQuestionState(form) {
+        if (!form) return;
+
+        form.classList.remove('yh-one-question-form', 'is-yh-one-question-final');
+        delete form.dataset.yhOneQuestionReady;
+        delete form.dataset.yhOneQuestionActiveIndex;
+
+        form.querySelectorAll('.yh-one-question-head, .yh-one-question-controls').forEach((node) => {
+            node.remove();
+        });
+
+        form.querySelectorAll('.is-yh-one-question-active, .is-yh-one-question-section-active').forEach((node) => {
+            node.classList.remove('is-yh-one-question-active', 'is-yh-one-question-section-active');
+        });
+
+        form.querySelectorAll('[data-yh-step-disabled]').forEach((control) => {
+            if (control.dataset.yhOriginalDisabled !== 'true') {
+                control.disabled = false;
+            }
+
+            delete control.dataset.yhStepDisabled;
+        });
+
+        form.querySelectorAll('.form-group, .form-row').forEach((node) => {
+            node.hidden = false;
+        });
+    }
+
+    function collectSteps(form) {
+        if (!form) return [];
+
+        const steps = [];
+
+        Array.from(form.children || []).forEach((child) => {
+            if (!(child instanceof HTMLElement)) return;
+            if (child.matches('.yh-academy-typeform-head, .yh-academy-typeform-controls')) return;
+            if (child.id === 'btn-submit-ai') return;
+
+            if (child.classList.contains('form-row')) {
+                Array.from(child.children || []).forEach((inner) => {
+                    if (inner instanceof HTMLElement && inner.classList.contains('form-group')) {
+                        steps.push(inner);
+                    }
+                });
+                return;
+            }
+
+            if (child.classList.contains('form-group')) {
+                steps.push(child);
+            }
+        });
+
+        return steps.filter((step) => {
+            if (!(step instanceof HTMLElement)) return false;
+            if (step.closest('.yh-academy-typeform-controls')) return false;
+            return Boolean(getStepControl(step));
+        });
+    }
+
+    function rememberOriginalDisabled(control) {
+        if (!control || control.dataset.yhAcademyTypeformOriginalDisabled) return;
+        control.dataset.yhAcademyTypeformOriginalDisabled = control.disabled ? 'true' : 'false';
+    }
+
+    function setStepEnabled(step, enabled) {
+        if (!(step instanceof HTMLElement)) return;
+
+        step.querySelectorAll('input, select, textarea, button').forEach((control) => {
+            rememberOriginalDisabled(control);
+
+            if (enabled) {
+                if (control.dataset.yhAcademyTypeformOriginalDisabled !== 'true') {
+                    control.disabled = false;
+                }
+                delete control.dataset.yhAcademyTypeformDisabled;
+                return;
+            }
+
+            if (control.dataset.yhAcademyTypeformOriginalDisabled !== 'true') {
+                control.disabled = true;
+                control.dataset.yhAcademyTypeformDisabled = 'true';
+            }
+        });
+    }
+
+    function enableAllStepsForSubmit(form) {
+        const steps = form.__yhAcademyTypeformSteps || collectSteps(form);
+
+        steps.forEach((step) => {
+            step.hidden = false;
+            setStepEnabled(step, true);
+        });
+    }
+
+    function validateStep(step) {
+        if (!(step instanceof HTMLElement)) return false;
+
+        const controls = Array.from(step.querySelectorAll('input, select, textarea'));
+
+        for (const control of controls) {
+            if (!control || control.disabled) continue;
+
+            if (typeof control.checkValidity === 'function' && !control.checkValidity()) {
+                if (typeof control.reportValidity === 'function') {
+                    control.reportValidity();
+                }
+
+                if (typeof control.focus === 'function') {
+                    control.focus({ preventScroll: false });
+                }
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function ensureTypeformShell(form) {
+        if (!form) return [];
+
+        normalizeOldSingleQuestionState(form);
+
+        form.querySelectorAll('.yh-academy-typeform-head, .yh-academy-typeform-controls').forEach((node) => {
+            node.remove();
+        });
+
+        const steps = collectSteps(form);
+        if (!steps.length) return [];
+
+        form.classList.add('yh-academy-typeform-form');
+        form.dataset.yhAcademyTypeformReady = 'true';
+        form.__yhAcademyTypeformSteps = steps;
+
+        steps.forEach((step, index) => {
+            step.classList.add('yh-academy-typeform-step');
+            step.setAttribute('data-yh-academy-typeform-step', String(index));
+        });
+
+        const head = document.createElement('div');
+        head.className = 'yh-academy-typeform-head';
+        head.innerHTML = `
+            <div class="yh-academy-typeform-kicker">Academy Application</div>
+            <h3 class="yh-academy-typeform-question" data-yh-academy-typeform-title>Application question</h3>
+            <div class="yh-academy-typeform-meta">
+                <span data-yh-academy-typeform-count>Question 1 of ${steps.length}</span>
+                <span data-yh-academy-typeform-status>Manual admin review after submission</span>
+            </div>
+            <div class="yh-academy-typeform-progress" aria-hidden="true">
+                <span data-yh-academy-typeform-bar></span>
+            </div>
+        `;
+
+        const controls = document.createElement('div');
+        controls.className = 'yh-academy-typeform-controls';
+        controls.innerHTML = `
+            <button type="button" class="btn-secondary" data-yh-academy-typeform-back>← Back</button>
+            <button type="button" class="btn-primary" data-yh-academy-typeform-next>Continue ➔</button>
+        `;
+
+        form.prepend(head);
+
+        const submitButton = form.querySelector('#btn-submit-ai');
+        if (submitButton?.parentElement) {
+            submitButton.parentElement.insertBefore(controls, submitButton);
+        } else {
+            form.appendChild(controls);
+        }
+
+        controls.querySelector('[data-yh-academy-typeform-back]')?.addEventListener('click', () => {
+            setActiveStep(form, Number(form.dataset.yhAcademyTypeformIndex || 0) - 1);
+        });
+
+        controls.querySelector('[data-yh-academy-typeform-next]')?.addEventListener('click', () => {
+            const currentIndex = Number(form.dataset.yhAcademyTypeformIndex || 0);
+            const currentStep = form.__yhAcademyTypeformSteps?.[currentIndex];
+
+            if (!validateStep(currentStep)) return;
+            setActiveStep(form, currentIndex + 1);
+        });
+
+        form.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            if (event.target instanceof HTMLTextAreaElement) return;
+
+            const currentIndex = Number(form.dataset.yhAcademyTypeformIndex || 0);
+            const steps = form.__yhAcademyTypeformSteps || [];
+            const isFinal = currentIndex >= steps.length - 1;
+
+            if (isFinal) return;
+
+            event.preventDefault();
+            const currentStep = steps[currentIndex];
+            if (!validateStep(currentStep)) return;
+            setActiveStep(form, currentIndex + 1);
+        });
+
+        form.addEventListener('submit', (event) => {
+            const steps = form.__yhAcademyTypeformSteps || [];
+            const currentIndex = Number(form.dataset.yhAcademyTypeformIndex || 0);
+            const currentStep = steps[currentIndex];
+            const isFinal = currentIndex >= steps.length - 1;
+
+            if (!isFinal) {
+                event.preventDefault();
+                if (validateStep(currentStep)) {
+                    setActiveStep(form, currentIndex + 1);
+                }
+                return;
+            }
+
+            if (!validateStep(currentStep)) {
+                event.preventDefault();
+                return;
+            }
+
+            enableAllStepsForSubmit(form);
+        }, true);
+
+        setActiveStep(form, 0, { focus: false });
+        return steps;
+    }
+
+    function setActiveStep(form, nextIndex = 0, options = {}) {
+        if (!form) return;
+
+        const steps = form.__yhAcademyTypeformSteps || collectSteps(form);
+        if (!steps.length) return;
+
+        const safeIndex = Math.max(0, Math.min(Number(nextIndex) || 0, steps.length - 1));
+        const activeStep = steps[safeIndex];
+        const isFinal = safeIndex >= steps.length - 1;
+
+        form.dataset.yhAcademyTypeformIndex = String(safeIndex);
+        form.classList.toggle('is-yh-academy-typeform-final', isFinal);
+
+        const rows = new Set();
+
+        steps.forEach((step, index) => {
+            const active = index === safeIndex;
+            const row = step.closest('.form-row');
+
+            if (row) rows.add(row);
+
+            step.hidden = !active;
+            step.classList.toggle('is-yh-academy-typeform-active', active);
+            setStepEnabled(step, active);
+        });
+
+        rows.forEach((row) => {
+            const hasActive = Array.from(row.querySelectorAll('.yh-academy-typeform-step')).some((step) => {
+                return step.classList.contains('is-yh-academy-typeform-active');
+            });
+
+            row.hidden = !hasActive;
+            row.classList.toggle('is-yh-academy-typeform-row-active', hasActive);
+        });
+
+        const title = form.querySelector('[data-yh-academy-typeform-title]');
+        const count = form.querySelector('[data-yh-academy-typeform-count]');
+        const bar = form.querySelector('[data-yh-academy-typeform-bar]');
+        const back = form.querySelector('[data-yh-academy-typeform-back]');
+        const next = form.querySelector('[data-yh-academy-typeform-next]');
+        const submit = form.querySelector('#btn-submit-ai');
+
+        if (title) title.textContent = getStepTitle(activeStep);
+        if (count) count.textContent = `Question ${safeIndex + 1} of ${steps.length}`;
+        if (bar) bar.style.width = `${Math.round(((safeIndex + 1) / steps.length) * 100)}%`;
+
+        if (back) {
+            back.disabled = safeIndex === 0;
+            back.setAttribute('aria-disabled', safeIndex === 0 ? 'true' : 'false');
+        }
+
+        if (next) {
+            next.hidden = isFinal;
+            next.disabled = isFinal;
+            next.setAttribute('aria-disabled', isFinal ? 'true' : 'false');
+        }
+
+        if (submit) {
+            submit.hidden = !isFinal;
+            submit.disabled = !isFinal;
+            submit.setAttribute('aria-disabled', isFinal ? 'false' : 'true');
+            submit.classList.toggle('is-yh-academy-typeform-submit-ready', isFinal);
+        }
+
+        if (options.focus !== false) {
+            window.requestAnimationFrame(() => {
+                const focusTarget = activeStep?.querySelector?.('input:not([type="hidden"]), select, textarea, button');
+                focusTarget?.focus?.({ preventScroll: false });
+            });
+        }
+    }
+
+    function syncAcademyTypeform(options = {}) {
+        if (!isDashboardPage()) return;
+
+        const form = getForm();
+        if (!form) return;
+
+        ensureTypeformShell(form);
+
+        if (options.reset) {
+            setActiveStep(form, 0, { focus: options.focus !== false });
+        }
+    }
+
+    const nativeResetSingleQuestion = window.resetSingleQuestionApplicationForm;
+    window.resetSingleQuestionApplicationForm = function resetSingleQuestionApplicationFormTypeformSafeV1(formOrId) {
+        const form = typeof formOrId === 'string'
+            ? document.getElementById(formOrId)
+            : formOrId;
+
+        if (form?.id === FORM_ID || String(formOrId || '') === FORM_ID) {
+            syncAcademyTypeform({ reset: true, focus: true });
+            return;
+        }
+
+        if (typeof nativeResetSingleQuestion === 'function') {
+            return nativeResetSingleQuestion.apply(this, arguments);
+        }
+    };
+
+    function wrapAcademyLauncher() {
+        if (window.__yhAcademyTypeformOpenAcademyLauncherWrappedV1) return;
+        if (typeof window.openAcademyLauncher !== 'function') return;
+
+        window.__yhAcademyTypeformOpenAcademyLauncherWrappedV1 = true;
+
+        const nativeOpenAcademyLauncher = window.openAcademyLauncher;
+
+        window.openAcademyLauncher = function openAcademyLauncherTypeformSafeV1() {
+            const result = nativeOpenAcademyLauncher.apply(this, arguments);
+
+            window.setTimeout(() => {
+                const modal = getModal();
+                const isOpen = modal && !modal.classList.contains('hidden-step');
+
+                syncAcademyTypeform({
+                    reset: isOpen,
+                    focus: isOpen
+                });
+            }, 30);
+
+            return result;
+        };
+    }
+
+    function boot() {
+        syncAcademyTypeform({ reset: false, focus: false });
+        wrapAcademyLauncher();
+
+        [80, 240, 700, 1400, 2600].forEach((delay) => {
+            window.setTimeout(() => {
+                syncAcademyTypeform({ reset: false, focus: false });
+                wrapAcademyLauncher();
+            }, delay);
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+
+    try {
+        const observer = new MutationObserver(() => {
+            window.clearTimeout(window.__yhAcademyApplicationTypeformWizardTimerV1);
+            window.__yhAcademyApplicationTypeformWizardTimerV1 = window.setTimeout(() => {
+                syncAcademyTypeform({ reset: false, focus: false });
+                wrapAcademyLauncher();
+            }, 70);
+        });
+
+        observer.observe(document.body || document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style', 'hidden', 'aria-hidden']
+        });
+    } catch (_) {}
+
+    window.yhAcademyApplicationTypeformWizardV1 = {
+        sync: syncAcademyTypeform,
+        setActiveStep,
+        collectSteps: () => collectSteps(getForm())
+    };
+})();
+/* END PATCH: Academy application typeform wizard v1 */
+
