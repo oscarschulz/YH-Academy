@@ -891,10 +891,7 @@
         window.safeRenderDashboardCommandOverview = wrappedOverview;
     }
 
-    window.addEventListener('pointerdown', interceptShellNavigation, true);
-    window.addEventListener('mousedown', interceptShellNavigation, true);
-    window.addEventListener('touchstart', interceptShellNavigation, true);
-    window.addEventListener('click', interceptShellNavigation, true);
+    /* Dashboard loader gate v2 owns tab navigation now. Stable shell instant interceptors disabled. */
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
@@ -912,20 +909,17 @@
 /* END PATCH: Dashboard V2 stable shell owner v1 */
 
 
-/* PATCH: Dashboard V2 tab transition gate v1 */
-(function installDashboardV2TabTransitionGateV1() {
-    if (window.__yhDashboardV2TabTransitionGateV1Installed) return;
-    window.__yhDashboardV2TabTransitionGateV1Installed = true;
+/* PATCH: Dashboard V2 loader gate authority v2 */
+(function installDashboardV2LoaderGateAuthorityV2() {
+    if (window.__yhDashboardV2LoaderGateAuthorityV2Installed) return;
+    window.__yhDashboardV2LoaderGateAuthorityV2Installed = true;
 
-    /*
-      Set to 1500 if you want exactly 1.5 seconds.
-      Current value is 1.2 seconds: enough to stop rapid tab flicker without feeling too slow.
-    */
-    const NAV_DELAY_MS = 1200;
+    const NAV_DELAY_MS = 1400;
     const PARENT_KEYS = new Set(['academy', 'plazas', 'federation']);
 
+    let activeTimer = null;
     let pendingTarget = null;
-    let transitionTimer = null;
+    let navLocked = false;
 
     function isDashboardPage() {
         const path = String(window.location.pathname || '').replace(/\/+$/, '');
@@ -937,11 +931,18 @@
     function cleanKey(value = '') {
         const key = String(value || '').trim().toLowerCase();
         if (key === 'plaza') return 'plazas';
+        if (key === 'dashboard' || key === 'hub') return 'overview';
         return key;
     }
 
-    function isParentKey(value = '') {
-        return PARENT_KEYS.has(cleanKey(value));
+    function isParentKey(key = '') {
+        return PARENT_KEYS.has(cleanKey(key));
+    }
+
+    function titleCase(key = '') {
+        const clean = cleanKey(key);
+        if (clean === 'plazas') return 'Plazas';
+        return clean.charAt(0).toUpperCase() + clean.slice(1);
     }
 
     function setVisible(node, visible, display = '') {
@@ -965,55 +966,37 @@
         node.style.pointerEvents = 'none';
     }
 
-    function hideAll(selectors) {
-        selectors.forEach((selector) => {
-            document.querySelectorAll(selector).forEach((node) => setVisible(node, false, 'block'));
-        });
-    }
-
-    function showOne(selector, display = 'block') {
-        setVisible(document.querySelector(selector), true, display);
-    }
-
     function ensureLoader() {
-        let loader = document.getElementById('yh-dashboard-tab-transition-loader-v1');
+        let loader = document.getElementById('yh-dashboard-tab-transition-loader-v2');
         if (loader) return loader;
 
         loader = document.createElement('div');
-        loader.id = 'yh-dashboard-tab-transition-loader-v1';
-        loader.className = 'yh-dashboard-tab-transition-loader-v1 hidden-step';
+        loader.id = 'yh-dashboard-tab-transition-loader-v2';
+        loader.className = 'yh-dashboard-tab-transition-loader-v2 hidden-step';
         loader.setAttribute('aria-hidden', 'true');
         loader.innerHTML = `
-            <div class="yh-dashboard-tab-transition-card-v1">
-                <div class="yh-dashboard-tab-transition-orb-v1" aria-hidden="true">
+            <div class="yh-dashboard-tab-transition-card-v2">
+                <div class="yh-dashboard-tab-transition-orb-v2" aria-hidden="true">
                     <img src="/images/logo.avif" alt="">
                 </div>
-                <span class="yh-dashboard-tab-transition-kicker-v1">SYNCING VIEW</span>
-                <strong id="yh-dashboard-tab-transition-title-v1">Opening section</strong>
-                <p>Preparing the selected Dashboard tab.</p>
-                <div class="yh-dashboard-tab-transition-bar-v1" aria-hidden="true">
-                    <i></i>
-                </div>
+                <span>SYNCING VIEW</span>
+                <strong id="yh-dashboard-tab-transition-title-v2">Opening Dashboard</strong>
+                <p>Preparing the selected workspace.</p>
+                <div class="yh-dashboard-tab-transition-bar-v2" aria-hidden="true"><i></i></div>
             </div>
         `;
 
-        const host =
-            document.querySelector('#universe-hub-view') ||
-            document.querySelector('.dashboard-main') ||
-            document.querySelector('main') ||
-            document.body;
-
-        host.appendChild(loader);
+        document.body.appendChild(loader);
         return loader;
     }
 
-    function showLoader(label = 'Opening section') {
+    function showLoader(label) {
         const loader = ensureLoader();
-        const title = document.getElementById('yh-dashboard-tab-transition-title-v1');
+        const title = document.getElementById('yh-dashboard-tab-transition-title-v2');
 
-        if (title) title.textContent = label;
+        if (title) title.textContent = label || 'Opening Dashboard';
 
-        document.body?.setAttribute('data-yh-dashboard-tab-transitioning', 'true');
+        document.body.setAttribute('data-yh-dashboard-tab-transitioning', 'true');
 
         loader.classList.remove('hidden-step');
         loader.classList.add('is-active');
@@ -1021,9 +1004,9 @@
     }
 
     function hideLoader() {
-        const loader = document.getElementById('yh-dashboard-tab-transition-loader-v1');
+        const loader = document.getElementById('yh-dashboard-tab-transition-loader-v2');
 
-        document.body?.removeAttribute('data-yh-dashboard-tab-transitioning');
+        document.body.removeAttribute('data-yh-dashboard-tab-transitioning');
 
         if (!loader) return;
 
@@ -1031,146 +1014,40 @@
         loader.setAttribute('aria-hidden', 'true');
 
         window.setTimeout(() => {
-            if (!loader.classList.contains('is-active')) {
-                loader.classList.add('hidden-step');
-            }
+            if (!loader.classList.contains('is-active')) loader.classList.add('hidden-step');
         }, 180);
     }
 
-    function hideLegacyDivisionSurfaces() {
-        hideAll([
-            '#yh-command-overview-grid',
-            '#yh-universe-carousel',
-            '#yh-universe-plaza-strip',
-            '#yh-universe-federation-strip',
-            '.yh-universe-carousel-column',
-            '#yh-dashboard-division-parent-intro-v1',
-            '.yh-dashboard-division-intro-v1',
-            '.yh-dashboard-division-intro-hero-v1',
-            '.yh-dashboard-division-child-grid-v1',
-            '.yh-academy-parent-hero-header',
-            '.yh-academy-parent-vision-scope',
-            '.yh-universe-command-hero',
-            '.yh-universe-stage-nav',
-            '.yh-universe-dots',
-            '#yh-universe-progress-rail',
-            '#yh-econ-bridge-card'
-        ]);
-    }
-
-    function showOverview() {
-        document.body?.removeAttribute('data-yh-dashboard-v2-active');
-        document.body?.removeAttribute('data-yh-dashboard-v2-approved');
-        document.body?.removeAttribute('data-yh-dashboard-v2-status');
-        document.body?.removeAttribute('data-yh-dashboard-v2-lock');
-        document.body?.removeAttribute('data-yh-dashboard-v2-instant-parent');
-
-        document.body?.setAttribute('data-yh-unified-workspace', 'overview');
-        document.body?.setAttribute('data-yh-unified-division', 'overview');
-
-        const mount = document.getElementById('yh-dashboard-v2-parent-shell');
-        setVisible(mount, false, 'block');
-
-        showOne('.yh-command-dashboard-head', 'grid');
-        showOne('#yh-dashboard-overview-dynamic-access-row-v1', 'grid');
-        showOne('#yh-universe-referral-card', 'block');
-        showOne('#yh-universe-academy-strip', 'block');
-
-        const live = document.getElementById('yh-universe-academy-strip');
-        if (live) live.classList.add('is-active');
-
-        const referral = document.getElementById('yh-universe-referral-card');
-        if (referral && live && referral.nextElementSibling !== live) {
-            live.parentNode?.insertBefore(referral, live);
-        }
-
-        hideLegacyDivisionSurfaces();
-    }
-
-    function showParent(key) {
-        const clean = cleanKey(key);
-        if (!isParentKey(clean)) return;
-
-        document.body?.setAttribute('data-yh-dashboard-v2-active', clean);
-        document.body?.setAttribute('data-yh-unified-workspace', clean);
-        document.body?.setAttribute('data-yh-unified-division', clean);
-        document.body?.removeAttribute('data-yh-dashboard-v2-instant-parent');
-
-        if (typeof window.yhDashboardV2RenderParent === 'function') {
-            window.yhDashboardV2RenderParent(clean);
-        }
-
-        const mount = document.getElementById('yh-dashboard-v2-parent-shell');
-        setVisible(mount, true, 'block');
-
-        hideAll([
-            '.yh-command-dashboard-head',
-            '#yh-dashboard-overview-dynamic-access-row-v1',
-            '#yh-universe-referral-card',
-            '#yh-universe-academy-strip'
-        ]);
-
-        hideLegacyDivisionSurfaces();
-    }
-
-    function showChild(key) {
-        const clean = String(key || '').trim();
-        if (!clean) return;
-
-        document.body?.removeAttribute('data-yh-dashboard-v2-active');
-        document.body?.removeAttribute('data-yh-dashboard-v2-approved');
-        document.body?.removeAttribute('data-yh-dashboard-v2-status');
-        document.body?.removeAttribute('data-yh-dashboard-v2-lock');
-        document.body?.removeAttribute('data-yh-dashboard-v2-instant-parent');
-
-        const mount = document.getElementById('yh-dashboard-v2-parent-shell');
-        setVisible(mount, false, 'block');
-
-        if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
-            window.activateDashboardUnifiedWorkspace(clean, {
-                animate: false,
-                scroll: true,
-                persist: true
-            });
-        }
-    }
-
     function getTargetFromEvent(event) {
-        if (!event || !event.target || !isDashboardPage()) return null;
+        if (!event?.target || !isDashboardPage()) return null;
 
-        const modal = event.target.closest?.(
-            '.yh-modal, .modal, [role="dialog"], #plaza-apply-modal, #federation-apply-modal, #academy-apply-modal, #yh-dashboard-tab-transition-loader-v1'
-        );
-        if (modal) return null;
+        if (event.target.closest?.('#yh-dashboard-tab-transition-loader-v2, .yh-modal, .modal, [role="dialog"]')) {
+            return null;
+        }
 
         const shell = event.target.closest?.('[data-yh-dashboard-shell]');
         if (shell) {
-            const key = cleanKey(shell.getAttribute('data-yh-dashboard-shell'));
-            if (key === 'overview' || key === 'dashboard' || key === 'hub') {
-                return { kind: 'overview', key: 'overview', label: 'Opening Dashboard' };
+            const key = cleanKey(shell.getAttribute('data-yh-dashboard-shell') || '');
+
+            if (key === 'overview') {
+                return { kind: 'overview', key, label: 'Opening Dashboard' };
             }
 
             if (isParentKey(key)) {
-                return {
-                    kind: 'parent',
-                    key,
-                    label: `Opening ${key === 'plazas' ? 'Plazas' : key.charAt(0).toUpperCase() + key.slice(1)}`
-                };
+                return { kind: 'parent', key, label: `Opening ${titleCase(key)}` };
             }
         }
 
         const child = event.target.closest?.('[data-yh-sidebar-child], [data-yh-mobile-subtab-menu-option], [data-yh-dashboard-v2-child]');
         if (child) {
-            const key =
+            const key = (
                 child.getAttribute('data-yh-sidebar-child') ||
                 child.getAttribute('data-yh-mobile-subtab-menu-option') ||
                 child.getAttribute('data-yh-dashboard-v2-child') ||
-                '';
+                ''
+            ).trim();
 
-            const clean = String(key || '').trim();
-            if (clean) {
-                return { kind: 'child', key: clean, label: 'Opening section' };
-            }
+            if (key) return { kind: 'child', key, label: 'Opening section' };
         }
 
         return null;
@@ -1180,38 +1057,65 @@
         if (!target) return;
 
         if (target.kind === 'overview') {
-            showOverview();
-            window.setTimeout(showOverview, 90);
+            if (typeof window.yhDashboardV2ShowOverviewShellV1 === 'function') {
+                window.yhDashboardV2ShowOverviewShellV1('loader-gate-v2');
+                window.setTimeout(() => window.yhDashboardV2ShowOverviewShellV1('loader-gate-v2-late'), 90);
+                return;
+            }
+
+            if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
+                window.activateDashboardUnifiedWorkspace('overview', { animate: false, scroll: false, persist: true });
+            }
             return;
         }
 
         if (target.kind === 'parent') {
-            showParent(target.key);
-            window.setTimeout(() => showParent(target.key), 90);
+            if (typeof window.yhDashboardV2ShowParentShellV1 === 'function') {
+                window.yhDashboardV2ShowParentShellV1(target.key, 'loader-gate-v2');
+                window.setTimeout(() => window.yhDashboardV2ShowParentShellV1(target.key, 'loader-gate-v2-late'), 90);
+                return;
+            }
+
+            if (typeof window.yhDashboardV2RenderParent === 'function') {
+                window.yhDashboardV2RenderParent(target.key);
+            }
             return;
         }
 
         if (target.kind === 'child') {
-            showChild(target.key);
+            if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
+                window.activateDashboardUnifiedWorkspace(target.key, {
+                    animate: false,
+                    scroll: true,
+                    persist: true
+                });
+            }
         }
     }
 
-    function queueTarget(target) {
-        pendingTarget = target;
-        showLoader(target.label || 'Opening section');
+    function queueNavigation(target) {
+        if (!target) return;
 
-        window.clearTimeout(transitionTimer);
-        transitionTimer = window.setTimeout(() => {
-            const next = pendingTarget;
+        pendingTarget = target;
+        navLocked = true;
+
+        showLoader(target.label);
+
+        window.clearTimeout(activeTimer);
+        activeTimer = window.setTimeout(() => {
+            const finalTarget = pendingTarget;
             pendingTarget = null;
 
-            runTarget(next);
+            runTarget(finalTarget);
 
-            window.setTimeout(hideLoader, 130);
+            window.setTimeout(() => {
+                navLocked = false;
+                hideLoader();
+            }, 180);
         }, NAV_DELAY_MS);
     }
 
-    function interceptDashboardTabClick(event) {
+    function interceptNavigation(event) {
         const target = getTargetFromEvent(event);
         if (!target) return;
 
@@ -1219,21 +1123,43 @@
         event.stopPropagation();
         event.stopImmediatePropagation?.();
 
-        queueTarget(target);
+        queueNavigation(target);
     }
 
     /*
-      Use window capture, not document capture.
-      Window capture runs before the old dashboard.js and before the V2 foundation document listeners.
+      Capture on window and pointerdown/click.
+      Since the previous stable-shell instant interceptors are disabled above,
+      this is now the first and only navigation authority for Dashboard tabs.
     */
-    window.addEventListener('click', interceptDashboardTabClick, true);
+    window.addEventListener('pointerdown', interceptNavigation, true);
+    window.addEventListener('mousedown', interceptNavigation, true);
+    window.addEventListener('touchstart', interceptNavigation, true);
+    window.addEventListener('click', interceptNavigation, true);
 
-    window.yhDashboardV2TabTransitionGateV1 = {
-        queueTarget,
+    /*
+      If user spams tabs during loader, keep only the last target.
+      The overlay blocks pointer events visually, but this guard also protects keyboard/click edge cases.
+    */
+    document.addEventListener('click', (event) => {
+        if (!navLocked) return;
+
+        const target = getTargetFromEvent(event);
+        if (!target) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+
+        pendingTarget = target;
+        showLoader(target.label);
+    }, true);
+
+    window.yhDashboardV2LoaderGateAuthorityV2 = {
+        delay: NAV_DELAY_MS,
+        queueNavigation,
         showLoader,
-        hideLoader,
-        delay: NAV_DELAY_MS
+        hideLoader
     };
 })();
-/* END PATCH: Dashboard V2 tab transition gate v1 */
+/* END PATCH: Dashboard V2 loader gate authority v2 */
 
