@@ -12828,9 +12828,9 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     setVisible(referralCard, isOverview, 'block');
 
     setVisible(parentIntro, isDivisionParent, 'block');
-    setVisible(academyHero, isAcademyParent, 'block');
-    setVisible(academyCommandHero, isAcademyParent, 'grid');
-    setVisible(universeStage, isDivisionParent, 'block');
+    setVisible(academyHero, false, 'block');
+    setVisible(academyCommandHero, false, 'grid');
+    setVisible(universeStage, false, 'block');
     setVisible(universeDots, false, 'flex');
 
     setVisible(academyStrip, isOverview, 'block');
@@ -12846,11 +12846,7 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     if (isOverview && referralCard && academyStrip && referralCard.nextElementSibling !== academyStrip) {
         academyStrip.parentNode?.insertBefore(referralCard, academyStrip);
     }
-
-    if (isDivisionParent && typeof setUniverseSlide === 'function') {
-        try {
-            setUniverseSlide(cleanDivision, { animate: false });
-        } catch (_) {}
+    /* Dashboard-only v4: legacy division slide renderer disabled for parent tabs. */ catch (_) {}
     }
 
     if (!isChildWorkspace) {
@@ -13026,9 +13022,9 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     setVisible(referralCard, isOverview, 'block');
 
     setVisible(parentIntro, isDivisionParent, 'block');
-    setVisible(academyHero, isAcademyParent, 'block');
-    setVisible(academyCommandHero, isAcademyParent, 'grid');
-    setVisible(universeStage, isDivisionParent, 'block');
+    setVisible(academyHero, false, 'block');
+    setVisible(academyCommandHero, false, 'grid');
+    setVisible(universeStage, false, 'block');
     setVisible(universeDots, false, 'flex');
 
     setVisible(academyStrip, isOverview, 'block');
@@ -35215,16 +35211,7 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 
         document.body?.classList.toggle('yh-dashboard-parent-intro-active-v1', isParent);
         document.body?.classList.toggle('yh-dashboard-overview-command-active-v1', isOverview);
-
-        if (isParent) {
-            const division = workspace === 'plazas' ? 'plazas' : workspace === 'federation' ? 'federation' : 'academy';
-
-            try {
-                if (typeof setUniverseSlide === 'function') {
-                    setUniverseSlide(division, { animate: false });
-                }
-            } catch (_) {}
-        }
+        /* Dashboard-only v4: parent intro is the only parent-tab renderer. */
 
         try {
             if (typeof window.yhNormalizeDashboardEntryButtonsParentOnlyV1 === 'function') {
@@ -36037,43 +36024,40 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 /* END PATCH: Dashboard state owner final v3 */
 
 
-/* PATCH: Division parent access gate v2 */
-(function installDivisionParentAccessGateV2() {
-    if (window.__yhDivisionParentAccessGateV2Installed) return;
-    window.__yhDivisionParentAccessGateV2Installed = true;
+/* PATCH: Dashboard-only division parent tabs v4 */
+(function installDashboardOnlyDivisionParentTabsV4() {
+    if (window.__yhDashboardOnlyDivisionParentTabsV4Installed) return;
+    window.__yhDashboardOnlyDivisionParentTabsV4Installed = true;
 
     const DIVISIONS = {
         academy: {
-            key: 'academy',
-            stateKey: 'academy',
             label: 'Academy',
             applyLabel: 'Apply for Academy Access',
             pendingLabel: 'Application Under Review',
             approvedLabel: 'Open Roadmap',
             childWorkspace: 'academy-roadmap',
-            childLabels: ['Roadmap', 'Missions', 'Community Feed', 'Messages', 'Live Voice Lounge'],
+            subnavId: 'yh-sidebar-subnav-academy',
+            childSelector: '[data-yh-sidebar-child^="academy-"], [data-yh-mobile-subtab-menu-option^="academy-"]',
             applyFns: ['openAcademyLauncher', 'openAcademyApplicationModal', 'openAcademyApplyModal']
         },
         plazas: {
-            key: 'plazas',
-            stateKey: 'plaza',
             label: 'Plazas',
             applyLabel: 'Apply for Plazas Access',
             pendingLabel: 'Application Under Review',
             approvedLabel: 'Open Feed',
-            childWorkspace: 'plaza-feed',
-            childLabels: ['Feed', 'Inbox', 'Conversations', 'Meetups', 'Opportunities', 'Directory', 'Regions', 'Plaza Atlas', 'Become Patron', 'Patron Desk', 'Bridge', 'Requests'],
+            childWorkspace: 'plazas-feed',
+            subnavId: 'yh-sidebar-subnav-plazas',
+            childSelector: '[data-yh-sidebar-child^="plazas-"], [data-yh-mobile-subtab-menu-option^="plazas-"]',
             applyFns: ['openPlazaApplicationModal']
         },
         federation: {
-            key: 'federation',
-            stateKey: 'federation',
             label: 'Federation',
             applyLabel: 'Apply for Federation Access',
             pendingLabel: 'Application Under Review',
             approvedLabel: 'Open Command',
             childWorkspace: 'federation-command',
-            childLabels: ['Command', 'Connect', 'Deal Rooms', 'Directory', 'My Requests', 'Referrals', 'My Access'],
+            subnavId: 'yh-sidebar-subnav-federation',
+            childSelector: '[data-yh-sidebar-child^="federation-"], [data-yh-mobile-subtab-menu-option^="federation-"]',
             applyFns: ['openFederationApplicationModal']
         }
     };
@@ -36087,17 +36071,14 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         );
     }
 
-    function getWorkspace() {
-        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview')
-            .trim()
-            .toLowerCase() || 'overview';
+    function workspace() {
+        return String(document.body?.getAttribute('data-yh-unified-workspace') || 'overview').trim().toLowerCase() || 'overview';
     }
 
-    function normalizeParentKey(key = '') {
-        const clean = String(key || '').trim().toLowerCase();
+    function parentKey(value = '') {
+        const clean = String(value || '').trim().toLowerCase();
         if (clean === 'plaza') return 'plazas';
-        if (clean === 'academy' || clean === 'plazas' || clean === 'federation') return clean;
-        return '';
+        return DIVISIONS[clean] ? clean : '';
     }
 
     function safeJson(raw = '') {
@@ -36109,96 +36090,8 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         }
     }
 
-    function getCachedProfileCandidates() {
-        const candidates = [];
-
-        try {
-            if (window.__yhDivisionParentAccessGateProfileV2) {
-                candidates.push(window.__yhDivisionParentAccessGateProfileV2);
-            }
-        } catch (_) {}
-
-        try {
-            if (typeof dashboardGetSelfProfileCache === 'function') {
-                candidates.push(dashboardGetSelfProfileCache());
-            }
-        } catch (_) {}
-
-        try {
-            if (typeof dashboardGetTopProfileCache === 'function') {
-                candidates.push(dashboardGetTopProfileCache());
-            }
-        } catch (_) {}
-
-        try {
-            if (typeof buildAcademySelfProfilePayload === 'function') {
-                candidates.push(buildAcademySelfProfilePayload());
-            }
-        } catch (_) {}
-
-        try {
-            candidates.push(safeJson(localStorage.getItem('yh_dashboard_self_profile_cache_v1')));
-            candidates.push(safeJson(localStorage.getItem('yh_academy_profile_cache_v1')));
-            candidates.push(safeJson(sessionStorage.getItem('yh_dashboard_self_profile_cache_v1')));
-        } catch (_) {}
-
-        return candidates.filter((item) => item && typeof item === 'object' && !Array.isArray(item));
-    }
-
-    function normalizeDivisionState(raw = {}, parentKey = 'academy') {
-        const safe = raw && typeof raw === 'object' ? raw : {};
-        const status = String(safe.status || safe.applicationStatus || '').trim().toLowerCase();
-        const statusLabel = String(safe.statusLabel || safe.applicationStatusLabel || '').trim();
-
-        const isMember =
-            safe.isMember === true ||
-            safe.canEnter === true ||
-            safe.canEnterDivision === true ||
-            safe.hasAccess === true ||
-            status === 'approved' ||
-            status === 'active' ||
-            status === 'member';
-
-        const hasApplication =
-            safe.hasApplication === true ||
-            Boolean(safe.application && typeof safe.application === 'object') ||
-            ['pending', 'under_review', 'screening', 'waitlisted', 'shortlisted', 'rejected'].includes(status);
-
-        const isPending = ['pending', 'under_review', 'screening', 'waitlisted', 'shortlisted'].includes(status);
-
-        return {
-            isMember,
-            canEnter: isMember,
-            hasApplication,
-            isPending,
-            status,
-            statusLabel: isMember ? 'Approved' : (statusLabel || (hasApplication ? 'Under Review' : 'Not Applied'))
-        };
-    }
-
-    function getDivisionState(parentKey = 'academy') {
-        const config = DIVISIONS[parentKey];
-        if (!config) return normalizeDivisionState({}, parentKey);
-
-        const candidates = getCachedProfileCandidates();
-
-        for (const profile of candidates) {
-            const divisions = profile.divisions && typeof profile.divisions === 'object'
-                ? profile.divisions
-                : {};
-
-            const raw =
-                divisions[config.stateKey] ||
-                divisions[parentKey] ||
-                divisions[config.key] ||
-                null;
-
-            if (raw && typeof raw === 'object') {
-                return normalizeDivisionState(raw, parentKey);
-            }
-        }
-
-        return normalizeDivisionState({}, parentKey);
+    function text(node) {
+        return String(node?.textContent || '').replace(/\s+/g, ' ').trim();
     }
 
     function setVisible(node, visible, displayValue = '') {
@@ -36222,350 +36115,360 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         node.style.pointerEvents = 'none';
     }
 
-    function textOf(node) {
-        return String(node?.textContent || '').replace(/\s+/g, ' ').trim();
-    }
+    function getProfileCandidates() {
+        const out = [];
 
-    function getParentIntro() {
-        return document.getElementById('yh-dashboard-division-parent-intro-v1') ||
-            document.querySelector('.yh-dashboard-division-intro-v1') ||
-            document.querySelector('.yh-academy-parent-hero-header') ||
-            null;
-    }
+        try {
+            if (typeof dashboardGetSelfProfileCache === 'function') out.push(dashboardGetSelfProfileCache());
+        } catch (_) {}
 
-    function findParentCta(parentKey = 'academy') {
-        const intro = getParentIntro();
-        if (!intro) return null;
+        try {
+            if (typeof dashboardGetTopProfileCache === 'function') out.push(dashboardGetTopProfileCache());
+        } catch (_) {}
 
-        const existing = intro.querySelector('[data-yh-parent-access-cta-v2]');
-        if (existing) return existing;
+        try {
+            if (typeof buildAcademySelfProfilePayload === 'function') out.push(buildAcademySelfProfilePayload());
+        } catch (_) {}
 
-        const buttons = Array.from(intro.querySelectorAll('button, a, [role="button"]'));
-        const target = buttons.find((node) => {
-            const text = textOf(node).toLowerCase();
-            return (
-                /open roadmap|open feed|open command|apply|enter/.test(text) ||
-                text.includes(DIVISIONS[parentKey]?.label.toLowerCase() || '')
-            );
-        });
-
-        if (target) return target;
-
-        const footer = document.createElement('div');
-        footer.className = 'yh-parent-access-cta-wrap-v2';
-
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'yh-parent-access-cta-v2';
-        button.setAttribute('data-yh-parent-access-cta-v2', parentKey);
-
-        footer.appendChild(button);
-        intro.appendChild(footer);
-
-        return button;
-    }
-
-    function hideDivisionChildCards(parentKey = 'academy', allowed = false) {
-        const config = DIVISIONS[parentKey];
-        if (!config) return;
-
-        const intro = getParentIntro();
-
-        const childContainers = [
-            intro?.querySelector?.('.yh-dashboard-division-child-grid-v1'),
-            intro?.querySelector?.('.yh-division-parent-child-grid-v1'),
-            intro?.querySelector?.('.yh-academy-parent-child-grid-v1'),
-            document.querySelector('.yh-dashboard-division-child-grid-v1'),
-            document.querySelector('.yh-division-parent-child-grid-v1'),
-            document.querySelector('.yh-academy-parent-child-grid-v1')
-        ].filter(Boolean);
-
-        childContainers.forEach((node) => {
-            node.classList.add('yh-parent-child-cards-gated-v2');
-            setVisible(node, allowed, 'grid');
-        });
-
-        if (!intro) return;
-
-        Array.from(intro.querySelectorAll('article, section, .yh-card, .yh-dashboard-card, div'))
-            .filter((node) => node instanceof HTMLElement)
-            .filter((node) => {
-                const text = textOf(node);
-                if (!text || text.length > 420) return false;
-
-                return config.childLabels.some((label) => {
-                    const pattern = new RegExp('^' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
-                    return pattern.test(text);
-                });
-            })
-            .forEach((node) => {
-                node.classList.add('yh-parent-child-card-gated-v2');
-                setVisible(node, allowed, 'block');
+        try {
+            [
+                'yh_dashboard_self_profile_cache_v1',
+                'yh_academy_profile_cache_v1',
+                'yh_user_profile_cache_v1',
+                'yh_current_user',
+                'yh_user'
+            ].forEach((key) => {
+                out.push(safeJson(localStorage.getItem(key)));
+                out.push(safeJson(sessionStorage.getItem(key)));
             });
+        } catch (_) {}
+
+        return out.filter((item) => item && typeof item === 'object' && !Array.isArray(item));
     }
 
-    function hideSidebarChildTabs(parentKey = 'academy', allowed = false) {
-        const config = DIVISIONS[parentKey];
-        if (!config) return;
+    function stateFromObject(raw = {}) {
+        const safe = raw && typeof raw === 'object' ? raw : {};
+        const status = String(safe.status || safe.applicationStatus || safe.accessStatus || safe.membershipStatus || '').trim().toLowerCase();
+        const label = String(safe.statusLabel || safe.applicationStatusLabel || safe.label || '').trim();
 
-        const sidebar =
-            document.querySelector('aside') ||
-            document.querySelector('nav') ||
-            document.querySelector('.yh-dashboard-sidebar') ||
-            document.querySelector('.dashboard-sidebar') ||
-            document;
+        const approved =
+            safe.isMember === true ||
+            safe.canEnter === true ||
+            safe.canEnterDivision === true ||
+            safe.hasAccess === true ||
+            safe.approved === true ||
+            status === 'approved' ||
+            status === 'active' ||
+            status === 'member';
 
-        Array.from(sidebar.querySelectorAll('a, button, [role="button"], li, div'))
-            .filter((node) => node instanceof HTMLElement)
-            .filter((node) => {
-                const text = textOf(node);
-                if (!text || text.length > 80) return false;
-                return config.childLabels.some((label) => text === label || text.startsWith(label + ' '));
-            })
-            .forEach((node) => {
-                const target = node.closest('a, button, li, [role="button"]') || node;
-                target.classList.add('yh-parent-child-tab-gated-v2');
-                target.setAttribute('data-yh-parent-child-tab-v2', parentKey);
-                setVisible(target, allowed, target.tagName === 'LI' ? 'list-item' : '');
-            });
+        const pending =
+            status === 'pending' ||
+            status === 'under_review' ||
+            status === 'under review' ||
+            status === 'screening' ||
+            status === 'waitlisted' ||
+            status === 'shortlisted';
+
+        const rejected = status === 'rejected' || status === 'denied';
+
+        return {
+            approved,
+            pending,
+            rejected,
+            status,
+            label: approved ? 'Approved' : (label || (pending ? 'Under Review' : rejected ? 'Rejected' : 'Not Applied'))
+        };
     }
 
-    function hideAcademyExtraPanels(parentKey = 'academy', allowed = false) {
-        if (parentKey !== 'academy') return;
+    function stateFromOverviewCard(key = 'academy') {
+        const card = document.querySelector(`[data-yh-overview-division-card="${key}"]`);
+        if (!card) return null;
+
+        const raw = text(card).toLowerCase();
+
+        if (raw.includes('approved') || raw.includes('member') || raw.includes('active')) {
+            return { approved: true, pending: false, rejected: false, status: 'approved', label: 'Approved' };
+        }
+
+        if (raw.includes('pending') || raw.includes('review')) {
+            return { approved: false, pending: true, rejected: false, status: 'pending', label: 'Under Review' };
+        }
+
+        if (raw.includes('not applied') || raw.includes('locked') || raw.includes('apply')) {
+            return { approved: false, pending: false, rejected: false, status: 'not_applied', label: 'Not Applied' };
+        }
+
+        return null;
+    }
+
+    function getDivisionState(key = 'academy') {
+        const overview = stateFromOverviewCard(key);
+
+        /*
+          If the Dashboard overview visibly says Not Applied / Pending, trust it.
+          This prevents stale local cache from incorrectly unlocking child tabs.
+        */
+        if (overview && overview.approved !== true) return overview;
+
+        for (const profile of getProfileCandidates()) {
+            const divisions = profile.divisions && typeof profile.divisions === 'object' ? profile.divisions : {};
+            const raw =
+                divisions[key] ||
+                divisions[key === 'plazas' ? 'plaza' : key] ||
+                profile[key] ||
+                profile[key + 'Application'] ||
+                null;
+
+            if (raw && typeof raw === 'object') {
+                const parsed = stateFromObject(raw);
+                if (parsed.approved || parsed.pending || parsed.rejected || parsed.status) return parsed;
+            }
+        }
+
+        return overview || { approved: false, pending: false, rejected: false, status: 'not_applied', label: 'Not Applied' };
+    }
+
+    function hideLegacyParentSurfaces() {
+        [
+            '.yh-academy-parent-hero-header',
+            '.yh-academy-parent-vision-scope',
+            '.yh-academy-parent-vision-scope.yh-universe-stage-nav',
+            '.yh-universe-command-hero',
+            '.yh-universe-stage-nav',
+            '.yh-universe-dots'
+        ].forEach((selector) => {
+            document.querySelectorAll(selector).forEach((node) => setVisible(node, false, 'block'));
+        });
 
         const progressRail = document.getElementById('yh-universe-progress-rail');
         const bridgeCard = document.getElementById('yh-econ-bridge-card');
         const featureKicker = document.getElementById('yh-universe-feature-kicker');
         const featurePanel = featureKicker?.closest?.('.yh-universe-feature-panel, article, section, div');
 
-        if (progressRail) {
-            progressRail.classList.toggle('yh-academy-parent-econ-fixed-v2', allowed);
-            setVisible(progressRail, allowed, 'grid');
-        }
-
+        setVisible(progressRail, false, 'grid');
         setVisible(bridgeCard, false, 'block');
         setVisible(featurePanel, false, 'block');
     }
 
-    function updateParentIntroCta(parentKey = 'academy', state = null) {
-        const config = DIVISIONS[parentKey];
+    function setSidebarChildren(key = 'academy', allowed = false) {
+        const config = DIVISIONS[key];
         if (!config) return;
 
-        const safeState = state || getDivisionState(parentKey);
-        const button = findParentCta(parentKey);
-        if (!button) return;
-
-        button.setAttribute('data-yh-parent-access-cta-v2', parentKey);
-        button.classList.add('yh-parent-access-cta-v2');
-
-        button.classList.toggle('is-approved', safeState.canEnter === true);
-        button.classList.toggle('is-pending', safeState.canEnter !== true && safeState.isPending === true);
-        button.classList.toggle('is-locked', safeState.canEnter !== true && safeState.isPending !== true);
-
-        if (safeState.canEnter) {
-            button.textContent = config.approvedLabel;
-            button.removeAttribute('disabled');
-            button.setAttribute('aria-disabled', 'false');
-            button.style.pointerEvents = 'auto';
-
-            if (button.tagName === 'A') {
-                button.setAttribute('href', '#');
-            }
-
-            return;
+        const subnav = document.getElementById(config.subnavId);
+        if (subnav) {
+            subnav.classList.toggle('yh-division-subnav-gated-v4', !allowed);
+            setVisible(subnav, allowed, 'block');
         }
 
-        if (safeState.isPending) {
-            button.textContent = safeState.statusLabel || config.pendingLabel;
-            button.setAttribute('disabled', 'disabled');
-            button.setAttribute('aria-disabled', 'true');
-
-            if (button.tagName === 'A') {
-                button.removeAttribute('href');
-            }
-
-            return;
-        }
-
-        button.textContent = config.applyLabel;
-        button.removeAttribute('disabled');
-        button.setAttribute('aria-disabled', 'false');
-        button.style.pointerEvents = 'auto';
-
-        if (button.tagName === 'A') {
-            button.setAttribute('href', '#');
-        }
+        document.querySelectorAll(config.childSelector).forEach((node) => {
+            node.classList.toggle('yh-division-child-gated-v4', !allowed);
+            setVisible(node, allowed, node.tagName === 'BUTTON' ? 'block' : '');
+        });
     }
 
-    function applyParentGate(parentKey = '') {
-        if (!isDashboardPage()) return;
+    function normalizeIntro(key = 'academy') {
+        const config = DIVISIONS[key];
+        if (!config) return;
 
-        const cleanParent = normalizeParentKey(parentKey || getWorkspace());
-        const config = DIVISIONS[cleanParent];
+        const intro = document.getElementById('yh-dashboard-division-parent-intro-v1');
+        if (!intro) return;
 
-        if (!config) {
-            document.body?.removeAttribute('data-yh-parent-division');
-            document.body?.removeAttribute('data-yh-parent-can-enter');
-            return;
-        }
+        const state = getDivisionState(key);
+        const allowed = state.approved === true;
 
-        const state = getDivisionState(cleanParent);
-        const allowed = state.canEnter === true;
-
-        document.body?.setAttribute('data-yh-parent-division', cleanParent);
+        document.body?.setAttribute('data-yh-parent-division', key);
         document.body?.setAttribute('data-yh-parent-can-enter', allowed ? 'true' : 'false');
-        document.body?.setAttribute('data-yh-parent-application-state', state.isPending ? 'pending' : (allowed ? 'approved' : 'not-applied'));
+        document.body?.setAttribute('data-yh-parent-application-state', allowed ? 'approved' : state.pending ? 'pending' : 'not-applied');
 
-        hideSidebarChildTabs(cleanParent, allowed);
-        hideDivisionChildCards(cleanParent, allowed);
-        hideAcademyExtraPanels(cleanParent, allowed);
-        updateParentIntroCta(cleanParent, state);
+        setVisible(intro, true, 'block');
 
-        if (typeof window.yhDashboardApplyStateOwnerFinalV3 === 'function') {
-            try {
-                window.yhDashboardApplyStateOwnerFinalV3(cleanParent);
-            } catch (_) {}
+        const childGrid = intro.querySelector('.yh-dashboard-division-child-grid-v1');
+        setVisible(childGrid, allowed, 'grid');
+
+        const actionWrap = intro.querySelector('.yh-dashboard-division-intro-actions-v1');
+        let oldButton = intro.querySelector('.yh-dashboard-division-primary-btn-v1, [data-yh-parent-access-cta-v4]');
+        let button = oldButton;
+
+        if (!button && actionWrap) {
+            button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'yh-dashboard-division-primary-btn-v1';
+            actionWrap.prepend(button);
         }
+
+        if (button) {
+            const clean = button.cloneNode(true);
+            clean.classList.add('yh-parent-access-cta-v4');
+            clean.setAttribute('data-yh-parent-access-cta-v4', key);
+            clean.removeAttribute('data-yh-division-intro-target');
+
+            if (allowed) {
+                clean.textContent = `${config.approvedLabel} →`;
+                clean.removeAttribute('disabled');
+                clean.setAttribute('aria-disabled', 'false');
+                clean.setAttribute('data-yh-parent-action-kind-v4', 'open');
+            } else if (state.pending) {
+                clean.textContent = state.label || config.pendingLabel;
+                clean.setAttribute('disabled', 'disabled');
+                clean.setAttribute('aria-disabled', 'true');
+                clean.setAttribute('data-yh-parent-action-kind-v4', 'pending');
+            } else {
+                clean.textContent = `${config.applyLabel} →`;
+                clean.removeAttribute('disabled');
+                clean.setAttribute('aria-disabled', 'false');
+                clean.setAttribute('data-yh-parent-action-kind-v4', 'apply');
+            }
+
+            button.replaceWith(clean);
+        }
+
+        const helper = actionWrap?.querySelector('span');
+        if (helper) {
+            helper.textContent = allowed
+                ? 'Child sections are unlocked for this division.'
+                : `Apply first. ${config.label} child sections stay hidden until approval.`;
+        }
+
+        setSidebarChildren(key, allowed);
+        hideLegacyParentSurfaces();
     }
 
-    function openDivisionApplication(parentKey = 'academy') {
-        const config = DIVISIONS[parentKey];
-        if (!config) return false;
+    function openApplication(key = 'academy') {
+        const config = DIVISIONS[key];
+        if (!config) return;
 
         for (const fnName of config.applyFns) {
             try {
                 if (typeof window[fnName] === 'function') {
                     window[fnName]();
-                    return true;
+                    return;
                 }
             } catch (_) {}
         }
 
-        const fallbackSelectors = {
-            academy: '#btn-open-academy-apply, #btn-open-academy-application, [data-yh-open-academy-apply]',
-            plazas: '#btn-open-plaza-apply, #btn-open-plaza-application, [data-yh-open-plaza-apply]',
-            federation: '#btn-open-federation-apply, #btn-open-federation-application, [data-yh-open-federation-apply]'
-        };
-
-        const fallback = document.querySelector(fallbackSelectors[parentKey] || '');
-        if (fallback) {
-            fallback.click();
-            return true;
+        const overviewButton = document.querySelector(`[data-yh-overview-division-action="${key}"][data-yh-overview-division-action-kind="apply"]`);
+        if (overviewButton) {
+            overviewButton.click();
+            return;
         }
 
         if (typeof showToast === 'function') {
             showToast(`${config.label} application form is not available yet.`, 'error');
         }
-
-        return false;
     }
 
-    function openDivisionDefaultChild(parentKey = 'academy') {
-        const config = DIVISIONS[parentKey];
+    function openDefaultChild(key = 'academy') {
+        const config = DIVISIONS[key];
         if (!config) return;
 
-        if (typeof activateDashboardUnifiedWorkspace === 'function') {
-            activateDashboardUnifiedWorkspace(config.childWorkspace);
-            return;
+        if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
+            window.activateDashboardUnifiedWorkspace(config.childWorkspace, {
+                animate: false,
+                scroll: true,
+                persist: true
+            });
         }
+    }
 
-        if (parentKey === 'academy') window.location.href = '/dashboard?section=academy-roadmap';
-        if (parentKey === 'plazas') window.location.href = '/dashboard?section=plaza-feed';
-        if (parentKey === 'federation') window.location.href = '/dashboard?section=federation-command';
+    function apply(forceKey = '') {
+        if (!isDashboardPage()) return;
+
+        const key = parentKey(forceKey || workspace());
+        if (!key) return;
+
+        hideLegacyParentSurfaces();
+        normalizeIntro(key);
     }
 
     document.addEventListener('click', (event) => {
-        const cta = event.target?.closest?.('[data-yh-parent-access-cta-v2]');
-        if (!cta) return;
+        const parentButton = event.target?.closest?.('[data-yh-dashboard-shell="academy"], [data-yh-dashboard-shell="plazas"], [data-yh-dashboard-shell="federation"]');
+        if (!parentButton) return;
 
-        const parentKey = normalizeParentKey(cta.getAttribute('data-yh-parent-access-cta-v2') || getWorkspace());
-        if (!parentKey) return;
+        const key = parentKey(parentButton.getAttribute('data-yh-dashboard-shell'));
+        if (!key) return;
 
-        const state = getDivisionState(parentKey);
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (state.canEnter) {
-            openDivisionDefaultChild(parentKey);
-            return;
-        }
-
-        if (state.isPending) {
-            if (typeof showToast === 'function') {
-                showToast(`${DIVISIONS[parentKey].label} application is still under review.`, 'error');
-            }
-            return;
-        }
-
-        openDivisionApplication(parentKey);
+        window.requestAnimationFrame?.(() => apply(key));
+        [0, 40, 120, 260, 520, 900].forEach((delay) => {
+            window.setTimeout(() => apply(key), delay);
+        });
     }, true);
 
     document.addEventListener('click', (event) => {
-        const child = event.target?.closest?.('[data-yh-parent-child-tab-v2]');
-        if (!child) return;
+        const cta = event.target?.closest?.('[data-yh-parent-access-cta-v4]');
+        if (!cta) return;
 
-        const parentKey = normalizeParentKey(child.getAttribute('data-yh-parent-child-tab-v2') || getWorkspace());
-        if (!parentKey) return;
-
-        const state = getDivisionState(parentKey);
-        if (state.canEnter) return;
+        const key = parentKey(cta.getAttribute('data-yh-parent-access-cta-v4'));
+        if (!key) return;
 
         event.preventDefault();
         event.stopPropagation();
 
-        if (state.isPending) {
+        const state = getDivisionState(key);
+
+        if (state.approved) {
+            openDefaultChild(key);
+            return;
+        }
+
+        if (state.pending) {
             if (typeof showToast === 'function') {
-                showToast(`${DIVISIONS[parentKey].label} application is still under review.`, 'error');
+                showToast(`${DIVISIONS[key].label} application is still under review.`, 'error');
             }
             return;
         }
 
-        openDivisionApplication(parentKey);
+        openApplication(key);
+    }, true);
+
+    document.addEventListener('click', (event) => {
+        const child = event.target?.closest?.('[data-yh-sidebar-child], [data-yh-mobile-subtab-menu-option]');
+        if (!child) return;
+
+        const raw = child.getAttribute('data-yh-sidebar-child') || child.getAttribute('data-yh-mobile-subtab-menu-option') || '';
+        const key = raw.startsWith('academy-') ? 'academy' : raw.startsWith('plazas-') ? 'plazas' : raw.startsWith('federation-') ? 'federation' : '';
+
+        if (!key) return;
+
+        const state = getDivisionState(key);
+        if (state.approved) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        openApplication(key);
     }, true);
 
     const nativeActivate = window.activateDashboardUnifiedWorkspace;
-    if (typeof nativeActivate === 'function' && nativeActivate.__yhDivisionParentAccessGateWrappedV2 !== true) {
-        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspaceAccessGateV2(key = 'overview', options = {}) {
+    if (typeof nativeActivate === 'function' && nativeActivate.__yhDashboardOnlyParentTabsWrappedV4 !== true) {
+        const wrapped = function activateDashboardUnifiedWorkspaceParentTabsV4(key = 'overview', options = {}) {
             const result = nativeActivate.apply(this, arguments);
-            const cleanKey = normalizeParentKey(result?.key || key || getWorkspace());
+            const cleanKey = parentKey(result?.key || key || workspace());
 
-            window.requestAnimationFrame?.(() => applyParentGate(cleanKey));
-            window.setTimeout(() => applyParentGate(cleanKey), 60);
-            window.setTimeout(() => applyParentGate(cleanKey), 180);
-            window.setTimeout(() => applyParentGate(cleanKey), 460);
+            if (cleanKey) {
+                window.requestAnimationFrame?.(() => apply(cleanKey));
+                [0, 50, 140, 340, 700].forEach((delay) => {
+                    window.setTimeout(() => apply(cleanKey), delay);
+                });
+            }
 
             return result;
         };
 
-        wrappedActivateDashboardUnifiedWorkspace.__yhDivisionParentAccessGateWrappedV2 = true;
-        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
+        wrapped.__yhDashboardOnlyParentTabsWrappedV4 = true;
+        window.activateDashboardUnifiedWorkspace = wrapped;
     }
 
-    const nativePersist = window.dashboardPersistSelfProfileCache;
-    if (typeof nativePersist === 'function' && nativePersist.__yhDivisionParentAccessGateWrappedV2 !== true) {
-        const wrappedPersistSelfProfileCache = function wrappedPersistSelfProfileCacheAccessGateV2(profile = {}) {
-            window.__yhDivisionParentAccessGateProfileV2 = profile;
-            const result = nativePersist.apply(this, arguments);
-            window.setTimeout(() => applyParentGate(getWorkspace()), 30);
-            return result;
-        };
-
-        wrappedPersistSelfProfileCache.__yhDivisionParentAccessGateWrappedV2 = true;
-        window.dashboardPersistSelfProfileCache = wrappedPersistSelfProfileCache;
-    }
-
-    window.yhApplyDivisionParentAccessGateV2 = applyParentGate;
+    window.yhDashboardOnlyDivisionParentTabsV4 = apply;
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => applyParentGate());
+        document.addEventListener('DOMContentLoaded', () => apply());
     } else {
-        applyParentGate();
+        apply();
     }
 
-    [60, 180, 420, 900, 1600, 2800].forEach((delay) => {
-        window.setTimeout(() => applyParentGate(), delay);
+    [60, 180, 420, 900, 1800].forEach((delay) => {
+        window.setTimeout(() => apply(), delay);
     });
 })();
-/* END PATCH: Division parent access gate v2 */
+/* END PATCH: Dashboard-only division parent tabs v4 */
 

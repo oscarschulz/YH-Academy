@@ -3158,132 +3158,79 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
 /* END PATCH: Dashboard resources transparency tune v194 */
 
 
-/* PATCH: Division parent access gate styles v2 */
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-can-enter="false"] .yh-parent-child-tab-gated-v2,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-can-enter="false"] .yh-parent-child-cards-gated-v2,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-can-enter="false"] .yh-parent-child-card-gated-v2 {
+/* PATCH: Dashboard-only division parent tabs styles v4 */
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-academy-parent-hero-header,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-academy-parent-vision-scope,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-universe-command-hero,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-universe-stage-nav,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-progress-rail,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-econ-bridge-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="plazas"] .yh-academy-parent-hero-header,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="plazas"] .yh-academy-parent-vision-scope,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="plazas"] .yh-universe-command-hero,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="plazas"] .yh-universe-stage-nav,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="federation"] .yh-academy-parent-hero-header,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="federation"] .yh-academy-parent-vision-scope,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="federation"] .yh-universe-command-hero,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="federation"] .yh-universe-stage-nav {
     display: none;
     visibility: hidden;
+    opacity: 0;
     pointer-events: none;
 }
 
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="false"] #yh-universe-progress-rail,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"] #yh-econ-bridge-card,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"] .yh-universe-feature-panel:has(#yh-universe-feature-kicker) {
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-can-enter="false"] .yh-division-subnav-gated-v4,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-can-enter="false"] .yh-division-child-gated-v4,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-can-enter="false"] .yh-dashboard-division-child-grid-v1 {
     display: none;
     visibility: hidden;
+    opacity: 0;
     pointer-events: none;
 }
 
-.yh-parent-access-cta-v2 {
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-intro-v1 {
+    width: 100%;
+    max-width: 100%;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-intro-actions-v1 {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-parent-access-cta-v4,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-primary-btn-v1 {
     min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 0 22px;
-    border: 1px solid rgba(56, 189, 248, 0.56);
+    border: 1px solid rgba(103, 232, 249, 0.5);
     background: linear-gradient(135deg, rgba(56, 189, 248, 0.95), rgba(37, 99, 235, 0.92));
     color: #ffffff;
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+    font-size: clamp(0.98rem, 0.95vw, 1.04rem);
     font-weight: 800;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.03em;
     cursor: pointer;
 }
 
-.yh-parent-access-cta-v2.is-pending {
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-parent-access-cta-v4[disabled],
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-division-primary-btn-v1[disabled] {
     background: rgba(148, 163, 184, 0.14);
-    border-color: rgba(148, 163, 184, 0.36);
-    color: rgba(226, 232, 240, 0.72);
+    border-color: rgba(148, 163, 184, 0.34);
+    color: rgba(226, 232, 240, 0.7);
     cursor: not-allowed;
 }
 
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="true"] #yh-universe-progress-rail.yh-academy-parent-econ-fixed-v2 {
-    width: 100%;
-    max-width: 100%;
-    margin: clamp(22px, 2vw, 34px) 0 0;
-    grid-column: 1 / -1;
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-can-enter="false"] .yh-dashboard-division-intro-hero-v1 {
+    margin-bottom: 0;
 }
 
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="true"] #yh-universe-progress-rail.yh-academy-parent-econ-fixed-v2 .yh-universe-progress-card {
-    width: 100%;
-    max-width: 100%;
-    display: grid;
-    grid-template-columns: minmax(260px, 0.72fr) minmax(420px, 1.28fr);
-    grid-template-areas:
-        "kicker statuses"
-        "title statuses"
-        "copy statuses"
-        "tier statuses";
-    align-items: stretch;
-    gap: clamp(12px, 1.2vw, 22px);
-    padding: clamp(22px, 2vw, 32px);
-    min-height: 0;
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-can-enter="false"] #yh-dashboard-division-parent-intro-v1 {
+    margin-bottom: 0;
 }
-
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="true"] #yh-universe-progress-rail.yh-academy-parent-econ-fixed-v2 .yh-universe-progress-kicker {
-    grid-area: kicker;
-    align-self: end;
-    margin: 0;
-}
-
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="true"] #yh-universe-progress-rail.yh-academy-parent-econ-fixed-v2 .yh-universe-progress-title {
-    grid-area: title;
-    margin: 0;
-    line-height: 1.05;
-}
-
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="true"] #yh-universe-progress-rail.yh-academy-parent-econ-fixed-v2 .yh-universe-progress-copy {
-    grid-area: copy;
-    margin: 0;
-    max-width: 580px;
-    line-height: 1.48;
-}
-
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="true"] #yh-universe-progress-rail.yh-academy-parent-econ-fixed-v2 .yh-universe-progress-tier {
-    grid-area: tier;
-    align-self: end;
-}
-
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="true"] #yh-universe-progress-rail.yh-academy-parent-econ-fixed-v2 .yh-universe-progress-status-list {
-    grid-area: statuses;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    align-content: stretch;
-}
-
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="true"] #yh-universe-progress-rail.yh-academy-parent-econ-fixed-v2 .yh-universe-progress-status-row {
-    min-width: 0;
-    min-height: 58px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) max-content;
-    align-items: center;
-    gap: 12px;
-}
-
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="true"] #yh-universe-progress-rail.yh-academy-parent-econ-fixed-v2 .yh-universe-progress-status-row span,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="true"] #yh-universe-progress-rail.yh-academy-parent-econ-fixed-v2 .yh-universe-progress-status-row strong {
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-@media (max-width: 1100px) {
-    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="true"] #yh-universe-progress-rail.yh-academy-parent-econ-fixed-v2 .yh-universe-progress-card {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-areas:
-            "kicker"
-            "title"
-            "copy"
-            "tier"
-            "statuses";
-    }
-}
-
-@media (max-width: 760px) {
-    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="true"] #yh-universe-progress-rail.yh-academy-parent-econ-fixed-v2 .yh-universe-progress-status-list {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-parent-division="academy"][data-yh-parent-can-enter="true"] #yh-universe-progress-rail.yh-academy-parent-econ-fixed-v2 .yh-universe-progress-status-row {
-        grid-template-columns: minmax(0, 1fr);
-        align-items: start;
-    }
-}
-/* END PATCH: Division parent access gate styles v2 */
+/* END PATCH: Dashboard-only division parent tabs styles v4 */
 
