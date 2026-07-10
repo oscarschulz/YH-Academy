@@ -2717,8 +2717,16 @@
 
         document.body?.setAttribute(`data-yh-${key}-application-pending`, 'true');
 
-        syncCards();
-        syncSnapshotConsumers();
+        if (!window.__yhDashboardApplicationPendingPersistenceSyncGuardV2) {
+            window.__yhDashboardApplicationPendingPersistenceSyncGuardV2 = true;
+
+            try {
+                syncCards();
+                syncSnapshotConsumers();
+            } finally {
+                window.__yhDashboardApplicationPendingPersistenceSyncGuardV2 = false;
+            }
+        }
 
         return true;
     }
@@ -2901,7 +2909,6 @@
         }
 
         if (legacyStatus === 'pending') {
-            markPending(key, null, 'legacy-cache');
             return 'pending';
         }
 
@@ -3244,4 +3251,96 @@
     };
 })();
 /* END PATCH: Dashboard application pending persistence v1 */
+
+
+/* PATCH: Dashboard pending recursion emergency apply guard v2 */
+(function installDashboardPendingRecursionEmergencyApplyGuardV2() {
+    if (window.__yhDashboardPendingRecursionEmergencyApplyGuardV2Installed) return;
+    window.__yhDashboardPendingRecursionEmergencyApplyGuardV2Installed = true;
+
+    const APPLY_FNS = {
+        academy: ['openAcademyLauncher', 'openAcademyApplicationModal', 'openAcademyApplyModal'],
+        plazas: ['openPlazaApplicationModal'],
+        federation: ['openFederationApplicationModal']
+    };
+
+    function isDashboardPage() {
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return path === '/dashboard' ||
+            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
+            document.body?.getAttribute('data-yh-view') === 'hub';
+    }
+
+    function cleanDivision(value = '') {
+        const key = String(value || '').trim().toLowerCase();
+        if (key === 'plaza') return 'plazas';
+        return APPLY_FNS[key] ? key : '';
+    }
+
+    function getButtonState(button) {
+        return String(button?.getAttribute?.('data-yh-overview-division-action-kind') || '').trim().toLowerCase();
+    }
+
+    function showToastMessage(message = '', type = 'error') {
+        if (typeof window.showToast === 'function') {
+            window.showToast(message, type);
+        }
+    }
+
+    function openApply(division = '') {
+        const key = cleanDivision(division);
+        if (!key) return false;
+
+        const fns = APPLY_FNS[key] || [];
+
+        for (const fnName of fns) {
+            try {
+                if (typeof window[fnName] === 'function') {
+                    const result = window[fnName]();
+
+                    if (result && typeof result.then === 'function') {
+                        result.catch((error) => console.error(`${fnName} failed:`, error));
+                    }
+
+                    return true;
+                }
+            } catch (error) {
+                console.error(`${fnName} failed:`, error);
+            }
+        }
+
+        showToastMessage('Application form is not ready yet. Please refresh and try again.', 'error');
+        return false;
+    }
+
+    document.addEventListener('click', (event) => {
+        if (!isDashboardPage() || !event?.target) return;
+
+        const button = event.target.closest?.('[data-yh-overview-division-action]');
+        if (!button) return;
+
+        const division = cleanDivision(button.getAttribute('data-yh-overview-division-action') || '');
+        if (!division) return;
+
+        const state = getButtonState(button);
+
+        if (state === 'pending') {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation?.();
+
+            showToastMessage(`${division === 'academy' ? 'Academy' : division === 'plazas' ? 'Plazas' : 'Federation'} application is still under admin review.`, 'error');
+            return;
+        }
+
+        if (state === 'apply' || button.textContent.trim().toLowerCase() === 'apply') {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation?.();
+
+            window.setTimeout(() => openApply(division), 60);
+        }
+    }, true);
+})();
+/* END PATCH: Dashboard pending recursion emergency apply guard v2 */
 
