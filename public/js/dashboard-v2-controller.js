@@ -1515,8 +1515,19 @@
         if (!isDashboardPage()) return;
 
         const current = String(document.body?.getAttribute('data-yh-unified-workspace') || '').trim().toLowerCase();
+        const activeParent = String(document.body?.getAttribute('data-yh-dashboard-v2-active') || '').trim().toLowerCase();
+        const approvedParentOpenAt = Number(window.__yhDashboardApprovedParentOpenAt || 0);
+        const approvedParentRecentlyOpened = approvedParentOpenAt && Date.now() - approvedParentOpenAt < 4200;
 
         if (hasExplicitChildIntent()) return;
+
+        if (
+            approvedParentRecentlyOpened ||
+            (current && current !== 'overview') ||
+            ['academy', 'plazas', 'federation'].includes(activeParent)
+        ) {
+            return;
+        }
 
         /*
           Cancel pending old async child callbacks from activateDashboardUnifiedWorkspace().
@@ -1849,7 +1860,21 @@
 
     function forceDashboardOverviewOnly(reason = 'overview') {
         if (!isDashboardPage()) return;
+
+        const current = cleanKey(document.body?.getAttribute('data-yh-unified-workspace') || 'overview');
+        const activeParent = cleanKey(document.body?.getAttribute('data-yh-dashboard-v2-active') || '');
+        const approvedParentOpenAt = Number(window.__yhDashboardApprovedParentOpenAt || 0);
+        const approvedParentRecentlyOpened = approvedParentOpenAt && Date.now() - approvedParentOpenAt < 4200;
+
         if (hasExplicitChildIntent()) return;
+
+        if (
+            approvedParentRecentlyOpened ||
+            (current && current !== 'overview') ||
+            isParentDivision(activeParent)
+        ) {
+            return;
+        }
 
         window.__yhDashboardWorkspaceActivationSeq = Number(window.__yhDashboardWorkspaceActivationSeq || 0) + 1;
 
@@ -2731,19 +2756,44 @@
         const state = getState(key);
         if (!key || normalizeStatus(state?.status || '') !== 'approved') return false;
 
-        if (typeof window.yhDashboardV2ShowParentShellV1 === 'function') {
-            window.yhDashboardV2ShowParentShellV1(key, 'source-of-truth-approved');
-        } else if (typeof window.yhDashboardV2RenderParent === 'function') {
-            window.yhDashboardV2RenderParent(key);
-        } else if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
-            window.activateDashboardUnifiedWorkspace(key, { animate: false, scroll: true, persist: true });
-        }
+        window.__yhDashboardApprovedParentOpenAt = Date.now();
 
         document.body?.setAttribute('data-yh-dashboard-v2-active', key);
         document.body?.setAttribute('data-yh-dashboard-v2-approved', 'true');
         document.body?.setAttribute('data-yh-dashboard-v2-status', 'approved');
+        document.body?.setAttribute('data-yh-dashboard-v2-lock', key);
+        document.body?.setAttribute('data-yh-unified-workspace', key);
+        document.body?.setAttribute('data-yh-unified-division', key);
 
-        syncSubnavAccess(key, true);
+        const renderApprovedParent = (reason = 'approved-parent') => {
+            document.body?.setAttribute('data-yh-dashboard-v2-active', key);
+            document.body?.setAttribute('data-yh-dashboard-v2-approved', 'true');
+            document.body?.setAttribute('data-yh-dashboard-v2-status', 'approved');
+            document.body?.setAttribute('data-yh-dashboard-v2-lock', key);
+            document.body?.setAttribute('data-yh-unified-workspace', key);
+            document.body?.setAttribute('data-yh-unified-division', key);
+
+            if (typeof window.yhDashboardV2ShowParentShellV1 === 'function') {
+                window.yhDashboardV2ShowParentShellV1(key, reason);
+            } else if (typeof window.yhDashboardV2RenderParent === 'function') {
+                window.yhDashboardV2RenderParent(key);
+            } else if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
+                window.activateDashboardUnifiedWorkspace(key, {
+                    animate: false,
+                    scroll: true,
+                    persist: true
+                });
+            }
+
+            syncSubnavAccess(key, true);
+        };
+
+        renderApprovedParent('source-of-truth-approved');
+
+        [60, 180, 420, 900, 1600, 3000].forEach((delay) => {
+            window.setTimeout(() => renderApprovedParent(`source-of-truth-approved-${delay}`), delay);
+        });
+
         syncCards();
 
         return true;
