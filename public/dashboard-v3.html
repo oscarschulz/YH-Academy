@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Dashboard | YH Universe</title>
+
+    <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1" />
+    <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    />
+
+<link rel="stylesheet" href="/css/dashboard-v3.css?v=20260711-auth-outer-clean-v1" />
+</head>
+
+<body data-yh-page="dashboard-v3" data-yh-view="hub" data-yh-v3-route="overview">
+    <div class="yhv3-boot-loader" id="yhv3BootLoader" aria-hidden="false">
+        <div class="yhv3-loader-card">
+            <img src="/images/logo.avif" alt="YH Universe" class="yhv3-loader-logo" />
+            <div>
+                <div class="yhv3-loader-title">Preparing Dashboard</div>
+                <div class="yhv3-loader-text" id="yhv3LoaderText">Syncing your access state...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="yhv3-shell">
+        <aside class="yhv3-sidebar" aria-label="Dashboard navigation">
+            <div class="yhv3-brand">
+                <img src="/images/logo.avif" alt="YH Universe" />
+                <span>UNIVERSE</span>
+            </div>
+
+            <div class="yhv3-nav-section">
+                <div class="yhv3-nav-label">Navigation</div>
+
+                <button class="yhv3-nav-btn is-active" type="button" data-yhv3-route="overview">
+                    <span>▦</span>
+                    <strong>My Dashboard</strong>
+                </button>
+
+                <div class="yhv3-division-group" data-yhv3-division-group="academy">
+                    <button class="yhv3-nav-btn yhv3-parent-btn" type="button" data-yhv3-route="academy">
+                        <span>🎓</span>
+                        <strong>Academy</strong>
+                        <em data-yhv3-access-pill="academy">Checking</em>
+                    </button>
+
+                    <div class="yhv3-subnav" data-yhv3-subnav="academy" aria-hidden="true">
+                        <button type="button" data-yhv3-route="academy-roadmap">Roadmap</button>
+                        <button type="button" data-yhv3-route="academy-missions">Missions</button>
+                        <button type="button" data-yhv3-route="academy-community">Community Feed</button>
+                        <button type="button" data-yhv3-route="academy-messages">Messages</button>
+                        <button type="button" data-yhv3-route="academy-voice">Live Voice Lounge</button>
+                    </div>
+                </div>
+
+                <div class="yhv3-division-group" data-yhv3-division-group="plazas">
+                    <button class="yhv3-nav-btn yhv3-parent-btn" type="button" data-yhv3-route="plazas">
+                        <span>🏛️</span>
+                        <strong>Plazas</strong>
+                        <em data-yhv3-access-pill="plazas">Checking</em>
+                    </button>
+                </div>
+
+                <div class="yhv3-division-group" data-yhv3-division-group="federation">
+                    <button class="yhv3-nav-btn yhv3-parent-btn" type="button" data-yhv3-route="federation">
+                        <span>💠</span>
+                        <strong>Federation</strong>
+                        <em data-yhv3-access-pill="federation">Checking</em>
+                    </button>
+                </div>
+            </div>
+
+            <div class="yhv3-nav-section">
+                <div class="yhv3-nav-label">Utilities</div>
+
+                <button class="yhv3-nav-btn" type="button" data-yhv3-route="wallet">
+                    <span>💎</span>
+                    <strong>Wallet</strong>
+                </button>
+
+                <button class="yhv3-nav-btn" type="button" data-yhv3-route="business-chats">
+                    <span>💬</span>
+                    <strong>Business Chats</strong>
+                </button>
+
+                <button class="yhv3-nav-btn" type="button" data-yhv3-route="resources">
+                    <span>☰</span>
+                    <strong>Resources</strong>
+                </button>
+            </div>
+
+            <div class="yhv3-nav-section yhv3-sidebar-bottom">
+                <div class="yhv3-nav-label">System</div>
+
+                <button class="yhv3-nav-btn" type="button" data-yhv3-route="settings">
+                    <span>⚙</span>
+                    <strong>Settings</strong>
+                </button>
+
+                <button class="yhv3-nav-btn" type="button" data-yhv3-route="profile">
+                    <span>♙</span>
+                    <strong>Edit Profile</strong>
+                </button>
+
+                <button class="yhv3-nav-btn" type="button" id="yhv3LogoutBtn">
+                    <span>↪</span>
+                    <strong>Log out</strong>
+                </button>
+            </div>
+        </aside>
+
+        <main class="yhv3-main">
+            <header class="yhv3-topbar">
+                <div class="yhv3-search">
+                    <input type="search" placeholder="Search across YH Universe..." aria-label="Search across YH Universe" />
+                    <button type="button">Search</button>
+                </div>
+
+                <div class="yhv3-top-actions">
+                    <span class="yhv3-live-dot">● Live</span>
+                    <span class="yhv3-wallet-pill">Wallet <strong id="yhv3WalletAmount">$0.00</strong></span>
+                    <button type="button" class="yhv3-profile-pill" data-yhv3-route="profile">
+                        <span id="yhv3ProfileAvatar">YH</span>
+                        <strong id="yhv3ProfileName">Profile</strong>
+                    </button>
+                </div>
+            </header>
+
+            <section class="yhv3-stage" id="yhv3Stage" aria-live="polite"></section>
+        </main>
+    </div>
+
+    <div class="yhv3-toast" id="yhv3Toast" role="status" aria-live="polite"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/yh-shared-core.js?v=20260711-v3-phase1"></script>
+    <script src="/js/yh-shared-runtime.js?v=20260711-v3-phase1"></script>
+<script src="/js/dashboard-v3.js?v=20260711-child-headerless-v1"></script>
+</body>
+</html>

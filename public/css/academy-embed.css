@@ -1,0 +1,848 @@
+:root {
+    --ae-bg: #020713;
+    --ae-panel: rgba(5, 14, 31, 0.76);
+    --ae-line: rgba(103, 232, 249, 0.18);
+    --ae-line-strong: rgba(103, 232, 249, 0.34);
+    --ae-cyan: #67e8f9;
+    --ae-blue: #2563eb;
+    --ae-text: #f8fbff;
+    --ae-muted: rgba(210, 223, 244, 0.72);
+    --ae-font-display: "Orbitron", "Rajdhani", system-ui, sans-serif;
+    --ae-font-head: "Rajdhani", "Poppins", system-ui, sans-serif;
+    --ae-font-body: "Poppins", system-ui, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    min-height: 100%;
+    margin: 0;
+    background: transparent;
+    color: var(--ae-text);
+    font-family: var(--ae-font-body);
+}
+
+body[data-yh-page="academy-embed"] {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at 18% 80%, rgba(14, 165, 233, 0.16), transparent 28%),
+        radial-gradient(circle at 82% 18%, rgba(37, 99, 235, 0.14), transparent 34%),
+        linear-gradient(180deg, rgba(2, 7, 19, 0.94), rgba(2, 7, 19, 0.98));
+}
+
+.yhae-shell {
+    min-height: 100vh;
+    padding: clamp(18px, 2.4vw, 34px);
+}
+
+.yhae-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    background: rgba(2, 7, 19, 0.94);
+    transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+
+.yhae-loader.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.yhae-loader > div,
+.yhae-loader {
+    color: var(--ae-text);
+}
+
+.yhae-loader img {
+    width: 46px;
+    height: 46px;
+    margin-bottom: 14px;
+}
+
+.yhae-loader strong,
+.yhae-loader span {
+    display: block;
+    text-align: center;
+}
+
+.yhae-loader strong {
+    font-family: var(--ae-font-display);
+    font-size: 0.86rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.yhae-loader span {
+    margin-top: 6px;
+    color: var(--ae-muted);
+}
+
+.yhae-stage {
+    display: grid;
+    gap: 18px;
+}
+
+.yhae-hero,
+.yhae-panel {
+    border: 0;
+    background: transparent;
+}
+
+.yhae-card {
+    border: 1px solid rgba(103, 232, 249, 0.16);
+    background:
+        radial-gradient(circle at 84% 0%, rgba(37, 99, 235, 0.10), transparent 38%),
+        linear-gradient(180deg, rgba(8, 24, 45, 0.72), rgba(3, 9, 24, 0.62));
+}
+
+.yhae-hero {
+    min-height: 260px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+    gap: 24px;
+    align-items: stretch;
+    padding: clamp(22px, 3vw, 42px);
+    clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px);
+}
+
+.yhae-kicker {
+    color: var(--ae-cyan);
+    font-family: var(--ae-font-display);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.yhae-hero h1 {
+    margin: 10px 0 8px;
+    color: #fff;
+    font-family: var(--ae-font-head);
+    font-size: clamp(3rem, 6vw, 6.8rem);
+    line-height: 0.88;
+    font-weight: 800;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+}
+
+.yhae-hero h2,
+.yhae-panel h2 {
+    margin: 0 0 10px;
+    color: #fff;
+    font-family: var(--ae-font-head);
+    font-size: clamp(1.3rem, 2vw, 2rem);
+    line-height: 1.05;
+}
+
+.yhae-hero p,
+.yhae-panel p,
+.yhae-card p {
+    margin: 0;
+    max-width: 820px;
+    color: var(--ae-muted);
+    line-height: 1.7;
+}
+
+.yhae-hero aside {
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 12px;
+    text-align: center;
+    border: 1px solid rgba(103, 232, 249, 0.16);
+    background: rgba(3, 9, 24, 0.50);
+    padding: 20px;
+}
+
+.yhae-hero aside img {
+    width: 76px;
+    height: 76px;
+    padding: 18px;
+    border: 1px solid rgba(103, 232, 249, 0.20);
+    border-radius: 999px;
+}
+
+.yhae-hero aside strong {
+    color: var(--ae-cyan);
+    font-family: var(--ae-font-display);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.yhae-hero aside span {
+    color: var(--ae-muted);
+    font-weight: 700;
+}
+
+.yhae-card-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: clamp(12px, 1.2vw, 18px);
+}
+
+.yhae-card {
+    min-height: 128px;
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding: 18px;
+    clip-path: polygon(13px 0, calc(100% - 13px) 0, 100% 13px, 100% calc(100% - 13px), calc(100% - 13px) 100%, 13px 100%, 0 calc(100% - 13px), 0 13px);
+}
+
+.yhae-card span {
+    color: var(--ae-cyan);
+    font-family: var(--ae-font-display);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.yhae-card p {
+    color: rgba(248, 251, 255, 0.9);
+    font-family: var(--ae-font-head);
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.16;
+}
+
+.yhae-panel {
+    padding: clamp(18px, 2vw, 30px);
+}
+
+.yhae-locked {
+    max-width: 760px;
+    margin: 10vh auto 0;
+}
+
+.yhae-locked h1 {
+    margin: 10px 0;
+    font-family: var(--ae-font-head);
+    font-size: clamp(2rem, 4vw, 4rem);
+    line-height: 0.95;
+}
+
+@media (max-width: 1100px) {
+    .yhae-card-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .yhae-hero {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .yhae-shell {
+        padding: 14px;
+    }
+
+    .yhae-card-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .yhae-hero h1 {
+        letter-spacing: 0.04em;
+    }
+}
+/* PATCH: Academy Embed real Roadmap + Missions UI v2 */
+.yhae-real-hero {
+    margin-bottom: 18px;
+}
+
+.yhae-real-hero aside span {
+    display: block;
+    color: var(--ae-muted);
+    font-weight: 800;
+}
+
+.yhae-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(12px, 1.2vw, 18px);
+    margin-bottom: 18px;
+}
+
+.yhae-metric-card,
+.yhae-real-card,
+.yhae-playbook-card,
+.yhae-checkin-list article,
+.yhae-empty-state {
+    border: 1px solid rgba(103, 232, 249, 0.18);
+    background:
+        radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.08), transparent 34%),
+        linear-gradient(180deg, rgba(8, 18, 38, 0.84), rgba(3, 8, 20, 0.72));
+}
+
+.yhae-metric-card {
+    min-height: 112px;
+    display: grid;
+    align-content: center;
+    gap: 6px;
+    padding: 18px;
+    clip-path: polygon(13px 0, calc(100% - 13px) 0, 100% 13px, 100% calc(100% - 13px), calc(100% - 13px) 100%, 13px 100%, 0 calc(100% - 13px), 0 13px);
+}
+
+.yhae-metric-card span,
+.yhae-real-card-head span,
+.yhae-playbook-card span,
+.yhae-checkin-list span {
+    color: var(--ae-cyan);
+    font-family: var(--ae-font-display);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.yhae-metric-card strong {
+    color: #fff;
+    font-family: var(--ae-font-head);
+    font-size: clamp(1.9rem, 3vw, 3rem);
+    line-height: 0.9;
+}
+
+.yhae-metric-card p {
+    margin: 0;
+    color: var(--ae-muted);
+    font-size: 0.88rem;
+}
+
+.yhae-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 16px;
+}
+
+.yhae-section-head h2 {
+    margin: 4px 0 0;
+}
+
+.yhae-small-btn,
+.yhae-inline-action {
+    min-height: 38px;
+    border: 1px solid rgba(103, 232, 249, 0.30);
+    color: #fff;
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.86), rgba(15, 47, 122, 0.82));
+    padding: 0 14px;
+    font-family: var(--ae-font-head);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.yhae-real-grid,
+.yhae-playbook-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(12px, 1.2vw, 18px);
+}
+
+.yhae-real-card,
+.yhae-playbook-card {
+    min-height: 170px;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding: 18px;
+    clip-path: polygon(13px 0, calc(100% - 13px) 0, 100% 13px, 100% calc(100% - 13px), calc(100% - 13px) 100%, 13px 100%, 0 calc(100% - 13px), 0 13px);
+}
+
+.yhae-real-card[data-mission-status="completed"] {
+    border-color: rgba(52, 211, 153, 0.28);
+    background:
+        radial-gradient(circle at 12% 0%, rgba(52, 211, 153, 0.08), transparent 34%),
+        linear-gradient(180deg, rgba(8, 18, 38, 0.84), rgba(3, 8, 20, 0.72));
+}
+
+.yhae-real-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.yhae-real-card-head em {
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    color: rgba(226, 232, 240, 0.78);
+    background: rgba(148, 163, 184, 0.08);
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    font-style: normal;
+    font-weight: 800;
+}
+
+.yhae-real-card[data-mission-status="completed"] .yhae-real-card-head em {
+    border-color: rgba(52, 211, 153, 0.32);
+    color: #34d399;
+    background: rgba(52, 211, 153, 0.08);
+}
+
+.yhae-real-card h3,
+.yhae-playbook-card strong,
+.yhae-empty-state strong {
+    margin: 0;
+    color: #fff;
+    font-family: var(--ae-font-head);
+    font-size: clamp(1.08rem, 1.3vw, 1.3rem);
+    line-height: 1.06;
+}
+
+.yhae-real-card p,
+.yhae-playbook-card p,
+.yhae-empty-state p {
+    margin: 0;
+    color: var(--ae-muted);
+    line-height: 1.55;
+}
+
+.yhae-playbook-card.is-selected {
+    border-color: rgba(103, 232, 249, 0.42);
+    background:
+        radial-gradient(circle at 12% 0%, rgba(103, 232, 249, 0.12), transparent 34%),
+        linear-gradient(180deg, rgba(8, 24, 45, 0.92), rgba(3, 9, 24, 0.78));
+}
+
+.yhae-playbook-actions {
+    margin-top: 4px;
+}
+
+.yhae-playbook-detail {
+    display: grid;
+    gap: 8px;
+    margin-top: 6px;
+    padding: 14px;
+    border: 1px solid rgba(103, 232, 249, 0.18);
+    background: rgba(2, 7, 19, 0.58);
+}
+
+.yhae-playbook-detail small {
+    color: rgba(210, 223, 244, 0.62);
+    font-weight: 700;
+}
+
+.yhae-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.yhae-card-meta span {
+    border: 1px solid rgba(103, 232, 249, 0.18);
+    color: rgba(226, 232, 240, 0.78);
+    background: rgba(14, 165, 233, 0.06);
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 0.76rem;
+    font-weight: 800;
+}
+
+.yhae-inline-action {
+    justify-self: start;
+    margin-top: 4px;
+}
+
+.yhae-checkin-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.yhae-checkin-list article {
+    display: grid;
+    gap: 6px;
+    padding: 16px;
+}
+
+.yhae-checkin-list strong {
+    color: #fff;
+    font-family: var(--ae-font-head);
+    font-size: 1.05rem;
+}
+
+.yhae-checkin-list p {
+    margin: 0;
+    color: var(--ae-muted);
+    line-height: 1.5;
+}
+
+.yhae-empty-state {
+    display: grid;
+    gap: 8px;
+    padding: 20px;
+}
+
+.yhae-warning-panel {
+    border-color: rgba(250, 204, 21, 0.28);
+    background:
+        radial-gradient(circle at 12% 0%, rgba(250, 204, 21, 0.08), transparent 34%),
+        linear-gradient(180deg, rgba(8, 18, 38, 0.84), rgba(3, 8, 20, 0.72));
+}
+
+@media (max-width: 1100px) {
+    .yhae-metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .yhae-real-grid,
+    .yhae-playbook-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 680px) {
+    .yhae-metric-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .yhae-section-head {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}
+/* END PATCH: Academy Embed real Roadmap + Missions UI v2 */
+/* PATCH: Academy Embed Roadmap Intake v1 */
+.yhae-roadmap-intake-hero {
+    border-color: rgba(103, 232, 249, 0.24);
+}
+
+.yhae-roadmap-form {
+    display: grid;
+    gap: 18px;
+}
+
+.yhae-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.yhae-form-grid label {
+    display: grid;
+    gap: 8px;
+}
+
+.yhae-form-grid label span {
+    color: rgba(226, 232, 240, 0.82);
+    font-family: var(--ae-font-head);
+    font-weight: 800;
+}
+
+.yhae-form-wide {
+    grid-column: 1 / -1;
+}
+
+.yhae-form-grid input,
+.yhae-form-grid select,
+.yhae-form-grid textarea {
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid rgba(103, 232, 249, 0.22);
+    color: #f8fbff;
+    background: rgba(3, 9, 24, 0.78);
+    padding: 11px 12px;
+    border-radius: 0;
+    outline: none;
+    font-family: var(--ae-font-body);
+}
+
+.yhae-form-grid textarea {
+    resize: vertical;
+    min-height: 92px;
+}
+
+.yhae-form-grid input:focus,
+.yhae-form-grid select:focus,
+.yhae-form-grid textarea:focus {
+    border-color: rgba(103, 232, 249, 0.56);
+    box-shadow: 0 0 0 3px rgba(103, 232, 249, 0.08);
+}
+
+.yhae-roadmap-submit-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.yhae-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.yhae-primary-action {
+    min-height: 44px;
+    border: 1px solid rgba(103, 232, 249, 0.34);
+    color: #fff;
+    background: linear-gradient(180deg, rgba(14, 165, 233, 0.94), rgba(37, 99, 235, 0.86));
+    padding: 0 18px;
+    font-family: var(--ae-font-head);
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.yhae-primary-action:disabled {
+    cursor: wait;
+    opacity: 0.68;
+}
+
+@media (max-width: 760px) {
+    .yhae-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .yhae-roadmap-submit-panel {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .yhae-form-actions {
+        justify-content: flex-start;
+    }
+}
+/* END PATCH: Academy Embed Roadmap Intake v1 */
+/* PATCH: Academy Embed premium scrollbars v2 */
+body[data-yh-page="academy-embed"],
+body[data-yh-page="academy-embed"] * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(103, 232, 249, 0.72) rgba(2, 7, 19, 0.86);
+}
+
+body[data-yh-page="academy-embed"]::-webkit-scrollbar,
+body[data-yh-page="academy-embed"] *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+body[data-yh-page="academy-embed"]::-webkit-scrollbar-track,
+body[data-yh-page="academy-embed"] *::-webkit-scrollbar-track {
+    background:
+        linear-gradient(180deg, rgba(2, 7, 19, 0.96), rgba(8, 20, 43, 0.86));
+    border-left: 1px solid rgba(103, 232, 249, 0.08);
+}
+
+body[data-yh-page="academy-embed"]::-webkit-scrollbar-thumb,
+body[data-yh-page="academy-embed"] *::-webkit-scrollbar-thumb {
+    min-height: 44px;
+    border: 2px solid rgba(2, 7, 19, 0.92);
+    border-radius: 999px;
+    background:
+        linear-gradient(180deg, rgba(103, 232, 249, 0.94), rgba(37, 99, 235, 0.88));
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+        0 0 18px rgba(14, 165, 233, 0.20);
+}
+
+body[data-yh-page="academy-embed"]::-webkit-scrollbar-thumb:hover,
+body[data-yh-page="academy-embed"] *::-webkit-scrollbar-thumb:hover {
+    background:
+        linear-gradient(180deg, rgba(224, 242, 254, 0.98), rgba(14, 165, 233, 0.92));
+}
+
+body[data-yh-page="academy-embed"]::-webkit-scrollbar-corner,
+body[data-yh-page="academy-embed"] *::-webkit-scrollbar-corner {
+    background: rgba(2, 7, 19, 0.96);
+}
+
+.yhae-ai-status-panel {
+    border-color: rgba(103, 232, 249, 0.28);
+    background:
+        radial-gradient(circle at 14% 0%, rgba(103, 232, 249, 0.10), transparent 34%),
+        radial-gradient(circle at 88% 12%, rgba(37, 99, 235, 0.14), transparent 30%),
+        linear-gradient(180deg, rgba(8, 18, 38, 0.86), rgba(3, 8, 20, 0.74));
+}
+
+.yhae-roadmap-ai-pending {
+    border-color: rgba(103, 232, 249, 0.30);
+}
+
+.yhae-roadmap-ai-pending aside strong {
+    color: var(--ae-cyan);
+}
+
+.yhae-ghost-action {
+    background: rgba(3, 9, 24, 0.72) !important;
+    color: rgba(226, 232, 240, 0.86) !important;
+}
+/* END PATCH: Academy Embed premium scrollbars v2 */
+/* PATCH: Academy Embed native scrollbar match sidebar v3 */
+html {
+    scrollbar-width: thin;
+    scrollbar-color: #67e8f9 rgba(2, 7, 19, 0.95);
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.yhae-shell::-webkit-scrollbar,
+.yhae-stage::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+.yhae-shell::-webkit-scrollbar-track,
+.yhae-stage::-webkit-scrollbar-track {
+    background: rgba(2, 7, 19, 0.96);
+    border-left: 1px solid rgba(103, 232, 249, 0.16);
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+.yhae-shell::-webkit-scrollbar-thumb,
+.yhae-stage::-webkit-scrollbar-thumb {
+    min-height: 56px;
+    border-radius: 999px;
+    border: 2px solid rgba(2, 7, 19, 0.96);
+    background:
+        linear-gradient(180deg, rgba(103, 232, 249, 0.98), rgba(14, 165, 233, 0.88) 46%, rgba(37, 99, 235, 0.92));
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+        0 0 16px rgba(103, 232, 249, 0.28);
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+.yhae-shell::-webkit-scrollbar-thumb:hover,
+.yhae-stage::-webkit-scrollbar-thumb:hover {
+    background:
+        linear-gradient(180deg, rgba(224, 242, 254, 1), rgba(103, 232, 249, 0.96) 42%, rgba(14, 165, 233, 0.94));
+}
+
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner,
+.yhae-shell::-webkit-scrollbar-corner,
+.yhae-stage::-webkit-scrollbar-corner {
+    background: rgba(2, 7, 19, 0.96);
+}
+
+body[data-yh-page="academy-embed"] {
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+.yhae-shell {
+    overflow-x: hidden;
+}
+/* END PATCH: Academy Embed native scrollbar match sidebar v3 */
+/* PATCH: Academy Missions full-track polish v2 */
+.yhae-missions-only-panel {
+    min-height: calc(100vh - 72px);
+}
+
+.yhae-missions-main-head {
+    align-items: flex-start;
+    border-bottom: 1px solid rgba(103, 232, 249, 0.14);
+    padding-bottom: 18px;
+}
+
+.yhae-missions-main-head p {
+    max-width: 760px;
+    margin-top: 8px;
+}
+
+.yhae-core-mission-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+}
+
+.yhae-mission-track-card {
+    min-height: 260px;
+}
+
+.yhae-mission-track-card.is-selected {
+    grid-column: 1 / -1;
+    min-height: 0;
+}
+
+.yhae-full-mission-detail {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.yhae-full-mission-detail section {
+    border: 1px solid rgba(103, 232, 249, 0.16);
+    background: rgba(2, 7, 19, 0.48);
+    padding: 14px;
+}
+
+.yhae-full-mission-detail section:first-child,
+.yhae-full-mission-detail section:nth-child(2) {
+    grid-column: 1 / -1;
+}
+
+.yhae-detail-list {
+    display: grid;
+    gap: 7px;
+    margin: 10px 0 0;
+    padding-left: 18px;
+    color: rgba(226, 232, 240, 0.82);
+}
+
+.yhae-detail-list li {
+    line-height: 1.45;
+}
+
+.yhae-muted-copy {
+    color: rgba(210, 223, 244, 0.62);
+}
+
+@media (max-width: 1180px) {
+    .yhae-core-mission-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .yhae-mission-track-card.is-selected {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 760px) {
+    .yhae-full-mission-detail {
+        grid-template-columns: 1fr;
+    }
+
+    .yhae-full-mission-detail section:first-child,
+    .yhae-full-mission-detail section:nth-child(2) {
+        grid-column: auto;
+    }
+}
+/* END PATCH: Academy Missions full-track polish v2 */
+/* PATCH: Academy Embed dark autofill fields v1 */
+body[data-yh-page="academy-embed"] input:-webkit-autofill,
+body[data-yh-page="academy-embed"] input:-webkit-autofill:hover,
+body[data-yh-page="academy-embed"] input:-webkit-autofill:focus,
+body[data-yh-page="academy-embed"] textarea:-webkit-autofill,
+body[data-yh-page="academy-embed"] textarea:-webkit-autofill:hover,
+body[data-yh-page="academy-embed"] textarea:-webkit-autofill:focus,
+body[data-yh-page="academy-embed"] select:-webkit-autofill,
+body[data-yh-page="academy-embed"] select:-webkit-autofill:hover,
+body[data-yh-page="academy-embed"] select:-webkit-autofill:focus {
+    -webkit-text-fill-color: #f8fbff;
+    caret-color: #f8fbff;
+    box-shadow:
+        0 0 0 1000px rgba(3, 9, 24, 0.96) inset,
+        0 0 0 1px rgba(103, 232, 249, 0.28);
+    border-color: rgba(103, 232, 249, 0.34);
+    transition: background-color 9999s ease-in-out 0s;
+}
+
+body[data-yh-page="academy-embed"] input:-internal-autofill-selected {
+    background-color: rgba(3, 9, 24, 0.96);
+    color: #f8fbff;
+}
+/* END PATCH: Academy Embed dark autofill fields v1 */
