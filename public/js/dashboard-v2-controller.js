@@ -242,6 +242,80 @@ function setVisible(node, visible, display = '') {
     }
 
     function getDivisionState(key) {
+        const sourceState = (() => {
+            try {
+                const source = window.yhDivisionAccessSourceOfTruthV1?.getState?.(key);
+                if (!source || typeof source !== 'object') return null;
+
+                const rawStatus = String(
+                    source.status ||
+                    source.rawStatus ||
+                    source.state ||
+                    ''
+                ).trim().toLowerCase().replace(/[_-]+/g, ' ');
+
+                const canEnter =
+                    source.canEnter === true ||
+                    source.approved === true ||
+                    source.hasAccess === true;
+
+                if (canEnter || rawStatus === 'approved' || rawStatus === 'active') {
+                    return {
+                        approved: true,
+                        pending: false,
+                        rejected: false,
+                        status: 'approved',
+                        label: 'Approved'
+                    };
+                }
+
+                if (
+                    rawStatus === 'pending' ||
+                    rawStatus === 'under review' ||
+                    rawStatus === 'submitted' ||
+                    rawStatus === 'in review'
+                ) {
+                    return {
+                        approved: false,
+                        pending: true,
+                        rejected: false,
+                        status: 'pending',
+                        label: 'Pending'
+                    };
+                }
+
+                if (
+                    rawStatus === 'rejected' ||
+                    rawStatus === 'declined' ||
+                    rawStatus === 'denied'
+                ) {
+                    return {
+                        approved: false,
+                        pending: false,
+                        rejected: true,
+                        status: 'rejected',
+                        label: 'Rejected'
+                    };
+                }
+
+                if (rawStatus === 'not applied' || rawStatus === 'not_applied') {
+                    return {
+                        approved: false,
+                        pending: false,
+                        rejected: false,
+                        status: 'not_applied',
+                        label: 'Not Applied'
+                    };
+                }
+
+                return null;
+            } catch (_) {
+                return null;
+            }
+        })();
+
+        if (sourceState) return sourceState;
+
         const visible = getVisibleOverviewStatus(key);
         if (visible && visible.approved !== true) return visible;
 
@@ -373,26 +447,65 @@ function setVisible(node, visible, display = '') {
         if (group) {
             group.classList.toggle('is-expanded', shouldShow);
             group.classList.toggle('is-open', shouldShow);
+            group.classList.toggle('is-active', open);
             group.classList.toggle('active', open);
+            group.classList.toggle('is-manually-collapsed', !shouldShow);
+            group.classList.remove('is-manually-expanded');
+
+            if (shouldShow) {
+                group.classList.add('is-manually-expanded');
+            }
+
             group.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
+            group.setAttribute('data-yh-sidebar-subnav-open', shouldShow ? 'true' : 'false');
             group.setAttribute('data-yh-sidebar-collapsed', shouldShow ? 'false' : 'true');
+            group.setAttribute('data-yh-v2-child-access', approved ? 'unlocked' : 'locked');
         }
 
         if (parent) {
             parent.classList.toggle('is-active', open);
             parent.classList.toggle('active', open);
             parent.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
+            parent.setAttribute('aria-selected', open ? 'true' : 'false');
         }
 
         if (subnav) {
             subnav.classList.toggle('yh-dashboard-v2-gated-subnav', !approved);
-            setVisible(subnav, shouldShow, 'block');
+            subnav.classList.remove('hidden-step');
+            subnav.removeAttribute('hidden');
+            subnav.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+
+            if (shouldShow) {
+                subnav.style.setProperty('display', 'grid', 'important');
+                subnav.style.setProperty('visibility', 'visible', 'important');
+                subnav.style.setProperty('opacity', '1', 'important');
+                subnav.style.setProperty('pointer-events', 'auto', 'important');
+                subnav.style.setProperty('max-height', 'none', 'important');
+                subnav.style.setProperty('overflow', 'visible', 'important');
+            } else {
+                setVisible(subnav, false, 'block');
+            }
         }
 
         document.querySelectorAll(config.childSelector).forEach((child) => {
             child.classList.toggle('yh-dashboard-v2-gated-child', !approved);
-            setVisible(child, shouldShow, child.tagName === 'BUTTON' ? 'block' : '');
+
+            if (shouldShow) {
+                child.classList.remove('hidden-step');
+                child.removeAttribute('hidden');
+                child.setAttribute('aria-hidden', 'false');
+                child.style.setProperty('display', child.tagName === 'BUTTON' ? 'inline-flex' : 'block', 'important');
+                child.style.setProperty('visibility', 'visible', 'important');
+                child.style.setProperty('opacity', '1', 'important');
+                child.style.setProperty('pointer-events', 'auto', 'important');
+            } else {
+                setVisible(child, false, child.tagName === 'BUTTON' ? 'block' : '');
+            }
         });
+
+        if (shouldShow) {
+            document.body?.setAttribute('data-yh-active-sidebar-division', key);
+        }
     }
 
     function closeOtherSubnavs(activeKey) {
@@ -455,11 +568,22 @@ function setVisible(node, visible, display = '') {
         const state = getDivisionState(key);
         const approved = state.approved === true;
 
+        document.body.classList.remove('yh-dashboard-child-workspace-active');
+        document.body.classList.remove('yh-dashboard-inline-child-active');
+        document.body.classList.remove('yh-dashboard-child-transitioning');
+        document.body.removeAttribute('data-yh-dashboard-child-workspace');
+        document.body.removeAttribute('data-yh-dashboard-child-target');
+
         document.body.setAttribute('data-yh-dashboard-v2-active', key);
         document.body.setAttribute('data-yh-unified-workspace', key);
         document.body.setAttribute('data-yh-unified-division', key);
         document.body.setAttribute('data-yh-dashboard-v2-approved', approved ? 'true' : 'false');
         document.body.setAttribute('data-yh-dashboard-v2-status', approved ? 'approved' : state.pending ? 'pending' : state.rejected ? 'rejected' : 'not-applied');
+
+        const existingParentShell = document.getElementById('yh-dashboard-v2-parent-shell');
+        if (existingParentShell) {
+            existingParentShell.removeAttribute('data-yh-v2-parent-suppressed');
+        }
 
         closeOtherSubnavs(key);
         setSubnavState(key, true, approved);
@@ -571,23 +695,181 @@ function setVisible(node, visible, display = '') {
         openApplication(key);
     }, true);
 
+    function getDivisionFromChildKeyV2(key = '') {
+        const clean = String(key || '').trim().toLowerCase();
+
+        if (clean.startsWith('academy-')) return 'academy';
+        if (clean.startsWith('plazas-')) return 'plazas';
+        if (clean.startsWith('federation-')) return 'federation';
+
+        return '';
+    }
+
+    function forceDashboardChildWorkspaceVisibleV2(target = '') {
+        const cleanTarget = String(target || '').trim().toLowerCase();
+        const division = getDivisionFromChildKeyV2(cleanTarget);
+
+        if (!cleanTarget || !division) return;
+
+        const previousTarget = String(
+            document.body?.getAttribute('data-yh-dashboard-child-workspace') || ''
+        ).trim().toLowerCase();
+
+        const isNewTarget = previousTarget !== cleanTarget;
+
+        window.__yhDashboardChildWorkspaceOpenAt = Date.now();
+        window.__yhDashboardApprovedParentRenderToken = '';
+        window.__yhDashboardActiveChildTargetV2 = cleanTarget;
+
+        if (isNewTarget) {
+            document.body?.classList.add('yh-dashboard-child-transitioning');
+
+            window.clearTimeout(window.__yhDashboardChildTransitionReleaseV2);
+            window.clearTimeout(window.__yhDashboardChildTransitionReleaseLateV2);
+
+            window.__yhDashboardChildTransitionReleaseV2 = window.setTimeout(() => {
+                if (String(document.body?.getAttribute('data-yh-dashboard-child-workspace') || '').trim().toLowerCase() === cleanTarget) {
+                    document.body?.classList.remove('yh-dashboard-child-transitioning');
+                }
+            }, 620);
+
+            window.__yhDashboardChildTransitionReleaseLateV2 = window.setTimeout(() => {
+                if (String(document.body?.getAttribute('data-yh-dashboard-child-workspace') || '').trim().toLowerCase() === cleanTarget) {
+                    document.body?.classList.remove('yh-dashboard-child-transitioning');
+                }
+            }, 1400);
+        }
+
+        document.body?.removeAttribute('data-yh-dashboard-v2-active');
+        document.body?.removeAttribute('data-yh-dashboard-v2-approved');
+        document.body?.removeAttribute('data-yh-dashboard-v2-status');
+        document.body?.removeAttribute('data-yh-dashboard-v2-lock');
+
+        document.body?.classList.add('yh-dashboard-child-workspace-active');
+        document.body?.classList.add('yh-dashboard-inline-child-active');
+        document.body?.setAttribute('data-yh-dashboard-child-workspace', cleanTarget);
+        document.body?.setAttribute('data-yh-dashboard-child-target', cleanTarget);
+        document.body?.setAttribute('data-yh-unified-workspace', cleanTarget);
+        document.body?.setAttribute('data-yh-unified-division', division);
+        document.body?.setAttribute('data-yh-active-sidebar-division', division);
+
+        const parentShell = document.getElementById('yh-dashboard-v2-parent-shell');
+
+        if (parentShell) {
+            parentShell.classList.add('hidden-step');
+            parentShell.setAttribute('aria-hidden', 'true');
+            parentShell.setAttribute('data-yh-v2-parent-suppressed', 'true');
+            parentShell.style.setProperty('display', 'none', 'important');
+            parentShell.style.setProperty('visibility', 'hidden', 'important');
+            parentShell.style.setProperty('opacity', '0', 'important');
+            parentShell.style.setProperty('pointer-events', 'none', 'important');
+            parentShell.style.setProperty('max-height', '0', 'important');
+            parentShell.style.setProperty('min-height', '0', 'important');
+            parentShell.style.setProperty('height', '0', 'important');
+            parentShell.style.setProperty('margin', '0', 'important');
+            parentShell.style.setProperty('padding', '0', 'important');
+            parentShell.style.setProperty('overflow', 'hidden', 'important');
+        }
+
+        const launchCard = document.getElementById('yh-universe-workspace-launch-card');
+        const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
+        const inlineFrame = document.getElementById('yh-universe-workspace-inline-frame');
+
+        setVisible(launchCard, true, 'grid');
+        setVisible(frameShell, true, 'block');
+
+        if (inlineFrame) {
+            inlineFrame.classList.remove('hidden-step');
+            inlineFrame.setAttribute('aria-hidden', 'false');
+            inlineFrame.style.setProperty('display', 'block', 'important');
+            inlineFrame.style.setProperty('visibility', 'visible', 'important');
+            inlineFrame.style.setProperty('opacity', '1', 'important');
+            inlineFrame.style.setProperty('pointer-events', 'auto', 'important');
+        }
+
+        document.querySelectorAll('[data-yh-sidebar-child]').forEach((node) => {
+            const key = String(node.getAttribute('data-yh-sidebar-child') || '').trim().toLowerCase();
+            const isActive = key === cleanTarget;
+
+            node.classList.toggle('is-active', isActive);
+            node.classList.toggle('active', isActive);
+            node.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        const parentButton = document.querySelector(`[data-yh-dashboard-shell="${division}"]`);
+        const parentGroup = document.querySelector(`[data-yh-sidebar-division="${division}"]`);
+        const subnav = document.getElementById(`yh-sidebar-subnav-${division}`);
+
+        if (parentButton) {
+            parentButton.classList.add('is-active', 'active');
+            parentButton.setAttribute('aria-expanded', 'true');
+            parentButton.setAttribute('aria-selected', 'true');
+        }
+
+        if (parentGroup) {
+            parentGroup.classList.add('is-expanded', 'is-active', 'active');
+            parentGroup.classList.remove('is-manually-collapsed');
+            parentGroup.classList.add('is-manually-expanded');
+            parentGroup.setAttribute('aria-expanded', 'true');
+            parentGroup.setAttribute('data-yh-sidebar-subnav-open', 'true');
+            parentGroup.setAttribute('data-yh-sidebar-collapsed', 'false');
+            parentGroup.setAttribute('data-yh-v2-child-access', 'unlocked');
+        }
+
+        if (subnav) {
+            subnav.classList.remove('hidden-step', 'yh-dashboard-v2-gated-subnav');
+            subnav.setAttribute('aria-hidden', 'false');
+            subnav.style.setProperty('display', 'grid', 'important');
+            subnav.style.setProperty('visibility', 'visible', 'important');
+            subnav.style.setProperty('opacity', '1', 'important');
+            subnav.style.setProperty('pointer-events', 'auto', 'important');
+            subnav.style.setProperty('max-height', 'none', 'important');
+            subnav.style.setProperty('overflow', 'visible', 'important');
+        }
+    }
+
     document.addEventListener('click', (event) => {
-        const child = event.target?.closest?.('[data-yh-dashboard-v2-child]');
+        const child = event.target?.closest?.(
+            '[data-yh-dashboard-v2-child], [data-yh-sidebar-child], [data-yh-mobile-subtab], [data-yh-mobile-subtab-menu-option]'
+        );
+
         if (!child) return;
 
-        const target = String(child.getAttribute('data-yh-dashboard-v2-child') || '').trim();
-        if (!target) return;
+        const target = String(
+            child.getAttribute('data-yh-dashboard-v2-child') ||
+            child.getAttribute('data-yh-sidebar-child') ||
+            child.getAttribute('data-yh-mobile-subtab') ||
+            child.getAttribute('data-yh-mobile-subtab-menu-option') ||
+            ''
+        ).trim();
+
+        if (!target || !getDivisionFromChildKeyV2(target)) return;
 
         event.preventDefault();
         event.stopPropagation();
+        event.stopImmediatePropagation?.();
 
-        if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
-            window.activateDashboardUnifiedWorkspace(target, {
+        window.__yhDashboardChildWorkspaceOpenAt = Date.now();
+        window.__yhDashboardApprovedParentRenderToken = '';
+
+        forceDashboardChildWorkspaceVisibleV2(target);
+
+        const activate =
+            typeof window.__yhDashboardV2NativeActivateWorkspaceV1 === 'function'
+                ? window.__yhDashboardV2NativeActivateWorkspaceV1
+                : window.activateDashboardUnifiedWorkspace;
+
+        if (typeof activate === 'function') {
+            activate(target, {
                 animate: false,
                 scroll: true,
                 persist: true
             });
         }
+
+        [40, 140, 320, 720, 1400, 2600, 4200, 6500].forEach((delay) => {
+            window.setTimeout(() => forceDashboardChildWorkspaceVisibleV2(target), delay);
+        });
     }, true);
 
     document.addEventListener('click', (event) => {
@@ -742,8 +1024,137 @@ function setVisible(node, visible, display = '') {
 
     function closeAllSubnavs() {
         ['academy', 'plazas', 'federation'].forEach((key) => {
+            const group = document.querySelector(`[data-yh-sidebar-division="${key}"]`);
+            const button = document.querySelector(`[data-yh-dashboard-shell="${key}"]`);
             const subnav = document.getElementById(`yh-sidebar-subnav-${key}`);
-            if (subnav) setVisible(subnav, false, 'block');
+
+            if (group) {
+                group.classList.remove(
+                    'is-expanded',
+                    'is-open',
+                    'is-active',
+                    'active',
+                    'is-manually-expanded'
+                );
+                group.classList.add('is-manually-collapsed');
+                group.setAttribute('aria-expanded', 'false');
+                group.setAttribute('data-yh-sidebar-subnav-open', 'false');
+                group.setAttribute('data-yh-sidebar-collapsed', 'true');
+            }
+
+            if (button) {
+                button.classList.remove('active', 'is-active');
+                button.setAttribute('aria-expanded', 'false');
+                button.setAttribute('aria-selected', 'false');
+            }
+
+            if (subnav) {
+                setVisible(subnav, false, 'block');
+            }
+
+            document.querySelectorAll(`[data-yh-sidebar-child^="${key}-"]`).forEach((child) => {
+                child.classList.remove('active', 'is-active');
+                child.setAttribute('aria-selected', 'false');
+            });
+        });
+    }
+
+    function forceOpenApprovedSubnav(key = '') {
+        const clean = normalizeKey(key);
+        if (!isParentKey(clean)) return;
+
+        const state = (() => {
+            try {
+                return window.yhDivisionAccessSourceOfTruthV1?.getState?.(clean) || null;
+            } catch (_) {
+                return null;
+            }
+        })();
+
+        const rawStatus = String(state?.status || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+        const approved =
+            state?.canEnter === true ||
+            state?.approved === true ||
+            rawStatus === 'approved' ||
+            rawStatus === 'active' ||
+            document.body?.getAttribute('data-yh-dashboard-v2-approved') === 'true';
+
+        if (!approved) return;
+
+        const group = document.querySelector(`[data-yh-sidebar-division="${clean}"]`);
+        const button = document.querySelector(`[data-yh-dashboard-shell="${clean}"]`);
+        const subnav = document.getElementById(`yh-sidebar-subnav-${clean}`);
+
+        document.body?.setAttribute('data-yh-active-sidebar-division', clean);
+        document.body?.setAttribute('data-yh-unified-workspace', clean);
+        document.body?.setAttribute('data-yh-unified-division', clean);
+        document.body?.setAttribute('data-yh-dashboard-v2-approved', 'true');
+        document.body?.setAttribute('data-yh-dashboard-v2-status', 'approved');
+
+        document.querySelectorAll('[data-yh-dashboard-shell]').forEach((node) => {
+            const nodeKey = normalizeKey(node.getAttribute('data-yh-dashboard-shell') || '');
+            const isActive = nodeKey === clean;
+
+            node.classList.toggle('active', isActive);
+            node.classList.toggle('is-active', isActive);
+            node.setAttribute('aria-selected', isActive ? 'true' : 'false');
+
+            if (nodeKey && nodeKey !== 'overview') {
+                node.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+            }
+        });
+
+        ['academy', 'plazas', 'federation'].forEach((division) => {
+            if (division === clean) return;
+
+            const otherGroup = document.querySelector(`[data-yh-sidebar-division="${division}"]`);
+            const otherSubnav = document.getElementById(`yh-sidebar-subnav-${division}`);
+
+            if (otherGroup) {
+                otherGroup.classList.remove('is-expanded', 'is-open', 'is-active', 'active', 'is-manually-expanded');
+                otherGroup.classList.add('is-manually-collapsed');
+                otherGroup.setAttribute('aria-expanded', 'false');
+                otherGroup.setAttribute('data-yh-sidebar-subnav-open', 'false');
+                otherGroup.setAttribute('data-yh-sidebar-collapsed', 'true');
+            }
+
+            if (otherSubnav) setVisible(otherSubnav, false, 'block');
+        });
+
+        if (group) {
+            group.classList.add('is-expanded', 'is-open', 'is-active', 'active', 'is-manually-expanded');
+            group.classList.remove('is-manually-collapsed');
+            group.setAttribute('aria-expanded', 'true');
+            group.setAttribute('data-yh-sidebar-subnav-open', 'true');
+            group.setAttribute('data-yh-sidebar-collapsed', 'false');
+            group.setAttribute('data-yh-v2-child-access', 'unlocked');
+        }
+
+        if (button) {
+            button.classList.add('active', 'is-active');
+            button.setAttribute('aria-expanded', 'true');
+            button.setAttribute('aria-selected', 'true');
+        }
+
+        if (subnav) {
+            subnav.classList.remove('hidden-step', 'yh-dashboard-v2-gated-subnav');
+            subnav.removeAttribute('hidden');
+            subnav.setAttribute('aria-hidden', 'false');
+            subnav.style.setProperty('display', 'grid', 'important');
+            subnav.style.setProperty('visibility', 'visible', 'important');
+            subnav.style.setProperty('opacity', '1', 'important');
+            subnav.style.setProperty('pointer-events', 'auto', 'important');
+            subnav.style.setProperty('max-height', 'none', 'important');
+            subnav.style.setProperty('overflow', 'visible', 'important');
+        }
+
+        document.querySelectorAll(`[data-yh-sidebar-child^="${clean}-"]`).forEach((child) => {
+            child.classList.remove('hidden-step', 'yh-dashboard-v2-gated-child');
+            child.setAttribute('aria-hidden', 'false');
+            child.style.setProperty('display', 'grid', 'important');
+            child.style.setProperty('visibility', 'visible', 'important');
+            child.style.setProperty('opacity', '1', 'important');
+            child.style.setProperty('pointer-events', 'auto', 'important');
         });
     }
 
@@ -756,6 +1167,9 @@ function setVisible(node, visible, display = '') {
         document.body?.setAttribute('data-yh-unified-division', 'overview');
         document.body?.classList.remove('yh-dashboard-child-workspace-active');
         document.body?.classList.remove('yh-dashboard-inline-child-active');
+        document.body?.classList.remove('yh-dashboard-child-transitioning');
+        document.body?.removeAttribute('data-yh-dashboard-child-workspace');
+        document.body?.removeAttribute('data-yh-dashboard-child-target');
 
         const mount = document.getElementById('yh-dashboard-v2-parent-shell');
         setVisible(mount, false, 'block');
@@ -785,15 +1199,44 @@ function setVisible(node, visible, display = '') {
         const clean = normalizeKey(key);
         if (!isParentKey(clean)) return;
 
+        const reasonText = String(reason || '').trim().toLowerCase();
+        const currentWorkspace = String(document.body?.getAttribute('data-yh-unified-workspace') || '').trim().toLowerCase();
+        const childOpenAt = Number(window.__yhDashboardChildWorkspaceOpenAt || 0);
+        const childRecentlyOpened = childOpenAt && Date.now() - childOpenAt < 6500;
+        const childWorkspaceActive =
+            /^academy-|^plazas-|^federation-/.test(currentWorkspace) ||
+            document.body?.classList.contains('yh-dashboard-child-workspace-active') ||
+            document.body?.classList.contains('yh-dashboard-inline-child-active');
+
+        const isRealParentRequest =
+            reasonText.includes('shell-click') ||
+            reasonText.includes('activate-parent') ||
+            reasonText.includes('manual-parent') ||
+            reasonText.includes('user-parent-click');
+
+        if (childWorkspaceActive && childRecentlyOpened && !isRealParentRequest) {
+            const mount = document.getElementById('yh-dashboard-v2-parent-shell');
+            setVisible(mount, false, 'block');
+            return;
+        }
+
+        document.body?.classList.remove('yh-dashboard-child-workspace-active');
+        document.body?.classList.remove('yh-dashboard-inline-child-active');
+        document.body?.removeAttribute('data-yh-dashboard-child-workspace');
+
         document.body?.setAttribute('data-yh-dashboard-v2-active', clean);
         document.body?.setAttribute('data-yh-dashboard-v2-lock', clean);
         document.body?.removeAttribute('data-yh-dashboard-v2-instant-parent');
         document.body?.setAttribute('data-yh-unified-workspace', clean);
         document.body?.setAttribute('data-yh-unified-division', clean);
-        document.body?.classList.remove('yh-dashboard-child-workspace-active');
-        document.body?.classList.remove('yh-dashboard-inline-child-active');
+
+        const parentShell = document.getElementById('yh-dashboard-v2-parent-shell');
+        if (parentShell) {
+            parentShell.removeAttribute('data-yh-v2-parent-suppressed');
+        }
 
         setSidebarParentActive(clean);
+        forceOpenApprovedSubnav(clean);
 
         /*
           Render first so the stage is never empty.
@@ -807,20 +1250,38 @@ function setVisible(node, visible, display = '') {
             }
         }
 
+        forceOpenApprovedSubnav(clean);
+
         const mount = document.getElementById('yh-dashboard-v2-parent-shell');
         setVisible(mount, true, 'block');
 
         hideOverviewSurfaces();
 
+        function shouldAbortParentShellRescue() {
+            const childOpenAt = Number(window.__yhDashboardChildWorkspaceOpenAt || 0);
+
+            return (
+                document.body?.classList.contains('yh-dashboard-child-workspace-active') ||
+                document.body?.classList.contains('yh-dashboard-inline-child-active') ||
+                (childOpenAt && Date.now() - childOpenAt < 5200)
+            );
+        }
+
         window.requestAnimationFrame(() => {
+            if (shouldAbortParentShellRescue()) return;
+
             const freshMount = document.getElementById('yh-dashboard-v2-parent-shell');
             setVisible(freshMount, true, 'block');
+            forceOpenApprovedSubnav(clean);
         });
 
         [80, 240, 520, 1100].forEach((delay) => {
             window.setTimeout(() => {
+                if (shouldAbortParentShellRescue()) return;
+
                 const freshMount = document.getElementById('yh-dashboard-v2-parent-shell');
                 setVisible(freshMount, true, 'block');
+                forceOpenApprovedSubnav(clean);
             }, delay);
         });
     }
@@ -881,30 +1342,104 @@ function setVisible(node, visible, display = '') {
         window.__yhDashboardV2NativeActivateWorkspaceV1 = nativeActivate;
 
         const wrappedActivate = function activateDashboardUnifiedWorkspaceStableShellV1(key = 'overview', options = {}) {
-            const clean = normalizeKey(key);
+            const rawKey = String(key || '').trim().toLowerCase();
+            const parentKey = normalizeKey(rawKey);
+            const childDivision =
+                rawKey.startsWith('academy-') ? 'academy' :
+                rawKey.startsWith('plazas-') ? 'plazas' :
+                rawKey.startsWith('federation-') ? 'federation' :
+                '';
 
-            if (clean === 'overview' || clean === 'dashboard' || clean === 'hub' || !clean) {
+            if (rawKey === 'overview' || rawKey === 'dashboard' || rawKey === 'hub' || !rawKey) {
                 const result = nativeActivate.call(this, 'overview', options);
                 window.setTimeout(() => showOverviewShell('activate-overview'), 0);
                 window.setTimeout(() => showOverviewShell('activate-overview-late'), 120);
                 return result;
             }
 
-            if (isParentKey(clean)) {
-                showParentShell(clean, 'activate-parent');
-                return { key: clean, division: clean, source: 'dashboard-v2-stable-shell' };
+            if (isParentKey(parentKey)) {
+                showParentShell(parentKey, 'activate-parent');
+                return { key: parentKey, division: parentKey, source: 'dashboard-v2-stable-shell' };
+            }
+
+            if (!childDivision) {
+                return nativeActivate.apply(this, arguments);
             }
 
             /*
               Child workspace: let old dashboard.js render it.
               Remove V2 parent lock so child tabs can display real workspace content.
             */
+            window.__yhDashboardChildWorkspaceOpenAt = Date.now();
+            window.__yhDashboardApprovedParentRenderToken = '';
+
             clearV2ParentAttrs();
 
-            const mount = document.getElementById('yh-dashboard-v2-parent-shell');
-            setVisible(mount, false, 'block');
+            document.body?.classList.add('yh-dashboard-child-workspace-active');
+            document.body?.classList.add('yh-dashboard-inline-child-active');
+            document.body?.setAttribute('data-yh-dashboard-child-workspace', rawKey);
+            document.body?.setAttribute('data-yh-unified-workspace', rawKey);
+            document.body?.setAttribute('data-yh-unified-division', childDivision);
 
-            return nativeActivate.apply(this, arguments);
+            const suppressParentShell = () => {
+                const parentShell = document.getElementById('yh-dashboard-v2-parent-shell');
+
+                if (!parentShell) return;
+
+                parentShell.classList.add('hidden-step');
+                parentShell.setAttribute('aria-hidden', 'true');
+                parentShell.setAttribute('data-yh-v2-parent-suppressed', 'true');
+                parentShell.style.setProperty('display', 'none', 'important');
+                parentShell.style.setProperty('visibility', 'hidden', 'important');
+                parentShell.style.setProperty('opacity', '0', 'important');
+                parentShell.style.setProperty('pointer-events', 'none', 'important');
+                parentShell.style.setProperty('max-height', '0', 'important');
+                parentShell.style.setProperty('min-height', '0', 'important');
+                parentShell.style.setProperty('height', '0', 'important');
+                parentShell.style.setProperty('margin', '0', 'important');
+                parentShell.style.setProperty('padding', '0', 'important');
+                parentShell.style.setProperty('overflow', 'hidden', 'important');
+            };
+
+            suppressParentShell();
+
+            const result = nativeActivate.apply(this, arguments);
+
+            const revealChildWorkspace = () => {
+                const launchCard = document.getElementById('yh-universe-workspace-launch-card');
+                const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
+                const inlineFrame = document.getElementById('yh-universe-workspace-inline-frame');
+
+                clearV2ParentAttrs();
+
+                document.body?.classList.add('yh-dashboard-child-workspace-active');
+                document.body?.classList.add('yh-dashboard-inline-child-active');
+                document.body?.setAttribute('data-yh-dashboard-child-workspace', rawKey);
+                document.body?.setAttribute('data-yh-unified-workspace', rawKey);
+                document.body?.setAttribute('data-yh-unified-division', childDivision);
+
+                suppressParentShell();
+
+                setVisible(launchCard, true, 'grid');
+                setVisible(frameShell, true, 'block');
+
+                if (inlineFrame) {
+                    inlineFrame.classList.remove('hidden-step');
+                    inlineFrame.setAttribute('aria-hidden', 'false');
+                    inlineFrame.style.setProperty('display', 'block', 'important');
+                    inlineFrame.style.setProperty('visibility', 'visible', 'important');
+                    inlineFrame.style.setProperty('opacity', '1', 'important');
+                    inlineFrame.style.setProperty('pointer-events', 'auto', 'important');
+                }
+            };
+
+            revealChildWorkspace();
+
+            [40, 140, 320, 720, 1400, 2600, 4200, 6500].forEach((delay) => {
+                window.setTimeout(revealChildWorkspace, delay);
+            });
+
+            return result;
         };
 
         wrappedActivate.__yhDashboardV2StableShellWrappedV1 = true;
@@ -2797,8 +3332,12 @@ function setVisible(node, visible, display = '') {
         const state = getState(key);
         if (!key || normalizeStatus(state?.status || '') !== 'approved') return false;
 
+        const parentToken = `${key}:${Date.now()}`;
         window.__yhDashboardApprovedParentOpenAt = Date.now();
+        window.__yhDashboardApprovedParentRenderToken = parentToken;
 
+        document.body?.classList.remove('yh-dashboard-child-workspace-active');
+        document.body?.classList.remove('yh-dashboard-inline-child-active');
         document.body?.setAttribute('data-yh-dashboard-v2-active', key);
         document.body?.setAttribute('data-yh-dashboard-v2-approved', 'true');
         document.body?.setAttribute('data-yh-dashboard-v2-status', 'approved');
@@ -2807,6 +3346,13 @@ function setVisible(node, visible, display = '') {
         document.body?.setAttribute('data-yh-unified-division', key);
 
         const renderApprovedParent = (reason = 'approved-parent') => {
+            if (window.__yhDashboardApprovedParentRenderToken !== parentToken) return;
+
+            const childOpenAt = Number(window.__yhDashboardChildWorkspaceOpenAt || 0);
+            if (childOpenAt && Date.now() - childOpenAt < 4200) return;
+
+            document.body?.classList.remove('yh-dashboard-child-workspace-active');
+            document.body?.classList.remove('yh-dashboard-inline-child-active');
             document.body?.setAttribute('data-yh-dashboard-v2-active', key);
             document.body?.setAttribute('data-yh-dashboard-v2-approved', 'true');
             document.body?.setAttribute('data-yh-dashboard-v2-status', 'approved');
@@ -2831,7 +3377,7 @@ function setVisible(node, visible, display = '') {
 
         renderApprovedParent('source-of-truth-approved');
 
-        [60, 180, 420, 900, 1600, 3000].forEach((delay) => {
+        [60, 180, 420, 900, 1600].forEach((delay) => {
             window.setTimeout(() => renderApprovedParent(`source-of-truth-approved-${delay}`), delay);
         });
 
@@ -2998,6 +3544,38 @@ function setVisible(node, visible, display = '') {
         };
     }
 
+    function setDashboardBootstrapLoading(loading = true, reason = '') {
+        if (!isDashboardPage()) return;
+
+        document.body?.classList.toggle('yh-dashboard-access-syncing', loading);
+        document.body?.setAttribute('data-yh-dashboard-bootstrap-sync', loading ? 'loading' : 'ready');
+
+        const loader = document.getElementById('yh-dashboard-bootstrap-loader');
+
+        if (loading) {
+            document.body?.classList.add('yh-dashboard-bootstrapping');
+
+            if (loader) {
+                loader.classList.remove('hidden-step');
+                loader.setAttribute('aria-hidden', 'false');
+            }
+
+            return;
+        }
+
+        if (typeof window.__yhDashboardReleaseBootstrapLoader === 'function') {
+            window.__yhDashboardReleaseBootstrapLoader(reason || 'backend-profile-ready');
+            return;
+        }
+
+        document.body?.classList.remove('yh-dashboard-bootstrapping');
+
+        if (loader) {
+            loader.classList.add('hidden-step');
+            loader.setAttribute('aria-hidden', 'true');
+        }
+    }
+
     function setAccessCardsSyncing(syncing = true) {
         if (!isDashboardPage()) return;
 
@@ -3021,6 +3599,15 @@ function setVisible(node, visible, display = '') {
                     button.setAttribute('aria-disabled', 'true');
                     button.setAttribute('data-yh-overview-division-action-kind', 'syncing');
                 }
+
+                return;
+            }
+
+            card.removeAttribute('data-yh-division-access-state');
+
+            if (button) {
+                button.disabled = false;
+                button.removeAttribute('aria-disabled');
             }
         });
     }
@@ -3033,15 +3620,23 @@ function setVisible(node, visible, display = '') {
         wrapApplyFns();
         installFetchObserver();
 
-        if (!backendState.loaded) {
-            setAccessCardsSyncing(true);
+        const firstSync = !backendState.loaded;
+
+        if (firstSync) {
+            setDashboardBootstrapLoading(true, 'backend-profile-sync');
         }
+
+        setAccessCardsSyncing(true);
 
         fetchBackendProfile(true)
             .catch(() => null)
             .finally(() => {
                 setAccessCardsSyncing(false);
                 syncCards();
+
+                if (firstSync) {
+                    setDashboardBootstrapLoading(false, 'backend-profile-ready');
+                }
             });
 
         [240, 700, 1400, 2600, 4200].forEach((delay) => {
@@ -3053,6 +3648,7 @@ function setVisible(node, visible, display = '') {
                 if (backendState.loaded) {
                     setAccessCardsSyncing(false);
                     syncCards();
+                    setDashboardBootstrapLoading(false, 'backend-profile-late-ready');
                 }
             }, delay);
         });

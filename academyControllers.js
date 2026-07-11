@@ -3320,6 +3320,122 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
         homePayload
     };
 }
+
+function buildRoadmapHomePayloadFromPlannerResult(plannerResult = {}, fallbackMessage = '') {
+    const plan = plannerResult?.plan && typeof plannerResult.plan === 'object'
+        ? plannerResult.plan
+        : {};
+
+    const roadmap = plan.roadmap && typeof plan.roadmap === 'object'
+        ? plan.roadmap
+        : {};
+
+    const summary = plan.summary && typeof plan.summary === 'object'
+        ? plan.summary
+        : {};
+
+    const rawSteps = Array.isArray(plan.roadmapSteps)
+        ? plan.roadmapSteps
+        : Array.isArray(plan.steps)
+            ? plan.steps
+            : Array.isArray(plan.missions)
+                ? plan.missions
+                : [];
+
+    const roadmapSteps = rawSteps.slice(0, 12).map((item, index) => ({
+        id: sanitize(item.id || item.stepId || item.missionId || `roadmap-step-${index + 1}`),
+        pillar: sanitize(item.pillar || item.category || 'roadmap'),
+        title: sanitize(item.title || `Roadmap Step ${index + 1}`),
+        description: sanitize(item.description || item.doneLooksLike || item.whyItMatters || ''),
+        whyItMatters: sanitize(item.whyItMatters || item.reflectionPrompt || ''),
+        frequency: sanitize(item.frequency || 'daily'),
+        dueDate: sanitize(item.dueDate || item.date || ''),
+        estimatedMinutes: toInt(item.estimatedMinutes || item.minutes, 0),
+        status: sanitize(item.status || 'pending').toLowerCase() || 'pending',
+        sortOrder: toInt(item.sortOrder, index + 1)
+    }));
+
+    const roadmapTitle = sanitize(
+        roadmap.title ||
+        roadmap.weeklyTheme ||
+        '28-Day Foundation Roadmap'
+    );
+
+    const roadmapOutcome = sanitize(
+        roadmap.weeklyTargetOutcome ||
+        roadmap.targetOutcome ||
+        summary.mainOpportunity ||
+        fallbackMessage ||
+        'Build direction, discipline, and consistent execution.'
+    );
+
+    return {
+        success: true,
+        roadmapId: sanitize(plannerResult.roadmapId || ''),
+        plannerRunId: sanitize(plannerResult.plannerRunId || ''),
+        version: toInt(plannerResult.version, 1),
+        readinessScore: toInt(plan.readinessScore || roadmap.readinessScore, 0),
+        focusAreas: Array.isArray(plan.focusAreas) ? plan.focusAreas : [],
+        summary,
+        roadmap: {
+            ...roadmap,
+            title: roadmapTitle,
+            weeklyTheme: sanitize(roadmap.weeklyTheme || roadmapTitle),
+            weeklyTargetOutcome: roadmapOutcome
+        },
+        adaptivePlanning: plan.adaptivePlanning || {},
+        nurtureTelemetry: plan.nurtureTelemetry || {},
+        progress: {
+            completed: 0,
+            total: roadmapSteps.length,
+            completionRate: 0
+        },
+        today: {
+            missionsCompleted: 0,
+            missionsTotal: roadmapSteps.length,
+            streakDays: 0
+        },
+        roadmapSteps,
+        steps: roadmapSteps,
+        missions: roadmapSteps,
+        allMissions: roadmapSteps,
+        recentCheckins: [],
+        transformationSystem: {
+            currentStreak: 0,
+            completedMissions: 0,
+            totalMissions: roadmapSteps.length
+        },
+        createdByModel: sanitize(plannerResult.createdByModel || 'academy-roadmap-planner'),
+        generatedAt: new Date().toISOString()
+    };
+}
+
+function getCachedRoadmapHomePayloadFromUserData(userData = {}) {
+    const cached =
+        userData.lastRoadmapHomePayload && typeof userData.lastRoadmapHomePayload === 'object'
+            ? userData.lastRoadmapHomePayload
+            : null;
+
+    if (!cached) return null;
+
+    if (
+        cached.roadmapId ||
+        cached.plannerRunId ||
+        cached.roadmap ||
+        Array.isArray(cached.roadmapSteps) ||
+        Array.isArray(cached.steps) ||
+        Array.isArray(cached.missions)
+    ) {
+        return {
+            success: true,
+            ...cached,
+            source: cached.source || 'cached-roadmap-home'
+        };
+    }
+
+    return null;
+}
+
 exports.getAcademyHome = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
@@ -3334,6 +3450,24 @@ exports.getAcademyHome = async (req, res) => {
         const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid);
 
         if (!homePayload) {
+            try {
+                const userRef = firestore.collection('users').doc(uid);
+                let userSnapshot = await userRef.get();
+
+                if (!userSnapshot.exists) {
+                    userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
+                }
+
+                const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
+                const cachedHomePayload = getCachedRoadmapHomePayloadFromUserData(userData);
+
+                if (cachedHomePayload) {
+                    return res.json(cachedHomePayload);
+                }
+            } catch (cacheError) {
+                console.warn('Academy home cached roadmap fallback skipped:', cacheError?.message || cacheError);
+            }
+
             return res.json({
                 success: true,
                 emptyRoadmap: true,
@@ -3349,6 +3483,8 @@ exports.getAcademyHome = async (req, res) => {
                     missionsTotal: 0,
                     streakDays: 0
                 },
+                roadmapSteps: [],
+                steps: [],
                 missions: [],
                 allMissions: [],
                 recentCheckins: [],
@@ -7072,13 +7208,30 @@ exports.submitRoadmapApplication = async (req, res) => {
                     console.warn('existing roadmap member profile sync skipped:', syncError?.message || syncError);
                 }
 
+                let existingHomePayload = null;
+
+                try {
+                    existingHomePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid);
+                } catch (homeError) {
+                    console.warn('existing roadmap home payload lookup skipped:', homeError?.message || homeError);
+                }
+
+                if (!existingHomePayload) {
+                    existingHomePayload = getCachedRoadmapHomePayloadFromUserData(userData);
+                }
+
                 return res.json({
                     success: true,
                     alreadyExists: true,
                     roadmapApplication: unlockedRoadmapApplication,
                     hasRoadmapAccess: true,
                     roadmapAccessStatus: 'unlocked',
-                    message: 'Roadmap setup already exists. Roadmap access is unlocked.'
+                    roadmapId: existingHomePayload?.roadmapId || existingRoadmapApplication.roadmapId || '',
+                    createdByModel: existingHomePayload?.createdByModel || existingRoadmapApplication.createdByModel || '',
+                    home: existingHomePayload,
+                    message: existingHomePayload
+                        ? 'Roadmap setup already exists. Roadmap workspace is ready.'
+                        : 'Roadmap setup already exists. Roadmap access is unlocked.'
                 });
             }
 
@@ -7312,6 +7465,13 @@ exports.submitRoadmapApplication = async (req, res) => {
             trigger: 'roadmap_application'
         });
 
+        const roadmapHomePayload =
+            plannerResult?.homePayload ||
+            buildRoadmapHomePayloadFromPlannerResult(
+                plannerResult,
+                'Your personalized Roadmap has been generated from your setup answers.'
+            );
+
         const nowIso = new Date().toISOString();
 
         await academyFirestoreRepo.setAccessUnlocked(uid);
@@ -7371,6 +7531,7 @@ exports.submitRoadmapApplication = async (req, res) => {
                 roadmapAccessStatus: 'unlocked',
                 academyRoadmapAccess: true,
                 roadmapUnlockedAt: nowIso,
+                lastRoadmapHomePayload: roadmapHomePayload,
                 updatedAt: nowIso
             },
             { merge: true }
@@ -7430,7 +7591,8 @@ await publicLandingEventsRepo.createEventForUser(uid, {
             hasRoadmapAccess: true,
             roadmapId: plannerResult?.roadmapId || '',
             createdByModel: plannerResult?.createdByModel || '',
-            home: plannerResult?.homePayload || null
+            home: roadmapHomePayload,
+            plan: plannerResult?.plan || null
         });
     } catch (error) {
         console.error('submitRoadmapApplication error:', error);
@@ -7468,6 +7630,25 @@ exports.refreshRoadmap = async (req, res) => {
 
         const plannerResult = await generateAndPersistPlanFirestore(uid, profile, { mode: 'refresh' });
 
+        const roadmapHomePayload =
+            plannerResult?.homePayload ||
+            buildRoadmapHomePayloadFromPlannerResult(
+                plannerResult,
+                'Your Roadmap has been refreshed.'
+            );
+
+        try {
+            await firestore.collection('users').doc(uid).set(
+                {
+                    lastRoadmapHomePayload: roadmapHomePayload,
+                    updatedAt: new Date().toISOString()
+                },
+                { merge: true }
+            );
+        } catch (cacheError) {
+            console.warn('refreshRoadmap cache write skipped:', cacheError?.message || cacheError);
+        }
+
         try {
 await publicLandingEventsRepo.createEventForUser(uid, {
                 ...buildPublicLandingEventLocation(req),
@@ -7501,7 +7682,8 @@ await publicLandingEventsRepo.createEventForUser(uid, {
             success: true,
             roadmapId: plannerResult.roadmapId,
             createdByModel: plannerResult.createdByModel,
-            home: plannerResult.homePayload
+            home: roadmapHomePayload,
+            plan: plannerResult.plan || null
         });
     } catch (error) {
         console.error('Refresh Roadmap Error:', error);

@@ -845,9 +845,24 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
         listRecentCheckins(uid, roadmap.id, 60)
     ]);
 
-    const completedCount = allMissions.filter((item) => item.status === 'completed').length;
-    const totalCount = allMissions.length;
-    const plazaReadiness = buildAcademyPlazaReadinessPayload(profileDoc || {}, roadmap || {}, allMissions);
+    const fallbackRoadmapSteps = allMissions.length
+        ? []
+        : extractRoadmapStepsForPersistence({
+            roadmap: roadmap.roadmap || {},
+            roadmapSteps: roadmap.roadmapSteps || roadmap.steps || []
+        }).map((item, index) => ({
+            ...item,
+            roadmapId: roadmap.id,
+            status: sanitizeString(item.status || 'pending'),
+            sortOrder: toNumber(item.sortOrder, index + 1)
+        }));
+
+    const effectiveAllMissions = allMissions.length ? allMissions : fallbackRoadmapSteps;
+    const effectiveRecentMissions = missions.length ? missions : fallbackRoadmapSteps.slice(0, 5);
+
+    const completedCount = effectiveAllMissions.filter((item) => item.status === 'completed').length;
+    const totalCount = effectiveAllMissions.length;
+    const plazaReadiness = buildAcademyPlazaReadinessPayload(profileDoc || {}, roadmap || {}, effectiveAllMissions);
 
     return {
         success: true,
@@ -867,14 +882,16 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
             adaptivePlanning: roadmap.adaptivePlanning || {},
             nurtureTelemetry: roadmap.nurtureTelemetry || {}
         },
-        missions,
-        allMissions,
+        roadmapSteps: effectiveAllMissions,
+        steps: effectiveAllMissions,
+        missions: effectiveRecentMissions,
+        allMissions: effectiveAllMissions,
         progress: {
             total: totalCount,
             completed: completedCount,
-            pending: allMissions.filter((item) => item.status === 'pending').length,
-            skipped: allMissions.filter((item) => item.status === 'skipped').length,
-            stuck: allMissions.filter((item) => item.status === 'stuck').length,
+            pending: effectiveAllMissions.filter((item) => item.status === 'pending').length,
+            skipped: effectiveAllMissions.filter((item) => item.status === 'skipped').length,
+            stuck: effectiveAllMissions.filter((item) => item.status === 'stuck').length,
             completionRate: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
         },
         streakDays,
@@ -1137,6 +1154,75 @@ async function updatePlannerRunResult(uid, runId, patch = {}) {
     };
 }
 
+function normalizeRoadmapStepForPersistence(step = {}, index = 0) {
+    return {
+        ...step,
+        id: sanitizeString(step.id || step.stepId || step.missionId || `mission_${Date.now()}_${index}`),
+        pillar: sanitizeString(step.pillar || step.category || step.type || 'roadmap'),
+        title: sanitizeString(step.title || step.name || `Roadmap Step ${index + 1}`),
+        description: sanitizeString(step.description || step.summary || step.action || step.task || step.doneLooksLike || step.whyItMatters),
+        whyItMatters: sanitizeString(step.whyItMatters || step.reflectionPrompt || step.reason),
+        frequency: sanitizeString(step.frequency || step.cadence || 'daily'),
+        estimatedMinutes: toNumber(step.estimatedMinutes || step.minutes || step.durationMinutes, 0),
+        sortOrder: toNumber(step.sortOrder || step.order, index + 1)
+    };
+}
+
+function extractRoadmapStepsForPersistence(plan = {}) {
+    const roadmap = plan.roadmap && typeof plan.roadmap === 'object' ? plan.roadmap : {};
+    const steps = [];
+
+    [
+        plan.missions,
+        plan.roadmapSteps,
+        plan.steps,
+        plan.days,
+        plan.weeks,
+        plan.phases,
+        plan.dailyPlan,
+        roadmap.missions,
+        roadmap.roadmapSteps,
+        roadmap.steps,
+        roadmap.days,
+        roadmap.weeks,
+        roadmap.phases,
+        roadmap.dailyPlan
+    ].forEach((value) => {
+        if (Array.isArray(value)) {
+            value.forEach((item) => {
+                if (item && typeof item === 'object') steps.push(item);
+            });
+        }
+    });
+
+    const days30 = roadmap.days30 && typeof roadmap.days30 === 'object'
+        ? roadmap.days30
+        : {};
+
+    Object.entries(days30).forEach(([key, value], index) => {
+        steps.push({
+            id: `roadmap-${key}`,
+            pillar: 'roadmap',
+            title: `Week ${index + 1}: ${sanitizeString(value || `Roadmap Week ${index + 1}`)}`,
+            description: sanitizeString(value || `Complete Week ${index + 1} of your Roadmap.`),
+            whyItMatters: 'This keeps your Roadmap moving through a clear weekly execution direction.',
+            frequency: 'weekly',
+            sortOrder: index + 1
+        });
+    });
+
+    const seen = new Set();
+
+    return steps
+        .map((step, index) => normalizeRoadmapStepForPersistence(step, index))
+        .filter((step, index) => {
+            const key = sanitizeString(step.id || step.title || `step-${index}`).toLowerCase();
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+}
+
 async function persistRoadmapBundle(uid, profile = {}, plan = {}) {
     const now = nowIso();
     const roadmapId = sanitizeString(plan.id || plan.roadmapId || `roadmap_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`);
@@ -1164,7 +1250,7 @@ async function persistRoadmapBundle(uid, profile = {}, plan = {}) {
         status: 'active'
     });
 
-    const missions = Array.isArray(plan.missions) ? plan.missions : [];
+    const missions = extractRoadmapStepsForPersistence(plan);
     for (let index = 0; index < missions.length; index += 1) {
         const mission = missions[index] || {};
         const missionId = sanitizeString(mission.id || `mission_${Date.now()}_${index}_${crypto.randomBytes(2).toString('hex')}`);

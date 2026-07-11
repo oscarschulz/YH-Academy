@@ -4848,6 +4848,14 @@ app.get(['/dashboard', '/dashboard/'], (req, res) => {
     return sendYHSoftProtectedShell(req, res, 'dashboard.html');
 });
 
+app.get(['/dashboard-v3', '/dashboard-v3/'], (req, res) => {
+    return sendYHSoftProtectedShell(req, res, 'dashboard-v3.html');
+});
+
+app.get(['/academy-embed', '/academy-embed/'], (req, res) => {
+    return sendYHSoftProtectedShell(req, res, 'academy-embed.html');
+});
+
 app.get(['/academy', '/academy/'], (req, res) => {
     return sendYHSoftProtectedShell(req, res, 'academy.html');
 });

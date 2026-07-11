@@ -56,7 +56,7 @@
 </style>
 <!-- END PATCH: Dashboard state owner early paint v3 -->
 
-<link rel="stylesheet" href="/css/dashboard-v2.css?v=20260711-access-sync-shell-v1">
+<link rel="stylesheet" href="/css/dashboard-v2.css?v=20260711-sidebar-owner-v7">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard" data-yh-unified-workspace="overview" data-yh-unified-division="overview">
 
@@ -76,10 +76,40 @@
 <script>
   (function () {
     try {
-      if (sessionStorage.getItem('yh_post_login_dashboard_bootstrap_v1') === '1') {
-        document.body.classList.add('yh-dashboard-bootstrapping');
-        document.getElementById('yh-dashboard-bootstrap-loader')?.classList.remove('hidden-step');
+      document.body.classList.add('yh-dashboard-bootstrapping');
+      document.body.setAttribute('data-yh-dashboard-bootstrap-sync', 'loading');
+
+      var loader = document.getElementById('yh-dashboard-bootstrap-loader');
+      if (loader) {
+        loader.classList.remove('hidden-step');
+        loader.setAttribute('aria-hidden', 'false');
       }
+
+      window.__yhDashboardBootstrapStartedAt = Date.now();
+
+      window.__yhDashboardReleaseBootstrapLoader = function yhDashboardReleaseBootstrapLoader(reason) {
+        try {
+          document.body.classList.remove('yh-dashboard-bootstrapping');
+          document.body.setAttribute('data-yh-dashboard-bootstrap-sync', 'ready');
+          document.body.setAttribute('data-yh-dashboard-bootstrap-ready-reason', String(reason || 'ready'));
+
+          var activeLoader = document.getElementById('yh-dashboard-bootstrap-loader');
+          if (activeLoader) {
+            activeLoader.classList.add('hidden-step');
+            activeLoader.setAttribute('aria-hidden', 'true');
+          }
+
+          try {
+            sessionStorage.removeItem('yh_post_login_dashboard_bootstrap_v1');
+          } catch (_) {}
+        } catch (_) {}
+      };
+
+      window.setTimeout(function () {
+        if (document.body.classList.contains('yh-dashboard-bootstrapping')) {
+          window.__yhDashboardReleaseBootstrapLoader('failsafe');
+        }
+      }, 9000);
     } catch (_) {}
   })();
 </script>
@@ -2900,6 +2930,6 @@
 <!-- END PATCH: Entry buttons direct Feed Command route v138 -->
 
 <script src="/js/dashboard-mobile-fix.js?v=20260627-yh-live-cache-v4"></script>
-<script src="/js/dashboard-v2-controller.js?v=20260711-access-sync-shell-v1"></script>
+<script src="/js/dashboard-v2-controller.js?v=20260711-sidebar-owner-v7"></script>
 </body>
 </html>

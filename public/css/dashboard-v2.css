@@ -696,26 +696,94 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-apply-modal .yh-acad
 }
 /* END PATCH: Academy application typeform wizard styles v1 */
 
-/* PATCH: Dashboard V2 approved parent shell visibility v1 */
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active] #yh-dashboard-v2-parent-shell {
+/* PATCH: Dashboard V2 approved parent shell visibility v4 */
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not(.yh-dashboard-child-workspace-active):not(.yh-dashboard-inline-child-active)[data-yh-unified-workspace="academy"] #yh-dashboard-v2-parent-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not(.yh-dashboard-child-workspace-active):not(.yh-dashboard-inline-child-active)[data-yh-unified-workspace="plazas"] #yh-dashboard-v2-parent-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not(.yh-dashboard-child-workspace-active):not(.yh-dashboard-inline-child-active)[data-yh-unified-workspace="federation"] #yh-dashboard-v2-parent-shell {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
     position: relative !important;
     z-index: 30 !important;
-    min-height: 280px;
+    min-height: 280px !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: clamp(18px, 2vw, 28px) 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
 }
 
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active] #yh-dashboard-v2-parent-shell .yh-dashboard-v2-intro-card {
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not(.yh-dashboard-child-workspace-active):not(.yh-dashboard-inline-child-active)[data-yh-unified-workspace="academy"] #yh-dashboard-v2-parent-shell .yh-dashboard-v2-intro-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not(.yh-dashboard-child-workspace-active):not(.yh-dashboard-inline-child-active)[data-yh-unified-workspace="academy"] #yh-dashboard-v2-parent-shell .yh-dashboard-v2-child-grid,
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not(.yh-dashboard-child-workspace-active):not(.yh-dashboard-inline-child-active)[data-yh-unified-workspace="plazas"] #yh-dashboard-v2-parent-shell .yh-dashboard-v2-intro-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not(.yh-dashboard-child-workspace-active):not(.yh-dashboard-inline-child-active)[data-yh-unified-workspace="plazas"] #yh-dashboard-v2-parent-shell .yh-dashboard-v2-child-grid,
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not(.yh-dashboard-child-workspace-active):not(.yh-dashboard-inline-child-active)[data-yh-unified-workspace="federation"] #yh-dashboard-v2-parent-shell .yh-dashboard-v2-intro-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"]:not(.yh-dashboard-child-workspace-active):not(.yh-dashboard-inline-child-active)[data-yh-unified-workspace="federation"] #yh-dashboard-v2-parent-shell .yh-dashboard-v2-child-grid {
     display: grid !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
 }
 
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active] #yh-dashboard-v2-parent-shell .yh-dashboard-v2-child-grid {
+body[data-yh-view="hub"][data-yh-page="dashboard"].yh-dashboard-child-workspace-active #yh-dashboard-v2-parent-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"].yh-dashboard-inline-child-active #yh-dashboard-v2-parent-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-child-workspace] #yh-dashboard-v2-parent-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="academy-"] #yh-dashboard-v2-parent-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="plazas-"] #yh-dashboard-v2-parent-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="federation-"] #yh-dashboard-v2-parent-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-dashboard-v2-parent-shell[data-yh-v2-parent-suppressed="true"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    max-height: 0 !important;
+    min-height: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"].yh-dashboard-child-workspace-active #yh-universe-workspace-launch-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"].yh-dashboard-inline-child-active #yh-universe-workspace-launch-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-child-workspace] #yh-universe-workspace-launch-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="academy-"] #yh-universe-workspace-launch-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="plazas-"] #yh-universe-workspace-launch-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="federation-"] #yh-universe-workspace-launch-card {
+    width: 100% !important;
     display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 35 !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"].yh-dashboard-child-workspace-active #yh-universe-workspace-frame-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"].yh-dashboard-inline-child-active #yh-universe-workspace-frame-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-child-workspace] #yh-universe-workspace-frame-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="academy-"] #yh-universe-workspace-frame-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="plazas-"] #yh-universe-workspace-frame-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="federation-"] #yh-universe-workspace-frame-shell {
+    width: 100% !important;
+    min-height: min(82vh, 880px) !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"].yh-dashboard-child-workspace-active #yh-universe-workspace-inline-frame,
+body[data-yh-view="hub"][data-yh-page="dashboard"].yh-dashboard-inline-child-active #yh-universe-workspace-inline-frame,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-child-workspace] #yh-universe-workspace-inline-frame,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="academy-"] #yh-universe-workspace-inline-frame,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="plazas-"] #yh-universe-workspace-inline-frame,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace^="federation-"] #yh-universe-workspace-inline-frame {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: min(82vh, 880px) !important;
+    display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
@@ -723,8 +791,11 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active] 
 
 body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"][data-yh-dashboard-v2-approved="true"] #yh-sidebar-subnav-academy,
 body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="plazas"][data-yh-dashboard-v2-approved="true"] #yh-sidebar-subnav-plazas,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"][data-yh-dashboard-v2-approved="true"] #yh-sidebar-subnav-federation {
-    display: block !important;
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"][data-yh-dashboard-v2-approved="true"] #yh-sidebar-subnav-federation,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #yh-sidebar-subnav-academy,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-sidebar-subnav-plazas,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-sidebar-subnav-federation {
+    display: grid !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
@@ -732,14 +803,17 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="
 
 body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"][data-yh-dashboard-v2-approved="true"] [data-yh-sidebar-child^="academy-"],
 body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="plazas"][data-yh-dashboard-v2-approved="true"] [data-yh-sidebar-child^="plazas-"],
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"][data-yh-dashboard-v2-approved="true"] [data-yh-sidebar-child^="federation-"] {
-    display: block !important;
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"][data-yh-dashboard-v2-approved="true"] [data-yh-sidebar-child^="federation-"],
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] [data-yh-sidebar-child^="academy-"],
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] [data-yh-sidebar-child^="plazas-"],
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] [data-yh-sidebar-child^="federation-"] {
+    display: inline-flex !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
 }
-/* END PATCH: Dashboard V2 approved parent shell visibility v1 */
-/* PATCH: Dashboard access sync and child card stability v1 */
+/* END PATCH: Dashboard V2 approved parent shell visibility v4 */
+/* PATCH: Dashboard access sync and child card stability v4 */
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-card-v1[data-yh-division-access-state="syncing"] {
     border-color: rgba(56, 189, 248, 0.32);
     opacity: 0.88;
@@ -758,9 +832,10 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-child-grid {
     width: 100%;
     display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: clamp(12px, 1.2vw, 18px);
     align-items: stretch;
+    margin-top: 16px;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-child-card,
@@ -769,16 +844,169 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-locked-card 
     min-width: 0;
     min-height: 118px;
     display: grid !important;
+    grid-template-rows: auto 1fr;
     align-content: start;
     gap: 8px;
+    padding: 18px 18px;
+    border: 1px solid rgba(103, 232, 249, 0.18);
+    background:
+        radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.08), transparent 34%),
+        linear-gradient(180deg, rgba(8, 18, 38, 0.82), rgba(3, 8, 20, 0.68));
     clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
     transform: translateZ(0);
     contain: layout paint;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-child-card span,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-child-card strong {
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-locked-card span {
     min-width: 0;
+    max-width: 100%;
+    display: block;
+    color: #67e8f9;
+    font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
     overflow-wrap: anywhere;
 }
-/* END PATCH: Dashboard access sync and child card stability v1 */
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-child-card strong,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-locked-card strong {
+    min-width: 0;
+    max-width: 100%;
+    display: block;
+    color: rgba(248, 251, 255, 0.94);
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+    font-size: clamp(0.96rem, 0.94vw, 1.05rem);
+    line-height: 1.18;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-division-group.is-expanded:not(.is-manually-collapsed) .yh-sidebar-subnav,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-division-group[data-yh-sidebar-subnav-open="true"] .yh-sidebar-subnav,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-active-sidebar-division="academy"] #yh-sidebar-subnav-academy,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-active-sidebar-division="plazas"] #yh-sidebar-subnav-plazas,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-active-sidebar-division="federation"] #yh-sidebar-subnav-federation,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #yh-sidebar-subnav-academy,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-sidebar-subnav-plazas,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-sidebar-subnav-federation,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-sidebar-subnav-academy,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="plazas"] #yh-sidebar-subnav-plazas,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="federation"] #yh-sidebar-subnav-federation {
+    width: calc(100% - 20px) !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+    margin: 6px 0 8px 20px !important;
+    padding: 6px 0 4px 10px !important;
+    border-left: 1px solid rgba(103, 232, 249, 0.18) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-division-group.is-expanded .yh-sidebar-subnav-link,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #yh-sidebar-subnav-academy .yh-sidebar-subnav-link,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-sidebar-subnav-plazas .yh-sidebar-subnav-link,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-sidebar-subnav-federation .yh-sidebar-subnav-link,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-sidebar-subnav-academy .yh-sidebar-subnav-link,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="plazas"] #yh-sidebar-subnav-plazas .yh-sidebar-subnav-link,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="federation"] #yh-sidebar-subnav-federation .yh-sidebar-subnav-link {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    min-height: 36px !important;
+    display: grid !important;
+    grid-template-columns: 20px minmax(0, 1fr) !important;
+    align-items: center !important;
+    justify-content: start !important;
+    gap: 8px !important;
+    padding: 8px 10px !important;
+    border: 1px solid rgba(103, 232, 249, 0.13) !important;
+    color: rgba(226, 232, 240, 0.88) !important;
+    background: rgba(5, 12, 28, 0.52) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%, 0 9px) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-subnav-link .yh-sidebar-subnav-icon {
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    display: grid !important;
+    place-items: center !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-subnav-link span:last-child {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-subnav-link.is-active,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-subnav-link.active,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-child-target="academy-roadmap"] [data-yh-sidebar-child="academy-roadmap"],
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-child-target="academy-missions"] [data-yh-sidebar-child="academy-missions"],
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-child-target="academy-community"] [data-yh-sidebar-child="academy-community"],
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-child-target="academy-messages"] [data-yh-sidebar-child="academy-messages"],
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-child-target="academy-voice"] [data-yh-sidebar-child="academy-voice"] {
+    border-color: rgba(103, 232, 249, 0.46) !important;
+    color: #ffffff !important;
+    background:
+        linear-gradient(90deg, rgba(37, 99, 235, 0.52), rgba(14, 165, 233, 0.12)),
+        rgba(5, 12, 28, 0.74) !important;
+    box-shadow: inset 2px 0 0 rgba(103, 232, 249, 0.88) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"].yh-dashboard-child-transitioning #yh-universe-workspace-frame-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"].yh-dashboard-child-transitioning #yh-universe-workspace-inline-frame {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"].yh-dashboard-child-transitioning #yh-universe-workspace-launch-card {
+    min-height: min(72vh, 760px) !important;
+    display: grid !important;
+    place-items: center !important;
+    background:
+        radial-gradient(circle at 50% 20%, rgba(56, 189, 248, 0.12), transparent 34%),
+        linear-gradient(180deg, rgba(3, 7, 18, 0.96), rgba(2, 6, 23, 0.92)) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"].yh-dashboard-child-transitioning #yh-universe-workspace-launch-card::before {
+    content: "Preparing Academy section...";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 18px;
+    border: 1px solid rgba(103, 232, 249, 0.28);
+    color: #dff7ff;
+    font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: rgba(14, 165, 233, 0.10);
+}
+
+@media (max-width: 1280px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-child-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 820px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-child-grid {
+        grid-template-columns: 1fr;
+    }
+}
+/* END PATCH: Dashboard access sync and child card stability v4 */
