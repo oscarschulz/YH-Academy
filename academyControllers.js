@@ -4603,7 +4603,159 @@ async function applyUniverseProfileSameEmailApprovalMirrorV1({
 }
 /* END PATCH: Universe profile same-email approval mirror v1 */
 
+/* PATCH: Universe profile same-email approval mirror v1 */
+async function applyUniverseProfileSameEmailApprovalMirrorV1({
+    uid = '',
+    userRef = null,
+    userData = {}
+} = {}) {
+    const cleanUid = sanitize(uid);
+    const email = sanitize(
+        userData.email ||
+        userData.emailLower ||
+        userData.userEmail ||
+        ''
+    ).toLowerCase();
 
+    if (!cleanUid || !email || !userRef || typeof userRef.set !== 'function') {
+        return userData;
+    }
+
+    const alreadyApproved =
+        userData.hasAcademyAccess === true ||
+        userData.canEnterAcademy === true ||
+        normalizeUniverseDivisionStatus(userData.academyApplication?.status, '') === 'approved' ||
+        normalizeUniverseDivisionStatus(userData.academyMembershipStatus, '') === 'approved' ||
+        normalizeUniverseDivisionStatus(userData.academyApplicationStatus, '') === 'approved';
+
+    if (alreadyApproved) {
+        return userData;
+    }
+
+    const queryPairs = [
+        ['email', email],
+        ['emailLower', email],
+        ['userEmail', email]
+    ];
+
+    const docsById = new Map();
+
+    for (const [field, value] of queryPairs) {
+        try {
+            const snap = await firestore
+                .collection('users')
+                .where(field, '==', value)
+                .limit(25)
+                .get();
+
+            snap.docs.forEach((doc) => {
+                docsById.set(doc.id, doc);
+            });
+        } catch (error) {
+            console.warn(`Universe profile same-email mirror query skipped for ${field}:`, error?.message || error);
+        }
+    }
+
+    let approvedSource = null;
+
+    for (const [docId, doc] of docsById.entries()) {
+        if (docId === cleanUid) continue;
+
+        const source = doc.data() || {};
+        const sourceAcademyApplication =
+            source.academyApplication && typeof source.academyApplication === 'object'
+                ? source.academyApplication
+                : null;
+
+        const sourceApproved =
+            source.hasAcademyAccess === true ||
+            source.canEnterAcademy === true ||
+            normalizeUniverseDivisionStatus(sourceAcademyApplication?.status, '') === 'approved' ||
+            normalizeUniverseDivisionStatus(source.academyMembershipStatus, '') === 'approved' ||
+            normalizeUniverseDivisionStatus(source.academyApplicationStatus, '') === 'approved';
+
+        if (sourceApproved) {
+            approvedSource = source;
+            break;
+        }
+    }
+
+    if (!approvedSource) {
+        return userData;
+    }
+
+    const nowIso = new Date().toISOString();
+    const currentApplication =
+        userData.academyApplication && typeof userData.academyApplication === 'object'
+            ? userData.academyApplication
+            : {};
+
+    const sourceApplication =
+        approvedSource.academyApplication && typeof approvedSource.academyApplication === 'object'
+            ? approvedSource.academyApplication
+            : {};
+
+    const patch = {
+        updatedAt: nowIso,
+        academyApplicationStatus: 'Approved',
+        academyMembershipStatus: 'approved',
+        canEnterAcademy: true,
+        hasAcademyAccess: true,
+        hasRoadmapAccess: true,
+        academyRoadmapAccess: true,
+        roadmapApplicationStatus: 'Approved',
+        roadmapAccessStatus: 'unlocked',
+        accessState: 'unlocked',
+        academyMembershipApprovedAt:
+            userData.academyMembershipApprovedAt ||
+            approvedSource.academyMembershipApprovedAt ||
+            approvedSource.academyApprovedAt ||
+            nowIso,
+        academyApprovedAt:
+            userData.academyApprovedAt ||
+            approvedSource.academyApprovedAt ||
+            approvedSource.academyMembershipApprovedAt ||
+            nowIso,
+        academyRejectedAt: '',
+        academyApplication: {
+            ...sourceApplication,
+            ...currentApplication,
+            id: sanitize(currentApplication.id || sourceApplication.id || ''),
+            status: 'Approved',
+            reviewedAt: currentApplication.reviewedAt || sourceApplication.reviewedAt || nowIso,
+            reviewedBy: sanitize(currentApplication.reviewedBy || sourceApplication.reviewedBy || 'admin'),
+            updatedAt: nowIso
+        }
+    };
+
+    await userRef.set(patch, { merge: true }).catch((error) => {
+        console.warn('Universe profile same-email approval mirror write skipped:', error?.message || error);
+    });
+
+    const repairedUserData = {
+        ...userData,
+        ...patch,
+        academyApplication: {
+            ...(userData.academyApplication && typeof userData.academyApplication === 'object'
+                ? userData.academyApplication
+                : {}),
+            ...patch.academyApplication
+        }
+    };
+
+    await yhuUsersSupabaseRepo.syncFromFirestoreUserRef(userRef, {
+        source: 'universe-profile:same-email-approval-mirror'
+    }).catch((error) => {
+        console.warn('Universe profile same-email yhu_users sync skipped:', error?.message || error);
+    });
+
+    await academyMemberProfileSupabaseRepo.upsertProfileFromUserData(cleanUid, repairedUserData).catch((error) => {
+        console.warn('Universe profile same-email academy profile sync skipped:', error?.message || error);
+    });
+
+    return repairedUserData;
+}
+/* END PATCH: Universe profile same-email approval mirror v1 */
 function getUniverseStatusLabel(status = '') {
     const normalized = normalizeUniverseDivisionStatus(status);
 
@@ -5078,6 +5230,29 @@ exports.getUniverseProfile = async (req, res) => {
                 country: sanitize(userData.country || ''),
                 trustTier,
                 membershipSummary,
+
+                academyApplicationStatus: sanitize(userData.academyApplicationStatus || ''),
+                academyMembershipStatus: sanitize(userData.academyMembershipStatus || ''),
+                roadmapApplicationStatus: sanitize(userData.roadmapApplicationStatus || ''),
+                hasAcademyAccess: userData.hasAcademyAccess === true,
+                hasRoadmapAccess: userData.hasRoadmapAccess === true,
+                canEnterAcademy: userData.canEnterAcademy === true,
+
+                plazaApplicationStatus: sanitize(userData.plazaApplicationStatus || ''),
+                plazaMembershipStatus: sanitize(userData.plazaMembershipStatus || ''),
+                plazaAccessStatus: sanitize(userData.plazaAccessStatus || ''),
+                hasPlazaAccess: userData.hasPlazaAccess === true,
+                canEnterPlaza: userData.canEnterPlaza === true,
+
+                federationApplicationStatus: sanitize(userData.federationApplicationStatus || ''),
+                federationMembershipStatus: sanitize(userData.federationMembershipStatus || ''),
+                hasFederationAccess: userData.hasFederationAccess === true,
+                canEnterFederation: userData.canEnterFederation === true,
+
+                academyApplication,
+                plazaApplication,
+                federationApplication,
+
                 divisions,
                 signals,
 
