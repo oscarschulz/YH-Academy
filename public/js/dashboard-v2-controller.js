@@ -129,25 +129,25 @@
         return String(node?.textContent || '').replace(/\s+/g, ' ').trim();
     }
 
-    function setVisible(node, visible, display = '') {
+function setVisible(node, visible, display = '') {
         if (!node || !(node instanceof HTMLElement)) return;
 
         node.classList.toggle('hidden-step', !visible);
+        node.removeAttribute('hidden');
         node.setAttribute('aria-hidden', visible ? 'false' : 'true');
 
         if (visible) {
-            node.style.removeProperty('display');
-            if (display) node.style.display = display;
-            node.style.removeProperty('visibility');
-            node.style.removeProperty('opacity');
-            node.style.removeProperty('pointer-events');
+            node.style.setProperty('display', display || 'block', 'important');
+            node.style.setProperty('visibility', 'visible', 'important');
+            node.style.setProperty('opacity', '1', 'important');
+            node.style.setProperty('pointer-events', 'auto', 'important');
             return;
         }
 
-        node.style.display = 'none';
-        node.style.visibility = 'hidden';
-        node.style.opacity = '0';
-        node.style.pointerEvents = 'none';
+        node.style.setProperty('display', 'none', 'important');
+        node.style.setProperty('visibility', 'hidden', 'important');
+        node.style.setProperty('opacity', '0', 'important');
+        node.style.setProperty('pointer-events', 'none', 'important');
     }
 
     function statusFromText(rawText) {
@@ -300,27 +300,43 @@
     function ensureMount() {
         let mount = document.getElementById('yh-dashboard-v2-parent-shell');
 
-        if (mount) return mount;
-
-        mount = document.createElement('section');
-        mount.id = 'yh-dashboard-v2-parent-shell';
-        mount.className = 'yh-dashboard-v2-parent-shell hidden-step';
-        mount.setAttribute('aria-hidden', 'true');
-
-        const oldIntro = document.getElementById('yh-dashboard-division-parent-intro-v1');
-        if (oldIntro && oldIntro.parentNode) {
-            oldIntro.parentNode.insertBefore(mount, oldIntro);
-            return mount;
+        if (!mount) {
+            mount = document.createElement('section');
+            mount.id = 'yh-dashboard-v2-parent-shell';
+            mount.className = 'yh-dashboard-v2-parent-shell hidden-step';
+            mount.setAttribute('aria-hidden', 'true');
         }
 
         const root = dashboardRoot();
-        const firstContent = root.querySelector?.('.yh-command-dashboard-head, #yh-dashboard-overview-dynamic-access-row-v1, #yh-universe-referral-card, #yh-universe-academy-strip');
+        const safeStage =
+            document.querySelector('#universe-hub-view .yh-universe-carousel-shell') ||
+            document.querySelector('#universe-hub-view .yh-universe-hub-shell') ||
+            document.getElementById('universe-hub-view') ||
+            root;
 
-        if (firstContent && firstContent.parentNode) {
-            firstContent.parentNode.insertBefore(mount, firstContent);
-        } else {
-            root.appendChild(mount);
+        const firstContent = safeStage?.querySelector?.(
+            '.yh-command-dashboard-head, #yh-dashboard-overview-dynamic-access-row-v1, #yh-universe-referral-card, #yh-universe-academy-strip'
+        );
+
+        const hiddenAncestor = mount.closest?.(
+            '.hidden-step, .yh-universe-stage-nav, .yh-academy-parent-vision-scope, .yh-dashboard-division-intro-v1, #yh-dashboard-division-parent-intro-v1'
+        );
+
+        if (!mount.parentNode || hiddenAncestor || !safeStage.contains(mount)) {
+            if (firstContent && firstContent.parentNode === safeStage) {
+                safeStage.insertBefore(mount, firstContent);
+            } else {
+                safeStage.prepend(mount);
+            }
         }
+
+        mount.classList.remove('hidden-step');
+        mount.removeAttribute('hidden');
+        mount.setAttribute('aria-hidden', 'false');
+        mount.style.setProperty('display', 'block', 'important');
+        mount.style.setProperty('visibility', 'visible', 'important');
+        mount.style.setProperty('opacity', '1', 'important');
+        mount.style.setProperty('pointer-events', 'auto', 'important');
 
         return mount;
     }
@@ -348,21 +364,34 @@
 
         const subnav = document.getElementById(config.subnavId);
         const parent = document.querySelector(config.parentSelector);
+        const group =
+            document.querySelector(`[data-yh-sidebar-division="${key}"]`) ||
+            parent?.closest?.('.sidebar-division, .nav-group, .yh-sidebar-division, li, div');
+
+        const shouldShow = open && approved;
+
+        if (group) {
+            group.classList.toggle('is-expanded', shouldShow);
+            group.classList.toggle('is-open', shouldShow);
+            group.classList.toggle('active', open);
+            group.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
+            group.setAttribute('data-yh-sidebar-collapsed', shouldShow ? 'false' : 'true');
+        }
 
         if (parent) {
             parent.classList.toggle('is-active', open);
             parent.classList.toggle('active', open);
-            parent.setAttribute('aria-expanded', open && approved ? 'true' : 'false');
+            parent.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
         }
 
         if (subnav) {
             subnav.classList.toggle('yh-dashboard-v2-gated-subnav', !approved);
-            setVisible(subnav, open && approved, 'block');
+            setVisible(subnav, shouldShow, 'block');
         }
 
         document.querySelectorAll(config.childSelector).forEach((child) => {
             child.classList.toggle('yh-dashboard-v2-gated-child', !approved);
-            setVisible(child, open && approved, child.tagName === 'BUTTON' ? 'block' : '');
+            setVisible(child, shouldShow, child.tagName === 'BUTTON' ? 'block' : '');
         });
     }
 
@@ -612,25 +641,25 @@
         return PARENTS.has(normalizeKey(value));
     }
 
-    function setVisible(node, visible, display = '') {
+function setVisible(node, visible, display = '') {
         if (!node || !(node instanceof HTMLElement)) return;
 
         node.classList.toggle('hidden-step', !visible);
+        node.removeAttribute('hidden');
         node.setAttribute('aria-hidden', visible ? 'false' : 'true');
 
         if (visible) {
-            node.style.removeProperty('display');
-            if (display) node.style.display = display;
-            node.style.removeProperty('visibility');
-            node.style.removeProperty('opacity');
-            node.style.removeProperty('pointer-events');
+            node.style.setProperty('display', display || 'block', 'important');
+            node.style.setProperty('visibility', 'visible', 'important');
+            node.style.setProperty('opacity', '1', 'important');
+            node.style.setProperty('pointer-events', 'auto', 'important');
             return;
         }
 
-        node.style.display = 'none';
-        node.style.visibility = 'hidden';
-        node.style.opacity = '0';
-        node.style.pointerEvents = 'none';
+        node.style.setProperty('display', 'none', 'important');
+        node.style.setProperty('visibility', 'hidden', 'important');
+        node.style.setProperty('opacity', '0', 'important');
+        node.style.setProperty('pointer-events', 'none', 'important');
     }
 
     function hideAll(selectors) {
@@ -778,10 +807,24 @@
             }
         }
 
-        const mount = document.getElementById('yh-dashboard-v2-parent-shell');
+        const mount = ensureMount();
         setVisible(mount, true, 'block');
 
         hideOverviewSurfaces();
+
+        window.requestAnimationFrame(() => {
+            const freshMount = ensureMount();
+            setVisible(freshMount, true, 'block');
+            setSubnavState(clean, true, true);
+        });
+
+        [80, 240, 520, 1100].forEach((delay) => {
+            window.setTimeout(() => {
+                const freshMount = ensureMount();
+                setVisible(freshMount, true, 'block');
+                setSubnavState(clean, true, true);
+            }, delay);
+        });
     }
 
     function getShellKeyFromTarget(target) {
@@ -1371,25 +1414,25 @@
         return CHILD_PREFIXES.some((prefix) => clean.startsWith(prefix));
     }
 
-    function setVisible(node, visible, display = '') {
+function setVisible(node, visible, display = '') {
         if (!node || !(node instanceof HTMLElement)) return;
 
         node.classList.toggle('hidden-step', !visible);
+        node.removeAttribute('hidden');
         node.setAttribute('aria-hidden', visible ? 'false' : 'true');
 
         if (visible) {
-            node.style.removeProperty('display');
-            if (display) node.style.display = display;
-            node.style.removeProperty('visibility');
-            node.style.removeProperty('opacity');
-            node.style.removeProperty('pointer-events');
+            node.style.setProperty('display', display || 'block', 'important');
+            node.style.setProperty('visibility', 'visible', 'important');
+            node.style.setProperty('opacity', '1', 'important');
+            node.style.setProperty('pointer-events', 'auto', 'important');
             return;
         }
 
-        node.style.display = 'none';
-        node.style.visibility = 'hidden';
-        node.style.opacity = '0';
-        node.style.pointerEvents = 'none';
+        node.style.setProperty('display', 'none', 'important');
+        node.style.setProperty('visibility', 'hidden', 'important');
+        node.style.setProperty('opacity', '0', 'important');
+        node.style.setProperty('pointer-events', 'none', 'important');
     }
 
     function clearStaleChildWorkspaceStorage() {

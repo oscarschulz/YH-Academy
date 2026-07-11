@@ -696,3 +696,46 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-apply-modal .yh-acad
 }
 /* END PATCH: Academy application typeform wizard styles v1 */
 
+/* PATCH: Dashboard V2 approved parent shell visibility v1 */
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active] #yh-dashboard-v2-parent-shell {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 30 !important;
+    min-height: 280px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active] #yh-dashboard-v2-parent-shell .yh-dashboard-v2-intro-card {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active] #yh-dashboard-v2-parent-shell .yh-dashboard-v2-child-grid {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"][data-yh-dashboard-v2-approved="true"] #yh-sidebar-subnav-academy,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="plazas"][data-yh-dashboard-v2-approved="true"] #yh-sidebar-subnav-plazas,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"][data-yh-dashboard-v2-approved="true"] #yh-sidebar-subnav-federation {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="academy"][data-yh-dashboard-v2-approved="true"] [data-yh-sidebar-child^="academy-"],
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="plazas"][data-yh-dashboard-v2-approved="true"] [data-yh-sidebar-child^="plazas-"],
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="federation"][data-yh-dashboard-v2-approved="true"] [data-yh-sidebar-child^="federation-"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+/* END PATCH: Dashboard V2 approved parent shell visibility v1 */
