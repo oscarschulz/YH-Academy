@@ -3669,17 +3669,17 @@ async function repairAdminReviewedDivisionCanonicalAccessV1({
 
   if (!cleanField || !cleanStatus) return null;
 
-  const snap = await userRef.get();
-  if (!snap.exists) return null;
+  const rootSnap = await userRef.get();
+  if (!rootSnap.exists) return null;
 
-  const current = snap.data() || {};
-  const existingApplication =
-    current[cleanField] && typeof current[cleanField] === 'object'
-      ? current[cleanField]
+  const rootUser = rootSnap.data() || {};
+  const rootApplication =
+    rootUser[cleanField] && typeof rootUser[cleanField] === 'object'
+      ? rootUser[cleanField]
       : {};
 
-  const nextApplication = {
-    ...existingApplication,
+  const baseApplication = {
+    ...rootApplication,
     ...(application && typeof application === 'object' ? application : {}),
     status: cleanStatus,
     reviewedAt: application?.reviewedAt || nowIso,
@@ -3690,76 +3690,164 @@ async function repairAdminReviewedDivisionCanonicalAccessV1({
   const approved = cleanStatus === 'Approved';
   const rejected = cleanStatus === 'Rejected';
 
-  const patch = {
-    updatedAt: nowIso,
-    [cleanField]: nextApplication,
-    [`${cleanField}Status`]: cleanStatus
+  function buildCanonicalPatchForUser(targetUser = {}) {
+    const existingApplication =
+      targetUser[cleanField] && typeof targetUser[cleanField] === 'object'
+        ? targetUser[cleanField]
+        : {};
+
+    const mergedApplication = {
+      ...existingApplication,
+      ...baseApplication,
+      id: cleanText(existingApplication.id || baseApplication.id || ''),
+      status: cleanStatus,
+      reviewedAt: baseApplication.reviewedAt || nowIso,
+      reviewedBy: cleanText(baseApplication.reviewedBy || reviewedBy || 'admin'),
+      updatedAt: nowIso
+    };
+
+    const patch = {
+      updatedAt: nowIso,
+      [cleanField]: mergedApplication,
+      [`${cleanField}Status`]: cleanStatus
+    };
+
+    if (cleanField === 'academyApplication') {
+      patch.academyApplicationStatus = cleanStatus;
+      patch.academyMembershipStatus = lowerStatus;
+      patch.canEnterAcademy = approved;
+      patch.hasAcademyAccess = approved;
+      patch.hasRoadmapAccess = approved;
+      patch.academyRoadmapAccess = approved;
+      patch.roadmapApplicationStatus = approved ? 'Approved' : cleanStatus;
+      patch.roadmapAccessStatus = approved ? 'unlocked' : 'locked';
+      patch.accessState = approved ? 'unlocked' : 'locked';
+
+      if (approved) {
+        patch.academyMembershipApprovedAt = targetUser.academyMembershipApprovedAt || nowIso;
+        patch.academyApprovedAt = targetUser.academyApprovedAt || nowIso;
+        patch.academyRejectedAt = '';
+      }
+
+      if (rejected) {
+        patch.academyRejectedAt = nowIso;
+      }
+    }
+
+    if (cleanField === 'plazaApplication') {
+      patch.plazaApplicationStatus = cleanStatus;
+      patch.plazaMembershipStatus = lowerStatus;
+      patch.plazaAccessStatus = lowerStatus;
+      patch.canEnterPlaza = approved;
+      patch.hasPlazaAccess = approved;
+
+      if (approved) {
+        patch.plazaApprovedAt = targetUser.plazaApprovedAt || nowIso;
+        patch.plazaRejectedAt = '';
+      }
+
+      if (rejected) {
+        patch.plazaRejectedAt = nowIso;
+      }
+    }
+
+    if (cleanField === 'federationApplication') {
+      patch.federationApplicationStatus = cleanStatus;
+      patch.federationMembershipStatus = lowerStatus;
+      patch.canEnterFederation = approved;
+      patch.hasFederationAccess = approved;
+
+      if (approved) {
+        patch.federationApprovedAt = targetUser.federationApprovedAt || nowIso;
+        patch.federationRejectedAt = '';
+      }
+
+      if (rejected) {
+        patch.federationRejectedAt = nowIso;
+      }
+    }
+
+    return patch;
+  }
+
+  const targetRefs = new Map();
+  targetRefs.set(userRef.id, userRef);
+
+  const targetEmail = cleanText(
+    baseApplication.email ||
+    rootUser.email ||
+    rootUser.emailLower ||
+    rootUser.userEmail ||
+    ''
+  ).toLowerCase();
+
+  if (targetEmail) {
+    const emailQueries = [
+      ['email', targetEmail],
+      ['emailLower', targetEmail],
+      ['userEmail', targetEmail]
+    ];
+
+    for (const [field, value] of emailQueries) {
+      try {
+        const sameEmailSnap = await firestore
+          .collection('users')
+          .where(field, '==', value)
+          .limit(25)
+          .get();
+
+        sameEmailSnap.docs.forEach((doc) => {
+          targetRefs.set(doc.id, doc.ref);
+        });
+      } catch (error) {
+        console.warn(`Admin same-email access repair query skipped for ${field}:`, error?.message || error);
+      }
+    }
+  }
+
+  const repairedUserIds = [];
+
+  for (const [targetUserId, targetRef] of targetRefs.entries()) {
+    try {
+      const targetSnap = await targetRef.get();
+      if (!targetSnap.exists) continue;
+
+      const targetUser = targetSnap.data() || {};
+      const patch = buildCanonicalPatchForUser(targetUser);
+
+      await targetRef.set(patch, { merge: true });
+
+      if (cleanField === 'academyApplication' && approved && cleanText(targetUserId)) {
+        await academyFirestoreRepo.setAccessUnlocked(cleanText(targetUserId)).catch((error) => {
+          console.warn('Admin canonical Academy access unlock repair skipped:', error?.message || error);
+        });
+      }
+
+      await syncAdminYhuUserToSupabase(
+        targetRef,
+        `admin:application-review-canonical-repair:${cleanField}`
+      ).catch((error) => {
+        console.warn('Admin yhu_users canonical repair sync skipped:', error?.message || error);
+      });
+
+      await syncAdminAcademyMemberProfileFromFirestoreUserRef(
+        targetUserId,
+        targetRef
+      ).catch((error) => {
+        console.warn('Admin academy member canonical repair sync skipped:', error?.message || error);
+      });
+
+      repairedUserIds.push(targetUserId);
+    } catch (error) {
+      console.warn('Admin same-email canonical access repair skipped:', targetUserId, error?.message || error);
+    }
+  }
+
+  return {
+    status: cleanStatus,
+    matchedField: cleanField,
+    repairedUserIds
   };
-
-  if (cleanField === 'academyApplication') {
-    patch.academyApplicationStatus = cleanStatus;
-    patch.academyMembershipStatus = lowerStatus;
-    patch.canEnterAcademy = approved;
-    patch.hasAcademyAccess = approved;
-    patch.hasRoadmapAccess = approved;
-    patch.academyRoadmapAccess = approved;
-    patch.roadmapApplicationStatus = approved ? 'Approved' : cleanStatus;
-    patch.roadmapAccessStatus = approved ? 'unlocked' : 'locked';
-    patch.accessState = approved ? 'unlocked' : 'locked';
-
-    if (approved) {
-      patch.academyMembershipApprovedAt = current.academyMembershipApprovedAt || nowIso;
-      patch.academyApprovedAt = current.academyApprovedAt || nowIso;
-      patch.academyRejectedAt = '';
-    }
-
-    if (rejected) {
-      patch.academyRejectedAt = nowIso;
-    }
-  }
-
-  if (cleanField === 'plazaApplication') {
-    patch.plazaApplicationStatus = cleanStatus;
-    patch.plazaMembershipStatus = lowerStatus;
-    patch.plazaAccessStatus = lowerStatus;
-    patch.canEnterPlaza = approved;
-    patch.hasPlazaAccess = approved;
-
-    if (approved) {
-      patch.plazaApprovedAt = current.plazaApprovedAt || nowIso;
-      patch.plazaRejectedAt = '';
-    }
-
-    if (rejected) {
-      patch.plazaRejectedAt = nowIso;
-    }
-  }
-
-  if (cleanField === 'federationApplication') {
-    patch.federationApplicationStatus = cleanStatus;
-    patch.federationMembershipStatus = lowerStatus;
-    patch.canEnterFederation = approved;
-    patch.hasFederationAccess = approved;
-
-    if (approved) {
-      patch.federationApprovedAt = current.federationApprovedAt || nowIso;
-      patch.federationRejectedAt = '';
-    }
-
-    if (rejected) {
-      patch.federationRejectedAt = nowIso;
-    }
-  }
-
-  await userRef.set(patch, { merge: true });
-
-  if (cleanField === 'academyApplication' && approved && cleanText(userId)) {
-    await academyFirestoreRepo.setAccessUnlocked(cleanText(userId)).catch((error) => {
-      console.warn('Admin canonical Academy access unlock repair skipped:', error?.message || error);
-    });
-  }
-
-  return patch;
 }
 /* END PATCH: Admin division canonical approval repair v1 */
 
