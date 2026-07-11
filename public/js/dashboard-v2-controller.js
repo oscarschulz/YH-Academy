@@ -807,22 +807,20 @@ function setVisible(node, visible, display = '') {
             }
         }
 
-        const mount = ensureMount();
+        const mount = document.getElementById('yh-dashboard-v2-parent-shell');
         setVisible(mount, true, 'block');
 
         hideOverviewSurfaces();
 
         window.requestAnimationFrame(() => {
-            const freshMount = ensureMount();
+            const freshMount = document.getElementById('yh-dashboard-v2-parent-shell');
             setVisible(freshMount, true, 'block');
-            setSubnavState(clean, true, true);
         });
 
         [80, 240, 520, 1100].forEach((delay) => {
             window.setTimeout(() => {
-                const freshMount = ensureMount();
+                const freshMount = document.getElementById('yh-dashboard-v2-parent-shell');
                 setVisible(freshMount, true, 'block');
-                setSubnavState(clean, true, true);
             }, delay);
         });
     }
@@ -3000,6 +2998,33 @@ function setVisible(node, visible, display = '') {
         };
     }
 
+    function setAccessCardsSyncing(syncing = true) {
+        if (!isDashboardPage()) return;
+
+        document.body?.classList.toggle('yh-dashboard-access-syncing', syncing);
+
+        document.querySelectorAll('[data-yh-overview-division-card]').forEach((card) => {
+            const key = cleanDivision(card.getAttribute('data-yh-overview-division-card') || '');
+            if (!key) return;
+
+            const statusNode = card.querySelector('.yh-dashboard-overview-access-status-v1');
+            const button = card.querySelector('[data-yh-overview-division-action]');
+
+            if (syncing) {
+                card.setAttribute('data-yh-division-access-state', 'syncing');
+
+                if (statusNode) statusNode.textContent = 'Syncing';
+
+                if (button) {
+                    button.textContent = 'Checking...';
+                    button.disabled = true;
+                    button.setAttribute('aria-disabled', 'true');
+                    button.setAttribute('data-yh-overview-division-action-kind', 'syncing');
+                }
+            }
+        });
+    }
+
     function boot() {
         if (!isDashboardPage()) return;
 
@@ -3008,15 +3033,27 @@ function setVisible(node, visible, display = '') {
         wrapApplyFns();
         installFetchObserver();
 
-        syncCards();
-        fetchBackendProfile(true).catch(() => null);
+        if (!backendState.loaded) {
+            setAccessCardsSyncing(true);
+        }
 
-        [80, 240, 700, 1400, 2600, 4200].forEach((delay) => {
+        fetchBackendProfile(true)
+            .catch(() => null)
+            .finally(() => {
+                setAccessCardsSyncing(false);
+                syncCards();
+            });
+
+        [240, 700, 1400, 2600, 4200].forEach((delay) => {
             window.setTimeout(() => {
                 purgeUnsafeSharedAccessCaches();
                 overrideSnapshotFns();
                 wrapApplyFns();
-                syncCards();
+
+                if (backendState.loaded) {
+                    setAccessCardsSyncing(false);
+                    syncCards();
+                }
             }, delay);
         });
     }
@@ -3032,8 +3069,14 @@ function setVisible(node, visible, display = '') {
 
     window.addEventListener('pageshow', boot);
     window.addEventListener('focus', () => {
-        fetchBackendProfile(true).catch(() => null);
-        syncCards();
+        setAccessCardsSyncing(true);
+
+        fetchBackendProfile(true)
+            .catch(() => null)
+            .finally(() => {
+                setAccessCardsSyncing(false);
+                syncCards();
+            });
     });
 
     try {
@@ -3042,7 +3085,10 @@ function setVisible(node, visible, display = '') {
             window.__yhDivisionAccessSourceOfTruthMutationTimerV1 = window.setTimeout(() => {
                 overrideSnapshotFns();
                 wrapApplyFns();
-                syncCards();
+
+                if (backendState.loaded) {
+                    syncCards();
+                }
             }, 50);
         });
 

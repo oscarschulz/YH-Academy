@@ -739,3 +739,46 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-dashboard-v2-active="
     pointer-events: auto !important;
 }
 /* END PATCH: Dashboard V2 approved parent shell visibility v1 */
+/* PATCH: Dashboard access sync and child card stability v1 */
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-card-v1[data-yh-division-access-state="syncing"] {
+    border-color: rgba(56, 189, 248, 0.32);
+    opacity: 0.88;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-card-v1[data-yh-division-access-state="syncing"] .yh-dashboard-overview-access-status-v1 {
+    color: #93c5fd;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-action-v1[data-yh-overview-division-action-kind="syncing"] {
+    cursor: wait;
+    opacity: 0.76;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 64, 175, 0.44));
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-child-grid {
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
+    gap: clamp(12px, 1.2vw, 18px);
+    align-items: stretch;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-child-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-locked-card {
+    width: 100%;
+    min-width: 0;
+    min-height: 118px;
+    display: grid !important;
+    align-content: start;
+    gap: 8px;
+    clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
+    transform: translateZ(0);
+    contain: layout paint;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-child-card span,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-v2-child-card strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+/* END PATCH: Dashboard access sync and child card stability v1 */
