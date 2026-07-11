@@ -9415,7 +9415,7 @@ function buildDashboardSelfProfilePayload(userId = '', user = {}, requestUser = 
     };
 }
 
-app.get(['/api/universe/profile', '/api/academy/profile'], requireApiUser, async (req, res) => {
+app.get(['/api/server-legacy/universe/profile', '/api/academy/profile'], requireApiUser, async (req, res) => {
     try {
         const userId = sanitizeText(req.user?.id || req.user?.firebaseUid);
 
