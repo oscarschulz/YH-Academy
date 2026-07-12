@@ -3410,6 +3410,95 @@ function buildRoadmapHomePayloadFromPlannerResult(plannerResult = {}, fallbackMe
     };
 }
 
+function roadmapHomeStepCount(home = {}) {
+    if (!home || typeof home !== 'object') return 0;
+
+    const directArrays = [
+        home.roadmapSteps,
+        home.steps,
+        home.todaySteps,
+        home.missions,
+        home.todayMissions,
+        home.allMissions,
+        home.generatedMissions
+    ];
+
+    const directCount = directArrays.reduce((sum, value) => {
+        return sum + (Array.isArray(value) ? value.length : 0);
+    }, 0);
+
+    if (directCount > 0) return directCount;
+
+    const roadmap =
+        home.roadmap && typeof home.roadmap === 'object'
+            ? home.roadmap
+            : home.activeRoadmap && typeof home.activeRoadmap === 'object'
+                ? home.activeRoadmap
+                : home.generatedRoadmap && typeof home.generatedRoadmap === 'object'
+                    ? home.generatedRoadmap
+                    : {};
+
+    const roadmapArrays = [
+        roadmap.roadmapSteps,
+        roadmap.steps,
+        roadmap.missions,
+        roadmap.days,
+        roadmap.weeks,
+        roadmap.phases,
+        roadmap.dailyPlan
+    ];
+
+    const roadmapCount = roadmapArrays.reduce((sum, value) => {
+        return sum + (Array.isArray(value) ? value.length : 0);
+    }, 0);
+
+    if (roadmapCount > 0) return roadmapCount;
+
+    if (roadmap.days30 && typeof roadmap.days30 === 'object') {
+        return Object.keys(roadmap.days30).length;
+    }
+
+    return 0;
+}
+
+function chooseRoadmapHomePayload(plannerResult = {}, fallbackMessage = '') {
+    const currentHome =
+        plannerResult?.homePayload && typeof plannerResult.homePayload === 'object'
+            ? plannerResult.homePayload
+            : null;
+
+    const generatedHome = buildRoadmapHomePayloadFromPlannerResult(plannerResult, fallbackMessage);
+
+    if (!currentHome) return generatedHome;
+
+    const currentCount = roadmapHomeStepCount(currentHome);
+    const generatedCount = roadmapHomeStepCount(generatedHome);
+
+    if (currentCount > 0 || generatedCount <= 0) {
+        return currentHome;
+    }
+
+    return {
+        ...currentHome,
+        ...generatedHome,
+        success: true,
+        source: currentHome.source || generatedHome.source || 'planner-result-fallback',
+        roadmap: {
+            ...(generatedHome.roadmap || {}),
+            ...(currentHome.roadmap || {})
+        },
+        roadmapSteps: generatedHome.roadmapSteps || [],
+        steps: generatedHome.steps || [],
+        missions: generatedHome.missions || [],
+        allMissions: generatedHome.allMissions || [],
+        progress: generatedHome.progress || currentHome.progress || {},
+        today: generatedHome.today || currentHome.today || {},
+        transformationSystem: generatedHome.transformationSystem || currentHome.transformationSystem || {},
+        emptyRoadmap: false,
+        roadmapPending: false
+    };
+}
+
 function getCachedRoadmapHomePayloadFromUserData(userData = {}) {
     const cached =
         userData.lastRoadmapHomePayload && typeof userData.lastRoadmapHomePayload === 'object'
@@ -7465,12 +7554,10 @@ exports.submitRoadmapApplication = async (req, res) => {
             trigger: 'roadmap_application'
         });
 
-        const roadmapHomePayload =
-            plannerResult?.homePayload ||
-            buildRoadmapHomePayloadFromPlannerResult(
-                plannerResult,
-                'Your personalized Roadmap has been generated from your setup answers.'
-            );
+        const roadmapHomePayload = chooseRoadmapHomePayload(
+            plannerResult,
+            'Your personalized Roadmap has been generated from your setup answers.'
+        );
 
         const nowIso = new Date().toISOString();
 
@@ -7630,12 +7717,10 @@ exports.refreshRoadmap = async (req, res) => {
 
         const plannerResult = await generateAndPersistPlanFirestore(uid, profile, { mode: 'refresh' });
 
-        const roadmapHomePayload =
-            plannerResult?.homePayload ||
-            buildRoadmapHomePayloadFromPlannerResult(
-                plannerResult,
-                'Your Roadmap has been refreshed.'
-            );
+        const roadmapHomePayload = chooseRoadmapHomePayload(
+            plannerResult,
+            'Your Roadmap has been refreshed.'
+        );
 
         try {
             await firestore.collection('users').doc(uid).set(

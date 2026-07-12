@@ -583,7 +583,7 @@ body[data-yh-page="dashboard-v3"]::before {
 .yhv3-frame-wrap {
     position: relative;
     min-height: min(82vh, 900px);
-    background: rgba(1, 5, 14, 0.72);
+    background: transparent;
     overflow: hidden;
 }
 

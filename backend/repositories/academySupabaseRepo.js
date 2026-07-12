@@ -240,6 +240,10 @@ async function upsertRecord(recordType, uid, docId, payload = {}, extra = {}) {
     const row = {
         firebase_app: 'supabase',
         source_collection_path: collectionPathFor(recordType, cleanUid),
+        source_collection_name: collectionPathFor(recordType, cleanUid)
+            .split('/')
+            .filter(Boolean)
+            .pop() || 'academy',
         source_collection_root: 'users',
         source_document_id: cleanDocId,
         source_document_path: sourcePathFor(recordType, cleanUid, cleanDocId),

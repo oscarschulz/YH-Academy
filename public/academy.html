@@ -8,12 +8,12 @@
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css?v=20260627-yh-live-cache-v4">
-<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260709-academy-roadmap-no-access-apply-v1">
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260712-community-niche-picker-full-v213">
 <link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260627-yh-live-cache-v4">
 </head>
 <body data-yh-view="academy" data-yh-page="academy" class="academy-startup-booting academy-standalone-shell-pending">
 
-<div id="yh-academy-startup-loader" class="yh-academy-startup-loader" aria-hidden="false">
+<div id="yh-academy-startup-loader" class="yh-academy-startup-loader hidden-step" aria-hidden="true">
 <div class="yh-academy-startup-card">
     <img src="/images/logo.avif" alt="Young Hustlers" class="yh-academy-startup-logo">
 
@@ -34,6 +34,41 @@
 
 <script>
   (function () {
+    var isDashboardEmbed = false;
+
+    try {
+      var currentUrl = new URL(window.location.href);
+
+      isDashboardEmbed =
+        currentUrl.searchParams.get('embed') === 'dashboard' ||
+        currentUrl.searchParams.get('shell') === 'dashboard' ||
+        window.parent !== window;
+    } catch (_) {
+      isDashboardEmbed = window.parent !== window;
+    }
+
+    if (isDashboardEmbed) {
+      var embedLoader = document.getElementById('yh-academy-startup-loader');
+
+      if (embedLoader) {
+        embedLoader.remove();
+      }
+
+      document.body.setAttribute('data-yh-dashboard-embed', 'true');
+      document.body.classList.add('academy-shell-ready');
+      document.body.classList.remove('academy-startup-booting');
+      document.body.classList.remove('academy-standalone-shell-pending');
+      document.body.removeAttribute('data-academy-tab-loading');
+      return;
+    }
+
+    var standaloneLoader = document.getElementById('yh-academy-startup-loader');
+
+    if (standaloneLoader) {
+      standaloneLoader.classList.remove('hidden-step');
+      standaloneLoader.setAttribute('aria-hidden', 'false');
+    }
+
     function normalizeAcademyStartupSection(value) {
       var clean = String(value || '').trim().toLowerCase();
 
@@ -552,7 +587,7 @@
                     </div>
                 </div>
             </main>
-            <main class="yh-main-chat hide-scrollbar fade-in" id="academy-chat">
+            <main class="yh-main-chat hide-scrollbar hidden-step fade-in" id="academy-chat">
                 <header class="chat-header">
                                     <div class="header-left academy-header-left">
                                         <span class="hash-big" id="chat-header-icon">🧠</span>
@@ -2660,8 +2695,8 @@
 </script>
 
 <script src="/js/yh-shared-core.js?v=20260627-yh-live-cache-v4"></script>
-<script src="/js/yh-shared-runtime.js?v=20260627-yh-live-cache-v4"></script>
-<script src="/js/academy.js?v=20260709-yha-badge-learn-from-gate-v1"></script>
+<script src="/js/yh-shared-runtime.js?v=20260711-dashboard-view-state-v2"></script>
+<script src="/js/academy.js?v=20260712-community-full-niche-catalog-v27"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"

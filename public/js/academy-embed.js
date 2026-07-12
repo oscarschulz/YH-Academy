@@ -504,24 +504,85 @@
         };
     }
 
+    function countRoadmapPayloadSteps(home = {}) {
+        if (!home || typeof home !== 'object') return 0;
+
+        const directArrays = [
+            home.roadmapSteps,
+            home.steps,
+            home.todaySteps,
+            home.missions,
+            home.todayMissions,
+            home.allMissions,
+            home.generatedMissions
+        ];
+
+        const directCount = directArrays.reduce((sum, value) => {
+            return sum + (Array.isArray(value) ? value.length : 0);
+        }, 0);
+
+        if (directCount > 0) return directCount;
+
+        const roadmap = readObject(home, ['roadmap', 'activeRoadmap', 'generatedRoadmap']);
+        return buildStepsFromRoadmapObject(roadmap).length;
+    }
+
+    function mergeRoadmapHomeWithPlan(home = {}, source = {}) {
+        const plan = source?.plan && typeof source.plan === 'object'
+            ? source.plan
+            : source?.data?.plan && typeof source.data.plan === 'object'
+                ? source.data.plan
+                : null;
+
+        if (!plan) return home;
+
+        const planHome = buildClientRoadmapHomeFromPlan(plan, source.data || source);
+        const homeStepCount = countRoadmapPayloadSteps(home);
+        const planStepCount = countRoadmapPayloadSteps(planHome);
+
+        if (homeStepCount > 0 || planStepCount <= 0) {
+            return home;
+        }
+
+        return {
+            ...home,
+            ...planHome,
+            success: home.success !== false,
+            source: home.source || planHome.source || 'planner-plan-fallback',
+            roadmap: {
+                ...(planHome.roadmap || {}),
+                ...(home.roadmap || {})
+            },
+            roadmapSteps: planHome.roadmapSteps || [],
+            steps: planHome.steps || [],
+            missions: planHome.missions || [],
+            allMissions: planHome.allMissions || [],
+            progress: planHome.progress || home.progress || {},
+            today: planHome.today || home.today || {},
+            transformationSystem: planHome.transformationSystem || home.transformationSystem || {},
+            emptyRoadmap: false,
+            roadmapPending: false
+        };
+    }
+
     function normalizeRoadmapHomePayload(payload = {}) {
         if (!payload || typeof payload !== 'object') return {};
 
         if (payload.home && typeof payload.home === 'object') {
-            return payload.home;
+            return mergeRoadmapHomeWithPlan(payload.home, payload);
         }
 
         if (payload.roadmapHome && typeof payload.roadmapHome === 'object') {
-            return payload.roadmapHome;
+            return mergeRoadmapHomeWithPlan(payload.roadmapHome, payload);
         }
 
         if (payload.data && typeof payload.data === 'object') {
             if (payload.data.home && typeof payload.data.home === 'object') {
-                return payload.data.home;
+                return mergeRoadmapHomeWithPlan(payload.data.home, payload.data);
             }
 
             if (payload.data.roadmapHome && typeof payload.data.roadmapHome === 'object') {
-                return payload.data.roadmapHome;
+                return mergeRoadmapHomeWithPlan(payload.data.roadmapHome, payload.data);
             }
 
             if (payload.data.plan && typeof payload.data.plan === 'object') {
@@ -529,7 +590,7 @@
             }
 
             if (payload.data.roadmap || payload.data.activeRoadmap || payload.data.generatedRoadmap) {
-                return payload.data;
+                return mergeRoadmapHomeWithPlan(payload.data, payload.data);
             }
         }
 

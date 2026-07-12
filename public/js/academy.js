@@ -513,7 +513,23 @@ const {
     setActiveCustomRoomState: sharedSetActiveCustomRoomState
 } = window.YHSharedRuntime;
 
+function isAcademyDashboardEmbedContext() {
+    try {
+        const url = new URL(window.location.href);
+
+        return (
+            url.searchParams.get('embed') === 'dashboard' ||
+            url.searchParams.get('shell') === 'dashboard' ||
+            window.parent !== window
+        );
+    } catch (_) {
+        return window.parent !== window;
+    }
+}
+
 function isStandaloneAcademyPage() {
+    if (isAcademyDashboardEmbedContext()) return false;
+
     return (
         document.body?.getAttribute('data-yh-page') === 'academy' ||
         String(window.location.pathname || '').replace(/\/+$/, '') === '/academy'
@@ -1080,6 +1096,7 @@ function academyGetCurrentPrimaryView() {
 
 function academyPrimeFeedFallbackHistory() {
     if (document.body?.getAttribute('data-yh-view') !== 'academy') return;
+    if (isAcademyDashboardEmbedContext()) return;
 
     try {
         const currentUrl = new URL(window.location.href);
@@ -1134,6 +1151,7 @@ function academyPrimeFeedFallbackHistory() {
 
 function academyPushFeedFallbackHistory(source = 'academy') {
     if (document.body?.getAttribute('data-yh-view') !== 'academy') return;
+    if (isAcademyDashboardEmbedContext()) return;
 
     try {
         academyPrimeFeedFallbackHistory();
@@ -1166,6 +1184,7 @@ function academyPushFeedFallbackHistory(source = 'academy') {
 }
 function academyHandleFeedFallbackPopstate(event) {
     if (document.body?.getAttribute('data-yh-view') !== 'academy') return;
+    if (isAcademyDashboardEmbedContext()) return;
 
     const state =
         event?.state && typeof event.state === 'object'
@@ -1219,6 +1238,7 @@ function academyHandleFeedFallbackPopstate(event) {
     });
 }
 function bindAcademyFeedFallbackPopstate() {
+    if (isAcademyDashboardEmbedContext()) return;
     if (window.__yhAcademyFeedFallbackPopstateBound) return;
     window.__yhAcademyFeedFallbackPopstateBound = true;
 
@@ -1692,13 +1712,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const academyStartupInitialSection = resolveAcademyStartupBootSection();
 
-    showAcademyStartupBootOverlay(
-        academyStartupFromDashboard
-            ? academyStartupInitialSection
-            : academyStartupInitialSection
-    );
-    installAcademyStartupBootObserver();
-    scheduleAcademyStartupBootFailSafe();
+    if (!isAcademyDashboardEmbedContext()) {
+        showAcademyStartupBootOverlay(
+            academyStartupFromDashboard
+                ? academyStartupInitialSection
+                : academyStartupInitialSection
+        );
+
+        installAcademyStartupBootObserver();
+        scheduleAcademyStartupBootFailSafe();
+    } else {
+        const startupLoader = getAcademyStartupBootLoader();
+
+        if (startupLoader) {
+            startupLoader.remove();
+        }
+
+        document.body?.setAttribute('data-yh-dashboard-embed', 'true');
+        document.body?.classList.add('academy-shell-ready');
+        document.body?.classList.remove('academy-startup-booting');
+        document.body?.classList.remove('academy-standalone-shell-pending');
+        document.body?.removeAttribute('data-academy-tab-loading');
+    }
 
     // --- UPDATED NAVIGATION & ROUTING LOGIC ---
 const universeFeatureContent = {
@@ -10265,6 +10300,23 @@ function openAcademyRoadmapView(forceFresh = false) {
             hideAcademyTabLoader();
         });
 }
+
+/* PATCH: Academy Dashboard iframe function bridge v25 */
+window.showAcademyRoadmapLoadingShell = (...args) =>
+    showAcademyRoadmapLoadingShell(...args);
+
+window.openAcademyRoadmapView = (...args) =>
+    openAcademyRoadmapView(...args);
+
+window.readAcademyHomeCache = (...args) =>
+    readAcademyHomeCache(...args);
+
+window.renderAcademyHome = (...args) =>
+    renderAcademyHome(...args);
+
+window.loadAcademyHome = (...args) =>
+    loadAcademyHome(...args);
+/* END PATCH: Academy Dashboard iframe function bridge v25 */
 
 let academyProfileViewState = {
     mode: 'self',
@@ -21340,6 +21392,58 @@ function academyNormalizeNicheKey(value = '') {
         .slice(0, 64);
 }
 
+function academyMergeCommunityNicheCatalog(...sources) {
+    const catalogByKey = new Map();
+
+    const addNiche = (item = {}) => {
+        const key = academyNormalizeNicheKey(
+            item?.key ||
+            item?.slug ||
+            item?.name ||
+            item?.label ||
+            ''
+        );
+
+        if (!key) return;
+
+        const existing = catalogByKey.get(key) || {};
+
+        const fallback = ACADEMY_COMMUNITY_NICHES.find(
+            (entry) =>
+                academyNormalizeNicheKey(entry.key) === key
+        ) || {};
+
+        catalogByKey.set(key, {
+            ...fallback,
+            ...existing,
+            ...item,
+            key,
+            label: String(
+                item?.label ||
+                item?.name ||
+                existing?.label ||
+                fallback?.label ||
+                key.replace(/_/g, ' ')
+            ).trim(),
+            description: String(
+                item?.description ||
+                existing?.description ||
+                fallback?.description ||
+                'Join this niche to personalize your Academy feed.'
+            ).trim()
+        });
+    };
+
+    ACADEMY_COMMUNITY_NICHES.forEach(addNiche);
+
+    sources.forEach((source) => {
+        if (!Array.isArray(source)) return;
+        source.forEach(addNiche);
+    });
+
+    return Array.from(catalogByKey.values());
+}
+
 function academyGetNicheMeta(nicheKey = '') {
     const cleanKey = academyNormalizeNicheKey(nicheKey);
     return (academyFeedLayerState.niches || ACADEMY_COMMUNITY_NICHES).find((item) => item.key === cleanKey) ||
@@ -21349,21 +21453,56 @@ function academyGetNicheMeta(nicheKey = '') {
 
 function academyReadFeedLayerState() {
     try {
-        const parsed = JSON.parse(localStorage.getItem(ACADEMY_FEED_LAYER_STATE_KEY) || '{}');
+        const parsed = JSON.parse(
+            localStorage.getItem(
+                ACADEMY_FEED_LAYER_STATE_KEY
+            ) || '{}'
+        );
+
         if (parsed && typeof parsed === 'object') {
+            const joinedNiches = Array.isArray(
+                parsed.joinedNiches
+            )
+                ? parsed.joinedNiches
+                : [];
+
+            const storedNiches = Array.isArray(
+                parsed.niches
+            )
+                ? parsed.niches
+                : [];
+
             academyFeedLayerState = {
                 ...academyFeedLayerState,
                 ...parsed,
-                layer: academyNormalizeFeedLayer(parsed.layer),
-                circleMode: academyNormalizeCircleMode(parsed.circleMode),
-                activeNicheKey: academyNormalizeNicheKey(parsed.activeNicheKey),
-                nicheMenuOpen: parsed.nicheMenuOpen === true,
-                defaultNicheKey: academyNormalizeNicheKey(parsed.defaultNicheKey),
-                joinedNiches: Array.isArray(parsed.joinedNiches) ? parsed.joinedNiches : [],
-                niches: Array.isArray(parsed.niches) && parsed.niches.length ? parsed.niches : ACADEMY_COMMUNITY_NICHES
+                layer: academyNormalizeFeedLayer(
+                    parsed.layer
+                ),
+                circleMode: academyNormalizeCircleMode(
+                    parsed.circleMode
+                ),
+                activeNicheKey: academyNormalizeNicheKey(
+                    parsed.activeNicheKey
+                ),
+                nicheMenuOpen:
+                    parsed.nicheMenuOpen === true,
+                defaultNicheKey: academyNormalizeNicheKey(
+                    parsed.defaultNicheKey
+                ),
+                joinedNiches,
+                niches: academyMergeCommunityNicheCatalog(
+                    storedNiches,
+                    joinedNiches
+                )
             };
         }
     } catch (_) {}
+
+    academyFeedLayerState.niches =
+        academyMergeCommunityNicheCatalog(
+            academyFeedLayerState.niches,
+            academyFeedLayerState.joinedNiches
+        );
 
     return academyFeedLayerState;
 }
@@ -21484,16 +21623,74 @@ function academyRenderNicheCard(niche = {}, options = {}) {
 }
 
 function academyRenderNicheDashboard() {
-    const wrap = document.getElementById('academy-niche-dashboard');
+    const wrap = document.getElementById(
+        'academy-niche-dashboard'
+    );
+
     if (!wrap) return;
 
     const state = academyReadFeedLayerState();
-    const niches = Array.isArray(state.niches) && state.niches.length ? state.niches : ACADEMY_COMMUNITY_NICHES;
-    const joined = Array.isArray(state.joinedNiches) ? state.joinedNiches : [];
-    const joinedKeys = new Set(joined.map((item) => academyNormalizeNicheKey(item.key)));
-    const defaultKey = academyNormalizeNicheKey(state.defaultNicheKey);
-    const recommended = niches.find((item) => item.key === defaultKey) || joined[0] || niches[0];
-    const explore = niches.filter((item) => !joinedKeys.has(item.key));
+
+    const niches = academyMergeCommunityNicheCatalog(
+        state.niches,
+        state.joinedNiches
+    );
+
+    const joinedRaw = Array.isArray(
+        state.joinedNiches
+    )
+        ? state.joinedNiches
+        : [];
+
+    const joinedKeys = new Set(
+        joinedRaw.map((item) =>
+            academyNormalizeNicheKey(item.key)
+        )
+    );
+
+    const joined = joinedRaw.map((item) => {
+        const key = academyNormalizeNicheKey(
+            item.key
+        );
+
+        return niches.find(
+            (niche) =>
+                academyNormalizeNicheKey(
+                    niche.key
+                ) === key
+        ) || item;
+    });
+
+    const defaultKey = academyNormalizeNicheKey(
+        state.defaultNicheKey
+    );
+
+    const recommended =
+        niches.find(
+            (item) =>
+                academyNormalizeNicheKey(
+                    item.key
+                ) === defaultKey
+        ) ||
+        joined[0] ||
+        niches[0];
+
+    const recommendedKey =
+        academyNormalizeNicheKey(
+            recommended?.key
+        );
+
+    const explore = niches.filter((item) => {
+        const key = academyNormalizeNicheKey(
+            item.key
+        );
+
+        return (
+            key &&
+            key !== recommendedKey &&
+            !joinedKeys.has(key)
+        );
+    });
 
     wrap.innerHTML = `
         <div class="academy-niche-section">
@@ -21540,6 +21737,7 @@ function academySyncFeedLayerShell() {
     const copy = document.getElementById('academy-community-layer-copy');
     const nicheDash = document.getElementById('academy-niche-dashboard');
     const circleTabs = document.getElementById('academy-circle-subtabs');
+    const feedView = document.getElementById('academy-feed-view');
 
     document.querySelectorAll('[data-feed-layer]').forEach((btn) => {
         btn.classList.toggle('is-active', academyNormalizeFeedLayer(btn.getAttribute('data-feed-layer')) === layer);
@@ -21553,6 +21751,46 @@ function academySyncFeedLayerShell() {
 
     nicheDash?.classList.toggle('hidden-step', !shouldShowNicheMenu);
     circleTabs?.classList.toggle('hidden-step', layer !== 'circle');
+
+    feedView?.classList.toggle(
+        'is-niche-picker-open',
+        shouldShowNicheMenu
+    );
+
+    feedView?.setAttribute(
+        'data-academy-niche-picker-open',
+        shouldShowNicheMenu ? 'true' : 'false'
+    );
+
+    const feedTargetPill =
+        document.getElementById(
+            'academy-feed-target-pill'
+        );
+
+    const feedComposer =
+        document.querySelector(
+            '#academy-feed-view .academy-feed-composer-card'
+        );
+
+    const feedList =
+        document.getElementById(
+            'academy-feed-list'
+        );
+
+    feedTargetPill?.classList.toggle(
+        'hidden-step',
+        shouldShowNicheMenu
+    );
+
+    feedComposer?.classList.toggle(
+        'hidden-step',
+        shouldShowNicheMenu
+    );
+
+    feedList?.classList.toggle(
+        'hidden-step',
+        shouldShowNicheMenu
+    );
 
     if (layer === 'niches') {
         const niche = academyGetNicheMeta(state.activeNicheKey);
@@ -21582,13 +21820,34 @@ async function academyLoadCommunityNicheState() {
     const local = academyReadFeedLayerState();
 
     try {
-        const result = await academyAuthedFetch('/api/academy/community/niches', { method: 'GET' });
+        const result = await academyAuthedFetch(
+            '/api/academy/community/niches',
+            { method: 'GET' }
+        );
+
+        const apiNiches = Array.isArray(
+            result?.niches
+        )
+            ? result.niches
+            : [];
+
+        const joinedNiches = Array.isArray(
+            result?.joinedNiches
+        )
+            ? result.joinedNiches
+            : [];
 
         academyFeedLayerState = {
             ...academyFeedLayerState,
-            niches: Array.isArray(result?.niches) && result.niches.length ? result.niches : ACADEMY_COMMUNITY_NICHES,
-            joinedNiches: Array.isArray(result?.joinedNiches) ? result.joinedNiches : [],
-            defaultNicheKey: academyNormalizeNicheKey(result?.defaultNicheKey)
+            niches: academyMergeCommunityNicheCatalog(
+                apiNiches,
+                joinedNiches,
+                local.niches
+            ),
+            joinedNiches,
+            defaultNicheKey: academyNormalizeNicheKey(
+                result?.defaultNicheKey
+            )
         };
 
         if (!academyFeedLayerState.activeNicheKey) {
@@ -21605,9 +21864,13 @@ async function academyLoadCommunityNicheState() {
         academyFeedLayerState = {
             ...academyFeedLayerState,
             ...local,
-            niches: local.niches?.length ? local.niches : ACADEMY_COMMUNITY_NICHES
+            niches: academyMergeCommunityNicheCatalog(
+                local.niches,
+                local.joinedNiches
+            )
         };
 
+        academyWriteFeedLayerState();
         return academyFeedLayerState;
     }
 }
@@ -21635,6 +21898,19 @@ async function academySwitchFeedLayer(layer = 'circle', options = {}) {
         academyFeedLayerState.activeNicheKey = '';
         academyWriteFeedLayerState();
         academySyncFeedLayerShell();
+
+        window.requestAnimationFrame(() => {
+            const scrollHost = document.querySelector(
+                '#academy-feed-view .chat-messages'
+            );
+
+            const nicheDashboard = document.getElementById(
+                'academy-niche-dashboard'
+            );
+
+            if (scrollHost) scrollHost.scrollTop = 0;
+            if (nicheDashboard) nicheDashboard.scrollTop = 0;
+        });
 
         const list = document.getElementById('academy-feed-list');
         if (list) {
@@ -23430,6 +23706,8 @@ function consumeAcademyVisitedProfileTarget() {
 }
 
 function restoreDashboardViewState() {
+    if (isAcademyDashboardEmbedContext()) return;
+
     const pendingVisitedProfileId = consumeAcademyVisitedProfileTarget();
 
     const canEnterAcademy =
@@ -34813,42 +35091,40 @@ function lockBotToVisibleBottom() {
 })();
 /* END PATCH: Academy lower-right AI Coach robot avatar normalizer v2 */
 
-/* PATCH: Academy dashboard embed fast ready handshake v19 */
-(function installAcademyDashboardEmbedFastReadyHandshakeV19() {
-    if (window.__academyDashboardEmbedFastReadyV19Installed) return;
-    window.__academyDashboardEmbedFastReadyV19Installed = true;
-
-    function isDashboardEmbed() {
-        try {
-            const url = new URL(window.location.href);
-            return (
-                url.searchParams.get('embed') === 'dashboard' ||
-                url.searchParams.get('shell') === 'dashboard' ||
-                window.parent !== window
-            );
-        } catch (_) {
-            return window.parent !== window;
-        }
-    }
+/* PATCH: Academy dashboard embed deterministic section owner v20 */
+(function installAcademyDashboardEmbedDeterministicSectionOwnerV20() {
+    if (window.__academyDashboardEmbedSectionOwnerV20Installed) return;
+    window.__academyDashboardEmbedSectionOwnerV20Installed = true;
 
     function getDashboardSection() {
         try {
             const url = new URL(window.location.href);
+
             return String(
                 url.searchParams.get('dashboardSection') ||
                 url.searchParams.get('section') ||
-                sessionStorage.getItem('yh_academy_startup_section_v1') ||
                 'home'
-            ).trim().toLowerCase();
+            ).trim().toLowerCase() || 'home';
         } catch (_) {
             return 'home';
         }
     }
 
-    function workspaceKeyFromSection(section = 'home') {
+    function getDashboardTarget(section = 'home') {
         const clean = String(section || 'home').trim().toLowerCase();
 
-        if (clean === 'lead-missions' || clean === 'missions') return 'academy-missions';
+        if (clean === 'lead-missions' || clean === 'missions') return 'missions';
+        if (clean === 'community') return 'community';
+        if (clean === 'messages') return 'messages';
+        if (clean === 'voice') return 'voice';
+
+        return 'roadmap';
+    }
+
+    function workspaceKeyFromTarget(target = 'roadmap') {
+        const clean = String(target || 'roadmap').trim().toLowerCase();
+
+        if (clean === 'missions') return 'academy-missions';
         if (clean === 'community') return 'academy-community';
         if (clean === 'messages') return 'academy-messages';
         if (clean === 'voice') return 'academy-voice';
@@ -34862,159 +35138,260 @@ function lockBotToVisibleBottom() {
         document.body?.classList.remove('academy-standalone-shell-pending');
         document.body?.removeAttribute('data-academy-tab-loading');
 
+        window.__academyTabSwitchLockedV7 = false;
+        window.__academyTabSwitchReasonV7 = '';
+
+        window.clearTimeout(window.__academyTabSwitchFailSafeV7);
+        window.clearTimeout(window.__academyTabOverlayWatchdogFastV11);
+        window.clearTimeout(window.__academyTabOverlayWatchdogMidV11);
+        window.clearTimeout(window.__academyTabOverlayWatchdogLateV11);
+
         ['yh-academy-startup-loader', 'yh-tab-loader'].forEach((id) => {
             const loader = document.getElementById(id);
             if (!loader) return;
 
-            loader.classList.add('hidden-step');
-            loader.classList.add('is-exiting');
+            loader.hidden = true;
+            loader.classList.remove('is-active');
+            loader.classList.add('hidden-step', 'is-exiting');
             loader.setAttribute('aria-hidden', 'true');
-            loader.style.setProperty('display', 'none', 'important');
-            loader.style.setProperty('opacity', '0', 'important');
-            loader.style.setProperty('visibility', 'hidden', 'important');
-            loader.style.setProperty('pointer-events', 'none', 'important');
+            loader.style.display = 'none';
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+            loader.style.pointerEvents = 'none';
             loader.dataset.releaseReason = reason;
         });
-
-        try {
-            if (typeof academyReleaseTabLoaderHardV7 === 'function') {
-                academyReleaseTabLoaderHardV7(reason);
-            }
-        } catch (_) {}
-
-        try {
-            if (typeof academyForceReleaseAllLoadingOverlaysV11 === 'function') {
-                academyForceReleaseAllLoadingOverlaysV11(reason);
-            }
-        } catch (_) {}
     }
 
-    function openEmbeddedSection(section = getDashboardSection()) {
-        const clean = String(section || 'home').trim().toLowerCase();
+    function isVisible(node) {
+        if (!(node instanceof HTMLElement)) return false;
+        if (node.hidden || node.classList.contains('hidden-step')) return false;
+        if (node.getAttribute('aria-hidden') === 'true') return false;
+
+        try {
+            const style = window.getComputedStyle(node);
+
+            if (
+                style.display === 'none' ||
+                style.visibility === 'hidden'
+            ) {
+                return false;
+            }
+        } catch (_) {}
+
+        return true;
+    }
+
+    function isTargetActive(target = 'roadmap') {
+        const clean = String(target || 'roadmap').trim().toLowerCase();
+
+        const academyChat = document.getElementById('academy-chat');
+        const feedView = document.getElementById('academy-feed-view');
+        const missionsView = document.getElementById('academy-lead-missions-view');
+        const voiceView = document.getElementById('voice-lobby-view');
+
+        const headerTitle = String(
+            document.getElementById('chat-header-title')?.textContent || ''
+        ).trim().toLowerCase();
+
+        if (clean === 'community') {
+            return (
+                isVisible(feedView) &&
+                !isVisible(academyChat)
+            );
+        }
+
+        if (clean === 'missions') {
+            return isVisible(missionsView);
+        }
+
+        if (clean === 'messages') {
+            const chatMode = String(
+                academyChat?.getAttribute('data-chat-mode') || ''
+            ).trim().toLowerCase();
+
+            return (
+                isVisible(academyChat) &&
+                (
+                    chatMode === 'messages' ||
+                    chatMode === 'thread'
+                )
+            );
+        }
+
+        if (clean === 'voice') {
+            return isVisible(voiceView);
+        }
+
+        const questCard = document.getElementById('academy-quest-main-card-v1');
+        const roadmapLoader = document.querySelector('.academy-roadmap-loading-shell');
+        const questCardReady = Boolean(
+            questCard &&
+            isVisible(questCard) &&
+            questCard.getClientRects().length > 0
+        );
+
+        return (
+            isVisible(academyChat) &&
+            !isVisible(feedView) &&
+            !roadmapLoader &&
+            questCardReady &&
+            headerTitle.startsWith('roadmap')
+        );
+    }
+
+    function openEmbeddedSection(target = 'roadmap') {
+        const clean = String(target || 'roadmap').trim().toLowerCase();
 
         try {
             if (clean === 'community') {
-                if (typeof openAcademyFeedView === 'function') {
-                    openAcademyFeedView(false);
-                    return true;
-                }
-
-                document.getElementById('nav-chat')?.click?.();
+                openAcademyFeedView(false);
                 return true;
             }
 
             if (clean === 'messages') {
-                if (typeof openAcademyMessagesView === 'function') {
-                    openAcademyMessagesView();
-                    return true;
-                }
-
-                document.getElementById('nav-messages')?.click?.();
+                window.__academyTabSwitchLockedV7 = false;
+                openAcademyMessagesView();
                 return true;
             }
 
             if (clean === 'voice') {
-                if (typeof openRoom === 'function') {
-                    openRoom('voice-lobby', document.getElementById('nav-voice'));
-                    return true;
-                }
+                setAcademySidebarActive('nav-voice');
 
-                document.getElementById('nav-voice')?.click?.();
+                openRoom(
+                    'voice-lobby',
+                    document.getElementById('nav-voice')
+                );
+
                 return true;
             }
 
-            if (clean === 'lead-missions' || clean === 'missions') {
-                if (
-                    typeof revealAcademyMissionsViewShell === 'function' &&
-                    typeof setAcademyMissionsPanel === 'function'
-                ) {
-                    revealAcademyMissionsViewShell();
-                    setAcademyMissionsPanel('hub');
-                    return true;
-                }
+            if (clean === 'missions') {
+                academyRememberLastNonProfileLocation(
+                    'lead-missions',
+                    {
+                        missionPanel: 'hub'
+                    }
+                );
 
-                if (typeof openAcademyMissionsView === 'function') {
-                    openAcademyMissionsView();
-                    return true;
-                }
+                saveAcademyViewState('missions');
+                revealAcademyMissionsViewShell();
+                setAcademyMissionsPanel('hub');
 
-                document.getElementById('nav-lead-missions')?.click?.();
                 return true;
             }
 
-            if (typeof openAcademyRoadmapView === 'function') {
-                openAcademyRoadmapView(false);
-                return true;
-            }
+            showAcademyRoadmapLoadingShell();
+            openAcademyRoadmapView(false);
 
-            document.getElementById('nav-missions')?.click?.();
             return true;
-        } catch (_) {
+        } catch (error) {
+            console.error(
+                'Academy dashboard embed section open failed:',
+                error
+            );
+
             return false;
         }
     }
 
-    function notifyReady(reason = 'ready') {
-        if (!isDashboardEmbed()) return;
+    function notifyReady(target = 'roadmap', reason = 'ready') {
+        const cleanTarget = String(
+            target || 'roadmap'
+        ).trim().toLowerCase();
 
-        const section = getDashboardSection();
-        const workspaceKey = workspaceKeyFromSection(section);
+        document.body?.setAttribute(
+            'data-yh-dashboard-inline-active-target',
+            cleanTarget
+        );
 
-        document.body?.setAttribute('data-yh-dashboard-child-ready', 'true');
-        document.body?.setAttribute('data-yh-dashboard-active-section', section || 'home');
-        document.body?.setAttribute('data-yh-dashboard-child-ready-reason', String(reason || 'ready'));
-        document.body?.setAttribute('data-yh-dashboard-child-ready-at', String(Date.now()));
+        document.body?.setAttribute(
+            'data-yh-dashboard-child-ready',
+            'true'
+        );
+
+        document.body?.setAttribute(
+            'data-yh-dashboard-active-section',
+            getDashboardSection()
+        );
+
+        document.body?.setAttribute(
+            'data-yh-dashboard-child-ready-reason',
+            String(reason || 'ready')
+        );
+
+        document.body?.setAttribute(
+            'data-yh-dashboard-child-ready-at',
+            String(Date.now())
+        );
 
         try {
-            if (window.parent && window.parent !== window) {
-                window.parent.postMessage(
-                    {
-                        type: 'yh:child-workspace-ready',
-                        division: 'academy',
-                        workspaceKey,
-                        section,
-                        reason
-                    },
-                    window.location.origin
-                );
-            }
+            window.parent?.postMessage?.(
+                {
+                    type: 'yh:child-workspace-ready',
+                    division: 'academy',
+                    workspaceKey: workspaceKeyFromTarget(cleanTarget),
+                    section: getDashboardSection(),
+                    reason
+                },
+                window.location.origin
+            );
         } catch (_) {}
     }
 
     function boot(reason = 'boot') {
-        if (!isDashboardEmbed()) return;
+        if (!isAcademyDashboardEmbedContext()) return;
 
-        hideLocalLoaders(reason);
-        openEmbeddedSection(getDashboardSection());
+        const target = getDashboardTarget(
+            getDashboardSection()
+        );
 
-        window.requestAnimationFrame(() => {
-            hideLocalLoaders(reason + '-paint');
-            notifyReady(reason + '-paint');
-        });
+        const startedAt = Date.now();
 
-        window.setTimeout(() => {
-            hideLocalLoaders(reason + '-quick');
-            openEmbeddedSection(getDashboardSection());
-            notifyReady(reason + '-quick');
-        }, 260);
+        document.body?.setAttribute(
+            'data-yh-dashboard-embed',
+            'true'
+        );
 
-        window.setTimeout(() => {
-            hideLocalLoaders(reason + '-late');
-            openEmbeddedSection(getDashboardSection());
-            notifyReady(reason + '-late');
-        }, 780);
+        document.body?.setAttribute(
+            'data-yh-dashboard-inline-requested-target',
+            target
+        );
+
+        document.body?.removeAttribute(
+            'data-yh-dashboard-inline-active-target'
+        );
+
+        hideLocalLoaders(reason + '-before-open');
+
+        const settle = () => {
+            hideLocalLoaders(reason + '-settle');
+
+            if (isTargetActive(target)) {
+                notifyReady(target, reason + '-active');
+                return;
+            }
+
+            if (Date.now() - startedAt < 1800) {
+                window.setTimeout(settle, 60);
+            }
+        };
+
+        window.requestAnimationFrame(settle);
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => boot('dom-ready'));
+        document.addEventListener(
+            'DOMContentLoaded',
+            () => {
+                boot('dom-ready');
+            },
+            { once: true }
+        );
     } else {
         boot('already-ready');
     }
-
-    window.addEventListener('load', () => boot('window-load'));
-    window.addEventListener('pageshow', () => boot('pageshow'));
 })();
-/* END PATCH: Academy dashboard embed fast ready handshake v19 */
+/* END PATCH: Academy dashboard embed deterministic section owner v20 */
 
 
 /* PATCH: YH Universe profile readability v1 */
@@ -36147,13 +36524,23 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
     }
 
     async function syncMainCard() {
-        try {
-            questState = await fetchQuestState();
-        } catch (_) {
-            questState = buildFallbackChampions(getFallbackHome());
+        const fallbackState = buildFallbackChampions(getFallbackHome());
+
+        if (!questState) {
+            questState = fallbackState;
         }
 
         renderMainCard(questState);
+
+        try {
+            questState = await fetchQuestState();
+        } catch (_) {
+            questState = fallbackState;
+        }
+
+        window.setTimeout(() => {
+            renderMainCard(questState);
+        }, 40);
     }
 
     function scheduleSync(delay = 120) {
@@ -36184,7 +36571,18 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
             const mount = findMainCardMount();
 
             if (mount && (!card || !mount.contains(card))) {
-                scheduleSync(80);
+                renderMainCard(
+                    questState || buildFallbackChampions(getFallbackHome())
+                );
+
+                if (!document.getElementById('academy-quest-main-card-v1')) {
+                    window.clearTimeout(window.__yhAcademyQuestMainCardRestoreTimerV1);
+                    window.__yhAcademyQuestMainCardRestoreTimerV1 = window.setTimeout(() => {
+                        renderMainCard(
+                            questState || buildFallbackChampions(getFallbackHome())
+                        );
+                    }, 40);
+                }
             }
         });
 

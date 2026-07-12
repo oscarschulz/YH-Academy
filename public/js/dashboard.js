@@ -7760,46 +7760,191 @@ async function refreshPlazaAccessStatusFromBackend(forceFresh = false) {
 }
 
 async function openPlazaApplicationModal() {
-    await refreshDashboardAcademyHomeSnapshot(true);
-
     const modal = document.getElementById('plaza-apply-modal');
-    const progressionGate = getDashboardDivisionProgressionGate('plaza', getPlazaAccessSnapshot());
-
-    if (progressionGate.locked) {
-        syncPlazaEntryButton(getPlazaAccessSnapshot());
-        showToast(progressionGate.copy, 'error');
-        return;
-    }
 
     if (!modal) {
         showToast('Plazas application modal is missing from the Dashboard.', 'error');
-        return;
+        return false;
     }
 
-    runDashboardApplicationFormLoader('Opening Plazas Application.', () => {
-        renderDashboardPlazaApplicationForm();
+    renderDashboardPlazaApplicationForm();
 
-        modal.classList.remove('hidden-step');
-        document.body?.classList.add('plaza-application-open');
+    modal.classList.remove('hidden-step');
+    modal.removeAttribute('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body?.classList.add('plaza-application-open');
 
-        window.requestAnimationFrame(() => {
-            prefillDashboardPlazaApplicationFromAcademy();
+    const academyRefreshPromise = Promise.resolve()
+        .then(() => refreshDashboardAcademyHomeSnapshot(true))
+        .catch((error) => {
+            console.warn(
+                'Plazas application Academy prefill refresh failed:',
+                error
+            );
 
-            const restoredDraft = restoreDashboardPlazaApplicationDraft();
-            if (!restoredDraft) {
-                resetDashboardPlazaApplicationFlow();
-            }
-
-            if (typeof syncDashboardPlazaApplicationLabels === 'function') {
-                syncDashboardPlazaApplicationLabels();
-            }
-
-            if (typeof syncDashboardPlazaProgress === 'function') {
-                syncDashboardPlazaProgress(dashboardPlazaApplicationCurrentStep);
-            }
+            return null;
         });
+
+    window.requestAnimationFrame(() => {
+        prefillDashboardPlazaApplicationFromAcademy();
+
+        const restoredDraft = restoreDashboardPlazaApplicationDraft();
+
+        if (!restoredDraft) {
+            resetDashboardPlazaApplicationFlow();
+        }
+
+        if (typeof syncDashboardPlazaApplicationLabels === 'function') {
+            syncDashboardPlazaApplicationLabels();
+        }
+
+        if (typeof syncDashboardPlazaProgress === 'function') {
+            syncDashboardPlazaProgress(
+                dashboardPlazaApplicationCurrentStep
+            );
+        }
+    });
+
+    academyRefreshPromise.then(() => {
+        if (modal.classList.contains('hidden-step')) return;
+
+        prefillDashboardPlazaApplicationFromAcademy();
+
+        if (typeof syncDashboardPlazaApplicationLabels === 'function') {
+            syncDashboardPlazaApplicationLabels();
+        }
+
+        if (typeof syncDashboardPlazaProgress === 'function') {
+            syncDashboardPlazaProgress(
+                dashboardPlazaApplicationCurrentStep
+            );
+        }
+    });
+
+    return true;
+}
+
+function getDashboardPlazaAccessSnapshotWithin(
+    timeoutMs = 1800
+) {
+    const fallbackSnapshot = getPlazaAccessSnapshot();
+
+    return new Promise((resolve) => {
+        let settled = false;
+
+        const finish = (snapshot) => {
+            if (settled) return;
+
+            settled = true;
+            window.clearTimeout(timeoutId);
+
+            resolve(snapshot || fallbackSnapshot);
+        };
+
+        const timeoutId = window.setTimeout(() => {
+            finish(fallbackSnapshot);
+        }, Math.max(300, Number(timeoutMs) || 1800));
+
+        Promise.resolve(
+            refreshPlazaAccessStatusFromBackend(true)
+        )
+            .then(finish)
+            .catch(() => finish(fallbackSnapshot));
     });
 }
+
+async function handleDashboardPlazaAccessIntent(
+    event = null,
+    approvedWorkspace = 'plazas'
+) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+
+    const trigger =
+        event?.target?.closest?.('button, a') || null;
+
+    if (trigger?.tagName === 'BUTTON') {
+        trigger.disabled = true;
+        trigger.setAttribute('aria-disabled', 'true');
+    }
+
+    try {
+        const snapshot =
+            await getDashboardPlazaAccessSnapshotWithin(1800);
+
+        const status = normalizePlazaStatus(
+            snapshot?.applicationStatus || ''
+        );
+
+        const approved =
+            snapshot?.canEnterPlaza === true ||
+            status === 'approved';
+
+        const pending =
+            snapshot?.hasApplication === true &&
+            !approved &&
+            status !== 'rejected';
+
+        if (approved) {
+            activateDashboardUnifiedWorkspace(
+                approvedWorkspace || 'plazas',
+                {
+                    animate: false,
+                    scroll: true,
+                    persist: true
+                }
+            );
+
+            return;
+        }
+
+        if (pending) {
+            const statusWorkspace = String(
+                approvedWorkspace || ''
+            ).startsWith('plazas-')
+                ? approvedWorkspace
+                : 'plazas-feed';
+
+            activateDashboardUnifiedWorkspace(
+                statusWorkspace,
+                {
+                    animate: false,
+                    scroll: true,
+                    persist: true
+                }
+            );
+
+            showToast(
+                'Your Plazas application is still under review.',
+                'error'
+            );
+
+            return;
+        }
+
+        await openPlazaApplicationModal();
+    } catch (error) {
+        console.error(
+            'handleDashboardPlazaAccessIntent error:',
+            error
+        );
+
+        showToast(
+            error?.message ||
+                'Could not verify your Plazas access. Refresh and try again.',
+            'error'
+        );
+    } finally {
+        if (trigger?.tagName === 'BUTTON') {
+            trigger.disabled = false;
+            trigger.removeAttribute('aria-disabled');
+        }
+    }
+}
+
+window.handleDashboardPlazaAccessIntent =
+    handleDashboardPlazaAccessIntent;
 
 function closePlazaApplicationModal(options = {}) {
     const modal = document.getElementById('plaza-apply-modal');
@@ -8091,6 +8236,66 @@ function renderDashboardPlazaApplicationForm() {
             </div>
         </form>
     `;
+
+    card
+        .querySelectorAll('[data-dashboard-plaza-step]')
+        .forEach((stepNode) => {
+            let actions = stepNode.querySelector(
+                '.yh-federation-form-actions'
+            );
+
+            if (!actions) {
+                const nextButton = stepNode.querySelector(
+                    '[data-dashboard-plaza-next]'
+                );
+
+                const closeButton = stepNode.querySelector(
+                    '#btn-cancel-plaza-apply'
+                );
+
+                const primaryAction =
+                    nextButton || closeButton;
+
+                if (!primaryAction) return;
+
+                actions = document.createElement('div');
+                actions.className =
+                    'yh-federation-form-actions yh-dashboard-plaza-step-actions';
+
+                primaryAction.before(actions);
+                actions.appendChild(primaryAction);
+            } else {
+                actions.classList.add(
+                    'yh-dashboard-plaza-step-actions'
+                );
+            }
+
+            if (
+                !actions.querySelector(
+                    '[data-dashboard-plaza-back]'
+                )
+            ) {
+                const backButton =
+                    document.createElement('button');
+
+                backButton.type = 'button';
+                backButton.className =
+                    'btn-secondary yh-dashboard-plaza-back';
+
+                backButton.setAttribute(
+                    'data-dashboard-plaza-back',
+                    ''
+                );
+
+                backButton.textContent = '← Back';
+
+                backButton.hidden =
+                    stepNode.dataset.dashboardPlazaStep ===
+                    'membershipType';
+
+                actions.prepend(backButton);
+            }
+        });
 
     bindDashboardPlazaApplicationFormEvents();
 }
@@ -8462,6 +8667,25 @@ function setDashboardPlazaActiveStep(stepKey = 'membershipType') {
 
     syncDashboardPlazaProgress(stepKey);
 
+    const activeStepNode =
+        getDashboardPlazaStepNode(stepKey);
+
+    const currentFlow =
+        getDashboardPlazaApplicationFlow();
+
+    const firstStepKey =
+        currentFlow[0] || 'membershipType';
+
+    const backButton =
+        activeStepNode?.querySelector(
+            '[data-dashboard-plaza-back]'
+        );
+
+    if (backButton) {
+        backButton.hidden =
+            stepKey === firstStepKey;
+    }
+
     const input = getDashboardPlazaInputForStep(stepKey);
     if (input) {
         window.setTimeout(() => input.focus(), 60);
@@ -8520,6 +8744,27 @@ function goToNextDashboardPlazaStep() {
 
     syncDashboardPlazaApplicationLabels();
     setDashboardPlazaActiveStep(nextStep);
+}
+
+function goToPreviousDashboardPlazaStep() {
+    const flow = getDashboardPlazaApplicationFlow();
+
+    const currentIndex = flow.indexOf(
+        dashboardPlazaApplicationCurrentStep
+    );
+
+    if (currentIndex <= 0) return;
+
+    writeDashboardPlazaApplicationDraft(
+        dashboardPlazaApplicationCurrentStep
+    );
+
+    const previousStep =
+        flow[currentIndex - 1] ||
+        flow[0] ||
+        'membershipType';
+
+    setDashboardPlazaActiveStep(previousStep);
 }
 
 function buildDashboardPlazaApplicationPayload() {
@@ -8716,6 +8961,13 @@ function bindDashboardPlazaApplicationFormEvents() {
 
     form.querySelectorAll('[data-dashboard-plaza-next]').forEach((button) => {
         button.addEventListener('click', goToNextDashboardPlazaStep);
+    });
+
+    form.querySelectorAll('[data-dashboard-plaza-back]').forEach((button) => {
+        button.addEventListener(
+            'click',
+            goToPreviousDashboardPlazaStep
+        );
     });
 
     form.querySelectorAll('input, select, textarea').forEach((field) => {
@@ -10315,6 +10567,191 @@ function getDashboardInlineWorkspaceKeyFromFrame(frame) {
     return String(frame?.dataset?.yhDashboardWorkspaceKey || '').trim().toLowerCase();
 }
 
+function normalizeDashboardInlineNavigationUrl(value = '') {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (raw === 'about:blank') return 'about:blank';
+
+    try {
+        const url = new URL(raw, window.location.origin);
+        const sortedParams = Array.from(url.searchParams.entries()).sort((left, right) => {
+            const leftKey = `${left[0]}=${left[1]}`;
+            const rightKey = `${right[0]}=${right[1]}`;
+            return leftKey.localeCompare(rightKey);
+        });
+
+        const search = sortedParams.length
+            ? `?${new URLSearchParams(sortedParams).toString()}`
+            : '';
+
+        return `${url.pathname}${search}${url.hash || ''}`;
+    } catch (_) {
+        return raw;
+    }
+}
+
+function getDashboardInlineFrameLoadedUrl(frame) {
+    try {
+        const href = String(frame?.contentWindow?.location?.href || '').trim();
+        return normalizeDashboardInlineNavigationUrl(href);
+    } catch (_) {
+        return '';
+    }
+}
+
+function beginDashboardInlineFrameNavigation(frame, workspaceKey = '', inlineUrl = '') {
+    if (!frame) return '';
+
+    const cleanWorkspaceKey = String(workspaceKey || '').trim().toLowerCase();
+    const nextSequence = Number(frame.dataset.yhDashboardNavigationSequence || 0) + 1;
+    const navigationToken = `${nextSequence}-${Date.now()}`;
+
+    frame.dataset.yhDashboardNavigationSequence = String(nextSequence);
+    frame.dataset.yhDashboardNavigationToken = navigationToken;
+    frame.dataset.yhDashboardNavigationWorkspaceKey = cleanWorkspaceKey;
+    frame.dataset.yhDashboardNavigationExpectedUrl = normalizeDashboardInlineNavigationUrl(inlineUrl);
+    frame.dataset.yhDashboardNavigationState = 'loading';
+    frame.dataset.yhDashboardChildWorkspaceReady = 'false';
+    frame.removeAttribute('data-yh-dashboard-federation-sync-locked-after-ready');
+
+    setDashboardInlineFrameRevealState(frame, false, 'navigation-start');
+
+    window.clearTimeout(window.__yhDashboardChildWorkspaceReadyPollTimer);
+    window.clearTimeout(frame.__yhDashboardRoadmapSafeRevealTimer);
+
+    frame.removeAttribute('data-yh-dashboard-roadmap-local-loader-primed-token');
+
+    return navigationToken;
+}
+
+function invalidateDashboardInlineFrameNavigation(frame, reason = 'workspace-exit', options = {}) {
+    if (!frame) return false;
+
+    const nextSequence = Number(frame.dataset.yhDashboardNavigationSequence || 0) + 1;
+    const invalidToken = `invalid-${nextSequence}-${Date.now()}`;
+
+    frame.dataset.yhDashboardNavigationSequence = String(nextSequence);
+    frame.dataset.yhDashboardNavigationToken = invalidToken;
+    frame.dataset.yhDashboardNavigationWorkspaceKey = '';
+    frame.dataset.yhDashboardNavigationExpectedUrl = '';
+    frame.dataset.yhDashboardNavigationState = 'invalid';
+    frame.dataset.yhDashboardChildWorkspaceReady = 'false';
+
+    frame.removeAttribute('data-yh-dashboard-workspace-key');
+    frame.removeAttribute('data-yh-dashboard-academy-section');
+    frame.removeAttribute('data-yh-dashboard-plaza-screen');
+    frame.removeAttribute('data-yh-dashboard-federation-section');
+    frame.removeAttribute('data-yh-dashboard-federation-sync-locked-after-ready');
+
+    window.clearTimeout(window.__yhDashboardChildWorkspaceReadyPollTimer);
+    window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderFallback);
+    window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderMinTimer);
+
+    window.clearTimeout(frame.__yhDashboardInlineLoadFollowupTimer1);
+    window.clearTimeout(frame.__yhDashboardInlineLoadFollowupTimer2);
+    window.clearTimeout(frame.__yhDashboardRoadmapSafeRevealTimer);
+    window.clearTimeout(frame.__yhDashboardInlineReadyPollTimer);
+    window.clearTimeout(frame.__yhDashboardInlineReadyTimer);
+    window.clearTimeout(frame.__yhDashboardPlazaIconObserverTimer);
+    window.clearTimeout(frame.__yhDashboardPlazaTitleIconRetry1);
+    window.clearTimeout(frame.__yhDashboardPlazaTitleIconRetry2);
+
+    if (typeof clearDashboardInlineAcademyApplyTimers === 'function') {
+        clearDashboardInlineAcademyApplyTimers(frame);
+    }
+
+    try {
+        frame.__yhDashboardPlazaIconObserver?.disconnect?.();
+    } catch (_) {}
+
+    frame.__yhDashboardPlazaIconObserver = null;
+    frame.__yhDashboardPlazaIconObserverDoc = null;
+
+    if (options.clearSrc !== false) {
+        frame.removeAttribute('src');
+    }
+
+    hideDashboardUnifiedChildWorkspaceLoader(reason);
+    return true;
+}
+
+function isDashboardInlineFrameNavigationCurrent(
+    frame,
+    navigationToken = '',
+    workspaceKey = '',
+    options = {}
+) {
+    if (!frame) return false;
+
+    const currentToken = String(frame.dataset.yhDashboardNavigationToken || '').trim();
+    const expectedToken = String(navigationToken || currentToken).trim();
+
+    if (expectedToken && currentToken !== expectedToken) return false;
+    if (frame.dataset.yhDashboardNavigationState === 'invalid') return false;
+
+    const currentWorkspaceKey = getDashboardInlineWorkspaceKeyFromFrame(frame);
+    const expectedWorkspaceKey = String(
+        workspaceKey ||
+        frame.dataset.yhDashboardNavigationWorkspaceKey ||
+        currentWorkspaceKey
+    ).trim().toLowerCase();
+
+    if (expectedWorkspaceKey && currentWorkspaceKey !== expectedWorkspaceKey) {
+        return false;
+    }
+
+    const activeWorkspaceKey = String(
+        document.body?.getAttribute('data-yh-unified-workspace') || ''
+    ).trim().toLowerCase();
+
+    if (
+        expectedWorkspaceKey &&
+        activeWorkspaceKey &&
+        activeWorkspaceKey !== expectedWorkspaceKey
+    ) {
+        return false;
+    }
+
+    if (options.verifyLoadedUrl === true) {
+        const expectedUrl = normalizeDashboardInlineNavigationUrl(
+            frame.dataset.yhDashboardNavigationExpectedUrl || ''
+        );
+        const loadedUrl = getDashboardInlineFrameLoadedUrl(frame);
+
+        if (
+            expectedUrl &&
+            expectedUrl !== 'about:blank' &&
+            loadedUrl &&
+            loadedUrl !== expectedUrl
+        ) {
+            let expectedPath = '';
+            let loadedPath = '';
+
+            try {
+                expectedPath = new URL(expectedUrl, window.location.origin)
+                    .pathname
+                    .replace(/\/+$/, '') || '/';
+
+                loadedPath = new URL(loadedUrl, window.location.origin)
+                    .pathname
+                    .replace(/\/+$/, '') || '/';
+            } catch (_) {}
+
+            const isSameAcademyDocument =
+                expectedWorkspaceKey.startsWith('academy-') &&
+                expectedPath &&
+                loadedPath &&
+                expectedPath === loadedPath;
+
+            if (!isSameAcademyDocument) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 /* PATCH: Dashboard universal child workspace loader v1 */
 function getDashboardFederationSectionFromWorkspaceKey(value = 'federation-command') {
     const clean = String(value || 'federation-command').trim().toLowerCase();
@@ -10388,6 +10825,15 @@ function getDashboardUnifiedChildWorkspaceLoaderMeta(key = 'overview', meta = {}
         };
     }
 
+    if (division === 'academy' && cleanKey === 'academy-roadmap') {
+        return {
+            icon: '/images/logo.avif',
+            kicker: 'Roadmap Sync',
+            title: 'Preparing your Academy roadmap',
+            copy: 'Loading missions, access state, progress, and your next execution move.'
+        };
+    }
+
     if (division === 'academy') {
         return {
             icon: academyIcons[cleanKey] || '/images/logo.avif',
@@ -10445,13 +10891,37 @@ function markDashboardUnifiedChildWorkspaceNonBlockingSyncV1(key = '', meta = {}
 }
 /* END PATCH: YHU instant dashboard child workspace loader bypass v1 */
 
-function showDashboardUnifiedChildWorkspaceLoader(key = 'overview', meta = {}) {
+function showDashboardUnifiedChildWorkspaceLoader(key = 'overview', meta = {}, navigationToken = '') {
     const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
     const loader = document.getElementById('yh-universe-child-workspace-loader');
     const icon = document.getElementById('yh-universe-child-workspace-loader-icon');
     const kicker = document.getElementById('yh-universe-child-workspace-loader-kicker');
     const title = document.getElementById('yh-universe-child-workspace-loader-title');
     const copy = document.getElementById('yh-universe-child-workspace-loader-copy');
+    const roadmapHeader = document.getElementById('yh-universe-roadmap-loader-header');
+    const cleanLoaderKey = String(key || '').trim().toLowerCase();
+    const isRoadmapLoader = cleanLoaderKey === 'academy-roadmap';
+
+    if (loader) {
+        loader.setAttribute(
+            'data-yh-child-loader-mode',
+            isRoadmapLoader ? 'roadmap' : 'default'
+        );
+    }
+
+    if (roadmapHeader) {
+        roadmapHeader.classList.toggle(
+            'hidden-step',
+            !isRoadmapLoader
+        );
+
+        roadmapHeader.setAttribute(
+            'aria-hidden',
+            isRoadmapLoader ? 'false' : 'true'
+        );
+    }
+
+    window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderMinTimer);
 
     /* PATCH: YHU balanced 0.5s child workspace loader v3 */
     if (shouldBypassDashboardUnifiedChildWorkspaceLoaderV1(key, meta)) {
@@ -10482,8 +10952,16 @@ function showDashboardUnifiedChildWorkspaceLoader(key = 'overview', meta = {}) {
         window.__yhDashboardBalancedChildWorkspaceLoaderVisibleUntilV2 = Date.now() + (isMobileWorkspaceBoot ? 900 : 500);
 
         window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderFallback);
+
+        if (isRoadmapLoader) {
+            return true;
+        }
+
         window.__yhDashboardChildWorkspaceLoaderFallback = window.setTimeout(() => {
-            hideDashboardUnifiedChildWorkspaceLoader(isMobileWorkspaceBoot ? 'mobile-balanced-timeout' : 'balanced-1s-timeout');
+            hideDashboardUnifiedChildWorkspaceLoader(
+                isMobileWorkspaceBoot ? 'mobile-balanced-timeout' : 'balanced-1s-timeout',
+                navigationToken
+            );
         }, isMobileWorkspaceBoot ? mobileFallbackMs : 650);
 
         return true;
@@ -10513,15 +10991,44 @@ function showDashboardUnifiedChildWorkspaceLoader(key = 'overview', meta = {}) {
 
     window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderFallback);
     window.__yhDashboardChildWorkspaceLoaderFallback = window.setTimeout(() => {
-        hideDashboardUnifiedChildWorkspaceLoader('hard-timeout');
+        hideDashboardUnifiedChildWorkspaceLoader('hard-timeout', navigationToken);
     }, loaderHardTimeoutMs);
 
     return true;
 }
 
-function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready') {
+function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready', navigationToken = '') {
     const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
     const loader = document.getElementById('yh-universe-child-workspace-loader');
+    const frame = document.getElementById('yh-universe-workspace-inline-frame');
+    const cleanNavigationToken = String(navigationToken || '').trim();
+
+    if (
+        cleanNavigationToken &&
+        frame &&
+        !isDashboardInlineFrameNavigationCurrent(
+            frame,
+            cleanNavigationToken,
+            '',
+            { verifyLoadedUrl: false }
+        )
+    ) {
+        return;
+    }
+
+    const activeWorkspaceKey = getDashboardInlineWorkspaceKeyFromFrame(frame);
+    const revealState = String(frame?.dataset?.yhDashboardRevealState || '').trim().toLowerCase();
+    const isBalancedTimeout =
+        reason === 'balanced-1s-timeout' ||
+        reason === 'mobile-balanced-timeout';
+
+    if (
+        activeWorkspaceKey === 'academy-roadmap' &&
+        revealState !== 'ready' &&
+        isBalancedTimeout
+    ) {
+        return;
+    }
 
     window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderFallback);
     window.clearTimeout(window.__yhDashboardChildWorkspaceReadyPollTimer);
@@ -10533,7 +11040,12 @@ function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready') {
     const balancedRemainingMsV2 = balancedVisibleUntilV2 > Date.now()
         ? Math.max(0, balancedVisibleUntilV2 - Date.now())
         : 0;
-    const baseMinVisibleMs = reason === 'hard-timeout' || reason.includes('soft-timeout') ? 0 : 260;
+    const baseMinVisibleMs =
+        reason === 'hard-timeout' ||
+        reason === 'workspace-exit' ||
+        reason.includes('soft-timeout')
+            ? 0
+            : 260;
     const minVisibleMs = Math.max(
         baseMinVisibleMs,
         balancedRemainingMsV2 ? elapsedMs + balancedRemainingMsV2 : 0
@@ -10541,7 +11053,7 @@ function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready') {
 
     if (elapsedMs < minVisibleMs) {
         window.__yhDashboardChildWorkspaceLoaderMinTimer = window.setTimeout(() => {
-            hideDashboardUnifiedChildWorkspaceLoader(reason);
+            hideDashboardUnifiedChildWorkspaceLoader(reason, cleanNavigationToken);
         }, Math.max(40, minVisibleMs - elapsedMs));
         return;
     }
@@ -10570,6 +11082,23 @@ function getDashboardInlineFrameDocument(frame) {
         return null;
     }
 }
+
+function setDashboardInlineFrameRevealState(frame, revealed = false, reason = 'loading') {
+    if (!frame) return false;
+
+    const isRevealed = revealed === true;
+
+    frame.dataset.yhDashboardRevealState = isRevealed ? 'ready' : 'pending';
+    frame.dataset.yhDashboardRevealReason = String(reason || 'loading');
+
+    frame.style.visibility = isRevealed ? 'visible' : 'hidden';
+    frame.style.opacity = isRevealed ? '1' : '0';
+    frame.style.pointerEvents = isRevealed ? 'auto' : 'none';
+    frame.setAttribute('aria-hidden', isRevealed ? 'false' : 'true');
+
+    return true;
+}
+
 
 /* PATCH: Dashboard embedded Academy AI Coach single avatar guard v1 */
 function normalizeDashboardEmbeddedAcademyAiCoachLauncher(frameOrDoc = null) {
@@ -10673,22 +11202,46 @@ function normalizeDashboardEmbeddedAcademyAiCoachLauncher(frameOrDoc = null) {
 /* END PATCH: Dashboard embedded Academy AI Coach single avatar guard v1 */
 
 function isDashboardInlineElementVisible(node) {
-    if (!(node instanceof HTMLElement)) return false;
+    if (!node || node.nodeType !== 1) return false;
 
     try {
-        if (node.hidden) return false;
-
         const ownerWindow = node.ownerDocument?.defaultView || window;
+        const OwnerElement = ownerWindow.Element;
+
+        if (
+            typeof OwnerElement === 'function' &&
+            !(node instanceof OwnerElement)
+        ) {
+            return false;
+        }
+
+        if (
+            node.hidden ||
+            node.classList?.contains('hidden-step') ||
+            node.getAttribute?.('aria-hidden') === 'true'
+        ) {
+            return false;
+        }
+
         const style = ownerWindow.getComputedStyle(node);
 
-        if (!style || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || 1) === 0) {
+        if (
+            !style ||
+            style.display === 'none' ||
+            style.visibility === 'hidden' ||
+            Number(style.opacity || 1) === 0
+        ) {
             return false;
         }
 
         const rect = node.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0;
+
+        return (
+            rect.width > 0 &&
+            rect.height > 0
+        );
     } catch (_) {
-        return true;
+        return false;
     }
 }
 
@@ -10721,31 +11274,46 @@ function isDashboardInlineAcademyReady(frame, doc) {
     if (isDashboardInlineFrameLocalLoaderActive(doc)) return false;
 
     const target = getDashboardInlineAcademyTargetFromFrame(frame);
+    const activeTarget = String(
+        doc.body.getAttribute('data-yh-dashboard-inline-active-target') || ''
+    ).trim().toLowerCase();
+
     const bodyReady =
         doc.body.classList.contains('academy-shell-ready') &&
         !doc.body.classList.contains('academy-startup-booting') &&
         !doc.body.hasAttribute('data-academy-tab-loading');
 
-    if (!bodyReady) return false;
+    if (!target || !bodyReady) return false;
+    if (activeTarget && activeTarget !== target) return false;
 
-    const visibleMain = [
-        '#academy-chat',
-        '#academy-lead-missions-view',
-        '#academy-feed-view',
-        '#voice-lobby-view',
-        '#video-lobby-view',
-        '#academy-profile-view'
-    ]
-        .map((selector) => doc.querySelector(selector))
-        .find(isDashboardInlineElementVisible);
+    const targetSelectorMap = {
+        roadmap: '#academy-chat',
+        missions: '#academy-lead-missions-view',
+        community: '#academy-feed-view',
+        messages: '#academy-chat',
+        voice: '#voice-lobby-view'
+    };
 
-    if (!visibleMain) return false;
+    const targetView = doc.querySelector(targetSelectorMap[target] || '');
+    if (!targetView || !isDashboardInlineElementVisible(targetView)) return false;
 
-    const text = String(visibleMain.textContent || '').replace(/\s+/g, ' ').trim();
+    const text = String(targetView.textContent || '').replace(/\s+/g, ' ').trim();
 
     if (target === 'roadmap') {
-        const roadmapLoaderGone = !doc.querySelector('.academy-roadmap-loading-shell');
-        return roadmapLoaderGone || text.length > 18;
+        const communityView = doc.getElementById('academy-feed-view');
+        const roadmapHistory = doc.getElementById('dynamic-chat-history');
+        const roadmapLoader = doc.querySelector('.academy-roadmap-loading-shell');
+        const roadmapText = String(
+            roadmapHistory?.textContent || targetView.textContent || ''
+        ).replace(/\s+/g, ' ').trim();
+
+        const questCard = doc.getElementById('academy-quest-main-card-v1');
+
+        if (communityView && isDashboardInlineElementVisible(communityView)) return false;
+        if (roadmapLoader && isDashboardInlineElementVisible(roadmapLoader)) return false;
+        if (!questCard || !isDashboardInlineElementVisible(questCard)) return false;
+
+        return roadmapText.length > 18;
     }
 
     return text.length > 12;
@@ -10817,6 +11385,82 @@ function isDashboardInlineFrameReadyForReveal(frame) {
     return !isDashboardInlineFrameLocalLoaderActive(doc);
 }
 
+function primeDashboardInlineRoadmapFastPreview(
+    frame,
+    navigationToken = '',
+    workspaceKey = 'academy-roadmap'
+) {
+    if (!frame || workspaceKey !== 'academy-roadmap') return false;
+
+    if (
+        !isDashboardInlineFrameNavigationCurrent(
+            frame,
+            navigationToken,
+            workspaceKey,
+            { verifyLoadedUrl: true }
+        )
+    ) {
+        return false;
+    }
+
+    const doc = getDashboardInlineFrameDocument(frame);
+    const win = frame.contentWindow || null;
+
+    if (!doc?.body || !win) return false;
+
+    const canRenderHome =
+        typeof win.renderAcademyHome === 'function';
+
+    const canRenderQuest =
+        typeof win.yhRenderAcademyQuestMainCardV1 === 'function';
+
+    if (!canRenderHome || !canRenderQuest) return false;
+
+    const activeTarget = String(
+        doc.body.getAttribute('data-yh-dashboard-inline-active-target') || ''
+    ).trim().toLowerCase();
+
+    if (activeTarget && activeTarget !== 'roadmap') return false;
+
+    const communityView = doc.getElementById('academy-feed-view');
+
+    if (
+        communityView &&
+        isDashboardInlineElementVisible(communityView)
+    ) {
+        return false;
+    }
+
+    let cachedHome = null;
+
+    try {
+        if (typeof win.readAcademyHomeCache === 'function') {
+            cachedHome = win.readAcademyHomeCache();
+        }
+    } catch (_) {
+        cachedHome = null;
+    }
+
+    try {
+        if (typeof win.renderAcademyHome === 'function') {
+            win.renderAcademyHome(cachedHome || null);
+        }
+    } catch (error) {
+        console.warn('Dashboard Roadmap fast preview render failed:', error);
+        return false;
+    }
+
+    try {
+        if (typeof win.yhRenderAcademyQuestMainCardV1 === 'function') {
+            win.yhRenderAcademyQuestMainCardV1();
+        }
+    } catch (error) {
+        console.warn('Dashboard Roadmap Quest preview render failed:', error);
+    }
+
+    forceDashboardInlineFrameContentOnly(frame);
+    return true;
+}
 
 function waitForDashboardInlineWorkspaceReady(frame, reason = 'workspace-ready', options = {}) {
     if (!frame) {
@@ -10825,7 +11469,16 @@ function waitForDashboardInlineWorkspaceReady(frame, reason = 'workspace-ready',
     }
 
     const startedAt = Date.now();
-    const workspaceKey = getDashboardInlineWorkspaceKeyFromFrame(frame);
+    const workspaceKey = String(
+        options.workspaceKey ||
+        getDashboardInlineWorkspaceKeyFromFrame(frame)
+    ).trim().toLowerCase();
+    const navigationToken = String(
+        options.navigationToken ||
+        frame.dataset.yhDashboardNavigationToken ||
+        ''
+    ).trim();
+
     const requestedTimeoutMs = Number(options.timeoutMs || 4200);
     const isFederationWorkspace = workspaceKey.startsWith('federation-');
     const timeoutMs = isFederationWorkspace
@@ -10836,26 +11489,119 @@ function waitForDashboardInlineWorkspaceReady(frame, reason = 'workspace-ready',
     window.clearTimeout(window.__yhDashboardChildWorkspaceReadyPollTimer);
 
     const tick = () => {
-        forceDashboardInlineFrameContentOnly(frame);
-        applyDashboardInlineAcademySection(frame, { retry: false });
-        normalizeDashboardEmbeddedAcademyAiCoachLauncher(frame);
-        applyDashboardInlinePlazaIconEnhancements(frame);
-
-        if (!frame.dataset.yhDashboardFederationSyncLockedAfterReady) {
-            syncDashboardInlineFederationSection(frame);
-        }
-
-        if (isDashboardInlineFrameReadyForReveal(frame)) {
-            frame.dataset.yhDashboardChildWorkspaceReady = 'true';
-            frame.dataset.yhDashboardFederationSyncLockedAfterReady = isFederationWorkspace ? 'true' : '';
-            hideDashboardUnifiedChildWorkspaceLoader(reason);
+        if (
+            !isDashboardInlineFrameNavigationCurrent(
+                frame,
+                navigationToken,
+                workspaceKey,
+                { verifyLoadedUrl: false }
+            )
+        ) {
             return;
         }
 
+        const hasCurrentLoadedDocument = isDashboardInlineFrameNavigationCurrent(
+            frame,
+            navigationToken,
+            workspaceKey,
+            { verifyLoadedUrl: true }
+        );
+
+        if (hasCurrentLoadedDocument) {
+            forceDashboardInlineFrameContentOnly(frame);
+            applyDashboardInlineAcademySection(frame, { retry: false });
+
+            const elapsedMs = Date.now() - startedAt;
+
+            if (
+                workspaceKey === 'academy-roadmap' &&
+                elapsedMs >= 350 &&
+                frame.dataset.yhDashboardRoadmapFastPreviewToken !== navigationToken
+            ) {
+                const previewPrimed = primeDashboardInlineRoadmapFastPreview(
+                    frame,
+                    navigationToken,
+                    workspaceKey
+                );
+
+                if (previewPrimed) {
+                    frame.dataset.yhDashboardRoadmapFastPreviewToken =
+                        navigationToken;
+                }
+            }
+
+            normalizeDashboardEmbeddedAcademyAiCoachLauncher(frame);
+            applyDashboardInlinePlazaIconEnhancements(frame);
+
+            if (!frame.dataset.yhDashboardFederationSyncLockedAfterReady) {
+                syncDashboardInlineFederationSection(frame);
+            }
+
+            if (isDashboardInlineFrameReadyForReveal(frame)) {
+                frame.dataset.yhDashboardChildWorkspaceReady = 'true';
+                frame.dataset.yhDashboardNavigationState = 'ready';
+                frame.dataset.yhDashboardFederationSyncLockedAfterReady = isFederationWorkspace ? 'true' : '';
+
+                setDashboardInlineFrameRevealState(frame, true, reason);
+                hideDashboardUnifiedChildWorkspaceLoader(
+                    reason,
+                    navigationToken
+                );
+                return;
+            }
+        }
+
         if (Date.now() - startedAt >= timeoutMs) {
+            const elapsedMs = Date.now() - startedAt;
+
+            if (workspaceKey === 'academy-roadmap') {
+                if (
+                    frame.dataset.yhDashboardRoadmapFastPreviewToken !==
+                    navigationToken
+                ) {
+                    const previewPrimed =
+                        primeDashboardInlineRoadmapFastPreview(
+                            frame,
+                            navigationToken,
+                            workspaceKey
+                        );
+
+                    if (previewPrimed) {
+                        frame.dataset.yhDashboardRoadmapFastPreviewToken =
+                            navigationToken;
+                    }
+                }
+
+                frame.dataset.yhDashboardChildWorkspaceReady =
+                    'waiting-roadmap-content';
+
+                frame.dataset.yhDashboardNavigationState =
+                    'waiting-roadmap-content';
+
+                window.__yhDashboardChildWorkspaceReadyPollTimer =
+                    window.setTimeout(
+                        tick,
+                        elapsedMs >= 6000 ? 400 : pollMs
+                    );
+
+                return;
+            }
+
             frame.dataset.yhDashboardChildWorkspaceReady = 'timeout';
+            frame.dataset.yhDashboardNavigationState = 'timeout';
             frame.dataset.yhDashboardFederationSyncLockedAfterReady = isFederationWorkspace ? 'true' : '';
-            hideDashboardUnifiedChildWorkspaceLoader(reason + '-soft-timeout');
+
+            setDashboardInlineFrameRevealState(
+                frame,
+                true,
+                reason + '-soft-timeout'
+            );
+
+            hideDashboardUnifiedChildWorkspaceLoader(
+                reason + '-soft-timeout',
+                navigationToken
+            );
+
             return;
         }
 
@@ -10875,14 +11621,31 @@ if (!window.__yhDashboardChildWorkspaceReadyMessageBoundV11) {
         if (data.type !== 'yh:child-workspace-ready') return;
 
         const frame = document.getElementById('yh-universe-workspace-inline-frame');
-        if (!frame) return;
+        if (!frame || event.source !== frame.contentWindow) return;
 
-        const key = getDashboardInlineWorkspaceKeyFromFrame(frame);
+        const workspaceKey = getDashboardInlineWorkspaceKeyFromFrame(frame);
+        const navigationToken = String(
+            frame.dataset.yhDashboardNavigationToken || ''
+        ).trim();
         const childKey = String(data.workspaceKey || '').trim().toLowerCase();
 
-        if (childKey && childKey !== key) return;
+        if (!workspaceKey || !navigationToken) return;
+        if (childKey && childKey !== workspaceKey) return;
+
+        if (
+            !isDashboardInlineFrameNavigationCurrent(
+                frame,
+                navigationToken,
+                workspaceKey,
+                { verifyLoadedUrl: true }
+            )
+        ) {
+            return;
+        }
 
         waitForDashboardInlineWorkspaceReady(frame, `child-ready-${data.reason || 'message'}`, {
+            navigationToken,
+            workspaceKey,
             timeoutMs: 2600,
             pollMs: 80
         });
@@ -12121,35 +12884,85 @@ function bindDashboardInlineFrameEmbedMode(frame) {
     frame.dataset.dashboardEmbedModeBound = 'true';
 
     frame.addEventListener('load', () => {
+        const navigationToken = String(
+            frame.dataset.yhDashboardNavigationToken || ''
+        ).trim();
+        const workspaceKey = String(
+            frame.dataset.yhDashboardNavigationWorkspaceKey ||
+            getDashboardInlineWorkspaceKeyFromFrame(frame) ||
+            ''
+        ).trim().toLowerCase();
+
+        if (!navigationToken || !workspaceKey) return;
+
+        if (
+            !isDashboardInlineFrameNavigationCurrent(
+                frame,
+                navigationToken,
+                workspaceKey,
+                { verifyLoadedUrl: true }
+            )
+        ) {
+            return;
+        }
+
+        frame.dataset.yhDashboardNavigationState = 'loaded';
+
+        window.clearTimeout(frame.__yhDashboardInlineLoadFollowupTimer1);
+        window.clearTimeout(frame.__yhDashboardInlineLoadFollowupTimer2);
+
         forceDashboardInlineFrameContentOnly(frame);
+
+        const inlineAcademyTarget = getDashboardInlineAcademyTargetFromFrame(frame);
+        const isRoadmapInlineTarget = inlineAcademyTarget === 'roadmap';
+
         applyDashboardInlineAcademySection(frame, { force: true });
         normalizeDashboardEmbeddedAcademyAiCoachLauncher(frame);
         applyDashboardInlinePlazaIconEnhancements(frame);
         syncDashboardInlineFederationSection(frame);
 
-        const inlineAcademyTarget = getDashboardInlineAcademyTargetFromFrame(frame);
-        const isRoadmapInlineTarget = inlineAcademyTarget === 'roadmap';
-
-        window.setTimeout(() => {
-            if (!isRoadmapInlineTarget) {
-                forceDashboardInlineFrameContentOnly(frame);
-                applyDashboardInlineAcademySection(frame, { retry: false });
+        frame.__yhDashboardInlineLoadFollowupTimer1 = window.setTimeout(() => {
+            if (
+                !isDashboardInlineFrameNavigationCurrent(
+                    frame,
+                    navigationToken,
+                    workspaceKey,
+                    { verifyLoadedUrl: true }
+                )
+            ) {
+                return;
             }
+
+            forceDashboardInlineFrameContentOnly(frame);
+            applyDashboardInlineAcademySection(frame, { retry: false });
 
             normalizeDashboardEmbeddedAcademyAiCoachLauncher(frame);
             applyDashboardInlinePlazaIconEnhancements(frame);
             syncDashboardInlineFederationSection(frame);
         }, isRoadmapInlineTarget ? 260 : 180);
 
-        window.setTimeout(() => {
+        frame.__yhDashboardInlineLoadFollowupTimer2 = window.setTimeout(() => {
+            if (
+                !isDashboardInlineFrameNavigationCurrent(
+                    frame,
+                    navigationToken,
+                    workspaceKey,
+                    { verifyLoadedUrl: true }
+                )
+            ) {
+                return;
+            }
+
             normalizeDashboardEmbeddedAcademyAiCoachLauncher(frame);
             applyDashboardInlinePlazaIconEnhancements(frame);
             syncDashboardInlineFederationSection(frame);
         }, isRoadmapInlineTarget ? 680 : 520);
 
         waitForDashboardInlineWorkspaceReady(frame, 'iframe-load-child-ready', {
-            timeoutMs: isRoadmapInlineTarget ? 2400 : 5500,
-            pollMs: isRoadmapInlineTarget ? 180 : 90
+            navigationToken,
+            workspaceKey,
+            timeoutMs: isRoadmapInlineTarget ? 1600 : 5500,
+            pollMs: isRoadmapInlineTarget ? 70 : 90
         });
     });
 }
@@ -12190,9 +13003,9 @@ if (!meta || isParentWorkspace) {
             }
 
         if (frame) {
+            invalidateDashboardInlineFrameNavigation(frame, 'workspace-exit');
             frame.classList.remove('hidden-step');
             frame.setAttribute('aria-hidden', 'false');
-            frame.removeAttribute('src');
         }
 
         return;
@@ -12224,6 +13037,7 @@ if (!meta || isParentWorkspace) {
         button.classList.add('hidden-step');
         button.setAttribute('aria-hidden', 'true');
 
+        invalidateDashboardInlineFrameNavigation(frame, 'workspace-exit');
         mountYHResourcesInlineView();
         card.classList.remove('hidden-step');
         card.setAttribute('aria-hidden', 'false');
@@ -12234,6 +13048,7 @@ if (!meta || isParentWorkspace) {
         button.classList.add('hidden-step');
         button.setAttribute('aria-hidden', 'true');
 
+        invalidateDashboardInlineFrameNavigation(frame, 'workspace-exit');
         mountYHWalletInlineView();
         card.classList.remove('hidden-step');
         card.setAttribute('aria-hidden', 'false');
@@ -12292,36 +13107,87 @@ if (!meta || isParentWorkspace) {
             }
 
             const inlineUrl = buildDashboardInlineWorkspaceUrl(meta);
+            const normalizedInlineUrl = normalizeDashboardInlineNavigationUrl(inlineUrl);
+            const currentInlineUrl = normalizeDashboardInlineNavigationUrl(
+                frame.getAttribute('src') || ''
+            );
+
+            const existingNavigationKey = String(
+                frame.dataset.yhDashboardNavigationWorkspaceKey || ''
+            ).trim().toLowerCase();
+
+            const existingExpectedUrl = normalizeDashboardInlineNavigationUrl(
+                frame.dataset.yhDashboardNavigationExpectedUrl || ''
+            );
+
+            const existingNavigationState = String(
+                frame.dataset.yhDashboardNavigationState || ''
+            ).trim().toLowerCase();
+
+            const sameNavigationAlreadyActive =
+                existingNavigationKey === cleanKey &&
+                existingExpectedUrl === normalizedInlineUrl &&
+                [
+                    'loading',
+                    'loaded',
+                    'waiting-roadmap-content',
+                    'ready'
+                ].includes(existingNavigationState);
 
             bindDashboardInlineFrameEmbedMode(frame);
 
-            showDashboardUnifiedChildWorkspaceLoader(cleanKey, meta);
+            if (sameNavigationAlreadyActive) {
+                return;
+            }
 
-            if (frame.getAttribute('src') !== inlineUrl) {
+            const navigationToken = beginDashboardInlineFrameNavigation(
+                frame,
+                cleanKey,
+                inlineUrl
+            );
+
+            showDashboardUnifiedChildWorkspaceLoader(
+                cleanKey,
+                meta,
+                navigationToken
+            );
+
+            if (currentInlineUrl !== normalizedInlineUrl) {
                 clearDashboardInlineAcademyApplyTimers(frame);
+                window.clearTimeout(frame.__yhDashboardInlineLoadFollowupTimer1);
+                window.clearTimeout(frame.__yhDashboardInlineLoadFollowupTimer2);
+
                 frameShell.classList.add('is-switching');
+
                 frame.setAttribute('src', inlineUrl || 'about:blank');
 
-                window.setTimeout(() => {
-                    forceDashboardInlineFrameContentOnly(frame);
-                    applyDashboardInlineAcademySection(frame, { retry: false });
-                    applyDashboardInlinePlazaIconEnhancements(frame);
-                    syncDashboardInlineFederationSection(frame);
-                }, 420);
-
                 waitForDashboardInlineWorkspaceReady(frame, 'iframe-src-child-ready', {
+                    navigationToken,
+                    workspaceKey: cleanKey,
                     timeoutMs: 5500,
                     pollMs: 90
                 });
             } else {
-                forceDashboardInlineFrameContentOnly(frame);
-                applyDashboardInlineAcademySection(frame, { force: true });
-                applyDashboardInlinePlazaIconEnhancements(frame);
-                syncDashboardInlineFederationSection(frame);
+                if (
+                    isDashboardInlineFrameNavigationCurrent(
+                        frame,
+                        navigationToken,
+                        cleanKey,
+                        { verifyLoadedUrl: true }
+                    )
+                ) {
+                    forceDashboardInlineFrameContentOnly(frame);
+                    applyDashboardInlineAcademySection(frame, { force: true });
+                    normalizeDashboardEmbeddedAcademyAiCoachLauncher(frame);
+                    applyDashboardInlinePlazaIconEnhancements(frame);
+                    syncDashboardInlineFederationSection(frame);
+                }
 
                 waitForDashboardInlineWorkspaceReady(frame, 'same-src-child-ready', {
-                    timeoutMs: 4200,
-                    pollMs: 80
+                    navigationToken,
+                    workspaceKey: cleanKey,
+                    timeoutMs: cleanKey === 'academy-roadmap' ? 1500 : 4200,
+                    pollMs: cleanKey === 'academy-roadmap' ? 70 : 80
                 });
             }
         }
@@ -12338,7 +13204,7 @@ if (!meta || isParentWorkspace) {
         }
 
         if (frame) {
-            frame.removeAttribute('src');
+            invalidateDashboardInlineFrameNavigation(frame, 'workspace-exit');
         }
     }
 
@@ -12763,115 +13629,6 @@ function dashboardResetWorkspaceFrameV68() {
     }
 }
 
-function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
-    const copy = getDashboardUnifiedWorkspaceCopy(key);
-    const cleanKey = String(copy.key || 'overview').trim().toLowerCase() || 'overview';
-    const cleanDivision = String(copy.division || 'overview').trim().toLowerCase() || 'overview';
-
-    const isOverview = cleanKey === 'overview';
-    const isAcademyParent = cleanKey === 'academy';
-    const isPlazasParent = cleanKey === 'plazas';
-    const isFederationParent = cleanKey === 'federation';
-    const isDivisionParent = isAcademyParent || isPlazasParent || isFederationParent;
-    const isChildWorkspace = typeof dashboardIsChildWorkspaceCleanV71 === 'function'
-        ? dashboardIsChildWorkspaceCleanV71(cleanKey)
-        : !(isOverview || isDivisionParent);
-
-    const setVisible = (node, visible, displayValue = '') => {
-        if (!node) return;
-
-        node.classList.toggle('hidden-step', !visible);
-        node.setAttribute('aria-hidden', visible ? 'false' : 'true');
-
-        if (visible) {
-            node.style.removeProperty('display');
-            if (displayValue) node.style.display = displayValue;
-            node.style.visibility = 'visible';
-            node.style.opacity = '1';
-            node.style.pointerEvents = 'auto';
-            return;
-        }
-
-        node.style.display = 'none';
-        node.style.visibility = 'hidden';
-        node.style.opacity = '0';
-        node.style.pointerEvents = 'none';
-    };
-
-    const commandHead = document.querySelector('.yh-command-dashboard-head');
-    const overviewGrid = document.getElementById('yh-command-overview-grid');
-    const dynamicAccessRow = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
-    const referralCard = document.getElementById('yh-universe-referral-card');
-
-    const parentIntro = document.getElementById('yh-dashboard-division-parent-intro-v1');
-    const academyHero = document.querySelector('.yh-academy-parent-hero-header');
-    const academyCommandHero = document.querySelector('.yh-universe-command-hero');
-    const universeStage = document.querySelector('.yh-universe-stage-nav');
-    const universeDots = document.querySelector('.yh-universe-dots');
-
-    const academyStrip = document.getElementById('yh-universe-academy-strip');
-    const plazaStrip = document.getElementById('yh-universe-plaza-strip');
-    const federationStrip = document.getElementById('yh-universe-federation-strip');
-    const oldCarousel = document.getElementById('yh-universe-carousel');
-    const oldCarouselColumn = document.querySelector('.yh-universe-carousel-column');
-
-    document.body?.setAttribute('data-yh-unified-workspace', cleanKey);
-    document.body?.setAttribute('data-yh-unified-division', cleanDivision);
-    document.body?.classList.toggle('yh-dashboard-child-workspace-active', isChildWorkspace);
-    document.body?.classList.toggle('yh-dashboard-overview-command-active-v1', isOverview);
-    document.body?.classList.toggle('yh-dashboard-parent-intro-active-v1', isDivisionParent);
-    document.body?.classList.remove('yh-dashboard-inline-child-active');
-
-    setVisible(commandHead, isOverview, 'grid');
-    setVisible(overviewGrid, false, 'grid');
-    setVisible(dynamicAccessRow, isOverview, 'grid');
-    setVisible(referralCard, isOverview, 'block');
-
-    setVisible(parentIntro, isDivisionParent, 'block');
-    setVisible(academyHero, isAcademyParent, 'block');
-    setVisible(academyCommandHero, isAcademyParent, 'grid');
-    setVisible(universeStage, isDivisionParent, 'block');
-    setVisible(universeDots, false, 'flex');
-
-    setVisible(academyStrip, isOverview, 'block');
-    setVisible(plazaStrip, false, 'block');
-    setVisible(federationStrip, false, 'block');
-    setVisible(oldCarousel, false, 'block');
-    setVisible(oldCarouselColumn, false, 'block');
-
-    if (academyStrip) academyStrip.classList.toggle('is-active', isOverview);
-    if (plazaStrip) plazaStrip.classList.remove('is-active');
-    if (federationStrip) federationStrip.classList.remove('is-active');
-
-    if (isOverview && referralCard && academyStrip && referralCard.nextElementSibling !== academyStrip) {
-        academyStrip.parentNode?.insertBefore(referralCard, academyStrip);
-    }
-
-    if (isDivisionParent && typeof setUniverseSlide === 'function') {
-        try {
-            setUniverseSlide(cleanDivision, { animate: false });
-        } catch (_) {}
-    }
-
-    if (!isChildWorkspace) {
-        if (typeof dashboardResetWorkspaceLaunchSurfaceCleanV71 === 'function') {
-            dashboardResetWorkspaceLaunchSurfaceCleanV71();
-        } else if (typeof dashboardResetWorkspaceFrameV68 === 'function') {
-            dashboardResetWorkspaceFrameV68();
-        }
-    }
-
-    if (isOverview && typeof window.yhRenderDashboardOverviewDynamicAccessRowV1 === 'function') {
-        try { window.yhRenderDashboardOverviewDynamicAccessRowV1(); } catch (_) {}
-    }
-
-    if (typeof window.yhDashboardApplyStateOwnerFinalV3 === 'function') {
-        try { window.yhDashboardApplyStateOwnerFinalV3(cleanKey); } catch (_) {}
-    }
-}
-
-
-
 
 function getDashboardEffectiveUnifiedWorkspaceKey(key = 'overview') {
     const cleanKey = String(key || 'overview').trim().toLowerCase();
@@ -13026,9 +13783,11 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     setVisible(referralCard, isOverview, 'block');
 
     setVisible(parentIntro, isDivisionParent, 'block');
-    setVisible(academyHero, isAcademyParent, 'block');
-    setVisible(academyCommandHero, isAcademyParent, 'grid');
-    setVisible(universeStage, isDivisionParent, 'block');
+
+    // The generated division intro is the only parent surface.
+    setVisible(academyHero, false, 'block');
+    setVisible(academyCommandHero, false, 'grid');
+    setVisible(universeStage, false, 'block');
     setVisible(universeDots, false, 'flex');
 
     setVisible(academyStrip, isOverview, 'block');
@@ -13045,12 +13804,6 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
         academyStrip.parentNode?.insertBefore(referralCard, academyStrip);
     }
 
-    if (isDivisionParent && typeof setUniverseSlide === 'function') {
-        try {
-            setUniverseSlide(cleanDivision, { animate: false });
-        } catch (_) {}
-    }
-
     if (!isChildWorkspace) {
         if (typeof dashboardResetWorkspaceLaunchSurfaceCleanV71 === 'function') {
             dashboardResetWorkspaceLaunchSurfaceCleanV71();
@@ -13060,13 +13813,34 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     }
 
     if (isOverview && typeof window.yhRenderDashboardOverviewDynamicAccessRowV1 === 'function') {
-        try { window.yhRenderDashboardOverviewDynamicAccessRowV1(); } catch (_) {}
-    }
-
-    if (typeof window.yhDashboardApplyStateOwnerFinalV3 === 'function') {
-        try { window.yhDashboardApplyStateOwnerFinalV3(cleanKey); } catch (_) {}
+        try {
+            window.yhRenderDashboardOverviewDynamicAccessRowV1();
+        } catch (_) {}
     }
 }
+
+function syncDashboardUnifiedWorkspaceDerivedSurfaces(key = 'overview', reason = 'activate') {
+    const cleanKey = String(key || 'overview').trim().toLowerCase() || 'overview';
+
+    try {
+        if (typeof window.yhSyncDashboardOverviewAndParentIntroV1 === 'function') {
+            window.yhSyncDashboardOverviewAndParentIntroV1(reason);
+        }
+    } catch (error) {
+        console.error('Dashboard parent intro sync failed:', error);
+    }
+
+    try {
+        if (typeof window.yhSyncDashboardOverviewCleanupDynamicAccessRowV1 === 'function') {
+            window.yhSyncDashboardOverviewCleanupDynamicAccessRowV1(reason);
+        }
+    } catch (error) {
+        console.error('Dashboard overview cleanup sync failed:', error);
+    }
+
+    document.body?.setAttribute('data-yh-unified-workspace', cleanKey);
+}
+
 
 function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
     const effectiveKey = getDashboardEffectiveUnifiedWorkspaceKey(key);
@@ -13075,9 +13849,13 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
     const shouldAnimate = options.animate !== false;
     const shouldPersist = options.persist !== false;
     const dashboardWorkspaceActivationSeq = Number(window.__yhDashboardWorkspaceActivationSeq || 0) + 1;
+
     window.__yhDashboardWorkspaceActivationSeq = dashboardWorkspaceActivationSeq;
 
-    startDashboardMobileWorkspaceStableBootV1(copy.key, copy.title || copy.headline || copy.key);
+    startDashboardMobileWorkspaceStableBootV1(
+        copy.key,
+        copy.title || copy.headline || copy.key
+    );
 
     if (
         document.body?.classList.contains('yh-profile-follow-freeze') &&
@@ -13094,6 +13872,7 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
     setDashboardSidebarActiveState(copy.key);
     setDashboardUnifiedShellText(copy.key);
     setDashboardUnifiedWorkspaceSurfaceState(copy.key);
+    syncDashboardUnifiedWorkspaceDerivedSurfaces(copy.key, 'activate');
 
     if (copy.key !== 'overview' && copy.division !== 'resources') {
         setUniverseSlide(copy.division, { animate: shouldAnimate });
@@ -13109,47 +13888,49 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
 
     refreshDashboardUnifiedInlineWorkspaceState(copy.key)
         .then(() => {
-            if (window.__yhDashboardWorkspaceActivationSeq !== dashboardWorkspaceActivationSeq) return;
+            if (
+                window.__yhDashboardWorkspaceActivationSeq !==
+                dashboardWorkspaceActivationSeq
+            ) {
+                return;
+            }
 
             setDashboardUnifiedWorkspaceSurfaceState(copy.key);
+            syncDashboardUnifiedWorkspaceDerivedSurfaces(
+                copy.key,
+                'access-refresh'
+            );
 
             if (dashboardIsChildWorkspaceCleanV71(copy.key)) {
                 setDashboardUnifiedWorkspaceLauncher(copy.key);
             }
         })
         .catch((error) => {
-            if (window.__yhDashboardWorkspaceActivationSeq !== dashboardWorkspaceActivationSeq) return;
+            if (
+                window.__yhDashboardWorkspaceActivationSeq !==
+                dashboardWorkspaceActivationSeq
+            ) {
+                return;
+            }
 
             console.error('Dashboard inline workspace refresh failed:', error);
+
             setDashboardUnifiedWorkspaceSurfaceState(copy.key);
+            syncDashboardUnifiedWorkspaceDerivedSurfaces(
+                copy.key,
+                'access-refresh-error'
+            );
 
             if (dashboardIsChildWorkspaceCleanV71(copy.key)) {
                 setDashboardUnifiedWorkspaceLauncher(copy.key);
             }
         });
 
-    window.setTimeout(() => {
-        if (window.__yhDashboardWorkspaceActivationSeq !== dashboardWorkspaceActivationSeq) return;
-
-        setDashboardUnifiedWorkspaceSurfaceState(copy.key);
-
-        if (dashboardIsChildWorkspaceCleanV71(copy.key)) {
-            setDashboardUnifiedWorkspaceLauncher(copy.key);
-        }
-    }, 90);
-
-    window.setTimeout(() => {
-        if (window.__yhDashboardWorkspaceActivationSeq !== dashboardWorkspaceActivationSeq) return;
-
-        setDashboardUnifiedWorkspaceSurfaceState(copy.key);
-
-        if (dashboardIsChildWorkspaceCleanV71(copy.key)) {
-            setDashboardUnifiedWorkspaceLauncher(copy.key);
-        }
-    }, 420);
-
     if (!dashboardIsChildWorkspaceCleanV71(copy.key)) {
-        scheduleDashboardMobileWorkspaceStableBootReleaseV1('parent-workspace-ready', copy.key === 'overview' ? 120 : 220);
+        scheduleDashboardMobileWorkspaceStableBootReleaseV1(
+            'parent-workspace-ready',
+            copy.key === 'overview' ? 120 : 220
+        );
     }
 
     if (shouldScroll) {
@@ -13218,12 +13999,26 @@ function bootDashboardUnifiedSidebarWorkspace() {
         const shellButton = event.target.closest('.yh-sidebar-command-link');
         if (!shellButton || !sidebar.contains(shellButton)) return;
 
-        const shellKey = resolveSidebarShellKeyV195(shellButton);
+        const shellKey =
+            resolveSidebarShellKeyV195(shellButton);
+
         if (!shellKey) return;
+
+        if (shellKey === 'plazas') {
+            handleDashboardPlazaAccessIntent(
+                event,
+                'plazas'
+            );
+
+            return;
+        }
 
         event.preventDefault();
 
-        const sidebarDivision = normalizeDashboardSidebarToggleDivisionV190(shellKey);
+        const sidebarDivision =
+            normalizeDashboardSidebarToggleDivisionV190(
+                shellKey
+            );
 
         if (sidebarDivision) {
             const group = shellButton.closest('.yh-sidebar-division-group[data-yh-sidebar-division]');
@@ -13866,11 +14661,14 @@ document.querySelectorAll('.yh-universe-slide .portal-card').forEach((card) => {
     });
 });
 
-document.getElementById('btn-open-plazas-preview')?.addEventListener('click', (event) => {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-    activateDashboardUnifiedWorkspace('plazas-feed', { animate: false, scroll: true, persist: true });
-});
+document
+    .getElementById('btn-open-plazas-preview')
+    ?.addEventListener('click', (event) => {
+        handleDashboardPlazaAccessIntent(
+            event,
+            'plazas-feed'
+        );
+    });
 
 document.getElementById('btn-close-plaza-apply')?.addEventListener('click', () => {
     closePlazaApplicationModal();
@@ -33901,6 +34699,28 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         return pendingStatuses.has(normalized) || pendingStatuses.has(normalized.replace(/_/g, ' '));
     }
 
+    function resolveDivisionWorkspaceIntent(division, event) {
+        const trigger = event?.target?.closest?.(
+            '[data-yh-sidebar-child], [data-yh-dashboard-shell], #btn-open-plazas-preview, .yh-plaza-gate-btn, button, a'
+        );
+
+        if (division !== 'plazas') return '';
+
+        const childKey = String(
+            trigger?.getAttribute?.('data-yh-sidebar-child') || ''
+        ).trim().toLowerCase();
+
+        if (childKey.startsWith('plazas-')) return childKey;
+
+        const parentKey = String(
+            trigger?.getAttribute?.('data-yh-dashboard-shell') || ''
+        ).trim().toLowerCase();
+
+        if (parentKey === 'plazas') return 'plazas';
+
+        return 'plazas-feed';
+    }
+
     function redirectDivision(division) {
         if (division === 'academy') {
             window.location.href = '/academy';
@@ -33986,9 +34806,16 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         }
 
         if (division === 'plazas') {
-            const data = await getJson('/api/plaza/application-status');
-            const application = data?.application && typeof data.application === 'object' ? data.application : null;
+            const data = typeof refreshPlazaAccessStatusFromBackend === 'function'
+                ? await refreshPlazaAccessStatusFromBackend(true)
+                : await getJson('/api/plaza/application-status');
+
+            const application = data?.application && typeof data.application === 'object'
+                ? data.application
+                : null;
+
             const status = data?.applicationStatus || data?.status || application?.status || '';
+
             return {
                 canEnter: data?.canEnterPlaza === true || isApprovedStatus(status),
                 hasApplication: data?.hasApplication === true || Boolean(application) || Boolean(status),
@@ -34019,8 +34846,16 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         event?.stopPropagation?.();
         event?.stopImmediatePropagation?.();
 
-        const target = event?.target?.closest?.('button, .academy-entry-button-shell, a') || null;
-        const originalText = target && target.tagName === 'BUTTON' ? target.textContent : '';
+        const target =
+            event?.target?.closest?.(
+                'button, .academy-entry-button-shell, a'
+            ) || null;
+
+        const requestedWorkspace =
+            resolveDivisionWorkspaceIntent(
+                division,
+                event
+            );
 
         if (target && target.tagName === 'BUTTON') {
             target.disabled = true;
@@ -34031,6 +34866,19 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
             const snapshot = await getDivisionSnapshot(division);
 
             if (snapshot.canEnter) {
+                if (
+                    division === 'plazas' &&
+                    requestedWorkspace &&
+                    typeof activateDashboardUnifiedWorkspace === 'function'
+                ) {
+                    activateDashboardUnifiedWorkspace(requestedWorkspace, {
+                        animate: false,
+                        scroll: true,
+                        persist: true
+                    });
+                    return;
+                }
+
                 redirectDivision(division);
                 return;
             }
@@ -34042,6 +34890,21 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
                         ? 'Federation'
                         : 'Academy';
 
+                if (
+                    division === 'plazas' &&
+                    typeof activateDashboardUnifiedWorkspace === 'function'
+                ) {
+                    const statusWorkspace = requestedWorkspace.startsWith('plazas-')
+                        ? requestedWorkspace
+                        : 'plazas-feed';
+
+                    activateDashboardUnifiedWorkspace(statusWorkspace, {
+                        animate: false,
+                        scroll: true,
+                        persist: true
+                    });
+                }
+
                 toast(`Your ${label} application is still in review.`, 'error');
                 return;
             }
@@ -34050,22 +34913,39 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
                 toast('Application form is not available on this Dashboard. Refresh and try again.', 'error');
             }
         } catch (error) {
+            if (division === 'plazas') {
+                toast(
+                    error?.message || 'Could not verify your Plazas application status. Refresh and try again.',
+                    'error'
+                );
+                return;
+            }
+
             if (!openDivisionApplication(division)) {
                 toast(error?.message || 'Could not open application form.', 'error');
             }
         } finally {
-            if (target && target.tagName === 'BUTTON') {
+            if (
+                target &&
+                target.tagName === 'BUTTON'
+            ) {
                 target.disabled = false;
-                target.removeAttribute('aria-disabled');
-                if (originalText) target.textContent = originalText;
+                target.removeAttribute(
+                    'aria-disabled'
+                );
             }
         }
     }
 
     const divisionSelectors = [
-        ['academy', '#btn-open-academy-apply, .academy-entry-button-shell'],
-        ['plazas', '#btn-open-plazas-preview, .yh-plaza-gate-btn'],
-        ['federation', '#btn-open-federation-preview, #btn-open-federation-application-from-lock, .yh-federation-gate-btn']
+        [
+            'academy',
+            '#btn-open-academy-apply, .academy-entry-button-shell'
+        ],
+        [
+            'federation',
+            '#btn-open-federation-preview, #btn-open-federation-application-from-lock, .yh-federation-gate-btn'
+        ]
     ];
 
     document.addEventListener('click', (event) => {
@@ -34082,575 +34962,6 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
     };
 })();
 /* END PATCH: Dashboard division application modal safety v1 */
-
-
-/* PATCH: Force Dashboard Plazas application renderer v1 */
-(function installYHForceDashboardPlazaApplicationRendererV1() {
-    if (window.__yhForceDashboardPlazaApplicationRendererV1Installed) return;
-    window.__yhForceDashboardPlazaApplicationRendererV1Installed = true;
-
-    function isPlazaModalOpen() {
-        const modal = document.getElementById('plaza-apply-modal');
-        return Boolean(modal && !modal.classList.contains('hidden-step'));
-    }
-
-    function plazaFormIsRendered() {
-        return Boolean(document.getElementById('form-plaza-apply'));
-    }
-
-    function plazaModalStillPlaceholder() {
-        const modal = document.getElementById('plaza-apply-modal');
-        if (!modal) return false;
-
-        const text = String(modal.textContent || '').toLowerCase();
-        return text.includes('preparing application') || text.includes('dynamic plazas questions will load here');
-    }
-
-    function forceRenderDashboardPlazaApplicationFormV1(reason = 'manual') {
-        const modal = document.getElementById('plaza-apply-modal');
-        const card = modal?.querySelector?.('.modal-content');
-
-        if (!modal || !card) return false;
-        if (plazaFormIsRendered() && !plazaModalStillPlaceholder()) return true;
-
-        if (typeof renderDashboardPlazaApplicationForm !== 'function') {
-            console.warn('Plaza application renderer is not available yet:', reason);
-            return false;
-        }
-
-        try {
-            renderDashboardPlazaApplicationForm();
-
-            modal.classList.remove('hidden-step');
-            modal.classList.add('yh-dashboard-division-apply-modal');
-            card.classList.add('yh-dashboard-division-apply-card');
-            document.body?.classList.add('plaza-application-open');
-
-            if (typeof prefillDashboardPlazaApplicationFromAcademy === 'function') {
-                prefillDashboardPlazaApplicationFromAcademy();
-            }
-
-            let restoredDraft = false;
-            if (typeof restoreDashboardPlazaApplicationDraft === 'function') {
-                restoredDraft = restoreDashboardPlazaApplicationDraft();
-            }
-
-            if (!restoredDraft && typeof resetDashboardPlazaApplicationFlow === 'function') {
-                resetDashboardPlazaApplicationFlow();
-            }
-
-            if (typeof syncDashboardPlazaApplicationLabels === 'function') {
-                syncDashboardPlazaApplicationLabels();
-            }
-
-            if (typeof syncDashboardPlazaProgress === 'function') {
-                syncDashboardPlazaProgress(
-                    typeof dashboardPlazaApplicationCurrentStep !== 'undefined'
-                        ? dashboardPlazaApplicationCurrentStep
-                        : 'membershipType'
-                );
-            }
-
-            if (typeof bindDashboardPlazaApplicationFormEvents === 'function') {
-                bindDashboardPlazaApplicationFormEvents();
-            }
-
-            return plazaFormIsRendered();
-        } catch (error) {
-            console.error('forceRenderDashboardPlazaApplicationFormV1 error:', error);
-            return false;
-        }
-    }
-
-    function schedulePlazaRenderChecks(reason = 'open') {
-        [0, 40, 120, 260, 520, 900, 1400].forEach((delay) => {
-            window.setTimeout(() => {
-                if (!isPlazaModalOpen()) return;
-                if (plazaFormIsRendered() && !plazaModalStillPlaceholder()) return;
-                forceRenderDashboardPlazaApplicationFormV1(reason + '-' + delay);
-            }, delay);
-        });
-    }
-
-    document.addEventListener('click', (event) => {
-        if (
-            event.target?.closest?.('#btn-open-plazas-preview, .yh-plaza-gate-btn, [data-yh-dashboard-shell="plazas"]')
-        ) {
-            schedulePlazaRenderChecks('plaza-click');
-        }
-    }, true);
-
-    const observer = new MutationObserver(() => {
-        if (!isPlazaModalOpen()) return;
-        if (plazaFormIsRendered() && !plazaModalStillPlaceholder()) return;
-        schedulePlazaRenderChecks('plaza-modal-mutation');
-    });
-
-    try {
-        observer.observe(document.documentElement, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['class', 'hidden', 'style']
-        });
-    } catch (_) {}
-
-    window.yhForceRenderDashboardPlazaApplicationFormV1 = forceRenderDashboardPlazaApplicationFormV1;
-})();
-/* END PATCH: Force Dashboard Plazas application renderer v1 */
-
-
-/* PATCH: Dashboard Plazas static application controller v1 */
-(function installYHDashboardPlazasStaticApplicationControllerV1() {
-    if (window.__yhDashboardPlazasStaticApplicationControllerV1Installed) return;
-    window.__yhDashboardPlazasStaticApplicationControllerV1Installed = true;
-
-    const STEPS = [
-        'membershipType',
-        'email',
-        'fullName',
-        'age',
-        'currentProject',
-        'resourcesNeeded',
-        'joinedAt',
-        'learntSoFar',
-        'contribution',
-        'plazaIntent',
-        'finalReview'
-    ];
-
-    const DRAFT_KEY = 'yh_dashboard_plaza_application_draft_v1';
-
-    function $(id) {
-        return document.getElementById(id);
-    }
-
-    function clean(value = '') {
-        return String(value || '').trim();
-    }
-
-    function getStoredToken() {
-        try {
-            return (
-                sessionStorage.getItem('yh_token') ||
-                localStorage.getItem('yh_token') ||
-                sessionStorage.getItem('token') ||
-                localStorage.getItem('token') ||
-                ''
-            ).trim();
-        } catch (_) {
-            return '';
-        }
-    }
-
-    function toast(message, type = 'success') {
-        if (typeof showToast === 'function') {
-            showToast(message, type);
-            return;
-        }
-        console[type === 'error' ? 'warn' : 'log'](message);
-    }
-
-    function getModal() {
-        return $('plaza-apply-modal');
-    }
-
-    function getForm() {
-        return $('form-plaza-apply');
-    }
-
-    function getActiveStepKey() {
-        const active = document.querySelector('#form-plaza-apply .yh-dashboard-plaza-step:not([hidden])');
-        return active?.dataset?.dashboardPlazaStep || STEPS[0];
-    }
-
-    function setProgress(stepKey) {
-        const index = Math.max(0, STEPS.indexOf(stepKey));
-        const text = $('dashboardPlazaProgressText');
-        const bar = $('dashboardPlazaProgressBar');
-        const pct = Math.round(((index + 1) / STEPS.length) * 100);
-
-        if (text) text.textContent = `Question ${index + 1} of ${STEPS.length}`;
-        if (bar) bar.style.width = `${pct}%`;
-    }
-
-    function setStep(stepKey) {
-        const safeKey = STEPS.includes(stepKey) ? stepKey : STEPS[0];
-
-        document.querySelectorAll('#form-plaza-apply .yh-dashboard-plaza-step').forEach((step) => {
-            step.hidden = step.dataset.dashboardPlazaStep !== safeKey;
-        });
-
-        setProgress(safeKey);
-        writeDraft();
-
-        window.setTimeout(() => {
-            const activeStep = document.querySelector(`#form-plaza-apply .yh-dashboard-plaza-step[data-dashboard-plaza-step="${safeKey}"]`);
-            const field = activeStep?.querySelector?.('input, select, textarea, button');
-            field?.focus?.();
-        }, 30);
-    }
-
-    function validateStep(stepKey) {
-        const step = document.querySelector(`#form-plaza-apply .yh-dashboard-plaza-step[data-dashboard-plaza-step="${stepKey}"]`);
-        if (!step) return true;
-
-        const fields = Array.from(step.querySelectorAll('input, select, textarea'))
-            .filter((field) => !field.disabled && field.offsetParent !== null);
-
-        for (const field of fields) {
-            if (field.required) {
-                if (field.type === 'checkbox' && !field.checked) {
-                    field.focus?.();
-                    toast('Please complete the required confirmation.', 'error');
-                    return false;
-                }
-
-                if (field.type !== 'checkbox' && !clean(field.value)) {
-                    field.focus?.();
-                    toast('Please complete this question before continuing.', 'error');
-                    return false;
-                }
-            }
-        }
-
-        if (stepKey === 'membershipType' && $('plazaAppMembershipType')?.value === 'not_yet') {
-            toast('Only Academy, Federation, or direct high-value strategic applicants can apply for Plaza access.', 'error');
-            return false;
-        }
-
-        return true;
-    }
-
-    function nextStep() {
-        const current = getActiveStepKey();
-
-        if (!validateStep(current)) return;
-
-        const index = STEPS.indexOf(current);
-        setStep(STEPS[Math.min(STEPS.length - 1, index + 1)]);
-    }
-
-    function applyMembershipLabels() {
-        const membership = $('plazaAppMembershipType')?.value || '';
-
-        const labels = {
-            academy: {
-                joined: '7. When did you join The Academy approximately?',
-                learnt: '8. What have you learnt so far in The Academy?',
-                contribution: '9. What can you contribute as an Academy member?'
-            },
-            federation: {
-                joined: '7. When did you join The Federation approximately?',
-                learnt: '8. What have you learnt so far in The Federation?',
-                contribution: '9. What can you contribute as a Federation member?'
-            },
-            direct_strategic: {
-                joined: '7. What is your current professional or strategic background?',
-                learnt: '8. What proof, experience, audience, capital, network, or access do you already have?',
-                contribution: '9. What high-value contribution can you bring into the Plazas?'
-            }
-        };
-
-        const selected = labels[membership] || {
-            joined: '7. When did you join or discover Young Hustlers?',
-            learnt: '8. What have you learnt so far from Young Hustlers?',
-            contribution: '9. What can you contribute to the Plazas?'
-        };
-
-        if ($('plazaAppJoinedLabel')) $('plazaAppJoinedLabel').textContent = selected.joined;
-        if ($('plazaAppLearntLabel')) $('plazaAppLearntLabel').textContent = selected.learnt;
-        if ($('plazaAppContributionLabel')) $('plazaAppContributionLabel').textContent = selected.contribution;
-    }
-
-    function readValue(id) {
-        return clean($(id)?.value || '');
-    }
-
-    function buildPayload() {
-        const now = new Date().toISOString();
-
-        return {
-            schemaVersion: 'plaza-dashboard-static-form-v1',
-            source: 'dashboard_static_form',
-            membershipType: readValue('plazaAppMembershipType'),
-            email: readValue('plazaAppEmail'),
-            fullName: readValue('plazaAppFullName'),
-            age: readValue('plazaAppAge'),
-            currentProject: readValue('plazaAppCurrentProject'),
-            resourcesNeeded: readValue('plazaAppResourcesNeeded'),
-            joinedAt: readValue('plazaAppJoinedAt'),
-            learntSoFar: readValue('plazaAppLearntSoFar'),
-            contribution: readValue('plazaAppContribution'),
-            wantsPatron: readValue('plazaAppWantsPatron'),
-            wantsMarketplace: readValue('plazaAppWantsMarketplace'),
-            country: readValue('plazaAppCountry'),
-            referredBy: readValue('plazaAppReferredBy'),
-            howHeard: readValue('plazaAppHowHeard'),
-            status: 'Under Review',
-            submittedAt: now,
-            updatedAt: now
-        };
-    }
-
-    function prefillIdentity() {
-        const name =
-            localStorage.getItem('yh_user_name') ||
-            localStorage.getItem('yh_user_full_name') ||
-            sessionStorage.getItem('yh_user_name') ||
-            '';
-
-        const email =
-            localStorage.getItem('yh_user_email') ||
-            sessionStorage.getItem('yh_user_email') ||
-            '';
-
-        const country =
-            localStorage.getItem('yh_user_country') ||
-            sessionStorage.getItem('yh_user_country') ||
-            '';
-
-        if ($('plazaAppFullName') && !$('plazaAppFullName').value) $('plazaAppFullName').value = clean(name);
-        if ($('plazaAppEmail') && !$('plazaAppEmail').value) $('plazaAppEmail').value = clean(email);
-        if ($('plazaAppCountry') && !$('plazaAppCountry').value) $('plazaAppCountry').value = clean(country);
-    }
-
-    function writeDraft() {
-        const form = getForm();
-        if (!form) return;
-
-        try {
-            localStorage.setItem(DRAFT_KEY, JSON.stringify({
-                activeStep: getActiveStepKey(),
-                payload: buildPayload(),
-                declaration: $('plazaAppDeclaration')?.checked === true,
-                savedAt: new Date().toISOString()
-            }));
-        } catch (_) {}
-    }
-
-    function restoreDraft() {
-        let parsed = null;
-
-        try {
-            parsed = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
-        } catch (_) {
-            parsed = null;
-        }
-
-        if (!parsed || typeof parsed !== 'object') return false;
-
-        const payload = parsed.payload && typeof parsed.payload === 'object' ? parsed.payload : {};
-
-        const map = {
-            plazaAppMembershipType: payload.membershipType,
-            plazaAppEmail: payload.email,
-            plazaAppFullName: payload.fullName,
-            plazaAppAge: payload.age,
-            plazaAppCurrentProject: payload.currentProject,
-            plazaAppResourcesNeeded: payload.resourcesNeeded,
-            plazaAppJoinedAt: payload.joinedAt,
-            plazaAppLearntSoFar: payload.learntSoFar,
-            plazaAppContribution: payload.contribution,
-            plazaAppWantsPatron: payload.wantsPatron,
-            plazaAppWantsMarketplace: payload.wantsMarketplace,
-            plazaAppCountry: payload.country,
-            plazaAppReferredBy: payload.referredBy,
-            plazaAppHowHeard: payload.howHeard
-        };
-
-        Object.entries(map).forEach(([id, value]) => {
-            const field = $(id);
-            if (field && clean(value)) field.value = value;
-        });
-
-        if ($('plazaAppDeclaration')) {
-            $('plazaAppDeclaration').checked = parsed.declaration === true;
-        }
-
-        applyMembershipLabels();
-        setStep(STEPS.includes(parsed.activeStep) ? parsed.activeStep : STEPS[0]);
-        return true;
-    }
-
-    async function submitForm(event) {
-        event.preventDefault();
-
-        if (!validateStep(getActiveStepKey())) return;
-
-        const submitBtn = $('btn-submit-plaza-application');
-        const originalText = submitBtn?.textContent || 'Submit Plaza Application ➔';
-
-        try {
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Submitting...';
-            }
-
-            const token = getStoredToken();
-            const headers = {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            };
-
-            if (token) headers.Authorization = `Bearer ${token}`;
-
-            const response = await fetch('/api/plaza/application', {
-                method: 'POST',
-                credentials: 'include',
-                headers,
-                body: JSON.stringify(buildPayload())
-            });
-
-            const text = await response.text();
-            let result = {};
-
-            try {
-                result = text ? JSON.parse(text) : {};
-            } catch (_) {
-                result = {};
-            }
-
-            if (!response.ok || result?.success === false) {
-                throw new Error(result?.message || 'Failed to submit Plaza application.');
-            }
-
-            localStorage.removeItem(DRAFT_KEY);
-
-            try {
-                localStorage.setItem('yh_plaza_access_status_v1', JSON.stringify({
-                    hasApplication: true,
-                    canEnterPlaza: result?.canEnterPlaza === true,
-                    applicationStatus: result?.applicationStatus || 'Under Review',
-                    application: result?.application || buildPayload(),
-                    updatedAt: new Date().toISOString()
-                }));
-            } catch (_) {}
-
-            closeModal({ preserveDraft: false });
-            toast('Plaza application submitted. Admin approval is required before entry.', 'success');
-
-            if (typeof syncPlazaEntryButton === 'function' && typeof getPlazaAccessSnapshot === 'function') {
-                syncPlazaEntryButton(getPlazaAccessSnapshot());
-            }
-        } catch (error) {
-            console.error('Dashboard static Plaza application submit error:', error);
-            toast(error?.message || 'Failed to submit Plaza application.', 'error');
-        } finally {
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
-            }
-        }
-    }
-
-    function openModal() {
-        const modal = getModal();
-        const form = getForm();
-
-        if (!modal || !form) {
-            toast('Plazas application form is missing from the Dashboard.', 'error');
-            return false;
-        }
-
-        modal.classList.remove('hidden-step');
-        modal.classList.add('yh-dashboard-division-apply-modal');
-        modal.querySelector('.modal-content')?.classList.add('yh-dashboard-division-apply-card');
-        document.body?.classList.add('plaza-application-open');
-
-        prefillIdentity();
-
-        if (!restoreDraft()) {
-            applyMembershipLabels();
-            setStep(STEPS[0]);
-        }
-
-        return true;
-    }
-
-    function closeModal(options = {}) {
-        const modal = getModal();
-        if (!modal) return;
-
-        if (options.preserveDraft !== false) {
-            writeDraft();
-        }
-
-        modal.classList.add('hidden-step');
-        document.body?.classList.remove('plaza-application-open');
-    }
-
-    function bindForm() {
-        const form = getForm();
-        if (!form || form.dataset.staticPlazaBound === 'true') return;
-
-        form.dataset.staticPlazaBound = 'true';
-
-        form.addEventListener('click', (event) => {
-            if (event.target?.closest?.('[data-dashboard-plaza-next]')) {
-                event.preventDefault();
-                nextStep();
-            }
-        });
-
-        form.addEventListener('input', (event) => {
-            if (event.target?.id === 'plazaAppMembershipType') {
-                applyMembershipLabels();
-            }
-            writeDraft();
-        });
-
-        form.addEventListener('change', (event) => {
-            if (event.target?.id === 'plazaAppMembershipType') {
-                applyMembershipLabels();
-            }
-            writeDraft();
-        });
-
-        form.addEventListener('submit', submitForm);
-
-        $('btn-close-plaza-apply')?.addEventListener('click', () => closeModal());
-        $('btn-cancel-plaza-apply')?.addEventListener('click', () => closeModal());
-
-        getModal()?.addEventListener('click', (event) => {
-            if (event.target === getModal()) closeModal();
-        });
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        bindForm();
-        prefillIdentity();
-        applyMembershipLabels();
-        setStep(STEPS[0]);
-    });
-
-    if (document.readyState !== 'loading') {
-        bindForm();
-        prefillIdentity();
-        applyMembershipLabels();
-        setStep(STEPS[0]);
-    }
-
-    document.addEventListener('click', (event) => {
-        const trigger = event.target?.closest?.('#btn-open-plazas-preview, .yh-plaza-gate-btn');
-
-        if (!trigger) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation?.();
-
-        bindForm();
-        openModal();
-    }, true);
-
-    window.yhOpenDashboardStaticPlazaApplicationFormV1 = openModal;
-    window.openPlazaApplicationModal = async function patchedOpenPlazaApplicationModalV1() {
-        bindForm();
-        openModal();
-    };
-})();
-/* END PATCH: Dashboard Plazas static application controller v1 */
 
 
 /* PATCH: Dashboard edit profile persistent field hydration v1 */
@@ -34758,232 +35069,6 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
     }
 })();
 /* END PATCH: Dashboard edit profile persistent field hydration v1 */
-
-
-/* PATCH: Dashboard-only division parent routing v1 */
-(function installDashboardOnlyDivisionParentRoutingV1() {
-    if (window.__yhDashboardOnlyDivisionParentRoutingV1Installed) return;
-    window.__yhDashboardOnlyDivisionParentRoutingV1Installed = true;
-
-    const PARENT_KEYS = new Set(['academy', 'plazas', 'federation']);
-
-    function isDashboardShell() {
-        const path = String(window.location.pathname || '').replace(/\/+$/, '');
-        return (
-            path === '/dashboard' ||
-            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
-            document.body?.getAttribute('data-yh-view') === 'hub'
-        );
-    }
-
-    function normalizeDashboardOnlyParentKey(key = '') {
-        const clean = String(key || '').trim().toLowerCase();
-
-        if (clean === 'academy') return 'academy';
-        if (clean === 'plazas') return 'plazas';
-        if (clean === 'plaza') return 'plazas';
-        if (clean === 'federation') return 'federation';
-
-        if (clean === 'plazas-feed-parent') return 'plazas';
-        if (clean === 'federation-command-parent') return 'federation';
-
-        return clean;
-    }
-
-    function routeStandaloneUrlToDashboardWorkspace(url = '') {
-        const raw = String(url || '').trim();
-        if (!raw) return '';
-
-        let parsed = null;
-
-        try {
-            parsed = new URL(raw, window.location.origin);
-        } catch (_) {
-            return '';
-        }
-
-        const path = String(parsed.pathname || '').replace(/\/+$/, '').toLowerCase();
-        const hash = String(parsed.hash || '').replace(/^#/, '').trim().toLowerCase();
-        const tab = String(parsed.searchParams.get('tab') || parsed.searchParams.get('section') || '').trim().toLowerCase();
-
-        if (path === '/academy') {
-            if (tab === 'roadmap' || tab === 'home' || tab === 'missions') return 'academy-roadmap';
-            if (tab === 'lead-missions') return 'academy-missions';
-            if (tab === 'community') return 'academy-community';
-            if (tab === 'messages') return 'academy-messages';
-            if (tab === 'voice') return 'academy-voice';
-            if (tab === 'profile') return 'academy-profile';
-            return 'academy';
-        }
-
-        if (path === '/plaza' || path === '/plaza.html') {
-            if (tab === 'inbox') return 'plazas-inbox';
-            if (tab === 'messages' || tab === 'conversations') return 'plazas-conversations';
-            if (tab === 'meetups') return 'plazas-meetups';
-            if (tab === 'opportunities') return 'plazas-opportunities';
-            if (tab === 'directory') return 'plazas-directory';
-            if (tab === 'regions') return 'plazas-regions';
-            if (tab === 'atlas') return 'plazas-atlas';
-            if (tab === 'patron') return 'plazas-patron';
-            if (tab === 'bridge') return 'plazas-bridge';
-            if (tab === 'requests') return 'plazas-requests';
-            if (tab === 'feed') return 'plazas-feed';
-            return 'plazas';
-        }
-
-        if (path === '/federation' || path === '/federation.html') {
-            const target = tab || hash;
-
-            if (target === 'connect') return 'federation-connect';
-            if (target === 'deal-rooms') return 'federation-deal-rooms';
-            if (target === 'directory') return 'federation-directory';
-            if (target === 'requests' || target === 'my-requests') return 'federation-requests';
-            if (target === 'referrals') return 'federation-referrals';
-            if (target === 'status' || target === 'access' || target === 'my-access') return 'federation-access';
-            if (target === 'command') return 'federation-command';
-            return 'federation';
-        }
-
-        return '';
-    }
-
-    function openDashboardOnlyWorkspace(key = '', options = {}) {
-        const normalized = normalizeDashboardOnlyParentKey(key);
-        if (!normalized) return false;
-
-        if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
-            window.activateDashboardUnifiedWorkspace(normalized, {
-                animate: false,
-                scroll: options.scroll !== false,
-                persist: options.persist !== false
-            });
-            return true;
-        }
-
-        return false;
-    }
-
-    const nativeActivate = window.activateDashboardUnifiedWorkspace;
-
-    if (typeof nativeActivate === 'function' && nativeActivate.__yhDashboardOnlyParentWrappedV1 !== true) {
-        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspaceV1(key = 'overview', options = {}) {
-            const normalized = normalizeDashboardOnlyParentKey(key);
-            return nativeActivate.call(this, normalized, options);
-        };
-
-        wrappedActivateDashboardUnifiedWorkspace.__yhDashboardOnlyParentWrappedV1 = true;
-        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
-    }
-
-    document.addEventListener('click', (event) => {
-        if (!isDashboardShell()) return;
-
-        const directWorkspaceTarget = event.target?.closest?.('[data-yh-dashboard-shell], [data-yh-command-overview-open], [data-yh-sidebar-child]');
-        if (directWorkspaceTarget) {
-            const rawKey =
-                directWorkspaceTarget.getAttribute('data-yh-dashboard-shell') ||
-                directWorkspaceTarget.getAttribute('data-yh-command-overview-open') ||
-                directWorkspaceTarget.getAttribute('data-yh-sidebar-child') ||
-                '';
-
-            const normalizedKey = normalizeDashboardOnlyParentKey(rawKey);
-
-            if (PARENT_KEYS.has(normalizedKey)) {
-                event.preventDefault();
-                event.stopPropagation();
-                openDashboardOnlyWorkspace(normalizedKey, { scroll: true, persist: true });
-                return;
-            }
-        }
-
-        const link = event.target?.closest?.('a[href]');
-        if (!link) return;
-
-        const workspaceKey = routeStandaloneUrlToDashboardWorkspace(link.getAttribute('href') || '');
-        if (!workspaceKey) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        openDashboardOnlyWorkspace(workspaceKey, { scroll: true, persist: true });
-    }, true);
-
-    document.addEventListener('submit', (event) => {
-        if (!isDashboardShell()) return;
-
-        const form = event.target;
-        if (!(form instanceof HTMLFormElement)) return;
-
-        const workspaceKey = routeStandaloneUrlToDashboardWorkspace(form.getAttribute('action') || '');
-        if (!workspaceKey) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        openDashboardOnlyWorkspace(workspaceKey, { scroll: true, persist: true });
-    }, true);
-
-    function normalizeEntryButtons() {
-        if (!isDashboardShell()) return;
-
-        const parentMap = {
-            'btn-open-academy-preview': 'academy',
-            'btn-dashboard-enter-academy': 'academy',
-            'btn-open-plazas-preview': 'plazas',
-            'btn-dashboard-enter-plazas': 'plazas',
-            'btn-open-federation-preview': 'federation',
-            'btn-dashboard-enter-federation': 'federation'
-        };
-
-        Object.keys(parentMap).forEach((id) => {
-            const button = document.getElementById(id);
-            if (!button || button.dataset.yhDashboardOnlyParentBoundV1 === 'true') return;
-
-            button.dataset.yhDashboardOnlyParentBoundV1 = 'true';
-            button.dataset.yhDashboardShell = parentMap[id];
-
-            button.addEventListener('click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                openDashboardOnlyWorkspace(parentMap[id], { scroll: true, persist: true });
-            }, true);
-        });
-    }
-
-    function normalizeParentStateFromForcedChild() {
-        if (!isDashboardShell()) return;
-
-        const current = String(document.body?.getAttribute('data-yh-unified-workspace') || '').trim().toLowerCase();
-
-        if (current === 'plazas-feed' && sessionStorage.getItem('yh_dashboard_force_plazas_child_v1') !== '1') {
-            openDashboardOnlyWorkspace('plazas', { scroll: false, persist: true });
-            return;
-        }
-
-        if (current === 'federation-command' && sessionStorage.getItem('yh_dashboard_force_federation_child_v1') !== '1') {
-            openDashboardOnlyWorkspace('federation', { scroll: false, persist: true });
-        }
-    }
-
-    window.yhNormalizeDashboardEntryButtonsParentOnlyV1 = normalizeEntryButtons;
-    window.yhNormalizeDashboardParentStateV1 = normalizeParentStateFromForcedChild;
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            normalizeEntryButtons();
-            window.setTimeout(normalizeParentStateFromForcedChild, 180);
-        });
-    } else {
-        normalizeEntryButtons();
-        window.setTimeout(normalizeParentStateFromForcedChild, 180);
-    }
-
-    [80, 240, 700, 1400, 2600].forEach((delay) => {
-        window.setTimeout(() => {
-            normalizeEntryButtons();
-            normalizeParentStateFromForcedChild();
-        }, delay);
-    });
-})();
-/* END PATCH: Dashboard-only division parent routing v1 */
 
 
 /* PATCH: Dashboard division parent intros v1 */
@@ -35280,72 +35365,17 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
             } catch (_) {}
         }
 
-        try {
-            if (typeof window.yhNormalizeDashboardEntryButtonsParentOnlyV1 === 'function') {
-                window.yhNormalizeDashboardEntryButtonsParentOnlyV1();
-            }
-        } catch (_) {}
-
-        if (typeof window.yhDashboardApplyStateOwnerFinalV3 === 'function') {
-            try { window.yhDashboardApplyStateOwnerFinalV3(workspace); } catch (_) {}
-        }
     }
-
-    const nativeActivate = window.activateDashboardUnifiedWorkspace;
-
-    if (typeof nativeActivate === 'function' && nativeActivate.__yhParentIntroWrappedV1 !== true) {
-        const wrapped = function activateDashboardUnifiedWorkspaceWithParentIntroV1(key = 'overview', options = {}) {
-            const result = nativeActivate.call(this, key, options);
-
-            window.setTimeout(() => syncDashboardOverviewAndParentIntro('activate-fast'), 0);
-            window.setTimeout(() => syncDashboardOverviewAndParentIntro('activate-mid'), 80);
-            window.setTimeout(() => syncDashboardOverviewAndParentIntro('activate-late'), 360);
-
-            return result;
-        };
-
-        wrapped.__yhParentIntroWrappedV1 = true;
-        window.activateDashboardUnifiedWorkspace = wrapped;
-    }
-
-    document.addEventListener('click', (event) => {
-        const parentButton = event.target?.closest?.('[data-yh-dashboard-shell="academy"], [data-yh-dashboard-shell="plazas"], [data-yh-dashboard-shell="federation"]');
-
-        if (!parentButton) return;
-
-        window.setTimeout(() => syncDashboardOverviewAndParentIntro('parent-click'), 0);
-        window.setTimeout(() => syncDashboardOverviewAndParentIntro('parent-click-late'), 140);
-    }, true);
 
     window.yhSyncDashboardOverviewAndParentIntroV1 = syncDashboardOverviewAndParentIntro;
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => syncDashboardOverviewAndParentIntro('dom'));
+        document.addEventListener('DOMContentLoaded', () => {
+            syncDashboardOverviewAndParentIntro('dom-ready');
+        }, { once: true });
     } else {
         syncDashboardOverviewAndParentIntro('boot');
     }
-
-    [60, 180, 500, 1100, 2200, 4200].forEach((delay) => {
-        window.setTimeout(() => syncDashboardOverviewAndParentIntro('timer-' + delay), delay);
-    });
-
-    try {
-        const observer = new MutationObserver(() => {
-            window.clearTimeout(window.__yhDashboardDivisionIntroSyncTimerV1);
-            window.__yhDashboardDivisionIntroSyncTimerV1 = window.setTimeout(() => {
-                syncDashboardOverviewAndParentIntro('mutation');
-            }, 30);
-        });
-
-        observer.observe(document.body || document.documentElement, {
-            attributes: true,
-            attributeFilter: ['data-yh-unified-workspace', 'data-yh-unified-division', 'class'],
-            childList: true,
-            subtree: true
-        });
-
-        window.__yhDashboardDivisionIntroObserverV1 = observer;
-    } catch (_) {}
 })();
 /* END PATCH: Dashboard division parent intros v1 */
 
@@ -35719,12 +35749,37 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 
                 if (button.disabled) return;
 
-                const target = String(button.getAttribute('data-yh-overview-division-target') || '').trim();
-                const kind = String(button.getAttribute('data-yh-overview-division-action-kind') || '').trim();
+                const division = String(
+                    button.getAttribute('data-yh-overview-division-action') || ''
+                ).trim().toLowerCase();
+
+                const target = String(
+                    button.getAttribute('data-yh-overview-division-target') || ''
+                ).trim();
+
+                const kind = String(
+                    button.getAttribute('data-yh-overview-division-action-kind') || ''
+                ).trim().toLowerCase();
 
                 if (!target) return;
 
-                if (kind === 'apply' && typeof window.openDashboardUnifiedWorkspaceLaunch === 'function') {
+                if (
+                    division === 'plazas' &&
+                    kind === 'apply' &&
+                    typeof window.handleDashboardPlazaAccessIntent === 'function'
+                ) {
+                    await window.handleDashboardPlazaAccessIntent(
+                        event,
+                        'plazas-feed'
+                    );
+
+                    return;
+                }
+
+                if (
+                    kind === 'apply' &&
+                    typeof window.openDashboardUnifiedWorkspaceLaunch === 'function'
+                ) {
                     await window.openDashboardUnifiedWorkspaceLaunch(target);
                     return;
                 }
@@ -35789,8 +35844,9 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 
         const hardSelectors = [
             '.yh-academy-parent-hero-header',
-            '#yh-dashboard-division-parent-intro-v1, #yh-dashboard-division-parent-intro-v1',
-            '.yh-dashboard-division-child-grid-v1'
+            '.yh-academy-parent-vision-scope',
+            '.yh-universe-command-hero',
+            '.yh-universe-stage-nav'
         ];
 
         hardSelectors.forEach((selector) => {
@@ -35876,216 +35932,17 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         window.setDashboardCommandOverviewText = wrappedSetDashboardCommandOverviewText;
     }
 
-    const nativeActivate = window.activateDashboardUnifiedWorkspace;
-    if (typeof nativeActivate === 'function' && nativeActivate.__yhOverviewCleanupWrappedV1 !== true) {
-        const wrappedActivateDashboardUnifiedWorkspace = function wrappedActivateDashboardUnifiedWorkspaceV1(key = 'overview', options = {}) {
-            const result = nativeActivate.call(this, key, options);
-
-            window.setTimeout(() => syncDashboardOverviewCleanup('activate-fast'), 0);
-            window.setTimeout(() => syncDashboardOverviewCleanup('activate-mid'), 100);
-            window.setTimeout(() => syncDashboardOverviewCleanup('activate-late'), 420);
-
-            return result;
-        };
-
-        wrappedActivateDashboardUnifiedWorkspace.__yhOverviewCleanupWrappedV1 = true;
-        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspace;
-    }
-
     window.yhSyncDashboardOverviewCleanupDynamicAccessRowV1 = syncDashboardOverviewCleanup;
     window.yhRenderDashboardOverviewDynamicAccessRowV1 = renderAccessRow;
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => syncDashboardOverviewCleanup('dom'));
+        document.addEventListener('DOMContentLoaded', () => {
+            syncDashboardOverviewCleanup('dom-ready');
+        }, { once: true });
     } else {
         syncDashboardOverviewCleanup('boot');
     }
-
-    [60, 180, 500, 1100, 2200, 4200].forEach((delay) => {
-        window.setTimeout(() => syncDashboardOverviewCleanup('timer-' + delay), delay);
-    });
-
-    try {
-        const observer = new MutationObserver(() => {
-            window.clearTimeout(window.__yhDashboardOverviewCleanupObserverTimerV1);
-            window.__yhDashboardOverviewCleanupObserverTimerV1 = window.setTimeout(() => {
-                syncDashboardOverviewCleanup('mutation');
-            }, 60);
-        });
-
-        observer.observe(document.body || document.documentElement, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['class', 'style', 'data-yh-unified-workspace', 'data-yh-unified-division']
-        });
-
-        window.__yhDashboardOverviewCleanupObserverV1 = observer;
-    } catch (_) {}
 })();
 /* END PATCH: Dashboard overview cleanup dynamic access row v1 */
 
 
-/* PATCH: Dashboard state owner final v3 */
-(function installDashboardStateOwnerFinalV3() {
-    if (window.__yhDashboardStateOwnerFinalV3Installed) return;
-    window.__yhDashboardStateOwnerFinalV3Installed = true;
-
-    const PARENT_KEYS = new Set(['academy', 'plazas', 'federation']);
-
-    function isDashboardPage() {
-        const path = String(window.location.pathname || '').replace(/\/+$/, '');
-        return (
-            path === '/dashboard' ||
-            document.body?.getAttribute('data-yh-page') === 'dashboard' ||
-            document.body?.getAttribute('data-yh-view') === 'hub'
-        );
-    }
-
-    function getWorkspace(fallback = '') {
-        const fromBody = String(document.body?.getAttribute('data-yh-unified-workspace') || '').trim().toLowerCase();
-        const cleanFallback = String(fallback || '').trim().toLowerCase();
-        return fromBody || cleanFallback || 'overview';
-    }
-
-    function setVisible(node, visible, displayValue = '') {
-        if (!node || !(node instanceof HTMLElement)) return;
-
-        node.classList.toggle('hidden-step', !visible);
-        node.setAttribute('aria-hidden', visible ? 'false' : 'true');
-
-        if (visible) {
-            node.style.removeProperty('display');
-            if (displayValue) node.style.display = displayValue;
-            node.style.visibility = 'visible';
-            node.style.opacity = '1';
-            node.style.pointerEvents = 'auto';
-            return;
-        }
-
-        node.style.display = 'none';
-        node.style.visibility = 'hidden';
-        node.style.opacity = '0';
-        node.style.pointerEvents = 'none';
-    }
-
-    function hideAllParentIntroArtifacts() {
-        [
-            '#yh-dashboard-division-parent-intro-v1',
-            '.yh-dashboard-division-intro-v1',
-            '.yh-dashboard-division-intro-hero-v1',
-            '.yh-dashboard-division-child-grid-v1',
-            '.yh-academy-parent-hero-header',
-            '.yh-academy-parent-vision-scope',
-            '.yh-universe-command-hero',
-            '.yh-universe-stage-nav'
-        ].forEach((selector) => {
-            document.querySelectorAll(selector).forEach((node) => setVisible(node, false, 'block'));
-        });
-
-        const intro = document.getElementById('yh-dashboard-division-parent-intro-v1');
-        if (intro) intro.innerHTML = '';
-    }
-
-    function applyDashboardStateOwnerFinalV3(forcedKey = '') {
-        if (!isDashboardPage()) return;
-
-        const workspace = getWorkspace(forcedKey);
-        const isOverview = workspace === 'overview';
-        const isParent = PARENT_KEYS.has(workspace);
-
-        const dynamicAccessRow = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
-        const referralCard = document.getElementById('yh-universe-referral-card');
-        const liveActivity = document.getElementById('yh-universe-academy-strip');
-
-        const commandHead = document.querySelector('.yh-command-dashboard-head');
-        const oldGrid = document.getElementById('yh-command-overview-grid');
-        const oldCarousel = document.getElementById('yh-universe-carousel');
-        const plazaStrip = document.getElementById('yh-universe-plaza-strip');
-        const federationStrip = document.getElementById('yh-universe-federation-strip');
-        const splitColumn = document.querySelector('.yh-universe-carousel-column');
-
-        setVisible(oldGrid, false, 'grid');
-        setVisible(oldCarousel, false, 'block');
-        setVisible(plazaStrip, false, 'block');
-        setVisible(federationStrip, false, 'block');
-        setVisible(splitColumn, false, 'block');
-
-        if (plazaStrip) plazaStrip.classList.remove('is-active');
-        if (federationStrip) federationStrip.classList.remove('is-active');
-
-        setVisible(commandHead, isOverview, 'grid');
-        setVisible(dynamicAccessRow, isOverview, 'grid');
-        setVisible(referralCard, isOverview, 'block');
-        setVisible(liveActivity, isOverview, 'block');
-
-        if (liveActivity) liveActivity.classList.toggle('is-active', isOverview);
-
-        if (isOverview) {
-            hideAllParentIntroArtifacts();
-
-            document.body?.setAttribute('data-yh-unified-workspace', 'overview');
-            document.body?.setAttribute('data-yh-unified-division', 'overview');
-            document.body?.classList.remove('yh-dashboard-parent-intro-active-v1');
-            document.body?.classList.add('yh-dashboard-overview-command-active-v1');
-
-            if (referralCard && liveActivity && referralCard.nextElementSibling !== liveActivity) {
-                liveActivity.parentNode?.insertBefore(referralCard, liveActivity);
-            }
-        } else {
-            setVisible(referralCard, false, 'block');
-            setVisible(liveActivity, false, 'block');
-            document.body?.classList.toggle('yh-dashboard-parent-intro-active-v1', isParent);
-            document.body?.classList.toggle('yh-dashboard-overview-command-active-v1', false);
-        }
-    }
-
-    window.yhDashboardApplyStateOwnerFinalV3 = applyDashboardStateOwnerFinalV3;
-
-    const nativeActivate = window.activateDashboardUnifiedWorkspace;
-
-    if (typeof nativeActivate === 'function' && nativeActivate.__yhStateOwnerFinalV3Wrapped !== true) {
-        const wrappedActivateDashboardUnifiedWorkspaceFinalV3 = function wrappedActivateDashboardUnifiedWorkspaceFinalV3(key = 'overview', options = {}) {
-            const result = nativeActivate.call(this, key, options);
-            const cleanKey = String(result?.key || key || 'overview').trim().toLowerCase() || 'overview';
-
-            applyDashboardStateOwnerFinalV3(cleanKey);
-            window.requestAnimationFrame?.(() => applyDashboardStateOwnerFinalV3(cleanKey));
-
-            [30, 90, 180, 360, 520, 900].forEach((delay) => {
-                window.setTimeout(() => applyDashboardStateOwnerFinalV3(cleanKey), delay);
-            });
-
-            return result;
-        };
-
-        wrappedActivateDashboardUnifiedWorkspaceFinalV3.__yhStateOwnerFinalV3Wrapped = true;
-        window.activateDashboardUnifiedWorkspace = wrappedActivateDashboardUnifiedWorkspaceFinalV3;
-    }
-
-    document.addEventListener('click', (event) => {
-        const dashboardButton = event.target?.closest?.(
-            '[data-yh-dashboard-shell="overview"], ' +
-            '#nav-dashboard, ' +
-            '#btn-dashboard-overview, ' +
-            '[data-yh-command-overview-open="overview"]'
-        );
-
-        if (!dashboardButton) return;
-
-        window.setTimeout(() => applyDashboardStateOwnerFinalV3('overview'), 0);
-        window.setTimeout(() => applyDashboardStateOwnerFinalV3('overview'), 80);
-        window.setTimeout(() => applyDashboardStateOwnerFinalV3('overview'), 240);
-    }, true);
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => applyDashboardStateOwnerFinalV3());
-    } else {
-        applyDashboardStateOwnerFinalV3();
-    }
-
-    [40, 120, 260, 600, 1200, 2400].forEach((delay) => {
-        window.setTimeout(() => applyDashboardStateOwnerFinalV3(), delay);
-    });
-})();
-/* END PATCH: Dashboard state owner final v3 */

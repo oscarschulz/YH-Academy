@@ -263,50 +263,138 @@
         hideAcademyTabLoader({ ...(options || {}), force: true });
     }
 
+    const YH_DASHBOARD_STATE_DIVISIONS = new Set([
+        'overview',
+        'academy',
+        'plazas',
+        'federation',
+        'resources'
+    ]);
+
+    const YH_ACADEMY_STATE_SECTIONS = new Set([
+        'home',
+        'missions',
+        'lead-missions',
+        'community',
+        'messages',
+        'voice',
+        'video',
+        'profile'
+    ]);
+
+    function normalizeYHDashboardStateDivision(value = 'overview') {
+        const clean = String(value || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[_\s]+/g, '-');
+
+        if (clean === 'plaza') return 'plazas';
+        if (clean === 'dashboard' || clean === 'hub') return 'overview';
+
+        return YH_DASHBOARD_STATE_DIVISIONS.has(clean)
+            ? clean
+            : 'overview';
+    }
+
+    function normalizeYHAcademyStateSection(value = 'home') {
+        const clean = String(value || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[_\s]+/g, '-');
+
+        const aliases = {
+            roadmap: 'home',
+            feed: 'community',
+            'community-feed': 'community',
+            thread: 'messages',
+            inbox: 'messages',
+            mission: 'missions',
+            'missions-workspace': 'lead-missions',
+            leads: 'lead-missions',
+            live: 'voice',
+            lounge: 'voice',
+            'live-voice': 'voice',
+            'live-voice-lounge': 'voice'
+        };
+
+        const normalized = aliases[clean] || clean;
+
+        return YH_ACADEMY_STATE_SECTIONS.has(normalized)
+            ? normalized
+            : 'home';
+    }
+
     function readDashboardViewState() {
         try {
             const raw = localStorage.getItem(YH_DASHBOARD_VIEW_STATE_KEY);
             const parsed = raw ? JSON.parse(raw) : null;
-            if (!parsed || typeof parsed !== 'object') throw new Error('bad state');
 
-            const view = parsed.view === 'academy' ? 'academy' : 'hub';
-            const division = ['academy', 'plazas', 'federation'].includes(parsed.division) ? parsed.division : 'academy';
+            if (
+                !parsed ||
+                typeof parsed !== 'object' ||
+                Array.isArray(parsed)
+            ) {
+                throw new Error('Invalid dashboard view state.');
+            }
 
-            const sectionRaw = String(parsed.academySection || 'home').toLowerCase().trim();
-            const academySection = ['home', 'community', 'voice', 'video', 'profile'].includes(sectionRaw) ? sectionRaw : 'home';
-
-            return { view, division, academySection };
+            return {
+                view: parsed.view === 'academy' ? 'academy' : 'hub',
+                division: normalizeYHDashboardStateDivision(parsed.division),
+                academySection: normalizeYHAcademyStateSection(parsed.academySection),
+                updatedAt: Number(parsed.updatedAt || 0) || 0
+            };
         } catch (_) {
-            return { view: 'hub', division: 'academy', academySection: 'home' };
+            return {
+                view: 'hub',
+                division: 'overview',
+                academySection: 'home',
+                updatedAt: 0
+            };
         }
     }
 
     function writeDashboardViewState(next = {}) {
         const base = readDashboardViewState();
+
         const merged = {
             ...base,
-            ...(next && typeof next === 'object' ? next : {})
+            ...(next && typeof next === 'object' && !Array.isArray(next)
+                ? next
+                : {})
         };
 
         const finalState = {
             view: merged.view === 'academy' ? 'academy' : 'hub',
-            division: ['academy', 'plazas', 'federation'].includes(merged.division) ? merged.division : 'academy',
-            academySection: ['home', 'community', 'voice', 'video', 'profile'].includes(String(merged.academySection || '').toLowerCase())
-                ? String(merged.academySection).toLowerCase()
-                : 'home',
+            division: normalizeYHDashboardStateDivision(merged.division),
+            academySection: normalizeYHAcademyStateSection(merged.academySection),
             updatedAt: Date.now()
         };
 
-        localStorage.setItem(YH_DASHBOARD_VIEW_STATE_KEY, JSON.stringify(finalState));
+        try {
+            localStorage.setItem(
+                YH_DASHBOARD_VIEW_STATE_KEY,
+                JSON.stringify(finalState)
+            );
+        } catch (error) {
+            console.warn('Failed to persist dashboard view state:', error);
+        }
+
         return finalState;
     }
 
-    function saveUniverseViewState(division = 'academy') {
-        return writeDashboardViewState({ view: 'hub', division });
+    function saveUniverseViewState(division = 'overview') {
+        return writeDashboardViewState({
+            view: 'hub',
+            division: normalizeYHDashboardStateDivision(division)
+        });
     }
 
     function saveAcademyViewState(section = 'home') {
-        return writeDashboardViewState({ view: 'academy', division: 'academy', academySection: section });
+        return writeDashboardViewState({
+            view: 'academy',
+            division: 'academy',
+            academySection: normalizeYHAcademyStateSection(section)
+        });
     }
 
     function clearYHClientAuthStateForInvalidSession() {

@@ -92,13 +92,14 @@ body[data-yh-page="academy-embed"] {
 .yhae-panel {
     border: 0;
     background: transparent;
+    box-shadow: none;
 }
 
 .yhae-card {
     border: 1px solid rgba(103, 232, 249, 0.16);
     background:
-        radial-gradient(circle at 84% 0%, rgba(37, 99, 235, 0.10), transparent 38%),
-        linear-gradient(180deg, rgba(8, 24, 45, 0.72), rgba(3, 9, 24, 0.62));
+        radial-gradient(circle at 84% 0%, rgba(37, 99, 235, 0.08), transparent 38%),
+        linear-gradient(180deg, rgba(8, 24, 45, 0.58), rgba(3, 9, 24, 0.46));
 }
 
 .yhae-hero {
@@ -274,10 +275,10 @@ body[data-yh-page="academy-embed"] {
 .yhae-playbook-card,
 .yhae-checkin-list article,
 .yhae-empty-state {
-    border: 1px solid rgba(103, 232, 249, 0.18);
+    border: 1px solid rgba(103, 232, 249, 0.16);
     background:
-        radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.08), transparent 34%),
-        linear-gradient(180deg, rgba(8, 18, 38, 0.84), rgba(3, 8, 20, 0.72));
+        radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.06), transparent 34%),
+        linear-gradient(180deg, rgba(8, 18, 38, 0.56), rgba(3, 8, 20, 0.42));
 }
 
 .yhae-metric-card {
