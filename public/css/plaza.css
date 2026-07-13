@@ -3656,9 +3656,16 @@ body.yh-plaza-page {
 /* END PATCH: Plaza support tokens for Tailwind controller v115 */
 
 /* Plaza dashboard embed structural support v148 */
-body.yh-dashboard-inline-embed-body.yh-plaza-access-booting .yh-plaza-shell,
+body.yh-dashboard-inline-embed-body.yh-plaza-access-booting .yh-plaza-shell {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 body.yh-plaza-page.yh-plaza-dashboard-embed-ready .yh-plaza-shell {
   visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 body.yh-dashboard-inline-embed-body .yh-plaza-access-gate,

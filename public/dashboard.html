@@ -8,8 +8,8 @@
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" href="/css/style.css?v=20260712-roadmap-loader-handoff-v10">
-<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260712-plazas-application-parity-v215">
+<link rel="stylesheet" href="/css/style.css?v=20260713-plazas-submit-center-v11">
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260713-sidebar-division-status-pills-v216">
 <link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260710-dashboard-v2-stable-shell-owner-v1">
 
 <!-- PATCH: Dashboard state owner early paint v3 -->
@@ -325,7 +325,16 @@
             <span class="yh-sidebar-command-icon">
                 <img src="/assets/dashboard/academy.png" alt="" class="yh-sidebar-command-icon-img">
             </span>
+
             <span>Academy</span>
+
+            <span
+                id="yh-sidebar-academy-status-pill"
+                class="yh-sidebar-division-status-pill"
+                data-yh-sidebar-status-pill="academy"
+                aria-hidden="true"
+                hidden
+            ></span>
         </button>
 
         <div class="yh-sidebar-subnav" id="yh-sidebar-subnav-academy" aria-hidden="true">
@@ -377,7 +386,16 @@
             <span class="yh-sidebar-command-icon">
                 <img src="/assets/dashboard/plaza.png" alt="" class="yh-sidebar-command-icon-img">
             </span>
+
             <span>Plazas</span>
+
+            <span
+                id="yh-sidebar-plazas-status-pill"
+                class="yh-sidebar-division-status-pill"
+                data-yh-sidebar-status-pill="plazas"
+                aria-hidden="true"
+                hidden
+            ></span>
         </button>
 
             <div class="yh-sidebar-subnav" id="yh-sidebar-subnav-plazas" aria-hidden="true">
@@ -478,7 +496,16 @@
                 <span class="yh-sidebar-command-icon">
                     <img src="/assets/dashboard/federation.png" alt="" class="yh-sidebar-command-icon-img">
                 </span>
+
                 <span>Federation</span>
+
+                <span
+                    id="yh-sidebar-federation-status-pill"
+                    class="yh-sidebar-division-status-pill"
+                    data-yh-sidebar-status-pill="federation"
+                    aria-hidden="true"
+                    hidden
+                ></span>
             </button>
 
             <div class="yh-sidebar-subnav" id="yh-sidebar-subnav-federation" aria-hidden="true">
@@ -2829,7 +2856,7 @@
 <script src="/js/yh-shared-runtime.js?v=20260711-dashboard-view-state-v2"></script>
 
 
-<script src="/js/dashboard.js?v=20260712-plazas-fast-modal-back-v4"></script>
+<script src="/js/dashboard.js?v=20260713-plazas-stable-reveal-v11"></script>
 
 <script src="/js/dashboard-mobile-fix.js?v=20260627-yh-live-cache-v4"></script>
 </body>

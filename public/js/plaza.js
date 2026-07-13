@@ -4937,7 +4937,9 @@ function markPlazaDashboardChildLoading(screenName = "feed") {
   const cleanScreen = String(screenName || "feed").trim().toLowerCase() || "feed";
 
   document.body?.setAttribute("data-yh-dashboard-child-ready", "false");
+  document.body?.setAttribute("data-yh-dashboard-stable-ready", "false");
   document.body?.setAttribute("data-yh-dashboard-active-screen", cleanScreen);
+  document.body?.removeAttribute("data-yh-dashboard-stable-screen");
   document.body?.setAttribute("data-yh-dashboard-child-loading-at", String(Date.now()));
 }
 
@@ -4946,7 +4948,9 @@ function markPlazaDashboardChildReady(screenName = "", reason = "ready") {
   const workspaceKey = normalizePlazaDashboardWorkspaceKey(cleanScreen);
 
   document.body?.setAttribute("data-yh-dashboard-child-ready", "true");
+  document.body?.setAttribute("data-yh-dashboard-stable-ready", "true");
   document.body?.setAttribute("data-yh-dashboard-active-screen", cleanScreen);
+  document.body?.setAttribute("data-yh-dashboard-stable-screen", cleanScreen);
   document.body?.setAttribute("data-yh-dashboard-child-ready-reason", String(reason || "ready"));
   document.body?.setAttribute("data-yh-dashboard-child-ready-at", String(Date.now()));
 
@@ -4964,6 +4968,117 @@ function markPlazaDashboardChildReady(screenName = "", reason = "ready") {
       );
     }
   } catch (_) {}
+
+  try {
+    if (typeof window.yhUnlockPlazaDashboardEmbedShellV20 === "function") {
+      window.yhUnlockPlazaDashboardEmbedShellV20(
+        `child-ready-${String(reason || "ready")}`
+      );
+    }
+  } catch (_) {}
+}
+
+function waitForPlazaDashboardStablePaint(screenName = "feed") {
+  const cleanScreen = String(screenName || "feed").trim().toLowerCase() || "feed";
+
+  return new Promise((resolve) => {
+    const activeScreen = document.querySelector(
+      `[data-plaza-screen="${cleanScreen}"]`
+    );
+
+    if (!(activeScreen instanceof HTMLElement)) {
+      resolve();
+      return;
+    }
+
+    let settled = false;
+    let quietTimer = null;
+    let hardTimer = null;
+    let observer = null;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+
+      window.clearTimeout(quietTimer);
+      window.clearTimeout(hardTimer);
+
+      try {
+        observer?.disconnect();
+      } catch (_) {}
+
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(resolve);
+      });
+    };
+
+    const scheduleQuietFinish = () => {
+      window.clearTimeout(quietTimer);
+      quietTimer = window.setTimeout(finish, 120);
+    };
+
+    try {
+      observer = new MutationObserver(scheduleQuietFinish);
+      observer.observe(activeScreen, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ["class", "style", "hidden", "src"]
+      });
+    } catch (_) {}
+
+    scheduleQuietFinish();
+    hardTimer = window.setTimeout(finish, 320);
+  });
+}
+
+async function markPlazaDashboardChildReadyAfterStablePaint(
+  screenName = "",
+  reason = "stable-ready"
+) {
+  const cleanScreen = String(
+    screenName || plazaRuntime.currentScreen || "feed"
+  ).trim().toLowerCase() || "feed";
+
+  document.body?.setAttribute("data-yh-dashboard-child-ready", "false");
+  document.body?.setAttribute("data-yh-dashboard-stable-ready", "false");
+  document.body?.setAttribute("data-yh-dashboard-active-screen", cleanScreen);
+
+  try {
+    if (document.fonts?.ready) {
+      await Promise.race([
+        document.fonts.ready,
+        new Promise((resolve) => {
+          window.setTimeout(resolve, 140);
+        })
+      ]);
+    }
+  } catch (_) {}
+
+  await waitForPlazaDashboardStablePaint(cleanScreen);
+
+  if (
+    String(plazaRuntime.currentScreen || "").trim().toLowerCase() !==
+    cleanScreen
+  ) {
+    return false;
+  }
+
+  const activeScreen = document.querySelector(
+    `[data-plaza-screen="${cleanScreen}"]`
+  );
+
+  if (
+    !(activeScreen instanceof HTMLElement) ||
+    activeScreen.hidden === true ||
+    !activeScreen.classList.contains("is-active")
+  ) {
+    return false;
+  }
+
+  markPlazaDashboardChildReady(cleanScreen, reason);
+  return true;
 }
 /* END PATCH: Plaza Dashboard child-ready handshake v1 */
 
@@ -5941,20 +6056,28 @@ function openScreen(screenName, options = {}) {
 
   const shouldDeferDashboardReady = options.deferDashboardReady === true;
 
+  if (!shouldDeferDashboardReady) {
+    markPlazaDashboardChildLoading(nextScreenName);
+  }
+
   if (shouldShowLoader) {
     window.requestAnimationFrame(() => {
-      window.setTimeout(() => {
+      window.setTimeout(async () => {
         hidePlazaTabLoader();
 
         if (!shouldDeferDashboardReady) {
-          markPlazaDashboardChildReady(nextScreenName, "screen-ready");
+          await markPlazaDashboardChildReadyAfterStablePaint(
+            nextScreenName,
+            "screen-stable"
+          );
         }
       }, 260);
     });
   } else if (!shouldDeferDashboardReady) {
-    window.requestAnimationFrame(() => {
-      markPlazaDashboardChildReady(nextScreenName, "screen-ready");
-    });
+    void markPlazaDashboardChildReadyAfterStablePaint(
+      nextScreenName,
+      "screen-stable"
+    );
   }
 }
 
@@ -11389,11 +11512,93 @@ function bindPlazaApplicationGateEvents() {
   plazaApplicationForm.addEventListener("submit", submitPlazaApplication);
 }
 
+function writePlazaAccessBootCache(snapshot = {}) {
+  try {
+    localStorage.setItem(
+      "yh_plaza_access_status_v1",
+      JSON.stringify({
+        hasApplication: snapshot?.hasApplication === true,
+        canEnterPlaza: snapshot?.canEnterPlaza === true,
+        applicationStatus: String(
+          snapshot?.applicationStatus ||
+          snapshot?.application?.status ||
+          ""
+        ).trim(),
+        application:
+          snapshot?.application &&
+          typeof snapshot.application === "object"
+            ? snapshot.application
+            : null,
+        member:
+          snapshot?.member &&
+          typeof snapshot.member === "object"
+            ? snapshot.member
+            : null,
+        cachedAt: new Date().toISOString()
+      })
+    );
+  } catch (_) {}
+}
+
+function getPlazaCachedApprovedAccessForDashboardBoot() {
+  if (!isPlazaDashboardEmbeddedNavigationV1()) {
+    return false;
+  }
+
+  const snapshot =
+    readPlazaCacheJson(
+      "yh_plaza_access_status_v1",
+      {}
+    ) || {};
+
+  const status =
+    normalizePlazaApplicationStatus(
+      snapshot?.applicationStatus ||
+      snapshot?.application?.status ||
+      ""
+    );
+
+  return (
+    snapshot?.canEnterPlaza === true ||
+    status === "approved"
+  );
+}
+
 async function ensurePlazaAccessBeforeBoot() {
   bindPlazaApplicationGateEvents();
 
+  if (
+    getPlazaCachedApprovedAccessForDashboardBoot()
+  ) {
+    unlockPlazaAccess();
+
+    Promise.resolve(
+      loadPlazaApplicationStatus()
+    )
+      .then((snapshot) => {
+        writePlazaAccessBootCache(snapshot);
+
+        if (snapshot?.canEnterPlaza === true) {
+          return;
+        }
+
+        showPlazaAccessGate(snapshot || {});
+      })
+      .catch((error) => {
+        console.warn(
+          "Plaza background access refresh failed:",
+          error
+        );
+      });
+
+    return true;
+  }
+
   try {
-    const snapshot = await loadPlazaApplicationStatus();
+    const snapshot =
+      await loadPlazaApplicationStatus();
+
+    writePlazaAccessBootCache(snapshot);
 
     if (snapshot.canEnterPlaza === true) {
       unlockPlazaAccess();
@@ -11403,7 +11608,11 @@ async function ensurePlazaAccessBeforeBoot() {
     showPlazaAccessGate(snapshot);
     return false;
   } catch (error) {
-    console.error("ensurePlazaAccessBeforeBoot error:", error);
+    console.error(
+      "ensurePlazaAccessBeforeBoot error:",
+      error
+    );
+
     showPlazaAccessGate({
       hasApplication: false,
       canEnterPlaza: false,
@@ -11411,7 +11620,11 @@ async function ensurePlazaAccessBeforeBoot() {
     });
 
     if (typeof showToast === "function") {
-      showToast(error.message || "Could not verify Plazas access.", "error");
+      showToast(
+        error.message ||
+        "Could not verify Plazas access.",
+        "error"
+      );
     }
 
     return false;
@@ -11561,6 +11774,8 @@ async function initPlaza() {
   populateMeetupRegionSelect();
 
   const restoredScreen = restorePlazaUiState();
+  const isDashboardEmbed = isPlazaDashboardEmbeddedNavigationV1();
+
   markPlazaDashboardChildLoading(restoredScreen);
 
   plazaFeedFilters.forEach((item) => {
@@ -11594,9 +11809,7 @@ openScreen(restoredScreen, {
   bindEvents();
   enhancePlazaSelectControls();
 
-  window.requestAnimationFrame(() => {
-    markPlazaDashboardChildReady(restoredScreen, "active-screen-rendered");
-  });
+
 
   if (plazaFeedComposerForm) {
     plazaFeedComposerForm.addEventListener("submit", submitPlazaFeedComposer);
@@ -11630,71 +11843,93 @@ if (plazaRequestComposerForm) {
   plazaRequestComposerForm.addEventListener("submit", submitPlazaRequestComposer);
 }
 
-await loadPlazaFeedFromServer({
-  silent: restoredScreen !== "feed"
-});
-
-await loadPlazaOpportunitiesFromServer({
-  silent: restoredScreen !== "opportunities"
-});
-
-await loadPlazaDirectoryFromServer({
-  silent: restoredScreen !== "directory"
-});
-
-await loadPlazaRegionsFromServer({
-  silent: restoredScreen !== "regions" && restoredScreen !== "atlas" && restoredScreen !== "patron"
-});
-
-await loadPlazaPatronApplicationStatus({
-  silent: restoredScreen !== "patron"
-});
-
-if (isCurrentUserApprovedPlazaPatron()) {
-  await loadPlazaPatronDeskFromServer({
-    silent: restoredScreen !== "patron-desk"
-  });
-} else {
-  plazaPatronDeskLoaded = true;
-  plazaPatronDeskData = {
-    isPatron: false,
-    patron: null,
-    regions: [],
-    routedRequests: [],
-    recommendations: [],
-    payouts: [],
-    walletPayouts: [],
-    message: "Patron Desk unlocks after admin approves your Plaza Patron application."
+  const shouldLoadSilently = (...screenNames) => {
+    return (
+      isDashboardEmbed ||
+      !screenNames.includes(restoredScreen)
+    );
   };
 
-  renderPatronDeskScreen();
-}
+  const patronHydrationTask = (async () => {
+    await loadPlazaPatronApplicationStatus({
+      silent: shouldLoadSilently("patron", "patron-desk")
+    });
 
-await loadPlazaBridgeFromServer({
-  silent: restoredScreen !== "bridge"
-});
+    if (isCurrentUserApprovedPlazaPatron()) {
+      await loadPlazaPatronDeskFromServer({
+        silent: shouldLoadSilently("patron-desk")
+      });
 
-await loadPlazaRequestsFromServer({
-  silent: restoredScreen !== "requests"
-});
+      return;
+    }
 
-await loadPlazaMessagesFromServer({
-  silent: restoredScreen !== "messages"
-});
+    plazaPatronDeskLoaded = true;
+    plazaPatronDeskData = {
+      isPatron: false,
+      patron: null,
+      regions: [],
+      routedRequests: [],
+      recommendations: [],
+      payouts: [],
+      walletPayouts: [],
+      message:
+        "Patron Desk unlocks after admin approves your Plaza Patron application."
+    };
 
-startPlazaConversationAutoRefresh();
+    renderPatronDeskScreen();
+  })();
 
-await loadPlazaMeetupsFromServer({
-  silent: restoredScreen !== "meetups"
-});
+  await Promise.allSettled([
+    loadPlazaFeedFromServer({
+      silent: shouldLoadSilently("feed")
+    }),
+
+    loadPlazaOpportunitiesFromServer({
+      silent: shouldLoadSilently("opportunities")
+    }),
+
+    loadPlazaDirectoryFromServer({
+      silent: shouldLoadSilently("directory")
+    }),
+
+    loadPlazaRegionsFromServer({
+      silent: shouldLoadSilently(
+        "regions",
+        "atlas",
+        "patron",
+        "patron-desk"
+      )
+    }),
+
+    patronHydrationTask,
+
+    loadPlazaBridgeFromServer({
+      silent: shouldLoadSilently("bridge")
+    }),
+
+    loadPlazaRequestsFromServer({
+      silent: shouldLoadSilently("requests", "inbox")
+    }),
+
+    loadPlazaMessagesFromServer({
+      silent: shouldLoadSilently("messages", "inbox")
+    }),
+
+    loadPlazaMeetupsFromServer({
+      silent: shouldLoadSilently("meetups")
+    })
+  ]);
+
+  startPlazaConversationAutoRefresh();
 
   if (typeof window.translateCurrentPage === "function") {
     window.translateCurrentPage();
   }
 
-  window.requestAnimationFrame(() => {
-    markPlazaDashboardChildReady(restoredScreen, "boot-ready");
-  });
+  await markPlazaDashboardChildReadyAfterStablePaint(
+    restoredScreen,
+    "boot-stable"
+  );
 }
 
 initPlaza();
@@ -11768,61 +12003,175 @@ initPlaza();
 
         const screen = getDashboardScreen();
 
-        document.body?.classList.remove('yh-plaza-access-booting', 'yh-plaza-access-locked');
-        document.body?.classList.add('yh-plaza-dashboard-embed-ready');
-        document.body?.setAttribute('data-yh-dashboard-child-ready', 'true');
-        document.body?.setAttribute('data-yh-dashboard-active-screen', screen);
-        document.body?.setAttribute('data-yh-dashboard-child-ready-reason', reason);
-        document.body?.setAttribute('data-yh-dashboard-child-ready-at', String(Date.now()));
+        const readyScreen = String(
+            document.body?.getAttribute(
+                'data-yh-dashboard-active-screen'
+            ) || ''
+        )
+            .trim()
+            .toLowerCase();
+
+        const childReady =
+            document.body?.getAttribute(
+                'data-yh-dashboard-child-ready'
+            ) === 'true';
+
+        const activeScreen = document.querySelector(
+            `[data-plaza-screen="${screen}"]`
+        );
+
+        const targetScreenReady = Boolean(
+            childReady &&
+            readyScreen === screen &&
+            activeScreen instanceof HTMLElement &&
+            activeScreen.hidden !== true &&
+            activeScreen.classList.contains('is-active')
+        );
+
+        const shell =
+            document.querySelector('.yh-plaza-shell');
+
+        if (!targetScreenReady) {
+            document.body?.classList.remove(
+                'yh-plaza-dashboard-embed-ready'
+            );
+
+            document.body?.classList.add(
+                'yh-plaza-access-booting'
+            );
+
+            document.body?.setAttribute(
+                'data-yh-dashboard-child-ready',
+                'false'
+            );
+
+            if (shell instanceof HTMLElement) {
+                shell.style.setProperty(
+                    'visibility',
+                    'hidden'
+                );
+
+                shell.style.setProperty(
+                    'opacity',
+                    '0'
+                );
+
+                shell.style.setProperty(
+                    'pointer-events',
+                    'none'
+                );
+            }
+
+            return false;
+        }
+
+        document.body?.classList.remove(
+            'yh-plaza-access-booting',
+            'yh-plaza-access-locked'
+        );
+
+        document.body?.classList.add(
+            'yh-plaza-dashboard-embed-ready'
+        );
+
+        document.body?.setAttribute(
+            'data-yh-dashboard-child-ready',
+            'true'
+        );
+
+        document.body?.setAttribute(
+            'data-yh-dashboard-active-screen',
+            screen
+        );
+
+        document.body?.setAttribute(
+            'data-yh-dashboard-child-ready-reason',
+            reason
+        );
+
+        document.body?.setAttribute(
+            'data-yh-dashboard-child-ready-at',
+            String(Date.now())
+        );
 
         document.querySelectorAll(
             '.yh-plaza-app-header, .yh-plaza-sidebar, .yh-plaza-rail, .yh-plaza-workspace-head'
         ).forEach((node) => {
             if (!(node instanceof HTMLElement)) return;
+
             node.hidden = true;
-            node.setAttribute('aria-hidden', 'true');
-            node.style.setProperty('display', 'none', 'important');
+            node.setAttribute(
+                'aria-hidden',
+                'true'
+            );
+
+            node.style.setProperty(
+                'display',
+                'none',
+                'important'
+            );
         });
 
-        const gate = document.getElementById('plazaAccessGate');
-        if (gate) gate.hidden = true;
+        const gate =
+            document.getElementById(
+                'plazaAccessGate'
+            );
 
-        const shell = document.querySelector('.yh-plaza-shell');
-        if (shell instanceof HTMLElement) {
-            shell.style.setProperty('visibility', 'visible', 'important');
-            shell.style.removeProperty('display');
+        if (gate) {
+            gate.hidden = true;
         }
 
-        const loader = document.getElementById('yh-tab-loader');
+        if (shell instanceof HTMLElement) {
+            shell.style.setProperty(
+                'visibility',
+                'visible'
+            );
+
+            shell.style.setProperty(
+                'opacity',
+                '1'
+            );
+
+            shell.style.setProperty(
+                'pointer-events',
+                'auto'
+            );
+
+            shell.style.removeProperty(
+                'display'
+            );
+        }
+
+        const loader =
+            document.getElementById(
+                'yh-tab-loader'
+            );
+
         if (loader) {
             loader.hidden = true;
-            loader.classList.remove('is-active');
-            loader.setAttribute('aria-hidden', 'true');
+            loader.classList.remove(
+                'is-active'
+            );
+
+            loader.setAttribute(
+                'aria-hidden',
+                'true'
+            );
         }
 
         try {
-            if (typeof showScreen === 'function') {
-                showScreen(screen);
-            } else {
-                const btn = document.querySelector('[data-nav-tab="' + screen + '"]');
-                if (btn && typeof btn.click === 'function' && !btn.classList.contains('is-active')) {
-                    btn.click();
-                }
-            }
-        } catch (_) {
-            try {
-                const btn = document.querySelector('[data-nav-tab="' + screen + '"]');
-                if (btn && typeof btn.click === 'function') btn.click();
-            } catch (_) {}
-        }
-
-        try {
-            if (window.parent && window.parent !== window) {
+            if (
+                window.parent &&
+                window.parent !== window
+            ) {
                 window.parent.postMessage(
                     {
                         type: 'yh:child-workspace-ready',
                         division: 'plazas',
-                        workspaceKey: workspaceKeyFromScreen(screen),
+                        workspaceKey:
+                            workspaceKeyFromScreen(
+                                screen
+                            ),
                         screen,
                         reason
                     },
@@ -11833,6 +12182,9 @@ initPlaza();
 
         return true;
     }
+
+    window.yhUnlockPlazaDashboardEmbedShellV20 =
+        unlockEmbedShell;
 
     function boot(reason = 'boot') {
         if (!isDashboardEmbed()) return;

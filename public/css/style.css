@@ -16387,6 +16387,20 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-subtitle {
     justify-content: center;
 }
 
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-plaza-submit-step
+    .yh-dashboard-plaza-step-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-plaza-submit-step
+    #btn-submit-plaza-application {
+    grid-column: 1 / -1;
+    width: min(100%, 360px);
+    justify-self: center;
+}
+
 body.federation-application-open {
     overflow: hidden;
 }

@@ -1195,6 +1195,214 @@ function normalizePlazaStatus(value = '', fallback = '') {
 
     return raw;
 }
+
+function getDashboardSidebarDivisionPillState(
+    division = '',
+    snapshot = null
+) {
+    const cleanDivision = String(
+        division || ''
+    ).trim().toLowerCase();
+
+    const data =
+        snapshot && typeof snapshot === 'object'
+            ? snapshot
+            : {};
+
+    const status = String(
+        data.applicationStatus ||
+        data.status ||
+        data.application?.status ||
+        ''
+    )
+        .trim()
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ');
+
+    const approved =
+        status === 'approved' ||
+        status === 'active' ||
+        (
+            cleanDivision === 'academy' &&
+            data.canEnterAcademy === true
+        ) ||
+        (
+            cleanDivision === 'plazas' &&
+            data.canEnterPlaza === true
+        ) ||
+        (
+            cleanDivision === 'federation' &&
+            data.canEnterFederation === true
+        );
+
+    if (approved) {
+        return '';
+    }
+
+    const hasApplication =
+        data.hasApplication === true ||
+        Boolean(data.application) ||
+        Boolean(status);
+
+    const pendingStatuses = new Set([
+        'new',
+        'pending',
+        'pending review',
+        'under review',
+        'review',
+        'screening',
+        'in screening',
+        'shortlisted',
+        'waitlisted'
+    ]);
+
+    if (
+        hasApplication &&
+        pendingStatuses.has(status)
+    ) {
+        return 'pending';
+    }
+
+    return 'apply';
+}
+
+function syncDashboardSidebarDivisionStatusPill(
+    division = '',
+    snapshot = null
+) {
+    const cleanDivision = String(
+        division || ''
+    ).trim().toLowerCase();
+
+    const pill = document.getElementById(
+        `yh-sidebar-${cleanDivision}-status-pill`
+    );
+
+    const button = document.querySelector(
+        `[data-yh-dashboard-shell="${cleanDivision}"]`
+    );
+
+    if (!pill || !button) {
+        return false;
+    }
+
+    const state =
+        getDashboardSidebarDivisionPillState(
+            cleanDivision,
+            snapshot
+        );
+
+    const isPending = state === 'pending';
+
+    button.disabled = isPending;
+
+    button.setAttribute(
+        'aria-disabled',
+        isPending ? 'true' : 'false'
+    );
+
+    if (isPending) {
+        button.setAttribute(
+            'data-yh-division-pending-locked',
+            'true'
+        );
+
+        button.setAttribute(
+            'tabindex',
+            '-1'
+        );
+    } else {
+        button.removeAttribute(
+            'data-yh-division-pending-locked'
+        );
+
+        button.removeAttribute(
+            'tabindex'
+        );
+    }
+
+    pill.classList.remove(
+        'is-apply',
+        'is-pending'
+    );
+
+    if (!state) {
+        pill.hidden = true;
+        pill.textContent = '';
+        pill.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+
+        button.removeAttribute(
+            'data-yh-division-application-state'
+        );
+
+        return true;
+    }
+
+    pill.hidden = false;
+
+    pill.textContent =
+        isPending
+            ? 'Pending'
+            : 'Apply';
+
+    pill.classList.add(
+        isPending
+            ? 'is-pending'
+            : 'is-apply'
+    );
+
+    pill.setAttribute(
+        'aria-hidden',
+        'false'
+    );
+
+    button.setAttribute(
+        'data-yh-division-application-state',
+        state
+    );
+
+    return true;
+}
+
+function syncDashboardSidebarDivisionStatusPillsFromCache() {
+    syncDashboardSidebarDivisionStatusPill(
+        'academy',
+        readYHJsonCache(
+            'yh_academy_membership_status_v1',
+            null
+        ) || {}
+    );
+
+    syncDashboardSidebarDivisionStatusPill(
+        'plazas',
+        readYHJsonCache(
+            'yh_plaza_access_status_v1',
+            null
+        ) || {}
+    );
+
+    syncDashboardSidebarDivisionStatusPill(
+        'federation',
+        readYHJsonCache(
+            'yh_federation_access_status_v1',
+            null
+        ) || {}
+    );
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener(
+        'DOMContentLoaded',
+        syncDashboardSidebarDivisionStatusPillsFromCache,
+        { once: true }
+    );
+} else {
+    syncDashboardSidebarDivisionStatusPillsFromCache();
+}
+
 function getYHTrustTierLabel(academySnapshot = null, plazaSnapshot = null, federationSnapshot = null) {
     const academyApproved = academySnapshot?.canEnterAcademy === true || String(academySnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
     const plazaApproved = plazaSnapshot?.canEnterPlaza === true || String(plazaSnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
@@ -2105,20 +2313,55 @@ function buildDashboardPlazaAcademySeed() {
 }
 
 function getDashboardPlazaForcedMembershipType() {
-    const academySnapshot = readYHJsonCache('yh_academy_membership_status_v1', null) || {};
-    const federationSnapshot = readYHJsonCache('yh_federation_access_status_v1', null) || {};
-    const progressionGate = getDashboardDivisionProgressionGate('plaza', getPlazaAccessSnapshot());
+    const academySnapshot =
+        readYHJsonCache(
+            'yh_academy_membership_status_v1',
+            null
+        ) || {};
+
+    const federationSnapshot =
+        readYHJsonCache(
+            'yh_federation_access_status_v1',
+            null
+        ) || {};
+
+    const cachedPlazaSnapshot =
+        readYHJsonCache(
+            'yh_plaza_access_status_v1',
+            null
+        ) || {};
+
+    const plazaSnapshot = {
+        ...cachedPlazaSnapshot,
+        canEnterPlaza:
+            cachedPlazaSnapshot?.canEnterPlaza === true,
+        applicationStatus: normalizePlazaStatus(
+            cachedPlazaSnapshot?.applicationStatus ||
+            cachedPlazaSnapshot?.application?.status ||
+            ''
+        )
+    };
+
+    const progressionGate =
+        getDashboardDivisionProgressionGate(
+            'plaza',
+            plazaSnapshot
+        );
 
     if (
         academySnapshot?.canEnterAcademy === true ||
-        String(academySnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved'
+        String(academySnapshot?.applicationStatus || '')
+            .trim()
+            .toLowerCase() === 'approved'
     ) {
         return 'academy';
     }
 
     if (
         federationSnapshot?.canEnterFederation === true ||
-        String(federationSnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved'
+        String(federationSnapshot?.applicationStatus || '')
+            .trim()
+            .toLowerCase() === 'approved'
     ) {
         return 'federation';
     }
@@ -7660,8 +7903,19 @@ function isPlazaPendingLocked(snapshot = null) {
 }
 
 function syncPlazaEntryButton(snapshot = null) {
-    const currentSnapshot = snapshot || getPlazaAccessSnapshot();
-    const button = document.getElementById('btn-open-plazas-preview');
+    const currentSnapshot =
+        snapshot ||
+        getPlazaAccessSnapshot();
+
+    syncDashboardSidebarDivisionStatusPill(
+        'plazas',
+        currentSnapshot
+    );
+
+    const button =
+        document.getElementById(
+            'btn-open-plazas-preview'
+        );
     const badge = document.getElementById('plaza-entry-meta-badge');
     const progressionGate = getDashboardDivisionProgressionGate('plaza', currentSnapshot);
     const label = getPlazaButtonCopy(currentSnapshot);
@@ -7768,6 +8022,24 @@ async function openPlazaApplicationModal() {
     }
 
     renderDashboardPlazaApplicationForm();
+    prefillDashboardPlazaApplicationFromAcademy();
+
+    const restoredDraft =
+        restoreDashboardPlazaApplicationDraft();
+
+    if (!restoredDraft) {
+        resetDashboardPlazaApplicationFlow();
+    }
+
+    if (typeof syncDashboardPlazaApplicationLabels === 'function') {
+        syncDashboardPlazaApplicationLabels();
+    }
+
+    if (typeof syncDashboardPlazaProgress === 'function') {
+        syncDashboardPlazaProgress(
+            dashboardPlazaApplicationCurrentStep
+        );
+    }
 
     modal.classList.remove('hidden-step');
     modal.removeAttribute('hidden');
@@ -7785,31 +8057,21 @@ async function openPlazaApplicationModal() {
             return null;
         });
 
-    window.requestAnimationFrame(() => {
-        prefillDashboardPlazaApplicationFromAcademy();
-
-        const restoredDraft = restoreDashboardPlazaApplicationDraft();
-
-        if (!restoredDraft) {
-            resetDashboardPlazaApplicationFlow();
-        }
-
-        if (typeof syncDashboardPlazaApplicationLabels === 'function') {
-            syncDashboardPlazaApplicationLabels();
-        }
-
-        if (typeof syncDashboardPlazaProgress === 'function') {
-            syncDashboardPlazaProgress(
-                dashboardPlazaApplicationCurrentStep
-            );
-        }
-    });
-
     academyRefreshPromise.then(() => {
         if (modal.classList.contains('hidden-step')) return;
 
         prefillDashboardPlazaApplicationFromAcademy();
 
+        const flow = getDashboardPlazaApplicationFlow();
+
+        if (!flow.includes(dashboardPlazaApplicationCurrentStep)) {
+            setDashboardPlazaActiveStep(
+                flow[0] || 'membershipType'
+            );
+
+            return;
+        }
+
         if (typeof syncDashboardPlazaApplicationLabels === 'function') {
             syncDashboardPlazaApplicationLabels();
         }
@@ -7819,6 +8081,10 @@ async function openPlazaApplicationModal() {
                 dashboardPlazaApplicationCurrentStep
             );
         }
+
+        writeDashboardPlazaApplicationDraft(
+            dashboardPlazaApplicationCurrentStep
+        );
     });
 
     return true;
@@ -7864,9 +8130,76 @@ async function handleDashboardPlazaAccessIntent(
     const trigger =
         event?.target?.closest?.('button, a') || null;
 
+    const openApprovedWorkspace = () => {
+        if (
+            typeof setDashboardSidebarDivisionManualCollapsedV190 ===
+            'function'
+        ) {
+            setDashboardSidebarDivisionManualCollapsedV190(
+                'plazas',
+                false
+            );
+        }
+
+        activateDashboardUnifiedWorkspace(
+            approvedWorkspace || 'plazas',
+            {
+                animate: false,
+                scroll: true,
+                persist: true
+            }
+        );
+
+        if (
+            typeof syncDashboardSidebarDivisionGroupStateV190 ===
+            'function'
+        ) {
+            syncDashboardSidebarDivisionGroupStateV190(
+                'plazas'
+            );
+        }
+    };
+
+    const cachedSnapshot =
+        getPlazaAccessSnapshot();
+
+    const cachedStatus =
+        normalizePlazaStatus(
+            cachedSnapshot?.applicationStatus || ''
+        );
+
+    const cachedApproved =
+        cachedSnapshot?.canEnterPlaza === true ||
+        cachedStatus === 'approved';
+
+    if (cachedApproved) {
+        if (trigger?.tagName === 'BUTTON') {
+            trigger.disabled = false;
+            trigger.setAttribute(
+                'aria-disabled',
+                'false'
+            );
+        }
+
+        openApprovedWorkspace();
+
+        Promise.resolve(
+            refreshPlazaAccessStatusFromBackend(false)
+        ).catch(() => {});
+
+        return;
+    }
+
+    let triggerLockedByHandler = false;
+
     if (trigger?.tagName === 'BUTTON') {
         trigger.disabled = true;
-        trigger.setAttribute('aria-disabled', 'true');
+        trigger.setAttribute(
+            'aria-disabled',
+            'true'
+        );
+
+        triggerLockedByHandler = true;
     }
 
     try {
@@ -7887,32 +8220,14 @@ async function handleDashboardPlazaAccessIntent(
             status !== 'rejected';
 
         if (approved) {
-            activateDashboardUnifiedWorkspace(
-                approvedWorkspace || 'plazas',
-                {
-                    animate: false,
-                    scroll: true,
-                    persist: true
-                }
-            );
-
+            openApprovedWorkspace();
             return;
         }
 
         if (pending) {
-            const statusWorkspace = String(
-                approvedWorkspace || ''
-            ).startsWith('plazas-')
-                ? approvedWorkspace
-                : 'plazas-feed';
-
-            activateDashboardUnifiedWorkspace(
-                statusWorkspace,
-                {
-                    animate: false,
-                    scroll: true,
-                    persist: true
-                }
+            syncDashboardSidebarDivisionStatusPill(
+                'plazas',
+                snapshot
             );
 
             showToast(
@@ -7936,9 +8251,14 @@ async function handleDashboardPlazaAccessIntent(
             'error'
         );
     } finally {
-        if (trigger?.tagName === 'BUTTON') {
+        if (
+            triggerLockedByHandler &&
+            trigger?.tagName === 'BUTTON'
+        ) {
             trigger.disabled = false;
-            trigger.removeAttribute('aria-disabled');
+            trigger.removeAttribute(
+                'aria-disabled'
+            );
         }
     }
 }
@@ -7950,13 +8270,18 @@ function closePlazaApplicationModal(options = {}) {
     const modal = document.getElementById('plaza-apply-modal');
     if (!modal) return;
 
-    const shouldPreserveDraft = options?.preserveDraft !== false;
+    const shouldPreserveDraft =
+        options?.preserveDraft !== false;
 
     if (shouldPreserveDraft) {
-        writeDashboardPlazaApplicationDraft(dashboardPlazaApplicationCurrentStep);
+        writeDashboardPlazaApplicationDraft(
+            dashboardPlazaApplicationCurrentStep
+        );
     }
 
     modal.classList.add('hidden-step');
+    modal.setAttribute('aria-hidden', 'true');
+    modal.setAttribute('hidden', '');
     document.body?.classList.remove('plaza-application-open');
 }
 
@@ -8951,7 +9276,10 @@ function bindDashboardPlazaApplicationFormEvents() {
 
         modal.addEventListener('click', (event) => {
             if (event.target === modal) {
-                closePlazaApplicationModal();
+                closePlazaApplicationModal({
+                    preserveDraft: true,
+                    reason: 'overlay'
+                });
             }
         });
     }
@@ -10947,9 +11275,18 @@ function showDashboardUnifiedChildWorkspaceLoader(key = 'overview', meta = {}, n
 
         const cleanLoaderKey = String(key || '').trim().toLowerCase();
         const isMobileWorkspaceBoot = isDashboardMobileWorkspaceBootViewportV1();
+        const isPlazaWorkspaceLoader =
+            cleanLoaderKey.startsWith('plazas-');
         const mobileFallbackMs = cleanLoaderKey.startsWith('federation-') ? 2400 : 1800;
 
-        window.__yhDashboardBalancedChildWorkspaceLoaderVisibleUntilV2 = Date.now() + (isMobileWorkspaceBoot ? 900 : 500);
+        window.__yhDashboardBalancedChildWorkspaceLoaderVisibleUntilV2 =
+            Date.now() +
+            (
+                isMobileWorkspaceBoot ||
+                isPlazaWorkspaceLoader
+                    ? 900
+                    : 500
+            );
 
         window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderFallback);
 
@@ -11022,10 +11359,21 @@ function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready', navigationTo
         reason === 'balanced-1s-timeout' ||
         reason === 'mobile-balanced-timeout';
 
+    const shouldHoldLoaderUntilTargetReady =
+        activeWorkspaceKey === 'academy-roadmap' ||
+        activeWorkspaceKey.startsWith('plazas-');
+
+    const shouldBlockTimedRelease =
+        isBalancedTimeout ||
+        (
+            activeWorkspaceKey.startsWith('plazas-') &&
+            reason === 'hard-timeout'
+        );
+
     if (
-        activeWorkspaceKey === 'academy-roadmap' &&
+        shouldHoldLoaderUntilTargetReady &&
         revealState !== 'ready' &&
-        isBalancedTimeout
+        shouldBlockTimedRelease
     ) {
         return;
     }
@@ -11324,18 +11672,49 @@ function isDashboardInlinePlazaReady(frame, doc) {
     if (doc.body.classList.contains('yh-plaza-access-booting')) return false;
     if (isDashboardInlineFrameLocalLoaderActive(doc)) return false;
 
-    const targetScreen = getDashboardInlinePlazaScreenFromFrame(frame);
-    const readyScreen = String(doc.body.dataset.yhDashboardActiveScreen || '').trim().toLowerCase();
-    const childReady = doc.body.dataset.yhDashboardChildReady === 'true';
+    const targetScreen =
+        getDashboardInlinePlazaScreenFromFrame(frame);
 
-    const activeScreen = doc.querySelector(`[data-plaza-screen="${targetScreen}"]`);
-    const visibleScreen = isDashboardInlineElementVisible(activeScreen) ? activeScreen : doc.querySelector('.yh-plaza-screen.is-active, [data-plaza-screen].is-active');
+    const readyScreen = String(
+        doc.body.dataset.yhDashboardActiveScreen || ''
+    ).trim().toLowerCase();
 
-    if (!visibleScreen || !isDashboardInlineElementVisible(visibleScreen)) return false;
+    const stableScreen = String(
+        doc.body.dataset.yhDashboardStableScreen || ''
+    ).trim().toLowerCase();
 
-    const text = String(visibleScreen.textContent || '').replace(/\s+/g, ' ').trim();
+    const childReady =
+        doc.body.dataset.yhDashboardChildReady === 'true';
 
-    if (childReady && (!readyScreen || readyScreen === targetScreen)) return true;
+    const stableReady =
+        doc.body.dataset.yhDashboardStableReady === 'true';
+
+    if (
+        !targetScreen ||
+        !childReady ||
+        !stableReady ||
+        readyScreen !== targetScreen ||
+        stableScreen !== targetScreen
+    ) {
+        return false;
+    }
+
+    const activeScreen = doc.querySelector(
+        `[data-plaza-screen="${targetScreen}"]`
+    );
+
+    if (
+        !activeScreen ||
+        !isDashboardInlineElementVisible(activeScreen) ||
+        activeScreen.hidden === true ||
+        !activeScreen.classList.contains('is-active')
+    ) {
+        return false;
+    }
+
+    const text = String(
+        activeScreen.textContent || ''
+    ).replace(/\s+/g, ' ').trim();
 
     return text.length > 8;
 }
@@ -11538,15 +11917,69 @@ function waitForDashboardInlineWorkspaceReady(frame, reason = 'workspace-ready',
             }
 
             if (isDashboardInlineFrameReadyForReveal(frame)) {
-                frame.dataset.yhDashboardChildWorkspaceReady = 'true';
-                frame.dataset.yhDashboardNavigationState = 'ready';
-                frame.dataset.yhDashboardFederationSyncLockedAfterReady = isFederationWorkspace ? 'true' : '';
+                const pendingRevealToken = String(
+                    frame.dataset.yhDashboardStableRevealPendingToken || ''
+                ).trim();
 
-                setDashboardInlineFrameRevealState(frame, true, reason);
-                hideDashboardUnifiedChildWorkspaceLoader(
-                    reason,
-                    navigationToken
-                );
+                if (pendingRevealToken === navigationToken) {
+                    return;
+                }
+
+                frame.dataset.yhDashboardStableRevealPendingToken =
+                    navigationToken;
+
+                window.requestAnimationFrame(() => {
+                    window.requestAnimationFrame(() => {
+                        if (
+                            !isDashboardInlineFrameNavigationCurrent(
+                                frame,
+                                navigationToken,
+                                workspaceKey,
+                                { verifyLoadedUrl: true }
+                            )
+                        ) {
+                            return;
+                        }
+
+                        if (!isDashboardInlineFrameReadyForReveal(frame)) {
+                            delete frame.dataset
+                                .yhDashboardStableRevealPendingToken;
+
+                            window.__yhDashboardChildWorkspaceReadyPollTimer =
+                                window.setTimeout(
+                                    tick,
+                                    pollMs
+                                );
+
+                            return;
+                        }
+
+                        delete frame.dataset
+                            .yhDashboardStableRevealPendingToken;
+
+                        frame.dataset.yhDashboardChildWorkspaceReady =
+                            'true';
+
+                        frame.dataset.yhDashboardNavigationState =
+                            'ready';
+
+                        frame.dataset
+                            .yhDashboardFederationSyncLockedAfterReady =
+                            isFederationWorkspace ? 'true' : '';
+
+                        setDashboardInlineFrameRevealState(
+                            frame,
+                            true,
+                            reason + '-stable-paint'
+                        );
+
+                        hideDashboardUnifiedChildWorkspaceLoader(
+                            reason + '-stable-paint',
+                            navigationToken
+                        );
+                    });
+                });
+
                 return;
             }
         }
@@ -11582,6 +12015,22 @@ function waitForDashboardInlineWorkspaceReady(frame, reason = 'workspace-ready',
                     window.setTimeout(
                         tick,
                         elapsedMs >= 6000 ? 400 : pollMs
+                    );
+
+                return;
+            }
+
+            if (workspaceKey.startsWith('plazas-')) {
+                frame.dataset.yhDashboardChildWorkspaceReady =
+                    'waiting-plaza-stable-content';
+
+                frame.dataset.yhDashboardNavigationState =
+                    'waiting-plaza-stable-content';
+
+                window.__yhDashboardChildWorkspaceReadyPollTimer =
+                    window.setTimeout(
+                        tick,
+                        elapsedMs >= 5000 ? 220 : pollMs
                     );
 
                 return;
@@ -11646,8 +12095,14 @@ if (!window.__yhDashboardChildWorkspaceReadyMessageBoundV11) {
         waitForDashboardInlineWorkspaceReady(frame, `child-ready-${data.reason || 'message'}`, {
             navigationToken,
             workspaceKey,
-            timeoutMs: 2600,
-            pollMs: 80
+            timeoutMs:
+                workspaceKey.startsWith('plazas-')
+                    ? 1400
+                    : 2600,
+            pollMs:
+                workspaceKey.startsWith('plazas-')
+                    ? 70
+                    : 80
         });
     });
 }
@@ -12961,8 +13416,17 @@ function bindDashboardInlineFrameEmbedMode(frame) {
         waitForDashboardInlineWorkspaceReady(frame, 'iframe-load-child-ready', {
             navigationToken,
             workspaceKey,
-            timeoutMs: isRoadmapInlineTarget ? 1600 : 5500,
-            pollMs: isRoadmapInlineTarget ? 70 : 90
+            timeoutMs:
+                isRoadmapInlineTarget
+                    ? 1600
+                    : workspaceKey.startsWith('plazas-')
+                        ? 1400
+                        : 5500,
+            pollMs:
+                isRoadmapInlineTarget ||
+                workspaceKey.startsWith('plazas-')
+                    ? 70
+                    : 90
         });
     });
 }
@@ -13164,8 +13628,14 @@ if (!meta || isParentWorkspace) {
                 waitForDashboardInlineWorkspaceReady(frame, 'iframe-src-child-ready', {
                     navigationToken,
                     workspaceKey: cleanKey,
-                    timeoutMs: 5500,
-                    pollMs: 90
+                    timeoutMs:
+                        cleanKey.startsWith('plazas-')
+                            ? 1400
+                            : 5500,
+                    pollMs:
+                        cleanKey.startsWith('plazas-')
+                            ? 70
+                            : 90
                 });
             } else {
                 if (
@@ -13186,8 +13656,17 @@ if (!meta || isParentWorkspace) {
                 waitForDashboardInlineWorkspaceReady(frame, 'same-src-child-ready', {
                     navigationToken,
                     workspaceKey: cleanKey,
-                    timeoutMs: cleanKey === 'academy-roadmap' ? 1500 : 4200,
-                    pollMs: cleanKey === 'academy-roadmap' ? 70 : 80
+                    timeoutMs:
+                        cleanKey === 'academy-roadmap'
+                            ? 1500
+                            : cleanKey.startsWith('plazas-')
+                                ? 1200
+                                : 4200,
+                    pollMs:
+                        cleanKey === 'academy-roadmap' ||
+                        cleanKey.startsWith('plazas-')
+                            ? 70
+                            : 80
                 });
             }
         }
@@ -13999,6 +14478,17 @@ function bootDashboardUnifiedSidebarWorkspace() {
         const shellButton = event.target.closest('.yh-sidebar-command-link');
         if (!shellButton || !sidebar.contains(shellButton)) return;
 
+        if (
+            shellButton.getAttribute(
+                'data-yh-division-pending-locked'
+            ) === 'true'
+        ) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            return;
+        }
+
         const shellKey =
             resolveSidebarShellKeyV195(shellButton);
 
@@ -14676,12 +15166,6 @@ document.getElementById('btn-close-plaza-apply')?.addEventListener('click', () =
 
 document.getElementById('btn-cancel-plaza-apply')?.addEventListener('click', () => {
     closePlazaApplicationModal();
-});
-
-document.getElementById('plaza-apply-modal')?.addEventListener('click', (event) => {
-    if (event.target === event.currentTarget) {
-        closePlazaApplicationModal();
-    }
 });
 
 document.getElementById('btn-open-plaza-typeform')?.addEventListener('click', (event) => {
@@ -29540,11 +30024,23 @@ function syncAcademyEntryButton(snapshot = null) {
     stateBadge = ensureDashboardAcademyStateToastV96(stateBadge);
     const entryWrap = academyEntryWrap || btnOpenApply.closest('.academy-entry-cta-wrap');
 
+    const academySidebarSnapshot =
+        snapshot ||
+        readAcademyMembershipCache() ||
+        {};
+
     const membershipStatus = String(
-        snapshot?.applicationStatus ||
-        readAcademyMembershipCache()?.applicationStatus ||
+        academySidebarSnapshot?.applicationStatus ||
         ''
-    ).trim().toLowerCase().replace(/[_-]+/g, ' ');
+    )
+        .trim()
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ');
+
+    syncDashboardSidebarDivisionStatusPill(
+        'academy',
+        academySidebarSnapshot
+    );
 
     window.setTimeout(() => {
         if (typeof syncDashboardDivisionAccessPolling === 'function') {
@@ -31331,8 +31827,18 @@ function syncFederationFrameAccess(snapshot = null) {
 }
 
 function syncFederationEntryButton() {
-    const snapshot = getFederationAccessSnapshot();
-    const button = document.getElementById('btn-open-federation-preview');
+    const snapshot =
+        getFederationAccessSnapshot();
+
+    syncDashboardSidebarDivisionStatusPill(
+        'federation',
+        snapshot
+    );
+
+    const button =
+        document.getElementById(
+            'btn-open-federation-preview'
+        );
     const stateBadge = document.getElementById('federation-entry-state-badge');
     const enterButton = document.getElementById('btn-dashboard-enter-federation');
 
@@ -35104,7 +35610,7 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
             body: 'Use the Plazas to discover opportunities, regional hubs, directories, bridge paths, requests, meetups, and member conversations. The parent tab introduces the division; child tabs open the active tools.',
             signal: 'Strategic Review',
             status: 'Plaza access unlocks Feed, Inbox, Conversations, Meetups, Opportunities, Directory, Regions, Atlas, Patron, Bridge, and Requests.',
-            icon: '/assets/academy/icons/academy-icon-community-feed.png',
+            icon: '/assets/dashboard/plaza.png',
             children: [
                 { key: 'plazas-feed', label: 'Feed', text: 'See movement and marketplace updates.' },
                 { key: 'plazas-opportunities', label: 'Opportunities', text: 'Find services, offers, and monetization paths.' },
