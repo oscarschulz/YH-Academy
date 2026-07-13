@@ -11762,6 +11762,95 @@ function enhancePlazaSelectControls() {
   }
 }
 
+function renderPlazaBootTargetScreenOnly(screenName = "feed") {
+  const requestedScreen = String(
+    screenName || ""
+  ).trim().toLowerCase();
+
+  const cleanScreen = PRIMARY_SCREENS.has(
+    requestedScreen
+  )
+    ? requestedScreen
+    : "feed";
+
+  plazaScreens.forEach((screen) => {
+    const isTarget =
+      screen.dataset.plazaScreen === cleanScreen;
+
+    screen.classList.toggle(
+      "is-active",
+      isTarget
+    );
+
+    screen.hidden = !isTarget;
+  });
+
+  switch (cleanScreen) {
+    case "inbox":
+      renderInboxScreen();
+      break;
+
+    case "messages":
+      renderMessagesScreen();
+      break;
+
+    case "meetups":
+      renderMeetupsScreen();
+      break;
+
+    case "opportunities":
+      renderOpportunities();
+      break;
+
+    case "directory":
+      renderDirectory();
+      break;
+
+    case "regions":
+      renderRegions();
+      break;
+
+    case "atlas":
+      renderRegions();
+      renderAtlasScreen();
+      break;
+
+    case "patron":
+      renderRegions();
+      populatePatronRegionSelect();
+      renderPatronBenefitsScreen();
+      renderPlazaPatronApplicationStatus();
+      break;
+
+    case "patron-desk":
+      renderRegions();
+      renderPatronDeskScreen();
+      break;
+
+    case "bridge":
+      renderBridge();
+      break;
+
+    case "requests":
+      renderRequestsPreview();
+      renderRequestsScreen();
+      break;
+
+    case "feed":
+    default:
+      renderFeed(plazaRuntime.feedFilter);
+      renderRailSignals();
+      renderRequestsPreview();
+      renderOperationalPreviews();
+      break;
+  }
+
+  document.body?.setAttribute(
+    "data-yh-plaza-boot-target",
+    cleanScreen
+  );
+}
+
 async function initPlaza() {
   const canEnterPlaza = await ensurePlazaAccessBeforeBoot();
 
@@ -11782,30 +11871,16 @@ async function initPlaza() {
     item.classList.toggle("is-active", item.dataset.feedFilter === plazaRuntime.feedFilter);
   });
 
-  renderFeed(plazaRuntime.feedFilter);
-  renderDirectory();
-  renderOpportunities();
-  renderRegions();
-  renderAtlasScreen();
-  populatePatronRegionSelect();
-  renderPatronBenefitsScreen();
-  renderPlazaPatronApplicationStatus();
-  renderPatronDeskScreen();
-  renderBridge();
-  renderRailSignals();
-  renderRequestsPreview();
-  renderRequestsScreen();
-  renderInboxScreen();
-  renderNotificationsScreen();
-  renderMessagesScreen();
-  renderMeetupsScreen();
-  renderOperationalPreviews();
-openScreen(restoredScreen, {
-  resetHistory: true,
-  pushHistory: false,
-  showLoader: false,
-  deferDashboardReady: true
-});
+  openScreen(restoredScreen, {
+    resetHistory: true,
+    pushHistory: false,
+    showLoader: false,
+    deferDashboardReady: true
+  });
+
+  renderPlazaBootTargetScreenOnly(
+    restoredScreen
+  );
   bindEvents();
   enhancePlazaSelectControls();
 
@@ -11850,7 +11925,7 @@ if (plazaRequestComposerForm) {
     );
   };
 
-  const patronHydrationTask = (async () => {
+  const hydratePlazaPatronWorkspace = async () => {
     await loadPlazaPatronApplicationStatus({
       silent: shouldLoadSilently("patron", "patron-desk")
     });
@@ -11877,59 +11952,177 @@ if (plazaRequestComposerForm) {
     };
 
     renderPatronDeskScreen();
-  })();
+  };
 
-  await Promise.allSettled([
-    loadPlazaFeedFromServer({
-      silent: shouldLoadSilently("feed")
-    }),
+  const plazaHydrationLoaders = {
+    feed: () =>
+      loadPlazaFeedFromServer({
+        silent: shouldLoadSilently("feed")
+      }),
 
-    loadPlazaOpportunitiesFromServer({
-      silent: shouldLoadSilently("opportunities")
-    }),
+    opportunities: () =>
+      loadPlazaOpportunitiesFromServer({
+        silent: shouldLoadSilently("opportunities")
+      }),
 
-    loadPlazaDirectoryFromServer({
-      silent: shouldLoadSilently("directory")
-    }),
+    directory: () =>
+      loadPlazaDirectoryFromServer({
+        silent: shouldLoadSilently("directory")
+      }),
 
-    loadPlazaRegionsFromServer({
-      silent: shouldLoadSilently(
-        "regions",
-        "atlas",
-        "patron",
-        "patron-desk"
-      )
-    }),
+    regions: () =>
+      loadPlazaRegionsFromServer({
+        silent: shouldLoadSilently(
+          "regions",
+          "atlas",
+          "patron",
+          "patron-desk"
+        )
+      }),
 
-    patronHydrationTask,
+    patron: hydratePlazaPatronWorkspace,
 
-    loadPlazaBridgeFromServer({
-      silent: shouldLoadSilently("bridge")
-    }),
+    bridge: () =>
+      loadPlazaBridgeFromServer({
+        silent: shouldLoadSilently("bridge")
+      }),
 
-    loadPlazaRequestsFromServer({
-      silent: shouldLoadSilently("requests", "inbox")
-    }),
+    requests: () =>
+      loadPlazaRequestsFromServer({
+        silent: shouldLoadSilently("requests", "inbox")
+      }),
 
-    loadPlazaMessagesFromServer({
-      silent: shouldLoadSilently("messages", "inbox")
-    }),
+    messages: () =>
+      loadPlazaMessagesFromServer({
+        silent: shouldLoadSilently("messages", "inbox")
+      }),
 
-    loadPlazaMeetupsFromServer({
-      silent: shouldLoadSilently("meetups")
-    })
-  ]);
+    meetups: () =>
+      loadPlazaMeetupsFromServer({
+        silent: shouldLoadSilently("meetups")
+      })
+  };
+
+  const criticalHydrationKeysByScreen = {
+    feed: ["feed"],
+    inbox: ["requests", "messages"],
+    messages: ["messages"],
+    meetups: ["meetups"],
+    opportunities: ["opportunities"],
+    directory: ["directory"],
+    regions: ["regions"],
+    atlas: ["regions"],
+    patron: ["regions", "patron"],
+    "patron-desk": ["regions", "patron"],
+    bridge: ["bridge"],
+    requests: ["requests"]
+  };
+
+  const criticalHydrationKeys = new Set(
+    criticalHydrationKeysByScreen[
+      restoredScreen
+    ] || []
+  );
+
+  const criticalHydrationPromise =
+    Promise.allSettled(
+      Array.from(criticalHydrationKeys)
+        .map(
+          (key) =>
+            plazaHydrationLoaders[key]
+        )
+        .filter(
+          (loader) =>
+            typeof loader === "function"
+        )
+        .map((loader) => loader())
+    );
+
+  if (isDashboardEmbed) {
+    await Promise.race([
+      criticalHydrationPromise,
+
+      new Promise((resolve) => {
+        window.setTimeout(
+          resolve,
+          620
+        );
+      })
+    ]);
+
+    renderPlazaBootTargetScreenOnly(
+      restoredScreen
+    );
+
+    if (
+      typeof window.translateCurrentPage ===
+      "function"
+    ) {
+      window.translateCurrentPage();
+    }
+
+    await markPlazaDashboardChildReadyAfterStablePaint(
+      restoredScreen,
+      "boot-target-ready"
+    );
+  } else {
+    await criticalHydrationPromise;
+
+    renderPlazaBootTargetScreenOnly(
+      restoredScreen
+    );
+
+    if (
+      typeof window.translateCurrentPage ===
+      "function"
+    ) {
+      window.translateCurrentPage();
+    }
+
+    await markPlazaDashboardChildReadyAfterStablePaint(
+      restoredScreen,
+      "boot-active-screen-stable"
+    );
+  }
 
   startPlazaConversationAutoRefresh();
 
-  if (typeof window.translateCurrentPage === "function") {
-    window.translateCurrentPage();
-  }
+  const backgroundHydrationLoaders =
+    Object.entries(
+      plazaHydrationLoaders
+    )
+      .filter(([key, loader]) => {
+        return (
+          !criticalHydrationKeys.has(key) &&
+          typeof loader === "function"
+        );
+      })
+      .map(([, loader]) => loader);
 
-  await markPlazaDashboardChildReadyAfterStablePaint(
-    restoredScreen,
-    "boot-stable"
-  );
+  const runBackgroundHydration = () => {
+    void Promise.allSettled(
+      backgroundHydrationLoaders.map(
+        (loader) => loader()
+      )
+    );
+  };
+
+  if (
+    typeof window.requestIdleCallback ===
+    "function"
+  ) {
+    window.requestIdleCallback(
+      runBackgroundHydration,
+      {
+        timeout: 450
+      }
+    );
+  } else {
+    window.setTimeout(
+      runBackgroundHydration,
+      60
+    );
+  }
 }
 
 initPlaza();
