@@ -6081,6 +6081,416 @@ function openScreen(screenName, options = {}) {
   }
 }
 
+function normalizePlazaDashboardScreenV26(
+  value = "feed"
+) {
+  const clean = String(
+    value || "feed"
+  ).trim().toLowerCase();
+
+  if (clean === "conversations") {
+    return "messages";
+  }
+
+  if (clean === "plaza-atlas") {
+    return "atlas";
+  }
+
+  return PRIMARY_SCREENS.has(clean)
+    ? clean
+    : "feed";
+}
+
+function isPlazaDashboardScreenHydratedV26(
+  screenName = "feed"
+) {
+  const cleanScreen =
+    normalizePlazaDashboardScreenV26(
+      screenName
+    );
+
+  if (cleanScreen === "feed") {
+    return plazaServerFeedLoaded === true;
+  }
+
+  if (cleanScreen === "inbox") {
+    return (
+      plazaServerRequestsLoaded === true &&
+      plazaServerMessagesLoaded === true
+    );
+  }
+
+  if (cleanScreen === "messages") {
+    return plazaServerMessagesLoaded === true;
+  }
+
+  if (cleanScreen === "meetups") {
+    return plazaServerMeetupsLoaded === true;
+  }
+
+  if (cleanScreen === "opportunities") {
+    return plazaServerOpportunitiesLoaded === true;
+  }
+
+  if (cleanScreen === "directory") {
+    return plazaServerDirectoryLoaded === true;
+  }
+
+  if (
+    cleanScreen === "regions" ||
+    cleanScreen === "atlas"
+  ) {
+    return plazaServerRegionsLoaded === true;
+  }
+
+  if (cleanScreen === "bridge") {
+    return plazaServerBridgeLoaded === true;
+  }
+
+  if (cleanScreen === "requests") {
+    return plazaServerRequestsLoaded === true;
+  }
+
+  if (cleanScreen === "patron") {
+    return (
+      plazaServerRegionsLoaded === true &&
+      plazaMyPatronApplicationLoaded === true
+    );
+  }
+
+  if (cleanScreen === "patron-desk") {
+    return (
+      plazaServerRegionsLoaded === true &&
+      plazaMyPatronApplicationLoaded === true &&
+      (
+        !isCurrentUserApprovedPlazaPatron() ||
+        plazaPatronDeskLoaded === true
+      )
+    );
+  }
+
+  return true;
+}
+
+function startPlazaDashboardScreenHydrationV26(
+  screenName = "feed"
+) {
+  const cleanScreen =
+    normalizePlazaDashboardScreenV26(
+      screenName
+    );
+
+  const tasks = [];
+  const silent = { silent: true };
+
+  if (
+    cleanScreen === "feed" &&
+    !plazaServerFeedLoaded
+  ) {
+    tasks.push(
+      loadPlazaFeedFromServer(silent)
+    );
+  }
+
+  if (cleanScreen === "inbox") {
+    if (!plazaServerRequestsLoaded) {
+      tasks.push(
+        loadPlazaRequestsFromServer(silent)
+      );
+    }
+
+    if (!plazaServerMessagesLoaded) {
+      tasks.push(
+        loadPlazaMessagesFromServer(silent)
+      );
+    }
+  }
+
+  if (
+    cleanScreen === "messages" &&
+    !plazaServerMessagesLoaded
+  ) {
+    tasks.push(
+      loadPlazaMessagesFromServer(silent)
+    );
+  }
+
+  if (
+    cleanScreen === "meetups" &&
+    !plazaServerMeetupsLoaded
+  ) {
+    tasks.push(
+      loadPlazaMeetupsFromServer(silent)
+    );
+  }
+
+  if (
+    cleanScreen === "opportunities" &&
+    !plazaServerOpportunitiesLoaded
+  ) {
+    tasks.push(
+      loadPlazaOpportunitiesFromServer(
+        silent
+      )
+    );
+  }
+
+  if (
+    cleanScreen === "directory" &&
+    !plazaServerDirectoryLoaded
+  ) {
+    tasks.push(
+      loadPlazaDirectoryFromServer(silent)
+    );
+  }
+
+  if (
+    [
+      "regions",
+      "atlas",
+      "patron",
+      "patron-desk"
+    ].includes(cleanScreen) &&
+    !plazaServerRegionsLoaded
+  ) {
+    tasks.push(
+      loadPlazaRegionsFromServer(silent)
+    );
+  }
+
+  if (
+    [
+      "patron",
+      "patron-desk"
+    ].includes(cleanScreen) &&
+    !plazaMyPatronApplicationLoaded
+  ) {
+    tasks.push(
+      loadPlazaPatronApplicationStatus(
+        silent
+      )
+    );
+  }
+
+  if (
+    cleanScreen === "patron-desk" &&
+    plazaMyPatronApplicationLoaded &&
+    isCurrentUserApprovedPlazaPatron() &&
+    !plazaPatronDeskLoaded
+  ) {
+    tasks.push(
+      loadPlazaPatronDeskFromServer(
+        silent
+      )
+    );
+  }
+
+  if (
+    cleanScreen === "bridge" &&
+    !plazaServerBridgeLoaded
+  ) {
+    tasks.push(
+      loadPlazaBridgeFromServer(silent)
+    );
+  }
+
+  if (
+    cleanScreen === "requests" &&
+    !plazaServerRequestsLoaded
+  ) {
+    tasks.push(
+      loadPlazaRequestsFromServer(silent)
+    );
+  }
+
+  return tasks;
+}
+
+async function waitForPlazaDashboardScreenHydrationV26(
+  screenName = "feed",
+  timeoutMs = 780
+) {
+  const cleanScreen =
+    normalizePlazaDashboardScreenV26(
+      screenName
+    );
+
+  startPlazaDashboardScreenHydrationV26(
+    cleanScreen
+  );
+
+  if (
+    isPlazaDashboardScreenHydratedV26(
+      cleanScreen
+    )
+  ) {
+    return true;
+  }
+
+  const startedAt = Date.now();
+
+  while (
+    Date.now() - startedAt <
+    timeoutMs
+  ) {
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 35);
+    });
+
+    if (
+      isPlazaDashboardScreenHydratedV26(
+        cleanScreen
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return isPlazaDashboardScreenHydratedV26(
+    cleanScreen
+  );
+}
+
+function replacePlazaDashboardScreenUrlV26(
+  screenName = "feed"
+) {
+  try {
+    const cleanScreen =
+      normalizePlazaDashboardScreenV26(
+        screenName
+      );
+
+    const url = new URL(
+      window.location.href
+    );
+
+    url.searchParams.set(
+      "tab",
+      cleanScreen
+    );
+
+    url.searchParams.set(
+      "dashboardTab",
+      cleanScreen
+    );
+
+    url.searchParams.set(
+      "embed",
+      "dashboard"
+    );
+
+    url.searchParams.set(
+      "shell",
+      "dashboard"
+    );
+
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`
+    );
+  } catch (_) {}
+}
+
+async function openPlazaDashboardScreenV26(
+  screenName = "feed",
+  reason = "dashboard-parent-switch"
+) {
+  const cleanScreen =
+    normalizePlazaDashboardScreenV26(
+      screenName
+    );
+
+  const switchSequence =
+    Number(
+      window
+        .__yhPlazaDashboardScreenSwitchSequenceV26 ||
+      0
+    ) + 1;
+
+  window
+    .__yhPlazaDashboardScreenSwitchSequenceV26 =
+    switchSequence;
+
+  markPlazaDashboardChildLoading(
+    cleanScreen
+  );
+
+  replacePlazaDashboardScreenUrlV26(
+    cleanScreen
+  );
+
+  openScreen(cleanScreen, {
+    resetHistory: true,
+    pushHistory: false,
+    showLoader: false,
+    deferDashboardReady: true
+  });
+
+  renderPlazaBootTargetScreenOnly(
+    cleanScreen
+  );
+
+  await waitForPlazaDashboardScreenHydrationV26(
+    cleanScreen,
+    780
+  );
+
+  if (
+    window
+      .__yhPlazaDashboardScreenSwitchSequenceV26 !==
+    switchSequence
+  ) {
+    return false;
+  }
+
+  renderPlazaBootTargetScreenOnly(
+    cleanScreen
+  );
+
+  updateWorkspaceChrome(cleanScreen);
+  savePlazaUiState();
+
+  const stableReady =
+    await Promise.race([
+      markPlazaDashboardChildReadyAfterStablePaint(
+        cleanScreen,
+        reason ||
+          "dashboard-parent-switch"
+      ),
+
+      new Promise((resolve) => {
+        window.setTimeout(
+          () => resolve(false),
+          260
+        );
+      })
+    ]);
+
+  if (
+    window
+      .__yhPlazaDashboardScreenSwitchSequenceV26 !==
+    switchSequence
+  ) {
+    return false;
+  }
+
+  if (!stableReady) {
+    return finalizePlazaDashboardTargetReady(
+      cleanScreen,
+      `${
+        reason ||
+        "dashboard-parent-switch"
+      }-forced-ready`
+    );
+  }
+
+  return true;
+}
+
+window.yhOpenPlazaDashboardScreenV26 =
+  openPlazaDashboardScreenV26;
+
 function goBackFromScreen() {
   const fallback = PRIMARY_SCREENS.has(plazaRuntime.previousScreen) ? plazaRuntime.previousScreen : "feed";
   const target = plazaRuntime.history.pop() || fallback;
@@ -11851,6 +12261,56 @@ function renderPlazaBootTargetScreenOnly(screenName = "feed") {
   );
 }
 
+function finalizePlazaDashboardTargetReady(
+  screenName = "feed",
+  reason = "dashboard-target-fallback"
+) {
+  const requestedScreen = String(
+    screenName || plazaRuntime.currentScreen || "feed"
+  ).trim().toLowerCase();
+
+  const cleanScreen = PRIMARY_SCREENS.has(
+    requestedScreen
+  )
+    ? requestedScreen
+    : "feed";
+
+  plazaRuntime.currentScreen = cleanScreen;
+
+  try {
+    renderPlazaBootTargetScreenOnly(cleanScreen);
+    updateWorkspaceChrome(cleanScreen);
+    savePlazaUiState();
+  } catch (error) {
+    console.warn(
+      "Plaza dashboard target final render failed:",
+      error
+    );
+  }
+
+  const activeScreen = document.querySelector(
+    `[data-plaza-screen="${cleanScreen}"]`
+  );
+
+  if (
+    !(activeScreen instanceof HTMLElement) ||
+    activeScreen.hidden === true ||
+    !activeScreen.classList.contains("is-active")
+  ) {
+    return false;
+  }
+
+  markPlazaDashboardChildReady(
+    cleanScreen,
+    reason
+  );
+
+  return true;
+}
+
+window.yhFinalizePlazaDashboardTargetReadyV25 =
+  finalizePlazaDashboardTargetReady;
+
 async function initPlaza() {
   const canEnterPlaza = await ensurePlazaAccessBeforeBoot();
 
@@ -12045,26 +12505,64 @@ if (plazaRequestComposerForm) {
       new Promise((resolve) => {
         window.setTimeout(
           resolve,
-          620
+          520
         );
       })
     ]);
 
-    renderPlazaBootTargetScreenOnly(
-      restoredScreen
-    );
+    const dashboardReadyScreen =
+      normalizePlazaDashboardScreenV26(
+        plazaRuntime.currentScreen ||
+        restoredScreen
+      );
 
-    if (
-      typeof window.translateCurrentPage ===
-      "function"
-    ) {
-      window.translateCurrentPage();
+    let stableReady = false;
+
+    try {
+      renderPlazaBootTargetScreenOnly(
+        dashboardReadyScreen
+      );
+
+      if (
+        typeof window.translateCurrentPage ===
+        "function"
+      ) {
+        try {
+          window.translateCurrentPage();
+        } catch (error) {
+          console.warn(
+            "Plaza dashboard translation pass failed:",
+            error
+          );
+        }
+      }
+
+      stableReady = await Promise.race([
+        markPlazaDashboardChildReadyAfterStablePaint(
+          dashboardReadyScreen,
+          "boot-target-ready"
+        ),
+
+        new Promise((resolve) => {
+          window.setTimeout(
+            () => resolve(false),
+            430
+          );
+        })
+      ]);
+    } catch (error) {
+      console.warn(
+        "Plaza dashboard target hydration failed:",
+        error
+      );
     }
 
-    await markPlazaDashboardChildReadyAfterStablePaint(
-      restoredScreen,
-      "boot-target-ready"
-    );
+    if (!stableReady) {
+      finalizePlazaDashboardTargetReady(
+        dashboardReadyScreen,
+        "boot-target-forced-ready"
+      );
+    }
   } else {
     await criticalHydrationPromise;
 

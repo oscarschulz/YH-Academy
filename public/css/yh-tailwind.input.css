@@ -11041,249 +11041,110 @@ body[data-yh-view="academy"][data-yh-page="academy"]
 }
 /* END PATCH: Academy mission detail Solo Leveling UI v105 */
 
-/* PATCH: Plaza subtab spacing and header meta polish v120 */
-
-/*
-  Small Plaza polish only:
-  - Feed filter buttons get breathing room.
-  - Inbox / Conversations / Meetups / Plaza Atlas / Patron Desk counters move cleanly to top-right.
-  - Become Patron chips stay in the same area but are raised.
-  - No priority flags. No JS. No backend.
-*/
-
-body[data-yh-page="plaza"].yh-plaza-page #plazaFeedToolbar {
-  min-height: clamp(68px, 4.8vw, 86px);
+/* PATCH: Plaza child header Academy parity v121 */
+body[data-yh-page="plaza"].yh-plaza-page #plazaFeedToolbar,
+body[data-yh-page="plaza"].yh-plaza-page #plazaDirectoryToolbar {
+  min-height: 74px;
   display: flex;
   align-items: center;
-  padding: clamp(14px, 0.95vw, 18px) clamp(18px, 1.35vw, 28px);
-  margin: clamp(18px, 1.25vw, 26px) 0 clamp(24px, 1.65vw, 34px);
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 14px 18px;
+  border: 0;
+  border-bottom: 1px solid rgba(103, 232, 249, 0.16);
+  border-radius: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(12, 13, 42, 0.22),
+    rgba(5, 9, 26, 0.22)
+  );
+  box-shadow: none;
+  clip-path: none;
 }
 
 body[data-yh-page="plaza"].yh-plaza-page
   #plazaFeedToolbar
   .yh-plaza-pill-group {
-display: flex;
-align-items: center;
-flex-wrap: wrap;
-gap: 8px 10px;
-padding: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  padding: 0;
 }
 
-body[data-yh-page="plaza"].yh-plaza-page #plazaFeedToolbar .yh-plaza-pill {
-min-height: 34px;
-padding: 0 14px;
-margin: 0;
-white-space: nowrap;
+body[data-yh-page="plaza"].yh-plaza-page
+  #plazaFeedToolbar
+  .yh-plaza-pill {
+  min-height: 34px;
+  margin: 0;
+  padding: 0 14px;
+  white-space: nowrap;
 }
 
 body[data-yh-page="plaza"].yh-plaza-page
   #plazaPanelFeed
   .yh-plaza-feed-composer {
-margin-top: 8px;
-margin-bottom: 8px;
+  margin-top: 0;
+  margin-bottom: 12px;
 }
 
-@media (min-width: 901px) {
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenInbox
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenMessages
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenMeetups
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenAtlas
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenPatronDesk
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-    min-height: clamp(150px, 11vw, 214px);
-    padding-right: clamp(360px, 35vw, 590px);
-  }
+body[data-yh-page="plaza"].yh-plaza-page
+  .yh-plaza-screen-shell
+  > .yh-plaza-screen-head {
+  position: relative;
+  min-height: 74px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+}
 
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenInbox
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head
-    > div:first-child,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenMessages
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head
-    > div:first-child,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenMeetups
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head
-    > div:first-child,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenAtlas
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head
-    > div:first-child,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenPatronDesk
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head
-    > div:first-child {
-    max-width: min(64vw, 930px);
-    min-width: 0;
-  }
+body[data-yh-page="plaza"].yh-plaza-page
+  .yh-plaza-screen-shell
+  > .yh-plaza-screen-head
+  > div:first-child {
+  min-width: 0;
+  max-width: none;
+}
 
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenInbox
-    .yh-plaza-screen-meta,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenMessages
-    .yh-plaza-screen-meta,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenMeetups
-    .yh-plaza-screen-meta,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenAtlas
-    .yh-plaza-screen-meta,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenPatronDesk
-    .yh-plaza-screen-meta {
-    position: absolute;
-    top: clamp(28px, 2vw, 42px);
-    right: clamp(28px, 2.1vw, 48px);
-    width: min(40vw, 560px);
-    min-width: 300px;
-    display: flex;
-    justify-content: flex-end;
-    align-items: flex-start;
-    align-content: flex-start;
-    flex-wrap: wrap;
-    gap: clamp(8px, 0.72vw, 12px) clamp(10px, 0.9vw, 16px);
-    margin: 0;
-    z-index: 3;
-  }
+body[data-yh-page="plaza"].yh-plaza-page
+  .yh-plaza-screen-meta {
+  position: static;
+  width: auto;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  align-content: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin: 0;
+  transform: none;
+}
 
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenInbox
-    .yh-plaza-screen-meta
-    .yh-plaza-view-chip,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenMessages
-    .yh-plaza-screen-meta
-    .yh-plaza-view-chip,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenMeetups
-    .yh-plaza-screen-meta
-    .yh-plaza-view-chip,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenAtlas
-    .yh-plaza-screen-meta
-    .yh-plaza-view-chip,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenPatronDesk
-    .yh-plaza-screen-meta
-    .yh-plaza-view-chip {
-    min-height: 31px;
-    padding: 7px clamp(12px, 0.9vw, 16px);
-    white-space: nowrap;
-  }
-
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenPatron
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head {
-    position: relative;
-  }
-
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenPatron
-    .yh-plaza-screen-meta {
-    align-self: start;
-    margin-top: 0;
-    transform: translateY(-16px);
-  }
-
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenPatron
-    .yh-plaza-screen-meta
-    .yh-plaza-view-chip {
-    min-height: 31px;
-    padding: 7px clamp(12px, 0.9vw, 16px);
-    white-space: nowrap;
-  }
+body[data-yh-page="plaza"].yh-plaza-page
+  .yh-plaza-screen-meta
+  .yh-plaza-view-chip {
+  min-height: 30px;
+  padding: 7px 12px;
+  white-space: nowrap;
 }
 
 @media (max-width: 900px) {
   body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenInbox
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenMessages
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenMeetups
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenAtlas
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenPatron
-    > .yh-plaza-screen-shell
-    > .yh-plaza-screen-head,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenPatronDesk
-    > .yh-plaza-screen-shell
+    .yh-plaza-screen-shell
     > .yh-plaza-screen-head {
-    padding-right: 18px;
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenInbox
-    .yh-plaza-screen-meta,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenMessages
-    .yh-plaza-screen-meta,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenMeetups
-    .yh-plaza-screen-meta,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenAtlas
-    .yh-plaza-screen-meta,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenPatron
-    .yh-plaza-screen-meta,
-  body[data-yh-page="plaza"].yh-plaza-page
-    #plazaScreenPatronDesk
     .yh-plaza-screen-meta {
-    position: static;
-    width: 100%;
-    min-width: 0;
     justify-content: flex-start;
-    margin-top: 14px;
-    transform: none;
   }
-
-  body[data-yh-page="plaza"].yh-plaza-page #plazaFeedToolbar {
-min-height: 44px;
-display: flex;
-align-items: center;
-padding: 8px 18px;
-margin: 8px 0 8px;
 }
-}
-/* END PATCH: Plaza subtab spacing and header meta polish v120 */
+/* END PATCH: Plaza child header Academy parity v121 */
 
 /* PATCH: Plaza loader UI parity v123 */
 
@@ -11553,247 +11414,7 @@ body[data-yh-page="plaza"].yh-plaza-page .yh-tab-loader-text {
 }
 /* END PATCH: Plaza loader UI parity v123 */
 
-/* Federation visual owner */
-body[data-yh-page="federation"] {
-  --fed-bg: #020617;
-  --fed-surface: rgba(7, 24, 51, 0.22);
-  --fed-surface-soft: rgba(7, 24, 51, 0.16);
-  --fed-border: rgba(103, 232, 249, 0.2);
-  --fed-border-strong: rgba(103, 232, 249, 0.38);
-  --fed-text: #f8fbff;
-  --fed-muted: rgba(203, 213, 225, 0.78);
-  --fed-cyan: #67e8f9;
-  --fed-blue: #38bdf8;
-  --fed-green: #39d98a;
-  --fed-danger: #ff6b6b;
-  color: var(--fed-text);
-  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  background-color: #020617;
-  background:
-    radial-gradient(
-      circle at 16% 4%,
-      rgba(103, 232, 249, 0.14),
-      transparent 30%
-    ),
-    radial-gradient(circle at 86% 0%, rgba(37, 99, 235, 0.14), transparent 34%),
-    linear-gradient(180deg, rgba(2, 8, 23, 0.2), rgba(2, 6, 23, 0.44)),
-    url("/images/yhu-premium-bg.png?v=20260531-bg-09") center top / cover
-      no-repeat,
-    linear-gradient(180deg, #020817 0%, #020617 58%, #030a18 100%);
-}
-
-html.yh-dashboard-federation-embed-root,
-html.yh-dashboard-federation-scroll-child-main,
-body.yh-dashboard-federation-embed-body,
-body.yh-dashboard-federation-scroll-child-main,
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"],
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] {
-  background: transparent;
-}
-
-body[data-yh-page="federation"] .fed-shell {
-  background: transparent;
-}
-
-body[data-yh-page="federation"] .fed-section[hidden],
-body[data-yh-page="federation"] .fed-section.is-panel-hidden {
-  display: none;
-}
-
-body[data-yh-page="federation"] .fed-section.is-active-panel {
-  display: block;
-}
-
-body[data-yh-page="federation"] .fed-sidebar,
-body[data-yh-page="federation"] .fed-rightbar,
-body[data-yh-page="federation"] .fed-main {
-  border: 1px solid rgba(103, 232, 249, 0.16);
-  border-radius: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(7, 24, 51, 0.2),
-    rgba(3, 10, 24, 0.14)
-  );
-  box-shadow:
-    0 22px 70px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.035);
-  color: var(--fed-text);
-  clip-path: polygon(
-    22px 0,
-    calc(100% - 22px) 0,
-    100% 22px,
-    100% calc(100% - 22px),
-    calc(100% - 22px) 100%,
-    22px 100%,
-    0 calc(100% - 22px),
-    0 22px
-  );
-}
-
-body[data-yh-page="federation"] .fed-section,
-body[data-yh-page="federation"] .fed-sidebar-card,
-body[data-yh-page="federation"] .fed-right-card,
-body[data-yh-page="federation"] .fed-info-card,
-body[data-yh-page="federation"] .fed-overview-card,
-body[data-yh-page="federation"] .fed-panel-card,
-body[data-yh-page="federation"] .fed-mini-card,
-body[data-yh-page="federation"] .fed-benefit-card,
-body[data-yh-page="federation"] .fed-criteria-card,
-body[data-yh-page="federation"] .fed-sector-card,
-body[data-yh-page="federation"] .fed-side-stat,
-body[data-yh-page="federation"] .fed-map-card,
-body[data-yh-page="federation"] .fed-command-card,
-body[data-yh-page="federation"] .fed-request-card,
-body[data-yh-page="federation"] .fed-member-card,
-body[data-yh-page="federation"] .fed-directory-card,
-body[data-yh-page="federation"] .fed-connect-card,
-body[data-yh-page="federation"] .fed-referral-card,
-body[data-yh-page="federation"] .fed-status-card,
-body[data-yh-page="federation"] .fed-form-card,
-body[data-yh-page="federation"] .fed-application-card,
-body[data-yh-page="federation"] .fed-state-metric,
-body[data-yh-page="federation"] .fed-table-wrap,
-body[data-yh-page="federation"] .fed-list-card,
-body[data-yh-page="federation"] .fed-sector-spotlight,
-body[data-yh-page="federation"] .fed-hero-panel,
-body[data-yh-page="federation"] .fed-topbar-quick-menu,
-body[data-yh-page="federation"] .fed-modal-card,
-body[data-yh-page="federation"] .fed-session-panel,
-body[data-yh-page="federation"] .fed-form,
-body[data-yh-page="federation"] .fed-note {
-  border: 1px solid rgba(103, 232, 249, 0.18);
-  border-radius: 0;
-  background:
-    radial-gradient(
-      circle at 14% 0%,
-      rgba(103, 232, 249, 0.08),
-      transparent 30%
-    ),
-    radial-gradient(circle at 88% 0%, rgba(37, 99, 235, 0.07), transparent 34%),
-    linear-gradient(180deg, rgba(7, 24, 51, 0.22), rgba(3, 10, 24, 0.16));
-  box-shadow:
-    0 18px 54px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.035);
-  color: var(--fed-text);
-  clip-path: polygon(
-    18px 0,
-    calc(100% - 18px) 0,
-    100% 18px,
-    100% calc(100% - 18px),
-    calc(100% - 18px) 100%,
-    18px 100%,
-    0 calc(100% - 18px),
-    0 18px
-  );
-}
-
-body[data-yh-page="federation"] .fed-topbar,
-body[data-yh-page="federation"] .fed-section-head {
-  border: 1px solid rgba(103, 232, 249, 0.18);
-  border-radius: 0;
-  background:
-    radial-gradient(
-      circle at 70% 30%,
-      rgba(56, 189, 248, 0.07),
-      transparent 32%
-    ),
-    linear-gradient(90deg, rgba(7, 24, 51, 0.22), rgba(3, 10, 24, 0.14));
-  box-shadow:
-    0 16px 48px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.035);
-  clip-path: polygon(
-    22px 0,
-    calc(100% - 22px) 0,
-    100% 22px,
-    100% calc(100% - 22px),
-    calc(100% - 22px) 100%,
-    22px 100%,
-    0 calc(100% - 22px),
-    0 22px
-  );
-}
-
-body[data-yh-page="federation"] .fed-page-title,
-body[data-yh-page="federation"] .fed-hero-title,
-body[data-yh-page="federation"] .fed-section-head h3,
-body[data-yh-page="federation"] .fed-info-title,
-body[data-yh-page="federation"] .fed-sector-title,
-body[data-yh-page="federation"] .fed-command-card h4,
-body[data-yh-page="federation"] .fed-request-card h4 {
-  color: #ffffff;
-  text-shadow: 0 0 18px rgba(103, 232, 249, 0.16);
-}
-
-body[data-yh-page="federation"] .fed-kicker,
-body[data-yh-page="federation"] .fed-sidebar-card-label,
-body[data-yh-page="federation"] .fed-right-card-label,
-body[data-yh-page="federation"] .fed-panel-label {
-  color: var(--fed-cyan);
-}
-
-body[data-yh-page="federation"] .fed-section-head p,
-body[data-yh-page="federation"] .fed-info-card p,
-body[data-yh-page="federation"] .fed-benefit-card p,
-body[data-yh-page="federation"] .fed-criteria-card p,
-body[data-yh-page="federation"] .fed-sector-card p,
-body[data-yh-page="federation"] .fed-hero-text,
-body[data-yh-page="federation"] .fed-mini-label,
-body[data-yh-page="federation"] .fed-panel-main-stat small {
-  color: var(--fed-muted);
-}
-
-body[data-yh-page="federation"] .fed-btn,
-body[data-yh-page="federation"] .fed-nav-link,
-body[data-yh-page="federation"] .fed-topbar-quick-summary {
-  border: 1px solid rgba(103, 232, 249, 0.18);
-  border-radius: 0;
-  color: rgba(226, 238, 255, 0.86);
-  background: rgba(7, 24, 51, 0.16);
-  box-shadow: none;
-  clip-path: polygon(
-    12px 0,
-    calc(100% - 12px) 0,
-    100% 12px,
-    100% calc(100% - 12px),
-    calc(100% - 12px) 100%,
-    12px 100%,
-    0 calc(100% - 12px),
-    0 12px
-  );
-}
-
-body[data-yh-page="federation"] .fed-btn:hover,
-body[data-yh-page="federation"] .fed-nav-link:hover,
-body[data-yh-page="federation"] .fed-nav-link.active {
-  border-color: rgba(103, 232, 249, 0.42);
-  color: #ffffff;
-  background: rgba(56, 189, 248, 0.12);
-}
-
-body[data-yh-page="federation"] .fed-btn-primary {
-  border-color: rgba(59, 130, 246, 0.52);
-  color: #ffffff;
-  background: linear-gradient(
-    135deg,
-    rgba(37, 99, 235, 0.84),
-    rgba(14, 165, 233, 0.58)
-  );
-  box-shadow: 0 12px 34px rgba(37, 99, 235, 0.2);
-}
-
-body[data-yh-page="federation"] .fed-chip,
-body[data-yh-page="federation"] .fed-hero-strip span,
-body[data-yh-page="federation"] .fed-status-list span,
-body[data-yh-page="federation"] .fed-tag-wrap span {
-  border: 1px solid rgba(103, 232, 249, 0.18);
-  color: #dff7ff;
-  background: rgba(7, 24, 51, 0.16);
-}
-
-body[data-yh-page="federation"] img {
-  filter: none;
-}
-/* End Federation visual owner */
+/* Federation visual ownership consolidated in v148 below. */
 
 /* PATCH: YH Wallet Solo Leveling Tailwind skin v134 */
 body[data-yh-view="hub"][data-yh-unified-workspace="wallet"]
@@ -13470,28 +13091,42 @@ body[data-yh-page="business-chats"] *::-webkit-scrollbar {
 }
 /* END PATCH: Dashboard left sidebar Tailwind visual owner v142 */
 
-/* PATCH: Federation clear transparent panels visual owner v147 */
+/* PATCH: Federation Academy-Plazas child UI parity v148 */
 body[data-yh-page="federation"] {
   --fed-text: #f8fbff;
-  --fed-muted: rgba(203, 213, 225, 0.78);
+  --fed-soft: #dff7ff;
+  --fed-muted: rgba(203, 213, 225, 0.8);
   --fed-cyan: #67e8f9;
   --fed-blue: #38bdf8;
-  --fed-green: #39d98a;
-  --fed-danger: #ff6b6b;
+  --fed-border: rgba(103, 232, 249, 0.16);
+  --fed-border-strong: rgba(103, 232, 249, 0.34);
+  --yh-font-label:
+    "Orbitron",
+    "Rajdhani",
+    "Poppins",
+    system-ui,
+    sans-serif;
+  --yh-font-title:
+    "Rajdhani",
+    "Poppins",
+    system-ui,
+    sans-serif;
+  --yh-font-body:
+    "Poppins",
+    system-ui,
+    sans-serif;
+  min-height: 100dvh;
   color: var(--fed-text);
-  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  background-color: #020617;
   background:
-    radial-gradient(
-      circle at 14% 0%,
-      rgba(103, 232, 249, 0.12),
-      transparent 30%
+    linear-gradient(
+      180deg,
+      rgba(2, 6, 23, 0.04),
+      rgba(2, 6, 23, 0.2)
     ),
-    radial-gradient(circle at 86% 0%, rgba(37, 99, 235, 0.13), transparent 34%),
-    linear-gradient(180deg, rgba(2, 8, 23, 0.1), rgba(2, 6, 23, 0.26)),
-    url("/images/yhu-premium-bg.png?v=20260531-bg-09") center top / cover
-      no-repeat,
-    linear-gradient(180deg, #020817 0%, #020617 58%, #030a18 100%);
+    url("/images/yhu-premium-bg.png?v=20260531-bg-09")
+      center center / cover no-repeat fixed,
+    #020617;
+  font-family: var(--yh-font-body);
 }
 
 html.yh-dashboard-federation-embed-root,
@@ -13503,55 +13138,53 @@ body.yh-dashboard-inline-embed-body[data-yh-page="federation"] {
   background: transparent;
 }
 
-body[data-yh-page="federation"] .fed-shell,
-body[data-yh-page="federation"] .fed-main,
-body[data-yh-page="federation"] .fed-section,
-body[data-yh-page="federation"] .fed-section.is-active-panel {
+body[data-yh-page="federation"] .fed-shell {
+  min-height: 100%;
+  height: 100%;
+  gap: 0;
+  padding: 0;
   background: transparent;
 }
 
-body[data-yh-page="federation"] .fed-section[hidden],
-body[data-yh-page="federation"] .fed-section.is-panel-hidden {
-  display: none;
-}
-
-body[data-yh-page="federation"] .fed-section.is-active-panel {
-  display: block;
-}
-
-body[data-yh-page="federation"] .fed-sidebar,
-body[data-yh-page="federation"] .fed-rightbar {
-  border: 1px solid rgba(103, 232, 249, 0.14);
-  border-radius: 0;
-  background: rgba(2, 8, 23, 0.1);
-  box-shadow:
-    0 16px 46px rgba(0, 0, 0, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.025);
-  color: var(--fed-text);
-  clip-path: polygon(
-    22px 0,
-    calc(100% - 22px) 0,
-    100% 22px,
-    100% calc(100% - 22px),
-    calc(100% - 22px) 100%,
-    22px 100%,
-    0 calc(100% - 22px),
-    0 22px
-  );
-}
-
 body[data-yh-page="federation"] .fed-main {
-  border: 1px solid rgba(103, 232, 249, 0.12);
-  border-radius: 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px;
+  border: 0;
+  background: transparent;
   box-shadow: none;
   color: var(--fed-text);
   clip-path: none;
 }
 
-body[data-yh-page="federation"] .fed-section {
-  border: 1px solid rgba(103, 232, 249, 0.16);
+body[data-yh-page="federation"] .fed-section[hidden],
+body[data-yh-page="federation"]
+  .fed-section.is-panel-hidden {
+  display: none;
+}
+
+body[data-yh-page="federation"]
+  .fed-section.is-active-panel {
+  min-width: 0;
+  min-height: 100%;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  margin: 0;
+  padding: 0 18px 22px;
+  border: 1px solid var(--fed-border);
   border-radius: 0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  overflow: visible;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(2, 6, 23, 0.04),
+      rgba(2, 6, 23, 0.2)
+    ),
+    url("/images/yhu-premium-bg.png?v=20260531-bg-09")
+      center center / cover no-repeat,
+    #020617;
+  box-shadow: none;
   color: var(--fed-text);
   clip-path: polygon(
     18px 0,
@@ -13565,39 +13198,185 @@ body[data-yh-page="federation"] .fed-section {
   );
 }
 
-body[data-yh-page="federation"] .fed-sidebar-card,
-body[data-yh-page="federation"] .fed-right-card,
-body[data-yh-page="federation"] .fed-info-card,
-body[data-yh-page="federation"] .fed-overview-card,
-body[data-yh-page="federation"] .fed-panel-card,
-body[data-yh-page="federation"] .fed-mini-card,
-body[data-yh-page="federation"] .fed-benefit-card,
-body[data-yh-page="federation"] .fed-criteria-card,
-body[data-yh-page="federation"] .fed-sector-card,
-body[data-yh-page="federation"] .fed-side-stat,
-body[data-yh-page="federation"] .fed-map-card,
-body[data-yh-page="federation"] .fed-command-card,
-body[data-yh-page="federation"] .fed-request-card,
-body[data-yh-page="federation"] .fed-member-card,
-body[data-yh-page="federation"] .fed-directory-card,
-body[data-yh-page="federation"] .fed-connect-card,
-body[data-yh-page="federation"] .fed-referral-card,
-body[data-yh-page="federation"] .fed-status-card,
-body[data-yh-page="federation"] .fed-form-card,
-body[data-yh-page="federation"] .fed-application-card,
-body[data-yh-page="federation"] .fed-state-metric,
-body[data-yh-page="federation"] .fed-table-wrap,
-body[data-yh-page="federation"] .fed-list-card,
-body[data-yh-page="federation"] .fed-sector-spotlight,
-body[data-yh-page="federation"] .fed-topbar-quick-menu,
-body[data-yh-page="federation"] .fed-modal-card,
-body[data-yh-page="federation"] .fed-session-panel,
-body[data-yh-page="federation"] .fed-form,
-body[data-yh-page="federation"] .fed-note {
-  border: 1px solid rgba(103, 232, 249, 0.13);
+body[data-yh-page="federation"]
+  .fed-section-head {
+  min-width: 0;
+  min-height: 74px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  margin: 0 -18px;
+  padding: 14px 18px;
+  border: 0;
+  border-bottom:
+    1px solid var(--fed-border);
   border-radius: 0;
-  background: rgba(2, 8, 23, 0.055);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.022);
+  background:
+    linear-gradient(
+      90deg,
+      rgba(12, 13, 42, 0.22),
+      rgba(5, 9, 26, 0.22)
+    );
+  box-shadow: none;
+  clip-path: none;
+}
+
+body[data-yh-page="federation"] .fed-page-title,
+body[data-yh-page="federation"] .fed-hero-title,
+body[data-yh-page="federation"]
+  .fed-section-head h3,
+body[data-yh-page="federation"] .fed-info-title,
+body[data-yh-page="federation"] .fed-sector-title,
+body[data-yh-page="federation"]
+  .fed-command-card h4,
+body[data-yh-page="federation"]
+  .fed-request-card h4,
+body[data-yh-page="federation"] .fed-member-name,
+body[data-yh-page="federation"]
+  .fed-sidebar-card-title,
+body[data-yh-page="federation"]
+  .fed-form-section-title {
+  color: #ffffff;
+  font-family: var(--yh-font-title);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.025em;
+  text-shadow:
+    0 0 14px rgba(103, 232, 249, 0.12);
+}
+
+body[data-yh-page="federation"]
+  .fed-section-head h3 {
+  margin: 2px 0 4px;
+  font-size:
+    clamp(1.45rem, 1.8vw, 1.9rem);
+}
+
+body[data-yh-page="federation"] .fed-kicker,
+body[data-yh-page="federation"]
+  .fed-sidebar-card-label,
+body[data-yh-page="federation"]
+  .fed-right-card-label,
+body[data-yh-page="federation"]
+  .fed-panel-label,
+body[data-yh-page="federation"]
+  .fed-state-kicker {
+  width: max-content;
+  max-width: 100%;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border:
+    1px solid rgba(103, 232, 249, 0.24);
+  border-radius: 0;
+  color: var(--fed-cyan);
+  background: rgba(14, 165, 233, 0.1);
+  font-family: var(--yh-font-label);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  clip-path: polygon(
+    7px 0,
+    100% 0,
+    100% calc(100% - 7px),
+    calc(100% - 7px) 100%,
+    0 100%,
+    0 7px
+  );
+}
+
+body[data-yh-page="federation"]
+  .fed-section-head p,
+body[data-yh-page="federation"]
+  .fed-command-copy,
+body[data-yh-page="federation"]
+  .fed-referral-caption,
+body[data-yh-page="federation"]
+  .fed-member-desc,
+body[data-yh-page="federation"]
+  .fed-state-text,
+body[data-yh-page="federation"]
+  .fed-form-hint,
+body[data-yh-page="federation"]
+  .fed-connect-selected,
+body[data-yh-page="federation"]
+  .fed-sidebar-card p,
+body[data-yh-page="federation"]
+  .fed-right-card p {
+  margin-top: 0;
+  color: var(--fed-muted);
+  font-family: var(--yh-font-body);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+body[data-yh-page="federation"]
+  .fed-command-layout,
+body[data-yh-page="federation"]
+  .fed-connect-hero,
+body[data-yh-page="federation"]
+  .fed-connect-grid,
+body[data-yh-page="federation"]
+  .fed-directory-grid,
+body[data-yh-page="federation"]
+  .fed-referral-layout,
+body[data-yh-page="federation"]
+  .fed-status-layout,
+body[data-yh-page="federation"]
+  .fed-state-grid,
+body[data-yh-page="federation"]
+  .fed-requests-list {
+  min-width: 0;
+  gap: 14px;
+}
+
+body[data-yh-page="federation"]
+  .fed-command-card,
+body[data-yh-page="federation"]
+  .fed-request-card,
+body[data-yh-page="federation"]
+  .fed-member-card,
+body[data-yh-page="federation"]
+  .fed-directory-card,
+body[data-yh-page="federation"]
+  .fed-connect-card,
+body[data-yh-page="federation"]
+  .fed-referral-card,
+body[data-yh-page="federation"]
+  .fed-status-card,
+body[data-yh-page="federation"]
+  .fed-state-card,
+body[data-yh-page="federation"]
+  .fed-state-metric,
+body[data-yh-page="federation"]
+  .fed-connect-request-panel,
+body[data-yh-page="federation"]
+  .fed-session-panel,
+body[data-yh-page="federation"]
+  .fed-session-side .fed-sidebar-card,
+body[data-yh-page="federation"]
+  .fed-note {
+  min-width: 0;
+  border:
+    1px solid rgba(103, 232, 249, 0.16);
+  border-radius: 0;
+  background:
+    radial-gradient(
+      circle at 14% 0%,
+      rgba(103, 232, 249, 0.07),
+      transparent 32%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(7, 24, 51, 0.24),
+      rgba(3, 10, 24, 0.18)
+    );
+  box-shadow:
+    inset 0 1px 0
+      rgba(255, 255, 255, 0.03);
   color: var(--fed-text);
   clip-path: polygon(
     14px 0,
@@ -13611,138 +13390,280 @@ body[data-yh-page="federation"] .fed-note {
   );
 }
 
-body[data-yh-page="federation"] .fed-topbar,
-body[data-yh-page="federation"] .fed-section-head {
-  border: 1px solid rgba(103, 232, 249, 0.12);
-  border-radius: 0;
-  background: rgba(2, 8, 23, 0.045);
-  box-shadow: none;
-  clip-path: polygon(
-    18px 0,
-    calc(100% - 18px) 0,
-    100% 18px,
-    100% calc(100% - 18px),
-    calc(100% - 18px) 100%,
-    18px 100%,
-    0 calc(100% - 18px),
-    0 18px
-  );
+body[data-yh-page="federation"]
+  .fed-command-card,
+body[data-yh-page="federation"]
+  .fed-request-card,
+body[data-yh-page="federation"]
+  .fed-member-card,
+body[data-yh-page="federation"]
+  .fed-connect-card,
+body[data-yh-page="federation"]
+  .fed-referral-card,
+body[data-yh-page="federation"]
+  .fed-state-card,
+body[data-yh-page="federation"]
+  .fed-session-side .fed-sidebar-card {
+  padding: 18px;
 }
 
-body[data-yh-page="federation"] .fed-input-wrap input,
-body[data-yh-page="federation"] .fed-input-wrap select,
-body[data-yh-page="federation"] .fed-input-wrap textarea {
-  border: 1px solid rgba(103, 232, 249, 0.14);
+body[data-yh-page="federation"]
+  .fed-empty-state-card,
+body[data-yh-page="federation"]
+  .fed-connect-empty,
+body[data-yh-page="federation"]
+  .fed-connect-requests-empty,
+body[data-yh-page="federation"]
+  .fed-directory-grid
+  > .fed-member-card:only-child,
+body[data-yh-page="federation"]
+  .fed-requests-list
+  > .fed-command-card:only-child {
+  grid-column: 1 / -1;
+  min-height: 150px;
+  display: grid;
+  align-content: center;
+  gap: 10px;
+}
+
+body[data-yh-page="federation"]
+  .fed-connect-toolbar,
+body[data-yh-page="federation"]
+  .fed-directory-toolbar,
+body[data-yh-page="federation"]
+  .fed-requests-toolbar {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border:
+    1px solid rgba(103, 232, 249, 0.14);
+  background: rgba(2, 8, 23, 0.12);
+}
+
+body[data-yh-page="federation"]
+  .fed-input-wrap {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+body[data-yh-page="federation"]
+  .fed-input-wrap label {
+  color: var(--fed-soft);
+  font-family: var(--yh-font-title);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+body[data-yh-page="federation"]
+  .fed-input-wrap input,
+body[data-yh-page="federation"]
+  .fed-input-wrap select,
+body[data-yh-page="federation"]
+  .fed-input-wrap textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 13px;
+  border:
+    1px solid rgba(103, 232, 249, 0.16);
   border-radius: 0;
-  background: rgba(2, 8, 23, 0.08);
+  outline: none;
+  background: rgba(2, 8, 23, 0.2);
   color: var(--fed-text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.022);
+  font-family: var(--yh-font-body);
+  font-size: 0.95rem;
+  line-height: 1.4;
+  box-shadow:
+    inset 0 1px 0
+      rgba(255, 255, 255, 0.02);
   clip-path: polygon(
-    12px 0,
-    calc(100% - 12px) 0,
-    100% 12px,
-    100% calc(100% - 12px),
-    calc(100% - 12px) 100%,
-    12px 100%,
-    0 calc(100% - 12px),
-    0 12px
+    10px 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    10px 100%,
+    0 calc(100% - 10px),
+    0 10px
   );
 }
 
-body[data-yh-page="federation"] .fed-page-title,
-body[data-yh-page="federation"] .fed-hero-title,
-body[data-yh-page="federation"] .fed-section-head h3,
-body[data-yh-page="federation"] .fed-info-title,
-body[data-yh-page="federation"] .fed-sector-title,
-body[data-yh-page="federation"] .fed-command-card h4,
-body[data-yh-page="federation"] .fed-request-card h4,
-body[data-yh-page="federation"] .fed-brand-title,
-body[data-yh-page="federation"] .fed-sidebar-card-title,
-body[data-yh-page="federation"] .fed-right-card-title {
-  color: #ffffff;
-  text-shadow: 0 0 14px rgba(103, 232, 249, 0.12);
-}
-
-body[data-yh-page="federation"] .fed-kicker,
-body[data-yh-page="federation"] .fed-sidebar-card-label,
-body[data-yh-page="federation"] .fed-right-card-label,
-body[data-yh-page="federation"] .fed-panel-label,
-body[data-yh-page="federation"] .fed-form-section-title,
-body[data-yh-page="federation"] .fed-state-kicker {
-  color: var(--fed-cyan);
-}
-
-body[data-yh-page="federation"] .fed-section-head p,
-body[data-yh-page="federation"] .fed-info-card p,
-body[data-yh-page="federation"] .fed-benefit-card p,
-body[data-yh-page="federation"] .fed-criteria-card p,
-body[data-yh-page="federation"] .fed-sector-card p,
-body[data-yh-page="federation"] .fed-hero-text,
-body[data-yh-page="federation"] .fed-mini-label,
-body[data-yh-page="federation"] .fed-panel-main-stat small,
-body[data-yh-page="federation"] .fed-sidebar-card p,
-body[data-yh-page="federation"] .fed-right-card p,
-body[data-yh-page="federation"] .fed-brand-subtitle,
-body[data-yh-page="federation"] .fed-member-role,
-body[data-yh-page="federation"] .fed-member-desc,
-body[data-yh-page="federation"] .fed-state-text,
-body[data-yh-page="federation"] .fed-form-hint {
-  color: var(--fed-muted);
+body[data-yh-page="federation"]
+  .fed-input-wrap input:focus,
+body[data-yh-page="federation"]
+  .fed-input-wrap select:focus,
+body[data-yh-page="federation"]
+  .fed-input-wrap textarea:focus {
+  border-color:
+    rgba(103, 232, 249, 0.48);
+  box-shadow:
+    0 0 0 3px
+      rgba(56, 189, 248, 0.08);
 }
 
 body[data-yh-page="federation"] .fed-btn,
 body[data-yh-page="federation"] .fed-nav-link,
-body[data-yh-page="federation"] .fed-topbar-quick-summary,
-body[data-yh-page="federation"] .fed-topbar-quick-link {
-  border: 1px solid rgba(103, 232, 249, 0.14);
+body[data-yh-page="federation"]
+  .fed-topbar-quick-summary,
+body[data-yh-page="federation"]
+  .fed-topbar-quick-link {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border:
+    1px solid rgba(103, 232, 249, 0.16);
   border-radius: 0;
-  color: rgba(226, 238, 255, 0.86);
-  background: rgba(2, 8, 23, 0.07);
+  color: rgba(226, 238, 255, 0.9);
+  background: rgba(2, 8, 23, 0.14);
   box-shadow: none;
+  font-family: var(--yh-font-title);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.05;
   clip-path: polygon(
-    12px 0,
-    calc(100% - 12px) 0,
-    100% 12px,
-    100% calc(100% - 12px),
-    calc(100% - 12px) 100%,
-    12px 100%,
-    0 calc(100% - 12px),
-    0 12px
+    10px 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    10px 100%,
+    0 calc(100% - 10px),
+    0 10px
   );
 }
 
 body[data-yh-page="federation"] .fed-btn:hover,
-body[data-yh-page="federation"] .fed-nav-link:hover,
-body[data-yh-page="federation"] .fed-nav-link.active,
-body[data-yh-page="federation"] .fed-topbar-quick-link:hover {
-  border-color: rgba(103, 232, 249, 0.36);
+body[data-yh-page="federation"]
+  .fed-nav-link:hover,
+body[data-yh-page="federation"]
+  .fed-nav-link.active,
+body[data-yh-page="federation"]
+  .fed-topbar-quick-link:hover {
+  border-color:
+    rgba(103, 232, 249, 0.42);
   color: #ffffff;
-  background: rgba(56, 189, 248, 0.1);
+  background: rgba(56, 189, 248, 0.12);
 }
 
-body[data-yh-page="federation"] .fed-btn-primary {
-  border-color: rgba(59, 130, 246, 0.42);
+body[data-yh-page="federation"]
+  .fed-btn-primary {
+  border-color:
+    rgba(59, 130, 246, 0.52);
   color: #ffffff;
-  background: rgba(37, 99, 235, 0.24);
-  box-shadow: 0 10px 26px rgba(37, 99, 235, 0.16);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(37, 99, 235, 0.84),
+      rgba(14, 165, 233, 0.58)
+    );
+  box-shadow:
+    0 12px 32px
+      rgba(37, 99, 235, 0.18);
 }
 
-body[data-yh-page="federation"] .fed-chip,
-body[data-yh-page="federation"] .fed-hero-strip span,
-body[data-yh-page="federation"] .fed-status-list span,
-body[data-yh-page="federation"] .fed-tag-wrap span,
-body[data-yh-page="federation"] .fed-member-meta span,
-body[data-yh-page="federation"] .fed-member-badge,
-body[data-yh-page="federation"] .fed-state-badge {
-  border: 1px solid rgba(103, 232, 249, 0.13);
-  color: #dff7ff;
-  background: rgba(2, 8, 23, 0.07);
+body[data-yh-page="federation"]
+  .fed-command-pills,
+body[data-yh-page="federation"]
+  .fed-member-meta,
+body[data-yh-page="federation"]
+  .fed-state-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-body[data-yh-page="federation"] img {
-  filter: none;
+body[data-yh-page="federation"]
+  .fed-command-pills span,
+body[data-yh-page="federation"]
+  .fed-member-meta span,
+body[data-yh-page="federation"]
+  .fed-state-meta span,
+body[data-yh-page="federation"]
+  .fed-member-badge,
+body[data-yh-page="federation"]
+  .fed-state-badge {
+  padding: 7px 10px;
+  border:
+    1px solid rgba(103, 232, 249, 0.16);
+  border-radius: 0;
+  color: var(--fed-soft);
+  background: rgba(2, 8, 23, 0.14);
+  font-family: var(--yh-font-label);
+  font-size: 0.67rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
-/* END PATCH: Federation clear transparent panels visual owner v147 */
+
+body[data-yh-page="federation"]
+  .fed-state-metric {
+  min-height: 92px;
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  padding: 14px;
+}
+
+body[data-yh-page="federation"]
+  .fed-state-metric strong {
+  color: #ffffff;
+  font-family: var(--yh-font-title);
+  font-size: 1.15rem;
+  line-height: 1.1;
+}
+
+body[data-yh-page="federation"]
+  .fed-state-metric small {
+  color: var(--fed-muted);
+  font-family: var(--yh-font-body);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  body[data-yh-page="federation"]
+    .fed-main {
+    padding: 10px;
+  }
+
+  body[data-yh-page="federation"]
+    .fed-section.is-active-panel {
+    padding: 0 14px 18px;
+  }
+
+  body[data-yh-page="federation"]
+    .fed-section-head {
+    margin-inline: -14px;
+    padding: 14px;
+  }
+
+  body[data-yh-page="federation"]
+    .fed-command-layout,
+  body[data-yh-page="federation"]
+    .fed-connect-hero,
+  body[data-yh-page="federation"]
+    .fed-connect-grid,
+  body[data-yh-page="federation"]
+    .fed-directory-grid,
+  body[data-yh-page="federation"]
+    .fed-referral-layout,
+  body[data-yh-page="federation"]
+    .fed-status-layout,
+  body[data-yh-page="federation"]
+    .fed-connect-toolbar,
+  body[data-yh-page="federation"]
+    .fed-directory-toolbar,
+  body[data-yh-page="federation"]
+    .fed-state-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* END PATCH: Federation Academy-Plazas child UI parity v148 */
 
 /* PATCH: Federation mobile loader scale owner v2 */
 body[data-yh-page="federation"] .yh-tab-loader {
@@ -13827,6 +13748,11 @@ body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page {
   --plaza-cyan: #67e8f9;
   --plaza-blue: #38bdf8;
   --plaza-panel-border: rgba(103, 232, 249, 0.16);
+  --yh-font-label: "Orbitron", "Rajdhani", "Poppins", system-ui, sans-serif;
+  --yh-font-title: "Rajdhani", "Poppins", system-ui, sans-serif;
+  --yh-font-body: "Poppins", system-ui, sans-serif;
+  --yh-font-header: "Rajdhani", "Poppins", system-ui, sans-serif;
+  --yh-font-subheader: "Orbitron", "Rajdhani", "Poppins", system-ui, sans-serif;
   background-color: #020617;
   background:
     radial-gradient(
@@ -13841,7 +13767,7 @@ body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page {
     #020617;
   color: var(--plaza-text);
   color-scheme: dark;
-  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+  font-family: var(--yh-font-body);
 }
 
 body[data-yh-page="plaza"].yh-plaza-page::before {
@@ -13909,7 +13835,6 @@ body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page
 
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-app-header,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-head,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-screen-head,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-access-head {
   border: 1px solid rgba(103, 232, 249, 0.14);
   border-radius: 0;
@@ -13927,6 +13852,62 @@ body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-access-head {
     0 calc(100% - 20px),
     0 20px
   );
+}
+
+body[data-yh-page="plaza"].yh-plaza-page
+  .yh-plaza-screen-shell {
+  display: grid;
+  gap: 16px;
+  padding: 0 0 20px;
+  border: 1px solid rgba(103, 232, 249, 0.16);
+  border-radius: 0;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(2, 6, 23, 0.04),
+      rgba(2, 6, 23, 0.2)
+    ),
+    url("/images/yhu-premium-bg.png?v=20260531-bg-09")
+      center center / cover no-repeat,
+    #020617;
+  box-shadow: none;
+  overflow: hidden;
+  clip-path: polygon(
+    18px 0,
+    calc(100% - 18px) 0,
+    100% 18px,
+    100% calc(100% - 18px),
+    calc(100% - 18px) 100%,
+    18px 100%,
+    0 calc(100% - 18px),
+    0 18px
+  );
+}
+
+body[data-yh-page="plaza"].yh-plaza-page
+  .yh-plaza-screen-head {
+  min-height: 74px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border: 0;
+  border-bottom: 1px solid rgba(103, 232, 249, 0.16);
+  border-radius: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(12, 13, 42, 0.22),
+    rgba(5, 9, 26, 0.22)
+  );
+  box-shadow: none;
+  clip-path: none;
+}
+
+body[data-yh-page="plaza"].yh-plaza-page
+  .yh-plaza-screen-head
+  > div:first-child {
+  min-width: 0;
 }
 
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-sidebar,
@@ -14056,7 +14037,17 @@ body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-directory-name,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-opportunity-title,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-region-title {
   color: #ffffff;
+  font-family: var(--yh-font-title);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: 0.035em;
   text-shadow: 0 0 14px rgba(103, 232, 249, 0.12);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page
+  .yh-plaza-screen-title {
+  margin: 4px 0 6px;
+  font-size: clamp(1.45rem, 1.8vw, 1.9rem);
 }
 
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-section-kicker,
@@ -14065,9 +14056,30 @@ body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-chip,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-card-kicker,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-type,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-region-code {
-  border: 1px solid rgba(103, 232, 249, 0.14);
+  width: max-content;
+  max-width: 100%;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border: 1px solid rgba(103, 232, 249, 0.24);
+  border-radius: 0;
   color: var(--plaza-cyan);
-  background: rgba(2, 8, 23, 0.16);
+  background: rgba(14, 165, 233, 0.1);
+  font-family: var(--yh-font-label);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  clip-path: polygon(
+    7px 0,
+    100% 0,
+    100% calc(100% - 7px),
+    calc(100% - 7px) 100%,
+    0 100%,
+    0 7px
+  );
 }
 
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-note,
@@ -14075,9 +14087,13 @@ body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-card-copy,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-copy,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-panel-note,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-empty-state,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-screen-head p,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-card p,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-rail-card p {
   color: var(--plaza-muted);
+  font-family: var(--yh-font-body);
+  font-size: 0.95rem;
+  line-height: 1.6;
 }
 
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-btn,
@@ -14085,11 +14101,21 @@ body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-nav-btn,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-pill,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-ghost-btn,
 body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-top-universe-btn {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 11px 15px;
   border: 1px solid rgba(103, 232, 249, 0.14);
   border-radius: 0;
   color: rgba(226, 238, 255, 0.88);
   background: rgba(2, 8, 23, 0.14);
   box-shadow: none;
+  font-family: var(--yh-font-title);
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.05;
   clip-path: polygon(
     12px 0,
     calc(100% - 12px) 0,
@@ -14127,11 +14153,16 @@ body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer-field select,
 body[data-yh-page="plaza"].yh-plaza-page
   .yh-plaza-feed-composer-field
   textarea {
+  min-height: 44px;
+  padding: 11px 13px;
   border: 1px solid rgba(103, 232, 249, 0.14);
   border-radius: 0;
   background: rgba(2, 8, 23, 0.2);
   color: var(--plaza-text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.018);
+  font-family: var(--yh-font-body);
+  font-size: 0.95rem;
+  line-height: 1.4;
   clip-path: polygon(
     10px 0,
     calc(100% - 10px) 0,

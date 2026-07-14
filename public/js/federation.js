@@ -933,6 +933,7 @@ const federationServerState = {
   loaded: false,
   lastFetchAt: 0,
   currentUser: null,
+  canEnterFederation: false,
   application: null,
   applications: [],
   member: null,
@@ -1035,6 +1036,12 @@ async function loadFederationServerState(options = {}) {
         ? meResult.currentUser
         : null;
 
+    federationServerState.canEnterFederation =
+      meResult.canEnterFederation === true ||
+      String(meResult.applicationStatus || "")
+        .trim()
+        .toLowerCase() === "approved";
+
     federationServerState.application =
       meResult.application && typeof meResult.application === "object"
         ? normalizeFederationApplication(meResult.application)
@@ -1128,7 +1135,12 @@ async function loadFederationServerState(options = {}) {
       federationServerState.currentUser ||
       buildFederationInlineFallbackCurrentUser();
 
-    federationServerState.application = federationServerState.application || null;
+    federationServerState.canEnterFederation =
+      federationServerState.canEnterFederation === true ||
+      hasFederationApprovedAccess();
+
+    federationServerState.application =
+      federationServerState.application || null;
     federationServerState.applications = Array.isArray(federationServerState.applications)
       ? federationServerState.applications
       : [];
@@ -2401,8 +2413,37 @@ function renderFederationConnectSection() {
   updateFederationStrategicReadinessSurface();
 
   if (state.type !== "member") {
-    section.hidden = true;
-    grid.innerHTML = "";
+    section.hidden = false;
+
+    if (availableCount) {
+      availableCount.textContent = "0";
+    }
+
+    if (requestCount) {
+      requestCount.textContent = "0";
+    }
+
+    grid.innerHTML = `
+      <article class="fed-command-card fed-connect-empty fed-empty-state-card">
+        <div class="fed-sidebar-card-label">
+          Connect Layer
+        </div>
+
+        <h4>
+          Federation Connect is preparing your member state
+        </h4>
+
+        <p class="fed-command-copy">
+          Approved member data is still synchronizing.
+          The Connect opportunity list and request tools
+          will appear here as soon as the server-backed
+          profile is ready.
+        </p>
+      </article>
+    `;
+
+    renderFederationConnectRequestsPanel();
+
     return;
   }
 
@@ -2849,15 +2890,180 @@ function setApplications(applications) {
   writeStorage(STORAGE_KEYS.applications, applications);
 }
 
+function readFederationApprovedAccessCache() {
+  try {
+    const raw = localStorage.getItem(
+      "yh_federation_access_status_v1"
+    );
+
+    const parsed = raw ? JSON.parse(raw) : {};
+
+    return parsed && typeof parsed === "object"
+      ? parsed
+      : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function hasFederationApprovedAccess() {
+  const cached =
+    readFederationApprovedAccessCache();
+
+  const cachedStatus = String(
+    cached.applicationStatus ||
+    cached.application?.status ||
+    ""
+  )
+    .trim()
+    .toLowerCase();
+
+  return Boolean(
+    federationServerState.canEnterFederation === true ||
+    federationServerState.member ||
+    cached.canEnterFederation === true ||
+    cachedStatus === "approved"
+  );
+}
+
+function buildFederationApprovedFallbackMember() {
+  if (!hasFederationApprovedAccess()) {
+    return null;
+  }
+
+  const cached =
+    readFederationApprovedAccessCache();
+
+  const currentUser =
+    federationServerState.currentUser ||
+    getCurrentUser() ||
+    {};
+
+  const application =
+    federationServerState.application ||
+    cached.application ||
+    {};
+
+  const email = String(
+    currentUser.email ||
+    currentUser.emailLower ||
+    application.email ||
+    cached.member?.email ||
+    ""
+  )
+    .trim()
+    .toLowerCase();
+
+  const name = String(
+    cached.member?.name ||
+    currentUser.name ||
+    currentUser.fullName ||
+    currentUser.username ||
+    application.fullName ||
+    application.name ||
+    "Federation Member"
+  ).trim();
+
+  return normalizeFederationMember({
+    ...(
+      cached.member &&
+      typeof cached.member === "object"
+        ? cached.member
+        : {}
+    ),
+
+    id:
+      cached.member?.id ||
+      currentUser.id ||
+      application.userId ||
+      email ||
+      "approved-federation-member",
+
+    userId:
+      cached.member?.userId ||
+      currentUser.id ||
+      application.userId ||
+      "",
+
+    email,
+    name,
+
+    role:
+      cached.member?.role ||
+      application.role ||
+      application.profession ||
+      "Approved Federation Member",
+
+    category:
+      cached.member?.category ||
+      application.primaryCategory ||
+      application.category ||
+      "Strategic Operator",
+
+    country:
+      cached.member?.country ||
+      application.country ||
+      "",
+
+    city:
+      cached.member?.city ||
+      application.city ||
+      "",
+
+    company:
+      cached.member?.company ||
+      application.company ||
+      "Independent",
+
+    description:
+      cached.member?.description ||
+      application.canOffer ||
+      application.valueBring ||
+      "Approved Federation member.",
+
+    referralCode:
+      cached.member?.referralCode ||
+      federationServerState.referrals?.referralCode ||
+      application.generatedReferralCode ||
+      "",
+
+    approvedAt:
+      cached.member?.approvedAt ||
+      application.approvedAt ||
+      cached.approvedAt ||
+      "",
+
+    source: "approved-access-fallback"
+  });
+}
+
 function getMembers() {
   if (federationServerState.loaded) {
-    return Array.isArray(federationServerState.members)
-      ? federationServerState.members
+    const serverMembers =
+      Array.isArray(federationServerState.members)
+        ? federationServerState.members
+        : [];
+
+    if (serverMembers.length) {
+      return serverMembers;
+    }
+
+    const fallbackMember =
+      buildFederationApprovedFallbackMember();
+
+    return fallbackMember
+      ? [fallbackMember]
       : [];
   }
 
-  const members = readStorage(STORAGE_KEYS.members, []);
-  return Array.isArray(members) ? members : [];
+  const members = readStorage(
+    STORAGE_KEYS.members,
+    []
+  );
+
+  return Array.isArray(members)
+    ? members
+    : [];
 }
 
 function setMembers(members) {
@@ -2930,16 +3136,46 @@ function getMemberByEmail(emailLower) {
 }
 
 function getCurrentUserState() {
-  if (federationServerState.loaded && federationServerState.member) {
+  if (
+    federationServerState.loaded &&
+    federationServerState.member
+  ) {
     return {
       type: "member",
-      currentUser: federationServerState.currentUser,
-      application: federationServerState.application,
-      member: federationServerState.member
+      currentUser:
+        federationServerState.currentUser,
+      application:
+        federationServerState.application,
+      member:
+        federationServerState.member
     };
   }
 
-  if (federationServerState.loaded && federationServerState.application) {
+  if (
+    federationServerState.loaded &&
+    hasFederationApprovedAccess()
+  ) {
+    const fallbackMember =
+      buildFederationApprovedFallbackMember();
+
+    if (fallbackMember) {
+      return {
+        type: "member",
+        currentUser:
+          federationServerState.currentUser ||
+          getCurrentUser(),
+        application:
+          federationServerState.application,
+        member:
+          fallbackMember
+      };
+    }
+  }
+
+  if (
+    federationServerState.loaded &&
+    federationServerState.application
+  ) {
     return {
       type: "applicant",
       currentUser: federationServerState.currentUser,
@@ -3721,8 +3957,27 @@ function renderMemberCommandSection() {
   const state = getCurrentUserState();
 
   if (state.type !== "member") {
-    section.hidden = true;
-    container.innerHTML = "";
+    section.hidden = false;
+
+    container.innerHTML = `
+      <article class="fed-command-card fed-command-card-hero fed-empty-state-card">
+        <div class="fed-sidebar-card-label">
+          Member Command
+        </div>
+
+        <h4>
+          Federation member data is syncing
+        </h4>
+
+        <p class="fed-command-copy">
+          Your approved access is active, but the member
+          profile payload is still being synchronized.
+          Refreshing the server-backed Federation state
+          will complete this command view.
+        </p>
+      </article>
+    `;
+
     return;
   }
 
@@ -5930,6 +6185,7 @@ function refreshFederationUI() {
   renderMemberCommandSection();
   renderFederationConnectSection();
   renderFederationRequestsSection();
+  renderFederationDealRoomsSection();
   renderReferralSection();
   refreshActiveSection();
 }

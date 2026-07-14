@@ -16260,28 +16260,39 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-subtitle {
 }
 
 .yh-one-question-form .form-group,
-.yh-one-question-form .yh-federation-check-row {
+.yh-one-question-form
+  .yh-federation-declaration-section.is-yh-one-question-active {
     animation: yhOneQuestionIn 0.24s ease both;
 }
 
-.yh-one-question-form .form-group:not(.is-yh-one-question-active),
-.yh-one-question-form .yh-federation-check-row:not(.is-yh-one-question-active) {
+.yh-one-question-form
+  .form-group:not(.is-yh-one-question-active) {
     display: none !important;
 }
 
-.yh-one-question-form .yh-federation-form-section:not(.is-yh-one-question-section-active) {
+.yh-one-question-form
+  .yh-federation-form-section:not(.is-yh-one-question-section-active) {
     display: none !important;
 }
 
-.yh-one-question-form .form-group.is-yh-one-question-active,
-.yh-one-question-form .yh-federation-check-row.is-yh-one-question-active {
+.yh-one-question-form
+  .form-group.is-yh-one-question-active {
+    width: 100% !important;
     display: grid !important;
     gap: 8px;
+    margin-bottom: 0 !important;
 }
 
-.yh-one-question-form .form-group.is-yh-one-question-active {
-    width: 100% !important;
-    margin-bottom: 0 !important;
+.yh-one-question-form
+  .yh-federation-declaration-section.is-yh-one-question-active {
+    display: grid !important;
+    gap: 10px;
+}
+
+.yh-one-question-form
+  .yh-federation-declaration-section.is-yh-one-question-active
+  .yh-federation-check-row {
+    display: flex !important;
 }
 
 .yh-one-question-controls {

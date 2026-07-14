@@ -1104,28 +1104,114 @@ function hideUniverseDivisionEntryLoader() {
 
 let yhDashboardApplicationLoaderTimer = null;
 
-function runDashboardApplicationFormLoader(label = 'Opening Application...', callback = null) {
+function runDashboardApplicationFormLoader(
+    label = 'Opening Application...',
+    callback = null,
+    options = {}
+) {
     if (yhDashboardApplicationLoaderTimer) {
         clearTimeout(yhDashboardApplicationLoaderTimer);
         yhDashboardApplicationLoaderTimer = null;
     }
 
-    const hasLoader = showUniverseDivisionEntryLoader(label);
+    const startedAt = Number(
+        options?.startedAt || Date.now()
+    );
 
-    if (!hasLoader) {
-        if (typeof callback === 'function') callback();
-        return;
-    }
+    const targetMs = Math.max(
+        700,
+        Number(options?.targetMs || 950)
+    );
 
-    yhDashboardApplicationLoaderTimer = window.setTimeout(() => {
+    const elapsedMs = Math.max(
+        0,
+        Date.now() - startedAt
+    );
+
+    const revealDelayMs = Math.max(
+        0,
+        targetMs - elapsedMs
+    );
+
+    const hasLoader =
+        showUniverseDivisionEntryLoader(label);
+
+    const reveal = () => {
         try {
-            if (typeof callback === 'function') callback();
+            if (typeof callback === 'function') {
+                callback();
+            }
         } finally {
             window.setTimeout(() => {
                 hideUniverseDivisionEntryLoader();
-            }, 180);
+            }, 120);
         }
-    }, 420);
+    };
+
+    if (!hasLoader) {
+        window.setTimeout(
+            reveal,
+            revealDelayMs
+        );
+
+        return true;
+    }
+
+    yhDashboardApplicationLoaderTimer =
+        window.setTimeout(
+            reveal,
+            revealDelayMs
+        );
+
+    return true;
+}
+
+const YH_DASHBOARD_APPLICATION_STATUS_BUDGET_MS =
+    650;
+
+function settleDashboardApplicationStatusWithin(
+    task,
+    fallbackSnapshot = null,
+    timeoutMs =
+        YH_DASHBOARD_APPLICATION_STATUS_BUDGET_MS
+) {
+    return new Promise((resolve) => {
+        let settled = false;
+
+        const finish = (snapshot) => {
+            if (settled) return;
+
+            settled = true;
+            window.clearTimeout(timeoutId);
+
+            resolve(
+                snapshot &&
+                typeof snapshot === 'object'
+                    ? snapshot
+                    : fallbackSnapshot
+            );
+        };
+
+        const timeoutId = window.setTimeout(
+            () => finish(fallbackSnapshot),
+            Math.max(
+                250,
+                Number(timeoutMs) ||
+                    YH_DASHBOARD_APPLICATION_STATUS_BUDGET_MS
+            )
+        );
+
+        Promise.resolve()
+            .then(() => {
+                return typeof task === 'function'
+                    ? task()
+                    : task;
+            })
+            .then(finish)
+            .catch(() =>
+                finish(fallbackSnapshot)
+            );
+    });
 }
 function readYHJsonCache(key, fallback = null) {
     try {
@@ -7956,6 +8042,19 @@ function syncPlazaEntryButton(snapshot = null) {
 
     syncDashboardDivisionAccessPolling();
 
+    if (
+        currentSnapshot.canEnterPlaza === true ||
+        normalizePlazaStatus(
+            currentSnapshot.applicationStatus || ''
+        ) === 'approved'
+    ) {
+        window.setTimeout(() => {
+            prewarmDashboardPlazaInlineFrameV26(
+                'plaza-access-approved'
+            );
+        }, 0);
+    }
+
     return currentSnapshot;
 }
 
@@ -8012,6 +8111,237 @@ async function refreshPlazaAccessStatusFromBackend(forceFresh = false) {
 
     return plazaAccessStatusRefreshPromise;
 }
+
+function getDashboardAcademyAccessSnapshotWithin(
+    timeoutMs =
+        YH_DASHBOARD_APPLICATION_STATUS_BUDGET_MS
+) {
+    const fallbackSnapshot =
+        typeof readAcademyMembershipCache ===
+        'function'
+            ? readAcademyMembershipCache() || {}
+            : readYHJsonCache(
+                'yh_academy_membership_status_v1',
+                {}
+            ) || {};
+
+    return settleDashboardApplicationStatusWithin(
+        () =>
+            refreshAcademyMembershipStatus(
+                true
+            ),
+        fallbackSnapshot,
+        timeoutMs
+    );
+}
+
+async function handleDashboardAcademyAccessIntent(
+    event = null,
+    approvedWorkspace = 'academy'
+) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+
+    const trigger =
+        event?.target?.closest?.(
+            'button, a'
+        ) || null;
+
+    const openApprovedWorkspace = () => {
+        setDashboardSidebarDivisionManualCollapsedV190(
+            'academy',
+            false
+        );
+
+        activateDashboardUnifiedWorkspace(
+            approvedWorkspace ||
+                'academy',
+            {
+                animate: false,
+                scroll: true,
+                persist: true
+            }
+        );
+
+        syncDashboardSidebarDivisionGroupStateV190(
+            'academy'
+        );
+    };
+
+    const cachedSnapshot =
+        typeof readAcademyMembershipCache ===
+        'function'
+            ? readAcademyMembershipCache() || {}
+            : {};
+
+    const cachedStatus = String(
+        cachedSnapshot
+            ?.applicationStatus || ''
+    )
+        .trim()
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ');
+
+    const cachedApproved =
+        cachedSnapshot
+            ?.canEnterAcademy === true ||
+        cachedStatus === 'approved';
+
+    if (cachedApproved) {
+        openApprovedWorkspace();
+
+        Promise.resolve(
+            refreshAcademyMembershipStatus(
+                false
+            )
+        ).catch(() => {});
+
+        return;
+    }
+
+    const applicationOpenStartedAt =
+        Date.now();
+
+    showUniverseDivisionEntryLoader(
+        'Opening Academy Application...'
+    );
+
+    let triggerLockedByHandler = false;
+
+    if (
+        trigger?.tagName ===
+        'BUTTON'
+    ) {
+        trigger.disabled = true;
+
+        trigger.setAttribute(
+            'aria-disabled',
+            'true'
+        );
+
+        triggerLockedByHandler = true;
+    }
+
+    try {
+        const snapshot =
+            await getDashboardAcademyAccessSnapshotWithin();
+
+        const status = String(
+            snapshot
+                ?.applicationStatus || ''
+        )
+            .trim()
+            .toLowerCase()
+            .replace(/[_-]+/g, ' ');
+
+        const approved =
+            snapshot
+                ?.canEnterAcademy ===
+                true ||
+            status === 'approved';
+
+        const pending = [
+            'new',
+            'pending',
+            'pending review',
+            'under review',
+            'review',
+            'screening',
+            'shortlisted',
+            'waitlisted'
+        ].includes(status);
+
+        syncAcademyEntryButton(
+            snapshot
+        );
+
+        if (approved) {
+            hideUniverseDivisionEntryLoader();
+            openApprovedWorkspace();
+            return;
+        }
+
+        if (pending) {
+            hideUniverseDivisionEntryLoader();
+
+            syncDashboardSidebarDivisionStatusPill(
+                'academy',
+                snapshot
+            );
+
+            showToast(
+                'Your Academy application is still under review.',
+                'error'
+            );
+
+            return;
+        }
+
+        if (status === 'rejected') {
+            hideUniverseDivisionEntryLoader();
+
+            showToast(
+                'Your Academy application has already been reviewed. Contact admin for the next step.',
+                'error'
+            );
+
+            return;
+        }
+
+        if (
+            hasAcademyApplicationAlreadyBeenFilled()
+        ) {
+            hideUniverseDivisionEntryLoader();
+
+            showToast(
+                'You already filled the Academy application. Please wait for admin review.',
+                'error'
+            );
+
+            return;
+        }
+
+        runDashboardApplicationFormLoader(
+            'Opening Academy Application...',
+            () =>
+                openAcademyLauncher(),
+            {
+                startedAt:
+                    applicationOpenStartedAt,
+                targetMs: 950
+            }
+        );
+    } catch (error) {
+        hideUniverseDivisionEntryLoader();
+
+        console.error(
+            'handleDashboardAcademyAccessIntent error:',
+            error
+        );
+
+        showToast(
+            error?.message ||
+                'Could not verify your Academy access. Refresh and try again.',
+            'error'
+        );
+    } finally {
+        if (
+            triggerLockedByHandler &&
+            trigger?.tagName ===
+                'BUTTON'
+        ) {
+            trigger.disabled = false;
+
+            trigger.removeAttribute(
+                'aria-disabled'
+            );
+        }
+    }
+}
+
+window.handleDashboardAcademyAccessIntent =
+    handleDashboardAcademyAccessIntent;
 
 async function openPlazaApplicationModal() {
     const modal = document.getElementById('plaza-apply-modal');
@@ -8091,32 +8421,20 @@ async function openPlazaApplicationModal() {
 }
 
 function getDashboardPlazaAccessSnapshotWithin(
-    timeoutMs = 1800
+    timeoutMs =
+        YH_DASHBOARD_APPLICATION_STATUS_BUDGET_MS
 ) {
-    const fallbackSnapshot = getPlazaAccessSnapshot();
+    const fallbackSnapshot =
+        getPlazaAccessSnapshot();
 
-    return new Promise((resolve) => {
-        let settled = false;
-
-        const finish = (snapshot) => {
-            if (settled) return;
-
-            settled = true;
-            window.clearTimeout(timeoutId);
-
-            resolve(snapshot || fallbackSnapshot);
-        };
-
-        const timeoutId = window.setTimeout(() => {
-            finish(fallbackSnapshot);
-        }, Math.max(300, Number(timeoutMs) || 1800));
-
-        Promise.resolve(
-            refreshPlazaAccessStatusFromBackend(true)
-        )
-            .then(finish)
-            .catch(() => finish(fallbackSnapshot));
-    });
+    return settleDashboardApplicationStatusWithin(
+        () =>
+            refreshPlazaAccessStatusFromBackend(
+                true
+            ),
+        fallbackSnapshot,
+        timeoutMs
+    );
 }
 
 async function handleDashboardPlazaAccessIntent(
@@ -8190,6 +8508,13 @@ async function handleDashboardPlazaAccessIntent(
         return;
     }
 
+    const applicationOpenStartedAt =
+        Date.now();
+
+    showUniverseDivisionEntryLoader(
+        'Opening Plazas Application...'
+    );
+
     let triggerLockedByHandler = false;
 
     if (trigger?.tagName === 'BUTTON') {
@@ -8204,7 +8529,7 @@ async function handleDashboardPlazaAccessIntent(
 
     try {
         const snapshot =
-            await getDashboardPlazaAccessSnapshotWithin(1800);
+            await getDashboardPlazaAccessSnapshotWithin();
 
         const status = normalizePlazaStatus(
             snapshot?.applicationStatus || ''
@@ -8220,11 +8545,14 @@ async function handleDashboardPlazaAccessIntent(
             status !== 'rejected';
 
         if (approved) {
+            hideUniverseDivisionEntryLoader();
             openApprovedWorkspace();
             return;
         }
 
         if (pending) {
+            hideUniverseDivisionEntryLoader();
+
             syncDashboardSidebarDivisionStatusPill(
                 'plazas',
                 snapshot
@@ -8238,8 +8566,20 @@ async function handleDashboardPlazaAccessIntent(
             return;
         }
 
-        await openPlazaApplicationModal();
+        runDashboardApplicationFormLoader(
+            'Opening Plazas Application...',
+            () => {
+                void openPlazaApplicationModal();
+            },
+            {
+                startedAt:
+                    applicationOpenStartedAt,
+                targetMs: 950
+            }
+        );
     } catch (error) {
+        hideUniverseDivisionEntryLoader();
+
         console.error(
             'handleDashboardPlazaAccessIntent error:',
             error
@@ -8265,6 +8605,211 @@ async function handleDashboardPlazaAccessIntent(
 
 window.handleDashboardPlazaAccessIntent =
     handleDashboardPlazaAccessIntent;
+
+function isDashboardFederationWorkspaceKey(key = '') {
+    const cleanKey = String(key || '').trim().toLowerCase();
+
+    return (
+        cleanKey === 'federation' ||
+        cleanKey.startsWith('federation-')
+    );
+}
+
+function isDashboardFederationAccessApproved(snapshot = null) {
+    const currentSnapshot =
+        snapshot && typeof snapshot === 'object'
+            ? snapshot
+            : getFederationAccessSnapshot();
+
+    const status = normalizeFederationStatus(
+        currentSnapshot?.applicationStatus || ''
+    );
+
+    return (
+        currentSnapshot?.canEnterFederation === true ||
+        status === 'approved'
+    );
+}
+
+function getDashboardFederationAccessSnapshotWithin(
+    timeoutMs =
+        YH_DASHBOARD_APPLICATION_STATUS_BUDGET_MS
+) {
+    const fallbackSnapshot =
+        getFederationAccessSnapshot();
+
+    return settleDashboardApplicationStatusWithin(
+        () =>
+            refreshFederationAccessStatusFromBackend(
+                true
+            ),
+        fallbackSnapshot,
+        timeoutMs
+    );
+}
+
+async function handleDashboardFederationAccessIntent(
+    event = null,
+    approvedWorkspace = 'federation'
+) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+
+    const trigger =
+        event?.target?.closest?.('button, a') || null;
+
+    const openApprovedWorkspace = () => {
+        setDashboardSidebarDivisionManualCollapsedV190(
+            'federation',
+            false
+        );
+
+        activateDashboardUnifiedWorkspace(
+            approvedWorkspace || 'federation',
+            {
+                animate: false,
+                scroll: true,
+                persist: true,
+                federationAccessVerified: true
+            }
+        );
+
+        syncDashboardSidebarDivisionGroupStateV190(
+            'federation'
+        );
+    };
+
+    const cachedSnapshot =
+        getFederationAccessSnapshot();
+
+    if (
+        isDashboardFederationAccessApproved(
+            cachedSnapshot
+        )
+    ) {
+        if (trigger?.tagName === 'BUTTON') {
+            trigger.disabled = false;
+            trigger.setAttribute(
+                'aria-disabled',
+                'false'
+            );
+        }
+
+        openApprovedWorkspace();
+
+        Promise.resolve(
+            refreshFederationAccessStatusFromBackend(false)
+        ).catch(() => {});
+
+        return;
+    }
+
+    const applicationOpenStartedAt =
+        Date.now();
+
+    showUniverseDivisionEntryLoader(
+        'Opening Federation Application...'
+    );
+
+    let triggerLockedByHandler = false;
+
+    if (trigger?.tagName === 'BUTTON') {
+        trigger.disabled = true;
+        trigger.setAttribute(
+            'aria-disabled',
+            'true'
+        );
+
+        triggerLockedByHandler = true;
+    }
+
+    try {
+        const snapshot =
+            await getDashboardFederationAccessSnapshotWithin();
+
+        const status = normalizeFederationStatus(
+            snapshot?.applicationStatus || ''
+        );
+
+        const approved =
+            isDashboardFederationAccessApproved(
+                snapshot
+            );
+
+        const pending =
+            snapshot?.hasApplication === true &&
+            !approved &&
+            status !== 'rejected';
+
+        if (approved) {
+            hideUniverseDivisionEntryLoader();
+            openApprovedWorkspace();
+            return;
+        }
+
+        setDashboardSidebarDivisionManualCollapsedV190(
+            'federation',
+            true
+        );
+
+        syncDashboardSidebarDivisionGroupStateV190(
+            ''
+        );
+
+        if (pending) {
+            hideUniverseDivisionEntryLoader();
+
+            syncDashboardSidebarDivisionStatusPill(
+                'federation',
+                snapshot
+            );
+
+            showToast(
+                'Your Federation application is still under review.',
+                'error'
+            );
+
+            return;
+        }
+
+        const scheduled =
+            await openFederationApplicationModal({
+                startedAt:
+                    applicationOpenStartedAt
+            });
+
+        if (!scheduled) {
+            hideUniverseDivisionEntryLoader();
+        }
+    } catch (error) {
+        hideUniverseDivisionEntryLoader();
+
+        console.error(
+            'handleDashboardFederationAccessIntent error:',
+            error
+        );
+
+        showToast(
+            error?.message ||
+                'Could not verify your Federation access. Refresh and try again.',
+            'error'
+        );
+    } finally {
+        if (
+            triggerLockedByHandler &&
+            trigger?.tagName === 'BUTTON'
+        ) {
+            trigger.disabled = false;
+            trigger.removeAttribute(
+                'aria-disabled'
+            );
+        }
+    }
+}
+
+window.handleDashboardFederationAccessIntent =
+    handleDashboardFederationAccessIntent;
 
 function closePlazaApplicationModal(options = {}) {
     const modal = document.getElementById('plaza-apply-modal');
@@ -10165,7 +10710,8 @@ function restoreDashboardPersistentUiState() {
         activateDashboardUnifiedWorkspace(baseWorkspace, {
             scroll: false,
             animate: false,
-            persist: false
+            persist: false,
+            restore: true
         });
 
         window.setTimeout(() => {
@@ -10183,7 +10729,8 @@ function restoreDashboardPersistentUiState() {
         activateDashboardUnifiedWorkspace(savedWorkspace, {
             scroll: false,
             animate: false,
-            persist: false
+            persist: false,
+            restore: true
         });
 
         return true;
@@ -10884,6 +11431,206 @@ function buildDashboardInlineWorkspaceUrl(meta = {}) {
         return `${url.pathname}${url.search}${url.hash}`;
     } catch (_) {
         return rawUrl;
+    }
+}
+
+function getDashboardInlinePlazaDocumentPathV26(frame) {
+    try {
+        const href = String(
+            frame?.contentWindow?.location?.href || ''
+        ).trim();
+
+        if (!href) return '';
+
+        return new URL(
+            href,
+            window.location.origin
+        )
+            .pathname
+            .replace(/\/+$/, '') || '/';
+    } catch (_) {
+        return '';
+    }
+}
+
+function prewarmDashboardPlazaInlineFrameV26(
+    reason = 'approved-cache'
+) {
+    const frame = document.getElementById(
+        'yh-universe-workspace-inline-frame'
+    );
+
+    if (!frame) return false;
+
+    const plazaState =
+        getDashboardInlineDivisionState('plazas');
+
+    if (plazaState?.approved !== true) {
+        return false;
+    }
+
+    const activeWorkspaceKey = String(
+        document.body?.getAttribute(
+            'data-yh-unified-workspace'
+        ) || 'overview'
+    ).trim().toLowerCase();
+
+    if (
+        activeWorkspaceKey &&
+        activeWorkspaceKey !== 'overview' &&
+        activeWorkspaceKey !== 'plazas' &&
+        !activeWorkspaceKey.startsWith('plazas-')
+    ) {
+        return false;
+    }
+
+    const feedMeta =
+        getDashboardUnifiedWorkspaceLaunchMeta(
+            'plazas-feed'
+        );
+
+    if (!feedMeta) return false;
+
+    const prewarmUrl =
+        buildDashboardInlineWorkspaceUrl(
+            feedMeta
+        );
+
+    const currentSrc =
+        normalizeDashboardInlineNavigationUrl(
+            frame.getAttribute('src') || ''
+        );
+
+    const loadedPath =
+        getDashboardInlinePlazaDocumentPathV26(
+            frame
+        );
+
+    if (loadedPath === '/plaza.html') {
+        frame.dataset.yhDashboardPlazaPrewarmed =
+            'true';
+
+        frame.dataset.yhDashboardPlazaPrewarmReason =
+            String(reason || 'ready');
+
+        return true;
+    }
+
+    if (
+        currentSrc &&
+        currentSrc !== 'about:blank' &&
+        currentSrc.startsWith('/plaza.html')
+    ) {
+        frame.dataset.yhDashboardPlazaPrewarmed =
+            'true';
+
+        frame.dataset.yhDashboardPlazaPrewarmReason =
+            String(reason || 'loading');
+
+        return true;
+    }
+
+    frame.dataset.yhDashboardPlazaPrewarmed =
+        'true';
+
+    frame.dataset.yhDashboardPlazaPrewarmReason =
+        String(reason || 'start');
+
+    frame.setAttribute(
+        'src',
+        prewarmUrl
+    );
+
+    return true;
+}
+
+function switchDashboardInlinePlazaScreenInLoadedFrameV26(
+    frame,
+    workspaceKey = '',
+    meta = {},
+    navigationToken = '',
+    inlineUrl = ''
+) {
+    const cleanWorkspaceKey = String(
+        workspaceKey || ''
+    ).trim().toLowerCase();
+
+    if (
+        !frame ||
+        !cleanWorkspaceKey.startsWith('plazas-')
+    ) {
+        return false;
+    }
+
+    if (
+        getDashboardInlinePlazaDocumentPathV26(
+            frame
+        ) !== '/plaza.html'
+    ) {
+        return false;
+    }
+
+    let childWindow = null;
+
+    try {
+        childWindow =
+            frame.contentWindow || null;
+    } catch (_) {
+        childWindow = null;
+    }
+
+    if (
+        !childWindow ||
+        typeof childWindow
+            .yhOpenPlazaDashboardScreenV26 !==
+            'function'
+    ) {
+        return false;
+    }
+
+    const targetScreen = String(
+        meta?.plazaScreen || 'feed'
+    ).trim().toLowerCase() || 'feed';
+
+    frame.dataset.yhDashboardNavigationExpectedUrl =
+        normalizeDashboardInlineNavigationUrl(
+            inlineUrl
+        );
+
+    frame.dataset.yhDashboardPlazaScreen =
+        targetScreen;
+
+    frame.dataset.yhDashboardNavigationState =
+        'switching-loaded-plaza';
+
+    frame.dataset.yhDashboardPlazaPrewarmed =
+        'true';
+
+    try {
+        Promise.resolve(
+            childWindow
+                .yhOpenPlazaDashboardScreenV26(
+                    targetScreen,
+                    `dashboard-${
+                        navigationToken ||
+                        Date.now()
+                    }`
+                )
+        ).catch((error) => {
+            console.error(
+                'Dashboard loaded Plaza screen switch failed:',
+                error
+            );
+        });
+
+        return true;
+    } catch (error) {
+        console.error(
+            'Dashboard loaded Plaza screen handoff failed:',
+            error
+        );
+
+        return false;
     }
 }
 
@@ -12021,16 +12768,65 @@ function waitForDashboardInlineWorkspaceReady(frame, reason = 'workspace-ready',
             }
 
             if (workspaceKey.startsWith('plazas-')) {
+                const targetScreen =
+                    getDashboardInlinePlazaScreenFromFrame(
+                        frame
+                    );
+
+                const forcedToken = String(
+                    frame.dataset
+                        .yhDashboardPlazaForcedReadyToken ||
+                    ''
+                ).trim();
+
+                let forcedReadyStarted =
+                    forcedToken === navigationToken;
+
+                if (!forcedReadyStarted) {
+                    try {
+                        const childWindow =
+                            frame.contentWindow || null;
+
+                        if (
+                            typeof childWindow
+                                ?.yhFinalizePlazaDashboardTargetReadyV25 ===
+                            'function'
+                        ) {
+                            forcedReadyStarted =
+                                childWindow
+                                    .yhFinalizePlazaDashboardTargetReadyV25(
+                                        targetScreen,
+                                        'dashboard-parent-time-budget'
+                                    ) === true;
+
+                            if (forcedReadyStarted) {
+                                frame.dataset
+                                    .yhDashboardPlazaForcedReadyToken =
+                                    navigationToken;
+                            }
+                        }
+                    } catch (error) {
+                        console.warn(
+                            'Dashboard Plaza forced-ready handoff failed:',
+                            error
+                        );
+                    }
+                }
+
                 frame.dataset.yhDashboardChildWorkspaceReady =
-                    'waiting-plaza-stable-content';
+                    forcedReadyStarted
+                        ? 'finalizing-plaza-target'
+                        : 'waiting-plaza-target-finalizer';
 
                 frame.dataset.yhDashboardNavigationState =
-                    'waiting-plaza-stable-content';
+                    forcedReadyStarted
+                        ? 'finalizing-plaza-target'
+                        : 'waiting-plaza-target-finalizer';
 
                 window.__yhDashboardChildWorkspaceReadyPollTimer =
                     window.setTimeout(
                         tick,
-                        elapsedMs >= 5000 ? 220 : pollMs
+                        forcedReadyStarted ? 40 : 80
                     );
 
                 return;
@@ -13616,27 +14412,91 @@ if (!meta || isParentWorkspace) {
                 navigationToken
             );
 
-            if (currentInlineUrl !== normalizedInlineUrl) {
-                clearDashboardInlineAcademyApplyTimers(frame);
-                window.clearTimeout(frame.__yhDashboardInlineLoadFollowupTimer1);
-                window.clearTimeout(frame.__yhDashboardInlineLoadFollowupTimer2);
-
-                frameShell.classList.add('is-switching');
-
-                frame.setAttribute('src', inlineUrl || 'about:blank');
-
-                waitForDashboardInlineWorkspaceReady(frame, 'iframe-src-child-ready', {
+            const reusedLoadedPlazaDocument =
+                switchDashboardInlinePlazaScreenInLoadedFrameV26(
+                    frame,
+                    cleanKey,
+                    meta,
                     navigationToken,
-                    workspaceKey: cleanKey,
-                    timeoutMs:
-                        cleanKey.startsWith('plazas-')
-                            ? 1400
-                            : 5500,
-                    pollMs:
-                        cleanKey.startsWith('plazas-')
-                            ? 70
-                            : 90
-                });
+                    inlineUrl
+                );
+
+            if (reusedLoadedPlazaDocument) {
+                clearDashboardInlineAcademyApplyTimers(
+                    frame
+                );
+
+                window.clearTimeout(
+                    frame
+                        .__yhDashboardInlineLoadFollowupTimer1
+                );
+
+                window.clearTimeout(
+                    frame
+                        .__yhDashboardInlineLoadFollowupTimer2
+                );
+
+                frameShell.classList.add(
+                    'is-switching'
+                );
+
+                waitForDashboardInlineWorkspaceReady(
+                    frame,
+                    'loaded-plaza-screen-ready',
+                    {
+                        navigationToken,
+                        workspaceKey: cleanKey,
+                        timeoutMs: 1250,
+                        pollMs: 45
+                    }
+                );
+            } else if (
+                currentInlineUrl !==
+                normalizedInlineUrl
+            ) {
+                clearDashboardInlineAcademyApplyTimers(
+                    frame
+                );
+
+                window.clearTimeout(
+                    frame
+                        .__yhDashboardInlineLoadFollowupTimer1
+                );
+
+                window.clearTimeout(
+                    frame
+                        .__yhDashboardInlineLoadFollowupTimer2
+                );
+
+                frameShell.classList.add(
+                    'is-switching'
+                );
+
+                frame.setAttribute(
+                    'src',
+                    inlineUrl || 'about:blank'
+                );
+
+                waitForDashboardInlineWorkspaceReady(
+                    frame,
+                    'iframe-src-child-ready',
+                    {
+                        navigationToken,
+                        workspaceKey: cleanKey,
+                        timeoutMs:
+                            cleanKey.startsWith(
+                                'plazas-'
+                            )
+                                ? 1400
+                                : 5500,
+                        pollMs:
+                            cleanKey.startsWith(
+                                'plazas-'
+                            )
+                                ? 70
+                                : 90
+                    }
+                );
             } else {
                 if (
                     isDashboardInlineFrameNavigationCurrent(
@@ -13968,7 +14828,19 @@ function syncDashboardSidebarDivisionGroupStateV190(activeDivision = '') {
     document.querySelectorAll('.yh-sidebar-division-group[data-yh-sidebar-division]').forEach((group) => {
         const groupDivision = normalizeDashboardSidebarToggleDivisionV190(group.getAttribute('data-yh-sidebar-division') || '');
         const manuallyCollapsed = isDashboardSidebarDivisionManualCollapsedV190(groupDivision);
-        const shouldExpand = Boolean(groupDivision && cleanActiveDivision && groupDivision === cleanActiveDivision && !manuallyCollapsed);
+
+        const accessApproved =
+            groupDivision !== 'federation' ||
+            isDashboardFederationAccessApproved();
+
+        const shouldExpand = Boolean(
+            groupDivision &&
+            cleanActiveDivision &&
+            groupDivision === cleanActiveDivision &&
+            !manuallyCollapsed &&
+            accessApproved
+        );
+
         const button = group.querySelector('.yh-sidebar-command-link[data-yh-dashboard-shell]');
         const subnav = group.querySelector('.yh-sidebar-subnav');
 
@@ -13976,13 +14848,24 @@ function syncDashboardSidebarDivisionGroupStateV190(activeDivision = '') {
         group.classList.toggle('is-manually-collapsed', Boolean(groupDivision && manuallyCollapsed));
         group.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
         group.setAttribute('data-yh-sidebar-subnav-open', shouldExpand ? 'true' : 'false');
+        group.setAttribute(
+            'data-yh-sidebar-access-approved',
+            accessApproved ? 'true' : 'false'
+        );
 
         if (button) {
-            button.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
+            button.setAttribute(
+                'aria-expanded',
+                shouldExpand ? 'true' : 'false'
+            );
         }
 
         if (subnav) {
-            subnav.setAttribute('aria-hidden', shouldExpand ? 'false' : 'true');
+            subnav.hidden = !accessApproved;
+            subnav.setAttribute(
+                'aria-hidden',
+                shouldExpand ? 'false' : 'true'
+            );
         }
     });
 }
@@ -14191,8 +15074,26 @@ function dashboardResetWorkspaceLaunchSurfaceCleanV71() {
     if (frame) {
         frame.classList.remove('hidden-step');
         frame.setAttribute('aria-hidden', 'false');
-        frame.removeAttribute('src');
-        frame.removeAttribute('data-yh-dashboard-workspace-key');
+
+        const preservePrewarmedPlazaDocument =
+            frame.dataset
+                .yhDashboardPlazaPrewarmed ===
+                'true' &&
+            (
+                getDashboardInlinePlazaDocumentPathV26(
+                    frame
+                ) === '/plaza.html' ||
+                normalizeDashboardInlineNavigationUrl(
+                    frame.getAttribute('src') || ''
+                ).startsWith('/plaza.html')
+            );
+
+        if (!preservePrewarmedPlazaDocument) {
+            frame.removeAttribute('src');
+            frame.removeAttribute(
+                'data-yh-dashboard-workspace-key'
+            );
+        }
     }
 }
 
@@ -14324,6 +15225,36 @@ function syncDashboardUnifiedWorkspaceDerivedSurfaces(key = 'overview', reason =
 function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
     const effectiveKey = getDashboardEffectiveUnifiedWorkspaceKey(key);
     const copy = getDashboardUnifiedWorkspaceCopy(effectiveKey);
+
+    if (
+        isDashboardFederationWorkspaceKey(copy.key) &&
+        options.federationAccessVerified !== true &&
+        !isDashboardFederationAccessApproved()
+    ) {
+        if (options.restore === true) {
+            return activateDashboardUnifiedWorkspace(
+                'overview',
+                {
+                    animate: false,
+                    scroll: false,
+                    persist: false,
+                    federationAccessVerified: true
+                }
+            );
+        }
+
+        void handleDashboardFederationAccessIntent(
+            null,
+            copy.key
+        );
+
+        return getDashboardUnifiedWorkspaceCopy(
+            document.body?.getAttribute(
+                'data-yh-unified-workspace'
+            ) || 'overview'
+        );
+    }
+
     const shouldScroll = options.scroll !== false;
     const shouldAnimate = options.animate !== false;
     const shouldPersist = options.persist !== false;
@@ -14413,10 +15344,25 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
     }
 
     if (shouldScroll) {
-        document.getElementById('universe-hub-view')?.scrollTo({
+        document.getElementById(
+            'universe-hub-view'
+        )?.scrollTo({
             top: 0,
             behavior: 'smooth'
         });
+    }
+
+    if (
+        copy.key === 'overview' ||
+        copy.key === 'plazas'
+    ) {
+        window.setTimeout(() => {
+            prewarmDashboardPlazaInlineFrameV26(
+                copy.key === 'plazas'
+                    ? 'plazas-parent-open'
+                    : 'dashboard-overview-idle'
+            );
+        }, copy.key === 'plazas' ? 0 : 120);
     }
 
     return copy;
@@ -14466,6 +15412,15 @@ function bootDashboardUnifiedSidebarWorkspace() {
             const parentGroup = childTab.closest('.yh-sidebar-division-group[data-yh-sidebar-division]');
             const parentDivision = normalizeDashboardSidebarToggleDivisionV190(parentGroup?.getAttribute('data-yh-sidebar-division') || '');
 
+            if (parentDivision === 'federation') {
+                handleDashboardFederationAccessIntent(
+                    event,
+                    childKey
+                );
+
+                return;
+            }
+
             if (parentDivision) {
                 setDashboardSidebarDivisionManualCollapsedV190(parentDivision, false);
                 syncDashboardSidebarDivisionGroupStateV190(parentDivision);
@@ -14494,10 +15449,28 @@ function bootDashboardUnifiedSidebarWorkspace() {
 
         if (!shellKey) return;
 
+        if (shellKey === 'academy') {
+            handleDashboardAcademyAccessIntent(
+                event,
+                'academy'
+            );
+
+            return;
+        }
+
         if (shellKey === 'plazas') {
             handleDashboardPlazaAccessIntent(
                 event,
                 'plazas'
+            );
+
+            return;
+        }
+
+        if (shellKey === 'federation') {
+            handleDashboardFederationAccessIntent(
+                event,
+                'federation'
             );
 
             return;
@@ -15179,15 +16152,17 @@ document.getElementById('btn-mark-plaza-typeform-submitted')?.addEventListener('
 });
 
 document.getElementById('btn-open-federation-preview')?.addEventListener('click', (event) => {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-    activateDashboardUnifiedWorkspace('federation-command', { animate: false, scroll: true, persist: true });
+    handleDashboardFederationAccessIntent(
+        event,
+        'federation-command'
+    );
 });
 
 document.getElementById('btn-dashboard-enter-federation')?.addEventListener('click', (event) => {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-    activateDashboardUnifiedWorkspace('federation-command', { animate: false, scroll: true, persist: true });
+    handleDashboardFederationAccessIntent(
+        event,
+        'federation-command'
+    );
 });
 
 document.getElementById('btn-open-federation-application-from-lock')?.addEventListener('click', () => {
@@ -15272,8 +16247,20 @@ document.getElementById('form-federation-apply')?.addEventListener('submit', asy
 
         const savedApplication = queueFederationApplication(backendResult?.application || payload);
 
+        clearFederationApplicationDraft();
         form.reset();
-        closeFederationApplicationModal();
+
+        setSingleQuestionFormActiveStep(
+            form,
+            0,
+            {
+                focus: false
+            }
+        );
+
+        closeFederationApplicationModal({
+            saveDraft: false
+        });
 
         const snapshot = {
             hasApplication: true,
@@ -31639,20 +32626,11 @@ function getFederationAccessSnapshot() {
         };
     }
 
-    if (application) {
-        const status = normalizeFederationStatus(application.status || 'under review');
-
-        return {
-            hasApplication: true,
-            canEnterFederation: status === 'approved',
-            applicationStatus: status || 'under review',
-            member: null,
-            application,
-            divisionOverride: application?.divisionOverride || null
-        };
-    }
-
-    if (cached?.hasApplication || cached?.application) {
+    if (
+        cached?.hasApplication ||
+        cached?.application ||
+        cached?.canEnterFederation === true
+    ) {
         const cachedApplication =
             cached?.application && typeof cached.application === 'object'
                 ? cached.application
@@ -31661,7 +32639,35 @@ function getFederationAccessSnapshot() {
         const status = normalizeFederationStatus(
             cached.applicationStatus ||
             cachedApplication?.status ||
-            'under review'
+            (
+                cached?.canEnterFederation === true
+                    ? 'approved'
+                    : 'under review'
+            )
+        );
+
+        return {
+            hasApplication: true,
+            canEnterFederation:
+                cached?.canEnterFederation === true ||
+                status === 'approved',
+            applicationStatus: status || 'under review',
+            member:
+                cached?.member && typeof cached.member === 'object'
+                    ? cached.member
+                    : null,
+            application: cachedApplication || application || null,
+            divisionOverride:
+                cached?.divisionOverride ||
+                cachedApplication?.divisionOverride ||
+                application?.divisionOverride ||
+                null
+        };
+    }
+
+    if (application) {
+        const status = normalizeFederationStatus(
+            application.status || 'under review'
         );
 
         return {
@@ -31669,8 +32675,9 @@ function getFederationAccessSnapshot() {
             canEnterFederation: status === 'approved',
             applicationStatus: status || 'under review',
             member: null,
-            application: cachedApplication,
-            divisionOverride: cached?.divisionOverride || cachedApplication?.divisionOverride || null
+            application,
+            divisionOverride:
+                application?.divisionOverride || null
         };
     }
 
@@ -31826,9 +32833,12 @@ function syncFederationFrameAccess(snapshot = null) {
     }
 }
 
-function syncFederationEntryButton() {
+function syncFederationEntryButton(snapshotOverride = null) {
     const snapshot =
-        getFederationAccessSnapshot();
+        snapshotOverride &&
+        typeof snapshotOverride === 'object'
+            ? snapshotOverride
+            : getFederationAccessSnapshot();
 
     syncDashboardSidebarDivisionStatusPill(
         'federation',
@@ -31899,6 +32909,216 @@ function syncFederationEntryButton() {
     return snapshot;
 }
 
+const YH_FEDERATION_APPLICATION_DRAFT_KEY_PREFIX =
+    'yh_federation_application_draft_v1';
+
+let yhFederationApplicationDraftSaveTimer = null;
+
+function getFederationApplicationDraftStorageKey() {
+    const identity =
+        getCurrentFederationApplicantIdentity();
+
+    const ownerKey = String(
+        identity?.email ||
+        identity?.username ||
+        identity?.name ||
+        'current-user'
+    )
+        .trim()
+        .toLowerCase();
+
+    return `${YH_FEDERATION_APPLICATION_DRAFT_KEY_PREFIX}:${encodeURIComponent(
+        ownerKey || 'current-user'
+    )}`;
+}
+
+function getFederationApplicationDraftForm() {
+    return document.getElementById(
+        'form-federation-apply'
+    );
+}
+
+function saveFederationApplicationDraft() {
+    window.clearTimeout(
+        yhFederationApplicationDraftSaveTimer
+    );
+
+    const form =
+        getFederationApplicationDraftForm();
+
+    if (!form) return false;
+
+    const fields = {};
+
+    form.querySelectorAll(
+        'input[id], select[id], textarea[id]'
+    ).forEach((control) => {
+        if (
+            control instanceof HTMLInputElement &&
+            control.type === 'file'
+        ) {
+            return;
+        }
+
+        fields[control.id] = {
+            value: String(control.value || ''),
+            checked:
+                control instanceof HTMLInputElement
+                    ? control.checked === true
+                    : false
+        };
+    });
+
+    try {
+        localStorage.setItem(
+            getFederationApplicationDraftStorageKey(),
+            JSON.stringify({
+                version: 1,
+                activeIndex: Math.max(
+                    0,
+                    Number(
+                        form.dataset
+                            .yhOneQuestionActiveIndex ||
+                        0
+                    ) || 0
+                ),
+                fields,
+                updatedAt:
+                    new Date().toISOString()
+            })
+        );
+
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+function scheduleFederationApplicationDraftSave(
+    delayMs = 120
+) {
+    window.clearTimeout(
+        yhFederationApplicationDraftSaveTimer
+    );
+
+    yhFederationApplicationDraftSaveTimer =
+        window.setTimeout(() => {
+            saveFederationApplicationDraft();
+        }, Math.max(0, Number(delayMs) || 0));
+}
+
+function readFederationApplicationDraft() {
+    try {
+        const raw = localStorage.getItem(
+            getFederationApplicationDraftStorageKey()
+        );
+
+        if (!raw) return null;
+
+        const draft = JSON.parse(raw);
+
+        return (
+            draft &&
+            typeof draft === 'object' &&
+            !Array.isArray(draft)
+        )
+            ? draft
+            : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function clearFederationApplicationDraft() {
+    window.clearTimeout(
+        yhFederationApplicationDraftSaveTimer
+    );
+
+    try {
+        localStorage.removeItem(
+            getFederationApplicationDraftStorageKey()
+        );
+    } catch (_) {}
+}
+
+function restoreFederationApplicationDraft(
+    options = {}
+) {
+    const form =
+        getFederationApplicationDraftForm();
+
+    if (!form) return false;
+
+    const draft =
+        readFederationApplicationDraft();
+
+    if (
+        !draft ||
+        !draft.fields ||
+        typeof draft.fields !== 'object'
+    ) {
+        resetSingleQuestionApplicationForm(
+            form
+        );
+
+        return false;
+    }
+
+    Object.entries(draft.fields).forEach(
+        ([id, savedField]) => {
+            const control =
+                document.getElementById(id);
+
+            if (
+                !control ||
+                control.closest('form') !== form
+            ) {
+                return;
+            }
+
+            if (
+                control instanceof HTMLInputElement &&
+                (
+                    control.type === 'checkbox' ||
+                    control.type === 'radio'
+                )
+            ) {
+                control.checked =
+                    savedField?.checked === true;
+
+                return;
+            }
+
+            control.value = String(
+                savedField?.value || ''
+            );
+        }
+    );
+
+    syncFederationDirectStrategicApplicationMode();
+
+    const steps =
+        getSingleQuestionFormSteps(form);
+
+    const savedIndex = Math.max(
+        0,
+        Math.min(
+            Number(draft.activeIndex) || 0,
+            Math.max(0, steps.length - 1)
+        )
+    );
+
+    setSingleQuestionFormActiveStep(
+        form,
+        savedIndex,
+        {
+            focus: options.focus !== false
+        }
+    );
+
+    return true;
+}
+
 function prefillFederationApplicationForm() {
     const identity = getCurrentFederationApplicantIdentity();
     const strategic = getDashboardFederationStrategicSnapshot();
@@ -31950,32 +33170,121 @@ function prefillFederationApplicationForm() {
     );
 }
 
-async function openFederationApplicationModal() {
-    await refreshDashboardAcademyHomeSnapshot(true);
+async function openFederationApplicationModal(
+    options = {}
+) {
+    const startedAt = Number(
+        options?.startedAt || Date.now()
+    );
 
-    const modal = document.getElementById('federation-apply-modal');
-    const progressionGate = getDashboardDivisionProgressionGate('federation', getFederationAccessSnapshot());
+    const academyHomeFallback =
+        getYHAcademyHomeSnapshot();
+
+    const academyRefreshPromise =
+        Promise.resolve()
+            .then(() => {
+                return refreshDashboardAcademyHomeSnapshot(
+                    true
+                );
+            })
+            .catch((error) => {
+                console.warn(
+                    'Federation Academy progression refresh failed:',
+                    error
+                );
+
+                return academyHomeFallback;
+            });
+
+    await settleDashboardApplicationStatusWithin(
+        academyRefreshPromise,
+        academyHomeFallback,
+        220
+    );
+
+    const modal = document.getElementById(
+        'federation-apply-modal'
+    );
+
+    const progressionGate =
+        getDashboardDivisionProgressionGate(
+            'federation',
+            getFederationAccessSnapshot()
+        );
 
     if (progressionGate.locked) {
+        hideUniverseDivisionEntryLoader();
         syncFederationEntryButton();
-        showToast(progressionGate.copy, 'error');
-        return;
+
+        showToast(
+            progressionGate.copy,
+            'error'
+        );
+
+        return false;
     }
 
-    if (!modal) return;
+    if (!modal) {
+        hideUniverseDivisionEntryLoader();
+        return false;
+    }
 
-    runDashboardApplicationFormLoader('Opening Federation Application...', () => {
+    runDashboardApplicationFormLoader(
+        'Opening Federation Application...',
+        () => {
+            prefillFederationApplicationForm();
+            syncFederationDirectStrategicApplicationMode();
+
+            modal.classList.remove(
+                'hidden-step'
+            );
+
+            modal.removeAttribute(
+                'hidden'
+            );
+
+            modal.setAttribute(
+                'aria-hidden',
+                'false'
+            );
+
+            document.body?.classList.add(
+                'federation-application-open'
+            );
+
+            restoreFederationApplicationDraft({
+                focus: true
+            });
+        },
+        {
+            startedAt,
+            targetMs: 950
+        }
+    );
+
+    academyRefreshPromise.then(() => {
+        if (
+            modal.classList.contains(
+                'hidden-step'
+            )
+        ) {
+            return;
+        }
+
         prefillFederationApplicationForm();
         syncFederationDirectStrategicApplicationMode();
-        modal.classList.remove('hidden-step');
-        document.body?.classList.add('federation-application-open');
-        resetSingleQuestionApplicationForm('form-federation-apply');
     });
+
+    return true;
 }
 
-function closeFederationApplicationModal() {
+function closeFederationApplicationModal(options = {}) {
     const modal = document.getElementById('federation-apply-modal');
     if (!modal) return;
+
+    if (options.saveDraft !== false) {
+        saveFederationApplicationDraft();
+    }
 
     modal.classList.add('hidden-step');
     document.body?.classList.remove('federation-application-open');
@@ -32018,11 +33327,26 @@ function closeFederationApplicationModal() {
         document.body?.classList.add('federation-application-open');
 
         try {
-            if (typeof resetSingleQuestionApplicationForm === 'function') {
-                resetSingleQuestionApplicationForm('form-federation-apply');
+            if (
+                typeof restoreFederationApplicationDraft ===
+                'function'
+            ) {
+                restoreFederationApplicationDraft({
+                    focus: true
+                });
+            } else if (
+                typeof resetSingleQuestionApplicationForm ===
+                'function'
+            ) {
+                resetSingleQuestionApplicationForm(
+                    'form-federation-apply'
+                );
             }
         } catch (error) {
-            console.warn('Federation one-question reset skipped:', error?.message || error);
+            console.warn(
+                'Federation application draft restore skipped:',
+                error?.message || error
+            );
         }
 
         return true;
@@ -32275,7 +33599,7 @@ async function refreshFederationAccessStatusFromBackend(forceFresh = false) {
             };
 
             writeFederationStatusCache(snapshot);
-            syncFederationEntryButton();
+            syncFederationEntryButton(snapshot);
 
             return snapshot;
         })
@@ -32506,18 +33830,31 @@ function returnToFederationCardInDashboard() {
     }
 
     setDashboardViewMode('hub');
-    persistDashboardShellView('hub', 'federation');
+    persistDashboardShellView('hub', 'overview');
 
-    activateDashboardUnifiedWorkspace('federation-command', {
+    setDashboardSidebarDivisionManualCollapsedV190(
+        'federation',
+        true
+    );
+
+    activateDashboardUnifiedWorkspace('overview', {
         animate: false,
         scroll: true,
         persist: true
     });
 
+    syncDashboardSidebarDivisionGroupStateV190(
+        ''
+    );
+
     syncFederationEntryButton();
 
     window.requestAnimationFrame(() => {
-        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        window.scrollTo({
+            top: 0,
+            left: 0,
+            behavior: 'auto'
+        });
     });
 }
 
@@ -33258,7 +34595,7 @@ function getSingleQuestionFormSteps(form) {
     if (!form) return [];
 
     const selector = form.id === 'form-federation-apply'
-        ? '.form-group, .yh-federation-check-row'
+        ? '.form-group, .yh-federation-declaration-section'
         : '.form-group';
 
     return Array.from(form.querySelectorAll(selector)).filter((node) => {
@@ -33271,6 +34608,14 @@ function getSingleQuestionFormSteps(form) {
 
 function getSingleQuestionStepTitle(step) {
     if (!step) return 'Application question';
+
+    if (
+        step.classList?.contains(
+            'yh-federation-declaration-section'
+        )
+    ) {
+        return 'Review and accept all Federation declarations.';
+    }
 
     const labelText = String(
         step.querySelector('label')?.textContent ||
@@ -33436,7 +34781,18 @@ function goSingleQuestionFormStep(form, direction = 1) {
 
     if (direction > 0 && !validateSingleQuestionStep(currentStep)) return;
 
-    setSingleQuestionFormActiveStep(form, currentIndex + direction);
+    setSingleQuestionFormActiveStep(
+        form,
+        currentIndex + direction
+    );
+
+    if (
+        form.id === 'form-federation-apply'
+    ) {
+        scheduleFederationApplicationDraftSave(
+            0
+        );
+    }
 }
 
 function resetSingleQuestionApplicationForm(formOrId) {
@@ -33519,6 +34875,26 @@ function initializeSingleQuestionApplicationForm(formOrId) {
         event.preventDefault();
         goSingleQuestionFormStep(form, 1);
     });
+
+    if (
+        form.id === 'form-federation-apply'
+    ) {
+        const queueDraftSave = () => {
+            scheduleFederationApplicationDraftSave(
+                120
+            );
+        };
+
+        form.addEventListener(
+            'input',
+            queueDraftSave
+        );
+
+        form.addEventListener(
+            'change',
+            queueDraftSave
+        );
+    }
 
     form.addEventListener('submit', () => {
         enableSingleQuestionFormControlsForSubmit(form);
@@ -35447,10 +36823,6 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         [
             'academy',
             '#btn-open-academy-apply, .academy-entry-button-shell'
-        ],
-        [
-            'federation',
-            '#btn-open-federation-preview, #btn-open-federation-application-from-lock, .yh-federation-gate-btn'
         ]
     ];
 
