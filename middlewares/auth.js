@@ -64,13 +64,47 @@ function buildExpiredAuthCookie() {
 }
 
 function sendDeletedAccountResponse(res) {
-    res.setHeader('Set-Cookie', buildExpiredAuthCookie());
+    res.setHeader(
+        'Set-Cookie',
+        buildExpiredAuthCookie()
+    );
 
     return res.status(401).json({
         success: false,
         accountDeleted: true,
         registrationRequired: true,
-        message: 'This account has been deleted. Please register again.'
+        message:
+            'This account has been deleted. Please register again.'
+    });
+}
+
+function normalizeAuthSessionVersion(
+    value
+) {
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed)
+        ? Math.max(
+            0,
+            Math.trunc(parsed)
+        )
+        : 0;
+}
+
+function sendInvalidatedSessionResponse(
+    res
+) {
+    res.setHeader(
+        'Set-Cookie',
+        buildExpiredAuthCookie()
+    );
+
+    return res.status(401).json({
+        success: false,
+        sessionInvalidated: true,
+        passwordChanged: true,
+        message:
+            'Your session ended because the account password was changed. Please log in again.'
     });
 }
 
@@ -99,10 +133,43 @@ module.exports = async (req, res, next) => {
         }
 
         if (uid !== 'local-superdev') {
-            const userSnapshot = await firestore.collection('users').doc(uid).get();
+            const userSnapshot =
+                await firestore
+                    .collection('users')
+                    .doc(uid)
+                    .get();
 
-            if (!userSnapshot.exists || isDeletedAccountRecord(userSnapshot.data() || {})) {
-                return sendDeletedAccountResponse(res);
+            if (
+                !userSnapshot.exists ||
+                isDeletedAccountRecord(
+                    userSnapshot.data() || {}
+                )
+            ) {
+                return sendDeletedAccountResponse(
+                    res
+                );
+            }
+
+            const user =
+                userSnapshot.data() || {};
+
+            const tokenAuthSessionVersion =
+                normalizeAuthSessionVersion(
+                    verified?.authSessionVersion
+                );
+
+            const userAuthSessionVersion =
+                normalizeAuthSessionVersion(
+                    user.authSessionVersion
+                );
+
+            if (
+                tokenAuthSessionVersion !==
+                userAuthSessionVersion
+            ) {
+                return sendInvalidatedSessionResponse(
+                    res
+                );
             }
         }
 

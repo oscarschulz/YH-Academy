@@ -193,17 +193,26 @@ function academyScheduleTabOverlayWatchdogV11(reason = 'tab') {
     window.clearTimeout(window.__academyTabOverlayWatchdogMidV11);
     window.clearTimeout(window.__academyTabOverlayWatchdogLateV11);
 
-    window.__academyTabOverlayWatchdogFastV11 = window.setTimeout(() => {
-        academyForceReleaseAllLoadingOverlaysV11(reason + '-fast');
-    }, 1600);
+    window.__academyTabOverlayWatchdogFastV11 =
+        window.setTimeout(() => {
+            academyForceReleaseAllLoadingOverlaysV11(
+                reason + '-fast'
+            );
+        }, 850);
 
-    window.__academyTabOverlayWatchdogMidV11 = window.setTimeout(() => {
-        academyForceReleaseAllLoadingOverlaysV11(reason + '-mid');
-    }, 3200);
+    window.__academyTabOverlayWatchdogMidV11 =
+        window.setTimeout(() => {
+            academyForceReleaseAllLoadingOverlaysV11(
+                reason + '-mid'
+            );
+        }, 1800);
 
-    window.__academyTabOverlayWatchdogLateV11 = window.setTimeout(() => {
-        academyForceReleaseAllLoadingOverlaysV11(reason + '-late');
-    }, 5200);
+    window.__academyTabOverlayWatchdogLateV11 =
+        window.setTimeout(() => {
+            academyForceReleaseAllLoadingOverlaysV11(
+                reason + '-late'
+            );
+        }, 3000);
 }
 
 function academyBindTabOverlayWatchdogV11() {
@@ -7567,7 +7576,121 @@ function applyAcademyHomeRuntimePatch(runtime = {}) {
     return nextHome;
 }
 /* shared academyAuthedFetch now comes from /js/yh-shared-runtime.js */
+/* PATCH: Academy instant progression response bridge v1 */
 
+function academyWriteProgressionCacheV1(progression = {}) {
+    if (
+        !progression ||
+        typeof progression !== 'object'
+    ) {
+        return false;
+    }
+
+    const payload = {
+        progression,
+        cachedAt: new Date().toISOString()
+    };
+
+    let saved = false;
+
+    try {
+        sessionStorage.setItem(
+            'yh_academy_progression_v1',
+            JSON.stringify(payload)
+        );
+
+        saved = true;
+    } catch (_) {}
+
+    /*
+     * Standalone Academy and Dashboard iframe use the same origin,
+     * so update the parent game core immediately when available.
+     */
+    try {
+        if (
+            window.parent &&
+            window.parent !== window &&
+            typeof window.parent.YHUGameCore
+                ?.setAcademyProgressionCache === 'function'
+        ) {
+            window.parent.YHUGameCore
+                .setAcademyProgressionCache(progression);
+        }
+    } catch (_) {}
+
+    try {
+        if (
+            typeof window.YHUGameCore
+                ?.setAcademyProgressionCache === 'function'
+        ) {
+            window.YHUGameCore
+                .setAcademyProgressionCache(progression);
+        }
+    } catch (_) {}
+
+    try {
+        window.dispatchEvent(
+            new CustomEvent(
+                'yhu:academy-progression-updated',
+                { detail: progression }
+            )
+        );
+    } catch (_) {}
+
+    try {
+        window.parent?.postMessage?.(
+            {
+                type: 'yhu:academy-progression-updated',
+                progression
+            },
+            window.location.origin
+        );
+    } catch (_) {}
+
+    return saved;
+}
+
+function academyApplyProgressionResultV1(result = {}) {
+    const progression =
+        result?.progression &&
+        typeof result.progression === 'object'
+            ? result.progression
+            : null;
+
+    if (!progression) return null;
+
+    academyWriteProgressionCacheV1(progression);
+
+    return progression;
+}
+
+function academyBuildXpSuccessMessageV1(
+    result = {},
+    fallbackMessage = 'Progress updated.'
+) {
+    const awarded = Math.max(
+        0,
+        Number(result?.xp?.awarded) || 0
+    );
+
+    const eventCreated =
+        result?.xp?.eventCreated === true;
+
+    if (awarded > 0 && eventCreated) {
+        return `${fallbackMessage} • +${awarded} XP`;
+    }
+
+    if (
+        result?.xp &&
+        result.xp.eventCreated === false
+    ) {
+        return `${fallbackMessage} • XP already recorded`;
+    }
+
+    return fallbackMessage;
+}
+
+/* END PATCH: Academy instant progression response bridge v1 */
 async function academyRefreshRoadmap() {
     try {
         showToast("Refreshing roadmap...", "success");
@@ -7608,20 +7731,44 @@ async function academyUpdateMissionStatus(missionId, status, note = '') {
             adaptivePlanning: result?.adaptivePlanning
         });
 
+        academyApplyProgressionResultV1(result);
+
         await loadAcademyHome(true);
-        showToast(`Mission marked as ${status}.`, "success");
+
+        const normalizedStatus =
+            String(status || '')
+                .trim()
+                .toLowerCase();
+
+        if (normalizedStatus === 'completed') {
+            showToast(
+                academyBuildXpSuccessMessageV1(
+                    result,
+                    'Mission completed'
+                ),
+                'success'
+            );
+        } else {
+            showToast(
+                `Mission marked as ${status}.`,
+                'success'
+            );
+        }
     } catch (error) {
         showToast(error.message || "Mission update failed.", "error");
     }
 }
 async function academyCompleteMission(missionId) {
     try {
-        const result = await academyAuthedFetch(`/api/academy/missions/${missionId}/complete`, {
-            method: 'POST',
-            body: JSON.stringify({
-                completionNote: ''
-            })
-        });
+        const result = await academyAuthedFetch(
+            `/api/academy/missions/${missionId}/complete`,
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    completionNote: ''
+                })
+            }
+        );
 
         applyAcademyHomeRuntimePatch({
             missionId,
@@ -7629,16 +7776,32 @@ async function academyCompleteMission(missionId) {
             note: '',
             todayProgress: result?.todayProgress,
             behaviorProfile: result?.behaviorProfile,
-            previousBehaviorProfile: result?.previousBehaviorProfile,
+            previousBehaviorProfile:
+                result?.previousBehaviorProfile,
             plannerStats: result?.plannerStats,
             adaptivePlanning: result?.adaptivePlanning
         });
 
+        academyApplyProgressionResultV1(result);
+
         await loadAcademyHome(true);
-        showToast("Mission completed.", "success");
+
+        showToast(
+            academyBuildXpSuccessMessageV1(
+                result,
+                'Mission completed'
+            ),
+            'success'
+        );
+
         return true;
     } catch (error) {
-        showToast(error.message || "Mission completion failed.", "error");
+        showToast(
+            error.message ||
+            'Mission completion failed.',
+            'error'
+        );
+
         return false;
     }
 }
@@ -7957,6 +8120,8 @@ async function academySubmitCheckin(event) {
             recentCheckins: result?.recentCheckins
         });
 
+        academyApplyProgressionResultV1(result);
+
         didSucceed = true;
         academySetCheckinUiState('saved');
 
@@ -7964,7 +8129,14 @@ async function academySubmitCheckin(event) {
 
         academyCloseCheckinModal();
         await loadAcademyHome(true);
-        showToast('Check-in saved.', 'success');
+
+        showToast(
+            academyBuildXpSuccessMessageV1(
+                result,
+                'Check-in saved'
+            ),
+            'success'
+        );
     } catch (error) {
         academySetCheckinStatus(error.message || 'Check-in failed.', 'error');
         showToast(error.message || 'Check-in failed.', 'error');
@@ -9515,22 +9687,62 @@ function academyBuildHeaderIconHtml(iconKey = 'roadmap', extraClass = '') {
 }
 
 function academySetRoadmapHeader() {
-    const chatHeaderIcon = document.getElementById('chat-header-icon');
-    const chatHeaderTitle = document.getElementById('chat-header-title');
-    const chatHeaderTopic = document.getElementById('chat-header-topic');
+    const academyChat = document.getElementById('academy-chat');
+
+    const chatHeader =
+        academyChat?.querySelector(
+            ':scope > .chat-header'
+        ) || null;
+
+    const chatHeaderIcon =
+        document.getElementById(
+            'chat-header-icon'
+        );
+
+    const chatHeaderTitle =
+        document.getElementById(
+            'chat-header-title'
+        );
+
+    const chatHeaderTopic =
+        document.getElementById(
+            'chat-header-topic'
+        );
+
+    if (chatHeader) {
+        chatHeader.classList.remove(
+            'hidden-step'
+        );
+
+        chatHeader.setAttribute(
+            'aria-hidden',
+            'false'
+        );
+    }
 
     if (chatHeaderIcon) {
-        chatHeaderIcon.style.removeProperty('display');
-        chatHeaderIcon.innerHTML = academyBuildHeaderIconHtml('roadmap');
+        chatHeaderIcon.style.removeProperty(
+            'display'
+        );
+
+        chatHeaderIcon.innerHTML =
+            academyBuildHeaderIconHtml(
+                'roadmap'
+            );
     }
 
     if (chatHeaderTitle) {
-        chatHeaderTitle.innerText = 'Roadmap';
+        chatHeaderTitle.innerText =
+            'Roadmap';
     }
 
     if (chatHeaderTopic) {
-        chatHeaderTopic.style.removeProperty('display');
-        chatHeaderTopic.innerText = 'Your 28-day foundation, missions, and progress path.';
+        chatHeaderTopic.style.removeProperty(
+            'display'
+        );
+
+        chatHeaderTopic.innerText =
+            'Your 28-day foundation, missions, and progress path.';
     }
 }
 
@@ -9825,23 +10037,58 @@ function showAcademyRoadmapLoadingShell() {
     setAcademySidebarActive('nav-missions');
     academySetMessagesChatMode('home');
 
-    const academyChat = document.getElementById('academy-chat');
-    const chatHeaderIcon = document.getElementById('chat-header-icon');
-    const chatHeaderTitle = document.getElementById('chat-header-title');
-    const chatHeaderTopic = document.getElementById('chat-header-topic');
-    const chatWelcomeBox = document.getElementById('chat-welcome-box');
-    const chatPinnedMessage = document.getElementById('chat-pinned-message');
-    const dynamicChatContainer = document.getElementById('dynamic-chat-history');
+    const academyChat =
+        document.getElementById(
+            'academy-chat'
+        );
+
+    const chatHeader =
+        academyChat?.querySelector(
+            ':scope > .chat-header'
+        ) || null;
+
+    const chatWelcomeBox =
+        document.getElementById(
+            'chat-welcome-box'
+        );
+
+    const chatPinnedMessage =
+        document.getElementById(
+            'chat-pinned-message'
+        );
+
+    const dynamicChatContainer =
+        document.getElementById(
+            'dynamic-chat-history'
+        );
 
     if (academyChat) {
-        academyChat.classList.remove('hidden-step');
-        academyChat.classList.remove('fade-in');
+        academyChat.classList.remove(
+            'hidden-step'
+        );
+
+        academyChat.classList.remove(
+            'fade-in'
+        );
     }
 
     academySetRoadmapHeader();
 
-    if (chatHeaderTopic) chatHeaderTopic.innerText = 'Loading your roadmap, missions, and access state.';
-    if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
+    if (chatHeader) {
+        chatHeader.classList.add(
+            'hidden-step'
+        );
+
+        chatHeader.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+    }
+
+    if (chatWelcomeBox) {
+        chatWelcomeBox.style.display =
+            'none';
+    }
     if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
 
     if (dynamicChatContainer) {
@@ -10025,9 +10272,19 @@ function academyLockTabSwitchV7(reason = 'tab') {
 }
 
 function academyUnlockTabSwitchSoonV7(reason = 'tab') {
-    window.clearTimeout(window.__academyTabSwitchFailSafeV7);
-    window.setTimeout(() => academyReleaseTabLoaderHardV7(reason), 80);
-    window.setTimeout(() => academyReleaseTabLoaderHardV7(reason + '-late'), 420);
+    window.clearTimeout(
+        window.__academyTabSwitchFailSafeV7
+    );
+
+    window.setTimeout(() => {
+        academyReleaseTabLoaderHardV7(reason);
+    }, 30);
+
+    window.setTimeout(() => {
+        academyReleaseTabLoaderHardV7(
+            reason + '-late'
+        );
+    }, 180);
 }
 
 function academyAfterPaintV7(callback) {
@@ -13500,6 +13757,13 @@ function revealAcademyProfileView(options = {}) {
 const academyLeadMissionsState = {
     leads: [],
     assignedMissions: [],
+
+    editingLeadId: '',
+    openLeadMenuId: '',
+
+    activePlaybookKey: '',
+    activePlaybookTitle: '',
+
     opportunityMissions: [],
     opportunityMissionSummary: {
         total: 0,
@@ -13527,7 +13791,452 @@ function academyLeadFormatDate(value = '') {
     if (Number.isNaN(date.getTime())) return academyFeedEscapeHtml(clean);
     return academyFeedEscapeHtml(date.toLocaleDateString());
 }
+function academyGetLeadIdV1(lead = {}) {
+    return String(
+        lead.id ||
+        lead.leadId ||
+        lead.sourceDocumentId ||
+        lead.source_document_id ||
+        lead?.data?.id ||
+        ''
+    ).trim();
+}
 
+function academyFindLeadByIdV1(leadId = '') {
+    const cleanLeadId =
+        String(leadId || '').trim();
+
+    return (
+        academyLeadMissionsState.leads
+            .find((lead) => {
+                return (
+                    academyGetLeadIdV1(lead) ===
+                    cleanLeadId
+                );
+            }) ||
+        null
+    );
+}
+
+function academySetLeadFormValueV1(
+    form,
+    name,
+    value
+) {
+    if (!form || !name) return;
+
+    const field =
+        form.elements?.namedItem(name);
+
+    if (!field) return;
+
+    const cleanValue =
+        value === null ||
+        value === undefined
+            ? ''
+            : String(value);
+
+    if (
+        field instanceof RadioNodeList
+    ) {
+        Array.from(field).forEach(
+            (node) => {
+                node.checked =
+                    String(node.value) ===
+                    cleanValue;
+            }
+        );
+
+        return;
+    }
+
+    if (
+        field.type === 'checkbox'
+    ) {
+        field.checked =
+            value === true ||
+            cleanValue === 'true' ||
+            cleanValue === '1';
+
+        return;
+    }
+
+    field.value = cleanValue;
+}
+
+function academyFillLeadEntryFormV1(
+    lead = {}
+) {
+    const form =
+        document.getElementById(
+            'academy-lead-entry-form'
+        );
+
+    if (!form) return;
+
+    const source =
+        lead?.data &&
+        typeof lead.data === 'object'
+            ? {
+                ...lead.data,
+                ...lead
+            }
+            : lead;
+
+    Array.from(form.elements).forEach(
+        (field) => {
+            const name =
+                String(field?.name || '')
+                    .trim();
+
+            if (!name) return;
+
+            if (
+                Object.prototype
+                    .hasOwnProperty
+                    .call(source, name)
+            ) {
+                academySetLeadFormValueV1(
+                    form,
+                    name,
+                    source[name]
+                );
+            }
+        }
+    );
+}
+
+function academySyncLeadEntryModalModeV1() {
+    const editing =
+        Boolean(
+            academyLeadMissionsState
+                .editingLeadId
+        );
+
+    const modal =
+        document.getElementById(
+            'academy-lead-entry-modal'
+        );
+
+    const heading =
+        modal?.querySelector(
+            'h1, h2, h3, .modal-title'
+        );
+
+    const submit =
+        document.getElementById(
+            'btn-save-lead-entry'
+        );
+
+    if (heading) {
+        if (!heading.dataset.createLabel) {
+            heading.dataset.createLabel =
+                heading.textContent ||
+                'Add Lead';
+        }
+
+        heading.textContent =
+            editing
+                ? 'Edit Lead'
+                : heading.dataset.createLabel;
+    }
+
+    if (submit) {
+        if (!submit.dataset.createLabel) {
+            submit.dataset.createLabel =
+                submit.textContent ||
+                'Save Lead';
+        }
+
+        submit.textContent =
+            editing
+                ? 'Save Changes'
+                : submit.dataset.createLabel;
+    }
+}
+
+function academyResetLeadEntryModeV1({
+    resetForm = false
+} = {}) {
+    academyLeadMissionsState
+        .editingLeadId = '';
+
+    academyLeadMissionsState
+        .openLeadMenuId = '';
+
+    const form =
+        document.getElementById(
+            'academy-lead-entry-form'
+        );
+
+    if (resetForm) {
+        form?.reset();
+    }
+
+    academySyncLeadEntryModalModeV1();
+}
+function academySetLeadActionLoadingV1(
+    button,
+    loading = false,
+    loadingLabel = 'Loading...'
+) {
+    if (!(button instanceof HTMLElement)) {
+        return;
+    }
+
+    if (!button.dataset.idleLabel) {
+        button.dataset.idleLabel =
+            String(
+                button.textContent || ''
+            ).trim();
+    }
+
+    button.disabled =
+        loading === true;
+
+    button.setAttribute(
+        'aria-busy',
+        loading ? 'true' : 'false'
+    );
+
+    button.classList.toggle(
+        'is-loading',
+        loading
+    );
+
+    button.textContent =
+        loading
+            ? loadingLabel
+            : (
+                button.dataset.idleLabel ||
+                'Action'
+            );
+}
+async function academyOpenLeadForEditV1(
+    leadId = '',
+    actionButton = null
+) {
+    const cleanLeadId =
+        String(leadId || '').trim();
+
+    if (!cleanLeadId) return;
+
+    let lead =
+        academyFindLeadByIdV1(cleanLeadId);
+
+    academySetLeadActionLoadingV1(
+        actionButton,
+        true,
+        'Opening...'
+    );
+
+    try {
+        if (!lead) {
+            const result =
+                await academyAuthedFetch(
+                    `/api/academy/lead-missions/leads/` +
+                    encodeURIComponent(
+                        cleanLeadId
+                    ),
+                    {
+                        method: 'GET'
+                    }
+                );
+
+            lead = result?.lead || null;
+        }
+
+        if (!lead) {
+            throw new Error(
+                'Lead not found.'
+            );
+        }
+
+        academyLeadMissionsState
+            .editingLeadId =
+            cleanLeadId;
+
+        academyLeadMissionsState
+            .openLeadMenuId = '';
+
+        const form =
+            document.getElementById(
+                'academy-lead-entry-form'
+            );
+
+        form?.reset();
+
+        academyFillLeadEntryFormV1(lead);
+        academySyncLeadEntryModalModeV1();
+
+        openAcademyLeadEntryModal({
+            preserveForm: true
+        });
+    } catch (error) {
+        console.error(
+            'academyOpenLeadForEditV1 error:',
+            error
+        );
+
+        showToast(
+            error?.message ||
+            'Failed to open lead.',
+            'error'
+        );
+    } finally {
+        academySetLeadActionLoadingV1(
+            actionButton,
+            false
+        );
+    }
+}
+
+async function academyDeleteLeadV1(
+    leadId = '',
+    actionButton = null
+) {
+    const cleanLeadId =
+        String(leadId || '').trim();
+
+    if (!cleanLeadId) return;
+
+    const lead =
+        academyFindLeadByIdV1(cleanLeadId);
+
+    const companyName =
+        String(
+            lead?.companyName ||
+            lead?.data?.companyName ||
+            'this lead'
+        ).trim();
+
+    const confirmed =
+        await openYHConfirmModal({
+            title: 'Delete Lead',
+            message:
+                `Delete ${companyName}? ` +
+                'This removes the lead from your Lead Database and My Contacts.',
+            okText: 'Delete Lead',
+            cancelText: 'Cancel',
+            tone: 'danger'
+        });
+
+    if (!confirmed) return;
+
+    academySetLeadActionLoadingV1(
+        actionButton,
+        true,
+        'Deleting...'
+    );
+
+    try {
+        await academyAuthedFetch(
+            `/api/academy/lead-missions/leads/` +
+            encodeURIComponent(
+                cleanLeadId
+            ),
+            {
+                method: 'DELETE'
+            }
+        );
+
+        academyLeadMissionsState.leads =
+            academyLeadMissionsState.leads
+                .filter((item) => {
+                    return (
+                        academyGetLeadIdV1(
+                            item
+                        ) !== cleanLeadId
+                    );
+                });
+
+        academyLeadMissionsState
+            .openLeadMenuId = '';
+
+        showToast(
+            'Lead deleted.',
+            'success'
+        );
+
+        await loadAcademyLeadMissionsWorkspace(
+            'database'
+        );
+
+        switchAcademyLeadMissionsSubtab(
+            'database'
+        );
+    } catch (error) {
+        console.error(
+            'academyDeleteLeadV1 error:',
+            error
+        );
+
+        showToast(
+            error?.message ||
+            'Failed to delete lead.',
+            'error'
+        );
+    } finally {
+        academySetLeadActionLoadingV1(
+            actionButton,
+            false
+        );
+    }
+}
+
+function academyRenderLeadActionsV1(
+    lead = {}
+) {
+    const leadId =
+        academyGetLeadIdV1(lead);
+
+    if (!leadId) return '';
+
+    const escapedId =
+        academyFeedEscapeHtml(leadId);
+
+    return `
+        <div
+            class="yh-row-actions"
+            data-yh-row-actions
+        >
+            <button
+                type="button"
+                class="yh-row-actions-trigger"
+                data-academy-lead-menu-toggle="${escapedId}"
+                aria-label="Open lead actions"
+                aria-haspopup="menu"
+                aria-expanded="false"
+            >
+                ⋮
+            </button>
+
+            <div
+                class="yh-row-actions-menu"
+                data-academy-lead-menu="${escapedId}"
+                role="menu"
+                hidden
+            >
+                <button
+                    type="button"
+                    role="menuitem"
+                    data-academy-lead-edit="${escapedId}"
+                >
+                    Edit Lead
+                </button>
+
+                <button
+                    type="button"
+                    role="menuitem"
+                    class="is-danger"
+                    data-academy-lead-delete="${escapedId}"
+                >
+                    Delete Lead
+                </button>
+            </div>
+        </div>
+    `;
+}
 function academyLeadFormatMoney(amount = 0, currency = 'USD') {
     const numeric = Number(amount || 0);
     const cleanCurrency = String(currency || 'USD').trim() || 'USD';
@@ -14190,38 +14899,81 @@ async function syncAcademyLeadRecruitmentProfileToBackend(profile = {}) {
     }
 }
 
-function openAcademyLeadEntryModal() {
-    const modal = document.getElementById('academy-lead-entry-modal');
-    const form = document.getElementById('academy-lead-entry-form');
+function openAcademyLeadEntryModal(options = {}) {
+    const modal =
+        document.getElementById(
+            'academy-lead-entry-modal'
+        );
+
+    const form =
+        document.getElementById(
+            'academy-lead-entry-form'
+        );
 
     if (!modal) return;
 
-    if (form) {
+    const preserveForm =
+        options?.preserveForm === true;
+
+    if (form && !preserveForm) {
         form.reset();
 
-        const currencyInput = document.getElementById('lead-sale-currency');
-        const saleEnabledInput = document.getElementById('lead-sale-enabled');
+        const currencyInput =
+            document.getElementById(
+                'lead-sale-currency'
+            );
 
-        if (currencyInput) currencyInput.value = 'USD';
-        if (saleEnabledInput) saleEnabledInput.value = 'true';
+        const saleEnabledInput =
+            document.getElementById(
+                'lead-sale-enabled'
+            );
+
+        if (currencyInput) {
+            currencyInput.value = 'USD';
+        }
+
+        if (saleEnabledInput) {
+            saleEnabledInput.value = 'true';
+        }
     }
 
+    academySyncLeadEntryModalModeV1();
+
     modal.classList.remove('hidden-step');
-    modal.setAttribute('aria-hidden', 'false');
+
+    modal.setAttribute(
+        'aria-hidden',
+        'false'
+    );
 }
 
 function closeAcademyLeadEntryModal() {
-    const modal = document.getElementById('academy-lead-entry-modal');
-    const form = document.getElementById('academy-lead-entry-form');
+    const modal =
+        document.getElementById(
+            'academy-lead-entry-modal'
+        );
+
+    const form =
+        document.getElementById(
+            'academy-lead-entry-form'
+        );
 
     if (modal) {
-        modal.classList.add('hidden-step');
-        modal.setAttribute('aria-hidden', 'true');
+        modal.classList.add(
+            'hidden-step'
+        );
+
+        modal.setAttribute(
+            'aria-hidden',
+            'true'
+        );
     }
 
     if (form) {
         form.reset();
     }
+
+    academyResetLeadEntryModeV1();
 }
 
 function syncAcademyWithdrawalMethodFields() {
@@ -14378,11 +15130,19 @@ function renderLeadMissionsReadme(meta = {}) {
 }
 
 function renderLeadMissionsDatabase(leads = []) {
-    const panel = document.getElementById('academy-lead-panel-database');
+    const panel = document.getElementById(
+        'academy-lead-panel-database'
+    );
+
     if (!panel) return;
 
     if (!Array.isArray(leads) || !leads.length) {
-        panel.innerHTML = `<div class="academy-member-browser-empty">No lead entries yet. Use “Add Lead” to create your first record.</div>`;
+        panel.innerHTML = `
+            <div class="academy-member-browser-empty">
+                No lead entries yet. Use “Add Lead” to create your first record.
+            </div>
+        `;
+
         return;
     }
 
@@ -14400,20 +15160,60 @@ function renderLeadMissionsDatabase(leads = []) {
                         <th>Stage</th>
                         <th>Next Action</th>
                         <th>Follow-up</th>
+                        <th aria-label="Lead actions"></th>
                     </tr>
                 </thead>
+
                 <tbody>
                     ${leads.map((lead) => `
                         <tr>
-                            <td><span class="academy-lead-badge">${academyLeadSafeText(lead.tier)}</span></td>
-                            <td>${academyLeadSafeText(lead.companyName)}</td>
-                            <td>${academyLeadSafeText(lead.contactName)}</td>
-                            <td>${academyLeadSafeText(lead.contactRole)}</td>
-                            <td>${academyLeadSafeText([lead.city, lead.country].filter(Boolean).join(', '))}</td>
-                            <td>${academyLeadSafeText(lead.callOutcome)}</td>
-                            <td>${academyLeadSafeText(lead.pipelineStage)}</td>
-                            <td>${academyLeadSafeText(lead.nextAction)}</td>
-                            <td>${academyLeadFormatDate(lead.followUpDueDate)}</td>
+                            <td>
+                                <span class="academy-lead-badge">
+                                    ${academyLeadSafeText(lead.tier)}
+                                </span>
+                            </td>
+
+                            <td>
+                                ${academyLeadSafeText(lead.companyName)}
+                            </td>
+
+                            <td>
+                                ${academyLeadSafeText(lead.contactName)}
+                            </td>
+
+                            <td>
+                                ${academyLeadSafeText(lead.contactRole)}
+                            </td>
+
+                            <td>
+                                ${academyLeadSafeText(
+                                    [lead.city, lead.country]
+                                        .filter(Boolean)
+                                        .join(', ')
+                                )}
+                            </td>
+
+                            <td>
+                                ${academyLeadSafeText(lead.callOutcome)}
+                            </td>
+
+                            <td>
+                                ${academyLeadSafeText(lead.pipelineStage)}
+                            </td>
+
+                            <td>
+                                ${academyLeadSafeText(lead.nextAction)}
+                            </td>
+
+                            <td>
+                                ${academyLeadFormatDate(
+                                    lead.followUpDueDate
+                                )}
+                            </td>
+
+                            <td class="yh-lead-actions-cell">
+                                ${academyRenderLeadActionsV1(lead)}
+                            </td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -15142,6 +15942,36 @@ function hydrateAcademyLeadMissionsWorkspace(result = {}) {
     renderLeadMissionsScripts(academyLeadMissionsState.scripts);
 }
 
+async function academyConsumeLeadEditIntentV1() {
+    let leadId = '';
+
+    try {
+        leadId =
+            sessionStorage.getItem(
+                'yh_academy_edit_lead_id_v1'
+            ) || '';
+
+        sessionStorage.removeItem(
+            'yh_academy_edit_lead_id_v1'
+        );
+    } catch (_) {
+        leadId = '';
+    }
+
+    leadId =
+        String(leadId || '').trim();
+
+    if (!leadId) {
+        return false;
+    }
+
+    await academyOpenLeadForEditV1(
+        leadId
+    );
+
+    return true;
+}
+
 async function loadAcademyLeadMissionsWorkspace(initialSubtab = 'database') {
     const [result, withdrawalResult, opportunityResult] = await Promise.all([
         academyResolveAfterTimeout(
@@ -15186,8 +16016,16 @@ async function loadAcademyLeadMissionsWorkspace(initialSubtab = 'database') {
             ? opportunityResult.summary
             : { total: 0, plaza: 0, federation: 0 };
 
-    hydrateAcademyLeadMissionsWorkspace(result);
-    switchAcademyLeadMissionsSubtab(initialSubtab || 'database');
+    hydrateAcademyLeadMissionsWorkspace(
+        result
+    );
+
+    switchAcademyLeadMissionsSubtab(
+        initialSubtab || 'database'
+    );
+
+    await academyConsumeLeadEditIntentV1();
+
     return result;
 }
 const ACADEMY_MISSION_PLAYBOOKS = [
@@ -15454,7 +16292,9 @@ function setAcademyMissionPlaybookPanel(key = '') {
 }
 
 function startCurrentAcademyMissionPlaybook() {
-    const mission = academyGetMissionPlaybook(academyCurrentMissionPlaybookKey);
+    const mission = academyGetMissionPlaybook(
+        academyCurrentMissionPlaybookKey
+    );
 
     if (!mission) {
         showToast('Open a mission first.', 'error');
@@ -15462,15 +16302,29 @@ function startCurrentAcademyMissionPlaybook() {
     }
 
     if (mission.key === 'expansion-mission') {
-        showToast('Expansion Mission proof is handled through the Clippers CRM / Telegram Gateway once your account setup is approved.', 'success');
+        showToast(
+            'Expansion Mission proof is handled through the Clippers CRM / Telegram Gateway once your account setup is approved.',
+            'success'
+        );
         return;
     }
 
-    showToast(`Opening tracking workspace for ${mission.title}.`, 'success');
+    academyLeadMissionsState.activePlaybookKey =
+        String(mission.key || '').trim();
+
+    academyLeadMissionsState.activePlaybookTitle =
+        String(mission.title || '').trim();
+
+    showToast(
+        `Opening tracking workspace for ${mission.title}.`,
+        'success'
+    );
 
     openAcademyLeadMissionsView({
         skipRecruitmentGate: true,
-        initialSubtab: 'database'
+        initialSubtab: 'database',
+        sourcePlaybookKey: mission.key,
+        sourcePlaybookTitle: mission.title
     });
 }
 function setAcademyMissionsPanel(target = 'hub') {
@@ -15571,7 +16425,24 @@ function openAcademyMissionsView() {
 }
 
 async function openAcademyLeadMissionsView(options = {}) {
-    const skipRecruitmentGate = options?.skipRecruitmentGate === true;
+    const skipRecruitmentGate =
+        options?.skipRecruitmentGate === true;
+
+    const sourcePlaybookKey = String(
+        options?.sourcePlaybookKey || ''
+    ).trim();
+
+    const sourcePlaybookTitle = String(
+        options?.sourcePlaybookTitle || ''
+    ).trim();
+
+    if (sourcePlaybookKey) {
+        academyLeadMissionsState.activePlaybookKey =
+            sourcePlaybookKey;
+
+        academyLeadMissionsState.activePlaybookTitle =
+            sourcePlaybookTitle;
+    }
 
     syncAcademyLeadRecruitmentBadges();
 
@@ -15744,19 +16615,188 @@ document.getElementById('academy-lead-recruitment-form')?.addEventListener('subm
 
 syncAcademyLeadRecruitmentBadges();
 
-document.getElementById('btn-open-lead-entry-modal')?.addEventListener('click', () => {
-    openAcademyLeadEntryModal();
-});
+document
+    .getElementById(
+        'btn-open-lead-entry-modal'
+    )
+    ?.addEventListener(
+        'click',
+        () => {
+            academyResetLeadEntryModeV1({
+                resetForm: true
+            });
+
+            openAcademyLeadEntryModal();
+        }
+    );
 
 document.getElementById('btn-cancel-lead-entry')?.addEventListener('click', () => {
     closeAcademyLeadEntryModal();
 });
 
-document.getElementById('academy-lead-entry-modal')?.addEventListener('click', (event) => {
-    if (event.target?.id === 'academy-lead-entry-modal') {
-        closeAcademyLeadEntryModal();
+/* Keep Add/Edit Lead modal open on backdrop clicks. */
+document
+    .getElementById(
+        'academy-lead-entry-modal'
+    )
+    ?.addEventListener(
+        'click',
+        (event) => {
+            if (
+                event.target?.id ===
+                'academy-lead-entry-modal'
+            ) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        }
+    );
+
+/* PATCH: Academy lead row actions v1 */
+document.addEventListener(
+    'click',
+    async (event) => {
+        const toggle =
+            event.target?.closest?.(
+                '[data-academy-lead-menu-toggle]'
+            );
+
+        const editButton =
+            event.target?.closest?.(
+                '[data-academy-lead-edit]'
+            );
+
+        const deleteButton =
+            event.target?.closest?.(
+                '[data-academy-lead-delete]'
+            );
+
+        if (toggle) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const leadId =
+                String(
+                    toggle.getAttribute(
+                        'data-academy-lead-menu-toggle'
+                    ) || ''
+                ).trim();
+
+            document
+                .querySelectorAll(
+                    '[data-academy-lead-menu]'
+                )
+                .forEach((menu) => {
+                    const isTarget =
+                        menu.getAttribute(
+                            'data-academy-lead-menu'
+                        ) === leadId;
+
+                    const shouldOpen =
+                        isTarget &&
+                        menu.hasAttribute(
+                            'hidden'
+                        );
+
+                    menu.toggleAttribute(
+                        'hidden',
+                        !shouldOpen
+                    );
+                });
+
+            document
+                .querySelectorAll(
+                    '[data-academy-lead-menu-toggle]'
+                )
+                .forEach((button) => {
+                    const sameButton =
+                        button === toggle;
+
+                    const menu =
+                        document.querySelector(
+                            `[data-academy-lead-menu="${CSS.escape(
+                                leadId
+                            )}"]`
+                        );
+
+                    button.setAttribute(
+                        'aria-expanded',
+                        (
+                            sameButton &&
+                            menu &&
+                            !menu.hasAttribute(
+                                'hidden'
+                            )
+                        )
+                            ? 'true'
+                            : 'false'
+                    );
+                });
+
+            return;
+        }
+
+        if (editButton) {
+            event.preventDefault();
+
+            const leadId =
+                String(
+                    editButton.getAttribute(
+                        'data-academy-lead-edit'
+                    ) || ''
+                ).trim();
+
+            await academyOpenLeadForEditV1(
+                leadId,
+                editButton
+            );
+
+            return;
+        }
+
+        if (deleteButton) {
+            event.preventDefault();
+
+            const leadId =
+                String(
+                    deleteButton.getAttribute(
+                        'data-academy-lead-delete'
+                    ) || ''
+                ).trim();
+
+            await academyDeleteLeadV1(
+                leadId,
+                deleteButton
+            );
+
+            return;
+        }
+
+        document
+            .querySelectorAll(
+                '[data-academy-lead-menu]'
+            )
+            .forEach((menu) => {
+                menu.setAttribute(
+                    'hidden',
+                    ''
+                );
+            });
+
+        document
+            .querySelectorAll(
+                '[data-academy-lead-menu-toggle]'
+            )
+            .forEach((button) => {
+                button.setAttribute(
+                    'aria-expanded',
+                    'false'
+                );
+            });
     }
-});
+);
+/* END PATCH: Academy lead row actions v1 */
+
 document.addEventListener('click', (event) => {
     const openWithdrawalBtn = event.target.closest('#btn-open-academy-withdrawal');
     if (!openWithdrawalBtn) return;
@@ -15847,7 +16887,28 @@ document.getElementById('academy-lead-entry-form')?.addEventListener('submit', a
     const submitBtn = document.getElementById('btn-save-lead-entry');
     const formData = new FormData(form);
 
-    const payload = Object.fromEntries(formData.entries());
+    const payload = Object.fromEntries(
+        formData.entries()
+    );
+
+    const activePlaybookKey = String(
+        academyLeadMissionsState.activePlaybookKey || ''
+    ).trim();
+
+    const activePlaybookTitle = String(
+        academyLeadMissionsState.activePlaybookTitle || ''
+    ).trim();
+
+    if (activePlaybookKey) {
+        payload.missionPlaybookKey =
+            activePlaybookKey;
+
+        payload.sourceMissionTitle =
+            activePlaybookTitle;
+
+        payload.sourceMissionType =
+            'academy_mission_playbook';
+    }
 
     delete payload.universeCommissionRate;
     delete payload.universeCommissionAmount;
@@ -15862,19 +16923,90 @@ document.getElementById('academy-lead-entry-form')?.addEventListener('submit', a
             submitBtn.setAttribute('aria-busy', 'true');
         }
 
-        const result = await academyAuthedFetch('/api/academy/lead-missions/leads', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
+const editingLeadId =
+    String(
+        academyLeadMissionsState
+            .editingLeadId || ''
+    ).trim();
+
+const endpoint =
+    editingLeadId
+        ? (
+            `/api/academy/lead-missions/leads/` +
+            encodeURIComponent(
+                editingLeadId
+            )
+        )
+        : '/api/academy/lead-missions/leads';
+
+const result =
+    await academyAuthedFetch(
+        endpoint,
+        {
+            method:
+                editingLeadId
+                    ? 'PATCH'
+                    : 'POST',
+
+            body:
+                JSON.stringify(payload)
+        }
+    );
 
         if (!result?.success) {
             throw new Error(result?.message || 'Unable to save lead.');
         }
 
-        showToast('Lead saved successfully.', 'success');
+if (!editingLeadId) {
+    academyApplyProgressionResultV1(
+        result
+    );
+}
+
+const missionCompleted =
+    !editingLeadId &&
+            result?.missionCompletion?.completed === true;
+
+        const awardedXp = Math.max(
+            0,
+            Number(result?.xp?.awarded) || 0
+        );
+        if (editingLeadId) {
+            showToast(
+                'Lead updated successfully.',
+                'success'
+            );
+        } else
+        if (missionCompleted && awardedXp > 0) {
+            showToast(
+                `Lead saved • Mission completed • +${awardedXp} XP`,
+                'success'
+            );
+        } else if (
+            missionCompleted &&
+            result?.xp?.eventCreated === false
+        ) {
+            showToast(
+                'Lead saved • Mission already completed',
+                'success'
+            );
+        } else {
+            showToast(
+                'Lead saved successfully.',
+                'success'
+            );
+        }
+
         closeAcademyLeadEntryModal();
+        academyResetLeadEntryModeV1({
+    resetForm: true
+});
+
         await loadAcademyLeadMissionsWorkspace();
-        switchAcademyLeadMissionsSubtab('database');
+
+        switchAcademyLeadMissionsSubtab(
+            'database'
+        );
     } catch (error) {
         console.error('academy lead entry submit error:', error);
         showToast(error?.message || 'Failed to save lead.', 'error');

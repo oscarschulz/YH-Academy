@@ -565,6 +565,20 @@ function isCompactProfileAsset(value = '') {
 }
 
 function issueJwt(user) {
+    const authSessionVersion =
+        Number.isFinite(
+            Number(user.authSessionVersion)
+        )
+            ? Math.max(
+                0,
+                Math.trunc(
+                    Number(
+                        user.authSessionVersion
+                    )
+                )
+            )
+            : 0;
+
     return jwt.sign(
         {
             id: user.id,
@@ -572,8 +586,19 @@ function issueJwt(user) {
             email: user.email || '',
             name: user.fullName,
             username: user.username,
-            displayName: user.fullName || user.displayName || user.name || user.username || '',
-            avatar: isCompactProfileAsset(user.avatar || user.profilePhoto || user.photoURL || '')
+            displayName:
+                user.fullName ||
+                user.displayName ||
+                user.name ||
+                user.username ||
+                '',
+            avatar: isCompactProfileAsset(
+                user.avatar ||
+                user.profilePhoto ||
+                user.photoURL ||
+                ''
+            ),
+            authSessionVersion
         },
         process.env.JWT_SECRET,
         { expiresIn: AUTH_SESSION_EXPIRES_IN }
@@ -1729,6 +1754,219 @@ exports.logoutUser = async (req, res) => {
         message: 'Logged out successfully.'
     });
 };
+
+exports.changePassword = async (req, res) => {
+    try {
+        const userId = String(
+            req.user?.id ||
+            req.user?.firebaseUid ||
+            req.user?.uid ||
+            ''
+        ).trim();
+
+        const currentPassword = String(
+            req.body?.currentPassword || ''
+        );
+
+        const newPassword = String(
+            req.body?.newPassword || ''
+        );
+
+        const confirmNewPassword = String(
+            req.body?.confirmNewPassword || ''
+        );
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message:
+                    'Missing authenticated user.'
+            });
+        }
+
+        if (userId === 'local-superdev') {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'The local Superdev password is controlled by the server environment and cannot be changed here.'
+            });
+        }
+
+        if (
+            !currentPassword ||
+            !newPassword ||
+            !confirmNewPassword
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Current password, new password, and confirmation are required.'
+            });
+        }
+
+        if (
+            newPassword.length < 8 ||
+            newPassword.length > 128
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'New password must be between 8 and 128 characters.'
+            });
+        }
+
+        if (
+            newPassword !==
+            confirmNewPassword
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'New password and confirmation do not match.'
+            });
+        }
+
+        const userRef =
+            usersCollection().doc(userId);
+
+        const userSnap =
+            await userRef.get();
+
+        if (!userSnap.exists) {
+            clearAuthCookie(res);
+
+            return res.status(404).json({
+                success: false,
+                message:
+                    'User account was not found.'
+            });
+        }
+
+        const user = {
+            id: userSnap.id,
+            ...(userSnap.data() || {})
+        };
+
+        if (isDeletedAccountRecord(user)) {
+            clearAuthCookie(res);
+
+            return res
+                .status(410)
+                .json(
+                    deletedAccountResponsePayload()
+                );
+        }
+
+        if (!user.password) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    'This account does not have a password credential that can be changed from Settings.'
+            });
+        }
+
+        const currentPasswordMatches =
+            await bcrypt.compare(
+                currentPassword,
+                user.password
+            );
+
+        if (!currentPasswordMatches) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Current password is incorrect.'
+            });
+        }
+
+        const reusesCurrentPassword =
+            await bcrypt.compare(
+                newPassword,
+                user.password
+            );
+
+        if (reusesCurrentPassword) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Choose a new password that is different from your current password.'
+            });
+        }
+
+        const salt =
+            await bcrypt.genSalt(10);
+
+        const hashedPassword =
+            await bcrypt.hash(
+                newPassword,
+                salt
+            );
+
+        const currentAuthSessionVersion =
+            Number.isFinite(
+                Number(
+                    user.authSessionVersion
+                )
+            )
+                ? Math.max(
+                    0,
+                    Math.trunc(
+                        Number(
+                            user.authSessionVersion
+                        )
+                    )
+                )
+                : 0;
+
+        const changedAt = nowIso();
+
+        await userRef.update({
+            password: hashedPassword,
+            authSessionVersion:
+                currentAuthSessionVersion + 1,
+            passwordChangedAt: changedAt,
+            passwordResetCode: null,
+            passwordResetExpiresAt: null,
+            passwordResetVerifiedAt: null,
+            updatedAt: changedAt
+        });
+
+        clearAuthCookie(res);
+
+        return res.json({
+            success: true,
+            logoutRequired: true,
+            message:
+                'Password changed successfully. Please log in again with your new password.'
+        });
+    } catch (error) {
+        console.error(
+            'Change Password Error:',
+            error
+        );
+
+        if (
+            yhuSupabaseMirrorRepo
+                .isFirebaseQuotaError(error)
+        ) {
+            return res.status(503).json({
+                success: false,
+                retryable: true,
+                code:
+                    'firebase_quota_exhausted',
+                message:
+                    'The account database is temporarily busy. Please try changing your password again later.'
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            message:
+                'Server error while changing password.'
+        });
+    }
+};
+
 exports.getMyUniverseReferrals = async (req, res) => {
     try {
         const userId = String(req.user?.id || req.user?.firebaseUid || req.user?.uid || '').trim();
@@ -1753,7 +1991,10 @@ exports.getMyUniverseReferrals = async (req, res) => {
         const universeReferral = await ensureUniverseReferralForUser(userId, userData);
         const referralCode = normalizeUniverseReferralCode(universeReferral?.code);
 
-        const [ledgerSnapshot, commissionSnapshot] = await Promise.all([
+        const [registeredInvitedSnapshot, ledgerSnapshot, commissionSnapshot] = await Promise.all([
+            usersCollection()
+                .where('referredBy.referrerUid', '==', userId)
+                .get(),
             universeReferralLedgerCollection()
                 .where('referrerUid', '==', userId)
                 .limit(200)
@@ -1851,7 +2092,7 @@ exports.getMyUniverseReferrals = async (req, res) => {
             })
             .sort((a, b) => String((b.latestCommissionAt || b.capturedAt) || '').localeCompare(String((a.latestCommissionAt || a.capturedAt) || '')));
 
-        const total = referrals.length;
+        const total = registeredInvitedSnapshot.size;
         const payingReferrals = referrals.filter((item) => Number(item.commissionCount || 0) > 0).length;
         const commissionedPayments = commissionRecords.length;
         const pending = Math.max(0, total - payingReferrals);

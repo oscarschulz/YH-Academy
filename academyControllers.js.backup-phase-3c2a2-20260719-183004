@@ -3739,127 +3739,16 @@ async function syncAcademyProgressionAfterActionV1(
     }
 }
 
-/* PATCH: Automatic Squad Mission action hooks v1 */
-
-async function advanceAcademySquadMissionV1(
-    uid = '',
-    input = {}
-) {
-    try {
-        return await academyFirestoreRepo
-            .recordAcademySquadMissionContributionV1(
-                uid,
-                input
-            );
-    } catch (error) {
-        /*
-         * Squad Mission progression must never make the
-         * underlying verified Academy action fail.
-         */
-        console.warn(
-            'Academy Squad Mission progress skipped:',
-            error?.message || error
-        );
-
-        return {
-            created: false,
-            applied: false,
-            reason:
-                'squad_mission_progress_failed',
-            missions: [],
-            completedMissions: []
-        };
-    }
-}
-
 async function awardAcademySquadXpV1(
     uid = '',
     input = {}
 ) {
     try {
-        const result =
-            await academyFirestoreRepo
-                .recordAcademySquadXpContributionV1(
-                    uid,
-                    input
-                );
-
-        const awardedXp =
-            Math.max(
-                0,
-                Math.floor(
-                    Number(
-                        result?.awarded || 0
-                    )
-                )
+        return await academyFirestoreRepo
+            .recordAcademySquadXpContributionV1(
+                uid,
+                input
             );
-
-        const originalEventType =
-            sanitize(
-                input?.eventType ||
-                'squad_xp'
-            );
-
-        const originalSourceId =
-            sanitize(
-                input?.sourceId || ''
-            );
-
-        /*
-         * Only a newly created Squad XP ledger entry may
-         * advance a Squad XP mission.
-         */
-        const squadMissionProgress =
-            result?.created === true &&
-            awardedXp > 0 &&
-            originalSourceId
-                ? await advanceAcademySquadMissionV1(
-                    uid,
-                    {
-                        missionType:
-                            'squad_xp',
-
-                        eventType:
-                            'academy_squad_xp_earned',
-
-                        sourceId:
-                            `${originalEventType}:${originalSourceId}`,
-
-                        sourceType:
-                            'academySquadXpContribution',
-
-                        amount:
-                            awardedXp,
-
-                        label:
-                            'Squad XP earned',
-
-                        eventAt:
-                            input?.eventAt ||
-                            new Date()
-                                .toISOString(),
-
-                        metadata: {
-                            ...(
-                                input?.metadata &&
-                                typeof input.metadata ===
-                                    'object'
-                                    ? input.metadata
-                                    : {}
-                            ),
-
-                            originalEventType,
-                            originalSourceId,
-                            awardedXp
-                        }
-                    }
-                )
-                : null;
-
-        return {
-            ...result,
-            squadMissionProgress
-        };
     } catch (error) {
         /*
          * Squad progression must never make the verified
@@ -3867,20 +3756,18 @@ async function awardAcademySquadXpV1(
          */
         console.warn(
             'Academy Squad XP skipped:',
-            error?.message || error
+            error?.message ||
+            error
         );
 
         return {
             created: false,
             awarded: 0,
             reason:
-                'squad_xp_failed',
-            squadMissionProgress: null
+                'squad_xp_failed'
         };
     }
 }
-
-/* END PATCH: Automatic Squad Mission action hooks v1 */
 
 async function awardAcademyMissionXpV1(
     uid = '',
@@ -3963,56 +3850,6 @@ async function awardAcademyMissionXpV1(
                     awarded: 0
                 };
 
-        const squadMissionProgress =
-            result?.created === true
-                ? await advanceAcademySquadMissionV1(
-                    uid,
-                    {
-                        missionType:
-                            'academy_missions',
-
-                        eventType:
-                            'academy_mission_completed',
-
-                        sourceId:
-                            missionId,
-
-                        sourceType:
-                            'academyMission',
-
-                        amount:
-                            1,
-
-                        label:
-                            'Academy mission completed',
-
-                        eventAt:
-                            mission.completedAt ||
-                            mission.updatedAt ||
-                            new Date()
-                                .toISOString(),
-
-                        metadata: {
-                            title:
-                                sanitize(
-                                    mission.title || ''
-                                ),
-
-                            roadmapId:
-                                sanitize(
-                                    mission.roadmapId || ''
-                                ),
-
-                            difficultyLevel:
-                                sanitize(
-                                    mission.difficultyLevel ||
-                                    ''
-                                )
-                        }
-                    }
-                )
-                : null;
-
         return {
             xpAwarded:
                 result?.created === true
@@ -4022,8 +3859,7 @@ async function awardAcademyMissionXpV1(
             created:
                 result?.created === true,
 
-            squadXp,
-            squadMissionProgress
+            squadXp
         };
     } catch (error) {
         console.warn(
@@ -4124,58 +3960,6 @@ async function awardAcademyCheckinXpV1(
                     awarded: 0
                 };
 
-        const squadMissionProgress =
-            result?.created === true
-                ? await advanceAcademySquadMissionV1(
-                    uid,
-                    {
-                        missionType:
-                            'daily_checkins',
-
-                        eventType:
-                            'academy_daily_checkin',
-
-                        sourceId:
-                            checkinIdentity,
-
-                        sourceType:
-                            'academyCheckin',
-
-                        amount:
-                            1,
-
-                        label:
-                            'Daily check-in completed',
-
-                        eventAt:
-                            checkin.checkinDate ||
-                            checkin.createdAt ||
-                            checkin.updatedAt ||
-                            new Date()
-                                .toISOString(),
-
-                        metadata: {
-                            roadmapId:
-                                sanitize(
-                                    checkin.roadmapId || ''
-                                ),
-
-                            energyScore:
-                                toInt(
-                                    checkin.energyScore,
-                                    0
-                                ),
-
-                            moodScore:
-                                toInt(
-                                    checkin.moodScore,
-                                    0
-                                )
-                        }
-                    }
-                )
-                : null;
-
         return {
             xpAwarded:
                 result?.created === true
@@ -4185,8 +3969,7 @@ async function awardAcademyCheckinXpV1(
             created:
                 result?.created === true,
 
-            squadXp,
-            squadMissionProgress
+            squadXp
         };
     } catch (error) {
         console.warn(
@@ -4350,56 +4133,6 @@ async function awardAcademyPlaybookCompletionXpV1(
                     awarded: 0
                 };
 
-        const squadMissionProgress =
-            eventResult?.created === true
-                ? await advanceAcademySquadMissionV1(
-                    uid,
-                    {
-                        missionType:
-                            'mission_playbooks',
-
-                        eventType:
-                            'academy_mission_playbook_completed',
-
-                        sourceId:
-                            playbookKey,
-
-                        sourceType:
-                            'academyMissionPlaybook',
-
-                        amount:
-                            1,
-
-                        label:
-                            'Mission playbook completed',
-
-                        eventAt:
-                            lead.createdAt ||
-                            lead.updatedAt ||
-                            new Date()
-                                .toISOString(),
-
-                        metadata: {
-                            playbookKey,
-
-                            missionTitle:
-                                sanitize(
-                                    lead.sourceMissionTitle ||
-                                    leadData.sourceMissionTitle ||
-                                    ''
-                                ),
-
-                            leadId:
-                                sanitize(
-                                    lead.id ||
-                                    leadData.id ||
-                                    ''
-                                )
-                        }
-                    }
-                )
-                : null;
-
         return {
             completed:
                 eventResult?.created === true,
@@ -4413,8 +4146,7 @@ async function awardAcademyPlaybookCompletionXpV1(
                 eventResult?.created === true,
 
             playbookKey,
-            squadXp,
-            squadMissionProgress
+            squadXp
         };
     } catch (error) {
         console.warn(
@@ -4573,19 +4305,6 @@ return res.json({
             created: false,
             awarded: 0
         },
-
-    squadMissionProgress: {
-        action:
-            missionXpResult
-                .squadMissionProgress ||
-            null,
-
-        squadXp:
-            missionXpResult
-                .squadXp
-                ?.squadMissionProgress ||
-            null
-    },
 
     progression
 });
@@ -4788,34 +4507,9 @@ return res.json({
     adaptivePlanning: homePayload?.adaptivePlanning || {},
 
     xp: {
-        awarded:
-            missionXpResult.xpAwarded,
-
-        eventCreated:
-            missionXpResult.created,
-
-        eventType:
-            'mission_completed'
-    },
-
-    squadXp:
-        missionXpResult.squadXp ||
-        {
-            created: false,
-            awarded: 0
-        },
-
-    squadMissionProgress: {
-        action:
-            missionXpResult
-                .squadMissionProgress ||
-            null,
-
-        squadXp:
-            missionXpResult
-                .squadXp
-                ?.squadMissionProgress ||
-            null
+        awarded: missionXpResult.xpAwarded,
+        eventCreated: missionXpResult.created,
+        eventType: 'mission_completed'
     },
 
     progression
@@ -8066,19 +7760,6 @@ return res.json({
             created: false,
             awarded: 0
         },
-
-    squadMissionProgress: {
-        action:
-            checkinXpResult
-                .squadMissionProgress ||
-            null,
-
-        squadXp:
-            checkinXpResult
-                .squadXp
-                ?.squadMissionProgress ||
-            null
-    },
 
     progression
         });
@@ -12511,75 +12192,6 @@ exports.createLeadMissionLead = async (req, res) => {
                 lead
             );
 
-        /*
-         * This runs only inside the POST/create endpoint.
-         * Editing or deleting an existing lead cannot add
-         * another verified-lead contribution.
-         */
-        const verifiedLeadMissionProgress =
-            await advanceAcademySquadMissionV1(
-                uid,
-                {
-                    missionType:
-                        'verified_leads',
-
-                    eventType:
-                        'academy_verified_lead_created',
-
-                    sourceId:
-                        sanitize(
-                            lead.id ||
-                            lead?.data?.id ||
-                            ''
-                        ),
-
-                    sourceType:
-                        'academyLeadMission',
-
-                    amount:
-                        1,
-
-                    label:
-                        'Verified lead created',
-
-                    eventAt:
-                        lead.createdAt ||
-                        lead.updatedAt ||
-                        new Date()
-                            .toISOString(),
-
-                    metadata: {
-                        companyName:
-                            sanitize(
-                                lead.companyName ||
-                                lead?.data?.companyName ||
-                                ''
-                            ),
-
-                        contactName:
-                            sanitize(
-                                lead.contactName ||
-                                lead?.data?.contactName ||
-                                ''
-                            ),
-
-                        contactRole:
-                            sanitize(
-                                lead.contactRole ||
-                                lead?.data?.contactRole ||
-                                ''
-                            ),
-
-                        playbookKey:
-                            sanitize(
-                                lead.missionPlaybookKey ||
-                                lead?.data?.missionPlaybookKey ||
-                                ''
-                            )
-                    }
-                }
-            );
-
         const progression =
             playbookCompletion.completed
                 ? await syncAcademyProgressionAfterActionV1(
@@ -12624,23 +12236,6 @@ exports.createLeadMissionLead = async (req, res) => {
                     created: false,
                     awarded: 0
                 },
-
-            squadMissionProgress: {
-                verifiedLead:
-                    verifiedLeadMissionProgress ||
-                    null,
-
-                missionPlaybook:
-                    playbookCompletion
-                        .squadMissionProgress ||
-                    null,
-
-                squadXp:
-                    playbookCompletion
-                        .squadXp
-                        ?.squadMissionProgress ||
-                    null
-            },
 
             progression
         });

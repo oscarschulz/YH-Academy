@@ -4690,7 +4690,8 @@ const AUTH_OTP_RATE_LIMIT_PATHS = new Set([
 
 const AUTH_WRITE_RATE_LIMIT_PATHS = new Set([
     '/register',
-    '/login'
+    '/login',
+    '/change-password'
 ]);
 
 const PUBLIC_LANDING_RATE_LIMIT_PATHS = new Set([
@@ -4807,7 +4808,14 @@ app.use('/api/reset-password', authOtpLimiter);
 
 app.use('/api/register', authWriteLimiter);
 app.use('/api/login', authWriteLimiter);
-app.use('/api/public/landing-feed', publicLandingLimiter);
+app.use(
+    '/api/change-password',
+    authWriteLimiter
+);
+app.use(
+    '/api/public/landing-feed',
+    publicLandingLimiter
+);
 
 app.use('/api', apiLimiter);
 
@@ -4846,10 +4854,6 @@ function sendYHSoftProtectedShell(req, res, fileName = 'dashboard.html') {
 
 app.get(['/dashboard', '/dashboard/'], (req, res) => {
     return sendYHSoftProtectedShell(req, res, 'dashboard.html');
-});
-
-app.get(['/dashboard-v3', '/dashboard-v3/'], (req, res) => {
-    return sendYHSoftProtectedShell(req, res, 'dashboard-v3.html');
 });
 
 app.get(['/academy-embed', '/academy-embed/'], (req, res) => {

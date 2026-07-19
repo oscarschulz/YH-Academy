@@ -13166,36 +13166,19 @@ body[data-yh-page="federation"]
 body[data-yh-page="federation"]
   .fed-section.is-active-panel {
   min-width: 0;
-  min-height: 100%;
+  min-height: 0;
   display: grid;
   align-content: start;
   gap: 16px;
   margin: 0;
-  padding: 0 18px 22px;
-  border: 1px solid var(--fed-border);
+  padding: 0;
+  border: 0;
   border-radius: 0;
   overflow: visible;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(2, 6, 23, 0.04),
-      rgba(2, 6, 23, 0.2)
-    ),
-    url("/images/yhu-premium-bg.png?v=20260531-bg-09")
-      center center / cover no-repeat,
-    #020617;
+  background: transparent;
   box-shadow: none;
   color: var(--fed-text);
-  clip-path: polygon(
-    18px 0,
-    calc(100% - 18px) 0,
-    100% 18px,
-    100% calc(100% - 18px),
-    calc(100% - 18px) 100%,
-    18px 100%,
-    0 calc(100% - 18px),
-    0 18px
-  );
+  clip-path: none;
 }
 
 body[data-yh-page="federation"]
@@ -13205,10 +13188,9 @@ body[data-yh-page="federation"]
   display: grid;
   align-content: center;
   gap: 4px;
-  margin: 0 -18px;
+  margin: 0;
   padding: 14px 18px;
-  border: 0;
-  border-bottom:
+  border:
     1px solid var(--fed-border);
   border-radius: 0;
   background:
@@ -13218,7 +13200,16 @@ body[data-yh-page="federation"]
       rgba(5, 9, 26, 0.22)
     );
   box-shadow: none;
-  clip-path: none;
+  clip-path: polygon(
+    14px 0,
+    calc(100% - 14px) 0,
+    100% 14px,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    14px 100%,
+    0 calc(100% - 14px),
+    0 14px
+  );
 }
 
 body[data-yh-page="federation"] .fed-page-title,
@@ -13633,12 +13624,12 @@ body[data-yh-page="federation"]
 
   body[data-yh-page="federation"]
     .fed-section.is-active-panel {
-    padding: 0 14px 18px;
+    padding: 0;
   }
 
   body[data-yh-page="federation"]
     .fed-section-head {
-    margin-inline: -14px;
+    margin-inline: 0;
     padding: 14px;
   }
 
@@ -16771,7 +16762,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-row-v1 {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: clamp(10px, 1vw, 16px);
     margin: clamp(16px, 1.3vw, 24px) 0 clamp(18px, 1.5vw, 28px);
   }
@@ -16905,7 +16896,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
 
   @media (max-width: 1240px) {
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-overview-access-row-v1 {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
@@ -16951,8 +16942,8 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
     contain: layout paint;
   }
 
-  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-referral-card,
-  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-academy-strip {
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-academy-strip,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="referral"] #yh-dashboard-referral-workspace {
     display: block;
     visibility: visible;
     opacity: 1;
@@ -16961,10 +16952,276 @@ body[data-yh-view="hub"][data-yh-page="dashboard"].federation-application-open {
   }
 
   body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="overview"]) #yh-dashboard-overview-dynamic-access-row-v1,
-  body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="overview"]) #yh-universe-referral-card,
-  body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="overview"]) #yh-universe-academy-strip {
+  body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="overview"]) #yh-universe-academy-strip,
+  body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="referral"]) #yh-dashboard-referral-workspace {
     display: none;
     visibility: hidden;
     pointer-events: none;
   }
   /* END PATCH: Dashboard state owner final styles v3 */
+/* =========================================================
+   Shared floating bubble action menu v2
+   ========================================================= */
+
+.yh-row-actions {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    isolation: isolate;
+}
+
+.yh-row-actions-trigger {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(125, 211, 252, 0.2);
+    border-radius: 999px;
+    background:
+        radial-gradient(
+            circle at 35% 25%,
+            rgba(125, 211, 252, 0.18),
+            transparent 48%
+        ),
+        rgba(7, 18, 38, 0.84);
+    color: rgba(226, 245, 255, 0.82);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 8px 18px rgba(0, 0, 0, 0.18);
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition:
+        border-color 160ms ease,
+        background 160ms ease,
+        color 160ms ease,
+        transform 160ms ease,
+        box-shadow 160ms ease;
+}
+
+.yh-row-actions-trigger:hover,
+.yh-row-actions-trigger:focus-visible,
+.yh-row-actions-trigger[aria-expanded="true"] {
+    border-color: rgba(103, 232, 249, 0.62);
+    background:
+        radial-gradient(
+            circle at 35% 25%,
+            rgba(103, 232, 249, 0.3),
+            transparent 48%
+        ),
+        rgba(9, 32, 62, 0.96);
+    color: #ffffff;
+    box-shadow:
+        0 0 0 3px rgba(56, 189, 248, 0.08),
+        0 10px 24px rgba(0, 0, 0, 0.3),
+        0 0 22px rgba(56, 189, 248, 0.14);
+    outline: none;
+    transform: translateY(-1px);
+}
+
+.yh-row-actions-menu {
+    position: absolute;
+    top: 50%;
+    right: calc(100% + 10px);
+    z-index: 1000;
+    width: max-content;
+    min-width: 154px;
+    display: grid;
+    gap: 4px;
+    padding: 7px;
+    border: 1px solid rgba(125, 211, 252, 0.24);
+    border-radius: 14px;
+    background:
+        radial-gradient(
+            circle at 12% 0,
+            rgba(56, 189, 248, 0.12),
+            transparent 44%
+        ),
+        linear-gradient(
+            180deg,
+            rgba(10, 24, 48, 0.98),
+            rgba(4, 12, 28, 0.98)
+        );
+    box-shadow:
+        0 20px 46px rgba(0, 0, 0, 0.5),
+        0 0 30px rgba(14, 165, 233, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    transform: translateY(-50%);
+    transform-origin: right center;
+    animation: yhRowActionBubbleIn 150ms ease-out;
+}
+
+.yh-row-actions-menu::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -6px;
+    width: 11px;
+    height: 11px;
+    border-top: 1px solid rgba(125, 211, 252, 0.24);
+    border-right: 1px solid rgba(125, 211, 252, 0.24);
+    background: rgba(6, 17, 36, 0.98);
+    transform:
+        translateY(-50%)
+        rotate(45deg);
+}
+
+.yh-row-actions-menu[hidden] {
+    display: none;
+}
+
+.yh-row-actions-menu button {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 9px;
+    padding: 9px 12px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: rgba(231, 243, 255, 0.9);
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+        background 140ms ease,
+        color 140ms ease,
+        transform 140ms ease;
+}
+
+.yh-row-actions-menu button:first-child::before {
+    content: "✎";
+    width: 20px;
+    height: 20px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.12);
+    color: #7dd3fc;
+    font-size: 0.82rem;
+}
+
+.yh-row-actions-menu button.is-danger::before {
+    content: "×";
+    width: 20px;
+    height: 20px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 999px;
+    background: rgba(244, 63, 94, 0.12);
+    color: #fb7185;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.yh-row-actions-menu button:hover,
+.yh-row-actions-menu button:focus-visible {
+    background: rgba(56, 189, 248, 0.1);
+    color: #ffffff;
+    outline: none;
+    transform: translateX(-1px);
+}
+
+.yh-row-actions-menu button.is-danger {
+    color: #fda4af;
+}
+
+.yh-row-actions-menu button.is-danger:hover,
+.yh-row-actions-menu button.is-danger:focus-visible {
+    background: rgba(244, 63, 94, 0.13);
+    color: #fecdd3;
+}
+
+.yh-lead-actions-cell {
+    position: relative;
+    width: 52px;
+    min-width: 52px;
+    padding-right: 8px;
+    text-align: right;
+    overflow: visible;
+}
+
+.academy-lead-table-wrap,
+.academy-lead-table,
+.academy-lead-table tbody,
+.academy-lead-table tr,
+.yh-dashboard-my-contact-card {
+    overflow: visible;
+}
+
+@keyframes yhRowActionBubbleIn {
+    from {
+        opacity: 0;
+        transform:
+            translateY(-50%)
+            translateX(8px)
+            scale(0.94);
+    }
+
+    to {
+        opacity: 1;
+        transform:
+            translateY(-50%)
+            translateX(0)
+            scale(1);
+    }
+}
+
+@media (max-width: 768px) {
+    .yh-row-actions-menu {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        left: auto;
+        bottom: auto;
+        min-width: 158px;
+        transform: none;
+        transform-origin: top right;
+        animation: yhRowActionBubbleMobileIn 150ms ease-out;
+    }
+
+    .yh-row-actions-menu::after {
+        top: -6px;
+        right: 11px;
+        border-top: 1px solid rgba(125, 211, 252, 0.24);
+        border-right: 0;
+        border-left: 1px solid rgba(125, 211, 252, 0.24);
+        transform: rotate(45deg);
+    }
+
+    .yh-row-actions-menu button {
+        min-height: 42px;
+        padding: 10px 12px;
+    }
+}
+
+@keyframes yhRowActionBubbleMobileIn {
+    from {
+        opacity: 0;
+        transform:
+            translateY(-5px)
+            scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform:
+            translateY(0)
+            scale(1);
+    }
+}

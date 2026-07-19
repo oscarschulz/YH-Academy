@@ -20653,6 +20653,268 @@ body[data-yh-view="hub"] .desktop-user-strip-left {
     background: rgba(127, 29, 29, 0.16);
 }
 
+/* ========================================================= */
+/* DASHBOARD MY CONTACTS                                     */
+/* ========================================================= */
+
+.yh-dashboard-my-contacts-card {
+    width: min(920px, 100%);
+    max-height: min(92vh, 940px);
+}
+
+.yh-dashboard-my-contacts-body {
+    gap: 14px;
+}
+
+.yh-dashboard-my-contacts-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.yh-dashboard-my-contacts-tab {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    border: 1px solid rgba(56, 189, 248, 0.15);
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.24);
+    color: #cbd5e1;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.yh-dashboard-my-contacts-tab span {
+    min-width: 25px;
+    min-height: 22px;
+    display: inline-grid;
+    place-items: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.12);
+    color: #e2e8f0;
+    font-size: 0.82rem;
+}
+
+.yh-dashboard-my-contacts-tab.is-active {
+    border-color: rgba(56, 189, 248, 0.44);
+    background: rgba(14, 165, 233, 0.12);
+    color: #f8fbff;
+}
+
+.yh-dashboard-my-contacts-tab.is-active span {
+    background: rgba(56, 189, 248, 0.18);
+    color: #bae6fd;
+}
+
+.yh-dashboard-my-contacts-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+}
+
+.yh-dashboard-my-contacts-toolbar .btn-primary {
+    min-width: 190px;
+}
+
+.yh-dashboard-my-contacts-form {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    border-radius: 18px;
+    background: rgba(2, 8, 23, 0.28);
+}
+
+.yh-dashboard-my-contacts-form-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.yh-dashboard-my-contacts-form-head strong {
+    display: block;
+    color: #f8fbff;
+    font-size: 1.04rem;
+}
+
+.yh-dashboard-my-contacts-form-head small {
+    display: block;
+    margin-top: 4px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.yh-dashboard-my-contacts-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.yh-dashboard-my-contacts-form-wide {
+    grid-column: 1 / -1;
+}
+
+.yh-dashboard-my-contacts-form-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.yh-dashboard-my-contacts-summary {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.yh-dashboard-my-contacts-list {
+    display: grid;
+    gap: 12px;
+}
+
+.yh-dashboard-my-contact-card {
+    display: grid;
+    gap: 9px;
+    padding: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 18px;
+    background: rgba(15, 23, 42, 0.26);
+}
+
+.yh-dashboard-my-contact-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.yh-dashboard-my-contact-card h4 {
+    margin: 7px 0 0;
+    color: #f8fbff;
+    font-size: 1.05rem;
+}
+
+.yh-dashboard-my-contact-source {
+    width: max-content;
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.yh-dashboard-my-contact-source.is-internal {
+    color: #bae6fd;
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    background: rgba(14, 165, 233, 0.1);
+}
+
+.yh-dashboard-my-contact-source.is-external {
+    color: #c4b5fd;
+    border: 1px solid rgba(167, 139, 250, 0.24);
+    background: rgba(124, 58, 237, 0.1);
+}
+
+.yh-dashboard-my-contact-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.yh-dashboard-my-contact-actions .btn-secondary {
+    min-width: 76px;
+    min-height: 36px;
+    padding: 8px 11px;
+}
+
+.yh-dashboard-my-contact-actions .btn-secondary.is-danger {
+    color: #fecaca;
+    border-color: rgba(248, 113, 113, 0.3);
+    background: rgba(127, 29, 29, 0.14);
+}
+
+.yh-dashboard-my-contact-meta,
+.yh-dashboard-my-contact-communication,
+.yh-dashboard-my-contact-notes {
+    margin: 0;
+    color: #cbd5e1;
+    line-height: 1.55;
+}
+
+.yh-dashboard-my-contact-communication {
+    color: #7dd3fc;
+}
+
+.yh-dashboard-my-contact-notes {
+    color: var(--text-muted);
+}
+
+.yh-dashboard-my-contact-mission {
+    padding-top: 9px;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+    color: #a5b4fc;
+    font-size: 0.88rem;
+}
+
+.yh-dashboard-my-contacts-empty {
+    min-height: 150px;
+    display: grid;
+    place-content: center;
+    gap: 7px;
+    padding: 22px;
+    border: 1px dashed rgba(148, 163, 184, 0.22);
+    border-radius: 18px;
+    background: rgba(15, 23, 42, 0.18);
+    text-align: center;
+}
+
+.yh-dashboard-my-contacts-empty strong {
+    color: #f8fbff;
+}
+
+.yh-dashboard-my-contacts-empty span {
+    max-width: 560px;
+    color: var(--text-muted);
+    line-height: 1.55;
+}
+
+body.yh-dashboard-my-contacts-open {
+    overflow: hidden;
+}
+
+@media (max-width: 720px) {
+    .yh-dashboard-my-contacts-toolbar,
+    .yh-dashboard-my-contacts-form-grid,
+    .yh-dashboard-my-contacts-form-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .yh-dashboard-my-contacts-toolbar .btn-primary {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .yh-dashboard-my-contact-card-head {
+        display: grid;
+    }
+
+    .yh-dashboard-my-contact-actions {
+        justify-content: stretch;
+    }
+
+    .yh-dashboard-my-contact-actions .btn-secondary {
+        flex: 1 1 0;
+    }
+}
+
 .yh-dashboard-ticket-question {
     margin-top: 2px;
     color: #cbd5e1;
@@ -30675,9 +30937,22 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-resou
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-resources-menu .yh-resources-menu-icon {
     width: 22px !important;
     min-width: 22px !important;
+    height: 22px !important;
     display: inline-grid !important;
     place-items: center !important;
     line-height: 1 !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-top-nav
+    .yh-sidebar-resources-menu
+    .yh-resources-menu-icon
+    .yh-sidebar-command-icon-img {
+    width: 22px;
+    height: 22px;
+    display: block;
+    object-fit: contain;
+    object-position: center;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-resources-menu .yh-resources-menu-label-desktop {
@@ -31139,8 +31414,8 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
     contain: layout paint;
   }
 
-  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-referral-card,
-  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-academy-strip {
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-academy-strip,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="referral"] #yh-dashboard-referral-workspace {
     display: block;
     visibility: visible;
     opacity: 1;
@@ -31149,10 +31424,286 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
   }
 
   body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="overview"]) #yh-dashboard-overview-dynamic-access-row-v1,
-  body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="overview"]) #yh-universe-referral-card,
-  body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="overview"]) #yh-universe-academy-strip {
+  body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="overview"]) #yh-universe-academy-strip,
+  body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="referral"]) #yh-dashboard-referral-workspace {
     display: none;
     visibility: hidden;
     pointer-events: none;
   }
   /* END PATCH: Dashboard state owner final styles v3 */
+/* PATCH: Dashboard Settings and Edit Profile inline workspaces v1 */
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-system-workspace {
+    width: 100%;
+    min-width: 0;
+    display: none;
+    padding: clamp(18px, 1.8vw, 30px);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="settings"]
+    #yh-dashboard-settings-workspace,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="edit-profile"]
+    #yh-dashboard-profile-editor-workspace {
+    display: block;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-system-workspace-content {
+    width: 100%;
+    min-width: 0;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-profile-modal.is-dashboard-inline-workspace {
+    position: relative;
+    inset: auto;
+    z-index: auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    display: block;
+    align-items: initial;
+    justify-content: initial;
+    padding: 0;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-profile-modal.is-dashboard-inline-workspace
+    > .yh-dashboard-profile-modal-card {
+    width: min(1120px, 100%);
+    max-height: none;
+    min-height: 0;
+    margin: 0 auto;
+    overflow: visible;
+    border-radius: 22px;
+    background:
+        radial-gradient(circle at 8% 0%, rgba(56, 189, 248, 0.12), transparent 34%),
+        linear-gradient(180deg, rgba(7, 20, 39, 0.94), rgba(2, 8, 23, 0.9));
+    box-shadow:
+        0 24px 64px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.055);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+    #yh-dashboard-settings-workspace
+    .yh-dashboard-settings-card {
+    width: min(980px, 100%);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-profile-modal.is-dashboard-inline-workspace
+    .yh-dashboard-profile-modal-body,
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-profile-modal.is-dashboard-inline-workspace
+    .yh-dashboard-profile-preview-body {
+    max-height: none;
+    overflow: visible;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-profile-modal.is-dashboard-inline-workspace
+    .yh-dashboard-profile-modal-actions {
+    background: rgba(2, 8, 23, 0.4);
+}
+
+
+@media (max-width: 780px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-system-workspace {
+        padding: 12px;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-dashboard-profile-modal.is-dashboard-inline-workspace
+        > .yh-dashboard-profile-modal-card {
+        width: 100%;
+        border-radius: 18px;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-dashboard-profile-modal.is-dashboard-inline-workspace
+        .yh-dashboard-profile-modal-head {
+        padding: 18px 16px 16px;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-dashboard-profile-modal.is-dashboard-inline-workspace
+        .yh-dashboard-profile-modal-body,
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-dashboard-profile-modal.is-dashboard-inline-workspace
+        .yh-dashboard-profile-preview-body {
+        padding: 16px;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-dashboard-profile-modal.is-dashboard-inline-workspace
+        .yh-dashboard-profile-modal-actions {
+        padding: 14px 16px 18px;
+    }
+}
+/* END PATCH: Dashboard Settings and Edit Profile inline workspaces v1 */
+/* existing last styles ng style.css */
+
+
+/* Shared floating bubble action menu v2 */
+
+.yh-row-actions {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    isolation: isolate;
+}
+
+.yh-row-actions-trigger {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(125, 211, 252, 0.2);
+    border-radius: 999px;
+    background:
+        radial-gradient(
+            circle at 35% 25%,
+            rgba(125, 211, 252, 0.18),
+            transparent 48%
+        ),
+        rgba(7, 18, 38, 0.84);
+    color: rgba(226, 245, 255, 0.82);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 8px 18px rgba(0, 0, 0, 0.18);
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 1px;
+    cursor: pointer;
+}
+
+.yh-row-actions-menu {
+    position: absolute;
+    top: 50%;
+    right: calc(100% + 10px);
+    z-index: 1000;
+    width: max-content;
+    min-width: 154px;
+    display: grid;
+    gap: 4px;
+    padding: 7px;
+    border: 1px solid rgba(125, 211, 252, 0.24);
+    border-radius: 14px;
+    background:
+        radial-gradient(
+            circle at 12% 0,
+            rgba(56, 189, 248, 0.12),
+            transparent 44%
+        ),
+        linear-gradient(
+            180deg,
+            rgba(10, 24, 48, 0.98),
+            rgba(4, 12, 28, 0.98)
+        );
+    box-shadow:
+        0 20px 46px rgba(0, 0, 0, 0.5),
+        0 0 30px rgba(14, 165, 233, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    transform: translateY(-50%);
+}
+
+.yh-row-actions-menu[hidden] {
+    display: none;
+}
+
+.yh-row-actions-menu button {
+    width: 100%;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 9px 12px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: rgba(231, 243, 255, 0.9);
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.yh-row-actions-menu button:hover {
+    background: rgba(56, 189, 248, 0.1);
+    color: #ffffff;
+}
+
+.yh-row-actions-menu button.is-danger {
+    color: #fda4af;
+}
+
+.yh-row-actions-menu button.is-danger:hover {
+    background: rgba(244, 63, 94, 0.13);
+    color: #fecdd3;
+}
+
+.yh-lead-actions-cell {
+    position: relative;
+    width: 52px;
+    min-width: 52px;
+    padding-right: 8px;
+    text-align: right;
+    overflow: visible;
+}
+
+.academy-lead-table-wrap,
+.academy-lead-table,
+.academy-lead-table tbody,
+.academy-lead-table tr,
+.yh-dashboard-my-contact-card {
+    overflow: visible;
+}
+/* PATCH: Lead action loading feedback v1 */
+
+.yh-row-actions-menu button[aria-busy="true"],
+.yh-row-actions-menu button.is-loading {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    opacity: 0.82;
+    cursor: wait;
+    pointer-events: none;
+}
+
+.yh-row-actions-menu button[aria-busy="true"]::after,
+.yh-row-actions-menu button.is-loading::after {
+    content: "";
+    width: 13px;
+    height: 13px;
+    flex: 0 0 13px;
+    margin-left: auto;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-top-color: currentColor;
+    border-radius: 999px;
+    animation: yhLeadActionSpinV1 0.7s linear infinite;
+}
+
+.yh-row-actions-menu button[aria-busy="true"]::before,
+.yh-row-actions-menu button.is-loading::before {
+    display: none;
+}
+
+@keyframes yhLeadActionSpinV1 {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* END PATCH: Lead action loading feedback v1 */

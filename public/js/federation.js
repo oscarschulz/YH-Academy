@@ -3956,6 +3956,17 @@ function renderMemberCommandSection() {
 
   const state = getCurrentUserState();
 
+  container.dataset.yhFederationCommandReady = "false";
+  container.dataset.yhFederationCommandState =
+    state.type === "member"
+      ? "rendering"
+      : "syncing";
+
+  document.body?.setAttribute(
+    "data-yh-dashboard-federation-command-ready",
+    "false"
+  );
+
   if (state.type !== "member") {
     section.hidden = false;
 
@@ -4088,6 +4099,14 @@ function renderMemberCommandSection() {
       </div>
     </article>
   `;
+
+  container.dataset.yhFederationCommandReady = "true";
+  container.dataset.yhFederationCommandState = "member";
+
+  document.body?.setAttribute(
+    "data-yh-dashboard-federation-command-ready",
+    "true"
+  );
 }
 
 function syncFederationChrome() {
@@ -5006,21 +5025,50 @@ function markFederationDashboardChildReady(sectionId = "", reason = "ready") {
   }
 
   if (cleanSection === "command") {
-    const state = typeof getCurrentUserState === "function" ? getCurrentUserState() : null;
-    const memberCommandPanel = document.getElementById("memberCommandPanel");
-    const memberCommandReady =
-      state?.type !== "member" ||
-      Boolean(memberCommandPanel?.querySelector(".fed-command-card-hero"));
+    const memberCommandPanel =
+      document.getElementById("memberCommandPanel");
+
+    const memberCommandReady = Boolean(
+      document.body?.dataset
+        ?.yhDashboardFederationCommandReady ===
+        "true" &&
+      memberCommandPanel?.dataset
+        ?.yhFederationCommandReady ===
+        "true" &&
+      memberCommandPanel?.querySelector(
+        ".fed-command-card-hero"
+      )
+    );
 
     if (!memberCommandReady) {
-      document.body?.setAttribute("data-yh-dashboard-child-ready", "false");
-      document.body?.setAttribute("data-yh-dashboard-active-section", cleanSection);
-      document.body?.setAttribute("data-yh-dashboard-child-ready-reason", `waiting-command-render-${String(reason || "ready")}`);
+      document.body?.setAttribute(
+        "data-yh-dashboard-child-ready",
+        "false"
+      );
 
-      window.clearTimeout(window.__yhFederationDashboardChildReadyRetry);
-      window.__yhFederationDashboardChildReadyRetry = window.setTimeout(() => {
-        markFederationDashboardChildReady(cleanSection, reason);
-      }, 120);
+      document.body?.setAttribute(
+        "data-yh-dashboard-active-section",
+        cleanSection
+      );
+
+      document.body?.setAttribute(
+        "data-yh-dashboard-child-ready-reason",
+        `waiting-command-render-${String(
+          reason || "ready"
+        )}`
+      );
+
+      window.clearTimeout(
+        window.__yhFederationDashboardChildReadyRetry
+      );
+
+      window.__yhFederationDashboardChildReadyRetry =
+        window.setTimeout(() => {
+          markFederationDashboardChildReady(
+            cleanSection,
+            reason
+          );
+        }, 120);
 
       return;
     }
@@ -5120,7 +5168,24 @@ function setActiveSection(targetId = "", options = {}) {
   }
 
   activeSectionId = nextSectionId;
-  markFederationDashboardChildLoading(nextSectionId);
+
+  const shouldResetDashboardReady =
+    !isSameSection ||
+    document.body?.dataset
+      ?.yhDashboardActiveSection !==
+      nextSectionId;
+
+  if (shouldResetDashboardReady) {
+    markFederationDashboardChildLoading(
+      nextSectionId
+    );
+  } else {
+    document.body?.setAttribute(
+      "data-yh-dashboard-active-section",
+      nextSectionId
+    );
+  }
+
   document.body.dataset.fedNavMode = "tabs";
 
   qsa(".fed-section[data-section]").forEach((section) => {
@@ -6873,6 +6938,330 @@ function initFederationMobileSelectControls() {
 }
 /* END PATCH: Federation mobile custom select controls v1 */
 
+/* PATCH: Federation bounded dashboard boot v110 */
+function waitForFederationDashboardBootBudgetV110(
+  delayMs = 720
+) {
+  return new Promise((resolve) => {
+    window.setTimeout(
+      resolve,
+      Math.max(
+        0,
+        Number(delayMs) || 0
+      )
+    );
+  });
+}
+
+function primeFederationDashboardFastBootStateV110(
+  reason = "dashboard-time-budget"
+) {
+  if (!isDashboardInlineFederationEmbed()) {
+    return false;
+  }
+
+  const cached =
+    readFederationApprovedAccessCache();
+
+  const currentUser =
+    federationServerState.currentUser ||
+    getCurrentUser() ||
+    buildFederationInlineFallbackCurrentUser() ||
+    {};
+
+  const application =
+    federationServerState.application ||
+    cached.application ||
+    {};
+
+  const fallbackMember =
+    federationServerState.member ||
+    buildFederationApprovedFallbackMember() ||
+    normalizeFederationMember({
+      id:
+        currentUser.id ||
+        application.userId ||
+        currentUser.email ||
+        "dashboard-federation-member",
+
+      userId:
+        currentUser.id ||
+        application.userId ||
+        "",
+
+      email: String(
+        currentUser.email ||
+        currentUser.emailLower ||
+        application.email ||
+        ""
+      )
+        .trim()
+        .toLowerCase(),
+
+      name: String(
+        currentUser.name ||
+        currentUser.fullName ||
+        currentUser.username ||
+        application.fullName ||
+        application.name ||
+        "Federation Member"
+      ).trim(),
+
+      role:
+        application.role ||
+        application.profession ||
+        "Approved Federation Member",
+
+      category:
+        application.primaryCategory ||
+        application.category ||
+        "Strategic Operator",
+
+      country:
+        application.country ||
+        "",
+
+      city:
+        application.city ||
+        "",
+
+      company:
+        application.company ||
+        "Independent",
+
+      description:
+        application.canOffer ||
+        application.valueBring ||
+        "Approved Federation member.",
+
+      referralCode:
+        application.generatedReferralCode ||
+        cached.member?.referralCode ||
+        "",
+
+      approvedAt:
+        application.approvedAt ||
+        cached.approvedAt ||
+        "",
+
+      source:
+        "dashboard-embedded-fast-boot"
+    });
+
+  if (!fallbackMember) {
+    return false;
+  }
+
+  federationServerState.currentUser =
+    currentUser;
+
+  federationServerState.canEnterFederation =
+    true;
+
+  federationServerState.member =
+    fallbackMember;
+
+  if (
+    !Array.isArray(
+      federationServerState.members
+    ) ||
+    !federationServerState.members.length
+  ) {
+    federationServerState.members = [
+      fallbackMember
+    ];
+  }
+
+  federationServerState.command =
+    federationServerState.command || {
+      member: fallbackMember,
+
+      stats: {
+        approvedMembers:
+          federationServerState.members
+            .length || 1,
+
+        countriesActive: 0,
+        sectorsLive: 0,
+
+        connectOpportunities:
+          federationConnectState
+            .opportunities.length || 0,
+
+        myRequests:
+          federationConnectState
+            .requests.length || 0,
+
+        pendingRequests:
+          federationConnectState
+            .requests
+            .filter((item) => {
+              return String(
+                item?.status || ""
+              )
+                .toLowerCase()
+                .includes("pending");
+            })
+            .length,
+
+        completedRequests:
+          federationConnectState
+            .requests
+            .filter((item) => {
+              return String(
+                item?.status || ""
+              )
+                .trim()
+                .toLowerCase() ===
+                "completed";
+            })
+            .length
+      }
+    };
+
+  federationServerState.loaded = true;
+  federationServerState.error = "";
+
+  document.body?.setAttribute(
+    "data-yh-dashboard-federation-fast-boot",
+    "true"
+  );
+
+  document.body?.setAttribute(
+    "data-yh-dashboard-federation-fast-boot-reason",
+    String(
+      reason ||
+      "dashboard-time-budget"
+    )
+  );
+
+  return true;
+}
+
+function finalizeFederationDashboardSectionV110(
+  sectionId = "",
+  reason = "dashboard-parent-time-budget"
+) {
+  const cleanSection =
+    getSafeSectionId(
+      sectionId ||
+      activeSectionId ||
+      getInitialFederationSectionFromUrl() ||
+      "command"
+    ) || "command";
+
+  const finalizerToken =
+    `${cleanSection}:${String(
+      reason || "ready"
+    )}`;
+
+  const alreadyReady =
+    document.body?.dataset
+      ?.yhDashboardFederationFinalizerToken ===
+      finalizerToken &&
+    document.body?.dataset
+      ?.yhDashboardChildReady ===
+      "true" &&
+    document.body?.dataset
+      ?.yhDashboardActiveSection ===
+      cleanSection;
+
+  if (alreadyReady) {
+    return true;
+  }
+
+  const primed =
+    primeFederationDashboardFastBootStateV110(
+      reason
+    );
+
+  if (!primed) {
+    return false;
+  }
+
+  refreshFederationUI();
+
+  setActiveSection(cleanSection, {
+    syncHash: false,
+    showLoader: false,
+    deferDashboardReady: true,
+    preserveScroll: true
+  });
+
+  markFederationDashboardHydrationState(
+    true,
+    reason
+  );
+
+  try {
+    hideFederationTabLoader();
+  } catch (_) {
+    const localLoader =
+      document.getElementById(
+        "yh-tab-loader"
+      );
+
+    if (localLoader) {
+      localLoader.hidden = true;
+
+      localLoader.classList.remove(
+        "is-active"
+      );
+
+      localLoader.setAttribute(
+        "aria-hidden",
+        "true"
+      );
+    }
+  }
+
+  if (cleanSection === "command") {
+    const commandPanel =
+      document.getElementById(
+        "memberCommandPanel"
+      );
+
+    const commandReady = Boolean(
+      document.body?.dataset
+        ?.yhDashboardFederationCommandReady ===
+        "true" &&
+      commandPanel?.dataset
+        ?.yhFederationCommandReady ===
+        "true" &&
+      commandPanel?.querySelector(
+        ".fed-command-card-hero"
+      )
+    );
+
+    if (!commandReady) {
+      return false;
+    }
+  }
+
+  document.body?.setAttribute(
+    "data-yh-dashboard-federation-finalizer-token",
+    finalizerToken
+  );
+
+  markFederationDashboardChildReady(
+    cleanSection,
+    reason
+  );
+
+  return (
+    document.body?.dataset
+      ?.yhDashboardChildReady ===
+      "true" &&
+    document.body?.dataset
+      ?.yhDashboardActiveSection ===
+      cleanSection
+  );
+}
+
+window.yhFinalizeFederationDashboardSectionV110 =
+  finalizeFederationDashboardSectionV110;
+/* END PATCH: Federation bounded dashboard boot v110 */
+
 document.addEventListener("DOMContentLoaded", async () => {
   ensureSeedMembers();
 
@@ -6962,30 +7351,85 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   window.setYHFederationActiveSection = setActiveSection;
 
-  await loadFederationServerState({ force: true });
-
-  if (getCurrentUserState().type === "member") {
-    await loadFederationConnectData({ force: true }).catch((error) => {
-      console.error("Initial Federation Connect load error:", error);
+  const initialServerStatePromise =
+    loadFederationServerState({
+      force: true
     });
 
-    await handleFederationCheckoutReturn().catch((error) => {
-      console.error("Federation checkout return handler error:", error);
-    });
-  }
+  await Promise.race([
+    initialServerStatePromise.catch(
+      () => null
+    ),
+
+    waitForFederationDashboardBootBudgetV110(
+      720
+    )
+  ]);
+
+  primeFederationDashboardFastBootStateV110(
+    "initial-720ms-budget"
+  );
 
   refreshFederationUI();
 
-  markFederationDashboardHydrationState(true, "boot-render-complete");
+  markFederationDashboardHydrationState(
+    true,
+    "boot-visible-state-ready"
+  );
 
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
       markFederationDashboardChildReady(
-        activeSectionId || initialFederationSection || "command",
-        "boot-hydrated-ready"
+        activeSectionId ||
+          initialFederationSection ||
+          "command",
+        "boot-visible-state-ready"
       );
     });
   });
+
+  void initialServerStatePromise
+    .then(async () => {
+      document.body?.setAttribute(
+        "data-yh-dashboard-federation-background-state",
+        "server-state-ready"
+      );
+
+      if (
+        getCurrentUserState().type ===
+        "member"
+      ) {
+        await Promise.allSettled([
+          loadFederationConnectData({
+            force: true
+          }),
+
+          handleFederationCheckoutReturn()
+        ]);
+      }
+
+      document.body?.setAttribute(
+        "data-yh-dashboard-federation-background-state",
+        "complete"
+      );
+    })
+    .catch((error) => {
+      if (
+        !isExpectedFederationInlineFetchFailure(
+          error
+        )
+      ) {
+        console.warn(
+          "Federation background hydration failed:",
+          error
+        );
+      }
+
+      document.body?.setAttribute(
+        "data-yh-dashboard-federation-background-state",
+        "fallback-active"
+      );
+    });
 
   exposeHelpers();
 });

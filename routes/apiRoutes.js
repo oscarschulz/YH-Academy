@@ -73,7 +73,118 @@ router.get('/academy/membership-status', auth, academyControllers.getMembershipS
 router.post('/academy/roadmap-apply', auth, academyControllers.submitRoadmapApplication);
 router.get('/academy/home', auth, academyControllers.getAcademyHome);
 router.get('/academy/champions', auth, academyControllers.getAcademyChampions);
-router.get('/academy/profile', auth, academyControllers.getCurrentProfile);
+
+router.get(
+    '/academy/progression',
+    auth,
+    academyControllers.getAcademyProgression
+);
+
+router.get(
+    '/academy/leaderboard',
+    auth,
+    academyControllers.getAcademyProgressionLeaderboard
+);
+
+/* PATCH: Academy Squad Foundation and management routes v2 */
+router.get(
+    '/academy/squad',
+    auth,
+    academyControllers.getMyAcademySquad
+);
+
+router.get(
+    '/academy/squad/search',
+    auth,
+    academyControllers.searchAcademySquadByInvite
+);
+
+/* PATCH: Academy Squad ranking routes v1 */
+router.get(
+    '/academy/squad/leaderboard',
+    auth,
+    academyControllers.getAcademySquadLeaderboard
+);
+
+router.get(
+    '/academy/squad/contributors',
+    auth,
+    academyControllers.getMyAcademySquadContributors
+);
+/* END PATCH: Academy Squad ranking routes v1 */
+
+
+/* PATCH: Shared Academy Squad Mission routes v1 */
+
+router.get(
+    '/academy/squad/missions',
+    auth,
+    academyControllers.getMyAcademySquadMissions
+);
+
+router.post(
+    '/academy/squad/missions',
+    auth,
+    academyControllers.createMyAcademySquadMission
+);
+
+router.patch(
+    '/academy/squad/missions/:missionId',
+    auth,
+    academyControllers.updateMyAcademySquadMission
+);
+
+router.delete(
+    '/academy/squad/missions/:missionId',
+    auth,
+    academyControllers.cancelMyAcademySquadMission
+);
+
+/* END PATCH: Shared Academy Squad Mission routes v1 */
+
+
+router.post(
+    '/academy/squad',
+    auth,
+    academyControllers.createMyAcademySquad
+);
+
+router.post(
+    '/academy/squad/join',
+    auth,
+    academyControllers.joinAcademySquad
+);
+
+router.post(
+    '/academy/squad/invite/regenerate',
+    auth,
+    academyControllers.regenerateMyAcademySquadInvite
+);
+
+router.post(
+    '/academy/squad/leave',
+    auth,
+    academyControllers.leaveMyAcademySquad
+);
+
+router.patch(
+    '/academy/squad/members/:userId',
+    auth,
+    academyControllers.manageMyAcademySquadMember
+);
+
+router.delete(
+    '/academy/squad',
+    auth,
+    academyControllers.disbandMyAcademySquad
+);
+/* END PATCH: Academy Squad Foundation and management routes v2 */
+
+router.get(
+    '/academy/profile',
+    auth,
+    academyControllers.getCurrentProfile
+);
 router.patch('/academy/profile', auth, academyControllers.updateCurrentProfile);
 router.patch('/academy/account/password', auth, academyControllers.changeCurrentPassword);
 router.delete('/academy/profile', auth, academyControllers.deleteCurrentProfile);
@@ -97,11 +208,54 @@ router.post('/academy/lead-missions/:id/submit', auth, academyControllers.submit
 router.get('/academy/lead-missions/leads', auth, academyControllers.listMyLeadMissionsLeads);
 router.post('/academy/lead-missions/leads', auth, academyControllers.createLeadMissionLead);
 router.get('/academy/lead-missions/leads/:id', auth, academyControllers.getMyLeadMissionLeadById);
-router.patch('/academy/lead-missions/leads/:id', auth, academyControllers.updateMyLeadMissionLead);
-router.get('/academy/lead-missions/followups', auth, academyControllers.listMyLeadMissionsFollowUps);
+router.patch(
+    '/academy/lead-missions/leads/:id',
+    auth,
+    academyControllers.updateMyLeadMissionLead
+);
+
+router.delete(
+    '/academy/lead-missions/leads/:id',
+    auth,
+    academyControllers.deleteMyLeadMissionLead
+);
+
+router.get(
+    '/academy/lead-missions/followups',
+    auth,
+    academyControllers.listMyLeadMissionsFollowUps
+);
 router.get('/academy/lead-missions/payouts', auth, academyControllers.listMyLeadMissionPayouts);
 router.get('/academy/lead-missions/deals', auth, academyControllers.listMyLeadMissionDeals);
-router.get('/academy/lead-missions/scripts', auth, academyControllers.getLeadMissionScripts);
+router.get(
+    '/academy/lead-missions/scripts',
+    auth,
+    academyControllers.getLeadMissionScripts
+);
+
+router.get(
+    '/contacts',
+    auth,
+    academyControllers.listMyContacts
+);
+
+router.post(
+    '/contacts',
+    auth,
+    academyControllers.createExternalContact
+);
+
+router.patch(
+    '/contacts/:id',
+    auth,
+    academyControllers.updateExternalContact
+);
+
+router.delete(
+    '/contacts/:id',
+    auth,
+    academyControllers.deleteExternalContact
+);
 
 // ==========================================
 // 🎓 YHA COMMUNITY FEED ROUTES

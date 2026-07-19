@@ -1,0 +1,4408 @@
+/* public/js/yhu-game-dashboard.js */
+/* YHU Dashboard Game Foundation v1 */
+
+(function installYHUDashboardGameFoundationV1() {
+    'use strict';
+
+    if (window.__yhuDashboardGameFoundationV1Installed) return;
+    window.__yhuDashboardGameFoundationV1Installed = true;
+
+    const ROOT_ID = 'yh-game-foundation-v1';
+
+    let academyProgressionLoadPromise = null;
+    let academyProgressionLoaded = false;
+
+    /* PATCH: Live Squad UI state v1 */
+    let academySquadLoadPromise = null;
+    let academySquadLoaded = false;
+    let academySquadRequestBusy = false;
+    let academySquadRankingLoadPromise = null;
+
+    /* PATCH: Shared Squad Missions UI state v1 */
+    let academySquadMissionsLoadPromise = null;
+    let academySquadMissionsStateV1 = {
+        loaded: false,
+        loading: false,
+        canManage: false,
+        role: '',
+        filter: 'all',
+        missions: []
+    };
+    /* END PATCH: Shared Squad Missions UI state v1 */
+
+    /* END PATCH: Live Squad UI state v1 */
+
+    function getStoredAuthToken() {
+        try {
+            if (
+                typeof window.YHSharedCore?.getStoredAuthToken ===
+                'function'
+            ) {
+                return String(
+                    window.YHSharedCore.getStoredAuthToken() || ''
+                ).trim();
+            }
+        } catch (_) {}
+
+        try {
+            return String(
+                sessionStorage.getItem('yh_token') ||
+                localStorage.getItem('yh_token') ||
+                sessionStorage.getItem('token') ||
+                localStorage.getItem('token') ||
+                ''
+            ).trim();
+        } catch (_) {
+            return '';
+        }
+    }
+
+    async function fetchAcademyGameJson(
+        url = '',
+        options = {}
+    ) {
+        const token =
+            getStoredAuthToken();
+
+        const method =
+            String(
+                options.method || 'GET'
+            ).toUpperCase();
+
+        const headers = {
+            Accept: 'application/json',
+            ...(
+                options.headers &&
+                typeof options.headers ===
+                    'object'
+                    ? options.headers
+                    : {}
+            )
+        };
+
+        if (token) {
+            headers.Authorization =
+                `Bearer ${token}`;
+        }
+
+        let body =
+            options.body;
+
+        if (
+            body &&
+            typeof body === 'object' &&
+            !(body instanceof FormData) &&
+            !(body instanceof Blob)
+        ) {
+            headers['Content-Type'] =
+                'application/json';
+
+            body =
+                JSON.stringify(body);
+        }
+
+        const response =
+            await fetch(
+                url,
+                {
+                    method,
+                    credentials: 'include',
+                    headers,
+                    body:
+                        method === 'GET' ||
+                        method === 'HEAD'
+                            ? undefined
+                            : body,
+                    cache: 'no-store'
+                }
+            );
+
+        const payload =
+            await response
+                .json()
+                .catch(() => ({}));
+
+        if (
+            !response.ok ||
+            payload?.success === false
+        ) {
+            const error =
+                new Error(
+                    payload?.message ||
+                    `Academy request failed (${response.status}).`
+                );
+
+            error.status =
+                response.status;
+
+            throw error;
+        }
+
+        return payload;
+    }
+
+    async function loadAcademyProgressionOnce() {
+        if (academyProgressionLoaded) {
+            return true;
+        }
+
+        if (academyProgressionLoadPromise) {
+            return academyProgressionLoadPromise;
+        }
+
+        academyProgressionLoadPromise = (async () => {
+            try {
+                const progressionPayload =
+                    await fetchAcademyGameJson(
+                        '/api/academy/progression'
+                    );
+
+                window.YHUGameCore
+                    ?.setAcademyProgressionCache?.(
+                        progressionPayload
+                    );
+
+                renderDashboardGameFoundation();
+
+                /*
+                  Leaderboard is intentionally requested after
+                  progression so the main Academy card updates first.
+                */
+                try {
+                    const leaderboardPayload =
+                        await fetchAcademyGameJson(
+                            '/api/academy/leaderboard' +
+                            '?period=weekly&limit=5'
+                        );
+
+                    window.YHUGameCore
+                        ?.setAcademyLeaderboardCache?.(
+                            leaderboardPayload
+                        );
+
+                    renderDashboardGameFoundation();
+                } catch (leaderboardError) {
+                    console.warn(
+                        'Academy leaderboard preview unavailable:',
+                        leaderboardError?.message ||
+                        leaderboardError
+                    );
+                }
+
+                academyProgressionLoaded = true;
+                return true;
+            } catch (error) {
+                /*
+                  403 is expected for members without approved
+                  Academy access. Preserve the safe local preview.
+                */
+                if (
+                    Number(error?.status) !== 403 &&
+                    Number(error?.status) !== 401
+                ) {
+                    console.warn(
+                        'Academy progression unavailable:',
+                        error?.message || error
+                    );
+                }
+
+                return false;
+            } finally {
+                academyProgressionLoadPromise = null;
+            }
+        })();
+
+        return academyProgressionLoadPromise;
+    }
+
+        /* PATCH: Live Academy Squad Dashboard UI v1 */
+
+    function setSquadButtonBusyV1(
+        button,
+        busy = false,
+        busyLabel = 'Loading...'
+    ) {
+        if (!(button instanceof HTMLElement)) {
+            return;
+        }
+
+        if (!button.dataset.idleLabel) {
+            button.dataset.idleLabel =
+                String(
+                    button.textContent || ''
+                ).trim();
+        }
+
+        button.disabled =
+            busy === true;
+
+        button.setAttribute(
+            'aria-busy',
+            busy ? 'true' : 'false'
+        );
+
+        button.textContent =
+            busy
+                ? busyLabel
+                : (
+                    button.dataset.idleLabel ||
+                    'Continue'
+                );
+    }
+
+    async function loadAcademySquadV1({
+        force = false
+    } = {}) {
+        if (
+            academySquadLoaded &&
+            !force
+        ) {
+            return true;
+        }
+
+        if (
+            academySquadLoadPromise &&
+            !force
+        ) {
+            return academySquadLoadPromise;
+        }
+
+        academySquadLoadPromise =
+            (async () => {
+                try {
+                    const squadPayload =
+                        await fetchAcademyGameJson(
+                            '/api/academy/squad'
+                        );
+
+                    const payload =
+                        await loadAcademySquadRankingsV1(
+                            squadPayload
+                        );
+
+                    window.YHUGameCore
+                        ?.setAcademySquadCacheV1?.(
+                            payload
+                        );
+
+                    academySquadLoaded = true;
+
+                    renderDashboardGameFoundation();
+
+                    return true;
+                } catch (error) {
+                    if (
+                        Number(error?.status) !== 401 &&
+                        Number(error?.status) !== 403
+                    ) {
+                        console.warn(
+                            'Academy squad unavailable:',
+                            error?.message ||
+                            error
+                        );
+                    }
+
+                    return false;
+                } finally {
+                    academySquadLoadPromise =
+                        null;
+                }
+            })();
+
+        return academySquadLoadPromise;
+    }
+async function loadAcademySquadRankingsV1(
+    squadPayload = {}
+) {
+    if (
+        !squadPayload?.joined ||
+        !squadPayload?.squad
+    ) {
+        return squadPayload;
+    }
+
+    if (
+        academySquadRankingLoadPromise
+    ) {
+        return academySquadRankingLoadPromise;
+    }
+
+    academySquadRankingLoadPromise =
+        (async () => {
+            const [
+                weeklyLeaderboard,
+                allTimeLeaderboard,
+                weeklyContributors,
+                allTimeContributors
+            ] =
+                await Promise.all([
+                    fetchAcademyGameJson(
+                        '/api/academy/squad/leaderboard' +
+                        '?period=weekly&limit=10'
+                    ).catch(() => null),
+
+                    fetchAcademyGameJson(
+                        '/api/academy/squad/leaderboard' +
+                        '?period=all_time&limit=10'
+                    ).catch(() => null),
+
+                    fetchAcademyGameJson(
+                        '/api/academy/squad/contributors' +
+                        '?period=weekly&limit=10'
+                    ).catch(() => null),
+
+                    fetchAcademyGameJson(
+                        '/api/academy/squad/contributors' +
+                        '?period=all_time&limit=10'
+                    ).catch(() => null)
+                ]);
+
+            return {
+                ...squadPayload,
+
+                weeklyLeaderboard:
+                    weeklyLeaderboard ||
+                    {
+                        leaderboard: [],
+                        currentSquadPosition:
+                            null
+                    },
+
+                allTimeLeaderboard:
+                    allTimeLeaderboard ||
+                    {
+                        leaderboard: [],
+                        currentSquadPosition:
+                            null
+                    },
+
+                weeklyContributors:
+                    weeklyContributors ||
+                    {
+                        contributors: []
+                    },
+
+                allTimeContributors:
+                    allTimeContributors ||
+                    {
+                        contributors: []
+                    }
+            };
+        })()
+            .finally(() => {
+                academySquadRankingLoadPromise =
+                    null;
+            });
+
+    return academySquadRankingLoadPromise;
+}
+    /* PATCH: Shared Squad Missions API helpers v1 */
+
+    async function loadAcademySquadMissionsV1({
+        force = false
+    } = {}) {
+        if (
+            academySquadMissionsStateV1.loaded &&
+            !force
+        ) {
+            return academySquadMissionsStateV1;
+        }
+
+        if (
+            academySquadMissionsLoadPromise &&
+            !force
+        ) {
+            return academySquadMissionsLoadPromise;
+        }
+
+        academySquadMissionsStateV1 = {
+            ...academySquadMissionsStateV1,
+            loading: true
+        };
+
+        academySquadMissionsLoadPromise =
+            (async () => {
+                try {
+                    const payload =
+                        await fetchAcademyGameJson(
+                            '/api/academy/squad/missions?limit=100'
+                        );
+
+                    academySquadMissionsStateV1 = {
+                        ...academySquadMissionsStateV1,
+                        loaded: true,
+                        loading: false,
+
+                        canManage:
+                            payload?.canManage === true,
+
+                        role:
+                            String(
+                                payload?.role || ''
+                            )
+                                .trim()
+                                .toLowerCase(),
+
+                        missions:
+                            Array.isArray(
+                                payload?.missions
+                            )
+                                ? payload.missions
+                                : []
+                    };
+
+                    return academySquadMissionsStateV1;
+                } catch (error) {
+                    academySquadMissionsStateV1 = {
+                        ...academySquadMissionsStateV1,
+                        loaded: true,
+                        loading: false,
+                        missions: []
+                    };
+
+                    throw error;
+                } finally {
+                    academySquadMissionsLoadPromise =
+                        null;
+                }
+            })();
+
+        return academySquadMissionsLoadPromise;
+    }
+
+    function normalizeSquadMissionStatusV1(
+        value = ''
+    ) {
+        const clean =
+            String(value || '')
+                .trim()
+                .toLowerCase();
+
+        return [
+            'active',
+            'completed',
+            'cancelled'
+        ].includes(clean)
+            ? clean
+            : 'active';
+    }
+
+    function formatSquadMissionTypeV1(
+        value = ''
+    ) {
+        const labels = {
+            academy_missions:
+                'Academy Missions',
+
+            verified_leads:
+                'Verified Leads',
+
+            daily_checkins:
+                'Daily Check-ins',
+
+            squad_xp:
+                'Squad XP',
+
+            mission_playbooks:
+                'Mission Playbooks',
+
+            custom:
+                'Custom Mission'
+        };
+
+        return (
+            labels[
+                String(value || '')
+                    .trim()
+                    .toLowerCase()
+            ] ||
+            'Custom Mission'
+        );
+    }
+
+    function formatSquadMissionDeadlineV1(
+        value = ''
+    ) {
+        const clean =
+            String(value || '').trim();
+
+        if (!clean) {
+            return 'No deadline';
+        }
+
+        const date =
+            new Date(clean);
+
+        if (
+            Number.isNaN(
+                date.getTime()
+            )
+        ) {
+            return 'No deadline';
+        }
+
+        return new Intl.DateTimeFormat(
+            undefined,
+            {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            }
+        ).format(date);
+    }
+
+    function getSquadMissionProgressV1(
+        mission = {}
+    ) {
+        const target =
+            Math.max(
+                1,
+                Number(
+                    mission.target || 1
+                )
+            );
+
+        const progress =
+            Math.max(
+                0,
+                Math.min(
+                    target,
+                    Number(
+                        mission.progress || 0
+                    )
+                )
+            );
+
+        const percent =
+            Math.max(
+                0,
+                Math.min(
+                    100,
+                    Math.round(
+                        (
+                            progress /
+                            target
+                        ) * 100
+                    )
+                )
+            );
+
+        return {
+            target,
+            progress,
+            percent
+        };
+    }
+
+    function buildSquadWorkspaceTabsV1(
+        activeTab = 'overview'
+    ) {
+        return `
+            <nav
+                class="yh-game-squad-workspace-tabs"
+                aria-label="Squad workspace"
+            >
+                <button
+                    type="button"
+                    class="${
+                        activeTab === 'overview'
+                            ? 'is-active'
+                            : ''
+                    }"
+                    data-yh-squad-workspace-tab="overview"
+                >
+                    Overview
+                </button>
+
+                <button
+                    type="button"
+                    class="${
+                        activeTab === 'missions'
+                            ? 'is-active'
+                            : ''
+                    }"
+                    data-yh-squad-workspace-tab="missions"
+                >
+                    Missions
+                </button>
+
+                <button
+                    type="button"
+                    class="${
+                        activeTab === 'rankings'
+                            ? 'is-active'
+                            : ''
+                    }"
+                    data-yh-squad-workspace-tab="rankings"
+                >
+                    Rankings
+                </button>
+
+                <button
+                    type="button"
+                    class="${
+                        activeTab === 'members'
+                            ? 'is-active'
+                            : ''
+                    }"
+                    data-yh-squad-workspace-tab="members"
+                >
+                    Members
+                </button>
+
+                <button
+                    type="button"
+                    class="${
+                        activeTab === 'activity'
+                            ? 'is-active'
+                            : ''
+                    }"
+                    data-yh-squad-workspace-tab="activity"
+                >
+                    Activity
+                </button>
+            </nav>
+        `;
+    }
+
+    /* END PATCH: Shared Squad Missions API helpers v1 */
+    function ensureSquadModalV1() {
+        let modal =
+            document.getElementById(
+                'yh-game-squad-modal'
+            );
+
+        if (modal) {
+            return modal;
+        }
+
+        modal =
+            document.createElement('div');
+
+        modal.id =
+            'yh-game-squad-modal';
+
+        modal.className =
+            'yh-game-squad-modal hidden-step';
+
+        modal.setAttribute(
+            'role',
+            'dialog'
+        );
+
+        modal.setAttribute(
+            'aria-modal',
+            'true'
+        );
+
+        modal.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+
+        modal.innerHTML = `
+            <div class="yh-game-squad-modal-card">
+                <button
+                    type="button"
+                    class="yh-game-squad-modal-close"
+                    data-yh-squad-modal-close
+                    aria-label="Close"
+                >
+                    ×
+                </button>
+
+                <div
+                    id="yh-game-squad-modal-content"
+                    class="yh-game-squad-modal-content"
+                ></div>
+            </div>
+        `;
+
+        document.body.appendChild(
+            modal
+        );
+
+        modal.addEventListener(
+            'click',
+            (event) => {
+                const closeButton =
+                    event.target.closest(
+                        '[data-yh-squad-modal-close]'
+                    );
+
+                if (closeButton) {
+                    closeSquadModalV1();
+                    return;
+                }
+
+                /*
+                 * Backdrop clicks must not close the Squad workspace
+                 * because Create/Edit Mission forms may contain
+                 * unsaved user input.
+                 */
+                if (event.target === modal) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+            }
+        );
+
+        return modal;
+    }
+
+    function openSquadModalV1(
+        html = ''
+    ) {
+        const modal =
+            ensureSquadModalV1();
+
+        const content =
+            modal.querySelector(
+                '#yh-game-squad-modal-content'
+            );
+
+        if (content) {
+            content.innerHTML = html;
+        }
+
+        modal.classList.remove(
+            'hidden-step'
+        );
+
+        modal.setAttribute(
+            'aria-hidden',
+            'false'
+        );
+
+        document.body.classList.add(
+            'yh-game-squad-modal-open'
+        );
+    }
+
+    function closeSquadModalV1() {
+        const modal =
+            document.getElementById(
+                'yh-game-squad-modal'
+            );
+
+        modal?.classList.add(
+            'hidden-step'
+        );
+
+        modal?.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+
+        document.body.classList.remove(
+            'yh-game-squad-modal-open'
+        );
+    }
+
+    function openCreateSquadModalV1() {
+        openSquadModalV1(`
+            <div class="yh-game-squad-modal-kicker">
+                Squad Foundation
+            </div>
+
+            <h2>Create Your Squad</h2>
+
+            <p class="yh-game-squad-modal-copy">
+                Build a small Academy team for future shared missions,
+                operations, and squad rankings.
+            </p>
+
+            <form id="yh-game-create-squad-form">
+                <label>
+                    <span>Squad Name</span>
+
+                    <input
+                        type="text"
+                        name="name"
+                        maxlength="60"
+                        minlength="3"
+                        required
+                        placeholder="Example: Orbit Builders"
+                    >
+                </label>
+
+                <label>
+                    <span>Emblem</span>
+
+                    <select name="emblem">
+                        <option value="⚡">⚡ Lightning</option>
+                        <option value="🚀">🚀 Rocket</option>
+                        <option value="🛡️">🛡️ Shield</option>
+                        <option value="🔥">🔥 Flame</option>
+                        <option value="🌐">🌐 Network</option>
+                        <option value="⭐">⭐ Star</option>
+                    </select>
+                </label>
+
+                <label>
+                    <span>Description</span>
+
+                    <textarea
+                        name="description"
+                        maxlength="240"
+                        rows="4"
+                        placeholder="What is your squad building together?"
+                    ></textarea>
+                </label>
+
+                <div
+                    class="yh-game-squad-form-error hidden-step"
+                    data-yh-squad-form-error
+                    role="alert"
+                ></div>
+
+                <div class="yh-game-squad-form-actions">
+                    <button
+                        type="button"
+                        class="yh-game-squad-secondary"
+                        data-yh-squad-modal-close
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="yh-game-squad-primary"
+                    >
+                        Create Squad
+                    </button>
+                </div>
+            </form>
+        `);
+
+        const form =
+            document.getElementById(
+                'yh-game-create-squad-form'
+            );
+
+        form?.addEventListener(
+            'submit',
+            submitCreateSquadV1
+        );
+
+        form?.querySelector(
+            'input[name="name"]'
+        )?.focus();
+    }
+
+function openJoinSquadModalV1() {
+    openSquadModalV1(`
+        <div class="yh-game-squad-modal-kicker">
+            Squad Discovery
+        </div>
+
+        <h2>Search for Squad</h2>
+
+        <p class="yh-game-squad-modal-copy">
+            Enter the invitation code shared by the squad owner.
+            You will see the squad details before joining.
+        </p>
+
+        <form id="yh-game-search-squad-form">
+            <label>
+                <span>Squad Invitation Code</span>
+
+                <input
+                    type="text"
+                    name="inviteCode"
+                    maxlength="10"
+                    required
+                    autocomplete="off"
+                    placeholder="Example: A1B2C3D4"
+                >
+            </label>
+
+            <div
+                class="yh-game-squad-form-error hidden-step"
+                data-yh-squad-form-error
+                role="alert"
+            ></div>
+
+            <div class="yh-game-squad-form-actions">
+                <button
+                    type="button"
+                    class="yh-game-squad-secondary"
+                    data-yh-squad-modal-close
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="submit"
+                    class="yh-game-squad-primary"
+                >
+                    Search Squad
+                </button>
+            </div>
+        </form>
+    `);
+
+    const form =
+        document.getElementById(
+            'yh-game-search-squad-form'
+        );
+
+    form?.addEventListener(
+        'submit',
+        submitSearchSquadV1
+    );
+
+    form?.querySelector(
+        'input[name="inviteCode"]'
+    )?.focus();
+}
+
+    function setSquadFormErrorV1(
+        form,
+        message = ''
+    ) {
+        const box =
+            form?.querySelector(
+                '[data-yh-squad-form-error]'
+            );
+
+        if (!box) return;
+
+        const clean =
+            String(message || '').trim();
+
+        box.textContent =
+            clean;
+
+        box.classList.toggle(
+            'hidden-step',
+            !clean
+        );
+    }
+
+    async function submitCreateSquadV1(
+        event
+    ) {
+        event.preventDefault();
+
+        if (academySquadRequestBusy) {
+            return;
+        }
+
+        const form =
+            event.currentTarget;
+
+        const button =
+            form.querySelector(
+                'button[type="submit"]'
+            );
+
+        const data =
+            new FormData(form);
+
+        const payload = {
+            name:
+                String(
+                    data.get('name') || ''
+                ).trim(),
+
+            emblem:
+                String(
+                    data.get('emblem') ||
+                    '⚡'
+                ).trim(),
+
+            description:
+                String(
+                    data.get(
+                        'description'
+                    ) || ''
+                ).trim()
+        };
+
+        if (
+            payload.name.length < 3
+        ) {
+            setSquadFormErrorV1(
+                form,
+                'Squad name must contain at least 3 characters.'
+            );
+
+            return;
+        }
+
+        academySquadRequestBusy = true;
+
+        setSquadFormErrorV1(
+            form,
+            ''
+        );
+
+        setSquadButtonBusyV1(
+            button,
+            true,
+            'Creating...'
+        );
+
+        try {
+            const result =
+                await fetchAcademyGameJson(
+                    '/api/academy/squad',
+                    {
+                        method: 'POST',
+                        body: payload
+                    }
+                );
+
+            window.YHUGameCore
+                ?.setAcademySquadCacheV1?.(
+                    result
+                );
+
+            academySquadLoaded = true;
+
+            closeSquadModalV1();
+            renderDashboardGameFoundation();
+
+            window.YHSharedCore
+                ?.showToast?.(
+                    'Squad created successfully.',
+                    'success'
+                );
+        } catch (error) {
+            setSquadFormErrorV1(
+                form,
+                error?.message ||
+                'Failed to create squad.'
+            );
+        } finally {
+            academySquadRequestBusy =
+                false;
+
+            setSquadButtonBusyV1(
+                button,
+                false
+            );
+        }
+    }
+
+    async function submitSearchSquadV1(
+    event
+) {
+    event.preventDefault();
+
+    if (academySquadRequestBusy) {
+        return;
+    }
+
+    const form =
+        event.currentTarget;
+
+    const button =
+        form.querySelector(
+            'button[type="submit"]'
+        );
+
+    const inviteCode =
+        String(
+            new FormData(form)
+                .get('inviteCode') ||
+            ''
+        )
+            .trim()
+            .toUpperCase()
+            .replace(
+                /[^A-Z0-9]/g,
+                ''
+            );
+
+    if (!inviteCode) {
+        setSquadFormErrorV1(
+            form,
+            'Squad invitation code is required.'
+        );
+
+        return;
+    }
+
+    academySquadRequestBusy = true;
+
+    setSquadFormErrorV1(
+        form,
+        ''
+    );
+
+    setSquadButtonBusyV1(
+        button,
+        true,
+        'Searching...'
+    );
+
+    try {
+        const result =
+            await fetchAcademyGameJson(
+                (
+                    '/api/academy/squad/search' +
+                    '?inviteCode=' +
+                    encodeURIComponent(
+                        inviteCode
+                    )
+                )
+            );
+
+        openSquadSearchResultV1(
+            result?.squad || {},
+            inviteCode
+        );
+    } catch (error) {
+        setSquadFormErrorV1(
+            form,
+            error?.message ||
+            'No squad was found.'
+        );
+    } finally {
+        academySquadRequestBusy = false;
+
+        setSquadButtonBusyV1(
+            button,
+            false
+        );
+    }
+}
+
+function openSquadSearchResultV1(
+    squad = {},
+    inviteCode = ''
+) {
+    openSquadModalV1(`
+        <div class="yh-game-squad-search-preview">
+            <div class="yh-game-squad-detail-emblem">
+                ${escapeHtml(
+                    squad.emblem || '⚡'
+                )}
+            </div>
+
+            <div>
+                <div class="yh-game-squad-modal-kicker">
+                    Squad Found
+                </div>
+
+                <h2>
+                    ${escapeHtml(
+                        squad.name ||
+                        'Academy Squad'
+                    )}
+                </h2>
+
+                <p>
+                    ${escapeHtml(
+                        squad.description ||
+                        'Academy squad.'
+                    )}
+                </p>
+            </div>
+        </div>
+
+        <div class="yh-game-squad-detail-stats">
+            <div>
+                <small>Members</small>
+                <strong>
+                    ${Number(
+                        squad.memberCount || 0
+                    )}/${Number(
+                        squad.maxMembers || 8
+                    )}
+                </strong>
+            </div>
+
+            <div>
+                <small>Available Slots</small>
+                <strong>
+                    ${Number(
+                        squad.availableSlots || 0
+                    )}
+                </strong>
+            </div>
+
+            <div>
+                <small>Rank</small>
+                <strong>
+                    ${escapeHtml(
+                        squad.rank ||
+                        'Unranked'
+                    )}
+                </strong>
+            </div>
+        </div>
+
+        <div
+            class="yh-game-squad-form-error hidden-step"
+            data-yh-squad-form-error
+            role="alert"
+        ></div>
+
+        <div class="yh-game-squad-form-actions">
+            <button
+                type="button"
+                class="yh-game-squad-secondary"
+                data-yh-search-again
+            >
+                Search Again
+            </button>
+
+            <button
+                type="button"
+                class="yh-game-squad-primary"
+                data-yh-confirm-squad-join="${escapeHtml(
+                    inviteCode
+                )}"
+                ${squad.canJoin === false
+                    ? 'disabled'
+                    : ''}
+            >
+                Join This Squad
+            </button>
+        </div>
+    `);
+
+    document
+        .querySelector(
+            '[data-yh-search-again]'
+        )
+        ?.addEventListener(
+            'click',
+            openJoinSquadModalV1
+        );
+
+    document
+        .querySelector(
+            '[data-yh-confirm-squad-join]'
+        )
+        ?.addEventListener(
+            'click',
+            submitJoinSquadFromPreviewV1
+        );
+}
+
+async function submitJoinSquadFromPreviewV1(
+    event
+) {
+    if (academySquadRequestBusy) {
+        return;
+    }
+
+    const button =
+        event.currentTarget;
+
+    const inviteCode =
+        String(
+            button.getAttribute(
+                'data-yh-confirm-squad-join'
+            ) || ''
+        ).trim();
+
+    academySquadRequestBusy = true;
+
+    setSquadButtonBusyV1(
+        button,
+        true,
+        'Joining...'
+    );
+
+    try {
+        const result =
+            await fetchAcademyGameJson(
+                '/api/academy/squad/join',
+                {
+                    method: 'POST',
+                    body: {
+                        inviteCode
+                    }
+                }
+            );
+
+        window.YHUGameCore
+            ?.setAcademySquadCacheV1?.(
+                result
+            );
+
+        academySquadLoaded = true;
+
+        closeSquadModalV1();
+        renderDashboardGameFoundation();
+
+        window.YHSharedCore
+            ?.showToast?.(
+                'You joined the squad.',
+                'success'
+            );
+    } catch (error) {
+        const box =
+            document.querySelector(
+                '[data-yh-squad-form-error]'
+            );
+
+        if (box) {
+            box.textContent =
+                error?.message ||
+                'Failed to join squad.';
+
+            box.classList.remove(
+                'hidden-step'
+            );
+        }
+    } finally {
+        academySquadRequestBusy = false;
+
+        setSquadButtonBusyV1(
+            button,
+            false
+        );
+    }
+}
+
+    async function submitJoinSquadV1(
+        event
+    ) {
+        event.preventDefault();
+
+        if (academySquadRequestBusy) {
+            return;
+        }
+
+        const form =
+            event.currentTarget;
+
+        const button =
+            form.querySelector(
+                'button[type="submit"]'
+            );
+
+        const data =
+            new FormData(form);
+
+        const inviteCode =
+            String(
+                data.get('inviteCode') ||
+                ''
+            )
+                .trim()
+                .toUpperCase()
+                .replace(
+                    /[^A-Z0-9]/g,
+                    ''
+                );
+
+        if (!inviteCode) {
+            setSquadFormErrorV1(
+                form,
+                'Squad invite code is required.'
+            );
+
+            return;
+        }
+
+        academySquadRequestBusy = true;
+
+        setSquadFormErrorV1(
+            form,
+            ''
+        );
+
+        setSquadButtonBusyV1(
+            button,
+            true,
+            'Joining...'
+        );
+
+        try {
+            const result =
+                await fetchAcademyGameJson(
+                    '/api/academy/squad/join',
+                    {
+                        method: 'POST',
+                        body: {
+                            inviteCode
+                        }
+                    }
+                );
+
+            window.YHUGameCore
+                ?.setAcademySquadCacheV1?.(
+                    result
+                );
+
+            academySquadLoaded = true;
+
+            closeSquadModalV1();
+            renderDashboardGameFoundation();
+
+            window.YHSharedCore
+                ?.showToast?.(
+                    'You joined the squad.',
+                    'success'
+                );
+        } catch (error) {
+            setSquadFormErrorV1(
+                form,
+                error?.message ||
+                'Failed to join squad.'
+            );
+        } finally {
+            academySquadRequestBusy =
+                false;
+
+            setSquadButtonBusyV1(
+                button,
+                false
+            );
+        }
+    }
+
+    async function runSquadManagementActionV1(
+    button,
+    {
+        url = '',
+        method = 'POST',
+        body = null,
+        loadingLabel = 'Working...',
+        successMessage = '',
+        clearSquad = false
+    } = {}
+) {
+    if (
+        academySquadRequestBusy ||
+        !url
+    ) {
+        return;
+    }
+
+    academySquadRequestBusy = true;
+
+    setSquadButtonBusyV1(
+        button,
+        true,
+        loadingLabel
+    );
+
+    try {
+        const result =
+            await fetchAcademyGameJson(
+                url,
+                {
+                    method,
+                    body
+                }
+            );
+
+        if (clearSquad) {
+            window.YHUGameCore
+                ?.setAcademySquadCacheV1?.({
+                    joined: false,
+                    squad: null,
+                    membership: null
+                });
+
+            closeSquadModalV1();
+        } else {
+            window.YHUGameCore
+                ?.setAcademySquadCacheV1?.(
+                    result
+                );
+
+            openSquadDetailsModalV1();
+        }
+
+        academySquadLoaded = true;
+
+        renderDashboardGameFoundation();
+
+        window.YHSharedCore
+            ?.showToast?.(
+                successMessage ||
+                'Squad updated.',
+                'success'
+            );
+    } catch (error) {
+        window.YHSharedCore
+            ?.showToast?.(
+                error?.message ||
+                'Squad action failed.',
+                'error'
+            );
+    } finally {
+        academySquadRequestBusy = false;
+
+        setSquadButtonBusyV1(
+            button,
+            false
+        );
+    }
+}
+
+function resolveSquadMemberVisibleNameV1(
+    member = {}
+) {
+    const placeholders =
+        new Set([
+            '',
+            'hustler',
+            'yh member',
+            'academy member',
+            'member',
+            'user'
+        ]);
+
+    const displayName =
+        String(
+            member.displayName ||
+            ''
+        ).trim();
+
+    const username =
+        String(
+            member.username ||
+            ''
+        )
+            .trim()
+            .replace(/^@+/, '');
+
+    if (
+        displayName &&
+        !displayName.includes('@') &&
+        !placeholders.has(
+            displayName.toLowerCase()
+        )
+    ) {
+        return displayName;
+    }
+
+    if (
+        username &&
+        !username.includes('@') &&
+        !placeholders.has(
+            username.toLowerCase()
+        )
+    ) {
+        return username;
+    }
+
+    return 'YH Member';
+}
+function buildSquadXpProgressV1(
+    squad = {}
+) {
+    const totalXp =
+        Math.max(
+            0,
+            Number(
+                squad.totalXp || 0
+            )
+        );
+
+    const level =
+        Math.max(
+            1,
+            Number(
+                squad.level || 1
+            )
+        );
+
+    const levelStartXp =
+        (level - 1) * 500;
+
+    const nextLevelXp =
+        Math.max(
+            level * 500,
+            Number(
+                squad.nextLevelXp ||
+                level * 500
+            )
+        );
+
+    const required =
+        Math.max(
+            1,
+            nextLevelXp -
+            levelStartXp
+        );
+
+    const current =
+        Math.max(
+            0,
+            totalXp -
+            levelStartXp
+        );
+
+    const percent =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                Math.round(
+                    (
+                        current /
+                        required
+                    ) * 100
+                )
+            )
+        );
+
+    return {
+        level,
+        current,
+        required,
+        percent,
+        nextLevelXp
+    };
+}
+function bindSquadWorkspaceTabsV1() {
+    document
+        .querySelectorAll(
+            '[data-yh-squad-workspace-tab]'
+        )
+        .forEach((button) => {
+            button.addEventListener(
+                'click',
+                () => {
+                    const tab =
+                        button.getAttribute(
+                            'data-yh-squad-workspace-tab'
+                        );
+
+                    if (tab === 'missions') {
+                        openSquadMissionsModalV1();
+                        return;
+                    }
+
+                    if (tab === 'rankings') {
+                        openSquadRankingsModalV1();
+                        return;
+                    }
+
+                    if (tab === 'members') {
+                        openSquadMembersModalV1();
+                        return;
+                    }
+
+                    if (tab === 'activity') {
+                        openSquadActivityModalV1();
+                        return;
+                    }
+
+                    openSquadDetailsModalV1();
+                }
+            );
+        });
+}
+async function openSquadMissionsModalV1({
+    force = false
+} = {}) {
+    const squad =
+        window.YHUGameCore
+            ?.getAcademySquadSnapshotV1?.() ||
+        {};
+
+    openSquadModalV1(`
+        <div class="yh-game-squad-detail-head">
+            <div class="yh-game-squad-detail-emblem">
+                ${escapeHtml(
+                    squad.emblem || '⚡'
+                )}
+            </div>
+
+            <div>
+                <div class="yh-game-squad-modal-kicker">
+                    Shared Operations
+                </div>
+
+                <h2>
+                    ${escapeHtml(
+                        squad.name ||
+                        'Academy Squad'
+                    )}
+                </h2>
+
+                <p>
+                    Coordinate shared targets and verified
+                    Academy contributions.
+                </p>
+            </div>
+        </div>
+
+        ${buildSquadWorkspaceTabsV1(
+            'missions'
+        )}
+
+        <div class="yh-game-squad-missions-loading">
+            <span></span>
+            Loading Squad missions...
+        </div>
+    `);
+
+    bindSquadWorkspaceTabsV1();
+
+    try {
+        const state =
+            await loadAcademySquadMissionsV1({
+                force
+            });
+
+        renderSquadMissionsWorkspaceV1(
+            state
+        );
+    } catch (error) {
+        const content =
+            document.getElementById(
+                'yh-game-squad-modal-content'
+            );
+
+        if (!content) return;
+
+        content.innerHTML = `
+            <div class="yh-game-squad-detail-head">
+                <div class="yh-game-squad-detail-emblem">
+                    ${escapeHtml(
+                        squad.emblem || '⚡'
+                    )}
+                </div>
+
+                <div>
+                    <div class="yh-game-squad-modal-kicker">
+                        Shared Operations
+                    </div>
+
+                    <h2>
+                        ${escapeHtml(
+                            squad.name ||
+                            'Academy Squad'
+                        )}
+                    </h2>
+                </div>
+            </div>
+
+            ${buildSquadWorkspaceTabsV1(
+                'missions'
+            )}
+
+            <div class="yh-game-squad-missions-error">
+                <strong>
+                    Squad missions could not be loaded.
+                </strong>
+
+                <p>
+                    ${escapeHtml(
+                        error?.message ||
+                        'Please try again.'
+                    )}
+                </p>
+
+                <button
+                    type="button"
+                    class="yh-game-squad-primary"
+                    data-yh-retry-squad-missions
+                >
+                    Retry
+                </button>
+            </div>
+        `;
+
+        bindSquadWorkspaceTabsV1();
+
+        content
+            .querySelector(
+                '[data-yh-retry-squad-missions]'
+            )
+            ?.addEventListener(
+                'click',
+                () => {
+                    openSquadMissionsModalV1({
+                        force: true
+                    });
+                }
+            );
+    }
+}
+
+function renderSquadMissionsWorkspaceV1(
+    state = academySquadMissionsStateV1
+) {
+    const squad =
+        window.YHUGameCore
+            ?.getAcademySquadSnapshotV1?.() ||
+        {};
+
+    const content =
+        document.getElementById(
+            'yh-game-squad-modal-content'
+        );
+
+    if (!content) return;
+
+    const filter =
+        String(
+            state.filter || 'all'
+        ).toLowerCase();
+
+    const allMissions =
+        Array.isArray(
+            state.missions
+        )
+            ? state.missions
+            : [];
+
+    const missions =
+        filter === 'all'
+            ? allMissions
+            : allMissions.filter(
+                (mission) =>
+                    normalizeSquadMissionStatusV1(
+                        mission.status
+                    ) === filter
+            );
+
+    const activeCount =
+        allMissions.filter(
+            (mission) =>
+                normalizeSquadMissionStatusV1(
+                    mission.status
+                ) === 'active'
+        ).length;
+
+    const completedCount =
+        allMissions.filter(
+            (mission) =>
+                normalizeSquadMissionStatusV1(
+                    mission.status
+                ) === 'completed'
+        ).length;
+
+    const cancelledCount =
+        allMissions.filter(
+            (mission) =>
+                normalizeSquadMissionStatusV1(
+                    mission.status
+                ) === 'cancelled'
+        ).length;
+
+    content.innerHTML = `
+        <div class="yh-game-squad-detail-head">
+            <div class="yh-game-squad-detail-emblem">
+                ${escapeHtml(
+                    squad.emblem || '⚡'
+                )}
+            </div>
+
+            <div>
+                <div class="yh-game-squad-modal-kicker">
+                    Shared Operations
+                </div>
+
+                <h2>
+                    ${escapeHtml(
+                        squad.name ||
+                        'Academy Squad'
+                    )}
+                </h2>
+
+                <p>
+                    Complete shared targets through verified
+                    member activity.
+                </p>
+            </div>
+        </div>
+
+        ${buildSquadWorkspaceTabsV1(
+            'missions'
+        )}
+
+        <div class="yh-game-squad-missions-toolbar">
+            <div class="yh-game-squad-mission-filters">
+                <button
+                    type="button"
+                    class="${
+                        filter === 'all'
+                            ? 'is-active'
+                            : ''
+                    }"
+                    data-yh-squad-mission-filter="all"
+                >
+                    All
+                    <span>${allMissions.length}</span>
+                </button>
+
+                <button
+                    type="button"
+                    class="${
+                        filter === 'active'
+                            ? 'is-active'
+                            : ''
+                    }"
+                    data-yh-squad-mission-filter="active"
+                >
+                    Active
+                    <span>${activeCount}</span>
+                </button>
+
+                <button
+                    type="button"
+                    class="${
+                        filter === 'completed'
+                            ? 'is-active'
+                            : ''
+                    }"
+                    data-yh-squad-mission-filter="completed"
+                >
+                    Completed
+                    <span>${completedCount}</span>
+                </button>
+
+                <button
+                    type="button"
+                    class="${
+                        filter === 'cancelled'
+                            ? 'is-active'
+                            : ''
+                    }"
+                    data-yh-squad-mission-filter="cancelled"
+                >
+                    Cancelled
+                    <span>${cancelledCount}</span>
+                </button>
+            </div>
+
+            ${
+                state.canManage
+                    ? `
+                        <button
+                            type="button"
+                            class="yh-game-squad-primary"
+                            data-yh-create-squad-mission
+                        >
+                            + Create Mission
+                        </button>
+                    `
+                    : ''
+            }
+        </div>
+
+        <div class="yh-game-squad-missions-list">
+            ${
+                missions.length
+                    ? missions
+                        .map(
+                            buildSquadMissionCardV1
+                        )
+                        .join('')
+                    : `
+                        <div class="yh-game-squad-missions-empty">
+                            <strong>
+                                ${
+                                    filter === 'all'
+                                        ? 'No Squad missions yet'
+                                        : `No ${escapeHtml(
+                                            filter
+                                        )} missions`
+                                }
+                            </strong>
+
+                            <p>
+                                ${
+                                    state.canManage &&
+                                    filter === 'all'
+                                        ? 'Create the first shared target for your Squad.'
+                                        : 'There are no missions in this category.'
+                                }
+                            </p>
+                        </div>
+                    `
+            }
+        </div>
+    `;
+
+    bindSquadWorkspaceTabsV1();
+    bindSquadMissionWorkspaceActionsV1();
+}
+
+function buildSquadMissionCardV1(
+    mission = {}
+) {
+    const status =
+        normalizeSquadMissionStatusV1(
+            mission.status
+        );
+
+    const progress =
+        getSquadMissionProgressV1(
+            mission
+        );
+
+    const canManage =
+        academySquadMissionsStateV1
+            .canManage === true;
+
+    return `
+        <article
+            class="yh-game-squad-mission-card is-${escapeHtml(
+                status
+            )}"
+            data-yh-squad-mission-id="${escapeHtml(
+                mission.id || ''
+            )}"
+        >
+            <div class="yh-game-squad-mission-head">
+                <div>
+                    <small>
+                        ${escapeHtml(
+                            formatSquadMissionTypeV1(
+                                mission.missionType
+                            )
+                        )}
+                    </small>
+
+                    <h3>
+                        ${escapeHtml(
+                            mission.title ||
+                            'Squad Mission'
+                        )}
+                    </h3>
+                </div>
+
+                <span class="is-${escapeHtml(
+                    status
+                )}">
+                    ${escapeHtml(
+                        status
+                    )}
+                </span>
+            </div>
+
+            ${
+                mission.description
+                    ? `
+                        <p class="yh-game-squad-mission-description">
+                            ${escapeHtml(
+                                mission.description
+                            )}
+                        </p>
+                    `
+                    : ''
+            }
+
+            <div class="yh-game-squad-mission-progress-head">
+                <strong>
+                    ${progress.progress.toLocaleString()}
+                    / ${progress.target.toLocaleString()}
+                </strong>
+
+                <span>
+                    ${progress.percent}%
+                </span>
+            </div>
+
+            <div class="yh-game-squad-mission-progress-track">
+                <span
+                    style="width:${progress.percent}%"
+                ></span>
+            </div>
+
+            <div class="yh-game-squad-mission-meta">
+                <span>
+                    Deadline:
+                    <strong>
+                        ${escapeHtml(
+                            formatSquadMissionDeadlineV1(
+                                mission.deadline
+                            )
+                        )}
+                    </strong>
+                </span>
+
+                <span>
+                    Reward:
+                    <strong>
+                        ${Number(
+                            mission.rewardXp || 0
+                        ).toLocaleString()}
+                        XP
+                    </strong>
+                </span>
+            </div>
+
+            ${
+                canManage &&
+                status === 'active'
+                    ? `
+                        <div class="yh-game-squad-mission-actions">
+                            <button
+                                type="button"
+                                data-yh-edit-squad-mission="${escapeHtml(
+                                    mission.id || ''
+                                )}"
+                            >
+                                Edit
+                            </button>
+
+                            <button
+                                type="button"
+                                class="is-danger"
+                                data-yh-cancel-squad-mission="${escapeHtml(
+                                    mission.id || ''
+                                )}"
+                            >
+                                Cancel Mission
+                            </button>
+                        </div>
+                    `
+                    : ''
+            }
+        </article>
+    `;
+}
+function openSquadMissionFormV1(
+    mission = null
+) {
+    const editing =
+        Boolean(mission?.id);
+
+    openSquadModalV1(`
+        <div class="yh-game-squad-modal-kicker">
+            Shared Squad Mission
+        </div>
+
+        <h2>
+            ${
+                editing
+                    ? 'Edit Squad Mission'
+                    : 'Create Squad Mission'
+            }
+        </h2>
+
+        <p class="yh-game-squad-modal-copy">
+            Set a shared target that members can complete
+            through verified Academy activity.
+        </p>
+
+        <form id="yh-game-squad-mission-form">
+            <label>
+                <span>Mission Title</span>
+
+                <input
+                    type="text"
+                    name="title"
+                    minlength="3"
+                    maxlength="100"
+                    required
+                    value="${escapeHtml(
+                        mission?.title || ''
+                    )}"
+                    placeholder="Complete 5 Academy Missions"
+                >
+            </label>
+
+            <label>
+                <span>Mission Type</span>
+
+                <select name="missionType">
+                    ${[
+                        [
+                            'academy_missions',
+                            'Academy Missions'
+                        ],
+                        [
+                            'verified_leads',
+                            'Verified Leads'
+                        ],
+                        [
+                            'daily_checkins',
+                            'Daily Check-ins'
+                        ],
+                        [
+                            'squad_xp',
+                            'Squad XP'
+                        ],
+                        [
+                            'mission_playbooks',
+                            'Mission Playbooks'
+                        ],
+                        [
+                            'custom',
+                            'Custom Mission'
+                        ]
+                    ]
+                        .map(
+                            ([value, label]) => `
+                                <option
+                                    value="${value}"
+                                    ${
+                                        (
+                                            mission
+                                                ?.missionType ||
+                                            'academy_missions'
+                                        ) === value
+                                            ? 'selected'
+                                            : ''
+                                    }
+                                >
+                                    ${label}
+                                </option>
+                            `
+                        )
+                        .join('')}
+                </select>
+            </label>
+
+            <div class="yh-game-squad-mission-form-grid">
+                <label>
+                    <span>Target</span>
+
+                    <input
+                        type="number"
+                        name="target"
+                        min="1"
+                        max="10000"
+                        required
+                        value="${Number(
+                            mission?.target || 5
+                        )}"
+                    >
+                </label>
+
+                <label>
+                    <span>Reward XP</span>
+
+                    <input
+                        type="number"
+                        name="rewardXp"
+                        min="0"
+                        max="500"
+                        required
+                        value="${Number(
+                            mission?.rewardXp || 100
+                        )}"
+                    >
+                </label>
+            </div>
+
+            <label>
+                <span>Deadline</span>
+
+                <input
+                    type="datetime-local"
+                    name="deadline"
+                    value="${escapeHtml(
+                        mission?.deadline
+                            ? new Date(
+                                mission.deadline
+                            )
+                                .toISOString()
+                                .slice(0, 16)
+                            : ''
+                    )}"
+                >
+            </label>
+
+            <label>
+                <span>Description</span>
+
+                <textarea
+                    name="description"
+                    maxlength="500"
+                    rows="4"
+                    placeholder="Describe what the Squad needs to complete."
+                >${escapeHtml(
+                    mission?.description || ''
+                )}</textarea>
+            </label>
+
+            <div
+                class="yh-game-squad-form-error hidden-step"
+                data-yh-squad-form-error
+                role="alert"
+            ></div>
+
+            <div class="yh-game-squad-form-actions">
+                <button
+                    type="button"
+                    class="yh-game-squad-secondary"
+                    data-yh-back-to-squad-missions
+                >
+                    Back
+                </button>
+
+                <button
+                    type="submit"
+                    class="yh-game-squad-primary"
+                >
+                    ${
+                        editing
+                            ? 'Save Changes'
+                            : 'Create Mission'
+                    }
+                </button>
+            </div>
+        </form>
+    `);
+
+    const form =
+        document.getElementById(
+            'yh-game-squad-mission-form'
+        );
+
+    form?.addEventListener(
+        'submit',
+        (event) => {
+            submitSquadMissionFormV1(
+                event,
+                mission?.id || ''
+            );
+        }
+    );
+
+    document
+        .querySelector(
+            '[data-yh-back-to-squad-missions]'
+        )
+        ?.addEventListener(
+            'click',
+            () => {
+                openSquadMissionsModalV1();
+            }
+        );
+
+    form
+        ?.querySelector(
+            'input[name="title"]'
+        )
+        ?.focus();
+}
+
+async function submitSquadMissionFormV1(
+    event,
+    missionId = ''
+) {
+    event.preventDefault();
+
+    if (academySquadRequestBusy) {
+        return;
+    }
+
+    const form =
+        event.currentTarget;
+
+    const button =
+        form.querySelector(
+            'button[type="submit"]'
+        );
+
+    const data =
+        new FormData(form);
+
+    const title =
+        String(
+            data.get('title') || ''
+        ).trim();
+
+    if (title.length < 3) {
+        setSquadFormErrorV1(
+            form,
+            'Mission title must contain at least 3 characters.'
+        );
+
+        return;
+    }
+
+    const rawDeadline =
+        String(
+            data.get('deadline') || ''
+        ).trim();
+
+    const payload = {
+        title,
+
+        description:
+            String(
+                data.get('description') ||
+                ''
+            ).trim(),
+
+        missionType:
+            String(
+                data.get('missionType') ||
+                'custom'
+            ).trim(),
+
+        target:
+            Math.max(
+                1,
+                Number(
+                    data.get('target') ||
+                    1
+                )
+            ),
+
+        rewardXp:
+            Math.max(
+                0,
+                Number(
+                    data.get('rewardXp') ||
+                    0
+                )
+            ),
+
+        deadline:
+            rawDeadline
+                ? new Date(
+                    rawDeadline
+                ).toISOString()
+                : ''
+    };
+
+    academySquadRequestBusy = true;
+
+    setSquadFormErrorV1(
+        form,
+        ''
+    );
+
+    setSquadButtonBusyV1(
+        button,
+        true,
+        missionId
+            ? 'Saving...'
+            : 'Creating...'
+    );
+
+    try {
+        await fetchAcademyGameJson(
+            missionId
+                ? (
+                    '/api/academy/squad/missions/' +
+                    encodeURIComponent(
+                        missionId
+                    )
+                )
+                : '/api/academy/squad/missions',
+            {
+                method:
+                    missionId
+                        ? 'PATCH'
+                        : 'POST',
+
+                body:
+                    payload
+            }
+        );
+
+        academySquadMissionsStateV1 = {
+            ...academySquadMissionsStateV1,
+
+            loaded: false,
+
+            filter:
+                missionId
+                    ? academySquadMissionsStateV1.filter
+                    : 'active'
+        };
+
+        window.YHSharedCore
+            ?.showToast?.(
+                missionId
+                    ? 'Squad mission updated.'
+                    : 'Squad mission created.',
+                'success'
+            );
+
+        await openSquadMissionsModalV1({
+            force: true
+        });
+    } catch (error) {
+        setSquadFormErrorV1(
+            form,
+            error?.message ||
+            'Squad mission could not be saved.'
+        );
+    } finally {
+        academySquadRequestBusy =
+            false;
+
+        setSquadButtonBusyV1(
+            button,
+            false
+        );
+    }
+}
+function bindSquadMissionWorkspaceActionsV1() {
+    document
+        .querySelectorAll(
+            '[data-yh-squad-mission-filter]'
+        )
+        .forEach((button) => {
+            button.addEventListener(
+                'click',
+                () => {
+                    academySquadMissionsStateV1 = {
+                        ...academySquadMissionsStateV1,
+
+                        filter:
+                            button.getAttribute(
+                                'data-yh-squad-mission-filter'
+                            ) ||
+                            'all'
+                    };
+
+                    renderSquadMissionsWorkspaceV1();
+                }
+            );
+        });
+
+    document
+        .querySelector(
+            '[data-yh-create-squad-mission]'
+        )
+        ?.addEventListener(
+            'click',
+            () => {
+                openSquadMissionFormV1();
+            }
+        );
+
+    document
+        .querySelectorAll(
+            '[data-yh-edit-squad-mission]'
+        )
+        .forEach((button) => {
+            button.addEventListener(
+                'click',
+                () => {
+                    const missionId =
+                        button.getAttribute(
+                            'data-yh-edit-squad-mission'
+                        );
+
+                    const mission =
+                        academySquadMissionsStateV1
+                            .missions
+                            .find(
+                                (entry) =>
+                                    entry.id ===
+                                    missionId
+                            );
+
+                    if (mission) {
+                        openSquadMissionFormV1(
+                            mission
+                        );
+                    }
+                }
+            );
+        });
+
+    document
+        .querySelectorAll(
+            '[data-yh-cancel-squad-mission]'
+        )
+        .forEach((button) => {
+            button.addEventListener(
+                'click',
+                async () => {
+                    if (
+                        academySquadRequestBusy
+                    ) {
+                        return;
+                    }
+
+                    const missionId =
+                        button.getAttribute(
+                            'data-yh-cancel-squad-mission'
+                        );
+
+                    const mission =
+                        academySquadMissionsStateV1
+                            .missions
+                            .find(
+                                (entry) =>
+                                    entry.id ===
+                                    missionId
+                            );
+
+                    const confirmed =
+                        await window.YHSharedCore
+                            ?.openYHConfirmModal?.({
+                                title:
+                                    'Cancel Squad mission?',
+
+                                message:
+                                    `“${
+                                        mission?.title ||
+                                        'This mission'
+                                    }” will move to the cancelled history.`,
+
+                                okText:
+                                    'Cancel Mission',
+
+                                cancelText:
+                                    'Keep Mission',
+
+                                tone:
+                                    'danger'
+                            });
+
+                    if (!confirmed) {
+                        return;
+                    }
+
+                    academySquadRequestBusy =
+                        true;
+
+                    setSquadButtonBusyV1(
+                        button,
+                        true,
+                        'Cancelling...'
+                    );
+
+                    try {
+                        await fetchAcademyGameJson(
+                            (
+                                '/api/academy/squad/missions/' +
+                                encodeURIComponent(
+                                    missionId
+                                )
+                            ),
+                            {
+                                method:
+                                    'DELETE'
+                            }
+                        );
+
+                        academySquadMissionsStateV1 = {
+                            ...academySquadMissionsStateV1,
+                            loaded: false
+                        };
+
+                        window.YHSharedCore
+                            ?.showToast?.(
+                                'Squad mission cancelled.',
+                                'success'
+                            );
+
+                        await openSquadMissionsModalV1({
+                            force: true
+                        });
+                    } catch (error) {
+                        window.YHSharedCore
+                            ?.showToast?.(
+                                error?.message ||
+                                'Squad mission could not be cancelled.',
+                                'error'
+                            );
+                    } finally {
+                        academySquadRequestBusy =
+                            false;
+
+                        setSquadButtonBusyV1(
+                            button,
+                            false
+                        );
+                    }
+                }
+            );
+        });
+}
+function openSquadRankingsModalV1() {
+    openSquadDetailsModalV1(
+        'rankings'
+    );
+
+    window.setTimeout(() => {
+        document
+            .querySelector(
+                '.yh-game-squad-ranking-summary'
+            )
+            ?.scrollIntoView({
+                block: 'start',
+                behavior: 'smooth'
+            });
+    }, 50);
+}
+
+function openSquadMembersModalV1() {
+    openSquadDetailsModalV1(
+        'members'
+    );
+
+    window.setTimeout(() => {
+        document
+            .querySelector(
+                '.yh-game-squad-member-list'
+            )
+            ?.scrollIntoView({
+                block: 'start',
+                behavior: 'smooth'
+            });
+    }, 50);
+}
+
+function openSquadActivityModalV1() {
+    openSquadDetailsModalV1(
+        'activity'
+    );
+
+    window.setTimeout(() => {
+        document
+            .querySelector(
+                '.yh-game-squad-contributions'
+            )
+            ?.scrollIntoView({
+                block: 'start',
+                behavior: 'smooth'
+            });
+    }, 50);
+}
+
+function openSquadDetailsModalV1(
+    activeTab = 'overview'
+) {
+    const squad =
+        window.YHUGameCore
+            ?.getAcademySquadSnapshotV1?.() ||
+        {};
+
+    const members =
+        Array.isArray(
+            squad.memberList
+        )
+            ? squad.memberList
+            : [];
+
+        const isOwner =
+            squad.role === 'owner';
+
+        const squadProgress =
+            buildSquadXpProgressV1(
+                squad
+            );
+
+    const weeklyPosition =
+        squad.weeklyPosition &&
+        typeof squad.weeklyPosition ===
+            'object'
+            ? squad.weeklyPosition
+            : null;
+
+    const allTimePosition =
+        squad.allTimePosition &&
+        typeof squad.allTimePosition ===
+            'object'
+            ? squad.allTimePosition
+            : null;
+
+    const weeklyLeaderboard =
+        Array.isArray(
+            squad.weeklyLeaderboard
+        )
+            ? squad.weeklyLeaderboard
+            : [];
+
+    const weeklyContributors =
+        Array.isArray(
+            squad.weeklyContributors
+        )
+            ? squad.weeklyContributors
+            : [];
+
+    const recentContributions =
+        Array.isArray(
+            squad.recentContributions
+        )
+            ? squad.recentContributions
+            : [];
+
+    openSquadModalV1(`
+        <div class="yh-game-squad-detail-head">
+            <div class="yh-game-squad-detail-emblem">
+                ${escapeHtml(
+                    squad.emblem || '⚡'
+                )}
+            </div>
+
+            <div>
+                <div class="yh-game-squad-modal-kicker">
+                    Your Squad
+                </div>
+
+                <h2>
+                    ${escapeHtml(
+                        squad.name ||
+                        'Academy Squad'
+                    )}
+                </h2>
+
+                <p>
+                    ${escapeHtml(
+                        squad.description ||
+                        'Squad foundation active.'
+                    )}
+                </p>
+            </div>
+        </div>
+
+        ${buildSquadWorkspaceTabsV1(
+            activeTab
+        )}
+
+<div class="yh-game-squad-detail-stats">
+    <div>
+        <small>Your Role</small>
+        <strong>
+            ${escapeHtml(
+                squad.role ||
+                'member'
+            )}
+        </strong>
+    </div>
+
+    <div>
+        <small>Members</small>
+        <strong>
+            ${Number(
+                squad.members || 0
+            )}/${Number(
+                squad.maxMembers || 8
+            )}
+        </strong>
+    </div>
+
+    <div>
+        <small>Squad Level</small>
+        <strong>
+            ${squadProgress.level}
+        </strong>
+    </div>
+</div>
+
+<div class="yh-game-squad-xp-panel">
+    <div class="yh-game-squad-xp-panel-head">
+        <span>
+            Total Squad XP
+        </span>
+
+        <strong>
+            ${Number(
+                squad.totalXp || 0
+            ).toLocaleString()}
+        </strong>
+    </div>
+
+    <div class="yh-game-squad-xp-track">
+        <span
+            style="width:${squadProgress.percent}%"
+        ></span>
+    </div>
+
+    <div class="yh-game-squad-xp-panel-foot">
+        <span>
+            ${squadProgress.current.toLocaleString()}
+            / ${squadProgress.required.toLocaleString()}
+            toward Level ${squadProgress.level + 1}
+        </span>
+
+        <strong>
+            ${Number(
+                squad.weeklyXp || 0
+            ).toLocaleString()}
+            weekly XP
+        </strong>
+    </div>
+</div>
+
+<div class="yh-game-squad-ranking-summary">
+    <div>
+        <small>Weekly Rank</small>
+
+        <strong>
+            ${
+                weeklyPosition?.position
+                    ? (
+                        '#' +
+                        Number(
+                            weeklyPosition.position
+                        )
+                    )
+                    : 'Unranked'
+            }
+        </strong>
+
+        <span>
+            ${Number(
+                squad.weeklyXp || 0
+            ).toLocaleString()}
+            XP this week
+        </span>
+    </div>
+
+    <div>
+        <small>All-Time Rank</small>
+
+        <strong>
+            ${
+                allTimePosition?.position
+                    ? (
+                        '#' +
+                        Number(
+                            allTimePosition.position
+                        )
+                    )
+                    : 'Unranked'
+            }
+        </strong>
+
+        <span>
+            ${Number(
+                squad.totalXp || 0
+            ).toLocaleString()}
+            total XP
+        </span>
+    </div>
+</div>
+
+        ${
+            squad.inviteCode
+                ? `
+                    <div class="yh-game-squad-invite-panel">
+                        <small>Invitation Code</small>
+
+                        <strong>
+                            ${escapeHtml(
+                                squad.inviteCode
+                            )}
+                        </strong>
+
+                        <div class="yh-game-squad-invite-actions">
+                            <button
+                                type="button"
+                                data-yh-copy-squad-code="${escapeHtml(
+                                    squad.inviteCode
+                                )}"
+                            >
+                                Copy Code
+                            </button>
+
+                            ${
+                                isOwner
+                                    ? `
+                                        <button
+                                            type="button"
+                                            data-yh-regenerate-squad-code
+                                        >
+                                            Regenerate
+                                        </button>
+                                    `
+                                    : ''
+                            }
+                        </div>
+                    </div>
+                `
+                : ''
+        }
+
+        <div class="yh-game-squad-member-list">
+            <div class="yh-game-squad-member-list-head">
+                Members
+            </div>
+
+            ${
+                members.length
+                    ? members.map(
+                        (member) => {
+                            const isTargetOwner =
+                                member.role ===
+                                'owner';
+
+                            return `
+                                <div class="yh-game-squad-member-row">
+                                    <span>
+                                        ${escapeHtml(
+                                            resolveSquadMemberVisibleNameV1(
+                                                member
+                                            )
+                                                .charAt(0)
+                                                .toUpperCase()
+                                        )}
+                                    </span>
+
+                                    <div>
+                                        <strong>
+                                            ${escapeHtml(
+                                                resolveSquadMemberVisibleNameV1(
+                                                    member
+                                                )
+                                            )}
+                                        </strong>
+
+                                        <small>
+                                            ${escapeHtml(
+                                                member.role ||
+                                                'member'
+                                            )}
+                                        </small>
+                                    </div>
+
+                                    ${
+                                        isOwner &&
+                                        !isTargetOwner
+                                            ? `
+                                                <div class="yh-game-squad-member-actions">
+                                                    <button
+                                                        type="button"
+                                                        data-yh-squad-member-role="${escapeHtml(
+                                                            member.userId
+                                                        )}"
+                                                        data-yh-next-role-action="${
+                                                            member.role ===
+                                                            'captain'
+                                                                ? 'demote'
+                                                                : 'promote'
+                                                        }"
+                                                    >
+                                                        ${
+                                                            member.role ===
+                                                            'captain'
+                                                                ? 'Demote'
+                                                                : 'Make Captain'
+                                                        }
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        class="is-danger"
+                                                        data-yh-remove-squad-member="${escapeHtml(
+                                                            member.userId
+                                                        )}"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            `
+                                            : ''
+                                    }
+                                </div>
+                            `;
+                        }
+                    ).join('')
+                    : `
+                        <div class="yh-game-squad-empty-members">
+                            Member roster will appear here.
+                        </div>
+                    `
+            }
+        </div>
+                <div class="yh-game-squad-ranking-grid">
+            <section>
+                <div class="yh-game-squad-member-list-head">
+                    Weekly Top Contributors
+                </div>
+
+                <div class="yh-game-squad-ranking-list">
+                    ${
+                        weeklyContributors.length
+                            ? weeklyContributors
+                                .slice(0, 5)
+                                .map(
+                                    (entry) => `
+                                        <div class="yh-game-squad-ranking-row">
+                                            <span>
+                                                ${Number(
+                                                    entry.position || 0
+                                                )}
+                                            </span>
+
+                                            <div>
+                                                <strong>
+                                                    ${escapeHtml(
+                                                        entry.displayName ||
+                                                        entry.username ||
+                                                        'YH Member'
+                                                    )}
+                                                </strong>
+
+                                                <small>
+                                                    ${Number(
+                                                        entry.contributionCount ||
+                                                        0
+                                                    )}
+                                                    contributions
+                                                </small>
+                                            </div>
+
+                                            <b>
+                                                ${Number(
+                                                    entry.xp || 0
+                                                ).toLocaleString()}
+                                                XP
+                                            </b>
+                                        </div>
+                                    `
+                                )
+                                .join('')
+                            : `
+                                <div class="yh-game-squad-empty-members">
+                                    No weekly contributors yet.
+                                </div>
+                            `
+                    }
+                </div>
+            </section>
+
+            <section>
+                <div class="yh-game-squad-member-list-head">
+                    Weekly Top Squads
+                </div>
+
+                <div class="yh-game-squad-ranking-list">
+                    ${
+                        weeklyLeaderboard.length
+                            ? weeklyLeaderboard
+                                .slice(0, 5)
+                                .map(
+                                    (entry) => `
+                                        <div
+                                            class="yh-game-squad-ranking-row ${
+                                                entry.squadId ===
+                                                squad.id
+                                                    ? 'is-current'
+                                                    : ''
+                                            }"
+                                        >
+                                            <span>
+                                                ${Number(
+                                                    entry.position || 0
+                                                )}
+                                            </span>
+
+                                            <div>
+                                                <strong>
+                                                    ${escapeHtml(
+                                                        entry.emblem ||
+                                                        '⚡'
+                                                    )}
+                                                    ${escapeHtml(
+                                                        entry.name ||
+                                                        'Academy Squad'
+                                                    )}
+                                                </strong>
+
+                                                <small>
+                                                    ${Number(
+                                                        entry.memberCount ||
+                                                        0
+                                                    )}
+                                                    members
+                                                </small>
+                                            </div>
+
+                                            <b>
+                                                ${Number(
+                                                    entry.xp || 0
+                                                ).toLocaleString()}
+                                                XP
+                                            </b>
+                                        </div>
+                                    `
+                                )
+                                .join('')
+                            : `
+                                <div class="yh-game-squad-empty-members">
+                                    No ranked squads yet.
+                                </div>
+                            `
+                    }
+                </div>
+            </section>
+        </div>
+        <div class="yh-game-squad-contributions">
+            <div class="yh-game-squad-member-list-head">
+                Recent Contributions
+            </div>
+
+            ${
+                recentContributions.length
+                    ? recentContributions
+                        .slice(0, 8)
+                        .map(
+                            (entry) => `
+                                <div class="yh-game-squad-contribution-row">
+                                    <span class="yh-game-squad-contribution-mark">
+                                        +
+                                    </span>
+
+                                    <div>
+                                        <strong>
+                                            ${escapeHtml(
+                                                entry.contributorName ||
+                                                'YH Member'
+                                            )}
+                                        </strong>
+
+                                        <small>
+                                            ${escapeHtml(
+                                                entry.label ||
+                                                'Squad contribution'
+                                            )}
+                                        </small>
+                                    </div>
+
+                                    <b>
+                                        +${Number(
+                                            entry.xp || 0
+                                        ).toLocaleString()}
+                                        XP
+                                    </b>
+                                </div>
+                            `
+                        )
+                        .join('')
+                    : `
+                        <div class="yh-game-squad-empty-members">
+                            Complete Academy missions and check-ins
+                            to start building Squad XP.
+                        </div>
+                    `
+            }
+        </div>
+        <div class="yh-game-squad-management-actions">
+            ${
+                isOwner
+                    ? `
+                        <button
+                            type="button"
+                            class="yh-game-squad-danger"
+                            data-yh-disband-squad
+                        >
+                            Disband Squad
+                        </button>
+                    `
+                    : `
+                        <button
+                            type="button"
+                            class="yh-game-squad-danger"
+                            data-yh-leave-squad
+                        >
+                            Leave Squad
+                        </button>
+                    `
+            }
+        </div>
+    `);
+    bindSquadWorkspaceTabsV1();
+    document
+        .querySelector(
+            '[data-yh-copy-squad-code]'
+        )
+        ?.addEventListener(
+            'click',
+            async (event) => {
+                const button =
+                    event.currentTarget;
+
+                const code =
+                    button.getAttribute(
+                        'data-yh-copy-squad-code'
+                    ) || '';
+
+                try {
+                    await navigator.clipboard
+                        .writeText(code);
+
+                    button.textContent =
+                        'Copied';
+                } catch (_) {
+                    button.textContent =
+                        code;
+                }
+            }
+        );
+
+    document
+        .querySelector(
+            '[data-yh-regenerate-squad-code]'
+        )
+        ?.addEventListener(
+            'click',
+            async (event) => {
+                const confirmed =
+                    await window.YHSharedCore
+                        ?.openYHConfirmModal?.({
+                            title:
+                                'Regenerate invitation code?',
+                            message:
+                                'The old code will stop working.',
+                            okText:
+                                'Regenerate',
+                            cancelText:
+                                'Cancel'
+                        });
+
+                if (!confirmed) return;
+
+                await runSquadManagementActionV1(
+                    event.currentTarget,
+                    {
+                        url:
+                            '/api/academy/squad/invite/regenerate',
+                        method: 'POST',
+                        loadingLabel:
+                            'Regenerating...',
+                        successMessage:
+                            'New invitation code generated.'
+                    }
+                );
+            }
+        );
+
+    document
+        .querySelectorAll(
+            '[data-yh-squad-member-role]'
+        )
+        .forEach((button) => {
+            button.addEventListener(
+                'click',
+                async () => {
+                    const userId =
+                        button.getAttribute(
+                            'data-yh-squad-member-role'
+                        );
+
+                    const action =
+                        button.getAttribute(
+                            'data-yh-next-role-action'
+                        );
+
+                    await runSquadManagementActionV1(
+                        button,
+                        {
+                            url:
+                                '/api/academy/squad/members/' +
+                                encodeURIComponent(
+                                    userId
+                                ),
+                            method: 'PATCH',
+                            body: {
+                                action
+                            },
+                            loadingLabel:
+                                action === 'promote'
+                                    ? 'Promoting...'
+                                    : 'Demoting...',
+                            successMessage:
+                                'Member role updated.'
+                        }
+                    );
+                }
+            );
+        });
+
+    document
+        .querySelectorAll(
+            '[data-yh-remove-squad-member]'
+        )
+        .forEach((button) => {
+            button.addEventListener(
+                'click',
+                async () => {
+                    const confirmed =
+                        await window.YHSharedCore
+                            ?.openYHConfirmModal?.({
+                                title:
+                                    'Remove squad member?',
+                                message:
+                                    'This member will lose access to the squad.',
+                                okText:
+                                    'Remove Member',
+                                cancelText:
+                                    'Cancel',
+                                tone:
+                                    'danger'
+                            });
+
+                    if (!confirmed) return;
+
+                    const userId =
+                        button.getAttribute(
+                            'data-yh-remove-squad-member'
+                        );
+
+                    await runSquadManagementActionV1(
+                        button,
+                        {
+                            url:
+                                '/api/academy/squad/members/' +
+                                encodeURIComponent(
+                                    userId
+                                ),
+                            method: 'PATCH',
+                            body: {
+                                action: 'remove'
+                            },
+                            loadingLabel:
+                                'Removing...',
+                            successMessage:
+                                'Member removed.'
+                        }
+                    );
+                }
+            );
+        });
+
+    document
+        .querySelector(
+            '[data-yh-leave-squad]'
+        )
+        ?.addEventListener(
+            'click',
+            async (event) => {
+                const confirmed =
+                    await window.YHSharedCore
+                        ?.openYHConfirmModal?.({
+                            title:
+                                'Leave this squad?',
+                            message:
+                                'You will need a new invitation code to join again.',
+                            okText:
+                                'Leave Squad',
+                            cancelText:
+                                'Cancel',
+                            tone:
+                                'danger'
+                        });
+
+                if (!confirmed) return;
+
+                await runSquadManagementActionV1(
+                    event.currentTarget,
+                    {
+                        url:
+                            '/api/academy/squad/leave',
+                        method: 'POST',
+                        loadingLabel:
+                            'Leaving...',
+                        successMessage:
+                            'You left the squad.',
+                        clearSquad: true
+                    }
+                );
+            }
+        );
+
+    document
+        .querySelector(
+            '[data-yh-disband-squad]'
+        )
+        ?.addEventListener(
+            'click',
+            async (event) => {
+                const confirmed =
+                    await window.YHSharedCore
+                        ?.openYHConfirmModal?.({
+                            title:
+                                'Disband this squad?',
+                            message:
+                                'All members will be removed. This action cannot be reversed.',
+                            okText:
+                                'Disband Squad',
+                            cancelText:
+                                'Cancel',
+                            tone:
+                                'danger'
+                        });
+
+                if (!confirmed) return;
+
+                await runSquadManagementActionV1(
+                    event.currentTarget,
+                    {
+                        url:
+                            '/api/academy/squad',
+                        method: 'DELETE',
+                        loadingLabel:
+                            'Disbanding...',
+                        successMessage:
+                            'Squad disbanded.',
+                        clearSquad: true
+                    }
+                );
+            }
+        );
+}
+
+    /* END PATCH: Live Academy Squad Dashboard UI v1 */
+
+    function escapeHtml(value = '') {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function resolveDisplayName() {
+        const candidates = [
+            localStorage.getItem('yh_user_full_name'),
+            localStorage.getItem('yh_user_display_name'),
+            localStorage.getItem('yh_user_name'),
+            sessionStorage.getItem('yh_user_name')
+        ];
+
+        return (
+            candidates
+                .map((value) => String(value || '').trim())
+                .find(Boolean) || 'Hustler'
+        );
+    }
+
+    function getDivisionActionMeta(division = '') {
+        const map = {
+            academy: {
+                selector: '[data-yh-dashboard-shell="academy"]',
+                label: 'Enter Academy'
+            },
+            plaza: {
+                selector: '[data-yh-dashboard-shell="plazas"]',
+                label: 'Explore Plazas'
+            },
+            federation: {
+                selector: '[data-yh-dashboard-shell="federation"]',
+                label: 'Open Federation'
+            }
+        };
+
+        return map[division] || map.academy;
+    }
+
+    function buildProgressBar(score = 0) {
+        const safeScore = Math.max(0, Math.min(100, Number(score || 0)));
+
+        return `
+            <div class="yh-game-progress-track" aria-hidden="true">
+                <span
+                    class="yh-game-progress-fill"
+                    style="width:${safeScore}%"
+                ></span>
+            </div>
+        `;
+    }
+
+    function buildDivisionCard(snapshot = {}) {
+        const division = String(snapshot.division || '').trim();
+        const action = getDivisionActionMeta(division);
+        const score = Math.round(Number(snapshot.score || 0));
+        const isPreview = snapshot.isPreview === true;
+        const isPersistentAcademy =
+            division === 'academy' &&
+            snapshot.hasPersistentProgression === true;
+
+        const title =
+            division === 'academy'
+                ? 'Academy'
+                : division === 'plaza'
+                    ? 'Plazas'
+                    : 'Federation';
+
+        const kicker =
+            division === 'academy'
+                ? 'Solo Progression'
+                : division === 'plaza'
+                    ? 'Open World'
+                    : 'Strategic Endgame';
+
+        const icon =
+            division === 'academy'
+                ? '✦'
+                : division === 'plaza'
+                    ? '◎'
+                    : '⬡';
+
+        return `
+            <article
+                class="yh-game-division-card"
+                data-yh-game-division="${escapeHtml(division)}"
+            >
+                <div class="yh-game-division-top">
+                    <span class="yh-game-division-icon" aria-hidden="true">
+                        ${icon}
+                    </span>
+
+                    <div class="yh-game-division-heading">
+                        <small>${escapeHtml(kicker)}</small>
+                        <h3>${escapeHtml(title)}</h3>
+                    </div>
+
+                    <span
+                        class="yh-game-access-state ${
+                            snapshot.approved ? 'is-approved' : ''
+                        }"
+                    >
+                        ${snapshot.approved ? 'Active' : 'Building'}
+                    </span>
+                </div>
+
+                <div class="yh-game-rank-row">
+                    <div>
+                        <small>Current Rank</small>
+                        <strong>${escapeHtml(snapshot.rank)}</strong>
+                    </div>
+
+                    <div class="yh-game-score">
+                        <small class="yh-game-score-label">
+                            ${
+                                isPersistentAcademy
+                                    ? 'Rank Progress'
+                                    : isPreview
+                                        ? 'Readiness Preview'
+                                        : 'Readiness Signal'
+                            }
+                        </small>
+
+                        <div>
+                            <strong>${score}</strong>
+                            <span>/100</span>
+                        </div>
+                    </div>
+                </div>
+
+                ${buildProgressBar(score)}
+
+                ${
+                    isPersistentAcademy
+                        ? `
+                            <div class="yh-game-academy-xp-strip">
+                                <span>
+                                    Level ${Number(snapshot.level || 1)}
+                                </span>
+
+                                <strong>
+                                    ${Number(snapshot.totalXp || 0).toLocaleString()} XP
+                                </strong>
+
+                                <span>
+                                    ${Number(snapshot.weeklyXp || 0).toLocaleString()} this week
+                                </span>
+                            </div>
+                        `
+                        : ''
+                }
+
+                <p class="yh-game-division-status">
+                    ${escapeHtml(snapshot.progressionLabel)}
+                </p>
+
+                <div class="yh-game-next-objective">
+                    <small>Next objective</small>
+                    <span>${escapeHtml(snapshot.nextObjective)}</span>
+                </div>
+
+                <button
+                    type="button"
+                    class="yh-game-division-action"
+                    data-yh-game-open-selector="${escapeHtml(action.selector)}"
+                >
+                    ${escapeHtml(action.label)}
+                </button>
+            </article>
+        `;
+    }
+
+
+    function buildSquadCard(
+        squad = {}
+    ) {
+        const loaded =
+            squad?.loaded === true;
+
+        const joined =
+            squad?.joined === true;
+
+        if (!loaded) {
+            return `
+                <article class="yh-game-side-card yh-game-squad-card">
+                    <div class="yh-game-side-card-head">
+                        <div>
+                            <small>Squad System</small>
+                            <h3>Loading Squad</h3>
+                        </div>
+
+                        <span class="yh-game-preview-badge">
+                            Live
+                        </span>
+                    </div>
+
+                    <p>
+                        Checking your current Academy squad membership.
+                    </p>
+
+                    <div class="yh-game-squad-loading">
+                        <span></span>
+                        Loading squad...
+                    </div>
+                </article>
+            `;
+        }
+
+        return `
+            <article class="yh-game-side-card yh-game-squad-card">
+                <div class="yh-game-side-card-head">
+                    <div>
+                        <small>
+                            ${joined
+                                ? 'Your Squad'
+                                : 'Squad System'}
+                        </small>
+
+                        <h3>
+                            ${
+                                joined
+                                    ? `
+                                        <span class="yh-game-squad-title-emblem">
+                                            ${escapeHtml(
+                                                squad.emblem ||
+                                                '⚡'
+                                            )}
+                                        </span>
+
+                                        ${escapeHtml(
+                                            squad.name ||
+                                            'Academy Squad'
+                                        )}
+                                    `
+                                    : 'No Squad Yet'
+                            }
+                        </h3>
+                    </div>
+
+                    <span class="yh-game-preview-badge">
+                        ${joined
+                            ? escapeHtml(
+                                squad.role ||
+                                'member'
+                            )
+                            : 'Live'}
+                    </span>
+                </div>
+
+                <p>
+                    ${
+                        joined
+                            ? `
+                                ${Number(
+                                    squad.members || 0
+                                )} of ${Number(
+                                    squad.maxMembers || 8
+                                )} members
+                                • ${
+                                    squad.weeklyPosition?.position
+                                        ? (
+                                            'Weekly Rank #' +
+                                            Number(
+                                                squad
+                                                    .weeklyPosition
+                                                    .position
+                                            )
+                                        )
+                                        : 'Weekly Rank Unranked'
+                                }
+                                • ${Number(
+                                    squad.totalXp || 0
+                                ).toLocaleString()} XP
+                            `
+                            : `
+                                Create or join a small Academy team for
+                                shared missions, contracts, operations,
+                                and squad rankings.
+                            `
+                    }
+                </p>
+
+                <div
+                    class="yh-game-squad-slots"
+                    aria-label="${
+                        Number(
+                            squad.members || 0
+                        )
+                    } of ${
+                        Number(
+                            squad.maxMembers || 8
+                        )
+                    } squad positions filled"
+                >
+                    ${Array.from({
+                        length:
+                            Number(
+                                squad.maxMembers || 8
+                            )
+                    })
+                        .map((_, index) => {
+                            const occupied =
+                                joined &&
+                                index <
+                                    Number(
+                                        squad.members || 0
+                                    );
+
+                            return `
+                                <span class="${
+                                    occupied
+                                        ? 'is-filled'
+                                        : ''
+                                }">
+                                    ${
+                                        occupied
+                                            ? '●'
+                                            : '+'
+                                    }
+                                </span>
+                            `;
+                        })
+                        .join('')}
+                </div>
+
+                ${
+                    joined
+                        ? `
+                            <div class="yh-game-squad-live-meta">
+                            <div>
+                                <small>
+                                    Level ${Number(
+                                        squad.level || 1
+                                    )}
+                                </small>
+
+                                <strong>
+                                    ${Number(
+                                        squad.weeklyXp || 0
+                                    ).toLocaleString()}
+                                    weekly XP
+                                </strong>
+                            </div>
+
+                            <div>
+                                <small>Invite Code</small>
+                                    <strong>
+                                        ${escapeHtml(
+                                            squad.inviteCode ||
+                                            'Unavailable'
+                                        )}
+                                    </strong>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="yh-game-squad-primary yh-game-squad-card-main-action"
+                                data-yh-game-squad-open
+                            >
+                                Open Squad
+                            </button>
+                        `
+                        : `
+                            <div class="yh-game-squad-card-actions">
+                                <button
+                                    type="button"
+                                    class="yh-game-squad-primary"
+                                    data-yh-game-squad-create
+                                >
+                                    Create Squad
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="yh-game-squad-secondary"
+                                    data-yh-game-squad-join
+                                >
+                                    Search for Squad
+                                </button>
+                            </div>
+                        `
+                }
+            </article>
+        `;
+    }
+/* PATCH: Academy leaderboard visible-name safety v1 */
+
+function resolveAcademyLeaderboardNameV1(
+    entry = {}
+) {
+    const invalidNames =
+        new Set([
+            '',
+            'academy member',
+            'yh member',
+            'hustler',
+            'member',
+            'user'
+        ]);
+
+    const displayName =
+        String(
+            entry.displayName ||
+            entry.display_name ||
+            ''
+        ).trim();
+
+    const username =
+        String(
+            entry.username ||
+            ''
+        )
+            .trim()
+            .replace(/^@+/, '');
+
+    if (
+        displayName &&
+        !displayName.includes('@') &&
+        !invalidNames.has(
+            displayName.toLowerCase()
+        )
+    ) {
+        return displayName;
+    }
+
+    if (
+        username &&
+        !username.includes('@') &&
+        !invalidNames.has(
+            username.toLowerCase()
+        )
+    ) {
+        return username;
+    }
+
+    return 'YH Member';
+}
+
+/* END PATCH: Academy leaderboard visible-name safety v1 */
+    function buildProgressSummaryCard(snapshot = {}) {
+        const academyLeaderboard =
+            window.YHUGameCore
+                ?.getAcademyLeaderboardSnapshot?.() || {};
+
+        const leaderboard = Array.isArray(
+            academyLeaderboard.leaderboard
+        )
+            ? academyLeaderboard.leaderboard
+            : [];
+
+        if (leaderboard.length) {
+            return `
+                <article class="yh-game-side-card yh-game-leaderboard-card">
+                    <div class="yh-game-side-card-head">
+                        <div>
+                            <small>Academy Leaderboard</small>
+                            <h3>Weekly Top Members</h3>
+                        </div>
+
+                        <span class="yh-game-preview-badge">
+                            ${
+                                academyLeaderboard.playerPosition
+                                    ? `You: #${academyLeaderboard.playerPosition}`
+                                    : 'Weekly'
+                            }
+                        </span>
+                    </div>
+
+                    <div class="yh-game-leaderboard-list">
+                        ${leaderboard
+                            .slice(0, 5)
+                            .map((entry) => `
+                                <div class="yh-game-leaderboard-row">
+                                    <span class="yh-game-leaderboard-position">
+                                        ${Number(entry.position || 0)}
+                                    </span>
+
+                                    <div>
+                                        <strong>
+                                        ${escapeHtml(
+                                            resolveAcademyLeaderboardNameV1(
+                                                entry
+                                            )
+                                        )}
+                                        </strong>
+
+                                        <small>
+                                            ${escapeHtml(entry.rank || 'Initiate')}
+                                            • Level ${Number(entry.level || 1)}
+                                        </small>
+                                    </div>
+
+                                    <b>
+                                        ${Number(entry.xp || 0).toLocaleString()}
+                                        <small>XP</small>
+                                    </b>
+                                </div>
+                            `)
+                            .join('')}
+                    </div>
+
+                    <p class="yh-game-preview-note">
+                        Weekly ranking is based on verified Academy
+                        mission, check-in, streak, and completion events.
+                    </p>
+                </article>
+            `;
+        }
+
+        const entries = [
+            {
+                key: 'academy',
+                label: 'Academy',
+                mode: 'Solo',
+                data: snapshot.divisions.academy
+            },
+            {
+                key: 'plaza',
+                label: 'Plazas',
+                mode: 'Open World',
+                data: snapshot.divisions.plaza
+            },
+            {
+                key: 'federation',
+                label: 'Federation',
+                mode: 'Strategic',
+                data: snapshot.divisions.federation
+            }
+        ];
+
+        return `
+            <article class="yh-game-side-card yh-game-leaderboard-card">
+                <div class="yh-game-side-card-head">
+                    <div>
+                        <small>Division Progress</small>
+                        <h3>Your Current Readiness</h3>
+                    </div>
+
+                    <span class="yh-game-preview-badge">
+                        Live Summary
+                    </span>
+                </div>
+
+                <div class="yh-game-leaderboard-list">
+                    ${entries.map((entry) => {
+                        const score = Math.round(
+                            Number(entry.data?.score || 0)
+                        );
+
+                        return `
+                            <div class="yh-game-leaderboard-row">
+                                <span
+                                    class="yh-game-division-summary-mark"
+                                    data-yh-summary-division="${escapeHtml(entry.key)}"
+                                    aria-hidden="true"
+                                ></span>
+
+                                <div>
+                                    <strong>${escapeHtml(entry.label)}</strong>
+                                    <small>
+                                        ${escapeHtml(
+                                            entry.data?.rank ||
+                                            'Awaiting Signal'
+                                        )}
+                                        • ${escapeHtml(entry.mode)}
+                                    </small>
+                                </div>
+
+                                <b>
+                                    ${score}
+                                    <small>
+                                        ${
+                                            entry.data?.isPreview
+                                                ? 'preview'
+                                                : 'signal'
+                                        }
+                                    </small>
+                                </b>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <p class="yh-game-preview-note">
+                    Loading verified Academy progression and rankings.
+                </p>
+            </article>
+        `;
+    }
+
+
+    function buildMarkup(snapshot = {}) {
+        const operator = snapshot.operator || {};
+        const divisions = snapshot.divisions || {};
+
+        return `
+            <section class="yh-game-foundation" id="${ROOT_ID}">
+                <header class="yh-game-operator-panel">
+                    <div class="yh-game-operator-copy">
+                        <small class="yh-game-system-kicker">
+                            YHU Operator Progression
+                        </small>
+
+                        <h2>
+                            ${escapeHtml(resolveDisplayName())}
+                        </h2>
+
+                        <p>
+                            Three separate progression paths. Build yourself in
+                            Academy, expand through the Plazas, and earn strategic
+                            influence inside the Federation.
+                        </p>
+                    </div>
+
+                    <div class="yh-game-operator-rank">
+                        <small>Global Operator Rank</small>
+                        <strong>${escapeHtml(operator.rank || 'Initiate')}</strong>
+                        <span>Level ${Number(operator.level || 1)}</span>
+                    </div>
+
+                    <div class="yh-game-operator-progress">
+                        <div>
+                            <span>Current Readiness</span>
+                            <strong>${Math.round(
+                                Number(operator.averageScore || 0)
+                            )}%</strong>
+                        </div>
+
+                        ${buildProgressBar(operator.averageScore)}
+                    </div>
+                </header>
+
+                <div class="yh-game-division-grid">
+                    ${buildDivisionCard(divisions.academy || {})}
+                    ${buildDivisionCard(divisions.plaza || {})}
+                    ${buildDivisionCard(divisions.federation || {})}
+                </div>
+
+                <div class="yh-game-meta-grid">
+                    ${buildProgressSummaryCard(snapshot)}
+                    ${buildSquadCard(snapshot.squad || {})}
+                </div>
+            </section>
+        `;
+    }
+
+    function findInsertionTarget() {
+        return (
+            document.getElementById('yh-universe-academy-strip') ||
+            document.querySelector('.yh-universe-academy-strip') ||
+            document.querySelector('.yh-dashboard-main-content') ||
+            document.querySelector('main')
+        );
+    }
+
+    function bindActions(root) {
+        if (
+            !root ||
+            root.dataset.yhGameActionsBound ===
+                'true'
+        ) {
+            return;
+        }
+
+        root.dataset.yhGameActionsBound =
+            'true';
+
+        root.addEventListener(
+            'click',
+            (event) => {
+                const createButton =
+                    event.target.closest(
+                        '[data-yh-game-squad-create]'
+                    );
+
+                if (createButton) {
+                    openCreateSquadModalV1();
+                    return;
+                }
+
+                const joinButton =
+                    event.target.closest(
+                        '[data-yh-game-squad-join]'
+                    );
+
+                if (joinButton) {
+                    openJoinSquadModalV1();
+                    return;
+                }
+
+                const openButton =
+                    event.target.closest(
+                        '[data-yh-game-squad-open]'
+                    );
+
+                if (openButton) {
+                    openSquadDetailsModalV1();
+                    return;
+                }
+
+                const button =
+                    event.target.closest(
+                        '[data-yh-game-open-selector]'
+                    );
+
+                if (!button) return;
+
+                const selector =
+                    button.getAttribute(
+                        'data-yh-game-open-selector'
+                    );
+
+                const target =
+                    selector
+                        ? document.querySelector(
+                            selector
+                        )
+                        : null;
+
+                if (
+                    target instanceof
+                    HTMLElement
+                ) {
+                    target.click();
+                }
+            }
+        );
+    }
+
+    function renderDashboardGameFoundation() {
+        if (
+            document.body?.getAttribute('data-yh-page') !== 'dashboard' ||
+            !window.YHUGameCore
+        ) {
+            return false;
+        }
+
+        const insertionTarget = findInsertionTarget();
+        if (!insertionTarget?.parentElement) return false;
+
+        const snapshot = window.YHUGameCore.getDashboardSnapshot();
+        let root = document.getElementById(ROOT_ID);
+
+        if (!root) {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = buildMarkup(snapshot).trim();
+            root = wrapper.firstElementChild;
+
+            insertionTarget.parentElement.insertBefore(
+                root,
+                insertionTarget
+            );
+        } else {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = buildMarkup(snapshot).trim();
+
+            const replacement = wrapper.firstElementChild;
+            root.replaceWith(replacement);
+            root = replacement;
+        }
+
+        bindActions(root);
+        document.body.setAttribute('data-yh-game-foundation', 'ready');
+
+        return true;
+    }
+
+    function boot() {
+        const rendered =
+            renderDashboardGameFoundation();
+
+        loadAcademyProgressionOnce();
+        loadAcademySquadV1();
+
+        if (rendered) return;
+
+        [80, 240, 600, 1200].forEach((delay) => {
+            window.setTimeout(() => {
+                renderDashboardGameFoundation();
+            }, delay);
+        });
+    }
+
+    window.YHURenderDashboardGameFoundation =
+        renderDashboardGameFoundation;
+
+    window.addEventListener('yhu:game-core-ready', boot);
+
+    window.addEventListener('storage', (event) => {
+        const watchedKeys = Object.values(
+            window.YHUGameCore?.STORAGE_KEYS || {}
+        );
+
+        if (watchedKeys.includes(event.key)) {
+            renderDashboardGameFoundation();
+        }
+    });
+
+    window.addEventListener(
+        'pageshow',
+        () => {
+            window.setTimeout(
+                () => {
+                    renderDashboardGameFoundation();
+                    loadAcademyProgressionOnce();
+
+                    loadAcademySquadV1({
+                        force: true
+                    });
+                },
+                120
+            );
+        }
+    );
+
+    window.addEventListener(
+        'yhu:academy-progression-updated',
+        renderDashboardGameFoundation
+    );
+
+    window.addEventListener(
+        'yhu:academy-squad-updated',
+        renderDashboardGameFoundation
+    );
+/* PATCH: Receive Academy iframe progression updates v1 */
+
+window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin) {
+        return;
+    }
+
+    if (
+        event.data?.type !==
+        'yhu:academy-progression-updated'
+    ) {
+        return;
+    }
+
+    const progression = event.data?.progression;
+
+    if (
+        !progression ||
+        typeof progression !== 'object'
+    ) {
+        return;
+    }
+
+    window.YHUGameCore
+        ?.setAcademyProgressionCache?.(
+            progression
+        );
+
+    renderDashboardGameFoundation();
+});
+
+/* END PATCH: Receive Academy iframe progression updates v1 */
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot, {
+            once: true
+        });
+    } else {
+        boot();
+    }
+})();

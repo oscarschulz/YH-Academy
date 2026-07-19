@@ -2,6 +2,16 @@ const crypto = require('crypto');
 const { firestore } = require('../../config/firebaseAdmin');
 const { yhuSupabaseAdmin } = require('../../config/supabaseAdmin');
 
+const academyMemberProfileSupabaseRepo =
+    require(
+        './academyMemberProfileSupabaseRepo'
+    );
+
+const yhuUsersSupabaseRepo =
+    require(
+        './yhuUsersSupabaseRepo'
+    );
+
 const TABLE = 'yhu_academy_core_records';
 const usersCollection = firestore.collection('users');
 
@@ -134,6 +144,14 @@ function collectionPathFor(recordType = '', uid = '') {
     if (recordType === 'academyLeadContacts') return `${userRoot}/academyLeadContacts`;
     if (recordType === 'academyLeadPayouts') return `${userRoot}/academyLeadPayouts`;
     if (recordType === 'academyLeadDeals') return `${userRoot}/academyLeadDeals`;
+
+    if (recordType === 'academy:progression') {
+        return `${userRoot}/academyProgression`;
+    }
+
+    if (recordType === 'academyXpEvents') {
+        return `${userRoot}/academyXpEvents`;
+    }
 
     return `${userRoot}/academy`;
 }
@@ -1004,6 +1022,78 @@ async function updateLeadMissionLead(uid, leadId, patch = {}) {
     return mapLeadMissionLeadData(rowData(saved), leadId);
 }
 
+async function deleteLeadMissionLead(uid, leadId) {
+    const cleanUid = sanitizeString(uid);
+    const cleanLeadId = sanitizeString(leadId);
+
+    if (!cleanUid || !cleanLeadId) {
+        return false;
+    }
+
+    const current =
+        await getLeadMissionLeadById(
+            cleanUid,
+            cleanLeadId
+        );
+
+    if (!current) {
+        return false;
+    }
+
+    const { error: leadError } =
+        await yhuSupabaseAdmin
+            .from(TABLE)
+            .delete()
+            .eq(
+                'record_type',
+                'academyLeadMissions'
+            )
+            .eq(
+                'user_id',
+                cleanUid
+            )
+            .eq(
+                'source_document_id',
+                cleanLeadId
+            );
+
+    if (leadError) {
+        throw new Error(
+            `Failed to delete Academy lead: ${leadError.message}`
+        );
+    }
+
+    /*
+     * The contact mirror uses the same lead ID.
+     * Remove it so deleted leads do not remain in My Contacts.
+     */
+    const { error: contactError } =
+        await yhuSupabaseAdmin
+            .from(TABLE)
+            .delete()
+            .eq(
+                'record_type',
+                'academyLeadContacts'
+            )
+            .eq(
+                'user_id',
+                cleanUid
+            )
+            .eq(
+                'source_document_id',
+                cleanLeadId
+            );
+
+    if (contactError) {
+        console.warn(
+            'Academy lead contact mirror delete skipped:',
+            contactError.message
+        );
+    }
+
+    return true;
+}
+
 async function listLeadMissionFollowUps(uid) {
     const leads = await listLeadMissionLeads(uid);
 
@@ -1281,6 +1371,4974 @@ async function persistRoadmapBundle(uid, profile = {}, plan = {}) {
     };
 }
 
+/* PATCH: Persistent Academy progression core v1 */
+
+const ACADEMY_PROGRESSION_RECORD_TYPE = 'academy:progression';
+const ACADEMY_XP_EVENT_RECORD_TYPE = 'academyXpEvents';
+const ACADEMY_PROGRESSION_DOC_ID = 'progression';
+
+function academyProgressionRankFromXpV1(xp = 0) {
+    const score = Math.max(0, toNumber(xp, 0));
+
+    if (score >= 9000) {
+        return {
+            key: 'academy_elite',
+            label: 'Academy Elite',
+            nextLabel: 'Max Rank',
+            minXp: 9000,
+            nextXp: 9000
+        };
+    }
+
+    if (score >= 6500) {
+        return {
+            key: 'vanguard',
+            label: 'Vanguard',
+            nextLabel: 'Academy Elite',
+            minXp: 6500,
+            nextXp: 9000
+        };
+    }
+
+    if (score >= 4500) {
+        return {
+            key: 'captain',
+            label: 'Captain',
+            nextLabel: 'Vanguard',
+            minXp: 4500,
+            nextXp: 6500
+        };
+    }
+
+    if (score >= 3000) {
+        return {
+            key: 'strategist',
+            label: 'Strategist',
+            nextLabel: 'Captain',
+            minXp: 3000,
+            nextXp: 4500
+        };
+    }
+
+    if (score >= 1800) {
+        return {
+            key: 'operator',
+            label: 'Operator',
+            nextLabel: 'Strategist',
+            minXp: 1800,
+            nextXp: 3000
+        };
+    }
+
+    if (score >= 900) {
+        return {
+            key: 'executor',
+            label: 'Executor',
+            nextLabel: 'Operator',
+            minXp: 900,
+            nextXp: 1800
+        };
+    }
+
+    if (score >= 300) {
+        return {
+            key: 'builder',
+            label: 'Builder',
+            nextLabel: 'Executor',
+            minXp: 300,
+            nextXp: 900
+        };
+    }
+
+    return {
+        key: 'initiate',
+        label: 'Initiate',
+        nextLabel: 'Builder',
+        minXp: 0,
+        nextXp: 300
+    };
+}
+
+function academyProgressionLevelFromXpV1(xp = 0) {
+    const score = Math.max(0, toNumber(xp, 0));
+    return Math.max(1, Math.floor(score / 350) + 1);
+}
+
+function academyProgressionWeekStartIsoV1(value = new Date()) {
+    const date = value instanceof Date
+        ? new Date(value.getTime())
+        : new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return academyProgressionWeekStartIsoV1(new Date());
+    }
+
+    const day = date.getUTCDay();
+    date.setUTCDate(date.getUTCDate() - day);
+    date.setUTCHours(0, 0, 0, 0);
+
+    return date.toISOString();
+}
+
+function academyProgressionEventDateV1(event = {}) {
+    return (
+        toIso(
+            event.eventAt ||
+            event.completedAt ||
+            event.checkinDate ||
+            event.createdAt ||
+            event.updatedAt
+        ) || nowIso()
+    );
+}
+
+function academyProgressionSafeEventIdV1(value = '') {
+    const clean = sanitizeString(value)
+        .toLowerCase()
+        .replace(/[^a-z0-9:_-]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 180);
+
+    return clean || makeId('academy_xp');
+}
+
+async function upsertAcademyXpEventV1(uid = '', event = {}) {
+    const cleanUid = sanitizeString(uid);
+    const eventType = sanitizeString(event.eventType || event.type);
+    const sourceId = sanitizeString(event.sourceId || event.source_id);
+
+    if (!cleanUid || !eventType || !sourceId) {
+        return {
+            ok: false,
+            skipped: true,
+            reason: 'missing_event_identity'
+        };
+    }
+
+    const eventId = academyProgressionSafeEventIdV1(
+        `${eventType}:${sourceId}`
+    );
+
+    const existingRow = await getOne(
+        ACADEMY_XP_EVENT_RECORD_TYPE,
+        cleanUid,
+        eventId
+    ).catch(() => null);
+
+    const existing = rowData(existingRow);
+
+    const payload = {
+        ...existing,
+        id: eventId,
+        eventId,
+        userId: cleanUid,
+        division: 'academy',
+        eventType,
+        sourceId,
+        sourceType: sanitizeString(event.sourceType || ''),
+        roadmapId: sanitizeString(event.roadmapId || ''),
+        xp: Math.max(0, Math.round(toNumber(event.xp, 0))),
+        eventAt: academyProgressionEventDateV1(event),
+        metadata:
+            event.metadata && typeof event.metadata === 'object'
+                ? normalizeForJson(event.metadata)
+                : {},
+        createdAt: existing.createdAt || nowIso(),
+        updatedAt: nowIso()
+    };
+
+    const saved = await upsertRecord(
+        ACADEMY_XP_EVENT_RECORD_TYPE,
+        cleanUid,
+        eventId,
+        payload
+    );
+
+    return {
+        ok: true,
+        created: !existingRow,
+        event: rowData(saved)
+    };
+}
+
+async function listAcademyXpEventsV1(uid = '', limit = 500) {
+    const rows = await getRows(
+        ACADEMY_XP_EVENT_RECORD_TYPE,
+        uid,
+        {
+            limit: Math.max(1, Math.min(500, Number(limit) || 500))
+        }
+    );
+
+    return rows.map((row) => ({
+        ...rowData(row),
+        id:
+            rowData(row).id ||
+            row.source_document_id ||
+            ''
+    }));
+}
+
+async function getAcademyProgressionV1(uid = '') {
+    const row = await getOne(
+        ACADEMY_PROGRESSION_RECORD_TYPE,
+        uid,
+        ACADEMY_PROGRESSION_DOC_ID
+    );
+
+    if (!row) return null;
+
+    return {
+        ...rowData(row),
+        id: ACADEMY_PROGRESSION_DOC_ID
+    };
+}
+
+async function syncAcademyProgressionFromCurrentStateV1(
+    uid = '',
+    profile = {}
+) {
+    const cleanUid = sanitizeString(uid);
+
+    if (!cleanUid) {
+        throw new Error('Missing Academy progression user id.');
+    }
+
+    const activeRoadmap = await getActiveRoadmap(cleanUid).catch(() => null);
+
+    const missions = activeRoadmap
+        ? await listAllMissionsByRoadmap(
+            cleanUid,
+            activeRoadmap.id
+        ).catch(() => [])
+        : [];
+
+    const checkins = await getRows(
+        'academyCheckins',
+        cleanUid,
+        { limit: 500 }
+    ).then((rows) => (
+        rows.map((row) =>
+            mapCheckinData(
+                rowData(row),
+                row.source_document_id
+            )
+        )
+    )).catch(() => []);
+
+    const completedMissions = missions.filter((mission) => {
+        return sanitizeString(mission.status).toLowerCase() === 'completed';
+    });
+
+    for (const mission of completedMissions) {
+        await upsertAcademyXpEventV1(cleanUid, {
+            eventType: 'mission_completed',
+            sourceId: mission.id,
+            sourceType: 'academyMission',
+            roadmapId: mission.roadmapId || activeRoadmap?.id || '',
+            xp: 50,
+            eventAt:
+                mission.completedAt ||
+                mission.updatedAt ||
+                mission.createdAt,
+            metadata: {
+                title: mission.title || '',
+                missionType: mission.missionType || '',
+                difficultyLevel: mission.difficultyLevel || ''
+            }
+        });
+    }
+
+    for (const checkin of checkins) {
+        const checkinIdentity =
+            sanitizeString(checkin.checkinDate) ||
+            sanitizeString(checkin.id);
+
+        if (!checkinIdentity) continue;
+
+        await upsertAcademyXpEventV1(cleanUid, {
+            eventType: 'daily_checkin',
+            sourceId: checkinIdentity,
+            sourceType: 'academyCheckin',
+            roadmapId: checkin.roadmapId || activeRoadmap?.id || '',
+            xp: 20,
+            eventAt:
+                checkin.checkinDate ||
+                checkin.createdAt ||
+                checkin.updatedAt,
+            metadata: {
+                energyScore: toNumber(checkin.energyScore, 0),
+                moodScore: toNumber(checkin.moodScore, 0),
+                disciplineScore: toNumber(checkin.disciplineScore, 0)
+            }
+        });
+    }
+
+    const streakDays = await getRecentCheckinStreakDays(
+        cleanUid
+    ).catch(() => 0);
+
+    if (streakDays >= 3) {
+        await upsertAcademyXpEventV1(cleanUid, {
+            eventType: 'streak_bonus',
+            sourceId: 'three_day',
+            sourceType: 'academyStreak',
+            xp: 35,
+            eventAt: nowIso(),
+            metadata: {
+                threshold: 3,
+                currentStreakDays: streakDays
+            }
+        });
+    }
+
+    if (streakDays >= 7) {
+        await upsertAcademyXpEventV1(cleanUid, {
+            eventType: 'streak_bonus',
+            sourceId: 'seven_day',
+            sourceType: 'academyStreak',
+            xp: 100,
+            eventAt: nowIso(),
+            metadata: {
+                threshold: 7,
+                currentStreakDays: streakDays
+            }
+        });
+    }
+
+    const totalMissions = missions.length;
+    const completedMissionCount = completedMissions.length;
+
+    const completionRate =
+        totalMissions > 0
+            ? Math.round(
+                (completedMissionCount / totalMissions) * 100
+            )
+            : 0;
+
+    let completionBonusXp = 0;
+    let completionBonusKey = '';
+
+    if (completionRate >= 100 && totalMissions > 0) {
+        completionBonusXp = 250;
+        completionBonusKey = 'complete';
+    } else if (completionRate >= 70) {
+        completionBonusXp = 120;
+        completionBonusKey = 'seventy';
+    } else if (completionRate >= 40) {
+        completionBonusXp = 50;
+        completionBonusKey = 'forty';
+    }
+
+    if (completionBonusXp > 0) {
+        await upsertAcademyXpEventV1(cleanUid, {
+            eventType: 'roadmap_completion_bonus',
+            sourceId:
+                activeRoadmap?.id ||
+                ACADEMY_PROGRESSION_DOC_ID,
+            sourceType: 'academyRoadmap',
+            roadmapId: activeRoadmap?.id || '',
+            xp: completionBonusXp,
+            eventAt: nowIso(),
+            metadata: {
+                completionRate,
+                bonusKey: completionBonusKey,
+                totalMissions,
+                completedMissions: completedMissionCount
+            }
+        });
+    }
+
+    const events = await listAcademyXpEventsV1(
+        cleanUid,
+        500
+    );
+
+    const totalXp = events.reduce((sum, event) => {
+        return sum + Math.max(0, toNumber(event.xp, 0));
+    }, 0);
+
+    const weekStartIso = academyProgressionWeekStartIsoV1(
+        new Date()
+    );
+
+    const weeklyXp = events.reduce((sum, event) => {
+        const eventAt = academyProgressionEventDateV1(event);
+
+        if (eventAt < weekStartIso) return sum;
+
+        return sum + Math.max(0, toNumber(event.xp, 0));
+    }, 0);
+
+    const rank = academyProgressionRankFromXpV1(totalXp);
+    const level = academyProgressionLevelFromXpV1(totalXp);
+
+    const rankSpan = Math.max(
+        1,
+        rank.nextXp - rank.minXp
+    );
+
+    const rankProgress =
+        rank.nextXp === rank.minXp
+            ? 100
+            : Math.max(
+                0,
+                Math.min(
+                    100,
+                    Math.round(
+                        (
+                            (totalXp - rank.minXp) /
+                            rankSpan
+                        ) * 100
+                    )
+                )
+            );
+
+    const displayName = sanitizeString(
+        profile.display_name ||
+        profile.displayName ||
+        profile.fullName ||
+        profile.full_name ||
+        profile.name ||
+        'Academy Member'
+    );
+
+    const username = sanitizeString(
+        profile.username ||
+        profile.handle ||
+        ''
+    );
+
+    const avatar = sanitizeString(
+        profile.avatar ||
+        profile.profilePhoto ||
+        profile.photoURL ||
+        ''
+    );
+
+    const existing = await getAcademyProgressionV1(
+        cleanUid
+    ).catch(() => null);
+
+    const summary = {
+        ...existing,
+        id: ACADEMY_PROGRESSION_DOC_ID,
+        userId: cleanUid,
+        division: 'academy',
+
+        displayName,
+        username,
+        avatar,
+
+        totalXp,
+        weeklyXp,
+        level,
+
+        rank: rank.label,
+        rankKey: rank.key,
+        nextRank: rank.nextLabel,
+        nextXp: rank.nextXp,
+        rankMinXp: rank.minXp,
+        rankProgress,
+
+        completedMissions: completedMissionCount,
+        totalMissions,
+        completionRate,
+        checkinCount: checkins.length,
+        streakDays,
+
+        eventCount: events.length,
+        weekStartAt: weekStartIso,
+        source: 'academy_progression_reconciliation_v1',
+
+        createdAt: existing?.createdAt || nowIso(),
+        updatedAt: nowIso()
+    };
+
+    await upsertRecord(
+        ACADEMY_PROGRESSION_RECORD_TYPE,
+        cleanUid,
+        ACADEMY_PROGRESSION_DOC_ID,
+        summary
+    );
+
+    return summary;
+}
+/* PATCH: Academy leaderboard canonical member identity v1 */
+
+function isValidAcademyLeaderboardNameV1(
+    value = ''
+) {
+    const clean =
+        sanitizeString(value);
+
+    if (!clean) {
+        return false;
+    }
+
+    const invalidNames =
+        new Set([
+            'academy member',
+            'yh member',
+            'hustler',
+            'member',
+            'user'
+        ]);
+
+    if (
+        invalidNames.has(
+            clean.toLowerCase()
+        )
+    ) {
+        return false;
+    }
+
+    if (
+        clean.includes('@')
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
+async function resolveAcademyLeaderboardIdentityV1(
+    userId = '',
+    progression = {}
+) {
+    const cleanUserId =
+        sanitizeString(userId);
+
+    let academyMemberProfile = null;
+    let universeUser = null;
+    let coreProfile = null;
+
+    if (cleanUserId) {
+        try {
+            academyMemberProfile =
+                await academyMemberProfileSupabaseRepo
+                    .getProfileByUid(
+                        cleanUserId
+                    );
+        } catch (_) {
+            academyMemberProfile = null;
+        }
+
+        try {
+            universeUser =
+                await yhuUsersSupabaseRepo
+                    .getByUid(
+                        cleanUserId
+                    );
+        } catch (_) {
+            universeUser = null;
+        }
+
+        try {
+            coreProfile =
+                await getCurrentProfile(
+                    cleanUserId
+                );
+        } catch (_) {
+            coreProfile = null;
+        }
+    }
+
+    const academyMemberData =
+        academyMemberProfile?.data &&
+        typeof academyMemberProfile.data ===
+            'object'
+            ? academyMemberProfile.data
+            : {};
+
+    const academyMemberPublicMeta =
+        academyMemberProfile?.public_meta &&
+        typeof academyMemberProfile.public_meta ===
+            'object'
+            ? academyMemberProfile.public_meta
+            : {};
+
+    const universeData =
+        universeUser?.data &&
+        typeof universeUser.data ===
+            'object'
+            ? universeUser.data
+            : {};
+
+    const universePublicMeta =
+        universeUser?.public_meta &&
+        typeof universeUser.public_meta ===
+            'object'
+            ? universeUser.public_meta
+            : {};
+
+    const displayNameCandidates = [
+        academyMemberProfile?.display_name,
+        academyMemberProfile?.full_name,
+
+        academyMemberData.display_name,
+        academyMemberData.displayName,
+        academyMemberData.full_name,
+        academyMemberData.fullName,
+        academyMemberData.name,
+
+        academyMemberPublicMeta.display_name,
+        academyMemberPublicMeta.displayName,
+        academyMemberPublicMeta.full_name,
+        academyMemberPublicMeta.fullName,
+        academyMemberPublicMeta.name,
+
+        universeUser?.display_name,
+        universeUser?.full_name,
+
+        universeData.display_name,
+        universeData.displayName,
+        universeData.full_name,
+        universeData.fullName,
+        universeData.name,
+
+        universePublicMeta.display_name,
+        universePublicMeta.displayName,
+        universePublicMeta.full_name,
+        universePublicMeta.fullName,
+        universePublicMeta.name,
+
+        coreProfile?.display_name,
+        coreProfile?.displayName,
+        coreProfile?.full_name,
+        coreProfile?.fullName,
+        coreProfile?.name,
+
+        progression.displayName,
+        progression.display_name
+    ];
+
+    const usernameCandidates = [
+        academyMemberProfile?.username,
+        academyMemberData.username,
+        academyMemberPublicMeta.username,
+
+        universeUser?.username,
+        universeData.username,
+        universePublicMeta.username,
+
+        coreProfile?.username,
+        progression.username
+    ];
+
+    const username =
+        usernameCandidates
+            .map((value) =>
+                sanitizeString(value)
+                    .replace(/^@+/, '')
+            )
+            .find(
+                (value) =>
+                    Boolean(value) &&
+                    !value.includes('@')
+            ) ||
+        '';
+
+    const displayName =
+        displayNameCandidates
+            .map((value) =>
+                sanitizeString(value)
+            )
+            .find(
+                isValidAcademyLeaderboardNameV1
+            ) ||
+        username ||
+        'YH Member';
+
+    const avatar =
+        sanitizeString(
+            academyMemberProfile?.avatar ||
+            academyMemberProfile?.profile_photo ||
+            academyMemberProfile?.photo_url ||
+
+            academyMemberData.avatar ||
+            academyMemberData.avatarUrl ||
+            academyMemberData.profilePhoto ||
+            academyMemberData.photoURL ||
+
+            academyMemberPublicMeta.avatar ||
+            academyMemberPublicMeta.avatarUrl ||
+            academyMemberPublicMeta.profilePhoto ||
+            academyMemberPublicMeta.photoURL ||
+
+            universeUser?.avatar ||
+            universeUser?.profile_photo ||
+            universeUser?.photo_url ||
+
+            universeData.avatar ||
+            universeData.avatarUrl ||
+            universeData.profilePhoto ||
+            universeData.photoURL ||
+
+            coreProfile?.avatar ||
+            coreProfile?.avatarUrl ||
+            coreProfile?.profilePhoto ||
+            coreProfile?.photoURL ||
+
+            progression.avatar ||
+            ''
+        );
+
+    return {
+        displayName,
+        username,
+        avatar
+    };
+}
+
+/* END PATCH: Academy leaderboard canonical member identity v1 */
+async function listAcademyProgressionLeaderboardV1(
+    period = 'weekly',
+    limit = 50
+) {
+    const cleanPeriod =
+        sanitizeString(period).toLowerCase() ===
+        'all_time'
+            ? 'all_time'
+            : 'weekly';
+
+    const safeLimit =
+        Math.max(
+            1,
+            Math.min(
+                100,
+                Number(limit) || 50
+            )
+        );
+
+    const { data, error } =
+        await yhuSupabaseAdmin
+            .from(TABLE)
+            .select('*')
+            .eq(
+                'record_type',
+                ACADEMY_PROGRESSION_RECORD_TYPE
+            )
+            .limit(500);
+
+    if (error) {
+        throw new Error(
+            `Academy leaderboard failed: ${error.message}`
+        );
+    }
+
+    const field =
+        cleanPeriod === 'all_time'
+            ? 'totalXp'
+            : 'weeklyXp';
+
+    const rawEntries =
+        (Array.isArray(data) ? data : [])
+            .map((row) => {
+                const progression =
+                    rowData(row);
+
+                return {
+                    userId:
+                        sanitizeString(
+                            progression.userId ||
+                            row.user_id ||
+                            ''
+                        ),
+
+                    displayName:
+                        sanitizeString(
+                            progression.displayName ||
+                            progression.display_name ||
+                            ''
+                        ),
+
+                    username:
+                        sanitizeString(
+                            progression.username ||
+                            ''
+                        ),
+
+                    avatar:
+                        sanitizeString(
+                            progression.avatar ||
+                            ''
+                        ),
+
+                    xp:
+                        Math.max(
+                            0,
+                            toNumber(
+                                progression[field],
+                                0
+                            )
+                        ),
+
+                    totalXp:
+                        Math.max(
+                            0,
+                            toNumber(
+                                progression.totalXp,
+                                0
+                            )
+                        ),
+
+                    weeklyXp:
+                        Math.max(
+                            0,
+                            toNumber(
+                                progression.weeklyXp,
+                                0
+                            )
+                        ),
+
+                    level:
+                        Math.max(
+                            1,
+                            toNumber(
+                                progression.level,
+                                1
+                            )
+                        ),
+
+                    rank:
+                        progression.rank ||
+                        'Initiate',
+
+                    rankKey:
+                        progression.rankKey ||
+                        'initiate',
+
+                    streakDays:
+                        Math.max(
+                            0,
+                            toNumber(
+                                progression.streakDays,
+                                0
+                            )
+                        ),
+
+                    completedMissions:
+                        Math.max(
+                            0,
+                            toNumber(
+                                progression
+                                    .completedMissions,
+                                0
+                            )
+                        ),
+
+                    progression
+                };
+            });
+
+    const enrichedEntries =
+        await Promise.all(
+            rawEntries.map(
+                async (entry) => {
+                    const identity =
+                        await resolveAcademyLeaderboardIdentityV1(
+                            entry.userId,
+                            entry.progression
+                        );
+
+                    return {
+                        ...entry,
+                        displayName:
+                            identity.displayName,
+
+                        username:
+                            identity.username,
+
+                        avatar:
+                            identity.avatar
+                    };
+                }
+            )
+        );
+
+    return enrichedEntries
+        .map(({ progression, ...entry }) => entry)
+        .sort((a, b) => {
+            if (b.xp !== a.xp) {
+                return b.xp - a.xp;
+            }
+
+            if (
+                b.totalXp !==
+                a.totalXp
+            ) {
+                return (
+                    b.totalXp -
+                    a.totalXp
+                );
+            }
+
+            return String(
+                a.displayName
+            ).localeCompare(
+                String(
+                    b.displayName
+                )
+            );
+        })
+        .slice(0, safeLimit)
+        .map((entry, index) => ({
+            ...entry,
+            position:
+                index + 1,
+            period:
+                cleanPeriod
+        }));
+}
+/* END PATCH: Persistent Academy progression core v1 */
+
+
+/* PATCH: Academy Squad Foundation core v1 */
+
+const ACADEMY_SQUAD_RECORD_TYPE =
+    'academy:squad';
+
+const ACADEMY_SQUAD_MEMBERSHIP_RECORD_TYPE =
+    'academy:squadMembership';
+
+const ACADEMY_SQUAD_MEMBERSHIP_DOC_ID =
+    'current-squad';
+
+function academySquadNormalizeInviteCodeV1(
+    value = ''
+) {
+    return sanitizeString(value)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+        .slice(0, 10);
+}
+
+function academySquadGenerateInviteCodeV1() {
+    return crypto
+        .randomBytes(5)
+        .toString('hex')
+        .toUpperCase()
+        .slice(0, 8);
+}
+
+function academySquadNormalizeMemberV1(
+    member = {}
+) {
+    return {
+        userId:
+            sanitizeString(
+                member.userId ||
+                member.uid ||
+                member.id
+            ),
+
+        displayName:
+            sanitizeString(
+                member.displayName ||
+                member.fullName ||
+                member.name ||
+                'YH Member'
+            ),
+
+        username:
+            sanitizeString(
+                member.username ||
+                member.handle ||
+                ''
+            )
+                .replace(/^@+/, ''),
+
+        avatar:
+            sanitizeString(
+                member.avatar ||
+                member.avatarUrl ||
+                member.avatar_url ||
+                ''
+            ),
+
+        role:
+            ['owner', 'captain'].includes(
+                sanitizeString(
+                    member.role
+                ).toLowerCase()
+            )
+                ? sanitizeString(
+                    member.role
+                ).toLowerCase()
+                : 'member',
+
+        joinedAt:
+            toIso(member.joinedAt) ||
+            nowIso()
+    };
+}
+
+function academySquadNormalizeRecordV1(
+    value = {}
+) {
+    const source =
+        value &&
+        typeof value === 'object'
+            ? value
+            : {};
+
+    const members =
+        Array.isArray(source.members)
+            ? source.members
+                .map(
+                    academySquadNormalizeMemberV1
+                )
+                .filter(
+                    (member) =>
+                        Boolean(member.userId)
+                )
+                .slice(0, 8)
+            : [];
+
+    return {
+        id:
+            sanitizeString(
+                source.id ||
+                source.squadId
+            ),
+
+        name:
+            sanitizeString(
+                source.name ||
+                'Unnamed Squad'
+            ).slice(0, 60),
+
+        description:
+            sanitizeString(
+                source.description ||
+                ''
+            ).slice(0, 240),
+
+        emblem:
+            sanitizeString(
+                source.emblem ||
+                '⚡'
+            ).slice(0, 12),
+
+        ownerUserId:
+            sanitizeString(
+                source.ownerUserId ||
+                source.ownerUid ||
+                ''
+            ),
+
+        inviteCode:
+            academySquadNormalizeInviteCodeV1(
+                source.inviteCode
+            ),
+
+        status:
+            sanitizeString(
+                source.status ||
+                'active'
+            ).toLowerCase(),
+
+        members,
+
+        memberCount:
+            members.length,
+
+        maxMembers: 8,
+
+        totalXp:
+            Math.max(
+                0,
+                toNumber(
+                    source.totalXp,
+                    0
+                )
+            ),
+
+        weeklyXp:
+            Math.max(
+                0,
+                toNumber(
+                    source.weeklyXp,
+                    0
+                )
+            ),
+
+        rank:
+            sanitizeString(
+                source.rank ||
+                'Unranked'
+            ),
+
+        level:
+            Math.max(
+                1,
+                Math.floor(
+                    toNumber(
+                        source.level,
+                        1
+                    )
+                )
+            ),
+
+        nextLevelXp:
+            Math.max(
+                100,
+                toNumber(
+                    source.nextLevelXp,
+                    100
+                )
+            ),
+
+        recentContributions:
+            Array.isArray(
+                source.recentContributions
+            )
+                ? source.recentContributions
+                    .filter(
+                        (entry) =>
+                            entry &&
+                            typeof entry ===
+                                'object'
+                    )
+                    .slice(0, 20)
+                : [],
+
+        createdAt:
+            toIso(source.createdAt) ||
+            nowIso(),
+
+        updatedAt:
+            toIso(source.updatedAt) ||
+            nowIso()
+    };
+}
+
+async function getAcademySquadMembershipV1(
+    uid = ''
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    if (!cleanUid) {
+        return null;
+    }
+
+    const row =
+        await getOne(
+            ACADEMY_SQUAD_MEMBERSHIP_RECORD_TYPE,
+            cleanUid,
+            ACADEMY_SQUAD_MEMBERSHIP_DOC_ID
+        );
+
+    if (!row) {
+        return null;
+    }
+
+    const data =
+        rowData(row);
+
+    const squadId =
+        sanitizeString(
+            data.squadId
+        );
+
+    if (
+        !squadId ||
+        sanitizeString(
+            data.status
+        ).toLowerCase() ===
+            'left'
+    ) {
+        return null;
+    }
+
+    return {
+        ...data,
+        squadId,
+        userId: cleanUid
+    };
+}
+
+async function getAcademySquadByIdV1(
+    squadId = ''
+) {
+    const cleanSquadId =
+        sanitizeString(squadId);
+
+    if (!cleanSquadId) {
+        return null;
+    }
+
+    const { data, error } =
+        await yhuSupabaseAdmin
+            .from(TABLE)
+            .select('*')
+            .eq(
+                'record_type',
+                ACADEMY_SQUAD_RECORD_TYPE
+            )
+            .eq(
+                'source_document_id',
+                cleanSquadId
+            )
+            .maybeSingle();
+
+    if (error) {
+        throw new Error(
+            `Academy Squad lookup failed: ${error.message}`
+        );
+    }
+
+    if (!data) {
+        return null;
+    }
+
+    return academySquadNormalizeRecordV1(
+        rowData(data)
+    );
+}
+
+async function getAcademySquadByInviteCodeV1(
+    inviteCode = ''
+) {
+    const cleanCode =
+        academySquadNormalizeInviteCodeV1(
+            inviteCode
+        );
+
+    if (!cleanCode) {
+        return null;
+    }
+
+    const { data, error } =
+        await yhuSupabaseAdmin
+            .from(TABLE)
+            .select('*')
+            .eq(
+                'record_type',
+                ACADEMY_SQUAD_RECORD_TYPE
+            )
+            .eq(
+                'data->>inviteCode',
+                cleanCode
+            )
+            .eq(
+                'data->>status',
+                'active'
+            )
+            .limit(1);
+
+    if (error) {
+        throw new Error(
+            `Academy Squad invite lookup failed: ${error.message}`
+        );
+    }
+
+    const row =
+        Array.isArray(data)
+            ? data[0]
+            : null;
+
+    return row
+        ? academySquadNormalizeRecordV1(
+            rowData(row)
+        )
+        : null;
+}
+
+async function getCurrentAcademySquadV1(
+    uid = ''
+) {
+    const membership =
+        await getAcademySquadMembershipV1(
+            uid
+        );
+
+    if (!membership?.squadId) {
+        return null;
+    }
+
+    const squad =
+        await getAcademySquadByIdV1(
+            membership.squadId
+        );
+
+    if (!squad) {
+        return null;
+    }
+
+    const member =
+        squad.members.find(
+            (entry) =>
+                entry.userId ===
+                sanitizeString(uid)
+        ) || null;
+
+    if (!member) {
+        return null;
+    }
+
+    return {
+        squad,
+        membership: {
+            ...membership,
+            role:
+                member.role ||
+                membership.role ||
+                'member'
+        }
+    };
+}
+
+async function createAcademySquadV1(
+    uid = '',
+    input = {},
+    profile = {}
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    if (!cleanUid) {
+        throw new Error(
+            'Squad owner is required.'
+        );
+    }
+
+    const existing =
+        await getCurrentAcademySquadV1(
+            cleanUid
+        );
+
+    if (existing?.squad) {
+        const error =
+            new Error(
+                'You already belong to a squad.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    const name =
+        sanitizeString(
+            input.name
+        ).slice(0, 60);
+
+    if (name.length < 3) {
+        const error =
+            new Error(
+                'Squad name must contain at least 3 characters.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const squadId =
+        makeId('squad');
+
+    let inviteCode = '';
+
+    for (
+        let attempt = 0;
+        attempt < 5;
+        attempt += 1
+    ) {
+        const candidate =
+            academySquadGenerateInviteCodeV1();
+
+        const collision =
+            await getAcademySquadByInviteCodeV1(
+                candidate
+            );
+
+        if (!collision) {
+            inviteCode = candidate;
+            break;
+        }
+    }
+
+    if (!inviteCode) {
+        const error =
+            new Error(
+                'Could not generate a unique squad invite code.'
+            );
+
+        error.statusCode = 500;
+        throw error;
+    }
+
+    const now =
+        nowIso();
+
+    const owner =
+        academySquadNormalizeMemberV1({
+            userId: cleanUid,
+
+            displayName:
+                profile.displayName ||
+                profile.display_name ||
+                profile.fullName ||
+                profile.full_name ||
+                profile.name ||
+                'YH Member',
+
+            username:
+                profile.username ||
+                profile.handle ||
+                '',
+
+            avatar:
+                profile.avatar ||
+                profile.avatarUrl ||
+                profile.avatar_url ||
+                profile.profilePhoto ||
+                '',
+
+            role: 'owner',
+            joinedAt: now
+        });
+
+    const squad =
+        academySquadNormalizeRecordV1({
+            id: squadId,
+            name,
+
+            description:
+                sanitizeString(
+                    input.description
+                ).slice(0, 240),
+
+            emblem:
+                sanitizeString(
+                    input.emblem ||
+                    '⚡'
+                ).slice(0, 12),
+
+            ownerUserId:
+                cleanUid,
+
+            inviteCode,
+            status: 'active',
+            members: [owner],
+            totalXp: 0,
+            weeklyXp: 0,
+            rank: 'Unranked',
+            createdAt: now,
+            updatedAt: now
+        });
+
+    await upsertRecord(
+        ACADEMY_SQUAD_RECORD_TYPE,
+        cleanUid,
+        squadId,
+        squad,
+        {
+            status: 'active'
+        }
+    );
+
+    await upsertRecord(
+        ACADEMY_SQUAD_MEMBERSHIP_RECORD_TYPE,
+        cleanUid,
+        ACADEMY_SQUAD_MEMBERSHIP_DOC_ID,
+        {
+            id:
+                ACADEMY_SQUAD_MEMBERSHIP_DOC_ID,
+
+            squadId,
+            role: 'owner',
+            status: 'active',
+            joinedAt: now,
+            createdAt: now,
+            updatedAt: now
+        },
+        {
+            status: 'active'
+        }
+    );
+
+    return {
+        squad,
+        membership: {
+            squadId,
+            userId: cleanUid,
+            role: 'owner',
+            status: 'active',
+            joinedAt: now
+        }
+    };
+}
+
+async function joinAcademySquadByInviteV1(
+    uid = '',
+    inviteCode = '',
+    profile = {}
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    if (!cleanUid) {
+        throw new Error(
+            'Squad member is required.'
+        );
+    }
+
+    const existing =
+        await getCurrentAcademySquadV1(
+            cleanUid
+        );
+
+    if (existing?.squad) {
+        const error =
+            new Error(
+                'You already belong to a squad.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    const squad =
+        await getAcademySquadByInviteCodeV1(
+            inviteCode
+        );
+
+    if (!squad) {
+        const error =
+            new Error(
+                'Invalid or expired squad invite code.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (
+        squad.status !== 'active'
+    ) {
+        const error =
+            new Error(
+                'This squad is no longer active.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    if (
+        squad.members.some(
+            (member) =>
+                member.userId ===
+                cleanUid
+        )
+    ) {
+        const error =
+            new Error(
+                'You are already a member of this squad.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    if (
+        squad.members.length >=
+        squad.maxMembers
+    ) {
+        const error =
+            new Error(
+                'This squad has reached its 8-member limit.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    const now =
+        nowIso();
+
+    const member =
+        academySquadNormalizeMemberV1({
+            userId: cleanUid,
+
+            displayName:
+                profile.displayName ||
+                profile.display_name ||
+                profile.fullName ||
+                profile.full_name ||
+                profile.name ||
+                'YH Member',
+
+            username:
+                profile.username ||
+                profile.handle ||
+                '',
+
+            avatar:
+                profile.avatar ||
+                profile.avatarUrl ||
+                profile.avatar_url ||
+                profile.profilePhoto ||
+                '',
+
+            role: 'member',
+            joinedAt: now
+        });
+
+    const updatedSquad =
+        academySquadNormalizeRecordV1({
+            ...squad,
+            members: [
+                ...squad.members,
+                member
+            ],
+            updatedAt: now
+        });
+
+    await upsertRecord(
+        ACADEMY_SQUAD_RECORD_TYPE,
+        squad.ownerUserId,
+        squad.id,
+        updatedSquad,
+        {
+            status: 'active'
+        }
+    );
+
+    await upsertRecord(
+        ACADEMY_SQUAD_MEMBERSHIP_RECORD_TYPE,
+        cleanUid,
+        ACADEMY_SQUAD_MEMBERSHIP_DOC_ID,
+        {
+            id:
+                ACADEMY_SQUAD_MEMBERSHIP_DOC_ID,
+
+            squadId: squad.id,
+            role: 'member',
+            status: 'active',
+            joinedAt: now,
+            createdAt: now,
+            updatedAt: now
+        },
+        {
+            status: 'active'
+        }
+    );
+
+    return {
+        squad: updatedSquad,
+        membership: {
+            squadId: squad.id,
+            userId: cleanUid,
+            role: 'member',
+            status: 'active',
+            joinedAt: now
+        }
+    };
+}
+
+/* END PATCH: Academy Squad Foundation core v1 */
+
+
+/* PATCH: Academy Squad discovery and management v1 */
+
+async function saveAcademySquadRecordV1(
+    squad = {}
+) {
+    const normalized =
+        academySquadNormalizeRecordV1({
+            ...squad,
+            updatedAt: nowIso()
+        });
+
+    if (
+        !normalized.id ||
+        !normalized.ownerUserId
+    ) {
+        throw new Error(
+            'Invalid squad record.'
+        );
+    }
+
+    await upsertRecord(
+        ACADEMY_SQUAD_RECORD_TYPE,
+        normalized.ownerUserId,
+        normalized.id,
+        normalized,
+        {
+            status: normalized.status
+        }
+    );
+
+    return normalized;
+}
+
+async function updateAcademySquadMembershipV1(
+    uid = '',
+    payload = {}
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    if (!cleanUid) {
+        return null;
+    }
+
+    const current =
+        await getAcademySquadMembershipV1(
+            cleanUid
+        );
+
+    const now =
+        nowIso();
+
+    const record = {
+        id:
+            ACADEMY_SQUAD_MEMBERSHIP_DOC_ID,
+
+        squadId:
+            sanitizeString(
+                payload.squadId ||
+                current?.squadId ||
+                ''
+            ),
+
+        role:
+            sanitizeString(
+                payload.role ||
+                current?.role ||
+                'member'
+            ).toLowerCase(),
+
+        status:
+            sanitizeString(
+                payload.status ||
+                current?.status ||
+                'active'
+            ).toLowerCase(),
+
+        joinedAt:
+            toIso(
+                payload.joinedAt ||
+                current?.joinedAt
+            ),
+
+        leftAt:
+            toIso(payload.leftAt),
+
+        createdAt:
+            toIso(
+                current?.createdAt ||
+                payload.createdAt
+            ) || now,
+
+        updatedAt: now
+    };
+
+    await upsertRecord(
+        ACADEMY_SQUAD_MEMBERSHIP_RECORD_TYPE,
+        cleanUid,
+        ACADEMY_SQUAD_MEMBERSHIP_DOC_ID,
+        record,
+        {
+            status: record.status
+        }
+    );
+
+    return record;
+}
+
+async function previewAcademySquadByInviteV1(
+    uid = '',
+    inviteCode = ''
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    const cleanCode =
+        academySquadNormalizeInviteCodeV1(
+            inviteCode
+        );
+
+    if (!cleanUid || !cleanCode) {
+        const error =
+            new Error(
+                'Squad invite code is required.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const current =
+        await getCurrentAcademySquadV1(
+            cleanUid
+        );
+
+    if (current?.squad) {
+        const error =
+            new Error(
+                'You already belong to a squad.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    const squad =
+        await getAcademySquadByInviteCodeV1(
+            cleanCode
+        );
+
+    if (!squad) {
+        const error =
+            new Error(
+                'No active squad was found for that invitation code.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const availableSlots =
+        Math.max(
+            0,
+            Number(squad.maxMembers || 8) -
+            Number(squad.memberCount || 0)
+        );
+
+    return {
+        id: squad.id,
+        name: squad.name,
+        description: squad.description,
+        emblem: squad.emblem,
+        memberCount: squad.memberCount,
+        maxMembers: squad.maxMembers,
+        availableSlots,
+        rank: squad.rank,
+        status: squad.status,
+        canJoin: availableSlots > 0
+    };
+}
+
+async function regenerateAcademySquadInviteV1(
+    uid = ''
+) {
+    const current =
+        await getCurrentAcademySquadV1(
+            uid
+        );
+
+    const squad =
+        current?.squad;
+
+    if (!squad) {
+        const error =
+            new Error(
+                'You do not belong to a squad.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (
+        squad.ownerUserId !==
+        sanitizeString(uid)
+    ) {
+        const error =
+            new Error(
+                'Only the squad owner can regenerate the invitation code.'
+            );
+
+        error.statusCode = 403;
+        throw error;
+    }
+
+    let inviteCode = '';
+
+    for (
+        let attempt = 0;
+        attempt < 5;
+        attempt += 1
+    ) {
+        const candidate =
+            academySquadGenerateInviteCodeV1();
+
+        const collision =
+            await getAcademySquadByInviteCodeV1(
+                candidate
+            );
+
+        if (!collision) {
+            inviteCode = candidate;
+            break;
+        }
+    }
+
+    if (!inviteCode) {
+        const error =
+            new Error(
+                'Could not generate a new invitation code.'
+            );
+
+        error.statusCode = 500;
+        throw error;
+    }
+
+    const updatedSquad =
+        await saveAcademySquadRecordV1({
+            ...squad,
+            inviteCode
+        });
+
+    return {
+        squad: updatedSquad,
+        membership: current.membership
+    };
+}
+
+async function leaveAcademySquadV1(
+    uid = ''
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    const current =
+        await getCurrentAcademySquadV1(
+            cleanUid
+        );
+
+    const squad =
+        current?.squad;
+
+    if (!squad) {
+        const error =
+            new Error(
+                'You do not belong to a squad.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (
+        squad.ownerUserId === cleanUid
+    ) {
+        const error =
+            new Error(
+                'The squad owner must disband the squad instead of leaving it.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    const members =
+        squad.members.filter(
+            (member) =>
+                member.userId !== cleanUid
+        );
+
+    const updatedSquad =
+        await saveAcademySquadRecordV1({
+            ...squad,
+            members
+        });
+
+    await updateAcademySquadMembershipV1(
+        cleanUid,
+        {
+            squadId: squad.id,
+            role:
+                current.membership?.role ||
+                'member',
+            status: 'left',
+            leftAt: nowIso()
+        }
+    );
+
+    return {
+        squad: updatedSquad,
+        left: true
+    };
+}
+
+async function manageAcademySquadMemberV1(
+    uid = '',
+    targetUserId = '',
+    action = ''
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    const cleanTargetUserId =
+        sanitizeString(targetUserId);
+
+    const cleanAction =
+        sanitizeString(action)
+            .toLowerCase();
+
+    const allowedActions =
+        new Set([
+            'promote',
+            'demote',
+            'remove'
+        ]);
+
+    if (
+        !cleanTargetUserId ||
+        !allowedActions.has(cleanAction)
+    ) {
+        const error =
+            new Error(
+                'Invalid squad member action.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const current =
+        await getCurrentAcademySquadV1(
+            cleanUid
+        );
+
+    const squad =
+        current?.squad;
+
+    if (!squad) {
+        const error =
+            new Error(
+                'Squad not found.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (
+        squad.ownerUserId !== cleanUid
+    ) {
+        const error =
+            new Error(
+                'Only the squad owner can manage members.'
+            );
+
+        error.statusCode = 403;
+        throw error;
+    }
+
+    if (
+        cleanTargetUserId === cleanUid
+    ) {
+        const error =
+            new Error(
+                'The squad owner role cannot be changed here.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    const target =
+        squad.members.find(
+            (member) =>
+                member.userId ===
+                cleanTargetUserId
+        );
+
+    if (!target) {
+        const error =
+            new Error(
+                'Squad member not found.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    let members =
+        squad.members;
+
+    if (
+        cleanAction === 'remove'
+    ) {
+        members =
+            members.filter(
+                (member) =>
+                    member.userId !==
+                    cleanTargetUserId
+            );
+
+        await updateAcademySquadMembershipV1(
+            cleanTargetUserId,
+            {
+                squadId: squad.id,
+                role: target.role,
+                status: 'removed',
+                leftAt: nowIso()
+            }
+        );
+    } else {
+        const nextRole =
+            cleanAction === 'promote'
+                ? 'captain'
+                : 'member';
+
+        members =
+            members.map(
+                (member) => {
+                    if (
+                        member.userId !==
+                        cleanTargetUserId
+                    ) {
+                        return member;
+                    }
+
+                    return {
+                        ...member,
+                        role: nextRole
+                    };
+                }
+            );
+
+        await updateAcademySquadMembershipV1(
+            cleanTargetUserId,
+            {
+                squadId: squad.id,
+                role: nextRole,
+                status: 'active'
+            }
+        );
+    }
+
+    const updatedSquad =
+        await saveAcademySquadRecordV1({
+            ...squad,
+            members
+        });
+
+    return {
+        squad: updatedSquad,
+        membership: current.membership,
+        action: cleanAction,
+        targetUserId: cleanTargetUserId
+    };
+}
+
+async function disbandAcademySquadV1(
+    uid = ''
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    const current =
+        await getCurrentAcademySquadV1(
+            cleanUid
+        );
+
+    const squad =
+        current?.squad;
+
+    if (!squad) {
+        const error =
+            new Error(
+                'Squad not found.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (
+        squad.ownerUserId !== cleanUid
+    ) {
+        const error =
+            new Error(
+                'Only the squad owner can disband the squad.'
+            );
+
+        error.statusCode = 403;
+        throw error;
+    }
+
+    const now =
+        nowIso();
+
+    for (
+        const member of squad.members
+    ) {
+        await updateAcademySquadMembershipV1(
+            member.userId,
+            {
+                squadId: squad.id,
+                role: member.role,
+                status: 'disbanded',
+                leftAt: now
+            }
+        );
+    }
+
+    const disbandedSquad =
+        await saveAcademySquadRecordV1({
+            ...squad,
+            status: 'disbanded',
+            inviteCode: '',
+            disbandedAt: now
+        });
+
+    return {
+        squad: disbandedSquad,
+        disbanded: true
+    };
+}
+
+async function resolveAcademySquadMemberIdentityV1(
+    member = {}
+) {
+    const userId =
+        sanitizeString(
+            member.userId
+        );
+
+    if (!userId) {
+        return member;
+    }
+
+    let academyMemberRow = null;
+    let universeUserRow = null;
+    let academyCoreProfile = null;
+    let firestoreUser = {};
+
+    /*
+     * Canonical Academy member profile.
+     * This table contains display_name and full_name.
+     */
+    try {
+        academyMemberRow =
+            await academyMemberProfileSupabaseRepo
+                .getProfileByUid(
+                    userId
+                );
+    } catch (error) {
+        console.warn(
+            'Squad Academy member profile lookup skipped:',
+            error?.message ||
+            error
+        );
+    }
+
+    /*
+     * Canonical YH Universe user mirror.
+     */
+    try {
+        universeUserRow =
+            await yhuUsersSupabaseRepo
+                .getByUid(
+                    userId
+                );
+    } catch (error) {
+        console.warn(
+            'Squad Universe user lookup skipped:',
+            error?.message ||
+            error
+        );
+    }
+
+    /*
+     * Existing Academy core profile fallback.
+     */
+    try {
+        academyCoreProfile =
+            await getCurrentProfile(
+                userId
+            );
+    } catch (_) {
+        academyCoreProfile = null;
+    }
+
+    /*
+     * Legacy Firestore fallback.
+     */
+    try {
+        const snapshot =
+            await usersCollection
+                .doc(userId)
+                .get();
+
+        firestoreUser =
+            snapshot.exists
+                ? snapshot.data() || {}
+                : {};
+    } catch (_) {
+        firestoreUser = {};
+    }
+
+    const academyMemberData =
+        academyMemberRow?.data &&
+        typeof academyMemberRow.data ===
+            'object'
+            ? academyMemberRow.data
+            : {};
+
+    const academyMemberPublicMeta =
+        academyMemberRow?.public_meta &&
+        typeof academyMemberRow.public_meta ===
+            'object'
+            ? academyMemberRow.public_meta
+            : {};
+
+    const universeUserData =
+        universeUserRow?.data &&
+        typeof universeUserRow.data ===
+            'object'
+            ? universeUserRow.data
+            : {};
+
+    const universeUserPublicMeta =
+        universeUserRow?.public_meta &&
+        typeof universeUserRow.public_meta ===
+            'object'
+            ? universeUserRow.public_meta
+            : {};
+
+    const placeholderNames =
+        new Set([
+            '',
+            'hustler',
+            'yh member',
+            'academy member',
+            'member',
+            'user'
+        ]);
+
+    function isValidSquadDisplayNameV1(
+        value = ''
+    ) {
+        const clean =
+            sanitizeString(value);
+
+        if (!clean) {
+            return false;
+        }
+
+        const lowered =
+            clean.toLowerCase();
+
+        if (
+            placeholderNames.has(
+                lowered
+            )
+        ) {
+            return false;
+        }
+
+        /*
+         * Never use an email address as the visible member name.
+         */
+        if (
+            clean.includes('@')
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    const displayNameCandidates = [
+        academyMemberRow?.display_name,
+        academyMemberRow?.full_name,
+
+        academyMemberPublicMeta.displayName,
+        academyMemberPublicMeta.display_name,
+        academyMemberPublicMeta.fullName,
+        academyMemberPublicMeta.full_name,
+        academyMemberPublicMeta.name,
+
+        academyMemberData.displayName,
+        academyMemberData.display_name,
+        academyMemberData.fullName,
+        academyMemberData.full_name,
+        academyMemberData.name,
+
+        universeUserRow?.display_name,
+        universeUserRow?.full_name,
+
+        universeUserPublicMeta.displayName,
+        universeUserPublicMeta.display_name,
+        universeUserPublicMeta.fullName,
+        universeUserPublicMeta.full_name,
+        universeUserPublicMeta.name,
+
+        universeUserData.displayName,
+        universeUserData.display_name,
+        universeUserData.fullName,
+        universeUserData.full_name,
+        universeUserData.name,
+
+        academyCoreProfile?.display_name,
+        academyCoreProfile?.displayName,
+        academyCoreProfile?.full_name,
+        academyCoreProfile?.fullName,
+        academyCoreProfile?.name,
+
+        firestoreUser.displayName,
+        firestoreUser.display_name,
+        firestoreUser.fullName,
+        firestoreUser.full_name,
+        firestoreUser.name
+    ];
+
+    const usernameCandidates = [
+        academyMemberRow?.username,
+        academyMemberPublicMeta.username,
+        academyMemberData.username,
+
+        universeUserRow?.username,
+        universeUserPublicMeta.username,
+        universeUserData.username,
+
+        academyCoreProfile?.username,
+        firestoreUser.username,
+
+        member.username
+    ];
+
+    const resolvedUsername =
+        usernameCandidates
+            .map((value) =>
+                sanitizeString(value)
+                    .replace(/^@+/, '')
+            )
+            .find(Boolean) ||
+        '';
+
+    const resolvedName =
+        displayNameCandidates
+            .map((value) =>
+                sanitizeString(value)
+            )
+            .find(
+                isValidSquadDisplayNameV1
+            ) ||
+        (
+            resolvedUsername &&
+            !resolvedUsername.includes('@')
+                ? resolvedUsername
+                : ''
+        ) ||
+        (
+            isValidSquadDisplayNameV1(
+                member.displayName
+            )
+                ? sanitizeString(
+                    member.displayName
+                )
+                : ''
+        ) ||
+        'YH Member';
+
+    const resolvedAvatar =
+        sanitizeString(
+            academyMemberRow?.avatar ||
+            academyMemberRow?.profile_photo ||
+            academyMemberRow?.photo_url ||
+
+            academyMemberPublicMeta.avatar ||
+            academyMemberPublicMeta.avatarUrl ||
+            academyMemberPublicMeta.profilePhoto ||
+
+            academyMemberData.avatar ||
+            academyMemberData.avatarUrl ||
+            academyMemberData.profilePhoto ||
+
+            universeUserRow?.avatar ||
+            universeUserRow?.profile_photo ||
+            universeUserRow?.photo_url ||
+
+            universeUserPublicMeta.avatar ||
+            universeUserPublicMeta.avatarUrl ||
+            universeUserPublicMeta.profilePhoto ||
+
+            universeUserData.avatar ||
+            universeUserData.avatarUrl ||
+            universeUserData.profilePhoto ||
+
+            academyCoreProfile?.avatar ||
+            academyCoreProfile?.avatarUrl ||
+            academyCoreProfile?.avatar_url ||
+            academyCoreProfile?.profilePhoto ||
+
+            firestoreUser.avatar ||
+            firestoreUser.avatarUrl ||
+            firestoreUser.avatar_url ||
+            firestoreUser.profilePhoto ||
+            firestoreUser.photoURL ||
+
+            member.avatar ||
+            ''
+        );
+
+    return academySquadNormalizeMemberV1({
+        ...member,
+        displayName:
+            resolvedName,
+
+        username:
+            resolvedUsername,
+
+        avatar:
+            resolvedAvatar
+    });
+}
+
+async function refreshAcademySquadMemberProfilesV1(
+    uid = ''
+) {
+    const current =
+        await getCurrentAcademySquadV1(
+            uid
+        );
+
+    if (!current?.squad) {
+        return null;
+    }
+
+    const squad =
+        current.squad;
+
+    const refreshedMembers =
+        await Promise.all(
+            squad.members.map(
+                (member) =>
+                    resolveAcademySquadMemberIdentityV1(
+                        member
+                    )
+            )
+        );
+
+    const hasChanges =
+        refreshedMembers.some(
+            (member, index) => {
+                const previous =
+                    squad.members[index] ||
+                    {};
+
+                return (
+                    member.displayName !==
+                        previous.displayName ||
+                    member.username !==
+                        previous.username ||
+                    member.avatar !==
+                        previous.avatar
+                );
+            }
+        );
+
+    const refreshedSquad =
+        hasChanges
+            ? await saveAcademySquadRecordV1({
+                ...squad,
+                members:
+                    refreshedMembers
+            })
+            : {
+                ...squad,
+                members:
+                    refreshedMembers,
+                memberCount:
+                    refreshedMembers.length
+            };
+
+    const activeMember =
+        refreshedMembers.find(
+            (member) =>
+                member.userId ===
+                sanitizeString(uid)
+        ) || null;
+
+    return {
+        squad: refreshedSquad,
+
+        membership: {
+            ...current.membership,
+
+            role:
+                activeMember?.role ||
+                current.membership?.role ||
+                'member'
+        }
+    };
+}
+
+/* END PATCH: Academy Squad discovery and management v1 */
+
+
+/* PATCH: Academy Squad XP ledger v1 */
+
+const ACADEMY_SQUAD_XP_EVENT_RECORD_TYPE =
+    'academy:squadXpEvent';
+
+function academySquadXpWeekStartV1(
+    value = new Date()
+) {
+    const date =
+        value instanceof Date
+            ? new Date(value)
+            : new Date(value);
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+        return '';
+    }
+
+    const day =
+        date.getUTCDay();
+
+    const diff =
+        day === 0
+            ? 6
+            : day - 1;
+
+    date.setUTCDate(
+        date.getUTCDate() - diff
+    );
+
+    date.setUTCHours(
+        0,
+        0,
+        0,
+        0
+    );
+
+    return date.toISOString();
+}
+
+function academySquadLevelFromXpV1(
+    totalXp = 0
+) {
+    const safeXp =
+        Math.max(
+            0,
+            toNumber(totalXp, 0)
+        );
+
+    /*
+     * Level 1 starts at 0.
+     * Each next Squad level requires another 500 XP.
+     */
+    const level =
+        Math.floor(
+            safeXp / 500
+        ) + 1;
+
+    return {
+        level,
+        levelStartXp:
+            (level - 1) * 500,
+        nextLevelXp:
+            level * 500
+    };
+}
+
+function academySquadXpEventIdV1({
+    squadId = '',
+    contributorUserId = '',
+    eventType = '',
+    sourceId = '',
+    dedupeScope = 'member'
+} = {}) {
+    const cleanDedupeScope =
+        sanitizeString(
+            dedupeScope
+        ).toLowerCase() === 'squad'
+            ? 'squad'
+            : 'member';
+
+    const contributorKey =
+        cleanDedupeScope === 'squad'
+            ? 'squad'
+            : sanitizeString(
+                contributorUserId
+            );
+
+    const raw = [
+        sanitizeString(squadId),
+        contributorKey,
+        sanitizeString(eventType)
+            .toLowerCase(),
+        sanitizeString(sourceId)
+    ].join('|');
+
+    return crypto
+        .createHash('sha256')
+        .update(raw)
+        .digest('hex');
+}
+
+async function listAcademySquadXpEventsV1(
+    squad = {},
+    limit = 500
+) {
+    const squadId =
+        sanitizeString(squad.id);
+
+    const ownerUserId =
+        sanitizeString(
+            squad.ownerUserId
+        );
+
+    if (
+        !squadId ||
+        !ownerUserId
+    ) {
+        return [];
+    }
+
+    const rows =
+        await getRows(
+            ACADEMY_SQUAD_XP_EVENT_RECORD_TYPE,
+            ownerUserId,
+            {
+                limit:
+                    Math.max(
+                        1,
+                        Math.min(
+                            500,
+                            Number(limit) || 500
+                        )
+                    )
+            }
+        );
+
+    return rows
+        .map((row) =>
+            rowData(row)
+        )
+        .filter(
+            (event) =>
+                sanitizeString(
+                    event.squadId
+                ) === squadId
+        );
+}
+
+async function recomputeAcademySquadXpV1(
+    squad = {}
+) {
+    const events =
+        await listAcademySquadXpEventsV1(
+            squad,
+            500
+        );
+
+    const weekStart =
+        academySquadXpWeekStartV1();
+
+    const totalXp =
+        events.reduce(
+            (sum, event) => {
+                return (
+                    sum +
+                    Math.max(
+                        0,
+                        toNumber(
+                            event.xp,
+                            0
+                        )
+                    )
+                );
+            },
+            0
+        );
+
+    const weeklyXp =
+        events.reduce(
+            (sum, event) => {
+                const eventAt =
+                    toIso(
+                        event.eventAt ||
+                        event.createdAt
+                    );
+
+                if (
+                    !eventAt ||
+                    !weekStart ||
+                    eventAt < weekStart
+                ) {
+                    return sum;
+                }
+
+                return (
+                    sum +
+                    Math.max(
+                        0,
+                        toNumber(
+                            event.xp,
+                            0
+                        )
+                    )
+                );
+            },
+            0
+        );
+
+    const levelMeta =
+        academySquadLevelFromXpV1(
+            totalXp
+        );
+
+    const recentContributions =
+        events
+            .slice()
+            .sort((a, b) => {
+                return (
+                    new Date(
+                        b.eventAt ||
+                        b.createdAt ||
+                        0
+                    ).getTime() -
+                    new Date(
+                        a.eventAt ||
+                        a.createdAt ||
+                        0
+                    ).getTime()
+                );
+            })
+            .slice(0, 20)
+            .map((event) => ({
+                id:
+                    sanitizeString(
+                        event.id
+                    ),
+
+                contributorUserId:
+                    sanitizeString(
+                        event.contributorUserId
+                    ),
+
+                contributorName:
+                    sanitizeString(
+                        event.contributorName ||
+                        'YH Member'
+                    ),
+
+                eventType:
+                    sanitizeString(
+                        event.eventType
+                    ),
+
+                label:
+                    sanitizeString(
+                        event.label ||
+                        'Squad contribution'
+                    ),
+
+                xp:
+                    Math.max(
+                        0,
+                        toNumber(
+                            event.xp,
+                            0
+                        )
+                    ),
+
+                eventAt:
+                    toIso(
+                        event.eventAt ||
+                        event.createdAt
+                    )
+            }));
+
+    return saveAcademySquadRecordV1({
+        ...squad,
+        totalXp,
+        weeklyXp,
+        level:
+            levelMeta.level,
+        nextLevelXp:
+            levelMeta.nextLevelXp,
+        recentContributions
+    });
+}
+
+async function recordAcademySquadXpContributionV1(
+    uid = '',
+    input = {}
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    const eventType =
+        sanitizeString(
+            input.eventType
+        ).toLowerCase();
+
+    const sourceId =
+        sanitizeString(
+            input.sourceId
+        );
+
+    const xp =
+        Math.max(
+            0,
+            toNumber(
+                input.xp,
+                0
+            )
+        );
+
+    if (
+        !cleanUid ||
+        !eventType ||
+        !sourceId ||
+        xp <= 0
+    ) {
+        return {
+            created: false,
+            awarded: 0,
+            reason:
+                'invalid_squad_xp_event'
+        };
+    }
+
+    const current =
+        await getCurrentAcademySquadV1(
+            cleanUid
+        );
+
+    const squad =
+        current?.squad;
+
+    if (
+        !squad ||
+        squad.status !== 'active'
+    ) {
+        return {
+            created: false,
+            awarded: 0,
+            reason:
+                'no_active_squad'
+        };
+    }
+
+    const member =
+        squad.members.find(
+            (entry) =>
+                entry.userId ===
+                cleanUid
+        );
+
+    if (!member) {
+        return {
+            created: false,
+            awarded: 0,
+            reason:
+                'inactive_squad_member'
+        };
+    }
+
+    const dedupeScope =
+        sanitizeString(
+            input.dedupeScope
+        ).toLowerCase() === 'squad'
+            ? 'squad'
+            : 'member';
+
+    const eventId =
+        academySquadXpEventIdV1({
+            squadId: squad.id,
+            contributorUserId:
+                cleanUid,
+            eventType,
+            sourceId,
+            dedupeScope
+        });
+
+    const existing =
+        await getOne(
+            ACADEMY_SQUAD_XP_EVENT_RECORD_TYPE,
+            squad.ownerUserId,
+            eventId
+        );
+
+    if (existing) {
+        return {
+            created: false,
+            awarded: 0,
+            duplicate: true,
+            event:
+                rowData(existing),
+            squad
+        };
+    }
+
+    const now =
+        nowIso();
+
+    const event = {
+        id: eventId,
+
+        squadId:
+            squad.id,
+
+        contributorUserId:
+            cleanUid,
+
+        contributorName:
+            sanitizeString(
+                member.displayName ||
+                member.username ||
+                'YH Member'
+            ),
+
+        contributorRole:
+            sanitizeString(
+                member.role ||
+                'member'
+            ),
+
+        eventType,
+        sourceId,
+        dedupeScope,
+
+        sourceType:
+            sanitizeString(
+                input.sourceType
+            ),
+
+        label:
+            sanitizeString(
+                input.label ||
+                'Squad contribution'
+            ),
+
+        xp,
+
+        eventAt:
+            toIso(
+                input.eventAt
+            ) || now,
+
+        metadata:
+            input.metadata &&
+            typeof input.metadata ===
+                'object'
+                ? input.metadata
+                : {},
+
+        createdAt: now,
+        updatedAt: now
+    };
+
+    await upsertRecord(
+        ACADEMY_SQUAD_XP_EVENT_RECORD_TYPE,
+        squad.ownerUserId,
+        eventId,
+        event,
+        {
+            status: 'active'
+        }
+    );
+
+    const updatedSquad =
+        await recomputeAcademySquadXpV1(
+            squad
+        );
+
+    return {
+        created: true,
+        awarded: xp,
+        event,
+        squad:
+            updatedSquad
+    };
+}
+
+/* END PATCH: Academy Squad XP ledger v1 */
+
+
+/* PATCH: Academy Squad leaderboard and contributors v1 */
+
+async function listAcademySquadLeaderboardV1(
+    period = 'weekly',
+    limit = 20,
+    currentSquadId = ''
+) {
+    const cleanPeriod =
+        sanitizeString(period)
+            .toLowerCase() ===
+            'all_time'
+            ? 'all_time'
+            : 'weekly';
+
+    const safeLimit =
+        Math.max(
+            1,
+            Math.min(
+                100,
+                Number(limit) || 20
+            )
+        );
+
+    const { data, error } =
+        await yhuSupabaseAdmin
+            .from(TABLE)
+            .select('*')
+            .eq(
+                'record_type',
+                ACADEMY_SQUAD_RECORD_TYPE
+            )
+            .limit(500);
+
+    if (error) {
+        throw new Error(
+            `Academy Squad leaderboard failed: ${error.message}`
+        );
+    }
+
+    const xpField =
+        cleanPeriod === 'all_time'
+            ? 'totalXp'
+            : 'weeklyXp';
+
+    const entries =
+        (Array.isArray(data) ? data : [])
+            .map((row) =>
+                academySquadNormalizeRecordV1(
+                    rowData(row)
+                )
+            )
+            .filter((squad) => {
+                return (
+                    squad.id &&
+                    squad.status === 'active'
+                );
+            })
+            .map((squad) => ({
+                squadId:
+                    squad.id,
+
+                name:
+                    squad.name,
+
+                emblem:
+                    squad.emblem,
+
+                memberCount:
+                    squad.memberCount,
+
+                maxMembers:
+                    squad.maxMembers,
+
+                level:
+                    squad.level,
+
+                totalXp:
+                    squad.totalXp,
+
+                weeklyXp:
+                    squad.weeklyXp,
+
+                xp:
+                    Math.max(
+                        0,
+                        toNumber(
+                            squad[xpField],
+                            0
+                        )
+                    ),
+
+                createdAt:
+                    squad.createdAt,
+
+                ownerUserId:
+                    squad.ownerUserId
+            }))
+            .sort((a, b) => {
+                if (b.xp !== a.xp) {
+                    return b.xp - a.xp;
+                }
+
+                if (
+                    b.totalXp !==
+                    a.totalXp
+                ) {
+                    return (
+                        b.totalXp -
+                        a.totalXp
+                    );
+                }
+
+                const aCreated =
+                    new Date(
+                        a.createdAt || 0
+                    ).getTime();
+
+                const bCreated =
+                    new Date(
+                        b.createdAt || 0
+                    ).getTime();
+
+                return (
+                    aCreated -
+                    bCreated
+                );
+            })
+            .map((entry, index) => ({
+                ...entry,
+
+                position:
+                    index + 1,
+
+                period:
+                    cleanPeriod
+            }));
+
+    const cleanCurrentSquadId =
+        sanitizeString(
+            currentSquadId
+        );
+
+    const currentSquadPosition =
+        cleanCurrentSquadId
+            ? entries.find(
+                (entry) =>
+                    entry.squadId ===
+                    cleanCurrentSquadId
+            ) || null
+            : null;
+
+    return {
+        period:
+            cleanPeriod,
+
+        leaderboard:
+            entries.slice(
+                0,
+                safeLimit
+            ),
+
+        currentSquadPosition
+    };
+}
+
+async function listAcademySquadContributorsV1(
+    uid = '',
+    period = 'weekly',
+    limit = 20
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    const cleanPeriod =
+        sanitizeString(period)
+            .toLowerCase() ===
+            'all_time'
+            ? 'all_time'
+            : 'weekly';
+
+    const safeLimit =
+        Math.max(
+            1,
+            Math.min(
+                100,
+                Number(limit) || 20
+            )
+        );
+
+    const current =
+        await getCurrentAcademySquadV1(
+            cleanUid
+        );
+
+    const squad =
+        current?.squad;
+
+    if (!squad) {
+        const error =
+            new Error(
+                'You do not belong to a squad.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const events =
+        await listAcademySquadXpEventsV1(
+            squad,
+            500
+        );
+
+    const weekStart =
+        academySquadXpWeekStartV1();
+
+    const selectedEvents =
+        cleanPeriod === 'weekly'
+            ? events.filter((event) => {
+                const eventAt =
+                    toIso(
+                        event.eventAt ||
+                        event.createdAt
+                    );
+
+                return (
+                    Boolean(eventAt) &&
+                    Boolean(weekStart) &&
+                    eventAt >= weekStart
+                );
+            })
+            : events;
+
+    const contributorsByUser =
+        new Map();
+
+    for (
+        const event of selectedEvents
+    ) {
+        const contributorUserId =
+            sanitizeString(
+                event.contributorUserId
+            );
+
+        if (!contributorUserId) {
+            continue;
+        }
+
+        const member =
+            squad.members.find(
+                (entry) =>
+                    entry.userId ===
+                    contributorUserId
+            ) || null;
+
+        const existing =
+            contributorsByUser.get(
+                contributorUserId
+            ) || {
+                userId:
+                    contributorUserId,
+
+                displayName:
+                    sanitizeString(
+                        member?.displayName ||
+                        event.contributorName ||
+                        member?.username ||
+                        'YH Member'
+                    ),
+
+                username:
+                    sanitizeString(
+                        member?.username ||
+                        ''
+                    ),
+
+                avatar:
+                    sanitizeString(
+                        member?.avatar ||
+                        ''
+                    ),
+
+                role:
+                    sanitizeString(
+                        member?.role ||
+                        event.contributorRole ||
+                        'former_member'
+                    ),
+
+                xp: 0,
+                contributionCount: 0,
+                lastContributionAt: ''
+            };
+
+        existing.xp +=
+            Math.max(
+                0,
+                toNumber(
+                    event.xp,
+                    0
+                )
+            );
+
+        existing.contributionCount +=
+            1;
+
+        const eventAt =
+            toIso(
+                event.eventAt ||
+                event.createdAt
+            );
+
+        if (
+            eventAt &&
+            (
+                !existing.lastContributionAt ||
+                eventAt >
+                    existing.lastContributionAt
+            )
+        ) {
+            existing.lastContributionAt =
+                eventAt;
+        }
+
+        contributorsByUser.set(
+            contributorUserId,
+            existing
+        );
+    }
+
+    const contributors =
+        Array.from(
+            contributorsByUser.values()
+        )
+            .sort((a, b) => {
+                if (b.xp !== a.xp) {
+                    return b.xp - a.xp;
+                }
+
+                if (
+                    b.contributionCount !==
+                    a.contributionCount
+                ) {
+                    return (
+                        b.contributionCount -
+                        a.contributionCount
+                    );
+                }
+
+                return String(
+                    a.displayName
+                ).localeCompare(
+                    String(
+                        b.displayName
+                    )
+                );
+            })
+            .slice(0, safeLimit)
+            .map((entry, index) => ({
+                ...entry,
+                position:
+                    index + 1,
+                period:
+                    cleanPeriod
+            }));
+
+    return {
+        squadId:
+            squad.id,
+
+        period:
+            cleanPeriod,
+
+        contributors
+    };
+}
+
+/* END PATCH: Academy Squad leaderboard and contributors v1 */
+
+
+/* PATCH: Shared Academy Squad Missions foundation v1 */
+
+const ACADEMY_SQUAD_MISSION_RECORD_TYPE =
+    'academy:squadMission';
+
+const ACADEMY_SQUAD_MISSION_TYPES_V1 =
+    new Set([
+        'academy_missions',
+        'verified_leads',
+        'daily_checkins',
+        'squad_xp',
+        'mission_playbooks',
+        'custom'
+    ]);
+
+const ACADEMY_SQUAD_MISSION_STATUSES_V1 =
+    new Set([
+        'active',
+        'completed',
+        'cancelled'
+    ]);
+
+function normalizeAcademySquadMissionTypeV1(
+    value = ''
+) {
+    const clean =
+        sanitizeString(value)
+            .toLowerCase()
+            .replace(/[\s-]+/g, '_');
+
+    return ACADEMY_SQUAD_MISSION_TYPES_V1
+        .has(clean)
+            ? clean
+            : 'custom';
+}
+
+function normalizeAcademySquadMissionStatusV1(
+    value = ''
+) {
+    const clean =
+        sanitizeString(value)
+            .toLowerCase();
+
+    return ACADEMY_SQUAD_MISSION_STATUSES_V1
+        .has(clean)
+            ? clean
+            : 'active';
+}
+
+function academySquadMissionRewardCapV1(
+    missionType = '',
+    target = 1
+) {
+    const cleanMissionType =
+        normalizeAcademySquadMissionTypeV1(
+            missionType
+        );
+
+    const safeTarget =
+        Math.max(
+            1,
+            Math.floor(
+                toNumber(
+                    target,
+                    1
+                )
+            )
+        );
+
+    const rawCap = {
+        academy_missions:
+            safeTarget * 20,
+
+        verified_leads:
+            safeTarget * 25,
+
+        daily_checkins:
+            safeTarget * 10,
+
+        squad_xp:
+            Math.ceil(
+                safeTarget * 0.2
+            ),
+
+        mission_playbooks:
+            safeTarget * 30,
+
+        custom:
+            0
+    }[cleanMissionType] || 0;
+
+    return Math.max(
+        0,
+        Math.min(
+            250,
+            rawCap
+        )
+    );
+}
+
+function normalizeAcademySquadMissionV1(
+    value = {}
+) {
+    const source =
+        value &&
+        typeof value === 'object'
+            ? value
+            : {};
+
+    const missionType =
+        normalizeAcademySquadMissionTypeV1(
+            source.missionType ||
+            source.type
+        );
+
+    const target =
+        Math.max(
+            1,
+            Math.floor(
+                toNumber(
+                    source.target,
+                    1
+                )
+            )
+        );
+
+    const progress =
+        Math.max(
+            0,
+            Math.min(
+                target,
+                Math.floor(
+                    toNumber(
+                        source.progress,
+                        0
+                    )
+                )
+            )
+        );
+
+    let status =
+        normalizeAcademySquadMissionStatusV1(
+            source.status
+        );
+
+    if (
+        progress >= target &&
+        status === 'active'
+    ) {
+        status = 'completed';
+    }
+
+    const rewardCap =
+        academySquadMissionRewardCapV1(
+            missionType,
+            target
+        );
+
+    const requestedRewardXp =
+        Math.max(
+            0,
+            Math.floor(
+                toNumber(
+                    source.rewardXp,
+                    rewardCap
+                )
+            )
+        );
+
+    return {
+        id:
+            sanitizeString(
+                source.id ||
+                source.missionId
+            ),
+
+        squadId:
+            sanitizeString(
+                source.squadId
+            ),
+
+        title:
+            sanitizeString(
+                source.title ||
+                'Squad Mission'
+            ).slice(0, 100),
+
+        description:
+            sanitizeString(
+                source.description ||
+                ''
+            ).slice(0, 500),
+
+        missionType,
+
+        target,
+        progress,
+
+        rewardXp:
+            Math.min(
+                rewardCap,
+                requestedRewardXp
+            ),
+
+        rewardCap,
+
+        status,
+
+        createdByUserId:
+            sanitizeString(
+                source.createdByUserId
+            ),
+
+        createdByName:
+            sanitizeString(
+                source.createdByName ||
+                'YH Member'
+            ),
+
+        deadline:
+            toIso(
+                source.deadline
+            ),
+
+        completedAt:
+            toIso(
+                source.completedAt
+            ),
+
+        cancelledAt:
+            toIso(
+                source.cancelledAt
+            ),
+
+        metadata:
+            source.metadata &&
+            typeof source.metadata ===
+                'object'
+                ? source.metadata
+                : {},
+
+        createdAt:
+            toIso(
+                source.createdAt
+            ) || nowIso(),
+
+        updatedAt:
+            toIso(
+                source.updatedAt
+            ) || nowIso()
+    };
+}
+
+async function requireAcademySquadMemberV1(
+    uid = ''
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    const current =
+        await getCurrentAcademySquadV1(
+            cleanUid
+        );
+
+    if (!current?.squad) {
+        const error =
+            new Error(
+                'You do not belong to an active squad.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const member =
+        current.squad.members.find(
+            (entry) =>
+                entry.userId ===
+                cleanUid
+        ) || null;
+
+    if (!member) {
+        const error =
+            new Error(
+                'Your Squad membership is not active.'
+            );
+
+        error.statusCode = 403;
+        throw error;
+    }
+
+    return {
+        squad:
+            current.squad,
+
+        membership: {
+            ...current.membership,
+            role:
+                member.role ||
+                current.membership?.role ||
+                'member'
+        },
+
+        member
+    };
+}
+
+function requireAcademySquadMissionManagerV1(
+    squadContext = {}
+) {
+    const role =
+        sanitizeString(
+            squadContext
+                ?.membership
+                ?.role
+        ).toLowerCase();
+
+    if (
+        role !== 'owner' &&
+        role !== 'captain'
+    ) {
+        const error =
+            new Error(
+                'Only the Squad owner or a captain can manage Squad missions.'
+            );
+
+        error.statusCode = 403;
+        throw error;
+    }
+
+    return role;
+}
+
+async function getAcademySquadMissionByIdV1(
+    squad = {},
+    missionId = ''
+) {
+    const cleanMissionId =
+        sanitizeString(
+            missionId
+        );
+
+    if (
+        !squad?.ownerUserId ||
+        !cleanMissionId
+    ) {
+        return null;
+    }
+
+    const row =
+        await getOne(
+            ACADEMY_SQUAD_MISSION_RECORD_TYPE,
+            squad.ownerUserId,
+            cleanMissionId
+        );
+
+    if (!row) {
+        return null;
+    }
+
+    const mission =
+        normalizeAcademySquadMissionV1(
+            rowData(row)
+        );
+
+    return (
+        mission.squadId ===
+        squad.id
+    )
+        ? mission
+        : null;
+}
+
+async function listAcademySquadMissionsV1(
+    uid = '',
+    options = {}
+) {
+    const context =
+        await requireAcademySquadMemberV1(
+            uid
+        );
+
+    const cleanStatus =
+        sanitizeString(
+            options.status
+        ).toLowerCase();
+
+    const limit =
+        Math.max(
+            1,
+            Math.min(
+                100,
+                Number(
+                    options.limit
+                ) || 50
+            )
+        );
+
+    const rows =
+        await getRows(
+            ACADEMY_SQUAD_MISSION_RECORD_TYPE,
+            context.squad.ownerUserId,
+            {
+                limit: 500
+            }
+        );
+
+    const missions =
+        rows
+            .map((row) =>
+                normalizeAcademySquadMissionV1(
+                    rowData(row)
+                )
+            )
+            .filter(
+                (mission) =>
+                    mission.squadId ===
+                    context.squad.id
+            )
+            .filter((mission) => {
+                if (!cleanStatus) {
+                    return true;
+                }
+
+                return (
+                    mission.status ===
+                    cleanStatus
+                );
+            })
+            .sort((a, b) => {
+                if (
+                    a.status === 'active' &&
+                    b.status !== 'active'
+                ) {
+                    return -1;
+                }
+
+                if (
+                    b.status === 'active' &&
+                    a.status !== 'active'
+                ) {
+                    return 1;
+                }
+
+                const aDeadline =
+                    new Date(
+                        a.deadline || 0
+                    ).getTime();
+
+                const bDeadline =
+                    new Date(
+                        b.deadline || 0
+                    ).getTime();
+
+                if (
+                    aDeadline &&
+                    bDeadline &&
+                    aDeadline !== bDeadline
+                ) {
+                    return (
+                        aDeadline -
+                        bDeadline
+                    );
+                }
+
+                return (
+                    new Date(
+                        b.createdAt || 0
+                    ).getTime() -
+                    new Date(
+                        a.createdAt || 0
+                    ).getTime()
+                );
+            })
+            .slice(0, limit);
+
+    return {
+        squadId:
+            context.squad.id,
+
+        role:
+            context.membership.role,
+
+        canManage:
+            ['owner', 'captain']
+                .includes(
+                    context
+                        .membership
+                        .role
+                ),
+
+        missions
+    };
+}
+
+async function createAcademySquadMissionV1(
+    uid = '',
+    input = {},
+    profile = {}
+) {
+    const context =
+        await requireAcademySquadMemberV1(
+            uid
+        );
+
+    requireAcademySquadMissionManagerV1(
+        context
+    );
+
+    const title =
+        sanitizeString(
+            input.title
+        ).slice(0, 100);
+
+    if (title.length < 3) {
+        const error =
+            new Error(
+                'Squad mission title must contain at least 3 characters.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const target =
+        Math.max(
+            1,
+            Math.floor(
+                toNumber(
+                    input.target,
+                    1
+                )
+            )
+        );
+
+    if (target > 10000) {
+        const error =
+            new Error(
+                'Squad mission target is too large.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const deadline =
+        toIso(
+            input.deadline
+        );
+
+    if (
+        deadline &&
+        Number.isNaN(
+            new Date(
+                deadline
+            ).getTime()
+        )
+    ) {
+        const error =
+            new Error(
+                'Invalid Squad mission deadline.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const now =
+        nowIso();
+
+    const mission =
+        normalizeAcademySquadMissionV1({
+            id:
+                makeId(
+                    'squad_mission'
+                ),
+
+            squadId:
+                context.squad.id,
+
+            title,
+
+            description:
+                sanitizeString(
+                    input.description
+                ).slice(0, 500),
+
+            missionType:
+                input.missionType ||
+                input.type ||
+                'custom',
+
+            target,
+            progress: 0,
+
+            rewardXp:
+                input.rewardXp,
+
+            status: 'active',
+
+            createdByUserId:
+                sanitizeString(uid),
+
+            createdByName:
+                sanitizeString(
+                    profile.displayName ||
+                    profile.display_name ||
+                    profile.fullName ||
+                    profile.full_name ||
+                    profile.name ||
+                    context
+                        .member
+                        .displayName ||
+                    context
+                        .member
+                        .username ||
+                    'YH Member'
+                ),
+
+            deadline,
+
+            metadata:
+                input.metadata,
+
+            createdAt: now,
+            updatedAt: now
+        });
+
+    await upsertRecord(
+        ACADEMY_SQUAD_MISSION_RECORD_TYPE,
+        context.squad.ownerUserId,
+        mission.id,
+        mission,
+        {
+            status:
+                mission.status
+        }
+    );
+
+    return {
+        squad:
+            context.squad,
+
+        membership:
+            context.membership,
+
+        mission
+    };
+}
+
+async function updateAcademySquadMissionV1(
+    uid = '',
+    missionId = '',
+    input = {}
+) {
+    const context =
+        await requireAcademySquadMemberV1(
+            uid
+        );
+
+    requireAcademySquadMissionManagerV1(
+        context
+    );
+
+    const existing =
+        await getAcademySquadMissionByIdV1(
+            context.squad,
+            missionId
+        );
+
+    if (!existing) {
+        const error =
+            new Error(
+                'Squad mission not found.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (
+        existing.status !== 'active'
+    ) {
+        const error =
+            new Error(
+                'Only active Squad missions can be edited.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    const nextTitle =
+        input.title !== undefined
+            ? sanitizeString(
+                input.title
+            ).slice(0, 100)
+            : existing.title;
+
+    if (nextTitle.length < 3) {
+        const error =
+            new Error(
+                'Squad mission title must contain at least 3 characters.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const nextTarget =
+        input.target !== undefined
+            ? Math.max(
+                1,
+                Math.floor(
+                    toNumber(
+                        input.target,
+                        existing.target
+                    )
+                )
+            )
+            : existing.target;
+
+    const nextMissionType =
+        input.missionType !== undefined
+            ? normalizeAcademySquadMissionTypeV1(
+                input.missionType
+            )
+            : existing.missionType;
+
+    if (
+        existing.progress > 0 &&
+        nextMissionType !==
+            existing.missionType
+    ) {
+        const error =
+            new Error(
+                'Mission type cannot change after Squad progress has started.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    if (
+        existing.progress > 0 &&
+        nextTarget <=
+            existing.progress
+    ) {
+        const error =
+            new Error(
+                'Mission target must stay above the current progress.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    const nextDeadline =
+        input.deadline !== undefined
+            ? toIso(
+                input.deadline
+            )
+            : existing.deadline;
+
+    const updated =
+        normalizeAcademySquadMissionV1({
+            ...existing,
+
+            title:
+                nextTitle,
+
+            description:
+                input.description !==
+                    undefined
+                    ? sanitizeString(
+                        input.description
+                    ).slice(0, 500)
+                    : existing.description,
+
+            missionType:
+                nextMissionType,
+
+            target:
+                nextTarget,
+
+            rewardXp:
+                input.rewardXp !==
+                    undefined
+                    ? input.rewardXp
+                    : existing.rewardXp,
+
+            deadline:
+                nextDeadline,
+
+            metadata:
+                input.metadata &&
+                typeof input.metadata ===
+                    'object'
+                    ? {
+                        ...existing.metadata,
+                        ...input.metadata
+                    }
+                    : existing.metadata,
+
+            updatedAt:
+                nowIso()
+        });
+
+    await upsertRecord(
+        ACADEMY_SQUAD_MISSION_RECORD_TYPE,
+        context.squad.ownerUserId,
+        updated.id,
+        updated,
+        {
+            status:
+                updated.status
+        }
+    );
+
+    return {
+        squad:
+            context.squad,
+
+        membership:
+            context.membership,
+
+        mission:
+            updated
+    };
+}
+
+async function cancelAcademySquadMissionV1(
+    uid = '',
+    missionId = ''
+) {
+    const context =
+        await requireAcademySquadMemberV1(
+            uid
+        );
+
+    requireAcademySquadMissionManagerV1(
+        context
+    );
+
+    const existing =
+        await getAcademySquadMissionByIdV1(
+            context.squad,
+            missionId
+        );
+
+    if (!existing) {
+        const error =
+            new Error(
+                'Squad mission not found.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (
+        existing.status ===
+        'completed'
+    ) {
+        const error =
+            new Error(
+                'A completed Squad mission cannot be cancelled.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    if (
+        existing.status ===
+        'cancelled'
+    ) {
+        return {
+            squad:
+                context.squad,
+
+            membership:
+                context.membership,
+
+            mission:
+                existing,
+
+            cancelled: true,
+            duplicate: true
+        };
+    }
+
+    const now =
+        nowIso();
+
+    const cancelled =
+        normalizeAcademySquadMissionV1({
+            ...existing,
+            status:
+                'cancelled',
+            cancelledAt:
+                now,
+            updatedAt:
+                now
+        });
+
+    await upsertRecord(
+        ACADEMY_SQUAD_MISSION_RECORD_TYPE,
+        context.squad.ownerUserId,
+        cancelled.id,
+        cancelled,
+        {
+            status:
+                'cancelled'
+        }
+    );
+
+    return {
+        squad:
+            context.squad,
+
+        membership:
+            context.membership,
+
+        mission:
+            cancelled,
+
+        cancelled: true
+    };
+}
+
+/* END PATCH: Shared Academy Squad Missions foundation v1 */
+
+
+/* PATCH: Automatic Shared Squad Mission progress v1 */
+
+const ACADEMY_SQUAD_MISSION_CONTRIBUTION_RECORD_TYPE =
+    'academy:squadMissionContribution';
+
+function academySquadMissionContributionIdV1({
+    squadId = '',
+    missionId = '',
+    contributorUserId = '',
+    eventType = '',
+    sourceId = ''
+} = {}) {
+    const raw = [
+        sanitizeString(
+            squadId
+        ),
+        sanitizeString(
+            missionId
+        ),
+        sanitizeString(
+            contributorUserId
+        ),
+        sanitizeString(
+            eventType
+        ).toLowerCase(),
+        sanitizeString(
+            sourceId
+        )
+    ].join('|');
+
+    return crypto
+        .createHash('sha256')
+        .update(raw)
+        .digest('hex');
+}
+
+async function listAcademySquadMissionContributionsV1(
+    squad = {},
+    missionId = '',
+    limit = 500
+) {
+    const squadId =
+        sanitizeString(
+            squad.id
+        );
+
+    const ownerUserId =
+        sanitizeString(
+            squad.ownerUserId
+        );
+
+    const cleanMissionId =
+        sanitizeString(
+            missionId
+        );
+
+    if (
+        !squadId ||
+        !ownerUserId ||
+        !cleanMissionId
+    ) {
+        return [];
+    }
+
+    const rows =
+        await getRows(
+            ACADEMY_SQUAD_MISSION_CONTRIBUTION_RECORD_TYPE,
+            ownerUserId,
+            {
+                limit:
+                    Math.max(
+                        1,
+                        Math.min(
+                            500,
+                            Number(limit) || 500
+                        )
+                    )
+            }
+        );
+
+    return rows
+        .map((row) =>
+            rowData(row)
+        )
+        .filter((entry) => {
+            return (
+                sanitizeString(
+                    entry.squadId
+                ) === squadId &&
+                sanitizeString(
+                    entry.missionId
+                ) === cleanMissionId
+            );
+        });
+}
+
+async function recordAcademySquadMissionContributionV1(
+    uid = '',
+    input = {}
+) {
+    const cleanUid =
+        sanitizeString(
+            uid
+        );
+
+    const missionType =
+        normalizeAcademySquadMissionTypeV1(
+            input.missionType
+        );
+
+    const sourceId =
+        sanitizeString(
+            input.sourceId
+        );
+
+    const eventType =
+        sanitizeString(
+            input.eventType ||
+            missionType
+        ).toLowerCase();
+
+    const amount =
+        Math.max(
+            1,
+            Math.floor(
+                toNumber(
+                    input.amount,
+                    1
+                )
+            )
+        );
+
+    if (
+        !cleanUid ||
+        !sourceId ||
+        !eventType ||
+        missionType === 'custom'
+    ) {
+        return {
+            created: false,
+            reason:
+                'invalid_squad_mission_contribution',
+            missionType,
+            sourceId,
+            missions: []
+        };
+    }
+
+    const context =
+        await requireAcademySquadMemberV1(
+            cleanUid
+        );
+
+    const squad =
+        context.squad;
+
+    if (
+        !squad ||
+        squad.status !== 'active'
+    ) {
+        return {
+            created: false,
+            reason:
+                'no_active_squad',
+            missionType,
+            sourceId,
+            missions: []
+        };
+    }
+
+    const missionRows =
+        await getRows(
+            ACADEMY_SQUAD_MISSION_RECORD_TYPE,
+            squad.ownerUserId,
+            {
+                limit: 500
+            }
+        );
+
+    const now =
+        nowIso();
+
+    const nowMs =
+        new Date(now)
+            .getTime();
+
+    const activeMissions =
+        missionRows
+            .map((row) =>
+                normalizeAcademySquadMissionV1(
+                    rowData(row)
+                )
+            )
+            .filter((mission) => {
+                if (
+                    mission.squadId !==
+                        squad.id ||
+                    mission.status !==
+                        'active' ||
+                    mission.missionType !==
+                        missionType
+                ) {
+                    return false;
+                }
+
+                const deadlineMs =
+                    mission.deadline
+                        ? new Date(
+                            mission.deadline
+                        ).getTime()
+                        : NaN;
+
+                return !(
+                    Number.isFinite(
+                        deadlineMs
+                    ) &&
+                    deadlineMs <
+                        nowMs
+                );
+            })
+            /*
+             * One action advances only the oldest active
+             * mission of the matching type.
+             */
+            .sort((a, b) => {
+                return (
+                    new Date(
+                        a.createdAt || 0
+                    ).getTime() -
+                    new Date(
+                        b.createdAt || 0
+                    ).getTime()
+                );
+            })
+            .slice(0, 1);
+
+    if (!activeMissions.length) {
+        return {
+            created: false,
+            reason:
+                'no_matching_active_squad_mission',
+            missionType,
+            sourceId,
+            missions: []
+        };
+    }
+
+    const missionResults = [];
+
+    for (
+        const mission of activeMissions
+    ) {
+        const contributionId =
+            academySquadMissionContributionIdV1({
+                squadId:
+                    squad.id,
+
+                missionId:
+                    mission.id,
+
+                contributorUserId:
+                    cleanUid,
+
+                eventType,
+                sourceId
+            });
+
+        const existing =
+            await getOne(
+                ACADEMY_SQUAD_MISSION_CONTRIBUTION_RECORD_TYPE,
+                squad.ownerUserId,
+                contributionId
+            );
+
+        if (existing) {
+            missionResults.push({
+                missionId:
+                    mission.id,
+
+                missionTitle:
+                    mission.title,
+
+                created: false,
+                duplicate: true,
+
+                progress:
+                    mission.progress,
+
+                target:
+                    mission.target,
+
+                completed: false,
+
+                reward: {
+                    created: false,
+                    awarded: 0
+                }
+            });
+
+            continue;
+        }
+
+        const contribution = {
+            id:
+                contributionId,
+
+            squadId:
+                squad.id,
+
+            missionId:
+                mission.id,
+
+            missionTitle:
+                mission.title,
+
+            missionType,
+
+            contributorUserId:
+                cleanUid,
+
+            contributorName:
+                sanitizeString(
+                    context.member.displayName ||
+                    context.member.username ||
+                    'YH Member'
+                ),
+
+            contributorRole:
+                sanitizeString(
+                    context.membership.role ||
+                    context.member.role ||
+                    'member'
+                ),
+
+            eventType,
+            sourceId,
+
+            sourceType:
+                sanitizeString(
+                    input.sourceType
+                ),
+
+            amount,
+
+            label:
+                sanitizeString(
+                    input.label ||
+                    mission.title ||
+                    'Squad mission contribution'
+                ),
+
+            eventAt:
+                toIso(
+                    input.eventAt
+                ) || now,
+
+            metadata:
+                input.metadata &&
+                typeof input.metadata ===
+                    'object'
+                    ? input.metadata
+                    : {},
+
+            createdAt:
+                now,
+
+            updatedAt:
+                now
+        };
+
+        await upsertRecord(
+            ACADEMY_SQUAD_MISSION_CONTRIBUTION_RECORD_TYPE,
+            squad.ownerUserId,
+            contributionId,
+            contribution,
+            {
+                status:
+                    'active'
+            }
+        );
+
+        /*
+         * Recompute from the duplicate-safe ledger.
+         * Retried requests cannot farm progress.
+         */
+        const allContributions =
+            await listAcademySquadMissionContributionsV1(
+                squad,
+                mission.id,
+                500
+            );
+
+        const computedProgress =
+            allContributions.reduce(
+                (sum, entry) => {
+                    return (
+                        sum +
+                        Math.max(
+                            0,
+                            Math.floor(
+                                toNumber(
+                                    entry.amount,
+                                    0
+                                )
+                            )
+                        )
+                    );
+                },
+                0
+            );
+
+        const nextProgress =
+            Math.max(
+                0,
+                Math.min(
+                    mission.target,
+                    computedProgress
+                )
+            );
+
+        const completed =
+            nextProgress >=
+            mission.target;
+
+        const updatedMission =
+            normalizeAcademySquadMissionV1({
+                ...mission,
+
+                progress:
+                    nextProgress,
+
+                status:
+                    completed
+                        ? 'completed'
+                        : 'active',
+
+                completedAt:
+                    completed
+                        ? (
+                            mission.completedAt ||
+                            now
+                        )
+                        : '',
+
+                updatedAt:
+                    now
+            });
+
+        await upsertRecord(
+            ACADEMY_SQUAD_MISSION_RECORD_TYPE,
+            squad.ownerUserId,
+            updatedMission.id,
+            updatedMission,
+            {
+                status:
+                    updatedMission.status
+            }
+        );
+
+        let reward = {
+            created: false,
+            awarded: 0
+        };
+
+        if (
+            completed &&
+            updatedMission.rewardXp > 0
+        ) {
+            reward =
+                await recordAcademySquadXpContributionV1(
+                    cleanUid,
+                    {
+                        eventType:
+                            'squad_mission_reward',
+
+                        sourceId:
+                            updatedMission.id,
+
+                        sourceType:
+                            'academySquadMission',
+
+                        xp:
+                            updatedMission.rewardXp,
+
+                        label:
+                            'Squad mission completed',
+
+                        eventAt:
+                            now,
+
+                        dedupeScope:
+                            'squad',
+
+                        metadata: {
+                            missionId:
+                                updatedMission.id,
+
+                            missionTitle:
+                                updatedMission.title,
+
+                            missionType:
+                                updatedMission.missionType,
+
+                            completedByUserId:
+                                cleanUid
+                        }
+                    }
+                );
+        }
+
+        missionResults.push({
+            missionId:
+                updatedMission.id,
+
+            missionTitle:
+                updatedMission.title,
+
+            created: true,
+            duplicate: false,
+
+            amount,
+
+            progress:
+                updatedMission.progress,
+
+            target:
+                updatedMission.target,
+
+            completed,
+
+            status:
+                updatedMission.status,
+
+            reward
+        });
+    }
+
+    return {
+        created:
+            missionResults.some(
+                (entry) =>
+                    entry.created === true
+            ),
+
+        missionType,
+        sourceId,
+
+        missions:
+            missionResults,
+
+        completedMissions:
+            missionResults.filter(
+                (entry) =>
+                    entry.completed === true
+            )
+    };
+}
+
+/* END PATCH: Automatic Shared Squad Mission progress v1 */
+
+
 module.exports = {
     getCurrentProfile,
     setCurrentProfile,
@@ -1302,6 +6360,43 @@ module.exports = {
     listRecentCheckins,
     createCheckin,
     getRecentCheckinStreakDays,
+
+    getAcademyProgressionV1,
+    syncAcademyProgressionFromCurrentStateV1,
+    listAcademyProgressionLeaderboardV1,
+    listAcademyXpEventsV1,
+    upsertAcademyXpEventV1,
+
+    getAcademySquadMembershipV1,
+    getAcademySquadByIdV1,
+    getAcademySquadByInviteCodeV1,
+    getCurrentAcademySquadV1,
+    createAcademySquadV1,
+    joinAcademySquadByInviteV1,
+
+    previewAcademySquadByInviteV1,
+    regenerateAcademySquadInviteV1,
+    leaveAcademySquadV1,
+    manageAcademySquadMemberV1,
+    disbandAcademySquadV1,
+    refreshAcademySquadMemberProfilesV1,
+
+    listAcademySquadXpEventsV1,
+    recomputeAcademySquadXpV1,
+    recordAcademySquadXpContributionV1,
+
+    listAcademySquadLeaderboardV1,
+    listAcademySquadContributorsV1,
+
+    getAcademySquadMissionByIdV1,
+    listAcademySquadMissionsV1,
+    createAcademySquadMissionV1,
+    updateAcademySquadMissionV1,
+    cancelAcademySquadMissionV1,
+
+    listAcademySquadMissionContributionsV1,
+    recordAcademySquadMissionContributionV1,
+
     computeBehaviorProfile,
     saveBehaviorProfile,
     computePlannerStats,
@@ -1319,6 +6414,7 @@ module.exports = {
     listLeadMissionLeads,
     getLeadMissionLeadById,
     updateLeadMissionLead,
+    deleteLeadMissionLead,
     listLeadMissionFollowUps,
     listLeadMissionPayouts,
     listLeadMissionDeals,

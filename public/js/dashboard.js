@@ -6668,25 +6668,314 @@ function installDashboardSettingsBadgeAvailClickBridge() {
     }, true);
 }
 
-async function openDashboardSettingsModal() {
-    const modal = document.getElementById('yh-dashboard-settings-modal');
+async function openDashboardSettingsModal(options = {}) {
+    const shouldActivateWorkspace = options?.activateWorkspace !== false;
+    const currentWorkspace = String(
+        document.body?.getAttribute('data-yh-unified-workspace') || ''
+    ).trim().toLowerCase();
 
-    if (!modal) {
-        showToast('Settings modal is missing from the Dashboard.', 'error');
+    if (
+        shouldActivateWorkspace &&
+        currentWorkspace !== 'settings' &&
+        typeof activateDashboardUnifiedWorkspace === 'function'
+    ) {
+        activateDashboardUnifiedWorkspace('settings', {
+            animate: false,
+            scroll: options?.scroll !== false,
+            persist: options?.persist !== false
+        });
+
         return;
     }
 
+    const modal = document.getElementById('yh-dashboard-settings-modal');
+    const workspaceContent = document.getElementById('yh-dashboard-settings-workspace-content');
+
+    if (!modal) {
+        showToast('Settings workspace is missing from the Dashboard.', 'error');
+        return;
+    }
+
+    if (
+        workspaceContent &&
+        modal.parentElement !== workspaceContent
+    ) {
+        workspaceContent.appendChild(modal);
+    }
+
+    modal.classList.add('is-dashboard-inline-workspace');
     modal.classList.remove('hidden-step');
     modal.setAttribute('aria-hidden', 'false');
+
     await loadDashboardSettingsSubscriptions();
 }
 
-function closeDashboardSettingsModal() {
+function closeDashboardSettingsModal(options = {}) {
     const modal = document.getElementById('yh-dashboard-settings-modal');
     if (!modal) return;
 
     modal.classList.add('hidden-step');
     modal.setAttribute('aria-hidden', 'true');
+
+    if (
+        options?.navigateToOverview !== false &&
+        typeof activateDashboardUnifiedWorkspace === 'function'
+    ) {
+        activateDashboardUnifiedWorkspace('overview', {
+            animate: false,
+            scroll: true,
+            persist: true
+        });
+    }
+}
+
+const YH_DASHBOARD_CHANGE_PASSWORD_ENDPOINT =
+    '/api/change-password';
+
+function setDashboardChangePasswordError(
+    message = ''
+) {
+    const errorBox =
+        document.getElementById(
+            'yh-dashboard-change-password-error'
+        );
+
+    if (!errorBox) return;
+
+    const cleanMessage =
+        String(message || '').trim();
+
+    errorBox.textContent = cleanMessage;
+
+    errorBox.classList.toggle(
+        'hidden-step',
+        !cleanMessage
+    );
+}
+
+function resetDashboardChangePasswordForm() {
+    document
+        .getElementById(
+            'yh-dashboard-change-password-form'
+        )
+        ?.reset();
+
+    setDashboardChangePasswordError('');
+}
+
+function openDashboardChangePasswordModal() {
+    const modal =
+        document.getElementById(
+            'yh-dashboard-change-password-modal'
+        );
+
+    if (!modal) {
+        showToast(
+            'Change Password modal is missing from the Dashboard.',
+            'error'
+        );
+
+        return;
+    }
+
+    closeDashboardSettingsModal({
+        navigateToOverview: false
+    });
+    resetDashboardChangePasswordForm();
+
+    modal.classList.remove('hidden-step');
+    modal.setAttribute(
+        'aria-hidden',
+        'false'
+    );
+
+    window.requestAnimationFrame(() => {
+        document
+            .getElementById(
+                'yh-dashboard-current-password'
+            )
+            ?.focus();
+    });
+}
+
+function closeDashboardChangePasswordModal({
+    reopenSettings = true
+} = {}) {
+    const modal =
+        document.getElementById(
+            'yh-dashboard-change-password-modal'
+        );
+
+    if (!modal) return;
+
+    modal.classList.add('hidden-step');
+    modal.setAttribute(
+        'aria-hidden',
+        'true'
+    );
+
+    resetDashboardChangePasswordForm();
+
+    if (reopenSettings) {
+        const settingsModal =
+            document.getElementById(
+                'yh-dashboard-settings-modal'
+            );
+
+        settingsModal?.classList.remove(
+            'hidden-step'
+        );
+
+        settingsModal?.setAttribute(
+            'aria-hidden',
+            'false'
+        );
+    }
+}
+
+async function submitDashboardChangePassword(
+    event
+) {
+    event?.preventDefault?.();
+
+    const currentPassword = String(
+        document.getElementById(
+            'yh-dashboard-current-password'
+        )?.value || ''
+    );
+
+    const newPassword = String(
+        document.getElementById(
+            'yh-dashboard-new-password'
+        )?.value || ''
+    );
+
+    const confirmNewPassword = String(
+        document.getElementById(
+            'yh-dashboard-confirm-new-password'
+        )?.value || ''
+    );
+
+    const submitButton =
+        document.getElementById(
+            'yh-dashboard-change-password-submit'
+        );
+
+    setDashboardChangePasswordError('');
+
+    if (
+        !currentPassword ||
+        !newPassword ||
+        !confirmNewPassword
+    ) {
+        setDashboardChangePasswordError(
+            'Complete all password fields.'
+        );
+
+        return;
+    }
+
+    if (
+        newPassword.length < 8 ||
+        newPassword.length > 128
+    ) {
+        setDashboardChangePasswordError(
+            'New password must be between 8 and 128 characters.'
+        );
+
+        return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+        setDashboardChangePasswordError(
+            'New password and confirmation do not match.'
+        );
+
+        return;
+    }
+
+    if (currentPassword === newPassword) {
+        setDashboardChangePasswordError(
+            'Choose a new password that is different from your current password.'
+        );
+
+        return;
+    }
+
+    if (
+        submitButton?.dataset
+            ?.yhSettingsBusy === 'true'
+    ) {
+        return;
+    }
+
+    if (submitButton) {
+        submitButton.dataset.yhSettingsBusy =
+            'true';
+
+        setDashboardSettingsButtonBusy(
+            submitButton,
+            true,
+            'Changing Password...'
+        );
+    }
+
+    let logoutStarted = false;
+
+    try {
+        const result = await academyAuthedFetch(
+            YH_DASHBOARD_CHANGE_PASSWORD_ENDPOINT,
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    currentPassword,
+                    newPassword,
+                    confirmNewPassword
+                })
+            }
+        );
+
+        logoutStarted = true;
+
+        closeDashboardChangePasswordModal({
+            reopenSettings: false
+        });
+
+        showToast(
+            result?.message ||
+                'Password changed. Please log in again.',
+            'success'
+        );
+
+        await new Promise((resolve) => {
+            window.setTimeout(resolve, 650);
+        });
+
+        await logoutUser();
+    } catch (error) {
+        const message =
+            error?.message ||
+            'Failed to change password.';
+
+        setDashboardChangePasswordError(
+            message
+        );
+
+        showToast(message, 'error');
+    } finally {
+        if (
+            !logoutStarted &&
+            submitButton?.isConnected
+        ) {
+            submitButton.dataset.yhSettingsBusy =
+                'false';
+
+            setDashboardSettingsButtonBusy(
+                submitButton,
+                false
+            );
+        }
+    }
 }
 
 function setDashboardSettingsButtonBusy(button = null, busy = false, label = '') {
@@ -6918,26 +7207,92 @@ async function dashboardStartSubscriptionCheckout(options = {}, button = null) {
 }
 
 function bootDashboardSettingsModal() {
-    const settingsModal = document.getElementById('yh-dashboard-settings-modal');
-    const settingsList = document.getElementById('yh-dashboard-settings-subscriptions-list');
+    const settingsModal =
+        document.getElementById(
+            'yh-dashboard-settings-modal'
+        );
+
+    const settingsList =
+        document.getElementById(
+            'yh-dashboard-settings-subscriptions-list'
+        );
+
+    const changePasswordModal =
+        document.getElementById(
+            'yh-dashboard-change-password-modal'
+        );
+
+    const changePasswordForm =
+        document.getElementById(
+            'yh-dashboard-change-password-form'
+        );
 
     installDashboardSettingsBadgeAvailClickBridge();
 
-    document.getElementById('yh-dashboard-settings-close')?.addEventListener('click', closeDashboardSettingsModal);
-    document.getElementById('yh-dashboard-settings-close-footer')?.addEventListener('click', closeDashboardSettingsModal);
 
-    document.getElementById('yh-dashboard-settings-refresh')?.addEventListener('click', (event) => {
-        const button = event.currentTarget;
+    document
+        .getElementById(
+            'yh-dashboard-settings-change-password'
+        )
+        ?.addEventListener(
+            'click',
+            openDashboardChangePasswordModal
+        );
 
-        runDashboardSettingsButtonAction(button, 'Refreshing...', async () => {
-            await loadDashboardSettingsSubscriptions();
-        }).catch((error) => {
-            showToast(error?.message || 'Failed to refresh settings.', 'error');
+    document
+        .getElementById(
+            'yh-dashboard-change-password-close'
+        )
+        ?.addEventListener('click', () => {
+            closeDashboardChangePasswordModal();
         });
-    });
+
+    document
+        .getElementById(
+            'yh-dashboard-change-password-cancel'
+        )
+        ?.addEventListener('click', () => {
+            closeDashboardChangePasswordModal();
+        });
+
+    changePasswordForm?.addEventListener(
+        'submit',
+        submitDashboardChangePassword
+    );
+
+    changePasswordModal?.addEventListener(
+        'click',
+        (event) => {
+            if (
+                event.target?.id ===
+                'yh-dashboard-change-password-modal'
+            ) {
+                closeDashboardChangePasswordModal();
+            }
+        }
+    );
+
+    document.addEventListener(
+        'keydown',
+        (event) => {
+            if (event.key !== 'Escape') return;
+
+            if (
+                changePasswordModal &&
+                !changePasswordModal.classList
+                    .contains('hidden-step')
+            ) {
+                closeDashboardChangePasswordModal();
+            }
+        }
+    );
+
 
     settingsModal?.addEventListener('click', (event) => {
-        if (event.target?.id === 'yh-dashboard-settings-modal') {
+        if (
+            event.target?.id === 'yh-dashboard-settings-modal' &&
+            !settingsModal.classList.contains('is-dashboard-inline-workspace')
+        ) {
             closeDashboardSettingsModal();
         }
     });
@@ -7002,33 +7357,2199 @@ function bootDashboardSettingsModal() {
     });
 }
 
-window.openDashboardSettingsModal = openDashboardSettingsModal;
-window.closeDashboardSettingsModal = closeDashboardSettingsModal;
+window.openDashboardSettingsModal =
+    openDashboardSettingsModal;
 
+window.closeDashboardSettingsModal =
+    closeDashboardSettingsModal;
+
+/* =========================================================
+   DASHBOARD MY CONTACTS
+   Internal: Academy mission leads
+   External: manually managed contacts
+   ========================================================= */
+
+const YH_DASHBOARD_MY_CONTACTS_ENDPOINT =
+    '/api/contacts';
+
+const dashboardMyContactsState = {
+    loading: false,
+    loaded: false,
+    activeTab: 'internal',
+    search: '',
+    internalContacts: [],
+    externalContacts: [],
+    editingId: ''
+};
+
+function escapeDashboardMyContactHtml(
+    value = ''
+) {
+    if (
+        typeof academyFeedEscapeHtml ===
+        'function'
+    ) {
+        return academyFeedEscapeHtml(value);
+    }
+
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function normalizeDashboardMyContact(
+    item = {},
+    type = ''
+) {
+    const cleanType = String(
+        type ||
+        item.contactType ||
+        item.type ||
+        ''
+    )
+        .trim()
+        .toLowerCase();
+
+    return {
+        id: String(
+            item.id ||
+            item.contactId ||
+            item.leadId ||
+            ''
+        ).trim(),
+
+        contactType:
+            cleanType === 'external'
+                ? 'external'
+                : 'internal',
+
+        fullName: String(
+            item.fullName ||
+            item.contactName ||
+            item.name ||
+            ''
+        ).trim(),
+
+        companyName: String(
+            item.companyName ||
+            item.company ||
+            ''
+        ).trim(),
+
+        contactRole: String(
+            item.contactRole ||
+            item.role ||
+            ''
+        ).trim(),
+
+        email: String(
+            item.email || ''
+        )
+            .trim()
+            .toLowerCase(),
+
+        phone: String(
+            item.phone || ''
+        ).trim(),
+
+        city: String(
+            item.city || ''
+        ).trim(),
+
+        country: String(
+            item.country || ''
+        ).trim(),
+
+        notes: String(
+            item.notes || ''
+        ).trim(),
+
+        sourceMissionId: String(
+            item.sourceMissionId ||
+            item.leadId ||
+            ''
+        ).trim(),
+
+        sourceMissionTitle: String(
+            item.sourceMissionTitle ||
+            item.missionTitle ||
+            item.title ||
+            ''
+        ).trim(),
+
+        status: String(
+            item.status || 'active'
+        )
+            .trim()
+            .toLowerCase(),
+
+        createdAt: String(
+            item.createdAt || ''
+        ).trim(),
+
+        updatedAt: String(
+            item.updatedAt || ''
+        ).trim()
+    };
+}
+
+function getDashboardMyContactsActiveItems() {
+    return (
+        dashboardMyContactsState.activeTab ===
+        'external'
+    )
+        ? dashboardMyContactsState
+            .externalContacts
+        : dashboardMyContactsState
+            .internalContacts;
+}
+
+function dashboardMyContactMatchesSearch(
+    contact = {},
+    query = ''
+) {
+    const cleanQuery = String(
+        query || ''
+    )
+        .trim()
+        .toLowerCase();
+
+    if (!cleanQuery) return true;
+
+    return [
+        contact.fullName,
+        contact.companyName,
+        contact.contactRole,
+        contact.email,
+        contact.phone,
+        contact.city,
+        contact.country,
+        contact.notes,
+        contact.sourceMissionTitle
+    ].some((value) => {
+        return String(value || '')
+            .toLowerCase()
+            .includes(cleanQuery);
+    });
+}
+
+function syncDashboardMyContactsCount() {
+    const internalCount =
+        dashboardMyContactsState
+            .internalContacts.length;
+
+    const externalCount =
+        dashboardMyContactsState
+            .externalContacts.length;
+
+    const totalCount =
+        internalCount + externalCount;
+
+    setDashboardCommandOverviewText(
+        'yh-command-my-contacts-count',
+        String(totalCount),
+        '0'
+    );
+
+    const overviewCount =
+        document.getElementById(
+            'yh-dashboard-overview-my-contacts-count-v1'
+        );
+
+    if (overviewCount) {
+        overviewCount.textContent =
+            String(totalCount);
+    }
+
+    const internalCountEl =
+        document.getElementById(
+            'yh-dashboard-my-contacts-internal-count'
+        );
+
+    if (internalCountEl) {
+        internalCountEl.textContent =
+            String(internalCount);
+    }
+
+    const externalCountEl =
+        document.getElementById(
+            'yh-dashboard-my-contacts-external-count'
+        );
+
+    if (externalCountEl) {
+        externalCountEl.textContent =
+            String(externalCount);
+    }
+}
+
+function setDashboardMyContactsFormError(
+    message = ''
+) {
+    const errorBox =
+        document.getElementById(
+            'yh-dashboard-my-contacts-form-error'
+        );
+
+    if (!errorBox) return;
+
+    const cleanMessage =
+        String(message || '').trim();
+
+    errorBox.textContent = cleanMessage;
+
+    errorBox.classList.toggle(
+        'hidden-step',
+        !cleanMessage
+    );
+}
+
+function resetDashboardMyContactsForm() {
+    document
+        .getElementById(
+            'yh-dashboard-my-contacts-form'
+        )
+        ?.reset();
+
+    const editId =
+        document.getElementById(
+            'yh-dashboard-my-contacts-edit-id'
+        );
+
+    if (editId) {
+        editId.value = '';
+    }
+
+    dashboardMyContactsState.editingId =
+        '';
+
+    setDashboardMyContactsFormError('');
+
+    const title =
+        document.getElementById(
+            'yh-dashboard-my-contacts-form-title'
+        );
+
+    if (title) {
+        title.textContent =
+            'Add External Contact';
+    }
+
+    const submit =
+        document.getElementById(
+            'yh-dashboard-my-contacts-form-submit'
+        );
+
+    if (submit) {
+        submit.textContent =
+            'Save Contact';
+    }
+}
+
+function closeDashboardMyContactsForm() {
+    resetDashboardMyContactsForm();
+
+    document
+        .getElementById(
+            'yh-dashboard-my-contacts-form'
+        )
+        ?.classList.add('hidden-step');
+}
+
+function openDashboardMyContactsForm(
+    contact = null
+) {
+    if (
+        dashboardMyContactsState.activeTab !==
+        'external'
+    ) {
+        setDashboardMyContactsTab(
+            'external'
+        );
+    }
+
+    resetDashboardMyContactsForm();
+
+    const form =
+        document.getElementById(
+            'yh-dashboard-my-contacts-form'
+        );
+
+    if (!form) return;
+
+    const normalized = contact
+        ? normalizeDashboardMyContact(
+            contact,
+            'external'
+        )
+        : null;
+
+    if (normalized?.id) {
+        dashboardMyContactsState.editingId =
+            normalized.id;
+
+        document.getElementById(
+            'yh-dashboard-my-contacts-edit-id'
+        ).value = normalized.id;
+
+        document.getElementById(
+            'yh-dashboard-my-contact-name'
+        ).value = normalized.fullName;
+
+        document.getElementById(
+            'yh-dashboard-my-contact-company'
+        ).value = normalized.companyName;
+
+        document.getElementById(
+            'yh-dashboard-my-contact-role'
+        ).value = normalized.contactRole;
+
+        document.getElementById(
+            'yh-dashboard-my-contact-email'
+        ).value = normalized.email;
+
+        document.getElementById(
+            'yh-dashboard-my-contact-phone'
+        ).value = normalized.phone;
+
+        document.getElementById(
+            'yh-dashboard-my-contact-city'
+        ).value = normalized.city;
+
+        document.getElementById(
+            'yh-dashboard-my-contact-country'
+        ).value = normalized.country;
+
+        document.getElementById(
+            'yh-dashboard-my-contact-notes'
+        ).value = normalized.notes;
+
+        const title =
+            document.getElementById(
+                'yh-dashboard-my-contacts-form-title'
+            );
+
+        if (title) {
+            title.textContent =
+                'Edit External Contact';
+        }
+
+        const submit =
+            document.getElementById(
+                'yh-dashboard-my-contacts-form-submit'
+            );
+
+        if (submit) {
+            submit.textContent =
+                'Save Changes';
+        }
+    }
+
+    form.classList.remove('hidden-step');
+
+    form.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest'
+    });
+
+    window.requestAnimationFrame(() => {
+        document
+            .getElementById(
+                'yh-dashboard-my-contact-name'
+            )
+            ?.focus();
+    });
+}
+
+function renderDashboardContactActionsV1(
+    contact = {}
+) {
+    const contactId =
+        String(contact.id || '').trim();
+
+    if (!contactId) return '';
+
+    const contactType =
+        contact.contactType === 'external'
+            ? 'external'
+            : 'internal';
+
+    const escapedId =
+        escapeDashboardMyContactHtml(
+            contactId
+        );
+
+    return `
+        <div
+            class="yh-row-actions"
+            data-yh-row-actions
+        >
+            <button
+                type="button"
+                class="yh-row-actions-trigger"
+                data-dashboard-contact-menu-toggle="${escapedId}"
+                aria-label="Open contact actions"
+                aria-haspopup="menu"
+                aria-expanded="false"
+            >
+                ⋮
+            </button>
+
+            <div
+                class="yh-row-actions-menu"
+                data-dashboard-contact-menu="${escapedId}"
+                role="menu"
+                hidden
+            >
+                <button
+                    type="button"
+                    role="menuitem"
+                    data-dashboard-contact-edit="${escapedId}"
+                    data-dashboard-contact-type="${contactType}"
+                >
+                    ${
+                        contactType === 'internal'
+                            ? 'Edit Lead'
+                            : 'Edit Contact'
+                    }
+                </button>
+
+                <button
+                    type="button"
+                    role="menuitem"
+                    class="is-danger"
+                    data-dashboard-contact-delete="${escapedId}"
+                    data-dashboard-contact-type="${contactType}"
+                >
+                    ${
+                        contactType === 'internal'
+                            ? 'Delete Lead'
+                            : 'Delete Contact'
+                    }
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function setDashboardLeadEditErrorV1(
+    message = ''
+) {
+    const box =
+        document.getElementById(
+            'yh-dashboard-lead-edit-error'
+        );
+
+    if (!box) return;
+
+    const cleanMessage =
+        String(message || '').trim();
+
+    box.textContent = cleanMessage;
+
+    box.classList.toggle(
+        'hidden-step',
+        !cleanMessage
+    );
+}
+
+function normalizeDashboardLeadEditValueV1(
+    value
+) {
+    if (
+        value === null ||
+        value === undefined
+    ) {
+        return '';
+    }
+
+    return String(value);
+}
+
+function setDashboardLeadEditFieldV1(
+    form,
+    name,
+    value
+) {
+    if (!form || !name) return;
+
+    const field =
+        form.elements?.namedItem(name);
+
+    if (!field) return;
+
+    const cleanValue =
+        normalizeDashboardLeadEditValueV1(
+            value
+        );
+
+    if (
+        field instanceof RadioNodeList
+    ) {
+        Array.from(field).forEach(
+            (node) => {
+                node.checked =
+                    String(node.value) ===
+                    cleanValue;
+            }
+        );
+
+        return;
+    }
+
+    if (
+        field.type === 'checkbox'
+    ) {
+        field.checked =
+            value === true ||
+            cleanValue === 'true' ||
+            cleanValue === '1';
+
+        return;
+    }
+
+    if (
+        field.type === 'date' &&
+        cleanValue
+    ) {
+        field.value =
+            cleanValue.slice(0, 10);
+
+        return;
+    }
+
+    field.value = cleanValue;
+}
+
+function fillDashboardLeadEditFormV1(
+    lead = {}
+) {
+    const form =
+        document.getElementById(
+            'yh-dashboard-lead-edit-form'
+        );
+
+    if (!form) return;
+
+    const leadData =
+        lead?.data &&
+        typeof lead.data === 'object'
+            ? lead.data
+            : {};
+
+    const source = {
+        ...leadData,
+        ...lead
+    };
+
+    form.reset();
+
+    Array.from(form.elements).forEach(
+        (field) => {
+            const name =
+                String(field?.name || '')
+                    .trim();
+
+            if (!name) return;
+
+            if (
+                Object.prototype
+                    .hasOwnProperty
+                    .call(source, name)
+            ) {
+                setDashboardLeadEditFieldV1(
+                    form,
+                    name,
+                    source[name]
+                );
+            }
+        }
+    );
+
+    const leadId =
+        String(
+            lead.id ||
+            lead.leadId ||
+            lead.sourceDocumentId ||
+            lead.source_document_id ||
+            leadData.id ||
+            ''
+        ).trim();
+
+    const idInput =
+        document.getElementById(
+            'yh-dashboard-lead-edit-id'
+        );
+
+    if (idInput) {
+        idInput.value = leadId;
+    }
+
+    const currency =
+        document.getElementById(
+            'yh-dashboard-lead-currency'
+        );
+
+    if (
+        currency &&
+        !String(currency.value || '').trim()
+    ) {
+        currency.value = 'USD';
+    }
+}
+
+function openDashboardLeadEditModalV1() {
+    const modal =
+        document.getElementById(
+            'yh-dashboard-lead-edit-modal'
+        );
+
+    if (!modal) {
+        throw new Error(
+            'Dashboard lead editor is not available.'
+        );
+    }
+
+    modal.classList.remove(
+        'hidden-step'
+    );
+
+    modal.setAttribute(
+        'aria-hidden',
+        'false'
+    );
+
+    document.body?.classList.add(
+        'yh-dashboard-lead-edit-open'
+    );
+
+    window.requestAnimationFrame(() => {
+        document
+            .getElementById(
+                'yh-dashboard-lead-company-name'
+            )
+            ?.focus();
+    });
+}
+
+function closeDashboardLeadEditModalV1() {
+    const modal =
+        document.getElementById(
+            'yh-dashboard-lead-edit-modal'
+        );
+
+    const form =
+        document.getElementById(
+            'yh-dashboard-lead-edit-form'
+        );
+
+    modal?.classList.add(
+        'hidden-step'
+    );
+
+    modal?.setAttribute(
+        'aria-hidden',
+        'true'
+    );
+
+    document.body?.classList.remove(
+        'yh-dashboard-lead-edit-open'
+    );
+
+    form?.reset();
+
+    const idInput =
+        document.getElementById(
+            'yh-dashboard-lead-edit-id'
+        );
+
+    if (idInput) {
+        idInput.value = '';
+    }
+
+    setDashboardLeadEditErrorV1('');
+}
+function setDashboardContactActionLoadingV1(
+    button,
+    loading = false,
+    loadingLabel = 'Loading...'
+) {
+    if (!(button instanceof HTMLElement)) {
+        return;
+    }
+
+    if (!button.dataset.idleLabel) {
+        button.dataset.idleLabel =
+            String(
+                button.textContent || ''
+            ).trim();
+    }
+
+    button.disabled =
+        loading === true;
+
+    button.setAttribute(
+        'aria-busy',
+        loading ? 'true' : 'false'
+    );
+
+    button.classList.toggle(
+        'is-loading',
+        loading
+    );
+
+    button.textContent =
+        loading
+            ? loadingLabel
+            : (
+                button.dataset.idleLabel ||
+                'Action'
+            );
+}
+async function openDashboardInternalLeadForEditV1(
+    leadId = '',
+    actionButton = null
+) {
+    const cleanLeadId =
+        String(leadId || '').trim();
+
+    if (!cleanLeadId) return;
+
+    const submitButton =
+        document.getElementById(
+            'yh-dashboard-lead-edit-submit'
+        );
+
+    setDashboardContactActionLoadingV1(
+        actionButton,
+        true,
+        'Opening...'
+    );
+
+    try {
+        setDashboardLeadEditErrorV1('');
+
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent =
+                'Loading Lead...';
+        }
+
+        const result =
+            await academyAuthedFetch(
+                (
+                    '/api/academy/lead-missions/leads/' +
+                    encodeURIComponent(
+                        cleanLeadId
+                    )
+                ),
+                {
+                    method: 'GET'
+                }
+            );
+
+        const lead =
+            result?.lead || null;
+
+        if (!lead) {
+            throw new Error(
+                'Lead not found.'
+            );
+        }
+
+        fillDashboardLeadEditFormV1(
+            lead
+        );
+
+        openDashboardLeadEditModalV1();
+    } catch (error) {
+        console.error(
+            'openDashboardInternalLeadForEditV1 error:',
+            error
+        );
+
+        showToast(
+            error?.message ||
+            'Failed to open lead editor.',
+            'error'
+        );
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent =
+                'Save Changes';
+        }
+
+        setDashboardContactActionLoadingV1(
+            actionButton,
+            false
+        );
+    }
+}
+async function submitDashboardLeadEditV1(
+    event
+) {
+    event?.preventDefault?.();
+
+    const form =
+        document.getElementById(
+            'yh-dashboard-lead-edit-form'
+        );
+
+    const submitButton =
+        document.getElementById(
+            'yh-dashboard-lead-edit-submit'
+        );
+
+    const leadId =
+        String(
+            document.getElementById(
+                'yh-dashboard-lead-edit-id'
+            )?.value || ''
+        ).trim();
+
+    if (!form || !leadId) {
+        setDashboardLeadEditErrorV1(
+            'Lead ID is missing.'
+        );
+
+        return;
+    }
+
+    const formData =
+        new FormData(form);
+
+    const payload =
+        Object.fromEntries(
+            formData.entries()
+        );
+
+    payload.companyName =
+        String(
+            payload.companyName || ''
+        ).trim();
+
+    payload.contactName =
+        String(
+            payload.contactName || ''
+        ).trim();
+
+    payload.email =
+        String(
+            payload.email || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    if (!payload.companyName) {
+        setDashboardLeadEditErrorV1(
+            'Company name is required.'
+        );
+
+        document
+            .getElementById(
+                'yh-dashboard-lead-company-name'
+            )
+            ?.focus();
+
+        return;
+    }
+
+    try {
+        setDashboardLeadEditErrorV1('');
+
+        if (submitButton) {
+            submitButton.disabled = true;
+
+            submitButton.setAttribute(
+                'aria-busy',
+                'true'
+            );
+
+            submitButton.textContent =
+                'Saving...';
+        }
+
+        const result =
+            await academyAuthedFetch(
+                (
+                    '/api/academy/lead-missions/leads/' +
+                    encodeURIComponent(
+                        leadId
+                    )
+                ),
+                {
+                    method: 'PATCH',
+                    body:
+                        JSON.stringify(payload)
+                }
+            );
+
+        const updatedLead =
+            result?.lead || null;
+
+        if (updatedLead) {
+            dashboardMyContactsState
+                .internalContacts =
+                dashboardMyContactsState
+                    .internalContacts
+                    .map((contact) => {
+                        if (
+                            String(
+                                contact.id || ''
+                            ) !== leadId
+                        ) {
+                            return contact;
+                        }
+
+                        return normalizeDashboardMyContact(
+                            {
+                                ...contact,
+                                ...(
+                                    updatedLead?.data &&
+                                    typeof updatedLead.data ===
+                                        'object'
+                                        ? updatedLead.data
+                                        : {}
+                                ),
+                                ...updatedLead,
+                                id: leadId
+                            },
+                            'internal'
+                        );
+                    });
+        }
+
+        closeDashboardLeadEditModalV1();
+
+        renderDashboardMyContacts();
+
+        await loadDashboardMyContacts({
+            force: true,
+            silent: true
+        });
+
+        showToast(
+            'Lead updated successfully.',
+            'success'
+        );
+    } catch (error) {
+        console.error(
+            'submitDashboardLeadEditV1 error:',
+            error
+        );
+
+        setDashboardLeadEditErrorV1(
+            error?.message ||
+            'Failed to update lead.'
+        );
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+
+            submitButton.removeAttribute(
+                'aria-busy'
+            );
+
+            submitButton.textContent =
+                'Save Changes';
+        }
+    }
+}
+async function deleteDashboardInternalLeadV1(
+    leadId = '',
+    actionButton = null
+) {
+    const cleanLeadId =
+        String(leadId || '').trim();
+
+    if (!cleanLeadId) return;
+
+    const contact =
+        dashboardMyContactsState
+            .internalContacts
+            .find((item) => {
+                return (
+                    String(item.id || '') ===
+                    cleanLeadId
+                );
+            });
+
+    const label =
+        contact?.fullName ||
+        contact?.companyName ||
+        'this lead';
+
+    const confirmed =
+        await openYHConfirmModal({
+            title: 'Delete Academy lead?',
+            message:
+                `Delete ${label}? ` +
+                'This removes it from Academy Missions and My Contacts.',
+            okText: 'Delete Lead',
+            cancelText: 'Cancel',
+            tone: 'danger'
+        });
+
+    if (!confirmed) return;
+
+    setDashboardContactActionLoadingV1(
+        actionButton,
+        true,
+        'Deleting...'
+    );
+
+    try {
+        const result =
+            await academyAuthedFetch(
+            (
+                '/api/academy/lead-missions/leads/' +
+                encodeURIComponent(
+                    cleanLeadId
+                )
+            ),
+            {
+                method: 'DELETE'
+            }
+        );
+
+    dashboardMyContactsState
+        .internalContacts =
+        dashboardMyContactsState
+            .internalContacts
+            .filter((item) => {
+                return (
+                    String(item.id || '') !==
+                    cleanLeadId
+                );
+            });
+
+    renderDashboardMyContacts();
+
+        showToast(
+            result?.message ||
+            'Lead deleted.',
+            'success'
+        );
+    } finally {
+        setDashboardContactActionLoadingV1(
+            actionButton,
+            false
+        );
+    }
+}
+
+function renderDashboardMyContacts() {
+    syncDashboardMyContactsCount();
+
+    const list =
+        document.getElementById(
+            'yh-dashboard-my-contacts-list'
+        );
+
+    const summary =
+        document.getElementById(
+            'yh-dashboard-my-contacts-summary'
+        );
+
+    const addButton =
+        document.getElementById(
+            'yh-dashboard-my-contacts-add-external'
+        );
+
+    if (!list) return;
+
+    addButton?.classList.toggle(
+        'hidden-step',
+        dashboardMyContactsState.activeTab !==
+            'external'
+    );
+
+    document
+        .querySelectorAll(
+            '[data-yh-my-contacts-tab]'
+        )
+        .forEach((button) => {
+            const tab = String(
+                button.getAttribute(
+                    'data-yh-my-contacts-tab'
+                ) || ''
+            ).trim();
+
+            const active =
+                tab ===
+                dashboardMyContactsState
+                    .activeTab;
+
+            button.classList.toggle(
+                'is-active',
+                active
+            );
+
+            button.setAttribute(
+                'aria-selected',
+                active ? 'true' : 'false'
+            );
+        });
+
+    if (
+        dashboardMyContactsState.loading &&
+        !dashboardMyContactsState.loaded
+    ) {
+        if (summary) {
+            summary.textContent =
+                'Loading your saved contacts...';
+        }
+
+        list.innerHTML = `
+            <div class="yh-dashboard-settings-loading">
+                Loading contacts...
+            </div>
+        `;
+
+        return;
+    }
+
+    const allItems =
+        getDashboardMyContactsActiveItems();
+
+    const visibleItems =
+        allItems.filter((contact) => {
+            return dashboardMyContactMatchesSearch(
+                contact,
+                dashboardMyContactsState.search
+            );
+        });
+
+    if (summary) {
+        const typeLabel =
+            dashboardMyContactsState.activeTab ===
+            'external'
+                ? 'external contact'
+                : 'Academy mission contact';
+
+        summary.textContent =
+            `${visibleItems.length} of ` +
+            `${allItems.length} ` +
+            `${typeLabel}` +
+            `${allItems.length === 1 ? '' : 's'}`;
+    }
+
+    if (!visibleItems.length) {
+        const emptyTitle =
+            dashboardMyContactsState.activeTab ===
+            'external'
+                ? 'No external contacts saved yet'
+                : 'No Academy mission contacts yet';
+
+        const emptyCopy =
+            dashboardMyContactsState.search
+                ? 'No contacts match the current search.'
+                : (
+                    dashboardMyContactsState
+                        .activeTab ===
+                    'external'
+                )
+                    ? (
+                        'Use Add External Contact ' +
+                        'to create your first ' +
+                        'manually saved contact.'
+                    )
+                    : (
+                        'Contacts will appear here ' +
+                        'automatically when you save ' +
+                        'contact details inside an ' +
+                        'Academy mission lead.'
+                    );
+
+        list.innerHTML = `
+            <div class="yh-dashboard-my-contacts-empty">
+                <strong>
+                    ${escapeDashboardMyContactHtml(
+                        emptyTitle
+                    )}
+                </strong>
+
+                <span>
+                    ${escapeDashboardMyContactHtml(
+                        emptyCopy
+                    )}
+                </span>
+            </div>
+        `;
+
+        return;
+    }
+
+    list.innerHTML = visibleItems
+        .map((contact) => {
+            const displayName =
+                contact.fullName ||
+                contact.companyName ||
+                contact.email ||
+                contact.phone ||
+                'Unnamed Contact';
+
+            const meta = [
+                contact.contactRole,
+
+                (
+                    contact.companyName &&
+                    contact.companyName !==
+                        displayName
+                )
+                    ? contact.companyName
+                    : '',
+
+                [
+                    contact.city,
+                    contact.country
+                ]
+                    .filter(Boolean)
+                    .join(', ')
+            ].filter(Boolean);
+
+            const communication = [
+                contact.email,
+                contact.phone
+            ].filter(Boolean);
+
+            const isExternal =
+                contact.contactType ===
+                'external';
+
+            return `
+                <article
+                    class="yh-dashboard-my-contact-card"
+                    data-yh-my-contact-id="${escapeDashboardMyContactHtml(
+                        contact.id
+                    )}"
+                >
+                    <div class="yh-dashboard-my-contact-card-head">
+                        <div>
+                            <span
+                                class="yh-dashboard-my-contact-source ${
+                                    isExternal
+                                        ? 'is-external'
+                                        : 'is-internal'
+                                }"
+                            >
+                                ${
+                                    isExternal
+                                        ? 'External'
+                                        : 'Academy Mission'
+                                }
+                            </span>
+
+                            <h4>
+                                ${escapeDashboardMyContactHtml(
+                                    displayName
+                                )}
+                            </h4>
+                        </div>
+
+                        ${renderDashboardContactActionsV1(
+                            contact
+                        )}
+                    </div>
+
+                    ${
+                        meta.length
+                            ? `
+                                <p class="yh-dashboard-my-contact-meta">
+                                    ${escapeDashboardMyContactHtml(
+                                        meta.join(' • ')
+                                    )}
+                                </p>
+                            `
+                            : ''
+                    }
+
+                    ${
+                        communication.length
+                            ? `
+                                <p class="yh-dashboard-my-contact-communication">
+                                    ${escapeDashboardMyContactHtml(
+                                        communication.join(
+                                            ' • '
+                                        )
+                                    )}
+                                </p>
+                            `
+                            : ''
+                    }
+
+                    ${
+                        contact.notes
+                            ? `
+                                <p class="yh-dashboard-my-contact-notes">
+                                    ${escapeDashboardMyContactHtml(
+                                        contact.notes
+                                    )}
+                                </p>
+                            `
+                            : ''
+                    }
+
+                    ${
+                        (
+                            !isExternal &&
+                            contact.sourceMissionTitle
+                        )
+                            ? `
+                                <div class="yh-dashboard-my-contact-mission">
+                                    Source:
+                                    ${escapeDashboardMyContactHtml(
+                                        contact.sourceMissionTitle
+                                    )}
+                                </div>
+                            `
+                            : ''
+                    }
+                </article>
+            `;
+        })
+        .join('');
+}
+
+function setDashboardMyContactsTab(
+    tab = 'internal'
+) {
+    dashboardMyContactsState.activeTab =
+        tab === 'external'
+            ? 'external'
+            : 'internal';
+
+    dashboardMyContactsState.search = '';
+
+    const search =
+        document.getElementById(
+            'yh-dashboard-my-contacts-search'
+        );
+
+    if (search) {
+        search.value = '';
+    }
+
+    closeDashboardMyContactsForm();
+    renderDashboardMyContacts();
+}
+
+async function loadDashboardMyContacts({
+    force = false,
+    silent = false
+} = {}) {
+    if (dashboardMyContactsState.loading) {
+        return;
+    }
+
+    if (
+        dashboardMyContactsState.loaded &&
+        !force
+    ) {
+        renderDashboardMyContacts();
+        return;
+    }
+
+    dashboardMyContactsState.loading = true;
+
+    if (!silent) {
+        renderDashboardMyContacts();
+    }
+
+    try {
+        const result =
+            await academyAuthedFetch(
+                YH_DASHBOARD_MY_CONTACTS_ENDPOINT,
+                {
+                    method: 'GET'
+                }
+            );
+
+        dashboardMyContactsState
+            .internalContacts =
+            Array.isArray(
+                result?.internalContacts
+            )
+                ? result.internalContacts.map(
+                    (item) => {
+                        return normalizeDashboardMyContact(
+                            item,
+                            'internal'
+                        );
+                    }
+                )
+                : [];
+
+        dashboardMyContactsState
+            .externalContacts =
+            Array.isArray(
+                result?.externalContacts
+            )
+                ? result.externalContacts.map(
+                    (item) => {
+                        return normalizeDashboardMyContact(
+                            item,
+                            'external'
+                        );
+                    }
+                )
+                : [];
+
+        dashboardMyContactsState.loaded =
+            true;
+    } catch (error) {
+        console.error(
+            'loadDashboardMyContacts error:',
+            error
+        );
+
+        if (!silent) {
+            showToast(
+                error?.message ||
+                    'Failed to load contacts.',
+                'error'
+            );
+        }
+    } finally {
+        dashboardMyContactsState.loading =
+            false;
+
+        renderDashboardMyContacts();
+    }
+}
+
+async function openDashboardMyContactsModal() {
+    const modal =
+        document.getElementById(
+            'yh-dashboard-my-contacts-modal'
+        );
+
+    if (!modal) {
+        showToast(
+            'My Contacts modal is not available.',
+            'error'
+        );
+
+        return;
+    }
+
+    modal.classList.remove('hidden-step');
+
+    modal.setAttribute(
+        'aria-hidden',
+        'false'
+    );
+
+    document.body?.classList.add(
+        'yh-dashboard-my-contacts-open'
+    );
+
+    renderDashboardMyContacts();
+
+    await loadDashboardMyContacts({
+        force: true
+    });
+}
+
+function closeDashboardMyContactsModal() {
+    const modal =
+        document.getElementById(
+            'yh-dashboard-my-contacts-modal'
+        );
+
+    if (!modal) return;
+
+    modal.classList.add('hidden-step');
+
+    modal.setAttribute(
+        'aria-hidden',
+        'true'
+    );
+
+    document.body?.classList.remove(
+        'yh-dashboard-my-contacts-open'
+    );
+
+    closeDashboardMyContactsForm();
+}
+
+function readDashboardMyContactsFormPayload() {
+    return {
+        fullName: String(
+            document.getElementById(
+                'yh-dashboard-my-contact-name'
+            )?.value || ''
+        ).trim(),
+
+        companyName: String(
+            document.getElementById(
+                'yh-dashboard-my-contact-company'
+            )?.value || ''
+        ).trim(),
+
+        contactRole: String(
+            document.getElementById(
+                'yh-dashboard-my-contact-role'
+            )?.value || ''
+        ).trim(),
+
+        email: String(
+            document.getElementById(
+                'yh-dashboard-my-contact-email'
+            )?.value || ''
+        )
+            .trim()
+            .toLowerCase(),
+
+        phone: String(
+            document.getElementById(
+                'yh-dashboard-my-contact-phone'
+            )?.value || ''
+        ).trim(),
+
+        city: String(
+            document.getElementById(
+                'yh-dashboard-my-contact-city'
+            )?.value || ''
+        ).trim(),
+
+        country: String(
+            document.getElementById(
+                'yh-dashboard-my-contact-country'
+            )?.value || ''
+        ).trim(),
+
+        notes: String(
+            document.getElementById(
+                'yh-dashboard-my-contact-notes'
+            )?.value || ''
+        ).trim()
+    };
+}
+
+async function submitDashboardMyContact(
+    event
+) {
+    event?.preventDefault?.();
+
+    const submitButton =
+        document.getElementById(
+            'yh-dashboard-my-contacts-form-submit'
+        );
+
+    const payload =
+        readDashboardMyContactsFormPayload();
+
+    const editingId = String(
+        dashboardMyContactsState.editingId ||
+        ''
+    ).trim();
+
+    setDashboardMyContactsFormError('');
+
+    if (
+        !payload.fullName &&
+        !payload.companyName &&
+        !payload.email &&
+        !payload.phone
+    ) {
+        setDashboardMyContactsFormError(
+            'Enter a name, company, email, or phone number.'
+        );
+
+        return;
+    }
+
+    if (submitButton?.disabled) return;
+
+    if (submitButton) {
+        submitButton.disabled = true;
+
+        submitButton.setAttribute(
+            'aria-busy',
+            'true'
+        );
+
+        submitButton.dataset.originalLabel =
+            submitButton.textContent || '';
+
+        submitButton.textContent =
+            editingId
+                ? 'Saving Changes...'
+                : 'Saving Contact...';
+    }
+
+    try {
+        const endpoint = editingId
+            ? (
+                `${YH_DASHBOARD_MY_CONTACTS_ENDPOINT}/` +
+                encodeURIComponent(editingId)
+            )
+            : YH_DASHBOARD_MY_CONTACTS_ENDPOINT;
+
+        const result =
+            await academyAuthedFetch(
+                endpoint,
+                {
+                    method:
+                        editingId
+                            ? 'PATCH'
+                            : 'POST',
+
+                    body:
+                        JSON.stringify(payload)
+                }
+            );
+
+        const savedContact =
+            normalizeDashboardMyContact(
+                result?.contact || {},
+                'external'
+            );
+
+        if (editingId) {
+            dashboardMyContactsState
+                .externalContacts =
+                dashboardMyContactsState
+                    .externalContacts
+                    .map((item) => {
+                        return (
+                            item.id === editingId
+                        )
+                            ? savedContact
+                            : item;
+                    });
+        } else {
+            dashboardMyContactsState
+                .externalContacts = [
+                    savedContact,
+
+                    ...dashboardMyContactsState
+                        .externalContacts
+                        .filter((item) => {
+                            return (
+                                item.id !==
+                                savedContact.id
+                            );
+                        })
+                ];
+        }
+
+        dashboardMyContactsState.loaded =
+            true;
+
+        closeDashboardMyContactsForm();
+        renderDashboardMyContacts();
+
+        showToast(
+            result?.message ||
+                'Contact saved.',
+            'success'
+        );
+    } catch (error) {
+        setDashboardMyContactsFormError(
+            error?.message ||
+                'Failed to save contact.'
+        );
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+
+            submitButton.removeAttribute(
+                'aria-busy'
+            );
+
+            submitButton.textContent =
+                submitButton.dataset
+                    .originalLabel ||
+                (
+                    editingId
+                        ? 'Save Changes'
+                        : 'Save Contact'
+                );
+
+            delete submitButton.dataset
+                .originalLabel;
+        }
+    }
+}
+
+async function deleteDashboardMyContact(
+    contactId = ''
+) {
+    const cleanId =
+        String(contactId || '').trim();
+
+    if (!cleanId) return;
+
+    const contact =
+        dashboardMyContactsState
+            .externalContacts
+            .find((item) => {
+                return item.id === cleanId;
+            });
+
+    if (!contact) return;
+
+    const label =
+        contact.fullName ||
+        contact.companyName ||
+        contact.email ||
+        contact.phone ||
+        'this contact';
+
+    const confirmed =
+        await openYHConfirmModal({
+            title:
+                'Delete external contact?',
+
+            message:
+                `Delete ${label} from ` +
+                'My Contacts? This cannot ' +
+                'be undone.',
+
+            okText:
+                'Delete Contact',
+
+            cancelText:
+                'Cancel',
+
+            tone:
+                'danger'
+        });
+
+    if (!confirmed) return;
+
+    try {
+        const result =
+            await academyAuthedFetch(
+                (
+                    `${YH_DASHBOARD_MY_CONTACTS_ENDPOINT}/` +
+                    encodeURIComponent(cleanId)
+                ),
+                {
+                    method: 'DELETE'
+                }
+            );
+
+        dashboardMyContactsState
+            .externalContacts =
+            dashboardMyContactsState
+                .externalContacts
+                .filter((item) => {
+                    return item.id !== cleanId;
+                });
+
+        renderDashboardMyContacts();
+
+        showToast(
+            result?.message ||
+                'Contact deleted.',
+            'success'
+        );
+    } catch (error) {
+        showToast(
+            error?.message ||
+                'Failed to delete contact.',
+            'error'
+        );
+    }
+}
+
+function bootDashboardMyContactsModal() {
+    const modal =
+        document.getElementById(
+            'yh-dashboard-my-contacts-modal'
+        );
+
+    if (
+        !modal ||
+        modal.dataset.yhMyContactsBooted ===
+            'true'
+    ) {
+        return;
+    }
+
+    modal.dataset.yhMyContactsBooted =
+        'true';
+
+    document
+        .getElementById(
+            'yh-dashboard-my-contacts-close'
+        )
+        ?.addEventListener(
+            'click',
+            closeDashboardMyContactsModal
+        );
+
+    document
+        .getElementById(
+            'yh-dashboard-my-contacts-close-footer'
+        )
+        ?.addEventListener(
+            'click',
+            closeDashboardMyContactsModal
+        );
+
+    document
+        .getElementById(
+            'yh-dashboard-my-contacts-add-external'
+        )
+        ?.addEventListener(
+            'click',
+            () => {
+                openDashboardMyContactsForm();
+            }
+        );
+
+    document
+        .getElementById(
+            'yh-dashboard-my-contacts-form-cancel'
+        )
+        ?.addEventListener(
+            'click',
+            closeDashboardMyContactsForm
+        );
+
+    document
+        .getElementById(
+            'yh-dashboard-my-contacts-form'
+        )
+        ?.addEventListener(
+            'submit',
+            submitDashboardMyContact
+        );
+
+    document
+        .querySelectorAll(
+            '[data-yh-my-contacts-tab]'
+        )
+        .forEach((button) => {
+            button.addEventListener(
+                'click',
+                () => {
+                    setDashboardMyContactsTab(
+                        button.getAttribute(
+                            'data-yh-my-contacts-tab'
+                        ) || 'internal'
+                    );
+                }
+            );
+        });
+
+    document
+        .getElementById(
+            'yh-dashboard-my-contacts-search'
+        )
+        ?.addEventListener(
+            'input',
+            (event) => {
+                dashboardMyContactsState
+                    .search = String(
+                        event.target?.value ||
+                        ''
+                    ).trim();
+
+                renderDashboardMyContacts();
+            }
+        );
+    document
+        .getElementById(
+            'yh-dashboard-lead-edit-form'
+        )
+        ?.addEventListener(
+            'submit',
+            submitDashboardLeadEditV1
+        );
+
+    document
+        .getElementById(
+            'yh-dashboard-lead-edit-cancel'
+        )
+        ?.addEventListener(
+            'click',
+            closeDashboardLeadEditModalV1
+        );
+
+    /* Keep Dashboard Edit Lead modal open on backdrop clicks. */
+    document
+        .getElementById(
+            'yh-dashboard-lead-edit-modal'
+        )
+        ?.addEventListener(
+            'click',
+            (event) => {
+                if (
+                    event.target?.id ===
+                    'yh-dashboard-lead-edit-modal'
+                ) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+            }
+        );
+    document
+        .getElementById(
+            'yh-dashboard-my-contacts-list'
+        )
+        ?.addEventListener(
+            'click',
+            async (event) => {
+                const toggle =
+                    event.target?.closest?.(
+                        '[data-dashboard-contact-menu-toggle]'
+                    );
+
+                const editButton =
+                    event.target?.closest?.(
+                        '[data-dashboard-contact-edit]'
+                    );
+
+                const deleteButton =
+                    event.target?.closest?.(
+                        '[data-dashboard-contact-delete]'
+                    );
+
+                if (toggle) {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    const contactId =
+                        String(
+                            toggle.getAttribute(
+                                'data-dashboard-contact-menu-toggle'
+                            ) || ''
+                        ).trim();
+
+                    document
+                        .querySelectorAll(
+                            '[data-dashboard-contact-menu]'
+                        )
+                        .forEach((menu) => {
+                            const isTarget =
+                                menu.getAttribute(
+                                    'data-dashboard-contact-menu'
+                                ) === contactId;
+
+                            const shouldOpen =
+                                isTarget &&
+                                menu.hasAttribute(
+                                    'hidden'
+                                );
+
+                            menu.toggleAttribute(
+                                'hidden',
+                                !shouldOpen
+                            );
+                        });
+
+                    document
+                        .querySelectorAll(
+                            '[data-dashboard-contact-menu-toggle]'
+                        )
+                        .forEach((button) => {
+                            const menu =
+                                document.querySelector(
+                                    `[data-dashboard-contact-menu="${CSS.escape(
+                                        contactId
+                                    )}"]`
+                                );
+
+                            button.setAttribute(
+                                'aria-expanded',
+                                (
+                                    button === toggle &&
+                                    menu &&
+                                    !menu.hasAttribute(
+                                        'hidden'
+                                    )
+                                )
+                                    ? 'true'
+                                    : 'false'
+                            );
+                        });
+
+                    return;
+                }
+
+                if (editButton) {
+                    event.preventDefault();
+
+                    const id =
+                        String(
+                            editButton.getAttribute(
+                                'data-dashboard-contact-edit'
+                            ) || ''
+                        ).trim();
+
+                    const type =
+                        String(
+                            editButton.getAttribute(
+                                'data-dashboard-contact-type'
+                            ) || ''
+                        ).trim();
+
+                    if (type === 'internal') {
+                        await openDashboardInternalLeadForEditV1(
+                            id,
+                            editButton
+                        );
+                    } else {
+                        const contact =
+                            dashboardMyContactsState
+                                .externalContacts
+                                .find((item) => {
+                                    return (
+                                        item.id === id
+                                    );
+                                });
+
+                        if (contact) {
+                            openDashboardMyContactsForm(
+                                contact
+                            );
+                        }
+                    }
+
+                    return;
+                }
+
+                if (deleteButton) {
+                    event.preventDefault();
+
+                    const id =
+                        String(
+                            deleteButton.getAttribute(
+                                'data-dashboard-contact-delete'
+                            ) || ''
+                        ).trim();
+
+                    const type =
+                        String(
+                            deleteButton.getAttribute(
+                                'data-dashboard-contact-type'
+                            ) || ''
+                        ).trim();
+
+                    try {
+                        if (type === 'internal') {
+                            await deleteDashboardInternalLeadV1(
+                                id,
+                                deleteButton
+                            );
+                        } else {
+                            await deleteDashboardMyContact(
+                                id
+                            );
+                        }
+                    } catch (error) {
+                        console.error(
+                            'Dashboard contact action error:',
+                            error
+                        );
+
+                        showToast(
+                            error?.message ||
+                            'Contact action failed.',
+                            'error'
+                        );
+                    }
+
+                    return;
+                }
+
+                document
+                    .querySelectorAll(
+                        '[data-dashboard-contact-menu]'
+                    )
+                    .forEach((menu) => {
+                        menu.setAttribute(
+                            'hidden',
+                            ''
+                        );
+                    });
+
+                document
+                    .querySelectorAll(
+                        '[data-dashboard-contact-menu-toggle]'
+                    )
+                    .forEach((button) => {
+                        button.setAttribute(
+                            'aria-expanded',
+                            'false'
+                        );
+                    });
+            }
+        );
+
+    modal.addEventListener(
+        'click',
+        (event) => {
+            if (
+                event.target?.id ===
+                'yh-dashboard-my-contacts-modal'
+            ) {
+                closeDashboardMyContactsModal();
+            }
+        }
+    );
+
+    document.addEventListener(
+        'keydown',
+        (event) => {
+            if (event.key !== 'Escape') {
+                return;
+            }
+
+            if (
+                !modal.classList.contains(
+                    'hidden-step'
+                )
+            ) {
+                closeDashboardMyContactsModal();
+            }
+        }
+    );
+
+    loadDashboardMyContacts({
+        silent: true
+    }).catch(() => {});
+}
+
+window.openDashboardMyContactsModal =
+    openDashboardMyContactsModal;
+
+window.closeDashboardMyContactsModal =
+    closeDashboardMyContactsModal;
 
 function bootYHWalletPanel() {
     bootDashboardSettingsModal();
+    bootDashboardMyContactsModal();
 
-    document.getElementById('btn-open-dashboard-settings')?.addEventListener('click', () => {
-        openDashboardSettingsModal().catch((error) => {
-            console.error('open dashboard settings error:', error);
-            showToast(error?.message || 'Failed to open settings.', 'error');
+    document.getElementById('btn-open-dashboard-settings')?.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        activateDashboardUnifiedWorkspace('settings', {
+            animate: false,
+            scroll: true,
+            persist: true
         });
     });
 
-    document.getElementById('btn-open-dashboard-profile-editor')?.addEventListener('click', () => {
-        const openProfileEditor =
-            typeof window.openDashboardUniverseProfileEditor === 'function'
-                ? window.openDashboardUniverseProfileEditor
-                : null;
+    document.getElementById('btn-open-dashboard-profile-editor')?.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
 
-        if (!openProfileEditor) {
-            console.error('Dashboard profile editor opener is not available yet.');
-            showToast('Profile editor is still loading. Please try again.', 'error');
-            return;
-        }
-
-        openProfileEditor({ mode: 'edit' });
+        activateDashboardUnifiedWorkspace('edit-profile', {
+            animate: false,
+            scroll: true,
+            persist: true,
+            profileEditorMode: 'edit'
+        });
     });
 
     document.getElementById('btn-open-yh-wallet')?.addEventListener('click', (event) => {
@@ -7058,6 +9579,7 @@ window.openYHWalletModal = openYHWalletModal;
 window.refreshYHWalletSnapshot = refreshYHWalletSnapshot;
 
 const YH_UNIVERSE_REFERRAL_CACHE_KEY = 'yh_universe_referral_snapshot_v1';
+let yhUniverseReferralSnapshotRequestInFlight = null;
 
 function formatYHUniverseReferralMoney(amount = 0, currency = 'USD') {
     return formatYHWalletMoney(amount, currency);
@@ -7228,16 +9750,30 @@ async function refreshYHUniverseReferralSnapshot(forceFresh = false) {
         }
     }
 
-    const snapshot = await academyAuthedFetch('/api/universe/referrals/me', {
-        method: 'GET'
-    });
-
-    if (snapshot && typeof snapshot === 'object') {
-        writeYHUniverseReferralCache(snapshot);
-        renderYHUniverseReferralSnapshot(snapshot);
+    if (yhUniverseReferralSnapshotRequestInFlight) {
+        return yhUniverseReferralSnapshotRequestInFlight;
     }
 
-    return snapshot;
+    const request = academyAuthedFetch('/api/universe/referrals/me', {
+        method: 'GET'
+    }).then((snapshot) => {
+        if (snapshot && typeof snapshot === 'object') {
+            writeYHUniverseReferralCache(snapshot);
+            renderYHUniverseReferralSnapshot(snapshot);
+        }
+
+        return snapshot;
+    });
+
+    yhUniverseReferralSnapshotRequestInFlight = request;
+
+    try {
+        return await request;
+    } finally {
+        if (yhUniverseReferralSnapshotRequestInFlight === request) {
+            yhUniverseReferralSnapshotRequestInFlight = null;
+        }
+    }
 }
 
 async function copyYHUniverseReferralLink() {
@@ -10154,6 +12690,45 @@ const dashboardUnifiedWorkspaceCopy = {
         mode: 'Access + Progress',
         stage: 'Command Center'
     },
+    referral: {
+        key: 'referral',
+        division: 'resources',
+        kicker: 'Universe Referral Program',
+        title: 'REFERRAL',
+        intro: 'Manage your personal referral link, registered invites, paying referrals, and commission activity inside the Dashboard.',
+        eyebrow: 'Referral',
+        headline: 'Invite members and track referral commissions.',
+        body: 'Share your Universe referral link and review registered invites, paying referrals, total earnings, and recent commission activity.',
+        focus: 'Referral Network',
+        mode: 'Invites + Commissions',
+        stage: 'Inline Workspace'
+    },
+    settings: {
+        key: 'settings',
+        division: 'resources',
+        kicker: 'Account Settings',
+        title: 'SETTINGS',
+        intro: 'Manage subscriptions, payment plans, badge access, and account security inside the Dashboard.',
+        eyebrow: 'Settings',
+        headline: 'Your account controls are now part of the Dashboard.',
+        body: 'Review active plans, manage billing access, refresh subscription status, and update account security without opening a separate modal.',
+        focus: 'Account Controls',
+        mode: 'Plans + Security',
+        stage: 'Inline Workspace'
+    },
+    'edit-profile': {
+        key: 'edit-profile',
+        division: 'resources',
+        kicker: 'Unified Profile',
+        title: 'EDIT PROFILE',
+        intro: 'Update the identity that powers your presence across Academy, Plazas, and Federation.',
+        eyebrow: 'Edit Profile',
+        headline: 'Manage your unified YH Universe profile.',
+        body: 'Update your cover photo, profile picture, public identity, profile tags, availability, work mode, and marketplace readiness in one workspace.',
+        focus: 'Profile Identity',
+        mode: 'Preview + Edit',
+        stage: 'Inline Workspace'
+    },
     wallet: {
         key: 'wallet',
         division: 'resources',
@@ -12108,6 +14683,7 @@ function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready', navigationTo
 
     const shouldHoldLoaderUntilTargetReady =
         activeWorkspaceKey === 'academy-roadmap' ||
+        activeWorkspaceKey === 'federation-command' ||
         activeWorkspaceKey.startsWith('plazas-');
 
     const shouldBlockTimedRelease =
@@ -12471,28 +15047,81 @@ function isDashboardInlineFederationReady(frame, doc) {
     if (!doc?.body) return false;
     if (isDashboardInlineFrameLocalLoaderActive(doc)) return false;
 
-    const targetSection = getDashboardInlineFederationSectionFromFrame(frame);
+    const targetSection =
+        getDashboardInlineFederationSectionFromFrame(frame);
+
     const activeSection =
         doc.getElementById(targetSection) ||
-        doc.querySelector(`.fed-section[data-section="${targetSection}"]`);
+        doc.querySelector(
+            `.fed-section[data-section="${targetSection}"]`
+        );
 
-    if (!activeSection || !isDashboardInlineElementVisible(activeSection)) return false;
+    if (
+        !activeSection ||
+        !isDashboardInlineElementVisible(activeSection)
+    ) {
+        return false;
+    }
 
-    const readySection = String(doc.body.dataset.yhDashboardActiveSection || '').trim().toLowerCase();
-    const childReady = doc.body.dataset.yhDashboardChildReady === 'true';
-    const federationHydrated = doc.body.dataset.yhDashboardFederationHydrated === 'true';
+    const readySection = String(
+        doc.body.dataset
+            .yhDashboardActiveSection || ''
+    ).trim().toLowerCase();
+
+    const childReady =
+        doc.body.dataset
+            .yhDashboardChildReady === 'true';
+
+    const federationHydrated =
+        doc.body.dataset
+            .yhDashboardFederationHydrated === 'true';
 
     const activePanelReady =
-        activeSection.classList.contains('is-active-panel') &&
-        activeSection.getAttribute('aria-hidden') !== 'true' &&
+        activeSection.classList.contains(
+            'is-active-panel'
+        ) &&
+        activeSection.getAttribute(
+            'aria-hidden'
+        ) !== 'true' &&
         activeSection.hidden !== true;
 
     if (!activePanelReady) return false;
-    if (readySection && readySection !== targetSection) return false;
 
-    const activeText = String(activeSection.textContent || '').replace(/\s+/g, ' ').trim();
+    if (
+        !childReady ||
+        !federationHydrated ||
+        readySection !== targetSection
+    ) {
+        return false;
+    }
 
-    if (childReady || federationHydrated) return activeText.length > 8;
+    if (targetSection === 'command') {
+        const commandPanel =
+            doc.getElementById(
+                'memberCommandPanel'
+            );
+
+        const commandReady = Boolean(
+            doc.body.dataset
+                .yhDashboardFederationCommandReady ===
+                'true' &&
+            commandPanel?.dataset
+                ?.yhFederationCommandReady ===
+                'true' &&
+            commandPanel?.querySelector(
+                '.fed-command-card-hero'
+            )
+        );
+
+        if (!commandReady) {
+            return false;
+        }
+    }
+
+    const activeText = String(
+        activeSection.textContent || ''
+    ).replace(/\s+/g, ' ').trim();
+
     return activeText.length > 18;
 }
 
@@ -12762,6 +15391,107 @@ function waitForDashboardInlineWorkspaceReady(frame, reason = 'workspace-ready',
                     window.setTimeout(
                         tick,
                         elapsedMs >= 6000 ? 400 : pollMs
+                    );
+
+                return;
+            }
+
+            if (workspaceKey === 'federation-command') {
+                let childDocument = null;
+
+                try {
+                    childDocument =
+                        frame.contentDocument ||
+                        frame.contentWindow?.document ||
+                        null;
+                } catch (_) {
+                    childDocument = null;
+                }
+
+                let finalizerConfirmedReady =
+                    isDashboardInlineFederationReady(
+                        frame,
+                        childDocument
+                    );
+
+                const attemptToken = String(
+                    frame.dataset
+                        .yhDashboardFederationFinalizerAttemptToken ||
+                    ''
+                ).trim();
+
+                const lastAttemptAt =
+                    attemptToken === navigationToken
+                        ? Number(
+                            frame.dataset
+                                .yhDashboardFederationFinalizerAttemptAt ||
+                            0
+                        )
+                        : 0;
+
+                const canRetryFinalizer =
+                    !finalizerConfirmedReady &&
+                    Date.now() - lastAttemptAt >=
+                        220;
+
+                if (canRetryFinalizer) {
+                    frame.dataset
+                        .yhDashboardFederationFinalizerAttemptToken =
+                        navigationToken;
+
+                    frame.dataset
+                        .yhDashboardFederationFinalizerAttemptAt =
+                        String(Date.now());
+
+                    try {
+                        const childWindow =
+                            frame.contentWindow || null;
+
+                        if (
+                            typeof childWindow
+                                ?.yhFinalizeFederationDashboardSectionV110 ===
+                            'function'
+                        ) {
+                            finalizerConfirmedReady =
+                                childWindow
+                                    .yhFinalizeFederationDashboardSectionV110(
+                                        'command',
+                                        'dashboard-command-time-budget'
+                                    ) === true;
+                        }
+                    } catch (error) {
+                        console.warn(
+                            'Dashboard Federation command finalizer failed:',
+                            error
+                        );
+                    }
+                }
+
+                if (finalizerConfirmedReady) {
+                    frame.dataset
+                        .yhDashboardFederationFinalizerToken =
+                        navigationToken;
+                } else {
+                    delete frame.dataset
+                        .yhDashboardFederationFinalizerToken;
+                }
+
+                frame.dataset.yhDashboardChildWorkspaceReady =
+                    finalizerConfirmedReady
+                        ? 'finalizing-federation-command'
+                        : 'waiting-federation-command-runtime';
+
+                frame.dataset.yhDashboardNavigationState =
+                    finalizerConfirmedReady
+                        ? 'finalizing-federation-command'
+                        : 'waiting-federation-command-runtime';
+
+                window.__yhDashboardChildWorkspaceReadyPollTimer =
+                    window.setTimeout(
+                        tick,
+                        finalizerConfirmedReady
+                            ? 60
+                            : 120
                     );
 
                 return;
@@ -13800,23 +16530,23 @@ function forceDashboardInlineFrameContentOnly(frame) {
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-view-tabs,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-view-tabs {
-            width: min(620px, 100%) !important;
-            max-width: 620px !important;
+            width: min(700px, 100%) !important;
+            max-width: 700px !important;
             margin: 0 auto !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            gap: 6px !important;
-            padding: 5px !important;
+            gap: 8px !important;
+            padding: 7px !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-view-tab,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-view-tab {
             flex: 1 1 0 !important;
-            min-height: 34px !important;
-            padding: 7px 10px !important;
-            font-size: 0.86rem !important;
-            line-height: 1.1 !important;
+            min-height: 42px !important;
+            padding: 10px 16px !important;
+            font-size: 0.96rem !important;
+            line-height: 1.15 !important;
             white-space: nowrap !important;
         }
 
@@ -13847,20 +16577,22 @@ function forceDashboardInlineFrameContentOnly(frame) {
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-stat-card,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-stat-card {
-            min-height: 86px !important;
-            padding: 10px 12px !important;
+            min-height: 104px !important;
+            padding: 18px 20px !important;
+            gap: 10px !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-stat-card span,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-stat-card span {
-            font-size: 0.62rem !important;
-            line-height: 1.1 !important;
+            font-size: 0.8rem !important;
+            line-height: 1.2 !important;
+            letter-spacing: 0.08em !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-stat-card strong,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-stat-card strong {
-            margin-top: 4px !important;
-            font-size: 1.18rem !important;
+            margin-top: 2px !important;
+            font-size: 1.55rem !important;
             line-height: 1 !important;
         }
 
@@ -13870,7 +16602,7 @@ function forceDashboardInlineFrameContentOnly(frame) {
             min-height: 0 !important;
             height: auto !important;
             margin: 0 !important;
-            padding: 12px 16px 16px !important;
+            padding: 20px 24px 30px !important;
             overflow: auto !important;
         }
 
@@ -13880,7 +16612,7 @@ function forceDashboardInlineFrameContentOnly(frame) {
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="start"] .bc-main-grid,
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="blocked"] .bc-main-grid,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="blocked"] .bc-main-grid {
-            grid-template-columns: minmax(0, 980px) !important;
+            grid-template-columns: minmax(0, 1120px) !important;
             justify-content: center !important;
         }
 
@@ -13891,56 +16623,58 @@ function forceDashboardInlineFrameContentOnly(frame) {
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-panel-head,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-panel-head {
-            padding: 18px 22px !important;
-            gap: 14px !important;
+            padding: 24px 28px 20px !important;
+            gap: 16px !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-panel-head strong,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-panel-head strong {
-            font-size: 1.08rem !important;
-            line-height: 1.15 !important;
+            font-size: 1.28rem !important;
+            line-height: 1.2 !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-panel-head span,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-panel-head span {
-            margin-top: 2px !important;
-            font-size: 0.86rem !important;
-            line-height: 1.35 !important;
+            margin-top: 6px !important;
+            max-width: 820px !important;
+            font-size: 0.98rem !important;
+            line-height: 1.55 !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel form,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel form {
-            padding: 18px 22px !important;
-            gap: 9px !important;
+            padding: 22px 28px 26px !important;
+            gap: 18px !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-form-grid,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-form-grid {
-            gap: 14px !important;
+            gap: 18px !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-form-row,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-form-row {
-            gap: 9px !important;
+            gap: 10px !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-form-row label,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-form-row label,
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-form-row span,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-form-row span {
-            font-size: 0.78rem !important;
-            line-height: 1.1 !important;
+            font-size: 0.9rem !important;
+            line-height: 1.2 !important;
+            letter-spacing: 0.08em !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel input,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel input,
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel select,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel select {
-            min-height: 42px !important;
-            height: 42px !important;
-            padding: 9px 14px !important;
-            font-size: 0.86rem !important;
-            line-height: 1.15 !important;
+            min-height: 50px !important;
+            height: 50px !important;
+            padding: 12px 16px !important;
+            font-size: 0.98rem !important;
+            line-height: 1.25 !important;
             pointer-events: auto !important;
             user-select: text !important;
             -webkit-user-select: text !important;
@@ -13954,12 +16688,12 @@ function forceDashboardInlineFrameContentOnly(frame) {
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel textarea,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel textarea {
-            min-height: 62px !important;
-            height: 62px !important;
-            max-height: 120px !important;
-            padding: 10px 14px !important;
-            font-size: 0.86rem !important;
-            line-height: 1.25 !important;
+            min-height: 96px !important;
+            height: 96px !important;
+            max-height: 180px !important;
+            padding: 14px 16px !important;
+            font-size: 0.98rem !important;
+            line-height: 1.5 !important;
             pointer-events: auto !important;
             user-select: text !important;
             -webkit-user-select: text !important;
@@ -13977,11 +16711,11 @@ function forceDashboardInlineFrameContentOnly(frame) {
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-ghost-small,
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-danger-btn,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-danger-btn {
-            min-height: 28px !important;
-            height: 28px !important;
-            padding: 3px 10px !important;
-            font-size: 0.76rem !important;
-            line-height: 1 !important;
+            min-height: 38px !important;
+            height: 38px !important;
+            padding: 8px 16px !important;
+            font-size: 0.88rem !important;
+            line-height: 1.1 !important;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -13996,15 +16730,18 @@ function forceDashboardInlineFrameContentOnly(frame) {
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-member-results,
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-blocked-list,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-blocked-list {
-            padding: 18px 22px !important;
-            min-height: 82px !important;
+            padding: 22px 28px 28px !important;
+            min-height: 112px !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-empty,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-empty {
-            padding: 18px !important;
-            font-size: 0.92rem !important;
-            line-height: 1.35 !important;
+            min-height: 72px !important;
+            padding: 22px 24px !important;
+            display: flex !important;
+            align-items: center !important;
+            font-size: 1rem !important;
+            line-height: 1.55 !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-conversation-shell,
@@ -15104,6 +17841,9 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     const cleanDivision = String(copy.division || 'overview').trim().toLowerCase() || 'overview';
 
     const isOverview = cleanKey === 'overview';
+    const isReferral = cleanKey === 'referral';
+    const isSettings = cleanKey === 'settings';
+    const isEditProfile = cleanKey === 'edit-profile';
     const isAcademyParent = cleanKey === 'academy';
     const isPlazasParent = cleanKey === 'plazas';
     const isFederationParent = cleanKey === 'federation';
@@ -15136,7 +17876,24 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     const commandHead = document.querySelector('.yh-command-dashboard-head');
     const overviewGrid = document.getElementById('yh-command-overview-grid');
     const dynamicAccessRow = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
+    const referralWorkspace = document.getElementById('yh-dashboard-referral-workspace');
+    const referralWorkspaceContent = document.getElementById('yh-dashboard-referral-workspace-content');
     const referralCard = document.getElementById('yh-universe-referral-card');
+
+    const settingsWorkspace = document.getElementById('yh-dashboard-settings-workspace');
+    const settingsWorkspaceContent = document.getElementById('yh-dashboard-settings-workspace-content');
+    const settingsSurface = document.getElementById('yh-dashboard-settings-modal');
+
+    const profileEditorWorkspace = document.getElementById('yh-dashboard-profile-editor-workspace');
+    const profileEditorWorkspaceContent = document.getElementById('yh-dashboard-profile-editor-workspace-content');
+    const profileEditorSurface =
+        document.getElementById('yh-dashboard-profile-editor-overlay') ||
+        (
+            isEditProfile &&
+            typeof ensureDashboardUniverseProfileEditor === 'function'
+                ? ensureDashboardUniverseProfileEditor()
+                : null
+        );
 
     const parentIntro = document.getElementById('yh-dashboard-division-parent-intro-v1');
     const academyHero = document.querySelector('.yh-academy-parent-hero-header');
@@ -15157,10 +17914,42 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     document.body?.classList.toggle('yh-dashboard-parent-intro-active-v1', isDivisionParent);
     document.body?.classList.remove('yh-dashboard-inline-child-active');
 
+    if (
+        referralWorkspaceContent &&
+        referralCard &&
+        referralCard.parentElement !== referralWorkspaceContent
+    ) {
+        referralWorkspaceContent.appendChild(referralCard);
+    }
+
+    if (
+        settingsWorkspaceContent &&
+        settingsSurface &&
+        settingsSurface.parentElement !== settingsWorkspaceContent
+    ) {
+        settingsWorkspaceContent.appendChild(settingsSurface);
+    }
+
+    if (
+        profileEditorWorkspaceContent &&
+        profileEditorSurface &&
+        profileEditorSurface.parentElement !== profileEditorWorkspaceContent
+    ) {
+        profileEditorWorkspaceContent.appendChild(profileEditorSurface);
+    }
+
+    settingsSurface?.classList.add('is-dashboard-inline-workspace');
+    profileEditorSurface?.classList.add('is-dashboard-inline-workspace');
+
     setVisible(commandHead, isOverview, 'grid');
     setVisible(overviewGrid, false, 'grid');
     setVisible(dynamicAccessRow, isOverview, 'grid');
-    setVisible(referralCard, isOverview, 'block');
+    setVisible(referralWorkspace, isReferral, 'block');
+    setVisible(referralCard, isReferral);
+    setVisible(settingsWorkspace, isSettings, 'block');
+    setVisible(settingsSurface, isSettings, 'block');
+    setVisible(profileEditorWorkspace, isEditProfile, 'block');
+    setVisible(profileEditorSurface, isEditProfile, 'block');
 
     setVisible(parentIntro, isDivisionParent, 'block');
 
@@ -15180,9 +17969,7 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     if (plazaStrip) plazaStrip.classList.remove('is-active');
     if (federationStrip) federationStrip.classList.remove('is-active');
 
-    if (isOverview && referralCard && academyStrip && referralCard.nextElementSibling !== academyStrip) {
-        academyStrip.parentNode?.insertBefore(referralCard, academyStrip);
-    }
+
 
     if (!isChildWorkspace) {
         if (typeof dashboardResetWorkspaceLaunchSurfaceCleanV71 === 'function') {
@@ -15283,6 +18070,46 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
     setDashboardUnifiedShellText(copy.key);
     setDashboardUnifiedWorkspaceSurfaceState(copy.key);
     syncDashboardUnifiedWorkspaceDerivedSurfaces(copy.key, 'activate');
+
+    if (copy.key === 'referral') {
+        refreshYHUniverseReferralSnapshot(false).catch((error) => {
+            console.error('Referral workspace data load failed:', error);
+            renderYHUniverseReferralList([]);
+        });
+    }
+
+    if (copy.key === 'settings') {
+        openDashboardSettingsModal({
+            activateWorkspace: false
+        }).catch((error) => {
+            console.error('Settings workspace data load failed:', error);
+            showToast(error?.message || 'Failed to load settings.', 'error');
+        });
+    }
+
+    if (copy.key === 'edit-profile') {
+        const requestedProfileEditorMode = options.profileEditorMode || 'edit';
+
+        hydrateDashboardProfileEditorBeforeOpen()
+            .catch((error) => {
+                console.warn(
+                    'Edit Profile server hydration skipped:',
+                    error?.message || error
+                );
+            })
+            .finally(() => {
+                const currentWorkspace = String(
+                    document.body?.getAttribute('data-yh-unified-workspace') || ''
+                ).trim().toLowerCase();
+
+                if (currentWorkspace !== 'edit-profile') return;
+
+                openDashboardUniverseProfileEditor({
+                    mode: requestedProfileEditorMode,
+                    activateWorkspace: false
+                });
+            });
+    }
 
     if (copy.key !== 'overview' && copy.division !== 'resources') {
         setUniverseSlide(copy.division, { animate: shouldAnimate });
@@ -15577,6 +18404,9 @@ function installDashboardMobileAppShellV1() {
 
     const titleMap = {
         overview: ['YH Universe', 'Dashboard'],
+        referral: ['YH Universe', 'Referral'],
+        settings: ['YH Universe', 'Settings'],
+        'edit-profile': ['YH Universe', 'Edit Profile'],
         academy: ['YH Universe', 'Academy'],
         'academy-roadmap': ['Academy', 'Roadmap'],
         'academy-missions': ['Academy', 'Missions'],
@@ -15901,22 +18731,19 @@ function installDashboardMobileAppShellV1() {
 
             const target = String(commandButton.getAttribute('data-yh-mobile-command-target') || '').trim().toLowerCase();
 
-            if (target === 'wallet' || target === 'business-chats' || target === 'resources') {
+            if (
+                target === 'wallet' ||
+                target === 'business-chats' ||
+                target === 'resources' ||
+                target === 'referral' ||
+                target === 'settings' ||
+                target === 'edit-profile'
+            ) {
                 navigateMobileWorkspace(target);
                 return;
             }
 
             closeCommandSheet();
-
-            if (target === 'settings') {
-                document.getElementById('btn-open-dashboard-settings')?.click();
-                return;
-            }
-
-            if (target === 'edit-profile') {
-                document.getElementById('btn-open-dashboard-profile-editor')?.click();
-                return;
-            }
 
             if (target === 'logout') {
                 if (typeof logoutUser === 'function') logoutUser();
@@ -24700,21 +27527,35 @@ function getDashboardUniverseProfileDraft() {
 
     const avatar = String(
         profile.avatar ||
+        profile.avatar_url ||
+        profile.avatarUrl ||
+        profile.profile_photo ||
         profile.profilePhoto ||
+        profile.photo_url ||
         profile.photoURL ||
         readCache.avatar ||
+        readCache.avatar_url ||
+        readCache.avatarUrl ||
+        readCache.profile_photo ||
         readCache.profilePhoto ||
+        readCache.photo_url ||
         readCache.photoURL ||
         localStorage.getItem('yh_user_avatar') ||
+        getStoredUserValue('yh_user_avatar', '') ||
         ''
     ).trim();
 
     const coverPhoto = String(
         profile.cover_photo ||
         profile.coverPhoto ||
+        profile.cover_url ||
+        profile.coverUrl ||
         readCache.cover_photo ||
         readCache.coverPhoto ||
+        readCache.cover_url ||
+        readCache.coverUrl ||
         localStorage.getItem('yh_user_cover_photo') ||
+        getStoredUserValue('yh_user_cover_photo', '') ||
         ''
     ).trim();
 
@@ -24766,6 +27607,30 @@ function getDashboardUniverseProfileDraft() {
             String(profile.marketplace_ready || profile.marketplaceReady || readCache.marketplace_ready || '').trim().toLowerCase() === 'yes'
     };
 }
+let dashboardProfileEditorHydrationInFlight = null;
+
+async function hydrateDashboardProfileEditorBeforeOpen() {
+    if (dashboardProfileEditorHydrationInFlight) {
+        return dashboardProfileEditorHydrationInFlight;
+    }
+
+    const request = (async () => {
+        if (typeof hydrateDashboardSelfUniverseProfile === 'function') {
+            await hydrateDashboardSelfUniverseProfile();
+        }
+    })();
+
+    dashboardProfileEditorHydrationInFlight = request;
+
+    try {
+        return await request;
+    } finally {
+        if (dashboardProfileEditorHydrationInFlight === request) {
+            dashboardProfileEditorHydrationInFlight = null;
+        }
+    }
+}
+
 const dashboardProfileEditorAssetState = {
     avatar: {
         file: null,
@@ -25638,13 +28503,25 @@ function setDashboardProfileEditorMode(mode = 'preview') {
 
 function ensureDashboardUniverseProfileEditor() {
     let overlay = document.getElementById('yh-dashboard-profile-editor-overlay');
-    if (overlay) return overlay;
+    const workspaceContent = document.getElementById('yh-dashboard-profile-editor-workspace-content');
+
+    if (overlay) {
+        if (
+            workspaceContent &&
+            overlay.parentElement !== workspaceContent
+        ) {
+            workspaceContent.appendChild(overlay);
+        }
+
+        overlay.classList.add('is-dashboard-inline-workspace');
+        return overlay;
+    }
 
     overlay = document.createElement('div');
     overlay.id = 'yh-dashboard-profile-editor-overlay';
-    overlay.className = 'yh-dashboard-profile-modal hidden-step';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
+    overlay.className = 'yh-dashboard-profile-modal is-dashboard-inline-workspace hidden-step';
+    overlay.setAttribute('role', 'region');
+    overlay.setAttribute('aria-hidden', 'true');
     overlay.setAttribute('aria-labelledby', 'yh-dashboard-profile-editor-title');
 
     overlay.innerHTML = `
@@ -25656,7 +28533,6 @@ function ensureDashboardUniverseProfileEditor() {
                     <p id="yh-dashboard-profile-editor-copy">Review how your Young Hustlers Universe profile appears before making changes.</p>
                 </div>
 
-                <button type="button" class="yh-dashboard-profile-modal-close" data-dashboard-profile-close aria-label="Close">✕</button>
             </div>
 
             <div class="yh-dashboard-profile-preview-body hide-scrollbar" id="yh-dashboard-profile-preview-body"></div>
@@ -25784,7 +28660,6 @@ function ensureDashboardUniverseProfileEditor() {
 
             <div class="yh-dashboard-profile-modal-actions">
                 <div class="yh-dashboard-profile-primary-actions yh-dashboard-profile-preview-actions">
-                    <button type="button" class="btn-secondary" data-dashboard-profile-close>Close</button>
                     <button type="button" class="btn-primary" id="yh-dashboard-profile-edit-mode-btn">Edit Profile</button>
                 </div>
 
@@ -25800,13 +28675,8 @@ function ensureDashboardUniverseProfileEditor() {
         </div>
     `;
 
-    document.body.appendChild(overlay);
+    (workspaceContent || document.body).appendChild(overlay);
 
-    overlay.addEventListener('click', (event) => {
-        const closeBtn = event.target.closest('[data-dashboard-profile-close]');
-        if (!closeBtn) return;
-        closeDashboardUniverseProfileEditor();
-    });
 
     document.getElementById('yh-dashboard-profile-edit-mode-btn')?.addEventListener('click', () => {
         setDashboardProfileEditorMode('edit');
@@ -25863,6 +28733,38 @@ function splitDashboardSignalList(value = '') {
 }
 
 function openDashboardUniverseProfileEditor(options = {}) {
+    const requestedMode = String(options?.mode || 'edit').trim().toLowerCase() === 'preview'
+        ? 'preview'
+        : 'edit';
+
+    const currentWorkspace = String(
+        document.body?.getAttribute('data-yh-unified-workspace') || ''
+    ).trim().toLowerCase();
+
+    if (
+        options?.activateWorkspace !== false &&
+        currentWorkspace !== 'edit-profile' &&
+        typeof activateDashboardUnifiedWorkspace === 'function'
+    ) {
+        if (
+            typeof closeDashboardUniverseProfileView === 'function' &&
+            !document.getElementById('academy-profile-view')?.classList.contains('hidden-step')
+        ) {
+            closeDashboardUniverseProfileView({
+                useBrowserBack: false
+            });
+        }
+
+        activateDashboardUnifiedWorkspace('edit-profile', {
+            animate: false,
+            scroll: options?.scroll !== false,
+            persist: options?.persist !== false,
+            profileEditorMode: requestedMode
+        });
+
+        return document.getElementById('yh-dashboard-profile-editor-overlay');
+    }
+
     const overlay = ensureDashboardUniverseProfileEditor();
     const draft = getDashboardUniverseProfileDraft();
 
@@ -25894,9 +28796,12 @@ function openDashboardUniverseProfileEditor(options = {}) {
     setValue('yh-dashboard-profile-marketplace-ready', draft.marketplaceReady ? 'yes' : 'no');
 
     renderDashboardUniverseProfileEditorPreview(draft);
-    setDashboardProfileEditorMode(options.mode || 'preview');
+    setDashboardProfileEditorMode(requestedMode);
 
     overlay.classList.remove('hidden-step');
+    overlay.setAttribute('aria-hidden', 'false');
+
+    return overlay;
 }
 
 const YH_DASHBOARD_PROFILE_RETURN_TO_ACADEMY_ROADMAP_KEY = 'yh_dashboard_profile_return_to_academy_roadmap_v1';
@@ -25944,11 +28849,39 @@ function dashboardReturnToAcademyRoadmapAfterProfileEdit() {
 }
 
 function closeDashboardUniverseProfileEditor(options = {}) {
-    document.getElementById('yh-dashboard-profile-editor-overlay')?.classList.add('hidden-step');
+    const overlay = document.getElementById('yh-dashboard-profile-editor-overlay');
+    const currentWorkspace = String(
+        document.body?.getAttribute('data-yh-unified-workspace') || ''
+    ).trim().toLowerCase();
 
-    if (options?.skipAcademyReturn === true) return;
+    const wasOpen = Boolean(
+        overlay &&
+        !overlay.classList.contains('hidden-step') &&
+        overlay.getAttribute('aria-hidden') !== 'true'
+    );
 
-    dashboardReturnToAcademyRoadmapAfterProfileEdit();
+    overlay?.classList.add('hidden-step');
+    overlay?.setAttribute('aria-hidden', 'true');
+
+    if (
+        (wasOpen || currentWorkspace === 'edit-profile') &&
+        options?.skipAcademyReturn !== true &&
+        dashboardReturnToAcademyRoadmapAfterProfileEdit()
+    ) {
+        return;
+    }
+
+    if (
+        (wasOpen || currentWorkspace === 'edit-profile') &&
+        options?.navigateToOverview !== false &&
+        typeof activateDashboardUnifiedWorkspace === 'function'
+    ) {
+        activateDashboardUnifiedWorkspace('overview', {
+            animate: false,
+            scroll: true,
+            persist: true
+        });
+    }
 }
 
 function bootDashboardProfileEditorDeepLink() {
@@ -26459,25 +29392,19 @@ async function saveDashboardUniverseProfile(button = null) {
     };
 
     await runDashboardButtonAction(button, 'Saving Profile.', async () => {
-        let nextAvatarUrl = String(dashboardProfileEditorAssetState.avatar.previewUrl || '').trim();
-        let nextCoverUrl = String(dashboardProfileEditorAssetState.cover.previewUrl || '').trim();
-
         if (dashboardProfileEditorAssetState.avatar.file) {
-            nextAvatarUrl = await uploadDashboardProfileAsset(
+            payload.avatar = await uploadDashboardProfileAsset(
                 dashboardProfileEditorAssetState.avatar.file,
                 'avatar'
             );
         }
 
         if (dashboardProfileEditorAssetState.cover.file) {
-            nextCoverUrl = await uploadDashboardProfileAsset(
+            payload.cover_photo = await uploadDashboardProfileAsset(
                 dashboardProfileEditorAssetState.cover.file,
                 'cover'
             );
         }
-
-        payload.avatar = nextAvatarUrl;
-        payload.cover_photo = nextCoverUrl;
 
         const result = await academyAuthedFetch('/api/academy/profile', {
             method: 'PATCH',
@@ -37168,6 +40095,9 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 
         const workspace = getCurrentWorkspace();
         const isOverview = workspace === 'overview';
+        const isReferral = workspace === 'referral';
+        const isSettings = workspace === 'settings';
+        const isEditProfile = workspace === 'edit-profile';
         const isParent = PARENT_KEYS.has(workspace);
 
         const intro = ensureIntroMount();
@@ -37196,7 +40126,24 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         const commandHead = document.querySelector('.yh-command-dashboard-head');
         const overviewGrid = document.getElementById('yh-command-overview-grid');
         const dynamicAccessRow = document.getElementById('yh-dashboard-overview-dynamic-access-row-v1');
+        const referralWorkspace = document.getElementById('yh-dashboard-referral-workspace');
+        const referralWorkspaceContent = document.getElementById('yh-dashboard-referral-workspace-content');
         const referralCard = document.getElementById('yh-universe-referral-card');
+
+        const settingsWorkspace = document.getElementById('yh-dashboard-settings-workspace');
+        const settingsWorkspaceContent = document.getElementById('yh-dashboard-settings-workspace-content');
+        const settingsSurface = document.getElementById('yh-dashboard-settings-modal');
+
+        const profileEditorWorkspace = document.getElementById('yh-dashboard-profile-editor-workspace');
+        const profileEditorWorkspaceContent = document.getElementById('yh-dashboard-profile-editor-workspace-content');
+        const profileEditorSurface =
+            document.getElementById('yh-dashboard-profile-editor-overlay') ||
+            (
+                isEditProfile &&
+                typeof ensureDashboardUniverseProfileEditor === 'function'
+                    ? ensureDashboardUniverseProfileEditor()
+                    : null
+            );
 
         const academyStrip = document.getElementById('yh-universe-academy-strip');
         const plazaStrip = document.getElementById('yh-universe-plaza-strip');
@@ -37204,10 +40151,42 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         const oldCarousel = document.getElementById('yh-universe-carousel');
         const oldCarouselColumn = document.querySelector('.yh-universe-carousel-column');
 
+        if (
+            referralWorkspaceContent &&
+            referralCard &&
+            referralCard.parentElement !== referralWorkspaceContent
+        ) {
+            referralWorkspaceContent.appendChild(referralCard);
+        }
+
+        if (
+            settingsWorkspaceContent &&
+            settingsSurface &&
+            settingsSurface.parentElement !== settingsWorkspaceContent
+        ) {
+            settingsWorkspaceContent.appendChild(settingsSurface);
+        }
+
+        if (
+            profileEditorWorkspaceContent &&
+            profileEditorSurface &&
+            profileEditorSurface.parentElement !== profileEditorWorkspaceContent
+        ) {
+            profileEditorWorkspaceContent.appendChild(profileEditorSurface);
+        }
+
+        settingsSurface?.classList.add('is-dashboard-inline-workspace');
+        profileEditorSurface?.classList.add('is-dashboard-inline-workspace');
+
         setDashboardNodeVisible(commandHead, isOverview, 'grid');
         setDashboardNodeVisible(overviewGrid, false, 'grid');
         setDashboardNodeVisible(dynamicAccessRow, isOverview, 'grid');
-        setDashboardNodeVisible(referralCard, isOverview, 'block');
+        setDashboardNodeVisible(referralWorkspace, isReferral, 'block');
+        setDashboardNodeVisible(referralCard, isReferral);
+        setDashboardNodeVisible(settingsWorkspace, isSettings, 'block');
+        setDashboardNodeVisible(settingsSurface, isSettings, 'block');
+        setDashboardNodeVisible(profileEditorWorkspace, isEditProfile, 'block');
+        setDashboardNodeVisible(profileEditorSurface, isEditProfile, 'block');
 
         setDashboardNodeVisible(academyStrip, isOverview, 'block');
         setDashboardNodeVisible(plazaStrip, false, 'block');
@@ -37219,9 +40198,7 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         if (plazaStrip) plazaStrip.classList.remove('is-active');
         if (federationStrip) federationStrip.classList.remove('is-active');
 
-        if (isOverview && referralCard && academyStrip && referralCard.nextElementSibling !== academyStrip) {
-            academyStrip.parentNode?.insertBefore(referralCard, academyStrip);
-        }
+
 
         if (isParent) {
             renderIntro(workspace);
@@ -37565,8 +40542,13 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 
         if (!row) return;
 
-        const businessCount = readText('yh-command-business-chat-count', '0') || '0';
-        const totalInvited = readText('yh-command-referral-total', '0') || readText('yh-command-network-score', '0') || '0';
+        const contactsCount =
+            readText(
+                'yh-command-my-contacts-count',
+                '0'
+            ) || '0';
+
+
 
         const divisionCards = Object.entries(divisionConfig).map(([key, config]) => {
             const state = getDivisionState(key);
@@ -37597,27 +40579,35 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         row.innerHTML = `
             ${divisionCards}
 
-            <article class="yh-dashboard-overview-access-card-v1 is-metric" data-yh-overview-metric-card="business-chats">
-                <div class="yh-dashboard-overview-access-icon-v1" aria-hidden="true">
-                    <i class="fa-solid fa-list-check"></i>
+            <article
+                class="yh-dashboard-overview-access-card-v1 is-metric"
+                data-yh-overview-metric-card="my-contacts"
+            >
+                <div
+                    class="yh-dashboard-overview-access-icon-v1"
+                    aria-hidden="true"
+                >
+                    <i class="fa-solid fa-address-book"></i>
                 </div>
+
                 <div class="yh-dashboard-overview-access-copy-v1">
-                    <strong>Business Chats</strong>
-                    <span>${businessCount}</span>
+                    <strong>My Contacts</strong>
+
+                    <span id="yh-dashboard-overview-my-contacts-count-v1">
+                        ${contactsCount}
+                    </span>
                 </div>
-                <button type="button" class="yh-dashboard-overview-access-action-v1" data-yh-overview-division-target="business-chats">Open</button>
+
+                <button
+                    type="button"
+                    class="yh-dashboard-overview-access-action-v1"
+                    data-yh-overview-division-target="my-contacts"
+                >
+                    Open
+                </button>
             </article>
 
-            <article class="yh-dashboard-overview-access-card-v1 is-metric" data-yh-overview-metric-card="total-invited">
-                <div class="yh-dashboard-overview-access-icon-v1" aria-hidden="true">
-                    <i class="fa-solid fa-arrow-trend-up"></i>
-                </div>
-                <div class="yh-dashboard-overview-access-copy-v1">
-                    <strong>Total Invited</strong>
-                    <span>${totalInvited}</span>
-                </div>
-                <button type="button" class="yh-dashboard-overview-access-action-v1" data-yh-overview-division-target="overview">View</button>
-            </article>
+
         `;
 
         row.querySelectorAll('[data-yh-overview-division-action]').forEach((button) => {
@@ -37677,9 +40667,29 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
                 event.preventDefault();
                 event.stopPropagation();
 
-                const target = String(button.getAttribute('data-yh-overview-division-target') || '').trim() || 'overview';
+                const target = String(
+                    button.getAttribute(
+                        'data-yh-overview-division-target'
+                    ) || ''
+                ).trim() || 'overview';
 
-                if (typeof window.activateDashboardUnifiedWorkspace === 'function') {
+                if (
+                    target === 'my-contacts' &&
+                    typeof window
+                        .openDashboardMyContactsModal ===
+                        'function'
+                ) {
+                    window
+                        .openDashboardMyContactsModal();
+
+                    return;
+                }
+
+                if (
+                    typeof window
+                        .activateDashboardUnifiedWorkspace ===
+                        'function'
+                ) {
                     window.activateDashboardUnifiedWorkspace(target, {
                         animate: false,
                         scroll: true,
@@ -37722,7 +40732,6 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 
         const hardSelectors = [
             '.yh-academy-parent-hero-header',
-            '.yh-academy-parent-vision-scope',
             '.yh-universe-command-hero',
             '.yh-universe-stage-nav'
         ];

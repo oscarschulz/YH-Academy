@@ -8,8 +8,9 @@
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" href="/css/style.css?v=20260713-plazas-submit-center-v11">
-<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260713-sidebar-division-status-pills-v216">
+<link rel="stylesheet" href="/css/style.css?v=20260719-lead-action-loading-v1">
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260717-referral-tab-v2">
+<link rel="stylesheet" href="/css/yhu-game-system.css?v=20260719-squad-ranking-v1">
 <link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260710-dashboard-v2-stable-shell-owner-v1">
 
 <!-- PATCH: Dashboard state owner early paint v3 -->
@@ -46,8 +47,10 @@
     pointer-events: auto;
   }
 
-  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-referral-card,
-  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-academy-strip {
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-academy-strip,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="referral"] #yh-dashboard-referral-workspace,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="settings"] #yh-dashboard-settings-workspace,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="edit-profile"] #yh-dashboard-profile-editor-workspace {
     display: block;
     visibility: visible;
     opacity: 1;
@@ -283,6 +286,7 @@
                 <div class="yh-mobile-command-grid">
                     <button type="button" data-yh-mobile-command-target="wallet">Wallet</button>
                     <button type="button" data-yh-mobile-command-target="business-chats">Business Chats</button>
+                    <button type="button" data-yh-mobile-command-target="referral">Referral</button>
                     <button type="button" data-yh-mobile-command-target="resources">Resources</button>
                     <button type="button" data-yh-mobile-command-target="settings">Settings</button>
                     <button type="button" data-yh-mobile-command-target="edit-profile">Edit Profile</button>
@@ -310,7 +314,13 @@
             aria-label="My Dashboard"
         
             data-yh-dashboard-shell="overview">
-            <span class="yh-sidebar-command-icon">▦</span>
+            <span class="yh-sidebar-command-icon">
+                <img
+                    src="/assets/dashboard/dashboard%20icon.png"
+                    alt=""
+                    class="yh-sidebar-command-icon-img"
+                >
+            </span>
             <span>My Dashboard</span>
         </button>
 
@@ -589,6 +599,21 @@
                 <span class="yh-business-chat-nav-badge hidden-step" id="yh-business-chat-nav-badge">0</span>
             </button>
 
+            <button
+                type="button"
+                class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
+                aria-label="Referral"
+                data-yh-dashboard-shell="referral">
+                <span class="yh-sidebar-command-icon">
+                    <img
+                        src="/assets/dashboard/referral%20icon.png"
+                        alt=""
+                        class="yh-sidebar-command-icon-img"
+                    >
+                </span>
+                <span>Referral</span>
+            </button>
+
             <div class="yh-resources-menu yh-sidebar-resources-menu" id="yh-resources-menu">
                                     <button
                                         type="button"
@@ -598,7 +623,13 @@
                                         aria-controls="yh-resources-menu-panel"
                                     
             data-yh-dashboard-shell="resources">
-                                        <span class="yh-resources-menu-icon">☰</span>
+                                        <span class="yh-resources-menu-icon">
+                                            <img
+                                                src="/assets/dashboard/resources%20icon.png"
+                                                alt=""
+                                                class="yh-sidebar-command-icon-img"
+                                            >
+                                        </span>
                                         <span class="yh-resources-menu-label yh-resources-menu-label-desktop">Resources</span>
                                         <span class="yh-resources-menu-label yh-resources-menu-label-mobile">Featured sites</span>
                                     </button>
@@ -711,14 +742,26 @@
             <div class="yh-sidebar-nav-group yh-sidebar-system-group">
                 <div class="yh-sidebar-nav-label">System</div>
 
-                <button class="btn-secondary yh-dashboard-settings-btn yh-sidebar-command-link yh-sidebar-primary-link" id="btn-open-dashboard-settings" type="button" aria-haspopup="dialog">
+                <button
+                    class="btn-secondary yh-dashboard-settings-btn yh-sidebar-command-link yh-sidebar-primary-link"
+                    id="btn-open-dashboard-settings"
+                    type="button"
+                    data-yh-dashboard-shell="settings"
+                    aria-label="Settings"
+                >
                     <span class="yh-sidebar-command-icon">
                         <img src="/assets/dashboard/settings.png" alt="" class="yh-sidebar-command-icon-img">
                     </span>
                     <span>Settings</span>
                 </button>
 
-                <button class="btn-secondary yh-dashboard-top-edit-btn yh-sidebar-command-link yh-sidebar-primary-link" id="btn-open-dashboard-profile-editor" type="button">
+                <button
+                    class="btn-secondary yh-dashboard-top-edit-btn yh-sidebar-command-link yh-sidebar-primary-link"
+                    id="btn-open-dashboard-profile-editor"
+                    type="button"
+                    data-yh-dashboard-shell="edit-profile"
+                    aria-label="Edit Profile"
+                >
                     <span class="yh-sidebar-command-icon">
                         <img src="/assets/dashboard/edit-profile.png" alt="" class="yh-sidebar-command-icon-img">
                     </span>
@@ -821,9 +864,6 @@
                     <div class="yh-command-dashboard-head-main">
                         <div class="yh-command-overview-kicker">YH Universe Command Center</div>
                         <h1 class="yh-command-dashboard-title">Welcome back, <span id="yh-command-profile-name">Hustler</span>.</h1>
-                        <p class="yh-command-dashboard-copy" id="yh-command-profile-bio">
-                            Your access, progress, and network overview.
-                        </p>
                     </div>
                 </header>
                 <section class="yh-academy-parent-hero-header hidden-step" aria-label="Academy workspace overview" aria-hidden="true">
@@ -873,24 +913,6 @@
                             aria-live="polite"
                             aria-hidden="true"
                         >
-                            <div
-                                id="yh-universe-roadmap-loader-header"
-                                class="yh-universe-roadmap-loader-header hidden-step"
-                                aria-hidden="true"
-                            >
-                                <span class="yh-universe-roadmap-loader-header-icon" aria-hidden="true">
-                                    <img src="/assets/academy/icons/academy-icon-roadmap.png" alt="">
-                                </span>
-
-                                <strong>Roadmap</strong>
-
-                                <span
-                                    class="yh-universe-roadmap-loader-header-divider"
-                                    aria-hidden="true"
-                                ></span>
-
-                                <span>Loading your roadmap, missions, and access state.</span>
-                            </div>
 
                             <section class="academy-roadmap-loading-card yh-universe-child-workspace-loader-card">
                                 <div class="academy-roadmap-loading-orb yh-universe-child-workspace-loader-orb" aria-hidden="true">
@@ -1022,55 +1044,38 @@
                     </article>
 
                     <article class="yh-command-overview-card yh-command-metric-card">
-                        <div class="yh-command-metric-icon">↗</div>
+                        <div class="yh-command-metric-icon">◎</div>
                         <div>
-                            <span>Total Invited</span>
+                            <span>My Contacts</span>
                             <span class="yh-command-metric-separator" aria-hidden="true">→</span>
-                            <strong id="yh-command-referral-total">0</strong>
-                        </div>
-                    </article>
-
-                    <article class="yh-command-overview-card yh-command-progress-card yh-command-network-card">
-                        <div class="yh-command-panel-head">
-                            <div>
-                                <div class="yh-command-overview-kicker">Your Network</div>
-                                <h3>Referral snapshot</h3>
-                            </div>
-                            <button type="button" class="yh-command-panel-link yh-command-overview-action" data-yh-command-overview-open="profile">
-                                View Profile
-                            </button>
-                        </div>
-
-                        <div class="yh-command-progress-body yh-command-network-body">
-                            <div class="yh-command-progress-list yh-command-network-stat-grid">
-                                <div class="yh-command-network-stat-card">
-                                    <span>Total Invited</span>
-                                    <span class="yh-command-progress-separator" aria-hidden="true">→</span>
-                                    <strong id="yh-command-network-score">0</strong>
-                                </div>
-
-                                <div class="yh-command-network-stat-card yh-command-referral-code-row">
-                                    <span>Referral Code</span>
-                                    <span class="yh-command-progress-separator" aria-hidden="true">→</span>
-                                    <strong id="yh-command-referral-code">Loading...</strong>
-                                    <button type="button" class="btn-secondary yh-command-referral-copy-btn" id="yh-command-referral-copy-btn" aria-label="Copy referral link" aria-live="polite" onclick="copyYHCommandReferralLink()">Copy Link</button>
-                                </div>
-
-                                <div class="yh-command-network-stat-card">
-                                    <span>Paying Referrals</span>
-                                    <span class="yh-command-progress-separator" aria-hidden="true">→</span>
-                                    <strong id="yh-command-referral-qualified">0</strong>
-                                </div>
-
-                                <div class="yh-command-network-stat-card">
-                                    <span>Total Earned</span>
-                                    <span class="yh-command-progress-separator" aria-hidden="true">→</span>
-                                    <strong id="yh-command-referral-earned">$0.00</strong>
-                                </div>
-                            </div>
+                            <strong id="yh-command-my-contacts-count">0</strong>
                         </div>
                     </article>
                 </section>
+
+<section
+    id="yh-dashboard-referral-workspace"
+    class="yh-dashboard-referral-workspace yh-tw-scope hidden-step"
+    aria-label="Referral workspace"
+    aria-hidden="true">
+    <div id="yh-dashboard-referral-workspace-content" class="yh-academy-parent-vision-scope"></div>
+</section>
+
+<section
+    id="yh-dashboard-settings-workspace"
+    class="yh-dashboard-system-workspace hidden-step"
+    aria-label="Settings workspace"
+    aria-hidden="true">
+    <div id="yh-dashboard-settings-workspace-content" class="yh-dashboard-system-workspace-content"></div>
+</section>
+
+<section
+    id="yh-dashboard-profile-editor-workspace"
+    class="yh-dashboard-system-workspace hidden-step"
+    aria-label="Edit Profile workspace"
+    aria-hidden="true">
+    <div id="yh-dashboard-profile-editor-workspace-content" class="yh-dashboard-system-workspace-content"></div>
+</section>
 
 <div class="yh-universe-stage-nav yh-academy-parent-shell yh-academy-parent-vision-scope hidden-step" aria-hidden="true">
 <div class="yh-universe-stage-body yh-tw-scope yh-academy-parent-stage tw-relative tw-gap-6">
@@ -2517,6 +2522,774 @@
 <!-- Business Chats moved to /business-chats.html. Dashboard pop-up modal removed intentionally. -->
 
 <div
+    id="yh-dashboard-my-contacts-modal"
+    class="yh-dashboard-profile-modal hidden-step"
+    role="dialog"
+    aria-modal="true"
+    aria-hidden="true"
+    aria-labelledby="yh-dashboard-my-contacts-title"
+>
+    <div class="yh-dashboard-profile-modal-card yh-dashboard-my-contacts-card">
+        <div class="yh-dashboard-profile-modal-head">
+            <div>
+                <div class="yh-dashboard-profile-modal-kicker">
+                    Relationship Database
+                </div>
+
+                <h3 id="yh-dashboard-my-contacts-title">
+                    My Contacts
+                </h3>
+
+                <p>
+                    Review contacts collected through Academy missions
+                    and contacts you added manually.
+                </p>
+            </div>
+
+            <button
+                type="button"
+                class="yh-dashboard-profile-modal-close"
+                id="yh-dashboard-my-contacts-close"
+                aria-label="Close My Contacts"
+            >
+                ✕
+            </button>
+        </div>
+
+        <div
+            class="yh-dashboard-profile-modal-body yh-dashboard-my-contacts-body hide-scrollbar"
+        >
+            <div
+                class="yh-dashboard-my-contacts-tabs"
+                role="tablist"
+                aria-label="Contact type"
+            >
+                <button
+                    type="button"
+                    class="yh-dashboard-my-contacts-tab is-active"
+                    id="yh-dashboard-my-contacts-tab-internal"
+                    data-yh-my-contacts-tab="internal"
+                    role="tab"
+                    aria-selected="true"
+                >
+                    Internal
+                    <span id="yh-dashboard-my-contacts-internal-count">
+                        0
+                    </span>
+                </button>
+
+                <button
+                    type="button"
+                    class="yh-dashboard-my-contacts-tab"
+                    id="yh-dashboard-my-contacts-tab-external"
+                    data-yh-my-contacts-tab="external"
+                    role="tab"
+                    aria-selected="false"
+                >
+                    External
+                    <span id="yh-dashboard-my-contacts-external-count">
+                        0
+                    </span>
+                </button>
+            </div>
+
+            <div class="yh-dashboard-my-contacts-toolbar">
+                <input
+                    type="search"
+                    id="yh-dashboard-my-contacts-search"
+                    class="input-field"
+                    placeholder="Search name, company, email, phone, role, or location"
+                    autocomplete="off"
+                >
+
+                <button
+                    type="button"
+                    class="btn-primary hidden-step"
+                    id="yh-dashboard-my-contacts-add-external"
+                >
+                    Add External Contact
+                </button>
+            </div>
+
+            <form
+                id="yh-dashboard-my-contacts-form"
+                class="yh-dashboard-my-contacts-form hidden-step"
+                novalidate
+            >
+                <input
+                    type="hidden"
+                    id="yh-dashboard-my-contacts-edit-id"
+                    value=""
+                >
+
+                <div class="yh-dashboard-my-contacts-form-head">
+                    <div>
+                        <strong id="yh-dashboard-my-contacts-form-title">
+                            Add External Contact
+                        </strong>
+
+                        <small>
+                            Save a contact that did not come from an
+                            Academy mission.
+                        </small>
+                    </div>
+                </div>
+
+                <div class="yh-dashboard-my-contacts-form-grid">
+                    <label class="form-group">
+                        <span>Full Name</span>
+
+                        <input
+                            type="text"
+                            class="input-field"
+                            id="yh-dashboard-my-contact-name"
+                            maxlength="120"
+                        >
+                    </label>
+
+                    <label class="form-group">
+                        <span>Company</span>
+
+                        <input
+                            type="text"
+                            class="input-field"
+                            id="yh-dashboard-my-contact-company"
+                            maxlength="160"
+                        >
+                    </label>
+
+                    <label class="form-group">
+                        <span>Role</span>
+
+                        <input
+                            type="text"
+                            class="input-field"
+                            id="yh-dashboard-my-contact-role"
+                            maxlength="120"
+                        >
+                    </label>
+
+                    <label class="form-group">
+                        <span>Email</span>
+
+                        <input
+                            type="email"
+                            class="input-field"
+                            id="yh-dashboard-my-contact-email"
+                            maxlength="180"
+                        >
+                    </label>
+
+                    <label class="form-group">
+                        <span>Phone</span>
+
+                        <input
+                            type="text"
+                            class="input-field"
+                            id="yh-dashboard-my-contact-phone"
+                            maxlength="40"
+                        >
+                    </label>
+
+                    <label class="form-group">
+                        <span>City</span>
+
+                        <input
+                            type="text"
+                            class="input-field"
+                            id="yh-dashboard-my-contact-city"
+                            maxlength="100"
+                        >
+                    </label>
+
+                    <label class="form-group">
+                        <span>Country</span>
+
+                        <input
+                            type="text"
+                            class="input-field"
+                            id="yh-dashboard-my-contact-country"
+                            maxlength="100"
+                        >
+                    </label>
+
+                    <label
+                        class="form-group yh-dashboard-my-contacts-form-wide"
+                    >
+                        <span>Notes</span>
+
+                        <textarea
+                            class="input-field"
+                            id="yh-dashboard-my-contact-notes"
+                            rows="3"
+                            maxlength="1200"
+                        ></textarea>
+                    </label>
+                </div>
+
+                <div
+                    id="yh-dashboard-my-contacts-form-error"
+                    class="yh-dashboard-settings-loading is-error hidden-step"
+                    role="alert"
+                    aria-live="polite"
+                ></div>
+
+                <div class="yh-dashboard-my-contacts-form-actions">
+                    <button
+                        type="button"
+                        class="btn-secondary"
+                        id="yh-dashboard-my-contacts-form-cancel"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="btn-primary"
+                        id="yh-dashboard-my-contacts-form-submit"
+                    >
+                        Save Contact
+                    </button>
+                </div>
+            </form>
+
+            <div
+                class="yh-dashboard-my-contacts-summary"
+                id="yh-dashboard-my-contacts-summary"
+            >
+                Loading contacts...
+            </div>
+
+            <div
+                class="yh-dashboard-my-contacts-list"
+                id="yh-dashboard-my-contacts-list"
+            >
+                <div class="yh-dashboard-settings-loading">
+                    Loading contacts...
+                </div>
+            </div>
+        </div>
+
+        <div class="yh-dashboard-profile-modal-actions">
+            <button
+                type="button"
+                class="btn-secondary"
+                id="yh-dashboard-my-contacts-close-footer"
+            >
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- PATCH: Dashboard-native Academy lead editor v1 -->
+<div
+    id="yh-dashboard-lead-edit-modal"
+    class="academy-lead-modal hidden-step"
+    role="dialog"
+    aria-modal="true"
+    aria-hidden="true"
+    aria-labelledby="yh-dashboard-lead-edit-title"
+>
+    <div class="academy-lead-modal-card">
+        <div class="academy-lead-modal-head academy-lead-modal-head-centered">
+            <div class="academy-lead-modal-head-copy">
+                <div class="academy-lead-modal-kicker">
+                    Academy Lead
+                </div>
+
+                <h3
+                    class="academy-lead-modal-title"
+                    id="yh-dashboard-lead-edit-title"
+                >
+                    Edit Lead
+                </h3>
+
+                <p class="academy-lead-modal-subtitle">
+                    Update this Academy mission lead without leaving the Dashboard.
+                </p>
+            </div>
+        </div>
+
+        <form
+            id="yh-dashboard-lead-edit-form"
+            class="academy-lead-form-grid"
+            novalidate
+        >
+            <input
+                type="hidden"
+                id="yh-dashboard-lead-edit-id"
+                value=""
+            >
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-tier">
+                    Tier
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-tier"
+                    name="tier"
+                    class="input-field"
+                    required
+                >
+                    <option value="">Select tier</option>
+                    <option value="T1">T1 - High Value</option>
+                    <option value="T2">T2 - Mid Value</option>
+                    <option value="T3">T3 - Low Value</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-company-name">
+                    Company Name
+                </label>
+
+                <input
+                    id="yh-dashboard-lead-company-name"
+                    name="companyName"
+                    class="input-field"
+                    type="text"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-company-website">
+                    Company Website
+                </label>
+
+                <input
+                    id="yh-dashboard-lead-company-website"
+                    name="companyWebsite"
+                    class="input-field"
+                    type="text"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-contact-name">
+                    Contact Name
+                </label>
+
+                <input
+                    id="yh-dashboard-lead-contact-name"
+                    name="contactName"
+                    class="input-field"
+                    type="text"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-contact-role">
+                    Contact Role
+                </label>
+
+                <input
+                    id="yh-dashboard-lead-contact-role"
+                    name="contactRole"
+                    class="input-field"
+                    type="text"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-contact-type">
+                    Contact Type
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-contact-type"
+                    name="contactType"
+                    class="input-field"
+                >
+                    <option value="">Select type</option>
+                    <option value="employee">Employee</option>
+                    <option value="manager">Manager</option>
+                    <option value="founder">Founder</option>
+                    <option value="owner">Owner</option>
+                    <option value="unknown">Unknown</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-email">
+                    Email
+                </label>
+
+                <input
+                    id="yh-dashboard-lead-email"
+                    name="email"
+                    class="input-field"
+                    type="email"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-phone">
+                    Phone
+                </label>
+
+                <input
+                    id="yh-dashboard-lead-phone"
+                    name="phone"
+                    class="input-field"
+                    type="text"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-city">
+                    City
+                </label>
+
+                <input
+                    id="yh-dashboard-lead-city"
+                    name="city"
+                    class="input-field"
+                    type="text"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-country">
+                    Country
+                </label>
+
+                <input
+                    id="yh-dashboard-lead-country"
+                    name="country"
+                    class="input-field"
+                    type="text"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-source-method">
+                    Source Method
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-source-method"
+                    name="sourceMethod"
+                    class="input-field"
+                >
+                    <option value="">Select source</option>
+                    <option value="Google Maps">Google Maps</option>
+                    <option value="Search Engine">Search Engine</option>
+                    <option value="AI Research">AI Research</option>
+                    <option value="Referral">Referral</option>
+                    <option value="Website Form">Website Form</option>
+                    <option value="Social Media">Social Media</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-call-outcome">
+                    Call Outcome
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-call-outcome"
+                    name="callOutcome"
+                    class="input-field"
+                >
+                    <option value="">Select outcome</option>
+                    <option value="No answer">No answer</option>
+                    <option value="Gatekeeper only">Gatekeeper only</option>
+                    <option value="Useful conversation">Useful conversation</option>
+                    <option value="Direct contact obtained">Direct contact obtained</option>
+                    <option value="Follow-up opened">Follow-up opened</option>
+                    <option value="Dead lead">Dead lead</option>
+                    <option value="Warm lead">Warm lead</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-interest-level">
+                    Interest Level
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-interest-level"
+                    name="interestLevel"
+                    class="input-field"
+                >
+                    <option value="">Select level</option>
+                    <option value="Cold">Cold</option>
+                    <option value="Warm">Warm</option>
+                    <option value="Hot">Hot</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-rapport-level">
+                    Rapport Level
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-rapport-level"
+                    name="rapportLevel"
+                    class="input-field"
+                >
+                    <option value="">Select level</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-pipeline-stage">
+                    Pipeline Stage
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-pipeline-stage"
+                    name="pipelineStage"
+                    class="input-field"
+                >
+                    <option value="">Select stage</option>
+                    <option value="Prospected">Prospected</option>
+                    <option value="Called">Called</option>
+                    <option value="Contact Identified">Contact Identified</option>
+                    <option value="Direct Channel Opened">Direct Channel Opened</option>
+                    <option value="Rapport Building">Rapport Building</option>
+                    <option value="Applied">Applied</option>
+                    <option value="Accepted">Accepted</option>
+                    <option value="Archived">Archived</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-priority">
+                    Priority
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-priority"
+                    name="priority"
+                    class="input-field"
+                >
+                    <option value="">Select priority</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-next-action">
+                    Next Action
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-next-action"
+                    name="nextAction"
+                    class="input-field"
+                >
+                    <option value="">Select next action</option>
+                    <option value="Call">Call</option>
+                    <option value="Text">Text</option>
+                    <option value="Email">Email</option>
+                    <option value="Voice Note">Voice Note</option>
+                    <option value="Send Form">Send Form</option>
+                    <option value="Archive">Archive</option>
+                    <option value="Nurture">Nurture</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-channel">
+                    Channel
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-channel"
+                    name="channel"
+                    class="input-field"
+                >
+                    <option value="">Select channel</option>
+                    <option value="WhatsApp">WhatsApp</option>
+                    <option value="Email">Email</option>
+                    <option value="Phone">Phone</option>
+                    <option value="Telegram">Telegram</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-task-status">
+                    Task Status
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-task-status"
+                    name="taskStatus"
+                    class="input-field"
+                >
+                    <option value="">Select status</option>
+                    <option value="Due">Due</option>
+                    <option value="Waiting">Waiting</option>
+                    <option value="Done">Done</option>
+                    <option value="Stalled">Stalled</option>
+                    <option value="Archived">Archived</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-call-type">
+                    Call Type
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-call-type"
+                    name="callType"
+                    class="input-field"
+                >
+                    <option value="">Select call type</option>
+                    <option value="Initial Call">Initial Call</option>
+                    <option value="Follow-Up Call">Follow-Up Call</option>
+                    <option value="Gatekeeper Call">Gatekeeper Call</option>
+                    <option value="Owner Call">Owner Call</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-objection">
+                    Objection
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-objection"
+                    name="objection"
+                    class="input-field"
+                >
+                    <option value="">Select objection</option>
+                    <option value="No objection">No objection</option>
+                    <option value="Busy">Busy</option>
+                    <option value="Email me">Email me</option>
+                    <option value="Not interested">Not interested</option>
+                    <option value="Gatekeeper block">Gatekeeper block</option>
+                    <option value="Price objection">Price objection</option>
+                    <option value="Timing objection">Timing objection</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-follow-up-date">
+                    Follow-up Due Date
+                </label>
+
+                <input
+                    id="yh-dashboard-lead-follow-up-date"
+                    name="followUpDueDate"
+                    class="input-field"
+                    type="date"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-seller-price">
+                    Operator Selling Price
+                </label>
+
+                <input
+                    id="yh-dashboard-lead-seller-price"
+                    name="sellerPriceAmount"
+                    class="input-field"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-currency">
+                    Currency
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-currency"
+                    name="currency"
+                    class="input-field"
+                >
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="NGN">NGN</option>
+                    <option value="PHP">PHP</option>
+                    <option value="INR">INR</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="yh-dashboard-lead-sale-enabled">
+                    Marketplace Listing
+                </label>
+
+                <select
+                    id="yh-dashboard-lead-sale-enabled"
+                    name="saleEnabled"
+                    class="input-field"
+                >
+                    <option value="true">
+                        Submit for Federation marketplace review
+                    </option>
+
+                    <option value="false">
+                        Private lead only
+                    </option>
+                </select>
+            </div>
+
+            <div class="form-group academy-lead-form-span-2">
+                <label for="yh-dashboard-lead-notes">
+                    Notes
+                </label>
+
+                <textarea
+                    id="yh-dashboard-lead-notes"
+                    name="notes"
+                    class="input-field"
+                    rows="4"
+                ></textarea>
+            </div>
+
+            <div
+                id="yh-dashboard-lead-edit-error"
+                class="academy-lead-form-span-2 yh-dashboard-settings-loading is-error hidden-step"
+                role="alert"
+                aria-live="polite"
+            ></div>
+
+            <div class="academy-lead-form-actions academy-lead-form-span-2">
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    id="yh-dashboard-lead-edit-cancel"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="submit"
+                    class="btn-primary"
+                    id="yh-dashboard-lead-edit-submit"
+                >
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- END PATCH: Dashboard-native Academy lead editor v1 -->
+
+<div
     id="yh-wallet-modal"
     class="modal-overlay hidden-step yh-wallet-modal"
     role="dialog"
@@ -2741,9 +3514,8 @@
 
 <div
     id="yh-dashboard-settings-modal"
-    class="yh-dashboard-profile-modal yh-dashboard-settings-modal hidden-step"
-    role="dialog"
-    aria-modal="true"
+    class="yh-dashboard-profile-modal yh-dashboard-settings-modal is-dashboard-inline-workspace hidden-step"
+    role="region"
     aria-hidden="true"
     aria-labelledby="yh-dashboard-settings-title"
 >
@@ -2755,9 +3527,6 @@
                 <p>Manage your active YH subscriptions, payment plans, and badge access.</p>
             </div>
 
-            <button type="button" class="yh-dashboard-profile-modal-close" id="yh-dashboard-settings-close" aria-label="Close settings">
-                ✕
-            </button>
         </div>
 
         <div class="yh-dashboard-profile-modal-body yh-dashboard-settings-body hide-scrollbar">
@@ -2771,11 +3540,139 @@
                     <div class="yh-dashboard-settings-loading">Open settings to load your subscriptions.</div>
                 </div>
             </section>
+
+            <section class="yh-dashboard-settings-section">
+                <div class="yh-dashboard-settings-section-head">
+                    <span>Security</span>
+                    <small>Update your account password. You will be logged out after the change is completed.</small>
+                </div>
+
+                <article class="yh-dashboard-settings-subscription-card">
+                    <div class="yh-dashboard-settings-subscription-main">
+                        <div class="yh-dashboard-settings-subscription-title-row">
+
+                            <div>
+                                <strong>Account Password</strong>
+                                <p>Verify your current password before creating a new one.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="yh-dashboard-settings-subscription-actions">
+                        <button
+                            type="button"
+                            class="btn-secondary"
+                            id="yh-dashboard-settings-change-password"
+                        >
+                            Change Password
+                        </button>
+                    </div>
+                </article>
+            </section>
         </div>
 
+    </div>
+</div>
+
+<div
+    id="yh-dashboard-change-password-modal"
+    class="yh-dashboard-profile-modal yh-dashboard-settings-modal hidden-step"
+    role="dialog"
+    aria-modal="true"
+    aria-hidden="true"
+    aria-labelledby="yh-dashboard-change-password-title"
+>
+    <div class="yh-dashboard-profile-modal-card yh-dashboard-settings-card">
+        <div class="yh-dashboard-profile-modal-head">
+            <div>
+                <div class="yh-dashboard-profile-modal-kicker">Account Security</div>
+                <h3 id="yh-dashboard-change-password-title">Change Password</h3>
+                <p>Enter your current password, then create a new password for your YH Universe account.</p>
+            </div>
+
+            <button
+                type="button"
+                class="yh-dashboard-profile-modal-close"
+                id="yh-dashboard-change-password-close"
+                aria-label="Close change password"
+            >
+                ✕
+            </button>
+        </div>
+
+        <form
+            id="yh-dashboard-change-password-form"
+            class="yh-dashboard-profile-modal-body yh-dashboard-settings-body hide-scrollbar"
+            novalidate
+        >
+            <label class="form-group">
+                <span>Current Password</span>
+
+                <input
+                    id="yh-dashboard-current-password"
+                    name="currentPassword"
+                    type="password"
+                    class="input-field"
+                    autocomplete="current-password"
+                    required
+                >
+            </label>
+
+            <label class="form-group">
+                <span>New Password</span>
+
+                <input
+                    id="yh-dashboard-new-password"
+                    name="newPassword"
+                    type="password"
+                    class="input-field"
+                    autocomplete="new-password"
+                    minlength="8"
+                    maxlength="128"
+                    required
+                >
+            </label>
+
+            <label class="form-group">
+                <span>Confirm New Password</span>
+
+                <input
+                    id="yh-dashboard-confirm-new-password"
+                    name="confirmNewPassword"
+                    type="password"
+                    class="input-field"
+                    autocomplete="new-password"
+                    minlength="8"
+                    maxlength="128"
+                    required
+                >
+            </label>
+
+            <div
+                id="yh-dashboard-change-password-error"
+                class="yh-dashboard-settings-loading is-error hidden-step"
+                role="alert"
+                aria-live="polite"
+            ></div>
+        </form>
+
         <div class="yh-dashboard-profile-modal-actions">
-            <button type="button" class="btn-secondary" id="yh-dashboard-settings-refresh">Refresh</button>
-            <button type="button" class="btn-secondary" id="yh-dashboard-settings-close-footer">Close</button>
+            <button
+                type="button"
+                class="btn-secondary"
+                id="yh-dashboard-change-password-cancel"
+            >
+                Cancel
+            </button>
+
+            <button
+                type="submit"
+                form="yh-dashboard-change-password-form"
+                class="btn-primary"
+                id="yh-dashboard-change-password-submit"
+            >
+                Change Password
+            </button>
         </div>
     </div>
 </div>
@@ -2856,7 +3753,10 @@
 <script src="/js/yh-shared-runtime.js?v=20260711-dashboard-view-state-v2"></script>
 
 
-<script src="/js/dashboard.js?v=20260714-federation-declarations-grouped-v16"></script>
+<script src="/js/dashboard.js?v=20260719-lead-action-loading-v1"></script>
+
+<script src="/js/yhu-game-core.js?v=20260719-squad-ranking-v1"></script>
+<script src="/js/yhu-game-dashboard.js?v=20260719-squad-ranking-v1"></script>
 
 <script src="/js/dashboard-mobile-fix.js?v=20260627-yh-live-cache-v4"></script>
 </body>
