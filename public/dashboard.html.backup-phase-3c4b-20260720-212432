@@ -8,7 +8,7 @@
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" href="/css/style.css?v=20260720-dashboard-stable-refresh-shell-v1">
+<link rel="stylesheet" href="/css/style.css?v=20260719-lead-action-loading-v1">
 <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260717-referral-tab-v2">
 <link rel="stylesheet" href="/css/yhu-game-system.css?v=20260720-squad-celebration-v1">
 <link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260710-dashboard-v2-stable-shell-owner-v1">
@@ -76,91 +76,44 @@
 </div>
 
 <script>
-  /* PATCH: Dashboard stable first paint and conditional bootstrap v1 */
   (function () {
     try {
-      var bootstrapKey = 'yh_post_login_dashboard_bootstrap_v1';
-      var shouldShowBootstrap = false;
+      document.body.classList.add('yh-dashboard-bootstrapping');
+      document.body.setAttribute('data-yh-dashboard-bootstrap-sync', 'loading');
 
-      try {
-        shouldShowBootstrap =
-          sessionStorage.getItem(bootstrapKey) === '1';
-      } catch (_) {}
-
-      var body = document.body;
-      var loader = document.getElementById(
-        'yh-dashboard-bootstrap-loader'
-      );
+      var loader = document.getElementById('yh-dashboard-bootstrap-loader');
+      if (loader) {
+        loader.classList.remove('hidden-step');
+        loader.setAttribute('aria-hidden', 'false');
+      }
 
       window.__yhDashboardBootstrapStartedAt = Date.now();
 
-      window.__yhDashboardReleaseBootstrapLoader =
-        function yhDashboardReleaseBootstrapLoader(reason) {
-          try {
-            body.classList.remove(
-              'yh-dashboard-bootstrapping'
-            );
+      window.__yhDashboardReleaseBootstrapLoader = function yhDashboardReleaseBootstrapLoader(reason) {
+        try {
+          document.body.classList.remove('yh-dashboard-bootstrapping');
+          document.body.setAttribute('data-yh-dashboard-bootstrap-sync', 'ready');
+          document.body.setAttribute('data-yh-dashboard-bootstrap-ready-reason', String(reason || 'ready'));
 
-            body.setAttribute(
-              'data-yh-dashboard-bootstrap-sync',
-              'ready'
-            );
-
-            body.setAttribute(
-              'data-yh-dashboard-bootstrap-ready-reason',
-              String(reason || 'ready')
-            );
-
-            body.setAttribute(
-              'data-yh-dashboard-shell-first-paint',
-              'ready'
-            );
-
-            if (loader) {
-              loader.classList.add('hidden-step');
-              loader.setAttribute('aria-hidden', 'true');
-            }
-
-            try {
-              sessionStorage.removeItem(bootstrapKey);
-            } catch (_) {}
-          } catch (_) {}
-        };
-
-      if (shouldShowBootstrap) {
-        body.classList.add(
-          'yh-dashboard-bootstrapping'
-        );
-
-        body.setAttribute(
-          'data-yh-dashboard-bootstrap-sync',
-          'loading'
-        );
-
-        if (loader) {
-          loader.classList.remove('hidden-step');
-          loader.setAttribute('aria-hidden', 'false');
-        }
-
-        window.setTimeout(function () {
-          if (
-            body.classList.contains(
-              'yh-dashboard-bootstrapping'
-            )
-          ) {
-            window.__yhDashboardReleaseBootstrapLoader(
-              'failsafe'
-            );
+          var activeLoader = document.getElementById('yh-dashboard-bootstrap-loader');
+          if (activeLoader) {
+            activeLoader.classList.add('hidden-step');
+            activeLoader.setAttribute('aria-hidden', 'true');
           }
-        }, 3500);
-      } else {
-        window.__yhDashboardReleaseBootstrapLoader(
-          'normal-refresh'
-        );
-      }
+
+          try {
+            sessionStorage.removeItem('yh_post_login_dashboard_bootstrap_v1');
+          } catch (_) {}
+        } catch (_) {}
+      };
+
+      window.setTimeout(function () {
+        if (document.body.classList.contains('yh-dashboard-bootstrapping')) {
+          window.__yhDashboardReleaseBootstrapLoader('failsafe');
+        }
+      }, 9000);
     } catch (_) {}
   })();
-  /* END PATCH: Dashboard stable first paint and conditional bootstrap v1 */
 </script>
 
 <!-- In-UI Confirm Modal (replaces browser confirm) -->
@@ -3796,121 +3749,14 @@
   })();
 </script>
 
-<script>
-  /* PATCH: Dashboard persisted child workspace first paint v1 */
-  (function () {
-    try {
-      var raw = localStorage.getItem(
-        'yh_dashboard_persistent_ui_state_v1'
-      );
-
-      var state = raw ? JSON.parse(raw) : {};
-      var workspaceKey = String(
-        state.workspaceKey ||
-        state.workspace ||
-        ''
-      ).trim().toLowerCase();
-
-      var match = workspaceKey.match(
-        /^(academy|plazas|federation)-/
-      );
-
-      if (!match) return;
-
-      var division = match[1];
-      var shell = document.getElementById(
-        'yh-universe-workspace-frame-shell'
-      );
-
-      var loader = document.getElementById(
-        'yh-universe-child-workspace-loader'
-      );
-
-      var title = document.getElementById(
-        'yh-universe-child-workspace-loader-title'
-      );
-
-      var copy = document.getElementById(
-        'yh-universe-child-workspace-loader-copy'
-      );
-
-      var frame = document.getElementById(
-        'yh-universe-workspace-inline-frame'
-      );
-
-      document.body.setAttribute(
-        'data-yh-view',
-        'hub'
-      );
-
-      document.body.setAttribute(
-        'data-yh-unified-workspace',
-        workspaceKey
-      );
-
-      document.body.setAttribute(
-        'data-yh-unified-division',
-        division
-      );
-
-      document.body.setAttribute(
-        'data-yh-dashboard-restoring-workspace',
-        workspaceKey
-      );
-
-      if (shell) {
-        shell.classList.remove('hidden-step');
-        shell.classList.add(
-          'is-switching',
-          'has-child-workspace-loader'
-        );
-        shell.setAttribute('aria-hidden', 'false');
-      }
-
-      if (loader) {
-        loader.classList.remove('hidden-step');
-        loader.classList.add('is-active');
-        loader.setAttribute('aria-hidden', 'false');
-      }
-
-      if (title) {
-        title.textContent =
-          'Restoring ' +
-          workspaceKey
-            .replace(/^(academy|plazas|federation)-/, '')
-            .replace(/-/g, ' ')
-            .split(' ')
-            .filter(Boolean)
-            .map(function (word) {
-              return word.charAt(0).toUpperCase() + word.slice(1);
-            })
-            .join(' ');
-      }
-
-      if (copy) {
-        copy.textContent =
-          'Loading your saved workspace inside the Dashboard.';
-      }
-
-      if (frame) {
-        frame.style.visibility = 'hidden';
-        frame.style.opacity = '0';
-        frame.style.pointerEvents = 'none';
-        frame.setAttribute('aria-hidden', 'true');
-      }
-    } catch (_) {}
-  })();
-  /* END PATCH: Dashboard persisted child workspace first paint v1 */
-</script>
-
 <script src="/js/yh-shared-core.js?v=20260627-yh-live-cache-v4"></script>
 <script src="/js/yh-shared-runtime.js?v=20260711-dashboard-view-state-v2"></script>
 
 
-<script src="/js/dashboard.js?v=20260720-dashboard-stable-refresh-shell-v1"></script>
+<script src="/js/dashboard.js?v=20260719-lead-action-loading-v1"></script>
 
 <script src="/js/yhu-game-core.js?v=20260719-squad-ranking-v1"></script>
-<script src="/js/yhu-game-dashboard.js?v=20260720-squad-achievement-notifications-v1"></script>
+<script src="/js/yhu-game-dashboard.js?v=20260720-squad-celebration-v1"></script>
 
 <script src="/js/dashboard-mobile-fix.js?v=20260627-yh-live-cache-v4"></script>
 </body>

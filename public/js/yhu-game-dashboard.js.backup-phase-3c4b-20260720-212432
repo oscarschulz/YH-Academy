@@ -2500,58 +2500,6 @@ async function openSquadMissionHistoryV1(
     }
 }
 
-/* PATCH: Phase 3C.4B notification mission-history bridge v1 */
-
-window.YHUOpenAcademySquadMissionHistoryV1 =
-    function (
-        missionId = '',
-        options = {}
-    ) {
-        return openSquadMissionHistoryV1(
-            missionId,
-            {
-                force:
-                    options?.force !== false
-            }
-        );
-    };
-
-if (
-    window
-        .__yhuSquadMissionHistoryNotificationBridgeV1 !==
-    true
-) {
-    window
-        .__yhuSquadMissionHistoryNotificationBridgeV1 =
-        true;
-
-    window.addEventListener(
-        'yhu:open-squad-mission-history',
-        (event) => {
-            const missionId =
-                String(
-                    event?.detail
-                        ?.missionId ||
-                    ''
-                ).trim();
-
-            if (!missionId) {
-                return;
-            }
-
-            void openSquadMissionHistoryV1(
-                missionId,
-                {
-                    force: true
-                }
-            );
-        }
-    );
-}
-
-/* END PATCH: Phase 3C.4B notification mission-history bridge v1 */
-
-
 function bindSquadMissionHistoryNavigationV1() {
     document
         .querySelectorAll(

@@ -410,140 +410,35 @@ async function markExpiredLiveRoomEnded(row = {}) {
 
 function mapNotificationRow(row = {}) {
     const data = rowData(row);
-
-    const readAt =
-        mapTimestamp(
-            data.read_at ||
-            data.readAt
-        );
-
+    const readAt = mapTimestamp(data.read_at || data.readAt);
     const isRead =
         data.is_read === true ||
         data.isRead === true ||
         data.read === true ||
         Boolean(readAt);
 
-    const body =
-        sanitizeText(
-            data.body ||
-            data.text ||
-            data.message
-        );
-
-    const metadata =
-        data.metadata &&
-        typeof data.metadata === 'object' &&
-        !Array.isArray(data.metadata)
-            ? data.metadata
-            : {};
+    const body = sanitizeText(data.body || data.text || data.message);
 
     return {
         id: row.source_document_id,
         notificationId: row.source_document_id,
-
         type: sanitizeText(data.type),
-        title: sanitizeText(
-            data.title ||
-            'Notification'
-        ),
-
+        title: sanitizeText(data.title || 'Notification'),
         body,
         text: body,
         message: body,
-
-        source: sanitizeText(
-            data.source ||
-            data.notification_source
-        ),
-
-        notificationType: sanitizeText(
-            data.notificationType ||
-            data.notification_type ||
-            data.type
-        ),
-
-        notification_type: sanitizeText(
-            data.notification_type ||
-            data.notificationType ||
-            data.type
-        ),
-
-        color: sanitizeText(
-            data.color ||
-            'var(--neon-blue)'
-        ),
-
-        avatarStr: sanitizeText(
-            data.avatarStr ||
-            data.avatar_str ||
-            data.initial ||
-            'N'
-        ),
-
-        avatar_str: sanitizeText(
-            data.avatar_str ||
-            data.avatarStr ||
-            data.initial ||
-            'N'
-        ),
-
-        initial: sanitizeText(
-            data.initial ||
-            data.avatarStr ||
-            data.avatar_str ||
-            'N'
-        ),
-
-        target: sanitizeText(
-            data.target ||
-            data.target_type ||
-            data.targetType
-        ),
-
-        target_type: sanitizeText(
-            data.target_type ||
-            data.targetType ||
-            data.target
-        ),
-
-        targetType: sanitizeText(
-            data.targetType ||
-            data.target_type ||
-            data.target
-        ),
-
-        target_id: sanitizeText(
-            data.target_id ||
-            data.targetId ||
-            row.target_user_id
-        ),
-
-        targetId: sanitizeText(
-            data.targetId ||
-            data.target_id ||
-            row.target_user_id
-        ),
-
-        metadata,
-
+        target: sanitizeText(data.target || data.target_type || data.targetType),
+        target_type: sanitizeText(data.target_type || data.targetType || data.target),
+        targetType: sanitizeText(data.targetType || data.target_type || data.target),
+        target_id: sanitizeText(data.target_id || data.targetId || row.target_user_id),
+        targetId: sanitizeText(data.targetId || data.target_id || row.target_user_id),
         is_read: isRead,
         isRead,
         read: isRead,
-
         read_at: readAt,
         readAt,
-
-        created_at: mapTimestamp(
-            data.created_at ||
-            data.createdAt ||
-            row.created_at_source
-        ),
-
-        createdAt: mapTimestamp(
-            data.createdAt ||
-            data.created_at ||
-            row.created_at_source
-        )
+        created_at: mapTimestamp(data.created_at || data.createdAt || row.created_at_source),
+        createdAt: mapTimestamp(data.createdAt || data.created_at || row.created_at_source)
     };
 }
 
@@ -1299,205 +1194,6 @@ async function endLiveRoom({ userId, roomId } = {}) {
     return mapLiveRoomRow(saved);
 }
 
-/* PATCH: Phase 3C.4B — persistent Squad achievement and notifications v1 */
-
-async function createNotification(input = {}) {
-    const userId =
-        normalizeUserId(
-            input.userId ||
-            input.ownerUserId ||
-            input.recipientUserId
-        );
-
-    if (!userId) {
-        throw new Error(
-            'Notification recipient is required.'
-        );
-    }
-
-    const rawNotificationId =
-        sanitizeText(
-            input.notificationId ||
-            input.id ||
-            makeRecordId('notif')
-        );
-
-    const notificationId =
-        rawNotificationId
-            .replace(
-                /[^a-zA-Z0-9_-]+/g,
-                '_'
-            )
-            .slice(0, 180);
-
-    if (!notificationId) {
-        throw new Error(
-            'Notification ID is required.'
-        );
-    }
-
-    const existing =
-        await getRecordByTypeAndId(
-            'notification',
-            notificationId
-        ).catch(() => null);
-
-    if (existing) {
-        const existingOwner =
-            sanitizeText(
-                existing.owner_user_id ||
-                rowData(existing).user_id ||
-                rowData(existing).userId
-            );
-
-        if (existingOwner === userId) {
-            return {
-                created: false,
-                duplicate: true,
-                notification:
-                    mapNotificationRow(existing)
-            };
-        }
-
-        throw new Error(
-            'Notification ID is already in use.'
-        );
-    }
-
-    const now = nowIso();
-
-    const createdAt =
-        mapTimestamp(
-            input.createdAt ||
-            input.created_at ||
-            now
-        ) || now;
-
-    const body =
-        sanitizeText(
-            input.body ||
-            input.text ||
-            input.message
-        );
-
-    const target =
-        sanitizeText(
-            input.target ||
-            input.targetType ||
-            input.target_type
-        );
-
-    const targetId =
-        sanitizeText(
-            input.targetId ||
-            input.target_id
-        );
-
-    const avatarStr =
-        sanitizeText(
-            input.avatarStr ||
-            input.avatar_str ||
-            input.initial ||
-            'N'
-        );
-
-    const notificationType =
-        sanitizeText(
-            input.notificationType ||
-            input.notification_type ||
-            input.type ||
-            'notification'
-        );
-
-    const row =
-        await upsertRecord({
-            recordType: 'notification',
-            docId: notificationId,
-            ownerUserId: userId,
-
-            data: {
-                user_id: userId,
-
-                type:
-                    sanitizeText(
-                        input.type ||
-                        notificationType
-                    ),
-
-                title:
-                    sanitizeText(
-                        input.title ||
-                        'Notification'
-                    ),
-
-                body,
-                text: body,
-                message: body,
-
-                source:
-                    sanitizeText(
-                        input.source ||
-                        'system'
-                    ),
-
-                notification_type:
-                    notificationType,
-
-                notificationType,
-
-                color:
-                    sanitizeText(
-                        input.color ||
-                        'var(--neon-blue)'
-                    ),
-
-                avatar_str: avatarStr,
-                avatarStr,
-                initial: avatarStr,
-
-                target,
-                target_type: target,
-                targetType: target,
-
-                target_id: targetId,
-                targetId,
-
-                metadata:
-                    input.metadata &&
-                    typeof input.metadata ===
-                        'object' &&
-                    !Array.isArray(
-                        input.metadata
-                    )
-                        ? input.metadata
-                        : {},
-
-                is_read: false,
-                isRead: false,
-                read: false,
-
-                read_at: '',
-                readAt: '',
-
-                created_at: createdAt,
-                createdAt,
-
-                updated_at: now,
-                updatedAt: now
-            }
-        });
-
-    return {
-        created: true,
-        duplicate: false,
-        notification:
-            mapNotificationRow(row)
-    };
-}
-
-/* END PATCH: Phase 3C.4B — persistent Squad achievement and notifications v1 */
-
-
 async function getNotifications(userId) {
     const normalizedUserId = normalizeUserId(userId);
     const rows = await listRecords('notification', 500);
@@ -1706,7 +1402,6 @@ module.exports = {
     joinLiveRoom,
     leaveLiveRoom,
     endLiveRoom,
-    createNotification,
     getNotifications,
     readAllNotifications,
     readNotification,

@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
+const realtimeFirestoreRepo = require('./backend/repositories/realtimeFirestoreRepo');
 const academyLeadSupabaseRepo = require('./backend/repositories/academyLeadSupabaseRepo');
 const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const academyPlannerKnowledgeContext = require('./backend/services/academyPlannerKnowledgeContext');
@@ -3741,16 +3742,365 @@ async function syncAcademyProgressionAfterActionV1(
 
 /* PATCH: Automatic Squad Mission action hooks v1 */
 
+/* PATCH: Phase 3C.4B — persistent Squad achievement and notifications v1 */
+
+function buildAcademySquadMissionNotificationIdV1(
+    missionId = '',
+    memberUserId = ''
+) {
+    return (
+        'squad_mission_complete_' +
+        sanitize(missionId) +
+        '_' +
+        sanitize(memberUserId)
+    )
+        .replace(
+            /[^a-zA-Z0-9_-]+/g,
+            '_'
+        )
+        .slice(0, 180);
+}
+
+async function finalizeAcademySquadMissionCompletionsV1(
+    uid = '',
+    missionProgressResult = {}
+) {
+    const completedMissions =
+        Array.isArray(
+            missionProgressResult
+                ?.completedMissions
+        )
+            ? missionProgressResult
+                .completedMissions
+                .filter(
+                    (entry) =>
+                        entry?.completed === true &&
+                        sanitize(
+                            entry?.missionId
+                        )
+                )
+            : [];
+
+    if (!completedMissions.length) {
+        return {
+            created: false,
+            achievements: [],
+            notificationCount: 0,
+            newNotificationCount: 0
+        };
+    }
+
+    const deliveries = [];
+
+    for (
+        const completion of
+        completedMissions
+    ) {
+        const missionId =
+            sanitize(
+                completion.missionId
+            );
+
+        try {
+            const achievementResult =
+                await academyFirestoreRepo
+                    .recordAcademySquadMissionAchievementV1(
+                        uid,
+                        missionId
+                    );
+
+            const squad =
+                achievementResult?.squad ||
+                {};
+
+            const mission =
+                achievementResult?.mission ||
+                {};
+
+            const achievement =
+                achievementResult
+                    ?.achievement ||
+                {};
+
+            const members =
+                Array.isArray(
+                    achievementResult
+                        ?.members
+                )
+                    ? achievementResult
+                        .members
+                    : [];
+
+            const rewardXp =
+                Math.max(
+                    0,
+                    Math.floor(
+                        Number(
+                            completion
+                                ?.reward
+                                ?.awarded ??
+                            mission.rewardXp ??
+                            achievement.rewardXp ??
+                            0
+                        ) || 0
+                    )
+                );
+
+            const completedAt =
+                sanitize(
+                    mission.completedAt ||
+                    achievement.completedAt ||
+                    achievement.earnedAt ||
+                    new Date()
+                        .toISOString()
+                );
+
+            const notificationResults =
+                await Promise.allSettled(
+                    members
+                        .filter(
+                            (member) =>
+                                sanitize(
+                                    member.userId
+                                )
+                        )
+                        .map((member) => {
+                            const memberUserId =
+                                sanitize(
+                                    member.userId
+                                );
+
+                            return realtimeFirestoreRepo
+                                .createNotification({
+                                    notificationId:
+                                        buildAcademySquadMissionNotificationIdV1(
+                                            missionId,
+                                            memberUserId
+                                        ),
+
+                                    userId:
+                                        memberUserId,
+
+                                    type:
+                                        'squad_mission_completed',
+
+                                    notificationType:
+                                        'squad-mission-completed',
+
+                                    source:
+                                        'academy-squad',
+
+                                    title:
+                                        'Squad Mission Complete',
+
+                                    body:
+                                        `${
+                                            sanitize(
+                                                squad.name ||
+                                                'Your Squad'
+                                            )
+                                        } completed “${
+                                            sanitize(
+                                                mission.title ||
+                                                completion.missionTitle ||
+                                                'Squad Mission'
+                                            )
+                                        }”${
+                                            rewardXp > 0
+                                                ? (
+                                                    ` and earned ${rewardXp} Squad XP.`
+                                                )
+                                                : '.'
+                                        }`,
+
+                                    target:
+                                        'squad-mission-history',
+
+                                    targetId:
+                                        missionId,
+
+                                    avatarStr:
+                                        sanitize(
+                                            squad.emblem ||
+                                            '⚡'
+                                        ) || '⚡',
+
+                                    color:
+                                        'linear-gradient(135deg, #0ea5e9, #2563eb)',
+
+                                    createdAt:
+                                        completedAt,
+
+                                    metadata: {
+                                        squadId:
+                                            sanitize(
+                                                squad.id
+                                            ),
+
+                                        squadName:
+                                            sanitize(
+                                                squad.name
+                                            ),
+
+                                        missionId,
+
+                                        missionTitle:
+                                            sanitize(
+                                                mission.title ||
+                                                completion.missionTitle
+                                            ),
+
+                                        missionType:
+                                            sanitize(
+                                                mission.missionType
+                                            ),
+
+                                        rewardXp,
+
+                                        achievementId:
+                                            sanitize(
+                                                achievement.id
+                                            ),
+
+                                        completedAt
+                                    }
+                                });
+                        })
+                );
+
+            const fulfilled =
+                notificationResults
+                    .filter(
+                        (result) =>
+                            result.status ===
+                            'fulfilled'
+                    )
+                    .map(
+                        (result) =>
+                            result.value
+                    );
+
+            deliveries.push({
+                missionId,
+
+                achievementCreated:
+                    achievementResult
+                        ?.created === true,
+
+                achievement,
+
+                notificationCount:
+                    fulfilled.length,
+
+                newNotificationCount:
+                    fulfilled.filter(
+                        (result) =>
+                            result?.created === true
+                    ).length,
+
+                notificationFailures:
+                    notificationResults
+                        .filter(
+                            (result) =>
+                                result.status ===
+                                'rejected'
+                        )
+                        .map(
+                            (result) =>
+                                String(
+                                    result.reason
+                                        ?.message ||
+                                    result.reason ||
+                                    'Notification failed.'
+                                )
+                        )
+            });
+        } catch (error) {
+            console.warn(
+                'Squad mission completion delivery skipped:',
+                missionId,
+                error?.message ||
+                error
+            );
+
+            deliveries.push({
+                missionId,
+                error:
+                    error?.message ||
+                    'Completion delivery failed.',
+                notificationCount: 0,
+                newNotificationCount: 0
+            });
+        }
+    }
+
+    return {
+        created:
+            deliveries.some(
+                (entry) =>
+                    entry
+                        .achievementCreated ===
+                        true
+            ),
+
+        achievements:
+            deliveries
+                .map(
+                    (entry) =>
+                        entry.achievement
+                )
+                .filter(Boolean),
+
+        notificationCount:
+            deliveries.reduce(
+                (total, entry) =>
+                    total +
+                    Number(
+                        entry.notificationCount ||
+                        0
+                    ),
+                0
+            ),
+
+        newNotificationCount:
+            deliveries.reduce(
+                (total, entry) =>
+                    total +
+                    Number(
+                        entry.newNotificationCount ||
+                        0
+                    ),
+                0
+            ),
+
+        deliveries
+    };
+}
+
+/* END PATCH: Phase 3C.4B — persistent Squad achievement and notifications v1 */
+
 async function advanceAcademySquadMissionV1(
     uid = '',
     input = {}
 ) {
     try {
-        return await academyFirestoreRepo
-            .recordAcademySquadMissionContributionV1(
+        const result =
+            await academyFirestoreRepo
+                .recordAcademySquadMissionContributionV1(
+                    uid,
+                    input
+                );
+
+        const completionDelivery =
+            await finalizeAcademySquadMissionCompletionsV1(
                 uid,
-                input
+                result
             );
+
+        return {
+            ...result,
+            completionDelivery
+        };
     } catch (error) {
         /*
          * Squad Mission progression must never make the
@@ -3767,7 +4117,13 @@ async function advanceAcademySquadMissionV1(
             reason:
                 'squad_mission_progress_failed',
             missions: [],
-            completedMissions: []
+            completedMissions: [],
+            completionDelivery: {
+                created: false,
+                achievements: [],
+                notificationCount: 0,
+                newNotificationCount: 0
+            }
         };
     }
 }
@@ -14257,6 +14613,95 @@ exports.getMyAcademySquadMissions = async (
             });
     }
 };
+
+/* PATCH: Squad Mission contribution history controller v1 */
+
+exports.getMyAcademySquadMissionContributions =
+async (
+    req,
+    res
+) => {
+    try {
+        const uid =
+            getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res
+                .status(401)
+                .json({
+                    success: false,
+                    message:
+                        'Unauthorized.'
+                });
+        }
+
+        const access =
+            await requireApprovedAcademyMembership(
+                uid,
+                res
+            );
+
+        if (!access) return;
+
+        const missionId =
+            sanitize(
+                req.params
+                    ?.missionId
+            );
+
+        const limit =
+            Math.max(
+                1,
+                Math.min(
+                    200,
+                    Number(
+                        req.query
+                            ?.limit
+                    ) || 100
+                )
+            );
+
+        const result =
+            await academyFirestoreRepo
+                .getAcademySquadMissionContributionsV1(
+                    uid,
+                    missionId,
+                    {
+                        limit
+                    }
+                );
+
+        return res.json({
+            success: true,
+
+            version:
+                'academy-squad-mission-contributions-v1',
+
+            ...result
+        });
+    } catch (error) {
+        console.error(
+            'getMyAcademySquadMissionContributions error:',
+            error
+        );
+
+        return res
+            .status(
+                Number(
+                    error?.statusCode
+                ) || 500
+            )
+            .json({
+                success: false,
+
+                message:
+                    error?.message ||
+                    'Failed to load Squad mission contributions.'
+            });
+    }
+};
+
+/* END PATCH: Squad Mission contribution history controller v1 */
 
 exports.createMyAcademySquadMission = async (
     req,

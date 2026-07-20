@@ -10035,106 +10035,6 @@ function renderAcademyFeedAvatarHtml(post = {}, displayName = '') {
 const YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY = 'yh_post_login_dashboard_bootstrap_v1';
 let yhDashboardBootstrapFailSafeTimer = null;
 
-/* PATCH: Dashboard stable shell first paint v1 */
-function ensureDashboardStableShellFirstPaintV1(
-    reason = 'sync'
-) {
-    const body = document.body;
-
-    if (
-        !body ||
-        body.getAttribute('data-yh-page') !==
-            'dashboard'
-    ) {
-        return false;
-    }
-
-    /*
-     * /dashboard is always the Hub shell. Child Academy,
-     * Plazas, and Federation pages render inside the frame.
-     */
-    body.setAttribute(
-        'data-yh-view',
-        'hub'
-    );
-
-    body.setAttribute(
-        'data-yh-dashboard-shell-first-paint',
-        'ready'
-    );
-
-    body.setAttribute(
-        'data-yh-dashboard-shell-first-paint-reason',
-        String(reason || 'sync')
-    );
-
-    const layout =
-        document.querySelector(
-            '.dashboard-layout'
-        );
-
-    if (layout instanceof HTMLElement) {
-        layout.style.removeProperty(
-            'opacity'
-        );
-
-        layout.style.removeProperty(
-            'visibility'
-        );
-
-        layout.style.removeProperty(
-            'pointer-events'
-        );
-    }
-
-    const topStrip =
-        document.querySelector(
-            '.desktop-user-strip'
-        );
-
-    if (
-        topStrip instanceof HTMLElement &&
-        window.matchMedia(
-            '(min-width: 769px)'
-        ).matches
-    ) {
-        topStrip.classList.remove(
-            'hidden-step'
-        );
-
-        topStrip.setAttribute(
-            'aria-hidden',
-            'false'
-        );
-
-        topStrip.style.removeProperty(
-            'display'
-        );
-
-        topStrip.style.removeProperty(
-            'visibility'
-        );
-
-        topStrip.style.removeProperty(
-            'opacity'
-        );
-
-        topStrip.style.removeProperty(
-            'pointer-events'
-        );
-    }
-
-    return true;
-}
-
-window.YHEnsureDashboardStableShellFirstPaintV1 =
-    ensureDashboardStableShellFirstPaintV1;
-
-ensureDashboardStableShellFirstPaintV1(
-    'dashboard-script-eval'
-);
-/* END PATCH: Dashboard stable shell first paint v1 */
-
 function shouldRunPostLoginDashboardBootstrap() {
     try {
         return sessionStorage.getItem(YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY) === '1';
@@ -10147,19 +10047,11 @@ function showDashboardBootstrapLoader(label = 'Checking your access...') {
     const loader = document.getElementById('yh-dashboard-bootstrap-loader');
     const text = document.getElementById('yh-dashboard-bootstrap-loader-text');
 
-    ensureDashboardStableShellFirstPaintV1(
-        'bootstrap-show'
-    );
-
     if (text) {
         text.textContent = String(label || 'Checking your access...');
     }
 
     document.body?.classList.add('yh-dashboard-bootstrapping');
-    document.body?.setAttribute(
-        'data-yh-dashboard-bootstrap-sync',
-        'loading'
-    );
 
     if (!loader) return;
 
@@ -10167,9 +10059,7 @@ function showDashboardBootstrapLoader(label = 'Checking your access...') {
     loader.setAttribute('aria-hidden', 'false');
 }
 
-function hideDashboardBootstrapLoader(
-    reason = 'dashboard-ready'
-) {
+function hideDashboardBootstrapLoader() {
     const loader = document.getElementById('yh-dashboard-bootstrap-loader');
 
     if (yhDashboardBootstrapFailSafeTimer) {
@@ -10181,26 +10071,7 @@ function hideDashboardBootstrapLoader(
         sessionStorage.removeItem(YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY);
     } catch (_) {}
 
-    try {
-        if (
-            typeof window.__yhDashboardReleaseBootstrapLoader ===
-                'function'
-        ) {
-            window.__yhDashboardReleaseBootstrapLoader(
-                reason
-            );
-        }
-    } catch (_) {}
-
     document.body?.classList.remove('yh-dashboard-bootstrapping');
-    document.body?.setAttribute(
-        'data-yh-dashboard-bootstrap-sync',
-        'ready'
-    );
-
-    ensureDashboardStableShellFirstPaintV1(
-        reason
-    );
 
     if (!loader) return;
 
@@ -10208,35 +10079,15 @@ function hideDashboardBootstrapLoader(
     loader.setAttribute('aria-hidden', 'true');
 }
 
-function scheduleDashboardBootstrapFailSafe(delayMs = 3500) {
+function scheduleDashboardBootstrapFailSafe(delayMs = 6500) {
     if (yhDashboardBootstrapFailSafeTimer) {
         clearTimeout(yhDashboardBootstrapFailSafeTimer);
     }
 
     yhDashboardBootstrapFailSafeTimer = setTimeout(() => {
-        hideDashboardBootstrapLoader(
-            'dashboard-failsafe'
-        );
+        hideDashboardBootstrapLoader();
     }, delayMs);
 }
-
-window.addEventListener(
-    'pageshow',
-    () => {
-        ensureDashboardStableShellFirstPaintV1(
-            'pageshow'
-        );
-    }
-);
-
-window.addEventListener(
-    'resize',
-    () => {
-        ensureDashboardStableShellFirstPaintV1(
-            'resize'
-        );
-    }
-);
 
 async function hydrateDashboardTopProfile(forceFresh = false) {
     const cachedProfile = dashboardGetTopProfileCache();
@@ -14892,10 +14743,6 @@ function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready', navigationTo
         frameShell.dataset.childLoaderReleased = reason;
     }
 
-    document.body?.removeAttribute(
-        'data-yh-dashboard-restoring-workspace'
-    );
-
     scheduleDashboardMobileWorkspaceStableBootReleaseV1(reason, reason === 'hard-timeout' ? 0 : 90);
 }
 
@@ -18163,12 +18010,6 @@ function syncDashboardUnifiedWorkspaceDerivedSurfaces(key = 'overview', reason =
 
 
 function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
-    ensureDashboardStableShellFirstPaintV1(
-        options?.restore === true
-            ? 'workspace-restore'
-            : 'workspace-activate'
-    );
-
     const effectiveKey = getDashboardEffectiveUnifiedWorkspaceKey(key);
     const copy = getDashboardUnifiedWorkspaceCopy(effectiveKey);
 

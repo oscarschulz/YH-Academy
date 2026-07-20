@@ -122,6 +122,13 @@ router.get(
     academyControllers.getMyAcademySquadMissions
 );
 
+router.get(
+    '/academy/squad/missions/:missionId/contributions',
+    auth,
+    academyControllers
+        .getMyAcademySquadMissionContributions
+);
+
 router.post(
     '/academy/squad/missions',
     auth,

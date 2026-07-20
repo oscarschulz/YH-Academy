@@ -7650,19 +7650,138 @@ function academyWriteProgressionCacheV1(progression = {}) {
     return saved;
 }
 
-function academyApplyProgressionResultV1(result = {}) {
+/* PATCH: Academy Squad live-sync bridge v1 */
+
+function academyNotifySquadActionV1(
+    result = {},
+    action = 'academy_verified_action'
+) {
+    const squadMissionProgress =
+        result?.squadMissionProgress &&
+        typeof result.squadMissionProgress ===
+            'object'
+            ? result.squadMissionProgress
+            : null;
+
+    const squadXp =
+        result?.squadXp &&
+        typeof result.squadXp === 'object'
+            ? result.squadXp
+            : null;
+
     const progression =
         result?.progression &&
         typeof result.progression === 'object'
             ? result.progression
             : null;
 
-    if (!progression) return null;
+    const lead =
+        result?.lead &&
+        typeof result.lead === 'object'
+            ? result.lead
+            : {};
 
-    academyWriteProgressionCacheV1(progression);
+    const detail = {
+        type:
+            'yhu:academy-squad-action-completed',
+
+        version:
+            'academy-squad-live-sync-v1',
+
+        source:
+            'academy',
+
+        action:
+            String(
+                action ||
+                'academy_verified_action'
+            ).trim(),
+
+        leadId:
+            academyGetLeadIdV1(
+                lead
+            ),
+
+        squadMissionProgress,
+        squadXp,
+        progression,
+
+        occurredAt:
+            new Date()
+                .toISOString()
+    };
+
+    try {
+        window.dispatchEvent(
+            new CustomEvent(
+                'yhu:academy-squad-action-completed',
+                {
+                    detail
+                }
+            )
+        );
+    } catch (_) {}
+
+    try {
+        if (
+            window.parent &&
+            window.parent !== window
+        ) {
+            window.parent.postMessage(
+                detail,
+                window.location.origin
+            );
+        }
+    } catch (_) {}
+
+    return detail;
+}
+
+function academyApplyProgressionResultV1(
+    result = {}
+) {
+    const progression =
+        result?.progression &&
+        typeof result.progression === 'object'
+            ? result.progression
+            : null;
+
+    if (progression) {
+        academyWriteProgressionCacheV1(
+            progression
+        );
+    }
+
+    const squadMissionProgress =
+        result?.squadMissionProgress &&
+        typeof result.squadMissionProgress ===
+            'object'
+            ? result.squadMissionProgress
+            : null;
+
+    const nestedSquadMissionProgress =
+        result?.squadXp
+            ?.squadMissionProgress &&
+        typeof result.squadXp
+            .squadMissionProgress ===
+            'object'
+            ? result.squadXp
+                .squadMissionProgress
+            : null;
+
+    if (
+        squadMissionProgress ||
+        nestedSquadMissionProgress
+    ) {
+        academyNotifySquadActionV1(
+            result
+        );
+    }
 
     return progression;
 }
+
+/* END PATCH: Academy Squad live-sync bridge v1 */
 
 function academyBuildXpSuccessMessageV1(
     result = {},
@@ -13761,6 +13880,13 @@ const academyLeadMissionsState = {
     editingLeadId: '',
     openLeadMenuId: '',
 
+    /*
+     * Prevent overlapping or queued Add/Edit Lead submissions.
+     */
+    leadSubmitBusy: false,
+    lastLeadSubmitFingerprint: '',
+    lastLeadSubmitAt: 0,
+
     activePlaybookKey: '',
     activePlaybookTitle: '',
 
@@ -16880,12 +17006,43 @@ document.addEventListener('click', async (event) => {
     }
 });
 
-document.getElementById('academy-lead-entry-form')?.addEventListener('submit', async (event) => {
-    event.preventDefault();
+document.getElementById(
+    'academy-lead-entry-form'
+)?.addEventListener(
+    'submit',
+    async (event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
 
-    const form = event.currentTarget;
-    const submitBtn = document.getElementById('btn-save-lead-entry');
-    const formData = new FormData(form);
+        const form =
+            event.currentTarget;
+
+        if (
+            !(
+                form instanceof
+                HTMLFormElement
+            )
+        ) {
+            return;
+        }
+
+        if (
+            academyLeadMissionsState
+                .leadSubmitBusy === true ||
+            form.dataset
+                .yhLeadSubmitting ===
+                'true'
+        ) {
+            return;
+        }
+
+        const submitBtn =
+            document.getElementById(
+                'btn-save-lead-entry'
+            );
+
+        const formData =
+            new FormData(form);
 
     const payload = Object.fromEntries(
         formData.entries()
@@ -16910,34 +17067,183 @@ document.getElementById('academy-lead-entry-form')?.addEventListener('submit', a
             'academy_mission_playbook';
     }
 
-    delete payload.universeCommissionRate;
-    delete payload.universeCommissionAmount;
-    delete payload.platformCommissionRate;
-    delete payload.platformCommissionAmount;
-    delete payload.operatorPayoutAmount;
-    delete payload.buyerPriceAmount;
+        delete payload
+            .universeCommissionRate;
+        delete payload
+            .universeCommissionAmount;
+        delete payload
+            .platformCommissionRate;
+        delete payload
+            .platformCommissionAmount;
+        delete payload
+            .operatorPayoutAmount;
+        delete payload
+            .buyerPriceAmount;
 
-    try {
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.setAttribute('aria-busy', 'true');
+        const editingLeadId =
+            String(
+                academyLeadMissionsState
+                    .editingLeadId ||
+                ''
+            ).trim();
+
+        const cleanTier =
+            String(
+                payload.tier ||
+                payload.leadTier ||
+                ''
+            ).trim();
+
+        const cleanCompanyName =
+            String(
+                payload.companyName ||
+                payload.company ||
+                ''
+            ).trim();
+
+        /*
+         * This also blocks a delayed second submit after
+         * the successful request has reset the form.
+         */
+        if (
+            !cleanTier ||
+            !cleanCompanyName
+        ) {
+            showToast(
+                'Tier and company name are required.',
+                'error'
+            );
+
+            const invalidField =
+                !cleanTier
+                    ? (
+                        form.elements
+                            ?.namedItem(
+                                'tier'
+                            ) ||
+                        form.elements
+                            ?.namedItem(
+                                'leadTier'
+                            )
+                    )
+                    : (
+                        form.elements
+                            ?.namedItem(
+                                'companyName'
+                            ) ||
+                        form.elements
+                            ?.namedItem(
+                                'company'
+                            )
+                    );
+
+            if (
+                invalidField &&
+                typeof invalidField.focus ===
+                    'function'
+            ) {
+                invalidField.focus();
+            }
+
+            return;
         }
 
-const editingLeadId =
-    String(
-        academyLeadMissionsState
-            .editingLeadId || ''
-    ).trim();
+        payload.tier =
+            cleanTier;
 
-const endpoint =
-    editingLeadId
-        ? (
-            `/api/academy/lead-missions/leads/` +
-            encodeURIComponent(
-                editingLeadId
+        payload.companyName =
+            cleanCompanyName;
+
+        const fingerprint = [
+            editingLeadId ||
+                'create',
+
+            cleanTier
+                .toLowerCase(),
+
+            cleanCompanyName
+                .toLowerCase(),
+
+            String(
+                payload.contactName ||
+                ''
             )
-        )
-        : '/api/academy/lead-missions/leads';
+                .trim()
+                .toLowerCase(),
+
+            String(
+                payload.email ||
+                ''
+            )
+                .trim()
+                .toLowerCase(),
+
+            String(
+                payload.phone ||
+                ''
+            )
+                .trim()
+        ].join('|');
+
+        const now =
+            Date.now();
+
+        if (
+            !editingLeadId &&
+            academyLeadMissionsState
+                .lastLeadSubmitFingerprint ===
+                fingerprint &&
+            (
+                now -
+                Number(
+                    academyLeadMissionsState
+                        .lastLeadSubmitAt ||
+                    0
+                )
+            ) < 3000
+        ) {
+            return;
+        }
+
+        academyLeadMissionsState
+            .leadSubmitBusy = true;
+
+        form.dataset
+            .yhLeadSubmitting =
+            'true';
+
+        if (!editingLeadId) {
+            academyLeadMissionsState
+                .lastLeadSubmitFingerprint =
+                fingerprint;
+
+            academyLeadMissionsState
+                .lastLeadSubmitAt =
+                now;
+        }
+
+        academySetLeadActionLoadingV1(
+            submitBtn,
+            true,
+            editingLeadId
+                ? 'Saving...'
+                : 'Adding...'
+        );
+
+        try {
+            const endpoint =
+                editingLeadId
+                    ? (
+                        '/api/academy/' +
+                        'lead-missions/leads/' +
+                        encodeURIComponent(
+                            editingLeadId
+                        )
+                    )
+                    : (
+                        '/api/academy/' +
+                        'lead-missions/leads'
+                    );
 
 const result =
     await academyAuthedFetch(
@@ -17007,16 +17313,43 @@ const missionCompleted =
         switchAcademyLeadMissionsSubtab(
             'database'
         );
-    } catch (error) {
-        console.error('academy lead entry submit error:', error);
-        showToast(error?.message || 'Failed to save lead.', 'error');
-    } finally {
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.removeAttribute('aria-busy');
+        } catch (error) {
+            if (!editingLeadId) {
+                academyLeadMissionsState
+                    .lastLeadSubmitFingerprint =
+                    '';
+
+                academyLeadMissionsState
+                    .lastLeadSubmitAt =
+                    0;
+            }
+
+            console.error(
+                'academy lead entry submit error:',
+                error
+            );
+
+            showToast(
+                error?.message ||
+                'Failed to save lead.',
+                'error'
+            );
+        } finally {
+            academyLeadMissionsState
+                .leadSubmitBusy = false;
+
+            delete form.dataset
+                .yhLeadSubmitting;
+
+            academySetLeadActionLoadingV1(
+                submitBtn,
+                false
+            );
+
+            academySyncLeadEntryModalModeV1();
         }
     }
-});
+);
 
 async function academyEnsureMemberProfileAccessAllowed(memberId = '') {
     const normalizedMemberId = normalizeAcademyFeedId(memberId);
