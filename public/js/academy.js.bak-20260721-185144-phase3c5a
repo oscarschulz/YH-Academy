@@ -36561,9 +36561,6 @@ function lockBotToVisibleBottom() {
     if (window.__academyDashboardEmbedSectionOwnerV20Installed) return;
     window.__academyDashboardEmbedSectionOwnerV20Installed = true;
 
-    let academyDashboardEmbedSettleTimerV21 = null;
-    let academyDashboardEmbedBootGenerationV21 = 0;
-
     function getDashboardSection() {
         try {
             const url = new URL(window.location.href);
@@ -36809,13 +36806,6 @@ function lockBotToVisibleBottom() {
     function boot(reason = 'boot') {
         if (!isAcademyDashboardEmbedContext()) return;
 
-        const generation =
-            ++academyDashboardEmbedBootGenerationV21;
-
-        window.clearTimeout(
-            academyDashboardEmbedSettleTimerV21
-        );
-
         const target = getDashboardTarget(
             getDashboardSection()
         );
@@ -36832,116 +36822,80 @@ function lockBotToVisibleBottom() {
             target
         );
 
-        document.body?.removeAttribute(
-            'data-yh-dashboard-inline-active-target'
-        );
+document.body?.removeAttribute(
+    'data-yh-dashboard-inline-active-target'
+);
 
-        document.body?.setAttribute(
-            'data-yh-dashboard-child-ready',
-            'false'
-        );
+document.body?.setAttribute(
+    'data-yh-dashboard-child-ready',
+    'false'
+);
 
-        document.body?.setAttribute(
-            'data-yh-dashboard-active-section',
-            getDashboardSection()
-        );
+document.body?.setAttribute(
+    'data-yh-dashboard-active-section',
+    getDashboardSection()
+);
 
-        hideLocalLoaders(reason + '-before-open');
+hideLocalLoaders(reason + '-before-open');
 
-        let stablePasses = 0;
-        let readyQueued = false;
+let stablePasses = 0;
+let readyQueued = false;
 
-        const scheduleSettle = (delay = 60) => {
-            window.clearTimeout(
-                academyDashboardEmbedSettleTimerV21
-            );
+const settle = () => {
+    hideLocalLoaders(reason + '-settle');
 
-            academyDashboardEmbedSettleTimerV21 =
-                window.setTimeout(settle, delay);
-        };
+    if (isTargetActive(target)) {
+        stablePasses += 1;
+    } else {
+        stablePasses = 0;
+    }
 
-        const settle = () => {
-            if (
-                generation !==
-                academyDashboardEmbedBootGenerationV21
-            ) {
-                return;
-            }
-
-            if (document.hidden) {
-                scheduleSettle(240);
-                return;
-            }
-
-            hideLocalLoaders(reason + '-settle');
-
-            if (isTargetActive(target)) {
-                stablePasses += 1;
-            } else {
-                stablePasses = 0;
-            }
-
-            if (
-                stablePasses >= 2 &&
-                readyQueued === false
-            ) {
-                readyQueued = true;
-
-                window.requestAnimationFrame(() => {
-                    window.requestAnimationFrame(() => {
-                        if (
-                            generation !==
-                            academyDashboardEmbedBootGenerationV21
-                        ) {
-                            return;
-                        }
-
-                        if (isTargetActive(target)) {
-                            window.clearTimeout(
-                                academyDashboardEmbedSettleTimerV21
-                            );
-
-                            notifyReady(
-                                target,
-                                reason + '-stable-active'
-                            );
-
-                            return;
-                        }
-
-                        readyQueued = false;
-                        stablePasses = 0;
-
-                        if (Date.now() - startedAt < 2200) {
-                            scheduleSettle(60);
-                        }
-                    });
-                });
-
-                return;
-            }
-
-            if (Date.now() - startedAt < 2200) {
-                scheduleSettle(60);
-            }
-        };
-
-        /*
-         * Do not reopen an already-correct child view. This prevents
-         * duplicate render and request work during cached iframe starts.
-         */
-        if (!isTargetActive(target)) {
-            openEmbeddedSection(target);
-        }
+    /*
+     * Require two consecutive successful checks before
+     * reporting the child tab as ready.
+     */
+    if (
+        stablePasses >= 2 &&
+        readyQueued === false
+    ) {
+        readyQueued = true;
 
         window.requestAnimationFrame(() => {
-            if (
-                generation ===
-                academyDashboardEmbedBootGenerationV21
-            ) {
-                settle();
-            }
+            window.requestAnimationFrame(() => {
+                if (isTargetActive(target)) {
+                    notifyReady(
+                        target,
+                        reason + '-stable-active'
+                    );
+
+                    return;
+                }
+
+                readyQueued = false;
+                stablePasses = 0;
+
+                if (Date.now() - startedAt < 1800) {
+                    window.setTimeout(settle, 60);
+                }
+            });
         });
+
+        return;
+    }
+
+    if (Date.now() - startedAt < 1800) {
+        window.setTimeout(settle, 60);
+    }
+};
+
+/*
+ * Open the exact requested child tab immediately.
+ * The parent Dashboard will keep the iframe hidden
+ * until notifyReady confirms the correct UI.
+ */
+openEmbeddedSection(target);
+
+window.requestAnimationFrame(settle);
     }
 
     if (document.readyState === 'loading') {
@@ -36955,16 +36909,6 @@ function lockBotToVisibleBottom() {
     } else {
         boot('already-ready');
     }
-
-    window.addEventListener('pagehide', () => {
-        academyDashboardEmbedBootGenerationV21 += 1;
-
-        window.clearTimeout(
-            academyDashboardEmbedSettleTimerV21
-        );
-
-        academyDashboardEmbedSettleTimerV21 = null;
-    });
 })();
 /* END PATCH: Academy dashboard embed deterministic section owner v20 */
 

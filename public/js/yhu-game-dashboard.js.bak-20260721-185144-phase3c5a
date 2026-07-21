@@ -19,12 +19,6 @@
     let academySquadRankingLoadPromise = null;
     let academySquadLiveSyncPromise = null;
 
-    let academyGameBootPromiseV1 = null;
-    let academyGameLastRefreshAtV1 = 0;
-
-    const academyGameRenderRetryTimersV1 =
-        new Set();
-
     /* PATCH: Shared Squad Missions UI state v1 */
     let academySquadMissionsLoadPromise = null;
 
@@ -6066,9 +6060,6 @@ function resolveAcademyLeaderboardNameV1(
                     })
                 ]);
 
-                academyGameLastRefreshAtV1 =
-                    Date.now();
-
                 renderDashboardGameFoundation();
 
                 if (openHistoryMissionId) {
@@ -6099,69 +6090,37 @@ function resolveAcademyLeaderboardNameV1(
 
     /* END PATCH: Academy Squad live synchronization v1 */
 
-    function clearAcademyGameRenderRetryTimersV1() {
-        academyGameRenderRetryTimersV1
-            .forEach((timer) => {
-                window.clearTimeout(timer);
-            });
-
-        academyGameRenderRetryTimersV1.clear();
-    }
-
-    function scheduleAcademyGameRenderRetriesV1() {
-        if (academyGameRenderRetryTimersV1.size) {
-            return;
-        }
-
-        [80, 240, 600, 1200].forEach((delay) => {
-            const timer = window.setTimeout(() => {
-                academyGameRenderRetryTimersV1
-                    .delete(timer);
-
-                const rendered =
-                    renderDashboardGameFoundation();
-
-                if (rendered) {
-                    clearAcademyGameRenderRetryTimersV1();
-                }
-            }, delay);
-
-            academyGameRenderRetryTimersV1.add(timer);
-        });
-    }
-
     function boot() {
         const rendered =
             renderDashboardGameFoundation();
 
-        if (rendered) {
-            clearAcademyGameRenderRetryTimersV1();
-        } else {
-            scheduleAcademyGameRenderRetriesV1();
-        }
+        loadAcademyProgressionOnce();
+        loadAcademySquadV1();
 
-        if (academyGameBootPromiseV1) {
-            return academyGameBootPromiseV1;
-        }
+        loadAcademySquadMissionsV1()
+            .then(() => {
+                renderDashboardGameFoundation();
+            })
+            .catch((error) => {
+                if (
+                    Number(error?.status) !== 401 &&
+                    Number(error?.status) !== 403
+                ) {
+                    console.warn(
+                        'Squad mission preview unavailable:',
+                        error?.message ||
+                        error
+                    );
+                }
+            });
 
-        academyGameBootPromiseV1 =
-            Promise.allSettled([
-                loadAcademyProgressionOnce(),
-                loadAcademySquadV1(),
-                loadAcademySquadMissionsV1()
-            ])
-                .then(() => {
-                    academyGameLastRefreshAtV1 =
-                        Date.now();
+        if (rendered) return;
 
-                    renderDashboardGameFoundation();
-                    return true;
-                })
-                .finally(() => {
-                    academyGameBootPromiseV1 = null;
-                });
-
-        return academyGameBootPromiseV1;
+        [80, 240, 600, 1200].forEach((delay) => {
+            window.setTimeout(() => {
+                renderDashboardGameFoundation();
+            }, delay);
+        });
     }
 
     window.YHURenderDashboardGameFoundation =
@@ -6181,74 +6140,26 @@ function resolveAcademyLeaderboardNameV1(
 
     window.addEventListener(
         'pageshow',
-        (event) => {
-            renderDashboardGameFoundation();
+        () => {
+            window.setTimeout(
+                () => {
+                    renderDashboardGameFoundation();
+                    loadAcademyProgressionOnce();
 
-            if (academyGameBootPromiseV1) {
-                academyGameBootPromiseV1
-                    .then(() => {
-                        renderDashboardGameFoundation();
-                    })
-                    .catch(() => {});
-
-                return;
-            }
-
-            const stale = Boolean(
-                academyGameLastRefreshAtV1 === 0 ||
-                Date.now() - academyGameLastRefreshAtV1 >
-                    30000
-            );
-
-            if (event.persisted !== true && !stale) {
-                return;
-            }
-
-            window.setTimeout(() => {
-                if (document.hidden) return;
-
-                Promise.allSettled([
-                    loadAcademyProgressionOnce({
-                        force: true
-                    }),
                     loadAcademySquadV1({
                         force: true
-                    }),
+                    });
+
                     loadAcademySquadMissionsV1({
                         force: true
                     })
-                ]).then(() => {
-                    academyGameLastRefreshAtV1 =
-                        Date.now();
-
-                    renderDashboardGameFoundation();
-                });
-            }, 120);
-        }
-    );
-
-    document.addEventListener(
-        'visibilitychange',
-        () => {
-            if (
-                document.hidden ||
-                academyGameBootPromiseV1 ||
-                academySquadLiveSyncPromise ||
-                !academyGameLastRefreshAtV1 ||
-                Date.now() - academyGameLastRefreshAtV1 <
-                    60000
-            ) {
-                return;
-            }
-
-            Promise.allSettled([
-                loadAcademyProgressionOnce({ force: true }),
-                loadAcademySquadV1({ force: true }),
-                loadAcademySquadMissionsV1({ force: true })
-            ]).then(() => {
-                academyGameLastRefreshAtV1 = Date.now();
-                renderDashboardGameFoundation();
-            });
+                        .then(() => {
+                            renderDashboardGameFoundation();
+                        })
+                        .catch(() => {});
+                },
+                120
+            );
         }
     );
 
@@ -6341,10 +6252,6 @@ window.addEventListener(
 );
 
 /* END PATCH: Receive Academy iframe live updates v2 */
-    window.addEventListener('pagehide', () => {
-        clearAcademyGameRenderRetryTimersV1();
-    });
-
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', boot, {
             once: true

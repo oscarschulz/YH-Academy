@@ -215,22 +215,8 @@
         const hasToken = Number.isFinite(token) && token > 0;
         const overlayCycle = Number(overlay.dataset.loaderCycle || 0);
 
-        /*
-         * A delayed force-hide from an older navigation cycle must
-         * never hide a newer loader. Token ownership stays strict
-         * even when the caller requested a forced release.
-         */
-        if (hasToken && overlayCycle && overlayCycle !== token) {
+        if (hasToken && overlayCycle && overlayCycle !== token && force !== true) {
             return;
-        }
-
-        if (force) {
-            window.clearTimeout(
-                window.__yhBalancedDashboardTabLoaderHideDelayV2
-            );
-
-            window.__yhBalancedDashboardTabLoaderHideDelayV2 =
-                null;
         }
 
         yhTabLoaderDepth = force ? 0 : Math.max(0, yhTabLoaderDepth - 1);
@@ -276,36 +262,6 @@
         yhTabLoaderDepth = 0;
         hideAcademyTabLoader({ ...(options || {}), force: true });
     }
-
-    /* PATCH: Shared tab-loader page lifecycle cleanup v4 */
-    if (!window.__yhSharedTabLoaderLifecycleV4Bound) {
-        window.__yhSharedTabLoaderLifecycleV4Bound = true;
-
-        window.addEventListener('pagehide', () => {
-            window.clearTimeout(yhTabLoaderHideTimer);
-            window.clearTimeout(yhTabLoaderForceHideTimer);
-            window.clearTimeout(yhTabLoaderNestedHideTimer);
-            window.clearTimeout(
-                window.__yhBalancedDashboardTabLoaderHideDelayV2
-            );
-
-            yhTabLoaderHideTimer = null;
-            yhTabLoaderForceHideTimer = null;
-            yhTabLoaderNestedHideTimer = null;
-            yhTabLoaderDepth = 0;
-
-            const overlay =
-                document.getElementById('yh-tab-loader');
-
-            if (overlay) {
-                overlay.classList.remove('is-active');
-                overlay.classList.add('hidden-step');
-                overlay.setAttribute('aria-hidden', 'true');
-                overlay.style.pointerEvents = 'none';
-            }
-        });
-    }
-    /* END PATCH: Shared tab-loader page lifecycle cleanup v4 */
 
     const YH_DASHBOARD_STATE_DIVISIONS = new Set([
         'overview',
