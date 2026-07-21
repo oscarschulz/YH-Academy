@@ -248,8 +248,6 @@ async function upsertRecord(recordType, uid, docId, payload = {}, extra = {}) {
     const cleanUid = String(uid);
     const cleanDocId = String(docId);
     const now = nowIso();
-    const insertOnly = extra?.insertOnly === true;
-
     const data = normalizeForJson({
         ...payload,
         id: payload.id || cleanDocId,
@@ -268,109 +266,27 @@ async function upsertRecord(recordType, uid, docId, payload = {}, extra = {}) {
         source_document_id: cleanDocId,
         source_document_path: sourcePathFor(recordType, cleanUid, cleanDocId),
         record_type: recordType,
+
         user_id: cleanUid,
+
         data,
+
         created_at_source: toIso(data.createdAt) || now,
         updated_at_source: toIso(data.updatedAt) || now,
         updated_at: now
     };
 
-    const query = yhuSupabaseAdmin
+    const { data: saved, error } = await yhuSupabaseAdmin
         .from(TABLE)
-        .upsert(row, {
-            onConflict: 'source_document_path',
-            ignoreDuplicates: insertOnly
-        })
-        .select('*');
-
-    const { data: saved, error } = insertOnly
-        ? await query.maybeSingle()
-        : await query.single();
-
-    if (error) {
-        throw new Error(
-            `Academy Supabase upsert failed (${recordType}/${cleanDocId}): ${error.message}`
-        );
-    }
-
-    if (!saved && !insertOnly) {
-        throw new Error(
-            `Academy Supabase upsert returned no record (${recordType}/${cleanDocId}).`
-        );
-    }
-
-    return saved || null;
-}
-
-async function updateRecordDataWithVersionV1(
-    recordType,
-    uid,
-    docId,
-    currentRow,
-    payload = {}
-) {
-    if (!currentRow || typeof currentRow !== 'object') {
-        return null;
-    }
-
-    const cleanUid = sanitizeString(uid);
-    const cleanDocId = sanitizeString(docId);
-    const currentData = rowData(currentRow);
-    const currentVersion = toIso(currentRow.updated_at);
-    const currentVersionMs = new Date(currentVersion || 0).getTime();
-    const nextVersion = new Date(
-        Math.max(
-            Date.now(),
-            Number.isFinite(currentVersionMs)
-                ? currentVersionMs + 1
-                : 0
-        )
-    ).toISOString();
-
-    const data = normalizeForJson({
-        ...currentData,
-        ...(payload && typeof payload === 'object' ? payload : {}),
-        id: payload.id || currentData.id || cleanDocId,
-        createdAt:
-            payload.createdAt ||
-            currentData.createdAt ||
-            currentRow.created_at_source ||
-            nextVersion,
-        updatedAt: nextVersion
-    });
-
-    let query = yhuSupabaseAdmin
-        .from(TABLE)
-        .update({
-            data,
-            updated_at_source: nextVersion,
-            updated_at: nextVersion
-        });
-
-    if (currentRow.id) {
-        query = query.eq('id', currentRow.id);
-    } else {
-        query = query
-            .eq('record_type', recordType)
-            .eq('user_id', cleanUid)
-            .eq('source_document_id', cleanDocId);
-    }
-
-    query = currentVersion
-        ? query.eq('updated_at', currentVersion)
-        : query.is('updated_at', null);
-
-    const { data: saved, error } = await query
+        .upsert(row, { onConflict: 'source_document_path' })
         .select('*')
-        .maybeSingle();
+        .single();
 
     if (error) {
-        throw new Error(
-            `Academy Supabase versioned update failed (${recordType}/${cleanDocId}): ${error.message}`
-        );
+        throw new Error(`Academy Supabase upsert failed (${recordType}/${cleanDocId}): ${error.message}`);
     }
 
-    return saved || null;
+    return saved;
 }
 
 function normalizeForJson(value) {
@@ -1400,437 +1316,6 @@ function extractRoadmapStepsForPersistence(plan = {}) {
             return true;
         });
 }
-
-
-/* PATCH: Academy Roadmap bundle integrity repair v1 */
-
-function extractConcreteRoadmapMissionStepsV1(payload = {}) {
-    const safePayload =
-        payload && typeof payload === 'object'
-            ? payload
-            : {};
-
-    const roadmap =
-        safePayload.roadmap &&
-        typeof safePayload.roadmap === 'object'
-            ? safePayload.roadmap
-            : {};
-
-    const candidates = [];
-
-    [
-        safePayload.allMissions,
-        safePayload.roadmapSteps,
-        safePayload.steps,
-        safePayload.generatedMissions,
-        safePayload.todayMissions,
-        safePayload.missions,
-
-        roadmap.allMissions,
-        roadmap.roadmapSteps,
-        roadmap.steps,
-        roadmap.generatedMissions,
-        roadmap.missions
-    ].forEach((source) => {
-        if (!Array.isArray(source)) return;
-
-        source.forEach((item) => {
-            if (
-                item &&
-                typeof item === 'object'
-            ) {
-                candidates.push(item);
-            }
-        });
-    });
-
-    const seen = new Set();
-
-    return candidates
-        .map((step, index) =>
-            normalizeRoadmapStepForPersistence(
-                step,
-                index
-            )
-        )
-        .filter((step, index) => {
-            const identity =
-                sanitizeString(
-                    step.id ||
-                    step.title ||
-                    `roadmap-repair-step-${index + 1}`
-                )
-                    .toLowerCase();
-
-            if (
-                !identity ||
-                seen.has(identity)
-            ) {
-                return false;
-            }
-
-            seen.add(identity);
-            return true;
-        });
-}
-
-async function migrateLegacyRoadmapShellV1(
-    uid = '',
-    legacyRoadmap = {},
-    options = {}
-) {
-    const cleanUid =
-        sanitizeString(uid);
-
-    const source =
-        legacyRoadmap &&
-        typeof legacyRoadmap === 'object'
-            ? legacyRoadmap
-            : {};
-
-    const cleanRoadmapId =
-        sanitizeString(
-            source.id ||
-            source.roadmapId ||
-            source.source_document_id ||
-            ''
-        );
-
-    if (
-        !cleanUid ||
-        !cleanRoadmapId
-    ) {
-        return {
-            migrated: false,
-            roadmap: null,
-            reason: 'missing_identity'
-        };
-    }
-
-    const existing =
-        await getRoadmapById(
-            cleanUid,
-            cleanRoadmapId
-        );
-
-    if (existing) {
-        return {
-            migrated: false,
-            roadmap: existing,
-            reason: 'already_primary'
-        };
-    }
-
-    const nestedRoadmap =
-        source.roadmap &&
-        typeof source.roadmap === 'object'
-            ? source.roadmap
-            : (
-                source.generatedRoadmap &&
-                typeof source.generatedRoadmap === 'object'
-                    ? source.generatedRoadmap
-                    : {}
-            );
-
-    const summary =
-        source.summary &&
-        typeof source.summary === 'object'
-            ? source.summary
-            : (
-                nestedRoadmap.summary &&
-                typeof nestedRoadmap.summary === 'object'
-                    ? nestedRoadmap.summary
-                    : {}
-            );
-
-    const focusAreas =
-        Array.isArray(source.focusAreas)
-            ? source.focusAreas
-            : Array.isArray(nestedRoadmap.focusAreas)
-                ? nestedRoadmap.focusAreas
-                : [];
-
-    const concreteSteps =
-        extractConcreteRoadmapMissionStepsV1(
-            source
-        );
-
-    const now =
-        nowIso();
-
-    const saved =
-        await upsertRecord(
-            'academyRoadmaps',
-            cleanUid,
-            cleanRoadmapId,
-            {
-                id:
-                    cleanRoadmapId,
-                version:
-                    Math.max(
-                        1,
-                        toNumber(
-                            source.version,
-                            1
-                        )
-                    ),
-                status:
-                    sanitizeString(
-                        source.status ||
-                        'active'
-                    ) || 'active',
-                readinessScore:
-                    toNumber(
-                        source.readinessScore ??
-                        nestedRoadmap.readinessScore,
-                        0
-                    ),
-                focusAreas,
-                summary,
-                roadmap: {
-                    ...nestedRoadmap,
-                    ...(
-                        concreteSteps.length
-                            ? {
-                                roadmapSteps:
-                                    concreteSteps
-                            }
-                            : {}
-                    )
-                },
-                plannerRunId:
-                    sanitizeString(
-                        source.plannerRunId ||
-                        nestedRoadmap.plannerRunId ||
-                        ''
-                    ),
-                adaptivePlanning:
-                    source.adaptivePlanning &&
-                    typeof source.adaptivePlanning === 'object'
-                        ? source.adaptivePlanning
-                        : {},
-                nurtureTelemetry:
-                    source.nurtureTelemetry &&
-                    typeof source.nurtureTelemetry === 'object'
-                        ? source.nurtureTelemetry
-                        : {},
-                createdByModel:
-                    sanitizeString(
-                        source.createdByModel ||
-                        source.generatedByModel ||
-                        'legacy-roadmap-migration-v1'
-                    ),
-                createdAt:
-                    source.createdAt ||
-                    now,
-                updatedAt:
-                    now,
-                migration: {
-                    source:
-                        'legacy_academy_repository',
-                    reason:
-                        sanitizeString(
-                            options.reason ||
-                            'legacy_roadmap_shell_migration'
-                        ),
-                    migratedAt:
-                        now
-                }
-            },
-            {
-                roadmapId:
-                    cleanRoadmapId,
-                status:
-                    'active'
-            }
-        );
-
-    return {
-        migrated: true,
-        roadmap:
-            mapRoadmapData(
-                rowData(saved),
-                cleanRoadmapId
-            ),
-        reason:
-            'legacy_roadmap_shell_migrated'
-    };
-}
-
-async function repairRoadmapMissionBundleV1(
-    uid = '',
-    roadmapId = '',
-    payload = {}
-) {
-    const cleanUid =
-        sanitizeString(uid);
-
-    const cleanRoadmapId =
-        sanitizeString(roadmapId);
-
-    if (
-        !cleanUid ||
-        !cleanRoadmapId
-    ) {
-        return {
-            repaired: false,
-            roadmapReady: false,
-            missionCount: 0,
-            reason: 'missing_identity'
-        };
-    }
-
-    const roadmap =
-        await getRoadmapById(
-            cleanUid,
-            cleanRoadmapId
-        );
-
-    if (!roadmap) {
-        return {
-            repaired: false,
-            roadmapReady: false,
-            missionCount: 0,
-            reason: 'roadmap_not_found'
-        };
-    }
-
-    const existingMissions =
-        await listAllMissionsByRoadmap(
-            cleanUid,
-            cleanRoadmapId
-        );
-
-    if (existingMissions.length > 0) {
-        return {
-            repaired: false,
-            roadmapReady: true,
-            missionCount:
-                existingMissions.length,
-            missions:
-                existingMissions,
-            reason: 'already_ready'
-        };
-    }
-
-    const candidates =
-        extractConcreteRoadmapMissionStepsV1(
-            payload
-        );
-
-    if (!candidates.length) {
-        return {
-            repaired: false,
-            roadmapReady: false,
-            missionCount: 0,
-            reason: 'no_concrete_missions'
-        };
-    }
-
-    const now =
-        nowIso();
-
-    let createdCount = 0;
-
-    for (
-        let index = 0;
-        index < candidates.length;
-        index += 1
-    ) {
-        const mission =
-            candidates[index] || {};
-
-        const sourceMissionId =
-            sanitizeString(
-                mission.id ||
-                `step-${index + 1}`
-            );
-
-        const missionId =
-            (
-                'roadmap_repair_' +
-                cleanRoadmapId +
-                '_' +
-                sourceMissionId
-            )
-                .replace(
-                    /[^a-zA-Z0-9_-]+/g,
-                    '_'
-                )
-                .slice(0, 180);
-
-        const saved =
-            await upsertRecord(
-                'academyMissions',
-                cleanUid,
-                missionId,
-                {
-                    ...mission,
-                    id:
-                        missionId,
-                    sourceMissionId,
-                    roadmapId:
-                        cleanRoadmapId,
-                    status:
-                        sanitizeString(
-                            mission.status ||
-                            'pending'
-                        ),
-                    sortOrder:
-                        toNumber(
-                            mission.sortOrder,
-                            index + 1
-                        ),
-                    createdAt:
-                        mission.createdAt ||
-                        now,
-                    updatedAt:
-                        now,
-                    repairSource:
-                        'cached_roadmap_payload_v1'
-                },
-                {
-                    roadmapId:
-                        cleanRoadmapId,
-                    status:
-                        sanitizeString(
-                            mission.status ||
-                            'pending'
-                        ),
-                    insertOnly:
-                        true
-                }
-            );
-
-        if (saved) {
-            createdCount += 1;
-        }
-    }
-
-    const repairedMissions =
-        await listAllMissionsByRoadmap(
-            cleanUid,
-            cleanRoadmapId
-        );
-
-    return {
-        repaired:
-            createdCount > 0,
-        roadmapReady:
-            repairedMissions.length > 0,
-        missionCount:
-            repairedMissions.length,
-        missions:
-            repairedMissions,
-        createdCount,
-        reason:
-            repairedMissions.length > 0
-                ? 'cached_missions_restored'
-                : 'repair_write_empty'
-    };
-}
-
-/* END PATCH: Academy Roadmap bundle integrity repair v1 */
 
 async function persistRoadmapBundle(uid, profile = {}, plan = {}) {
     const now = nowIso();
@@ -3058,15 +2543,12 @@ async function getAcademySquadMembershipV1(
             data.squadId
         );
 
-    const status =
-        sanitizeString(
-            data.status ||
-            'active'
-        ).toLowerCase();
-
     if (
         !squadId ||
-        status !== 'active'
+        sanitizeString(
+            data.status
+        ).toLowerCase() ===
+            'left'
     ) {
         return null;
     }
@@ -3074,7 +2556,6 @@ async function getAcademySquadMembershipV1(
     return {
         ...data,
         squadId,
-        status,
         userId: cleanUid
     };
 }
@@ -3183,10 +2664,7 @@ async function getCurrentAcademySquadV1(
             membership.squadId
         );
 
-    if (
-        !squad ||
-        squad.status !== 'active'
-    ) {
+    if (!squad) {
         return null;
     }
 
@@ -4654,204 +4132,140 @@ async function listAcademySquadXpEventsV1(
 async function recomputeAcademySquadXpV1(
     squad = {}
 ) {
-    const squadId =
-        sanitizeString(squad.id);
-
-    const ownerUserId =
-        sanitizeString(
-            squad.ownerUserId
+    const events =
+        await listAcademySquadXpEventsV1(
+            squad,
+            500
         );
 
-    if (!squadId || !ownerUserId) {
-        throw new Error(
-            'Cannot recompute Squad XP without a valid Squad.'
-        );
-    }
+    const weekStart =
+        academySquadXpWeekStartV1();
 
-    for (
-        let attempt = 0;
-        attempt < 6;
-        attempt += 1
-    ) {
-        const currentRow =
-            await getOne(
-                ACADEMY_SQUAD_RECORD_TYPE,
-                ownerUserId,
-                squadId
-            );
-
-        if (!currentRow) {
-            const error =
-                new Error(
-                    'Squad not found while recomputing XP.'
+    const totalXp =
+        events.reduce(
+            (sum, event) => {
+                return (
+                    sum +
+                    Math.max(
+                        0,
+                        toNumber(
+                            event.xp,
+                            0
+                        )
+                    )
                 );
-
-            error.statusCode = 404;
-            throw error;
-        }
-
-        const currentSquad =
-            academySquadNormalizeRecordV1(
-                rowData(currentRow)
-            );
-
-        if (currentSquad.status !== 'active') {
-            return currentSquad;
-        }
-
-        const events =
-            await listAcademySquadXpEventsV1(
-                currentSquad,
-                500
-            );
-
-        const weekStart =
-            academySquadXpWeekStartV1();
-
-        const totalXp =
-            events.reduce(
-                (sum, event) => {
-                    return (
-                        sum +
-                        Math.max(
-                            0,
-                            toNumber(
-                                event.xp,
-                                0
-                            )
-                        )
-                    );
-                },
-                0
-            );
-
-        const weeklyXp =
-            events.reduce(
-                (sum, event) => {
-                    const eventAt =
-                        toIso(
-                            event.eventAt ||
-                            event.createdAt
-                        );
-
-                    if (
-                        !eventAt ||
-                        !weekStart ||
-                        eventAt < weekStart
-                    ) {
-                        return sum;
-                    }
-
-                    return (
-                        sum +
-                        Math.max(
-                            0,
-                            toNumber(
-                                event.xp,
-                                0
-                            )
-                        )
-                    );
-                },
-                0
-            );
-
-        const levelMeta =
-            academySquadLevelFromXpV1(
-                totalXp
-            );
-
-        const recentContributions =
-            events
-                .slice()
-                .sort((a, b) => {
-                    return (
-                        new Date(
-                            b.eventAt ||
-                            b.createdAt ||
-                            0
-                        ).getTime() -
-                        new Date(
-                            a.eventAt ||
-                            a.createdAt ||
-                            0
-                        ).getTime()
-                    );
-                })
-                .slice(0, 20)
-                .map((event) => ({
-                    id:
-                        sanitizeString(
-                            event.id
-                        ),
-                    contributorUserId:
-                        sanitizeString(
-                            event.contributorUserId
-                        ),
-                    contributorName:
-                        sanitizeString(
-                            event.contributorName ||
-                            'YH Member'
-                        ),
-                    eventType:
-                        sanitizeString(
-                            event.eventType
-                        ),
-                    label:
-                        sanitizeString(
-                            event.label ||
-                            'Squad contribution'
-                        ),
-                    xp:
-                        Math.max(
-                            0,
-                            toNumber(
-                                event.xp,
-                                0
-                            )
-                        ),
-                    eventAt:
-                        toIso(
-                            event.eventAt ||
-                            event.createdAt
-                        )
-                }));
-
-        const nextSquad =
-            academySquadNormalizeRecordV1({
-                ...currentSquad,
-                totalXp,
-                weeklyXp,
-                level:
-                    levelMeta.level,
-                nextLevelXp:
-                    levelMeta.nextLevelXp,
-                recentContributions
-            });
-
-        const saved =
-            await updateRecordDataWithVersionV1(
-                ACADEMY_SQUAD_RECORD_TYPE,
-                ownerUserId,
-                squadId,
-                currentRow,
-                nextSquad
-            );
-
-        if (saved) {
-            return academySquadNormalizeRecordV1(
-                rowData(saved)
-            );
-        }
-    }
-
-    const error =
-        new Error(
-            'Squad XP changed concurrently. Please retry.'
+            },
+            0
         );
 
-    error.statusCode = 409;
-    throw error;
+    const weeklyXp =
+        events.reduce(
+            (sum, event) => {
+                const eventAt =
+                    toIso(
+                        event.eventAt ||
+                        event.createdAt
+                    );
+
+                if (
+                    !eventAt ||
+                    !weekStart ||
+                    eventAt < weekStart
+                ) {
+                    return sum;
+                }
+
+                return (
+                    sum +
+                    Math.max(
+                        0,
+                        toNumber(
+                            event.xp,
+                            0
+                        )
+                    )
+                );
+            },
+            0
+        );
+
+    const levelMeta =
+        academySquadLevelFromXpV1(
+            totalXp
+        );
+
+    const recentContributions =
+        events
+            .slice()
+            .sort((a, b) => {
+                return (
+                    new Date(
+                        b.eventAt ||
+                        b.createdAt ||
+                        0
+                    ).getTime() -
+                    new Date(
+                        a.eventAt ||
+                        a.createdAt ||
+                        0
+                    ).getTime()
+                );
+            })
+            .slice(0, 20)
+            .map((event) => ({
+                id:
+                    sanitizeString(
+                        event.id
+                    ),
+
+                contributorUserId:
+                    sanitizeString(
+                        event.contributorUserId
+                    ),
+
+                contributorName:
+                    sanitizeString(
+                        event.contributorName ||
+                        'YH Member'
+                    ),
+
+                eventType:
+                    sanitizeString(
+                        event.eventType
+                    ),
+
+                label:
+                    sanitizeString(
+                        event.label ||
+                        'Squad contribution'
+                    ),
+
+                xp:
+                    Math.max(
+                        0,
+                        toNumber(
+                            event.xp,
+                            0
+                        )
+                    ),
+
+                eventAt:
+                    toIso(
+                        event.eventAt ||
+                        event.createdAt
+                    )
+            }));
+
+    return saveAcademySquadRecordV1({
+        ...squad,
+        totalXp,
+        weeklyXp,
+        level:
+            levelMeta.level,
+        nextLevelXp:
+            levelMeta.nextLevelXp,
+        recentContributions
+    });
 }
 
 async function recordAcademySquadXpContributionV1(
@@ -4970,78 +4384,68 @@ async function recordAcademySquadXpContributionV1(
 
     const event = {
         id: eventId,
+
         squadId:
             squad.id,
+
         contributorUserId:
             cleanUid,
+
         contributorName:
             sanitizeString(
                 member.displayName ||
                 member.username ||
                 'YH Member'
             ),
+
         contributorRole:
             sanitizeString(
                 member.role ||
                 'member'
             ),
+
         eventType,
         sourceId,
         dedupeScope,
+
         sourceType:
             sanitizeString(
                 input.sourceType
             ),
+
         label:
             sanitizeString(
                 input.label ||
                 'Squad contribution'
             ),
+
         xp,
+
         eventAt:
             toIso(
                 input.eventAt
             ) || now,
+
         metadata:
             input.metadata &&
-            typeof input.metadata === 'object'
+            typeof input.metadata ===
+                'object'
                 ? input.metadata
                 : {},
+
         createdAt: now,
         updatedAt: now
     };
 
-    const savedEventRow =
-        await upsertRecord(
-            ACADEMY_SQUAD_XP_EVENT_RECORD_TYPE,
-            squad.ownerUserId,
-            eventId,
-            event,
-            {
-                status: 'active',
-                insertOnly: true
-            }
-        );
-
-    if (!savedEventRow) {
-        const concurrentExisting =
-            await getOne(
-                ACADEMY_SQUAD_XP_EVENT_RECORD_TYPE,
-                squad.ownerUserId,
-                eventId
-            );
-
-        return {
-            created: false,
-            awarded: 0,
-            duplicate: true,
-            event:
-                concurrentExisting
-                    ? rowData(concurrentExisting)
-                    : event,
-            squad
-        };
-    }
+    await upsertRecord(
+        ACADEMY_SQUAD_XP_EVENT_RECORD_TYPE,
+        squad.ownerUserId,
+        eventId,
+        event,
+        {
+            status: 'active'
+        }
+    );
 
     const updatedSquad =
         await recomputeAcademySquadXpV1(
@@ -5051,8 +4455,7 @@ async function recordAcademySquadXpContributionV1(
     return {
         created: true,
         awarded: xp,
-        event:
-            rowData(savedEventRow),
+        event,
         squad:
             updatedSquad
     };
@@ -6767,190 +6170,6 @@ async function getAcademySquadMissionContributionsV1(
     };
 }
 
-async function reconcileAcademySquadMissionProgressV1(
-    squad = {},
-    missionId = ''
-) {
-    const cleanMissionId =
-        sanitizeString(missionId);
-
-    const ownerUserId =
-        sanitizeString(
-            squad.ownerUserId
-        );
-
-    if (
-        !cleanMissionId ||
-        !ownerUserId ||
-        !sanitizeString(squad.id)
-    ) {
-        const error =
-            new Error(
-                'Invalid Squad mission reconciliation context.'
-            );
-
-        error.statusCode = 400;
-        throw error;
-    }
-
-    for (
-        let attempt = 0;
-        attempt < 6;
-        attempt += 1
-    ) {
-        const missionRow =
-            await getOne(
-                ACADEMY_SQUAD_MISSION_RECORD_TYPE,
-                ownerUserId,
-                cleanMissionId
-            );
-
-        if (!missionRow) {
-            const error =
-                new Error(
-                    'Squad mission not found.'
-                );
-
-            error.statusCode = 404;
-            throw error;
-        }
-
-        const currentMission =
-            normalizeAcademySquadMissionV1(
-                rowData(missionRow)
-            );
-
-        if (
-            currentMission.squadId !==
-            sanitizeString(squad.id)
-        ) {
-            const error =
-                new Error(
-                    'Squad mission not found.'
-                );
-
-            error.statusCode = 404;
-            throw error;
-        }
-
-        if (currentMission.status === 'cancelled') {
-            return {
-                mission: currentMission,
-                completedNow: false
-            };
-        }
-
-        const contributions =
-            await listAcademySquadMissionContributionsV1(
-                squad,
-                cleanMissionId,
-                500
-            );
-
-        const computedProgress =
-            contributions.reduce(
-                (sum, entry) => {
-                    return (
-                        sum +
-                        Math.max(
-                            0,
-                            Math.floor(
-                                toNumber(
-                                    entry.amount,
-                                    0
-                                )
-                            )
-                        )
-                    );
-                },
-                0
-            );
-
-        const nextProgress =
-            Math.max(
-                currentMission.progress,
-                Math.min(
-                    currentMission.target,
-                    computedProgress
-                )
-            );
-
-        const wasCompleted =
-            currentMission.status ===
-            'completed';
-
-        const completed =
-            wasCompleted ||
-            nextProgress >=
-                currentMission.target;
-
-        const nextStatus =
-            completed
-                ? 'completed'
-                : 'active';
-
-        if (
-            currentMission.progress === nextProgress &&
-            currentMission.status === nextStatus
-        ) {
-            return {
-                mission: currentMission,
-                completedNow: false
-            };
-        }
-
-        const now =
-            nowIso();
-
-        const updatedMission =
-            normalizeAcademySquadMissionV1({
-                ...currentMission,
-                progress:
-                    nextProgress,
-                status:
-                    nextStatus,
-                completedAt:
-                    completed
-                        ? (
-                            currentMission.completedAt ||
-                            now
-                        )
-                        : '',
-                updatedAt:
-                    now
-            });
-
-        const saved =
-            await updateRecordDataWithVersionV1(
-                ACADEMY_SQUAD_MISSION_RECORD_TYPE,
-                ownerUserId,
-                cleanMissionId,
-                missionRow,
-                updatedMission
-            );
-
-        if (saved) {
-            return {
-                mission:
-                    normalizeAcademySquadMissionV1(
-                        rowData(saved)
-                    ),
-                completedNow:
-                    !wasCompleted &&
-                    completed
-            };
-        }
-    }
-
-    const error =
-        new Error(
-            'Squad mission progress changed concurrently. Please retry.'
-        );
-
-    error.statusCode = 409;
-    throw error;
-}
-
 async function recordAcademySquadMissionContributionV1(
     uid = '',
     input = {}
@@ -7075,6 +6294,10 @@ async function recordAcademySquadMissionContributionV1(
                         nowMs
                 );
             })
+            /*
+             * One action advances only the oldest active
+             * mission of the matching type.
+             */
             .sort((a, b) => {
                 return (
                     new Date(
@@ -7107,10 +6330,13 @@ async function recordAcademySquadMissionContributionV1(
             academySquadMissionContributionIdV1({
                 squadId:
                     squad.id,
+
                 missionId:
                     mission.id,
+
                 contributorUserId:
                     cleanUid,
+
                 eventType,
                 sourceId
             });
@@ -7123,26 +6349,24 @@ async function recordAcademySquadMissionContributionV1(
             );
 
         if (existing) {
-            const currentMission =
-                await getAcademySquadMissionByIdV1(
-                    squad,
-                    mission.id
-                ) || mission;
-
             missionResults.push({
                 missionId:
-                    currentMission.id,
+                    mission.id,
+
                 missionTitle:
-                    currentMission.title,
+                    mission.title,
+
                 created: false,
                 duplicate: true,
+
                 progress:
-                    currentMission.progress,
+                    mission.progress,
+
                 target:
-                    currentMission.target,
+                    mission.target,
+
                 completed: false,
-                status:
-                    currentMission.status,
+
                 reward: {
                     created: false,
                     awarded: 0
@@ -7155,108 +6379,159 @@ async function recordAcademySquadMissionContributionV1(
         const contribution = {
             id:
                 contributionId,
+
             squadId:
                 squad.id,
+
             missionId:
                 mission.id,
+
             missionTitle:
                 mission.title,
+
             missionType,
+
             contributorUserId:
                 cleanUid,
+
             contributorName:
                 sanitizeString(
                     context.member.displayName ||
                     context.member.username ||
                     'YH Member'
                 ),
+
             contributorRole:
                 sanitizeString(
                     context.membership.role ||
                     context.member.role ||
                     'member'
                 ),
+
             eventType,
             sourceId,
+
             sourceType:
                 sanitizeString(
                     input.sourceType
                 ),
+
             amount,
+
             label:
                 sanitizeString(
                     input.label ||
                     mission.title ||
                     'Squad mission contribution'
                 ),
+
             eventAt:
                 toIso(
                     input.eventAt
                 ) || now,
+
             metadata:
                 input.metadata &&
-                typeof input.metadata === 'object'
+                typeof input.metadata ===
+                    'object'
                     ? input.metadata
                     : {},
+
             createdAt:
                 now,
+
             updatedAt:
                 now
         };
 
-        const savedContribution =
-            await upsertRecord(
-                ACADEMY_SQUAD_MISSION_CONTRIBUTION_RECORD_TYPE,
-                squad.ownerUserId,
-                contributionId,
-                contribution,
-                {
-                    status: 'active',
-                    insertOnly: true
-                }
-            );
-
-        if (!savedContribution) {
-            const currentMission =
-                await getAcademySquadMissionByIdV1(
-                    squad,
-                    mission.id
-                ) || mission;
-
-            missionResults.push({
-                missionId:
-                    currentMission.id,
-                missionTitle:
-                    currentMission.title,
-                created: false,
-                duplicate: true,
-                progress:
-                    currentMission.progress,
-                target:
-                    currentMission.target,
-                completed: false,
+        await upsertRecord(
+            ACADEMY_SQUAD_MISSION_CONTRIBUTION_RECORD_TYPE,
+            squad.ownerUserId,
+            contributionId,
+            contribution,
+            {
                 status:
-                    currentMission.status,
-                reward: {
-                    created: false,
-                    awarded: 0
-                }
-            });
+                    'active'
+            }
+        );
 
-            continue;
-        }
-
-        const reconciliation =
-            await reconcileAcademySquadMissionProgressV1(
+        /*
+         * Recompute from the duplicate-safe ledger.
+         * Retried requests cannot farm progress.
+         */
+        const allContributions =
+            await listAcademySquadMissionContributionsV1(
                 squad,
-                mission.id
+                mission.id,
+                500
             );
+
+        const computedProgress =
+            allContributions.reduce(
+                (sum, entry) => {
+                    return (
+                        sum +
+                        Math.max(
+                            0,
+                            Math.floor(
+                                toNumber(
+                                    entry.amount,
+                                    0
+                                )
+                            )
+                        )
+                    );
+                },
+                0
+            );
+
+        const nextProgress =
+            Math.max(
+                0,
+                Math.min(
+                    mission.target,
+                    computedProgress
+                )
+            );
+
+        const completed =
+            nextProgress >=
+            mission.target;
 
         const updatedMission =
-            reconciliation.mission;
+            normalizeAcademySquadMissionV1({
+                ...mission,
 
-        const completedNow =
-            reconciliation.completedNow === true;
+                progress:
+                    nextProgress,
+
+                status:
+                    completed
+                        ? 'completed'
+                        : 'active',
+
+                completedAt:
+                    completed
+                        ? (
+                            mission.completedAt ||
+                            now
+                        )
+                        : '',
+
+                updatedAt:
+                    now
+            });
+
+        await upsertRecord(
+            ACADEMY_SQUAD_MISSION_RECORD_TYPE,
+            squad.ownerUserId,
+            updatedMission.id,
+            updatedMission,
+            {
+                status:
+                    updatedMission.status
+            }
+        );
 
         let reward = {
             created: false,
@@ -7264,7 +6539,7 @@ async function recordAcademySquadMissionContributionV1(
         };
 
         if (
-            completedNow &&
+            completed &&
             updatedMission.rewardXp > 0
         ) {
             reward =
@@ -7273,25 +6548,35 @@ async function recordAcademySquadMissionContributionV1(
                     {
                         eventType:
                             'squad_mission_reward',
+
                         sourceId:
                             updatedMission.id,
+
                         sourceType:
                             'academySquadMission',
+
                         xp:
                             updatedMission.rewardXp,
+
                         label:
                             'Squad mission completed',
+
                         eventAt:
                             now,
+
                         dedupeScope:
                             'squad',
+
                         metadata: {
                             missionId:
                                 updatedMission.id,
+
                             missionTitle:
                                 updatedMission.title,
+
                             missionType:
                                 updatedMission.missionType,
+
                             completedByUserId:
                                 cleanUid
                         }
@@ -7302,19 +6587,26 @@ async function recordAcademySquadMissionContributionV1(
         missionResults.push({
             missionId:
                 updatedMission.id,
+
             missionTitle:
                 updatedMission.title,
+
             created: true,
             duplicate: false,
+
             amount,
+
             progress:
                 updatedMission.progress,
+
             target:
                 updatedMission.target,
-            completed:
-                completedNow,
+
+            completed,
+
             status:
                 updatedMission.status,
+
             reward
         });
     }
@@ -7325,10 +6617,13 @@ async function recordAcademySquadMissionContributionV1(
                 (entry) =>
                     entry.created === true
             ),
+
         missionType,
         sourceId,
+
         missions:
             missionResults,
+
         completedMissions:
             missionResults.filter(
                 (entry) =>
@@ -7444,20 +6739,24 @@ async function recordAcademySquadMissionAchievementV1(
                         sanitizeString(
                             member.userId
                         ),
+
                     displayName:
                         sanitizeString(
                             member.displayName ||
                             member.username ||
                             'YH Member'
                         ),
+
                     username:
                         sanitizeString(
                             member.username
                         ),
+
                     avatar:
                         sanitizeString(
                             member.avatar
                         ),
+
                     role:
                         sanitizeString(
                             member.role ||
@@ -7564,30 +6863,40 @@ async function recordAcademySquadMissionAchievementV1(
     const achievement = {
         id:
             achievementId,
+
         achievementType:
             'squad_mission_completed',
+
         status:
             'earned',
+
         squadId:
             context.squad.id,
+
         squadName:
             sanitizeString(
                 context.squad.name ||
                 'Academy Squad'
             ),
+
         squadEmblem:
             sanitizeString(
                 context.squad.emblem ||
                 '⚡'
             ),
+
         missionId:
             mission.id,
+
         missionTitle:
             mission.title,
+
         missionType:
             mission.missionType,
+
         progress,
         target,
+
         rewardXp:
             Math.max(
                 0,
@@ -7598,18 +6907,24 @@ async function recordAcademySquadMissionAchievementV1(
                     )
                 )
             ),
+
         earnedAt:
             completedAt,
+
         completedAt,
+
         completedByUserId:
             cleanUid,
+
         memberCount:
             members.length,
+
         memberUserIds:
             members.map(
                 (member) =>
                     member.userId
             ),
+
         contributors:
             Array.from(
                 contributorMap.values()
@@ -7619,10 +6934,13 @@ async function recordAcademySquadMissionAchievementV1(
                         b.amount -
                         a.amount
                 ),
+
         createdAt:
             completedAt,
+
         updatedAt:
             completedAt,
+
         metadata: {
             source:
                 'academy_squad_mission',
@@ -7636,33 +6954,8 @@ async function recordAcademySquadMissionAchievementV1(
             ACADEMY_SQUAD_MISSION_ACHIEVEMENT_RECORD_TYPE,
             ownerUserId,
             achievementId,
-            achievement,
-            {
-                insertOnly: true
-            }
+            achievement
         );
-
-    if (!saved) {
-        const concurrentExisting =
-            await getOne(
-                ACADEMY_SQUAD_MISSION_ACHIEVEMENT_RECORD_TYPE,
-                ownerUserId,
-                achievementId
-            );
-
-        return {
-            created: false,
-            duplicate: true,
-            achievement:
-                concurrentExisting
-                    ? rowData(concurrentExisting)
-                    : achievement,
-            squad:
-                context.squad,
-            mission,
-            members
-        };
-    }
 
     return {
         created: true,
@@ -7752,8 +7045,6 @@ module.exports = {
     buildRoadmapTelemetryInspector,
     updatePlannerRunResult,
     persistRoadmapBundle,
-    migrateLegacyRoadmapShellV1,
-    repairRoadmapMissionBundleV1,
     buildAcademyHomePayload,
     listCoachMessages,
     createCoachMessage,

@@ -8637,23 +8637,6 @@ function renderAcademyHome(homeData = null) {
     const focusAreas = Array.isArray(roadmap.focusAreas) ? roadmap.focusAreas : [];
     const today = homeData?.today || {};
     const missions = Array.isArray(homeData?.missions) ? homeData.missions : [];
-
-    const roadmapRepairReason =
-        String(
-            homeData
-                ?.roadmapRepair
-                ?.reason ||
-            ''
-        )
-            .trim()
-            .toLowerCase();
-
-    const roadmapRequiresRebuild =
-        homeData
-            ?.requiresRoadmapRebuild === true ||
-        roadmapRepairReason ===
-            'missing_personalization_input';
-
     const weeklyCheckpoint = homeData?.weeklyCheckpoint || {};
     const behaviorProfile = homeData?.behaviorProfile && typeof homeData?.behaviorProfile === 'object'
         ? homeData.behaviorProfile
@@ -9386,30 +9369,11 @@ const missionsHtml = missions.length
                 </div>
             `;
         }).join('')
-        : roadmapRequiresRebuild
-            ? `
-                <div style="padding:18px;border-radius:14px;background:rgba(56,189,248,0.07);border:1px solid rgba(56,189,248,0.24);color:var(--text-muted);display:grid;gap:10px;">
-                    <strong style="color:#fff;font-size:1rem;">Your Roadmap needs a one-time rebuild</strong>
-                    <span>
-                        Your access is active, but the old Roadmap record does not contain enough saved goals to restore personalized missions safely.
-                    </span>
-                    <div>
-                        <button
-                            type="button"
-                            class="btn-primary"
-                            data-academy-roadmap-rebuild
-                            style="width:auto;padding:9px 14px;"
-                        >
-                            Rebuild Personalized Roadmap
-                        </button>
-                    </div>
-                </div>
-            `
-            : `
-                <div style="padding:14px 16px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:var(--text-muted);">
-                    Your personalized missions are being restored. Refresh once after a few seconds.
-                </div>
-            `;
+        : `
+            <div style="padding:14px 16px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:var(--text-muted);">
+                No missions loaded yet. Refresh the roadmap to generate a new plan.
+            </div>
+        `;
 
     academySetRoadmapHeader();
     if (chatHeaderTopic) chatHeaderTopic.innerText = roadmapPrimaryPillarMeta.homeTopic || 'Your 28-day foundation, missions, and progress path.';
@@ -25026,93 +24990,6 @@ if (document.readyState === "loading") document.addEventListener("DOMContentLoad
 else academyInstallMomentumBoardRendererV96();
 /* END PATCH: Academy Momentum Board frontend renderer v96 */
 
-const YH_ACADEMY_FORCE_ROADMAP_REBUILD_KEY_V1 =
-    'yh_academy_force_roadmap_rebuild_v1';
-
-function academyIsRoadmapRebuildRequestedV1() {
-    try {
-        return (
-            window
-                .__academyForceRoadmapRebuildV1 ===
-                    true ||
-            sessionStorage.getItem(
-                YH_ACADEMY_FORCE_ROADMAP_REBUILD_KEY_V1
-            ) === '1'
-        );
-    } catch (_) {
-        return (
-            window
-                .__academyForceRoadmapRebuildV1 ===
-            true
-        );
-    }
-}
-
-function academySetRoadmapRebuildRequestedV1(
-    enabled = false
-) {
-    window.__academyForceRoadmapRebuildV1 =
-        enabled === true;
-
-    try {
-        if (enabled) {
-            sessionStorage.setItem(
-                YH_ACADEMY_FORCE_ROADMAP_REBUILD_KEY_V1,
-                '1'
-            );
-        } else {
-            sessionStorage.removeItem(
-                YH_ACADEMY_FORCE_ROADMAP_REBUILD_KEY_V1
-            );
-        }
-    } catch (_) {}
-}
-
-function academyOpenRoadmapRebuildIntakeV1() {
-    academySetRoadmapRebuildRequestedV1(
-        true
-    );
-
-    openRoadmapIntake();
-
-    showToast(
-        'Update your current goals so the AI can rebuild your personalized Roadmap.',
-        'success'
-    );
-}
-
-if (
-    window
-        .__academyRoadmapRebuildActionBoundV1 !==
-    true
-) {
-    window.__academyRoadmapRebuildActionBoundV1 =
-        true;
-
-    document.addEventListener(
-        'click',
-        (event) => {
-            const target =
-                event.target instanceof Element
-                    ? event.target
-                    : event.target
-                        ?.parentElement;
-
-            const button =
-                target?.closest?.(
-                    '[data-academy-roadmap-rebuild]'
-                );
-
-            if (!button) return;
-
-            event.preventDefault();
-            event.stopPropagation();
-
-            academyOpenRoadmapRebuildIntakeV1();
-        }
-    );
-}
-
 async function loadAcademyHome(forceFresh = false) {
     let cachedHome = null;
 
@@ -29117,13 +28994,7 @@ if (roadmapForm) {
     roadmapForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const isRoadmapRebuild =
-            academyIsRoadmapRebuildRequestedV1();
-
-        if (
-            hasRoadmapIntakeAlreadyBeenFilled() &&
-            !isRoadmapRebuild
-        ) {
+        if (hasRoadmapIntakeAlreadyBeenFilled()) {
             showToast('Roadmap setup is already complete.', 'error');
             closeRoadmapIntake();
             return;
@@ -29233,8 +29104,6 @@ if (roadmapForm) {
                 reviewCadence: 'monthly',
                 totalMonths: 12
             },
-            forceRoadmapRebuild:
-                isRoadmapRebuild,
             submittedAt: new Date().toISOString()
         };
 
@@ -29264,19 +29133,13 @@ if (roadmapForm) {
 
             writeAcademyMembershipCache(nextSnapshot);
             localStorage.removeItem(YH_ROADMAP_LOCK_KEY);
-            academySetRoadmapRebuildRequestedV1(false);
 
             closeRoadmapIntake();
             syncRoadmapTabIndicator(nextSnapshot);
             showAcademyRoadmapLoadingShell();
             openAcademyRoadmapView(true);
 
-            showToast(
-                isRoadmapRebuild
-                    ? 'Personalized Roadmap rebuilt successfully.'
-                    : 'Roadmap setup complete. Your roadmap is now unlocked.',
-                'success'
-            );
+            showToast('Roadmap setup complete. Your roadmap is now unlocked.', 'success');
         } catch (error) {
             localStorage.removeItem(YH_ROADMAP_LOCK_KEY);
 

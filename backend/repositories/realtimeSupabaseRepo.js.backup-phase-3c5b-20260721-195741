@@ -107,16 +107,13 @@ async function upsertRecord({
     ownerUserId = '',
     roomId = '',
     targetUserId = '',
-    firebaseApp = 'supabase',
-    insertOnly = false
+    firebaseApp = 'supabase'
 }) {
     const cleanDocId = sanitizeText(docId || makeRecordId(recordType));
     const cleanRoomId = sanitizeText(roomId);
     const collectionPath = collectionPathFor(recordType, cleanRoomId);
     const documentPath = sourcePathFor(recordType, cleanDocId, cleanRoomId);
-    const existing = insertOnly
-        ? null
-        : await getRecordByTypeAndId(recordType, cleanDocId).catch(() => null);
+    const existing = await getRecordByTypeAndId(recordType, cleanDocId).catch(() => null);
     const existingData = rowData(existing);
     const now = nowIso();
 
@@ -147,32 +144,14 @@ async function upsertRecord({
         updated_at: now
     };
 
-    const query = yhuSupabaseAdmin
+    const { data: saved, error } = await yhuSupabaseAdmin
         .from(TABLE)
-        .upsert(row, {
-            onConflict: 'source_document_path',
-            ignoreDuplicates: insertOnly === true
-        })
-        .select('*');
+        .upsert(row, { onConflict: 'source_document_path' })
+        .select('*')
+        .single();
 
-    const { data: saved, error } = insertOnly
-        ? await query.maybeSingle()
-        : await query.single();
-
-    if (error) {
-        throw new Error(
-            'Realtime Supabase upsert failed: ' +
-            error.message
-        );
-    }
-
-    if (!saved && !insertOnly) {
-        throw new Error(
-            'Realtime Supabase upsert returned no record.'
-        );
-    }
-
-    return saved || null;
+    if (error) throw new Error('Realtime Supabase upsert failed: ' + error.message);
+    return saved;
 }
 
 async function deleteRecord(recordType, docId) {
@@ -1357,30 +1336,6 @@ async function createNotification(input = {}) {
         );
     }
 
-    const validateExisting = (existing) => {
-        if (!existing) return null;
-
-        const existingOwner =
-            sanitizeText(
-                existing.owner_user_id ||
-                rowData(existing).user_id ||
-                rowData(existing).userId
-            );
-
-        if (existingOwner !== userId) {
-            throw new Error(
-                'Notification ID is already in use.'
-            );
-        }
-
-        return {
-            created: false,
-            duplicate: true,
-            notification:
-                mapNotificationRow(existing)
-        };
-    };
-
     const existing =
         await getRecordByTypeAndId(
             'notification',
@@ -1388,7 +1343,25 @@ async function createNotification(input = {}) {
         ).catch(() => null);
 
     if (existing) {
-        return validateExisting(existing);
+        const existingOwner =
+            sanitizeText(
+                existing.owner_user_id ||
+                rowData(existing).user_id ||
+                rowData(existing).userId
+            );
+
+        if (existingOwner === userId) {
+            return {
+                created: false,
+                duplicate: true,
+                notification:
+                    mapNotificationRow(existing)
+            };
+        }
+
+        throw new Error(
+            'Notification ID is already in use.'
+        );
     }
 
     const now = nowIso();
@@ -1441,72 +1414,78 @@ async function createNotification(input = {}) {
             recordType: 'notification',
             docId: notificationId,
             ownerUserId: userId,
-            insertOnly: true,
+
             data: {
                 user_id: userId,
+
                 type:
                     sanitizeText(
                         input.type ||
                         notificationType
                     ),
+
                 title:
                     sanitizeText(
                         input.title ||
                         'Notification'
                     ),
+
                 body,
                 text: body,
                 message: body,
+
                 source:
                     sanitizeText(
                         input.source ||
                         'system'
                     ),
+
                 notification_type:
                     notificationType,
+
                 notificationType,
+
                 color:
                     sanitizeText(
                         input.color ||
                         'var(--neon-blue)'
                     ),
+
                 avatar_str: avatarStr,
                 avatarStr,
                 initial: avatarStr,
+
                 target,
                 target_type: target,
                 targetType: target,
+
                 target_id: targetId,
                 targetId,
+
                 metadata:
                     input.metadata &&
-                    typeof input.metadata === 'object' &&
-                    !Array.isArray(input.metadata)
+                    typeof input.metadata ===
+                        'object' &&
+                    !Array.isArray(
+                        input.metadata
+                    )
                         ? input.metadata
                         : {},
+
                 is_read: false,
                 isRead: false,
                 read: false,
+
                 read_at: '',
                 readAt: '',
+
                 created_at: createdAt,
                 createdAt,
+
                 updated_at: now,
                 updatedAt: now
             }
         });
-
-    if (!row) {
-        const concurrentExisting =
-            await getRecordByTypeAndId(
-                'notification',
-                notificationId
-            );
-
-        return validateExisting(
-            concurrentExisting
-        );
-    }
 
     return {
         created: true,

@@ -3292,14 +3292,6 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
             profile,
             {
                 ...normalizedPlan,
-                ...(
-                    sanitize(options.reuseRoadmapId || '')
-                        ? {
-                            id: sanitize(options.reuseRoadmapId),
-                            roadmapId: sanitize(options.reuseRoadmapId)
-                        }
-                        : {}
-                ),
                 plannerRunId: plannerRun.id,
                 promptVersion: 'planner_v2',
                 schemaVersion: 'academy_plan_v1',
@@ -3534,1007 +3526,75 @@ function getCachedRoadmapHomePayloadFromUserData(userData = {}) {
     return null;
 }
 
-
-/* PATCH: Academy Roadmap bundle integrity repair v1 */
-
-const academyRoadmapBundleRepairPromisesV1 =
-    new Map();
-
-async function readAcademyRoadmapUserDataV1(
-    uid = ''
-) {
-    const cleanUid =
-        sanitize(uid);
-
-    if (!cleanUid) {
-        return {};
-    }
-
-    const userRef =
-        firestore
-            .collection('users')
-            .doc(cleanUid);
-
-    let userSnapshot =
-        await userRef.get();
-
-    if (!userSnapshot.exists) {
-        userSnapshot =
-            await getAcademyMemberProfileSupabaseSnapshot(
-                cleanUid,
-                userRef
-            );
-    }
-
-    return userSnapshot.exists
-        ? (
-            userSnapshot.data() ||
-            {}
-        )
-        : {};
-}
-
-function buildAcademyRoadmapRepairProfileV1(
-    storedProfile = {},
-    userData = {},
-    sourceRoadmap = {}
-) {
-    const safeStoredProfile =
-        storedProfile &&
-        typeof storedProfile === 'object'
-            ? storedProfile
-            : {};
-
-    const safeUserData =
-        userData &&
-        typeof userData === 'object'
-            ? userData
-            : {};
-
-    const safeRoadmapSource =
-        sourceRoadmap &&
-        typeof sourceRoadmap === 'object'
-            ? sourceRoadmap
-            : {};
-
-    const sourceRoadmapBody =
-        safeRoadmapSource.roadmap &&
-        typeof safeRoadmapSource.roadmap === 'object'
-            ? safeRoadmapSource.roadmap
-            : {};
-
-    const sourceRoadmapSummary =
-        safeRoadmapSource.summary &&
-        typeof safeRoadmapSource.summary === 'object'
-            ? safeRoadmapSource.summary
-            : (
-                sourceRoadmapBody.summary &&
-                typeof sourceRoadmapBody.summary === 'object'
-                    ? sourceRoadmapBody.summary
-                    : {}
-            );
-
-    const sourceFocusAreas =
-        Array.isArray(
-            safeRoadmapSource.focusAreas
-        )
-            ? safeRoadmapSource.focusAreas
-            : Array.isArray(
-                sourceRoadmapBody.focusAreas
-            )
-                ? sourceRoadmapBody.focusAreas
-                : [];
-
-    const academyApplication =
-        safeUserData.academyApplication &&
-        typeof safeUserData.academyApplication === 'object'
-            ? safeUserData.academyApplication
-            : {};
-
-    const academyProfile =
-        academyApplication.academyProfile &&
-        typeof academyApplication.academyProfile === 'object'
-            ? academyApplication.academyProfile
-            : {};
-
-    const roadmapApplication =
-        safeUserData.roadmapApplication &&
-        typeof safeUserData.roadmapApplication === 'object'
-            ? safeUserData.roadmapApplication
-            : {};
-
-    const roadmapIntake =
-        roadmapApplication.roadmapIntake &&
-        typeof roadmapApplication.roadmapIntake === 'object'
-            ? roadmapApplication.roadmapIntake
-            : {};
-
-    const normalizedStoredProfile =
-        normalizeProfile({
-            ...academyProfile,
-            ...safeStoredProfile
-        });
-
-    const focusArea =
-        sanitize(
-            roadmapIntake.focusArea ||
-            safeStoredProfile.topPriorityPillar ||
-            academyProfile.topPriorityPillar ||
-            sourceFocusAreas[0] ||
-            sourceRoadmapBody.weeklyTheme ||
-            sourceRoadmapBody.goal ||
-            ''
-        );
-
-    const focusAreaKey =
-        sanitize(
-            roadmapIntake.focusAreaKey ||
-            safeStoredProfile.focusAreaKey ||
-            safeRoadmapSource.focusAreaKey ||
-            sourceRoadmapBody.focusAreaKey ||
-            ''
-        );
-
-    const scopeAnswers =
-        roadmapIntake.scopeAnswers &&
-        typeof roadmapIntake.scopeAnswers === 'object'
-            ? roadmapIntake.scopeAnswers
-            : (
-                safeStoredProfile.scopeAnswers &&
-                typeof safeStoredProfile.scopeAnswers === 'object'
-                    ? safeStoredProfile.scopeAnswers
-                    : (
-                        sourceRoadmapBody.scopeAnswers &&
-                        typeof sourceRoadmapBody.scopeAnswers === 'object'
-                            ? sourceRoadmapBody.scopeAnswers
-                            : {}
-                    )
-            );
-
-    return {
-        ...academyProfile,
-        ...safeStoredProfile,
-        ...normalizedStoredProfile,
-
-        focusArea,
-        focusAreaKey,
-        topPriorityPillar:
-            focusArea ||
-            sanitize(
-                safeStoredProfile.topPriorityPillar ||
-                academyProfile.topPriorityPillar ||
-                ''
-            ),
-
-        scopeAnswers,
-
-        pillarContext:
-            focusAreaKey
-                ? {
-                    key:
-                        focusAreaKey,
-                    label:
-                        focusArea,
-                    schemaKey:
-                        sanitize(
-                            roadmapIntake.schemaKey ||
-                            safeStoredProfile.schemaKey ||
-                            ''
-                        ),
-                    answers:
-                        scopeAnswers,
-                    evolutionStyle:
-                        sanitize(
-                            roadmapIntake.roadmapEvolutionStyle ||
-                            ''
-                        ),
-                    monthlyFocusMode:
-                        sanitize(
-                            roadmapIntake.monthlyFocusMode ||
-                            ''
-                        ),
-                    firstSeasonLabel:
-                        sanitize(
-                            roadmapIntake.firstSeasonLabel ||
-                            ''
-                        ),
-                    seasonPlan:
-                        Array.isArray(
-                            roadmapIntake.seasonPlan
-                        )
-                            ? roadmapIntake.seasonPlan
-                            : []
-                }
-                : (
-                    safeStoredProfile.pillarContext &&
-                    typeof safeStoredProfile.pillarContext === 'object'
-                        ? safeStoredProfile.pillarContext
-                        : {}
-                ),
-
-        biggestImmediateProblem:
-            sanitize(
-                roadmapIntake.blockerText ||
-                safeStoredProfile.biggestImmediateProblem ||
-                academyProfile.biggestImmediateProblem ||
-                sourceRoadmapSummary.primaryBottleneck ||
-                ''
-            ),
-
-        next30DaysWin:
-            sanitize(
-                roadmapIntake.target30Days ||
-                safeStoredProfile.next30DaysWin ||
-                academyProfile.next30DaysWin ||
-                sourceRoadmapBody.weeklyTargetOutcome ||
-                sourceRoadmapBody.goal ||
-                sourceRoadmapSummary.mainOpportunity ||
-                ''
-            ),
-
-        goals6mo:
-            sanitize(
-                safeStoredProfile.goals6mo ||
-                academyProfile.goals6mo ||
-                roadmapIntake.target30Days ||
-                sourceRoadmapBody.goal ||
-                sourceRoadmapBody.weeklyTargetOutcome ||
-                sourceRoadmapSummary.mainOpportunity ||
-                ''
-            ),
-
-        roadmapDailyHours:
-            toFloat(
-                roadmapIntake.dailyHours ||
-                safeStoredProfile.roadmapDailyHours,
-                0
-            ),
-
-        roadmapDailyMinutes:
-            toInt(
-                roadmapIntake.dailyMinutes ||
-                safeStoredProfile.roadmapDailyMinutes,
-                0
-            ),
-
-        preferredWorkStyle:
-            sanitize(
-                roadmapIntake.missionFormat ||
-                roadmapIntake.currentLevel ||
-                safeStoredProfile.preferredWorkStyle ||
-                ''
-            ),
-
-        accountabilityStyle:
-            sanitize(
-                roadmapIntake.accountabilityStyle ||
-                roadmapIntake.coachTone ||
-                safeStoredProfile.accountabilityStyle ||
-                ''
-            ),
-
-        roadmapIntensity:
-            sanitize(
-                roadmapIntake.roadmapIntensity ||
-                safeStoredProfile.roadmapIntensity ||
-                ''
-            ),
-
-        bestExecutionWindow:
-            sanitize(
-                roadmapIntake.bestExecutionWindow ||
-                safeStoredProfile.bestExecutionWindow ||
-                ''
-            ),
-
-        weeklyReviewDay:
-            sanitize(
-                roadmapIntake.weeklyReviewDay ||
-                safeStoredProfile.weeklyReviewDay ||
-                ''
-            ),
-
-        obstacleType:
-            sanitize(
-                roadmapIntake.obstacleType ||
-                safeStoredProfile.obstacleType ||
-                ''
-            ),
-
-        routineSnapshot:
-            sanitize(
-                roadmapIntake.routineSnapshot ||
-                safeStoredProfile.routineSnapshot ||
-                ''
-            ),
-
-        firstQuickWin:
-            sanitize(
-                roadmapIntake.firstQuickWin ||
-                safeStoredProfile.firstQuickWin ||
-                ''
-            ),
-
-        coachTone:
-            sanitize(
-                roadmapIntake.coachTone ||
-                safeStoredProfile.coachTone ||
-                academyProfile.coachTone ||
-                sourceRoadmapBody.coachTone ||
-                'balanced'
-            )
-    };
-}
-
-function academyRoadmapRepairProfileHasInputV1(
-    profile = {}
-) {
-    return Boolean(
-        sanitize(
-            profile.focusArea ||
-            profile.topPriorityPillar ||
-            profile.next30DaysWin ||
-            profile.goals6mo ||
-            profile.biggestImmediateProblem ||
-            profile.firstQuickWin ||
-            ''
-        )
-    );
-}
-
-async function ensureAcademyRoadmapBundleReadyV1(
-    uid = '',
-    options = {}
-) {
-    const cleanUid =
-        sanitize(uid);
-
-    if (!cleanUid) {
-        return {
-            roadmapReady: false,
-            missionCount: 0,
-            requiresRoadmapRebuild: true,
-            reason: 'missing_uid'
-        };
-    }
-
-    if (
-        academyRoadmapBundleRepairPromisesV1.has(
-            cleanUid
-        )
-    ) {
-        return academyRoadmapBundleRepairPromisesV1.get(
-            cleanUid
-        );
-    }
-
-    const repairPromise =
-        (async () => {
-            let sourceRoadmap =
-                await academyFirestoreRepo
-                    .getActiveRoadmap(
-                        cleanUid
-                    );
-
-            let activeRoadmap =
-                sourceRoadmap;
-
-            let legacyMigrated =
-                false;
-
-            let primaryRoadmap =
-                sourceRoadmap?.id
-                    ? await academySupabaseRepo
-                        .getRoadmapById(
-                            cleanUid,
-                            sourceRoadmap.id
-                        )
-                        .catch(() => null)
-                    : null;
-
-            if (
-                sourceRoadmap?.id &&
-                !primaryRoadmap
-            ) {
-                const migration =
-                    await academySupabaseRepo
-                        .migrateLegacyRoadmapShellV1(
-                            cleanUid,
-                            sourceRoadmap,
-                            {
-                                reason:
-                                    sanitize(
-                                        options.reason ||
-                                        'roadmap_bundle_repair'
-                                    )
-                            }
-                        );
-
-                primaryRoadmap =
-                    migration?.roadmap ||
-                    null;
-
-                legacyMigrated =
-                    migration?.migrated === true;
-
-                if (primaryRoadmap) {
-                    activeRoadmap =
-                        primaryRoadmap;
-                }
-            }
-
-            let legacyMissions =
-                sourceRoadmap?.id
-                    ? await academyFirestoreRepo
-                        .listAllMissionsByRoadmap(
-                            cleanUid,
-                            sourceRoadmap.id
-                        )
-                    : [];
-
-            let currentMissions =
-                activeRoadmap?.id
-                    ? await academySupabaseRepo
-                        .listAllMissionsByRoadmap(
-                            cleanUid,
-                            activeRoadmap.id
-                        )
-                        .catch(
-                            () =>
-                                legacyMissions
-                        )
-                    : [];
-
-            if (
-                activeRoadmap?.id &&
-                currentMissions.length <= 0 &&
-                legacyMissions.length > 0
-            ) {
-                const legacyMissionRepair =
-                    await academySupabaseRepo
-                        .repairRoadmapMissionBundleV1(
-                            cleanUid,
-                            activeRoadmap.id,
-                            {
-                                roadmap:
-                                    sourceRoadmap
-                                        ?.roadmap ||
-                                    {},
-                                roadmapSteps:
-                                    sourceRoadmap
-                                        ?.roadmapSteps ||
-                                    sourceRoadmap
-                                        ?.steps ||
-                                    [],
-                                missions:
-                                    legacyMissions,
-                                allMissions:
-                                    legacyMissions
-                            }
-                        );
-
-                currentMissions =
-                    legacyMissionRepair
-                        ?.missions ||
-                    [];
-            }
-
-            if (
-                activeRoadmap?.id &&
-                currentMissions.length > 0
-            ) {
-                return {
-                    roadmapReady: true,
-                    repaired:
-                        legacyMigrated,
-                    regenerated: false,
-                    legacyMigrated,
-                    requiresRoadmapRebuild: false,
-                    roadmapId:
-                        activeRoadmap.id,
-                    missionCount:
-                        currentMissions.length,
-                    home:
-                        await academyFirestoreRepo
-                            .buildAcademyHomePayload(
-                                cleanUid,
-                                activeRoadmap.id
-                            ),
-                    reason:
-                        legacyMigrated
-                            ? 'legacy_roadmap_bundle_migrated'
-                            : 'already_ready'
-                };
-            }
-
-            const userData =
-                options.userData &&
-                typeof options.userData === 'object'
-                    ? options.userData
-                    : await readAcademyRoadmapUserDataV1(
-                        cleanUid
-                    );
-
-            const cachedHome =
-                getCachedRoadmapHomePayloadFromUserData(
-                    userData
-                );
-
-            if (activeRoadmap?.id) {
-                const cachedRepair =
-                    await academySupabaseRepo
-                        .repairRoadmapMissionBundleV1(
-                            cleanUid,
-                            activeRoadmap.id,
-                            {
-                                ...(
-                                    sourceRoadmap &&
-                                    typeof sourceRoadmap === 'object'
-                                        ? sourceRoadmap
-                                        : {}
-                                ),
-                                ...(
-                                    cachedHome &&
-                                    typeof cachedHome === 'object'
-                                        ? cachedHome
-                                        : {}
-                                ),
-                                roadmap: {
-                                    ...(
-                                        sourceRoadmap
-                                            ?.roadmap &&
-                                        typeof sourceRoadmap
-                                            .roadmap === 'object'
-                                            ? sourceRoadmap
-                                                .roadmap
-                                            : {}
-                                    ),
-                                    ...(
-                                        cachedHome
-                                            ?.roadmap &&
-                                        typeof cachedHome
-                                            .roadmap === 'object'
-                                            ? cachedHome
-                                                .roadmap
-                                            : {}
-                                    )
-                                }
-                            }
-                        );
-
-                if (
-                    cachedRepair
-                        ?.roadmapReady === true
-                ) {
-                    const repairedHome =
-                        await academyFirestoreRepo
-                            .buildAcademyHomePayload(
-                                cleanUid,
-                                activeRoadmap.id
-                            );
-
-                    return {
-                        roadmapReady: true,
-                        repaired: true,
-                        regenerated: false,
-                        legacyMigrated,
-                        requiresRoadmapRebuild: false,
-                        roadmapId:
-                            activeRoadmap.id,
-                        missionCount:
-                            cachedRepair
-                                .missionCount,
-                        home:
-                            repairedHome,
-                        reason:
-                            legacyMigrated
-                                ? 'legacy_cached_missions_migrated'
-                                : (
-                                    cachedRepair.reason ||
-                                    'cached_missions_restored'
-                                )
-                    };
-                }
-            }
-
-            if (
-                options.allowRegenerate === false
-            ) {
-                return {
-                    roadmapReady: false,
-                    repaired:
-                        legacyMigrated,
-                    regenerated: false,
-                    legacyMigrated,
-                    requiresRoadmapRebuild: false,
-                    roadmapId:
-                        activeRoadmap?.id ||
-                        '',
-                    missionCount: 0,
-                    reason:
-                        'regeneration_disabled'
-                };
-            }
-
-            const storedProfile =
-                await academyFirestoreRepo
-                    .getCurrentProfile(
-                        cleanUid
-                    )
-                    .catch(() => null);
-
-            const repairProfile =
-                buildAcademyRoadmapRepairProfileV1(
-                    storedProfile || {},
-                    userData,
-                    sourceRoadmap ||
-                    activeRoadmap ||
-                    {}
-                );
-
-            if (
-                !academyRoadmapRepairProfileHasInputV1(
-                    repairProfile
-                )
-            ) {
-                return {
-                    roadmapReady: false,
-                    repaired:
-                        legacyMigrated,
-                    regenerated: false,
-                    legacyMigrated,
-                    requiresRoadmapRebuild: true,
-                    roadmapId:
-                        activeRoadmap?.id ||
-                        sourceRoadmap?.id ||
-                        '',
-                    missionCount: 0,
-                    reason:
-                        'missing_personalization_input'
-                };
-            }
-
-            const reuseRoadmapId =
-                sanitize(
-                    activeRoadmap?.id ||
-                    sourceRoadmap?.id ||
-                    userData
-                        ?.roadmapApplication
-                        ?.roadmapId ||
-                    ''
-                );
-
-            const plannerResult =
-                await generateAndPersistPlanFirestore(
-                    cleanUid,
-                    repairProfile,
-                    {
-                        mode:
-                            'roadmap_bundle_repair',
-                        trigger:
-                            sanitize(
-                                options.reason ||
-                                'roadmap_bundle_repair'
-                            ),
-                        activeRoadmap:
-                            activeRoadmap ||
-                            sourceRoadmap ||
-                            undefined,
-                        reuseRoadmapId
-                    }
-                );
-
-            activeRoadmap =
-                reuseRoadmapId
-                    ? await academySupabaseRepo
-                        .getRoadmapById(
-                            cleanUid,
-                            reuseRoadmapId
-                        )
-                    : await academySupabaseRepo
-                        .getActiveRoadmap(
-                            cleanUid
-                        );
-
-            currentMissions =
-                activeRoadmap?.id
-                    ? await academySupabaseRepo
-                        .listAllMissionsByRoadmap(
-                            cleanUid,
-                            activeRoadmap.id
-                        )
-                    : [];
-
-            const repairedHome =
-                chooseRoadmapHomePayload(
-                    plannerResult,
-                    'Your personalized Roadmap missions were restored.'
-                );
-
-            try {
-                await firestore
-                    .collection('users')
-                    .doc(cleanUid)
-                    .set(
-                        {
-                            lastRoadmapHomePayload:
-                                repairedHome,
-                            roadmapBundleReady:
-                                currentMissions.length > 0,
-                            roadmapMissionCount:
-                                currentMissions.length,
-                            roadmapBundleRepairedAt:
-                                new Date().toISOString(),
-                            roadmapBundleRepairReason:
-                                sanitize(
-                                    options.reason ||
-                                    'roadmap_bundle_repair'
-                                ),
-                            roadmapLegacyMigrated:
-                                legacyMigrated,
-                            updatedAt:
-                                new Date().toISOString()
-                        },
-                        {
-                            merge: true
-                        }
-                    );
-            } catch (cacheError) {
-                console.warn(
-                    'Roadmap bundle repair cache write skipped:',
-                    cacheError?.message ||
-                    cacheError
-                );
-            }
-
-            return {
-                roadmapReady:
-                    currentMissions.length > 0,
-                repaired: true,
-                regenerated: true,
-                legacyMigrated,
-                requiresRoadmapRebuild:
-                    currentMissions.length <= 0,
-                roadmapId:
-                    activeRoadmap?.id ||
-                    plannerResult?.roadmapId ||
-                    reuseRoadmapId ||
-                    '',
-                missionCount:
-                    currentMissions.length,
-                home:
-                    currentMissions.length > 0
-                        ? await academyFirestoreRepo
-                            .buildAcademyHomePayload(
-                                cleanUid,
-                                activeRoadmap?.id ||
-                                plannerResult?.roadmapId ||
-                                reuseRoadmapId
-                            )
-                        : repairedHome,
-                reason:
-                    currentMissions.length > 0
-                        ? (
-                            legacyMigrated
-                                ? 'legacy_personalized_missions_regenerated'
-                                : 'personalized_missions_regenerated'
-                        )
-                        : 'regeneration_returned_empty'
-            };
-        })()
-            .finally(() => {
-                academyRoadmapBundleRepairPromisesV1.delete(
-                    cleanUid
-                );
-            });
-
-    academyRoadmapBundleRepairPromisesV1.set(
-        cleanUid,
-        repairPromise
-    );
-
-    return repairPromise;
-}
-
-/* END PATCH: Academy Roadmap bundle integrity repair v1 */
-
 exports.getAcademyHome = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
 
         if (!uid) {
-            return res.status(401).json({
-                success: false,
-                message: 'Unauthorized.'
-            });
+            return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
 
-        const access =
-            await requireApprovedRoadmapAccess(
-                uid,
-                res
-            );
-
+        const access = await requireApprovedRoadmapAccess(uid, res);
         if (!access) return;
 
-        let homePayload =
-            await academyFirestoreRepo
-                .buildAcademyHomePayload(
-                    uid
-                );
+        const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid);
 
-        let missionCount =
-            roadmapHomeStepCount(
-                homePayload || {}
-            );
-
-        let repairResult =
-            null;
-
-        if (
-            !homePayload ||
-            missionCount <= 0
-        ) {
+        if (!homePayload) {
             try {
-                repairResult =
-                    await ensureAcademyRoadmapBundleReadyV1(
-                        uid,
-                        {
-                            reason:
-                                'academy_home_load'
-                        }
-                    );
+                const userRef = firestore.collection('users').doc(uid);
+                let userSnapshot = await userRef.get();
 
-                if (
-                    repairResult?.home
-                ) {
-                    homePayload =
-                        repairResult.home;
-
-                    missionCount =
-                        roadmapHomeStepCount(
-                            homePayload
-                        );
+                if (!userSnapshot.exists) {
+                    userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
                 }
-            } catch (repairError) {
-                console.warn(
-                    'Academy roadmap bundle repair skipped:',
-                    repairError?.message ||
-                    repairError
-                );
-            }
-        }
 
-        if (
-            homePayload &&
-            missionCount > 0
-        ) {
+                const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
+                const cachedHomePayload = getCachedRoadmapHomePayloadFromUserData(userData);
+
+                if (cachedHomePayload) {
+                    return res.json(cachedHomePayload);
+                }
+            } catch (cacheError) {
+                console.warn('Academy home cached roadmap fallback skipped:', cacheError?.message || cacheError);
+            }
+
             return res.json({
-                ...homePayload,
                 success: true,
-                roadmapReady: true,
-                missionCount,
-                roadmapRepair: {
-                    repaired:
-                        repairResult
-                            ?.repaired === true,
-                    regenerated:
-                        repairResult
-                            ?.regenerated === true,
-                    reason:
-                        repairResult
-                            ?.reason ||
-                        'ready'
+                emptyRoadmap: true,
+                roadmapPending: true,
+                message: 'Roadmap setup is unlocked. Your first active roadmap is still being prepared.',
+                progress: {
+                    completed: 0,
+                    total: 0,
+                    completionRate: 0
+                },
+                today: {
+                    missionsCompleted: 0,
+                    missionsTotal: 0,
+                    streakDays: 0
+                },
+                roadmapSteps: [],
+                steps: [],
+                missions: [],
+                allMissions: [],
+                recentCheckins: [],
+                transformationSystem: {
+                    currentStreak: 0,
+                    completedMissions: 0,
+                    totalMissions: 0
                 }
             });
         }
 
-        try {
-            const userData =
-                await readAcademyRoadmapUserDataV1(
-                    uid
-                );
-
-            const cachedHomePayload =
-                getCachedRoadmapHomePayloadFromUserData(
-                    userData
-                );
-
-            const cachedMissionCount =
-                roadmapHomeStepCount(
-                    cachedHomePayload ||
-                    {}
-                );
-
-            if (
-                cachedHomePayload &&
-                cachedMissionCount > 0
-            ) {
-                return res.json({
-                    ...cachedHomePayload,
-                    success: true,
-                    roadmapReady: true,
-                    missionCount:
-                        cachedMissionCount,
-                    source:
-                        cachedHomePayload
-                            .source ||
-                        'cached-roadmap-home'
-                });
-            }
-        } catch (cacheError) {
-            console.warn(
-                'Academy home cached roadmap fallback skipped:',
-                cacheError?.message ||
-                cacheError
-            );
-        }
-
-        return res.json({
-            success: true,
-            emptyRoadmap: true,
-            roadmapPending: true,
-            roadmapReady: false,
-            missionCount: 0,
-            requiresRoadmapRebuild:
-                repairResult
-                    ?.requiresRoadmapRebuild === true ||
-                repairResult
-                    ?.reason ===
-                    'missing_personalization_input',
-            roadmapRepair: {
-                repaired:
-                    repairResult
-                        ?.repaired === true,
-                regenerated:
-                    repairResult
-                        ?.regenerated === true,
-                reason:
-                    repairResult
-                        ?.reason ||
-                    'roadmap_bundle_missing'
-            },
-            message:
-                repairResult?.reason ===
-                'missing_personalization_input'
-                    ? 'Roadmap access is active, but the saved personalization answers are incomplete. Please refresh the Roadmap setup.'
-                    : 'Roadmap access is active. Your personalized missions are being restored.',
-            progress: {
-                completed: 0,
-                total: 0,
-                completionRate: 0
-            },
-            today: {
-                missionsCompleted: 0,
-                missionsTotal: 0,
-                streakDays: 0
-            },
-            roadmapSteps: [],
-            steps: [],
-            missions: [],
-            allMissions: [],
-            recentCheckins: [],
-            transformationSystem: {
-                currentStreak: 0,
-                completedMissions: 0,
-                totalMissions: 0
-            }
-        });
+        return res.json(homePayload);
     } catch (error) {
-        console.error(
-            'Academy Home Error:',
-            error
-        );
-
+        console.error('Academy Home Error:', error);
         return res.status(500).json({
             success: false,
-            message:
-                'Server error while loading Academy home.'
+            message: 'Server error while loading Academy home.'
         });
     }
 };
-
-
 
 exports.getActiveRoadmap = async (req, res) => {
     try {
@@ -4547,101 +3607,20 @@ exports.getActiveRoadmap = async (req, res) => {
         const access = await requireApprovedRoadmapAccess(uid, res);
         if (!access) return;
 
-        let roadmap =
-            await academyFirestoreRepo
-                .getActiveRoadmap(uid);
-
-        let roadmapRepair =
-            null;
-
-        if (roadmap) {
-            const initialMissions =
-                await academyFirestoreRepo
-                    .listAllMissionsByRoadmap(
-                        uid,
-                        roadmap.id
-                    );
-
-            if (!initialMissions.length) {
-                roadmapRepair =
-                    await ensureAcademyRoadmapBundleReadyV1(
-                        uid,
-                        {
-                            reason:
-                                'academy_active_roadmap_load'
-                        }
-                    );
-
-                if (roadmapRepair?.roadmapId) {
-                    roadmap =
-                        await academyFirestoreRepo
-                            .getRoadmapById(
-                                uid,
-                                roadmapRepair
-                                    .roadmapId
-                            ) ||
-                        roadmap;
-                }
-            }
-        } else {
-            roadmapRepair =
-                await ensureAcademyRoadmapBundleReadyV1(
-                    uid,
-                    {
-                        reason:
-                            'academy_active_roadmap_missing'
-                    }
-                );
-
-            if (roadmapRepair?.roadmapId) {
-                roadmap =
-                    await academyFirestoreRepo
-                        .getRoadmapById(
-                            uid,
-                            roadmapRepair
-                                .roadmapId
-                        );
-            }
-        }
+        const roadmap = await academyFirestoreRepo.getActiveRoadmap(uid);
 
         if (!roadmap) {
             return res.json({
                 success: true,
                 emptyRoadmap: true,
                 roadmapPending: true,
-                roadmapReady: false,
-                missionCount: 0,
-                requiresRoadmapRebuild:
-                    roadmapRepair
-                        ?.requiresRoadmapRebuild === true,
-                roadmapRepair,
-                message:
-                    roadmapRepair
-                        ?.requiresRoadmapRebuild === true
-                        ? 'Your Roadmap needs a one-time rebuild using your current goals.'
-                        : 'Roadmap setup is unlocked. Your first active roadmap is still being prepared.',
+                message: 'Roadmap setup is unlocked. Your first active roadmap is still being prepared.',
                 roadmap: null
             });
         }
 
-        const roadmapMissions =
-            await academyFirestoreRepo
-                .listAllMissionsByRoadmap(
-                    uid,
-                    roadmap.id
-                );
-
         return res.json({
             success: true,
-            roadmapReady:
-                roadmapMissions.length > 0,
-            missionCount:
-                roadmapMissions.length,
-            requiresRoadmapRebuild:
-                roadmapMissions.length <= 0 &&
-                roadmapRepair
-                    ?.requiresRoadmapRebuild === true,
-            roadmapRepair,
             roadmapId: roadmap.id,
             plannerRunId: roadmap.plannerRunId || '',
             version: roadmap.version,
@@ -4676,26 +3655,7 @@ exports.getMissions = async (req, res) => {
         const access = await requireApprovedRoadmapAccess(uid, res);
         if (!access) return;
 
-        let activeRoadmap =
-            await academyFirestoreRepo
-                .getActiveRoadmap(uid);
-
-        if (!activeRoadmap) {
-            const repairResult =
-                await ensureAcademyRoadmapBundleReadyV1(
-                    uid,
-                    {
-                        reason:
-                            'academy_missions_load'
-                    }
-                );
-
-            activeRoadmap =
-                repairResult?.roadmapId
-                    ? await academyFirestoreRepo
-                        .getActiveRoadmap(uid)
-                    : null;
-        }
+        const activeRoadmap = await academyFirestoreRepo.getActiveRoadmap(uid);
 
         if (!activeRoadmap) {
             return res.status(404).json({
@@ -4704,37 +3664,7 @@ exports.getMissions = async (req, res) => {
             });
         }
 
-        let missions =
-            await academyFirestoreRepo
-                .listAllMissionsByRoadmap(
-                    uid,
-                    activeRoadmap.id
-                );
-
-        if (!missions.length) {
-            const repairResult =
-                await ensureAcademyRoadmapBundleReadyV1(
-                    uid,
-                    {
-                        reason:
-                            'academy_missions_empty'
-                    }
-                );
-
-            if (repairResult?.roadmapId) {
-                activeRoadmap =
-                    await academyFirestoreRepo
-                        .getActiveRoadmap(uid) ||
-                    activeRoadmap;
-            }
-
-            missions =
-                await academyFirestoreRepo
-                    .listAllMissionsByRoadmap(
-                        uid,
-                        activeRoadmap.id
-                    );
-        }
+        let missions = await academyFirestoreRepo.listAllMissionsByRoadmap(uid, activeRoadmap.id);
 
         if (status) {
             missions = missions.filter((mission) => sanitize(mission.status).toLowerCase() === status);
@@ -9625,38 +8555,7 @@ exports.submitRoadmapApplication = async (req, res) => {
                 ? userData.roadmapApplication
                 : null;
 
-        const forceRoadmapRebuild =
-            req.body?.forceRoadmapRebuild === true ||
-            ['true', '1', 'yes'].includes(
-                sanitize(
-                    req.body
-                        ?.forceRoadmapRebuild ||
-                    ''
-                ).toLowerCase()
-            );
-
-        let forcedRoadmapReuseId =
-            '';
-
-        if (forceRoadmapRebuild) {
-            const currentRoadmap =
-                await academyFirestoreRepo
-                    .getActiveRoadmap(uid)
-                    .catch(() => null);
-
-            forcedRoadmapReuseId =
-                sanitize(
-                    currentRoadmap?.id ||
-                    existingRoadmapApplication
-                        ?.roadmapId ||
-                    ''
-                );
-        }
-
-        if (
-            existingRoadmapApplication &&
-            !forceRoadmapRebuild
-        ) {
+        if (existingRoadmapApplication) {
             const existingStatus = sanitize(existingRoadmapApplication.status || existingRoadmapApplication.reviewStatus || '').toLowerCase();
 
             if (!['rejected', 'declined', 'denied', 'cancelled', 'canceled'].includes(existingStatus)) {
@@ -9703,61 +8602,15 @@ exports.submitRoadmapApplication = async (req, res) => {
                 }
 
                 let existingHomePayload = null;
-                let existingRepairResult = null;
 
                 try {
-                    existingHomePayload =
-                        await academyFirestoreRepo
-                            .buildAcademyHomePayload(
-                                uid
-                            );
+                    existingHomePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid);
                 } catch (homeError) {
-                    console.warn(
-                        'existing roadmap home payload lookup skipped:',
-                        homeError?.message ||
-                        homeError
-                    );
-                }
-
-                if (
-                    !existingHomePayload ||
-                    roadmapHomeStepCount(
-                        existingHomePayload
-                    ) <= 0
-                ) {
-                    try {
-                        existingRepairResult =
-                            await ensureAcademyRoadmapBundleReadyV1(
-                                uid,
-                                {
-                                    userData,
-                                    reason:
-                                        'existing_roadmap_application'
-                                }
-                            );
-
-                        if (
-                            existingRepairResult
-                                ?.home
-                        ) {
-                            existingHomePayload =
-                                existingRepairResult
-                                    .home;
-                        }
-                    } catch (repairError) {
-                        console.warn(
-                            'existing roadmap bundle repair skipped:',
-                            repairError?.message ||
-                            repairError
-                        );
-                    }
+                    console.warn('existing roadmap home payload lookup skipped:', homeError?.message || homeError);
                 }
 
                 if (!existingHomePayload) {
-                    existingHomePayload =
-                        getCachedRoadmapHomePayloadFromUserData(
-                            userData
-                        );
+                    existingHomePayload = getCachedRoadmapHomePayloadFromUserData(userData);
                 }
 
                 return res.json({
@@ -9768,31 +8621,6 @@ exports.submitRoadmapApplication = async (req, res) => {
                     roadmapAccessStatus: 'unlocked',
                     roadmapId: existingHomePayload?.roadmapId || existingRoadmapApplication.roadmapId || '',
                     createdByModel: existingHomePayload?.createdByModel || existingRoadmapApplication.createdByModel || '',
-                    roadmapReady:
-                        roadmapHomeStepCount(
-                            existingHomePayload ||
-                            {}
-                        ) > 0,
-                    missionCount:
-                        roadmapHomeStepCount(
-                            existingHomePayload ||
-                            {}
-                        ),
-                    roadmapRepair:
-                        existingRepairResult
-                            ? {
-                                repaired:
-                                    existingRepairResult
-                                        .repaired === true,
-                                regenerated:
-                                    existingRepairResult
-                                        .regenerated === true,
-                                reason:
-                                    existingRepairResult
-                                        .reason ||
-                                    ''
-                            }
-                            : null,
                     home: existingHomePayload,
                     message: existingHomePayload
                         ? 'Roadmap setup already exists. Roadmap workspace is ready.'
@@ -10026,16 +8854,8 @@ exports.submitRoadmapApplication = async (req, res) => {
         };
 
         const plannerResult = await generateAndPersistPlanFirestore(uid, mergedProfile, {
-            mode:
-                forceRoadmapRebuild
-                    ? 'roadmap_explicit_rebuild'
-                    : 'roadmap_application_auto_unlock',
-            trigger:
-                forceRoadmapRebuild
-                    ? 'roadmap_explicit_rebuild'
-                    : 'roadmap_application',
-            reuseRoadmapId:
-                forcedRoadmapReuseId
+            mode: 'roadmap_application_auto_unlock',
+            trigger: 'roadmap_application'
         });
 
         const roadmapHomePayload = chooseRoadmapHomePayload(

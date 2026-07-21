@@ -2696,7 +2696,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260627-yh-live-cache-v4"></script>
 <script src="/js/yh-shared-runtime.js?v=20260721-phase3c5a-lifecycle-v1"></script>
-<script src="/js/academy.js?v=20260722-phase3c6b-roadmap-migration-v1"></script>
+<script src="/js/academy.js?v=20260721-phase3c5a-lifecycle-v1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"

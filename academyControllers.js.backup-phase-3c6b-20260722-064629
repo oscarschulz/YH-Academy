@@ -3576,8 +3576,7 @@ async function readAcademyRoadmapUserDataV1(
 
 function buildAcademyRoadmapRepairProfileV1(
     storedProfile = {},
-    userData = {},
-    sourceRoadmap = {}
+    userData = {}
 ) {
     const safeStoredProfile =
         storedProfile &&
@@ -3590,40 +3589,6 @@ function buildAcademyRoadmapRepairProfileV1(
         typeof userData === 'object'
             ? userData
             : {};
-
-    const safeRoadmapSource =
-        sourceRoadmap &&
-        typeof sourceRoadmap === 'object'
-            ? sourceRoadmap
-            : {};
-
-    const sourceRoadmapBody =
-        safeRoadmapSource.roadmap &&
-        typeof safeRoadmapSource.roadmap === 'object'
-            ? safeRoadmapSource.roadmap
-            : {};
-
-    const sourceRoadmapSummary =
-        safeRoadmapSource.summary &&
-        typeof safeRoadmapSource.summary === 'object'
-            ? safeRoadmapSource.summary
-            : (
-                sourceRoadmapBody.summary &&
-                typeof sourceRoadmapBody.summary === 'object'
-                    ? sourceRoadmapBody.summary
-                    : {}
-            );
-
-    const sourceFocusAreas =
-        Array.isArray(
-            safeRoadmapSource.focusAreas
-        )
-            ? safeRoadmapSource.focusAreas
-            : Array.isArray(
-                sourceRoadmapBody.focusAreas
-            )
-                ? sourceRoadmapBody.focusAreas
-                : [];
 
     const academyApplication =
         safeUserData.academyApplication &&
@@ -3660,9 +3625,6 @@ function buildAcademyRoadmapRepairProfileV1(
             roadmapIntake.focusArea ||
             safeStoredProfile.topPriorityPillar ||
             academyProfile.topPriorityPillar ||
-            sourceFocusAreas[0] ||
-            sourceRoadmapBody.weeklyTheme ||
-            sourceRoadmapBody.goal ||
             ''
         );
 
@@ -3670,8 +3632,6 @@ function buildAcademyRoadmapRepairProfileV1(
         sanitize(
             roadmapIntake.focusAreaKey ||
             safeStoredProfile.focusAreaKey ||
-            safeRoadmapSource.focusAreaKey ||
-            sourceRoadmapBody.focusAreaKey ||
             ''
         );
 
@@ -3683,12 +3643,7 @@ function buildAcademyRoadmapRepairProfileV1(
                 safeStoredProfile.scopeAnswers &&
                 typeof safeStoredProfile.scopeAnswers === 'object'
                     ? safeStoredProfile.scopeAnswers
-                    : (
-                        sourceRoadmapBody.scopeAnswers &&
-                        typeof sourceRoadmapBody.scopeAnswers === 'object'
-                            ? sourceRoadmapBody.scopeAnswers
-                            : {}
-                    )
+                    : {}
             );
 
     return {
@@ -3757,7 +3712,6 @@ function buildAcademyRoadmapRepairProfileV1(
                 roadmapIntake.blockerText ||
                 safeStoredProfile.biggestImmediateProblem ||
                 academyProfile.biggestImmediateProblem ||
-                sourceRoadmapSummary.primaryBottleneck ||
                 ''
             ),
 
@@ -3766,9 +3720,6 @@ function buildAcademyRoadmapRepairProfileV1(
                 roadmapIntake.target30Days ||
                 safeStoredProfile.next30DaysWin ||
                 academyProfile.next30DaysWin ||
-                sourceRoadmapBody.weeklyTargetOutcome ||
-                sourceRoadmapBody.goal ||
-                sourceRoadmapSummary.mainOpportunity ||
                 ''
             ),
 
@@ -3777,9 +3728,6 @@ function buildAcademyRoadmapRepairProfileV1(
                 safeStoredProfile.goals6mo ||
                 academyProfile.goals6mo ||
                 roadmapIntake.target30Days ||
-                sourceRoadmapBody.goal ||
-                sourceRoadmapBody.weeklyTargetOutcome ||
-                sourceRoadmapSummary.mainOpportunity ||
                 ''
             ),
 
@@ -3860,7 +3808,6 @@ function buildAcademyRoadmapRepairProfileV1(
                 roadmapIntake.coachTone ||
                 safeStoredProfile.coachTone ||
                 academyProfile.coachTone ||
-                sourceRoadmapBody.coachTone ||
                 'balanced'
             )
     };
@@ -3893,7 +3840,6 @@ async function ensureAcademyRoadmapBundleReadyV1(
         return {
             roadmapReady: false,
             missionCount: 0,
-            requiresRoadmapRebuild: true,
             reason: 'missing_uid'
         };
     }
@@ -3910,126 +3856,26 @@ async function ensureAcademyRoadmapBundleReadyV1(
 
     const repairPromise =
         (async () => {
-            let sourceRoadmap =
+            let activeRoadmap =
                 await academyFirestoreRepo
                     .getActiveRoadmap(
                         cleanUid
                     );
 
-            let activeRoadmap =
-                sourceRoadmap;
-
-            let legacyMigrated =
-                false;
-
-            let primaryRoadmap =
-                sourceRoadmap?.id
-                    ? await academySupabaseRepo
-                        .getRoadmapById(
-                            cleanUid,
-                            sourceRoadmap.id
-                        )
-                        .catch(() => null)
-                    : null;
-
-            if (
-                sourceRoadmap?.id &&
-                !primaryRoadmap
-            ) {
-                const migration =
-                    await academySupabaseRepo
-                        .migrateLegacyRoadmapShellV1(
-                            cleanUid,
-                            sourceRoadmap,
-                            {
-                                reason:
-                                    sanitize(
-                                        options.reason ||
-                                        'roadmap_bundle_repair'
-                                    )
-                            }
-                        );
-
-                primaryRoadmap =
-                    migration?.roadmap ||
-                    null;
-
-                legacyMigrated =
-                    migration?.migrated === true;
-
-                if (primaryRoadmap) {
-                    activeRoadmap =
-                        primaryRoadmap;
-                }
-            }
-
-            let legacyMissions =
-                sourceRoadmap?.id
-                    ? await academyFirestoreRepo
-                        .listAllMissionsByRoadmap(
-                            cleanUid,
-                            sourceRoadmap.id
-                        )
-                    : [];
-
             let currentMissions =
-                activeRoadmap?.id
-                    ? await academySupabaseRepo
+                activeRoadmap
+                    ? await academyFirestoreRepo
                         .listAllMissionsByRoadmap(
                             cleanUid,
                             activeRoadmap.id
                         )
-                        .catch(
-                            () =>
-                                legacyMissions
-                        )
                     : [];
 
-            if (
-                activeRoadmap?.id &&
-                currentMissions.length <= 0 &&
-                legacyMissions.length > 0
-            ) {
-                const legacyMissionRepair =
-                    await academySupabaseRepo
-                        .repairRoadmapMissionBundleV1(
-                            cleanUid,
-                            activeRoadmap.id,
-                            {
-                                roadmap:
-                                    sourceRoadmap
-                                        ?.roadmap ||
-                                    {},
-                                roadmapSteps:
-                                    sourceRoadmap
-                                        ?.roadmapSteps ||
-                                    sourceRoadmap
-                                        ?.steps ||
-                                    [],
-                                missions:
-                                    legacyMissions,
-                                allMissions:
-                                    legacyMissions
-                            }
-                        );
-
-                currentMissions =
-                    legacyMissionRepair
-                        ?.missions ||
-                    [];
-            }
-
-            if (
-                activeRoadmap?.id &&
-                currentMissions.length > 0
-            ) {
+            if (currentMissions.length > 0) {
                 return {
                     roadmapReady: true,
-                    repaired:
-                        legacyMigrated,
+                    repaired: false,
                     regenerated: false,
-                    legacyMigrated,
-                    requiresRoadmapRebuild: false,
                     roadmapId:
                         activeRoadmap.id,
                     missionCount:
@@ -4041,9 +3887,7 @@ async function ensureAcademyRoadmapBundleReadyV1(
                                 activeRoadmap.id
                             ),
                     reason:
-                        legacyMigrated
-                            ? 'legacy_roadmap_bundle_migrated'
-                            : 'already_ready'
+                        'already_ready'
                 };
             }
 
@@ -4060,46 +3904,16 @@ async function ensureAcademyRoadmapBundleReadyV1(
                     userData
                 );
 
-            if (activeRoadmap?.id) {
+            if (
+                activeRoadmap &&
+                cachedHome
+            ) {
                 const cachedRepair =
-                    await academySupabaseRepo
+                    await academyFirestoreRepo
                         .repairRoadmapMissionBundleV1(
                             cleanUid,
                             activeRoadmap.id,
-                            {
-                                ...(
-                                    sourceRoadmap &&
-                                    typeof sourceRoadmap === 'object'
-                                        ? sourceRoadmap
-                                        : {}
-                                ),
-                                ...(
-                                    cachedHome &&
-                                    typeof cachedHome === 'object'
-                                        ? cachedHome
-                                        : {}
-                                ),
-                                roadmap: {
-                                    ...(
-                                        sourceRoadmap
-                                            ?.roadmap &&
-                                        typeof sourceRoadmap
-                                            .roadmap === 'object'
-                                            ? sourceRoadmap
-                                                .roadmap
-                                            : {}
-                                    ),
-                                    ...(
-                                        cachedHome
-                                            ?.roadmap &&
-                                        typeof cachedHome
-                                            .roadmap === 'object'
-                                            ? cachedHome
-                                                .roadmap
-                                            : {}
-                                    )
-                                }
-                            }
+                            cachedHome
                         );
 
                 if (
@@ -4117,22 +3931,15 @@ async function ensureAcademyRoadmapBundleReadyV1(
                         roadmapReady: true,
                         repaired: true,
                         regenerated: false,
-                        legacyMigrated,
-                        requiresRoadmapRebuild: false,
                         roadmapId:
                             activeRoadmap.id,
                         missionCount:
-                            cachedRepair
-                                .missionCount,
+                            cachedRepair.missionCount,
                         home:
                             repairedHome,
                         reason:
-                            legacyMigrated
-                                ? 'legacy_cached_missions_migrated'
-                                : (
-                                    cachedRepair.reason ||
-                                    'cached_missions_restored'
-                                )
+                            cachedRepair.reason ||
+                            'cached_missions_restored'
                     };
                 }
             }
@@ -4142,11 +3949,8 @@ async function ensureAcademyRoadmapBundleReadyV1(
             ) {
                 return {
                     roadmapReady: false,
-                    repaired:
-                        legacyMigrated,
+                    repaired: false,
                     regenerated: false,
-                    legacyMigrated,
-                    requiresRoadmapRebuild: false,
                     roadmapId:
                         activeRoadmap?.id ||
                         '',
@@ -4166,10 +3970,7 @@ async function ensureAcademyRoadmapBundleReadyV1(
             const repairProfile =
                 buildAcademyRoadmapRepairProfileV1(
                     storedProfile || {},
-                    userData,
-                    sourceRoadmap ||
-                    activeRoadmap ||
-                    {}
+                    userData
                 );
 
             if (
@@ -4179,14 +3980,10 @@ async function ensureAcademyRoadmapBundleReadyV1(
             ) {
                 return {
                     roadmapReady: false,
-                    repaired:
-                        legacyMigrated,
+                    repaired: false,
                     regenerated: false,
-                    legacyMigrated,
-                    requiresRoadmapRebuild: true,
                     roadmapId:
                         activeRoadmap?.id ||
-                        sourceRoadmap?.id ||
                         '',
                     missionCount: 0,
                     reason:
@@ -4197,7 +3994,6 @@ async function ensureAcademyRoadmapBundleReadyV1(
             const reuseRoadmapId =
                 sanitize(
                     activeRoadmap?.id ||
-                    sourceRoadmap?.id ||
                     userData
                         ?.roadmapApplication
                         ?.roadmapId ||
@@ -4218,27 +4014,20 @@ async function ensureAcademyRoadmapBundleReadyV1(
                             ),
                         activeRoadmap:
                             activeRoadmap ||
-                            sourceRoadmap ||
                             undefined,
                         reuseRoadmapId
                     }
                 );
 
             activeRoadmap =
-                reuseRoadmapId
-                    ? await academySupabaseRepo
-                        .getRoadmapById(
-                            cleanUid,
-                            reuseRoadmapId
-                        )
-                    : await academySupabaseRepo
-                        .getActiveRoadmap(
-                            cleanUid
-                        );
+                await academyFirestoreRepo
+                    .getActiveRoadmap(
+                        cleanUid
+                    );
 
             currentMissions =
-                activeRoadmap?.id
-                    ? await academySupabaseRepo
+                activeRoadmap
+                    ? await academyFirestoreRepo
                         .listAllMissionsByRoadmap(
                             cleanUid,
                             activeRoadmap.id
@@ -4270,8 +4059,6 @@ async function ensureAcademyRoadmapBundleReadyV1(
                                     options.reason ||
                                     'roadmap_bundle_repair'
                                 ),
-                            roadmapLegacyMigrated:
-                                legacyMigrated,
                             updatedAt:
                                 new Date().toISOString()
                         },
@@ -4292,13 +4079,9 @@ async function ensureAcademyRoadmapBundleReadyV1(
                     currentMissions.length > 0,
                 repaired: true,
                 regenerated: true,
-                legacyMigrated,
-                requiresRoadmapRebuild:
-                    currentMissions.length <= 0,
                 roadmapId:
                     activeRoadmap?.id ||
                     plannerResult?.roadmapId ||
-                    reuseRoadmapId ||
                     '',
                 missionCount:
                     currentMissions.length,
@@ -4308,17 +4091,12 @@ async function ensureAcademyRoadmapBundleReadyV1(
                             .buildAcademyHomePayload(
                                 cleanUid,
                                 activeRoadmap?.id ||
-                                plannerResult?.roadmapId ||
-                                reuseRoadmapId
+                                plannerResult?.roadmapId
                             )
                         : repairedHome,
                 reason:
                     currentMissions.length > 0
-                        ? (
-                            legacyMigrated
-                                ? 'legacy_personalized_missions_regenerated'
-                                : 'personalized_missions_regenerated'
-                        )
+                        ? 'personalized_missions_regenerated'
                         : 'regeneration_returned_empty'
             };
         })()
@@ -4476,12 +4254,6 @@ exports.getAcademyHome = async (req, res) => {
             roadmapPending: true,
             roadmapReady: false,
             missionCount: 0,
-            requiresRoadmapRebuild:
-                repairResult
-                    ?.requiresRoadmapRebuild === true ||
-                repairResult
-                    ?.reason ===
-                    'missing_personalization_input',
             roadmapRepair: {
                 repaired:
                     repairResult
@@ -4547,62 +4319,7 @@ exports.getActiveRoadmap = async (req, res) => {
         const access = await requireApprovedRoadmapAccess(uid, res);
         if (!access) return;
 
-        let roadmap =
-            await academyFirestoreRepo
-                .getActiveRoadmap(uid);
-
-        let roadmapRepair =
-            null;
-
-        if (roadmap) {
-            const initialMissions =
-                await academyFirestoreRepo
-                    .listAllMissionsByRoadmap(
-                        uid,
-                        roadmap.id
-                    );
-
-            if (!initialMissions.length) {
-                roadmapRepair =
-                    await ensureAcademyRoadmapBundleReadyV1(
-                        uid,
-                        {
-                            reason:
-                                'academy_active_roadmap_load'
-                        }
-                    );
-
-                if (roadmapRepair?.roadmapId) {
-                    roadmap =
-                        await academyFirestoreRepo
-                            .getRoadmapById(
-                                uid,
-                                roadmapRepair
-                                    .roadmapId
-                            ) ||
-                        roadmap;
-                }
-            }
-        } else {
-            roadmapRepair =
-                await ensureAcademyRoadmapBundleReadyV1(
-                    uid,
-                    {
-                        reason:
-                            'academy_active_roadmap_missing'
-                    }
-                );
-
-            if (roadmapRepair?.roadmapId) {
-                roadmap =
-                    await academyFirestoreRepo
-                        .getRoadmapById(
-                            uid,
-                            roadmapRepair
-                                .roadmapId
-                        );
-            }
-        }
+        const roadmap = await academyFirestoreRepo.getActiveRoadmap(uid);
 
         if (!roadmap) {
             return res.json({
@@ -4611,15 +4328,7 @@ exports.getActiveRoadmap = async (req, res) => {
                 roadmapPending: true,
                 roadmapReady: false,
                 missionCount: 0,
-                requiresRoadmapRebuild:
-                    roadmapRepair
-                        ?.requiresRoadmapRebuild === true,
-                roadmapRepair,
-                message:
-                    roadmapRepair
-                        ?.requiresRoadmapRebuild === true
-                        ? 'Your Roadmap needs a one-time rebuild using your current goals.'
-                        : 'Roadmap setup is unlocked. Your first active roadmap is still being prepared.',
+                message: 'Roadmap setup is unlocked. Your first active roadmap is still being prepared.',
                 roadmap: null
             });
         }
@@ -4637,11 +4346,6 @@ exports.getActiveRoadmap = async (req, res) => {
                 roadmapMissions.length > 0,
             missionCount:
                 roadmapMissions.length,
-            requiresRoadmapRebuild:
-                roadmapMissions.length <= 0 &&
-                roadmapRepair
-                    ?.requiresRoadmapRebuild === true,
-            roadmapRepair,
             roadmapId: roadmap.id,
             plannerRunId: roadmap.plannerRunId || '',
             version: roadmap.version,
@@ -9625,38 +9329,7 @@ exports.submitRoadmapApplication = async (req, res) => {
                 ? userData.roadmapApplication
                 : null;
 
-        const forceRoadmapRebuild =
-            req.body?.forceRoadmapRebuild === true ||
-            ['true', '1', 'yes'].includes(
-                sanitize(
-                    req.body
-                        ?.forceRoadmapRebuild ||
-                    ''
-                ).toLowerCase()
-            );
-
-        let forcedRoadmapReuseId =
-            '';
-
-        if (forceRoadmapRebuild) {
-            const currentRoadmap =
-                await academyFirestoreRepo
-                    .getActiveRoadmap(uid)
-                    .catch(() => null);
-
-            forcedRoadmapReuseId =
-                sanitize(
-                    currentRoadmap?.id ||
-                    existingRoadmapApplication
-                        ?.roadmapId ||
-                    ''
-                );
-        }
-
-        if (
-            existingRoadmapApplication &&
-            !forceRoadmapRebuild
-        ) {
+        if (existingRoadmapApplication) {
             const existingStatus = sanitize(existingRoadmapApplication.status || existingRoadmapApplication.reviewStatus || '').toLowerCase();
 
             if (!['rejected', 'declined', 'denied', 'cancelled', 'canceled'].includes(existingStatus)) {
@@ -10026,16 +9699,8 @@ exports.submitRoadmapApplication = async (req, res) => {
         };
 
         const plannerResult = await generateAndPersistPlanFirestore(uid, mergedProfile, {
-            mode:
-                forceRoadmapRebuild
-                    ? 'roadmap_explicit_rebuild'
-                    : 'roadmap_application_auto_unlock',
-            trigger:
-                forceRoadmapRebuild
-                    ? 'roadmap_explicit_rebuild'
-                    : 'roadmap_application',
-            reuseRoadmapId:
-                forcedRoadmapReuseId
+            mode: 'roadmap_application_auto_unlock',
+            trigger: 'roadmap_application'
         });
 
         const roadmapHomePayload = chooseRoadmapHomePayload(
