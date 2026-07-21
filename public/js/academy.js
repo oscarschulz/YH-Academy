@@ -36822,26 +36822,80 @@ function lockBotToVisibleBottom() {
             target
         );
 
-        document.body?.removeAttribute(
-            'data-yh-dashboard-inline-active-target'
-        );
+document.body?.removeAttribute(
+    'data-yh-dashboard-inline-active-target'
+);
 
-        hideLocalLoaders(reason + '-before-open');
+document.body?.setAttribute(
+    'data-yh-dashboard-child-ready',
+    'false'
+);
 
-        const settle = () => {
-            hideLocalLoaders(reason + '-settle');
+document.body?.setAttribute(
+    'data-yh-dashboard-active-section',
+    getDashboardSection()
+);
 
-            if (isTargetActive(target)) {
-                notifyReady(target, reason + '-active');
-                return;
-            }
+hideLocalLoaders(reason + '-before-open');
 
-            if (Date.now() - startedAt < 1800) {
-                window.setTimeout(settle, 60);
-            }
-        };
+let stablePasses = 0;
+let readyQueued = false;
 
-        window.requestAnimationFrame(settle);
+const settle = () => {
+    hideLocalLoaders(reason + '-settle');
+
+    if (isTargetActive(target)) {
+        stablePasses += 1;
+    } else {
+        stablePasses = 0;
+    }
+
+    /*
+     * Require two consecutive successful checks before
+     * reporting the child tab as ready.
+     */
+    if (
+        stablePasses >= 2 &&
+        readyQueued === false
+    ) {
+        readyQueued = true;
+
+        window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
+                if (isTargetActive(target)) {
+                    notifyReady(
+                        target,
+                        reason + '-stable-active'
+                    );
+
+                    return;
+                }
+
+                readyQueued = false;
+                stablePasses = 0;
+
+                if (Date.now() - startedAt < 1800) {
+                    window.setTimeout(settle, 60);
+                }
+            });
+        });
+
+        return;
+    }
+
+    if (Date.now() - startedAt < 1800) {
+        window.setTimeout(settle, 60);
+    }
+};
+
+/*
+ * Open the exact requested child tab immediately.
+ * The parent Dashboard will keep the iframe hidden
+ * until notifyReady confirms the correct UI.
+ */
+openEmbeddedSection(target);
+
+window.requestAnimationFrame(settle);
     }
 
     if (document.readyState === 'loading') {

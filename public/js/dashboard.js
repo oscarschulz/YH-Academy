@@ -15097,18 +15097,53 @@ function isDashboardInlineAcademyReady(frame, doc) {
     if (!doc?.body) return false;
     if (isDashboardInlineFrameLocalLoaderActive(doc)) return false;
 
-    const target = getDashboardInlineAcademyTargetFromFrame(frame);
+    const target =
+        getDashboardInlineAcademyTargetFromFrame(frame);
+
     const activeTarget = String(
-        doc.body.getAttribute('data-yh-dashboard-inline-active-target') || ''
+        doc.body.getAttribute(
+            'data-yh-dashboard-inline-active-target'
+        ) || ''
     ).trim().toLowerCase();
+
+    const requestedTarget = String(
+        doc.body.getAttribute(
+            'data-yh-dashboard-inline-requested-target'
+        ) || ''
+    ).trim().toLowerCase();
+
+    const childReady =
+        doc.body.getAttribute(
+            'data-yh-dashboard-child-ready'
+        ) === 'true';
 
     const bodyReady =
         doc.body.classList.contains('academy-shell-ready') &&
         !doc.body.classList.contains('academy-startup-booting') &&
         !doc.body.hasAttribute('data-academy-tab-loading');
 
-    if (!target || !bodyReady) return false;
-    if (activeTarget && activeTarget !== target) return false;
+    if (
+        !target ||
+        !bodyReady ||
+        !childReady
+    ) {
+        return false;
+    }
+
+    /*
+     * Never reveal the Academy iframe while its default or
+     * previously active UI is still visible.
+     */
+    if (activeTarget !== target) {
+        return false;
+    }
+
+    if (
+        requestedTarget &&
+        requestedTarget !== target
+    ) {
+        return false;
+    }
 
     const targetSelectorMap = {
         roadmap: '#academy-chat',
