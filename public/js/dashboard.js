@@ -14830,10 +14830,14 @@ function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready', navigationTo
         reason === 'balanced-1s-timeout' ||
         reason === 'mobile-balanced-timeout';
 
+    /* PATCH: Keep managed child loader until iframe reveal-ready v1 */
+    const isManagedDivisionChildWorkspace =
+        activeWorkspaceKey.startsWith('academy-') ||
+        activeWorkspaceKey.startsWith('plazas-') ||
+        activeWorkspaceKey.startsWith('federation-');
+
     const shouldHoldLoaderUntilTargetReady =
-        activeWorkspaceKey === 'academy-roadmap' ||
-        activeWorkspaceKey === 'federation-command' ||
-        activeWorkspaceKey.startsWith('plazas-');
+        isManagedDivisionChildWorkspace;
 
     const shouldBlockTimedRelease =
         isBalancedTimeout ||
@@ -14842,6 +14846,11 @@ function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready', navigationTo
             reason === 'hard-timeout'
         );
 
+    /*
+     * The balanced timeout is only a minimum display budget. It must not
+     * uncover the empty frame shell while the selected child document is
+     * still hidden and waiting for its stable reveal handshake.
+     */
     if (
         shouldHoldLoaderUntilTargetReady &&
         revealState !== 'ready' &&
@@ -14849,6 +14858,7 @@ function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready', navigationTo
     ) {
         return;
     }
+    /* END PATCH: Keep managed child loader until iframe reveal-ready v1 */
 
     window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderFallback);
     window.clearTimeout(window.__yhDashboardChildWorkspaceReadyPollTimer);

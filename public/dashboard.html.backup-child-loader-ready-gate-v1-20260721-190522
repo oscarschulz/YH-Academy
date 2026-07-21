@@ -3904,13 +3904,13 @@
 </script>
 
 <script src="/js/yh-shared-core.js?v=20260627-yh-live-cache-v4"></script>
-<script src="/js/yh-shared-runtime.js?v=20260711-dashboard-view-state-v2"></script>
+<script src="/js/yh-shared-runtime.js?v=20260721-phase3c5a-lifecycle-v1"></script>
 
 
-<script src="/js/dashboard.js?v=20260721-academy-strict-reveal-v1"></script>
+<script src="/js/dashboard.js?v=20260721-phase3c5a-lifecycle-v1"></script>
 
 <script src="/js/yhu-game-core.js?v=20260719-squad-ranking-v1"></script>
-<script src="/js/yhu-game-dashboard.js?v=20260720-squad-achievement-notifications-v1"></script>
+<script src="/js/yhu-game-dashboard.js?v=20260721-phase3c5a-lifecycle-v1"></script>
 
 <script src="/js/dashboard-mobile-fix.js?v=20260627-yh-live-cache-v4"></script>
 </body>

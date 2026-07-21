@@ -15422,6 +15422,27 @@ function waitForDashboardInlineWorkspaceReady(frame, reason = 'workspace-ready',
         ''
     ).trim();
 
+    const alreadyReady = Boolean(
+        frame.dataset.yhDashboardNavigationState === 'ready' &&
+        frame.dataset.yhDashboardChildWorkspaceReady === 'true' &&
+        frame.dataset.yhDashboardRevealState === 'ready' &&
+        isDashboardInlineFrameNavigationCurrent(
+            frame,
+            navigationToken,
+            workspaceKey,
+            { verifyLoadedUrl: true }
+        )
+    );
+
+    if (alreadyReady) {
+        hideDashboardUnifiedChildWorkspaceLoader(
+            reason + '-already-ready',
+            navigationToken
+        );
+
+        return;
+    }
+
     const requestedTimeoutMs = Number(options.timeoutMs || 4200);
     const isFederationWorkspace = workspaceKey.startsWith('federation-');
     const timeoutMs = isFederationWorkspace
@@ -15440,6 +15461,17 @@ function waitForDashboardInlineWorkspaceReady(frame, reason = 'workspace-ready',
                 { verifyLoadedUrl: false }
             )
         ) {
+            return;
+        }
+
+        /*
+         * Do not keep running readiness DOM sweeps while the page is
+         * backgrounded. Resume the same navigation token when visible.
+         */
+        if (document.hidden) {
+            window.__yhDashboardChildWorkspaceReadyPollTimer =
+                window.setTimeout(tick, 500);
+
             return;
         }
 
@@ -15820,6 +15852,67 @@ if (!window.__yhDashboardChildWorkspaceReadyMessageBoundV11) {
         });
     });
 }
+
+/* PATCH: Dashboard child-workspace lifecycle pause/resume v1 */
+if (!window.__yhDashboardChildWorkspaceLifecycleV1Bound) {
+    window.__yhDashboardChildWorkspaceLifecycleV1Bound = true;
+
+    window.addEventListener('pagehide', () => {
+        window.clearTimeout(
+            window.__yhDashboardChildWorkspaceReadyPollTimer
+        );
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        const frame = document.getElementById(
+            'yh-universe-workspace-inline-frame'
+        );
+
+        if (!frame) return;
+
+        if (document.hidden) {
+            window.clearTimeout(
+                window.__yhDashboardChildWorkspaceReadyPollTimer
+            );
+
+            return;
+        }
+
+        const navigationToken = String(
+            frame.dataset.yhDashboardNavigationToken || ''
+        ).trim();
+
+        const workspaceKey =
+            getDashboardInlineWorkspaceKeyFromFrame(frame);
+
+        if (
+            !navigationToken ||
+            !workspaceKey ||
+            frame.dataset.yhDashboardNavigationState === 'invalid' ||
+            frame.dataset.yhDashboardNavigationState === 'ready'
+        ) {
+            return;
+        }
+
+        waitForDashboardInlineWorkspaceReady(
+            frame,
+            'visibility-resume',
+            {
+                navigationToken,
+                workspaceKey,
+                timeoutMs:
+                    workspaceKey.startsWith('plazas-')
+                        ? 1400
+                        : 4200,
+                pollMs:
+                    workspaceKey.startsWith('plazas-')
+                        ? 70
+                        : 90
+            }
+        );
+    });
+}
+/* END PATCH: Dashboard child-workspace lifecycle pause/resume v1 */
 
 function removeDashboardFederationUniverseBackButtons(doc = document) {
     if (!doc) return;
@@ -17309,19 +17402,53 @@ if (!meta || isParentWorkspace) {
                 frame.dataset.yhDashboardNavigationState || ''
             ).trim().toLowerCase();
 
-            const sameNavigationAlreadyActive =
+            const existingNavigationToken = String(
+                frame.dataset.yhDashboardNavigationToken || ''
+            ).trim();
+
+            const sameNavigationAlreadyActive = Boolean(
                 existingNavigationKey === cleanKey &&
                 existingExpectedUrl === normalizedInlineUrl &&
-                [
-                    'loading',
-                    'loaded',
-                    'waiting-roadmap-content',
-                    'ready'
-                ].includes(existingNavigationState);
+                existingNavigationToken &&
+                existingNavigationState &&
+                existingNavigationState !== 'invalid' &&
+                currentInlineUrl === normalizedInlineUrl
+            );
 
             bindDashboardInlineFrameEmbedMode(frame);
 
             if (sameNavigationAlreadyActive) {
+                if (
+                    existingNavigationState === 'ready' &&
+                    frame.dataset.yhDashboardRevealState === 'ready'
+                ) {
+                    hideDashboardUnifiedChildWorkspaceLoader(
+                        'same-navigation-ready',
+                        existingNavigationToken
+                    );
+                } else {
+                    waitForDashboardInlineWorkspaceReady(
+                        frame,
+                        'same-navigation-resume',
+                        {
+                            navigationToken:
+                                existingNavigationToken,
+                            workspaceKey: cleanKey,
+                            timeoutMs:
+                                cleanKey === 'academy-roadmap'
+                                    ? 1600
+                                    : cleanKey.startsWith('plazas-')
+                                        ? 1400
+                                        : 4200,
+                            pollMs:
+                                cleanKey === 'academy-roadmap' ||
+                                cleanKey.startsWith('plazas-')
+                                    ? 70
+                                    : 90
+                        }
+                    );
+                }
+
                 return;
             }
 
@@ -17402,26 +17529,11 @@ if (!meta || isParentWorkspace) {
                     inlineUrl || 'about:blank'
                 );
 
-                waitForDashboardInlineWorkspaceReady(
-                    frame,
-                    'iframe-src-child-ready',
-                    {
-                        navigationToken,
-                        workspaceKey: cleanKey,
-                        timeoutMs:
-                            cleanKey.startsWith(
-                                'plazas-'
-                            )
-                                ? 1400
-                                : 5500,
-                        pollMs:
-                            cleanKey.startsWith(
-                                'plazas-'
-                            )
-                                ? 70
-                                : 90
-                    }
-                );
+                /*
+                 * The bound iframe load handler owns readiness polling
+                 * for a newly assigned document. Starting another poll
+                 * here only duplicates DOM sweeps before load completes.
+                 */
             } else {
                 if (
                     isDashboardInlineFrameNavigationCurrent(
