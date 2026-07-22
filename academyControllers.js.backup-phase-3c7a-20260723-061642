@@ -6719,38 +6719,6 @@ exports.completeMission = async (req, res) => {
             }
         }
 
-        let soloModeEvent = {
-            created: false,
-            skipped: true,
-            reason: 'mission_not_transitioned'
-        };
-
-        if (completionTransitioned) {
-            try {
-                soloModeEvent =
-                    await academyFirestoreRepo
-                        .recordAcademySoloMissionCompletionV1(
-                            uid,
-                            completedMission || mission
-                        );
-            } catch (soloModeError) {
-                /*
-                 * Solo Mode projection must never make a verified
-                 * Roadmap mission fail after AI approval.
-                 */
-                console.warn(
-                    'Academy Solo Mode event skipped:',
-                    soloModeError?.message || soloModeError
-                );
-
-                soloModeEvent = {
-                    created: false,
-                    skipped: true,
-                    reason: 'solo_mode_event_failed'
-                };
-            }
-        }
-
         const missionXpResult =
             completionTransitioned
                 ? await awardAcademyMissionXpV1(
@@ -6833,7 +6801,6 @@ exports.completeMission = async (req, res) => {
                     missionXpResult.squadXp?.squadMissionProgress ||
                     null
             },
-            soloModeEvent,
             progression
         });
     } catch (error) {
