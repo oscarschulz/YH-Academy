@@ -10713,22 +10713,88 @@ function openAcademyRoadmapView(forceFresh = false) {
         });
 }
 
-/* PATCH: Academy Dashboard iframe function bridge v25 */
+/* PATCH: Academy Dashboard iframe function bridge v26 */
+const academyDashboardIframeBridgeV26 = {
+    showRoadmapLoadingShell: (...args) =>
+        showAcademyRoadmapLoadingShell(...args),
+
+    openRoadmap: (...args) =>
+        openAcademyRoadmapView(...args),
+
+    readHomeCache: (...args) =>
+        readAcademyHomeCache(...args),
+
+    renderHome: (...args) =>
+        renderAcademyHome(...args),
+
+    loadHome: (...args) =>
+        loadAcademyHome(...args),
+
+    openCommunity: (forceReload = false) =>
+        openAcademyFeedView(forceReload),
+
+    openMessages: (...args) =>
+        openAcademyMessagesView(...args),
+
+    openVoice: () => {
+        setAcademySidebarActive('nav-voice');
+
+        return openRoom(
+            'voice-lobby',
+            document.getElementById('nav-voice')
+        );
+    },
+
+    openMissions: () => {
+        academyRememberLastNonProfileLocation(
+            'lead-missions',
+            {
+                missionPanel: 'hub'
+            }
+        );
+
+        saveAcademyViewState('missions');
+        revealAcademyMissionsViewShell();
+        setAcademyMissionsPanel('hub');
+
+        return true;
+    }
+};
+
+window.YHAcademyDashboardIframeBridge =
+    academyDashboardIframeBridgeV26;
+
+/* Preserve the existing public hooks used by dashboard.js. */
 window.showAcademyRoadmapLoadingShell = (...args) =>
-    showAcademyRoadmapLoadingShell(...args);
+    academyDashboardIframeBridgeV26.showRoadmapLoadingShell(...args);
 
 window.openAcademyRoadmapView = (...args) =>
-    openAcademyRoadmapView(...args);
+    academyDashboardIframeBridgeV26.openRoadmap(...args);
 
 window.readAcademyHomeCache = (...args) =>
-    readAcademyHomeCache(...args);
+    academyDashboardIframeBridgeV26.readHomeCache(...args);
 
 window.renderAcademyHome = (...args) =>
-    renderAcademyHome(...args);
+    academyDashboardIframeBridgeV26.renderHome(...args);
 
 window.loadAcademyHome = (...args) =>
-    loadAcademyHome(...args);
-/* END PATCH: Academy Dashboard iframe function bridge v25 */
+    academyDashboardIframeBridgeV26.loadHome(...args);
+
+window.openAcademyFeedView = (...args) =>
+    academyDashboardIframeBridgeV26.openCommunity(...args);
+
+window.openAcademyMessagesView = (...args) =>
+    academyDashboardIframeBridgeV26.openMessages(...args);
+
+window.openAcademyMissionsView = (...args) =>
+    openAcademyMissionsView(...args);
+
+window.revealAcademyMissionsViewShell = (...args) =>
+    revealAcademyMissionsViewShell(...args);
+
+window.setAcademyMissionsPanel = (...args) =>
+    setAcademyMissionsPanel(...args);
+/* END PATCH: Academy Dashboard iframe function bridge v26 */
 
 let academyProfileViewState = {
     mode: 'self',
@@ -36848,45 +36914,37 @@ function lockBotToVisibleBottom() {
         const clean = String(target || 'roadmap').trim().toLowerCase();
 
         try {
+            const bridge = window.YHAcademyDashboardIframeBridge;
+
+            if (!bridge || typeof bridge !== 'object') {
+                throw new Error(
+                    'Academy Dashboard iframe bridge is unavailable.'
+                );
+            }
+
             if (clean === 'community') {
-                openAcademyFeedView(false);
+                bridge.openCommunity(false);
                 return true;
             }
 
             if (clean === 'messages') {
                 window.__academyTabSwitchLockedV7 = false;
-                openAcademyMessagesView();
+                bridge.openMessages();
                 return true;
             }
 
             if (clean === 'voice') {
-                setAcademySidebarActive('nav-voice');
-
-                openRoom(
-                    'voice-lobby',
-                    document.getElementById('nav-voice')
-                );
-
+                bridge.openVoice();
                 return true;
             }
 
             if (clean === 'missions') {
-                academyRememberLastNonProfileLocation(
-                    'lead-missions',
-                    {
-                        missionPanel: 'hub'
-                    }
-                );
-
-                saveAcademyViewState('missions');
-                revealAcademyMissionsViewShell();
-                setAcademyMissionsPanel('hub');
-
+                bridge.openMissions();
                 return true;
             }
 
-            showAcademyRoadmapLoadingShell();
-            openAcademyRoadmapView(false);
+            bridge.showRoadmapLoadingShell();
+            bridge.openRoadmap(false);
 
             return true;
         } catch (error) {
