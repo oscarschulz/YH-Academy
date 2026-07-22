@@ -31749,10 +31749,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 }
 
 .academy-mission-journal-card {
-    width: min(960px, calc(100% - 28px));
-    max-width: 960px;
-    min-width: 0;
-    height: min(90dvh, 920px);
+    width: min(960px, calc(100vw - 28px));
     max-height: min(90dvh, 920px);
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
@@ -31791,17 +31788,12 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
     border-bottom: 1px solid rgba(103, 232, 249, 0.16);
 }
 
-.academy-mission-journal-header > div {
-    min-width: 0;
-}
-
 .academy-mission-journal-header h3 {
     margin: 4px 0 0;
     color: #ffffff;
     font-family: "Rajdhani", "Poppins", sans-serif;
     font-size: clamp(1.35rem, 2.2vw, 1.9rem);
     line-height: 1.05;
-    overflow-wrap: anywhere;
 }
 
 .academy-mission-journal-kicker {
@@ -31818,12 +31810,8 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 }
 
 .academy-mission-journal-body {
-    min-width: 0;
     min-height: 0;
-    overflow-x: hidden;
     overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
     display: grid;
     gap: 14px;
     padding: 18px 22px 22px;
@@ -31897,12 +31885,11 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 }
 
 .academy-mission-journal-footer {
-    min-width: 0;
     display: grid;
     grid-template-columns:
-        minmax(0, 0.55fr)
-        minmax(0, 0.8fr)
-        minmax(0, 1.3fr);
+        minmax(110px, 0.55fr)
+        minmax(140px, 0.8fr)
+        minmax(190px, 1.3fr);
     gap: 10px;
     padding: 16px 22px 20px;
     border-top: 1px solid rgba(103, 232, 249, 0.14);
@@ -31912,19 +31899,13 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 .academy-mission-journal-footer .btn-primary,
 .academy-mission-journal-footer .btn-secondary {
     width: 100%;
-    min-width: 0;
     min-height: 46px;
-    padding-left: 14px;
-    padding-right: 14px;
     border-radius: 0;
-    white-space: normal;
-    line-height: 1.15;
 }
 
 @media (max-width: 720px) {
     .academy-mission-journal-card {
-        width: calc(100% - 18px);
-        height: 92dvh;
+        width: calc(100vw - 18px);
         max-height: 92dvh;
     }
 

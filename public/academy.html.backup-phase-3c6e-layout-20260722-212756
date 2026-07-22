@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260719-lead-action-loading-v1">
+<link rel="stylesheet" href="/css/style.css?v=20260722-phase3c6e-mission-journal-v1">
 <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260712-community-niche-picker-full-v213">
 <link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260627-yh-live-cache-v4">
 </head>
@@ -2425,6 +2425,105 @@
         </div>
     </div>
 
+
+    <div
+        id="academy-mission-journal-modal"
+        class="modal-overlay academy-mission-journal-overlay hidden-step fade-in"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="academy-mission-journal-title"
+    >
+        <div class="modal-card academy-mission-journal-card">
+            <div class="modal-header academy-mission-journal-header">
+                <div>
+                    <div class="academy-mission-journal-kicker">Solo Mode · Mission Journal</div>
+                    <h3 id="academy-mission-journal-title">Mission Note</h3>
+                </div>
+
+                <button
+                    type="button"
+                    class="close-btn academy-mission-journal-close"
+                    id="close-mission-journal-modal"
+                    aria-label="Close Mission Journal"
+                    title="Close"
+                >✖</button>
+            </div>
+
+            <div class="modal-body academy-mission-journal-body">
+                <div
+                    id="academy-mission-journal-context"
+                    class="academy-mission-journal-context"
+                >
+                    Record what you did, the result you produced, and what you learned.
+                </div>
+
+                <div
+                    id="academy-mission-journal-review"
+                    class="academy-mission-journal-review hidden-step"
+                    aria-live="polite"
+                ></div>
+
+                <div class="form-group academy-mission-journal-field">
+                    <label for="academy-mission-journal-working-note">Working Note</label>
+                    <textarea
+                        id="academy-mission-journal-working-note"
+                        class="input-field"
+                        rows="5"
+                        maxlength="3200"
+                        placeholder="What did you do? Include the action, decision, observation, or process you followed."
+                    ></textarea>
+                    <small>Save this anytime without completing the mission.</small>
+                </div>
+
+                <div class="form-group academy-mission-journal-field">
+                    <label for="academy-mission-journal-proof-note">Proof / Result</label>
+                    <textarea
+                        id="academy-mission-journal-proof-note"
+                        class="input-field"
+                        rows="5"
+                        maxlength="3200"
+                        placeholder="What concrete result, correction, measurement, or visible output did you produce?"
+                    ></textarea>
+                    <small id="academy-mission-journal-proof-hint">The Academy AI checks this against the mission’s proof requirement.</small>
+                </div>
+
+                <div class="form-group academy-mission-journal-field">
+                    <label for="academy-mission-journal-reflection-note">Reflection</label>
+                    <textarea
+                        id="academy-mission-journal-reflection-note"
+                        class="input-field"
+                        rows="5"
+                        maxlength="3200"
+                        placeholder="What did this reveal about your discipline, friction, standard, or next correction?"
+                    ></textarea>
+                    <small id="academy-mission-journal-reflection-hint">Answer the mission’s reflection prompt with specific details.</small>
+                </div>
+            </div>
+
+            <div class="modal-footer academy-mission-journal-footer">
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    id="btn-cancel-mission-journal"
+                >Cancel</button>
+
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    id="btn-save-mission-journal"
+                    data-idle-label="Save Note"
+                >Save Note</button>
+
+                <button
+                    type="button"
+                    class="btn-primary"
+                    id="btn-review-mission-journal"
+                    data-idle-label="Submit for AI Review"
+                >Submit for AI Review</button>
+            </div>
+        </div>
+    </div>
+
     <div id="lounge-modal" class="modal-overlay hidden-step fade-in">
         <div class="modal-card" style="max-width: 520px; width: calc(100% - 32px);">
             <div class="modal-header">
@@ -2696,7 +2795,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260627-yh-live-cache-v4"></script>
 <script src="/js/yh-shared-runtime.js?v=20260721-phase3c5a-lifecycle-v1"></script>
-<script src="/js/academy.js?v=20260721-phase3c5a-lifecycle-v1"></script>
+<script src="/js/academy.js?v=20260722-phase3c6e-mission-journal-ai-v1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"

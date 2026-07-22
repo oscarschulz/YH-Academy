@@ -198,6 +198,7 @@ router.delete('/academy/profile', auth, academyControllers.deleteCurrentProfile)
 router.delete('/account', auth, academyControllers.deleteCurrentAccount);
 router.get('/academy/roadmap/active', auth, academyControllers.getActiveRoadmap);
 router.get('/academy/missions', auth, academyControllers.getMissions);
+router.patch('/academy/missions/:id/journal', auth, academyControllers.saveMissionJournal);
 router.post('/academy/missions/:id/complete', auth, academyControllers.completeMission);
 router.post('/academy/missions/:id/status', auth, academyControllers.updateMissionStatus);
 router.post('/academy/checkin', auth, academyControllers.submitCheckin);

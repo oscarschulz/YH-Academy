@@ -470,6 +470,7 @@ function mapRoadmapData(data = {}, id = '') {
 function mapMissionData(data = {}, id = '') {
     const outcomeMetrics = data.outcomeMetrics && typeof data.outcomeMetrics === 'object' ? data.outcomeMetrics : {};
     const qualityScores = data.qualityScores && typeof data.qualityScores === 'object' ? data.qualityScores : {};
+    const verificationScores = data.verificationScores && typeof data.verificationScores === 'object' ? data.verificationScores : {};
 
     return {
         id: sanitizeString(data.id || id),
@@ -490,6 +491,30 @@ function mapMissionData(data = {}, id = '') {
         dueDate: sanitizeString(data.dueDate),
         estimatedMinutes: toNumber(data.estimatedMinutes, 0),
         completionNote: sanitizeString(data.completionNote),
+        workingNote: sanitizeString(data.workingNote),
+        proofNote: sanitizeString(data.proofNote),
+        reflectionNote: sanitizeString(data.reflectionNote),
+        skipReason: sanitizeString(data.skipReason),
+        stuckReason: sanitizeString(data.stuckReason),
+        noteUpdatedAt: data.noteUpdatedAt || null,
+        verificationStatus: sanitizeString(data.verificationStatus || 'draft'),
+        verificationDecision: sanitizeString(data.verificationDecision),
+        verificationConfidence: Math.max(0, Math.min(1, toNumber(data.verificationConfidence, 0))),
+        verificationScores: {
+            relevance: toNumber(verificationScores.relevance, 0),
+            specificity: toNumber(verificationScores.specificity, 0),
+            requirementCoverage: toNumber(verificationScores.requirementCoverage, 0),
+            reflectionQuality: toNumber(verificationScores.reflectionQuality, 0),
+            evidenceStrength: toNumber(verificationScores.evidenceStrength, 0)
+        },
+        verificationFeedback: sanitizeString(data.verificationFeedback),
+        verificationMissingItems: sanitizeStringArray(data.verificationMissingItems, 6),
+        verificationEvidenceSummary: sanitizeString(data.verificationEvidenceSummary),
+        verificationProvider: sanitizeString(data.verificationProvider),
+        verificationModel: sanitizeString(data.verificationModel),
+        verificationRequestedAt: data.verificationRequestedAt || null,
+        verificationCompletedAt: data.verificationCompletedAt || null,
+        verificationAttemptCount: toNumber(data.verificationAttemptCount, 0),
         source: sanitizeString(data.source || 'rule'),
         sortOrder: toNumber(data.sortOrder, 0),
         foundationDay: toNumber(data.foundationDay, 0),
@@ -804,6 +829,280 @@ async function updateMissionStatus(uid, missionId, statusPayload = {}) {
 }
 
 const updateMission = updateMissionStatus;
+
+
+async function mutateMissionWithVersionRetryV1(
+    uid,
+    missionId,
+    mutate,
+    maxAttempts = 4
+) {
+    const cleanUid = sanitizeString(uid);
+    const cleanMissionId = sanitizeString(missionId);
+
+    if (
+        !cleanUid ||
+        !cleanMissionId ||
+        typeof mutate !== 'function'
+    ) {
+        return null;
+    }
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const currentRow = await getOne(
+            'academyMissions',
+            cleanUid,
+            cleanMissionId
+        );
+
+        if (!currentRow) {
+            return null;
+        }
+
+        const currentData = rowData(currentRow);
+        const nextPayload = mutate(
+            {
+                ...currentData
+            },
+            attempt
+        );
+
+        if (!nextPayload || typeof nextPayload !== 'object') {
+            return {
+                row: currentRow,
+                mission: mapMissionData(
+                    currentData,
+                    cleanMissionId
+                ),
+                skipped: true
+            };
+        }
+
+        const saved = await updateRecordDataWithVersionV1(
+            'academyMissions',
+            cleanUid,
+            cleanMissionId,
+            currentRow,
+            nextPayload
+        );
+
+        if (saved) {
+            return {
+                row: saved,
+                mission: mapMissionData(
+                    rowData(saved),
+                    cleanMissionId
+                ),
+                skipped: false
+            };
+        }
+    }
+
+    const error = new Error(
+        'Mission changed while saving. Please retry.'
+    );
+
+    error.statusCode = 409;
+    throw error;
+}
+
+async function saveMissionJournalV1(uid, missionId, payload = {}) {
+    const ts = nowIso();
+
+    const result = await mutateMissionWithVersionRetryV1(
+        uid,
+        missionId,
+        (currentData) => {
+            if (
+                sanitizeString(currentData.status).toLowerCase() ===
+                'completed'
+            ) {
+                return null;
+            }
+
+            const next = {
+                workingNote: sanitizeString(
+                    payload.workingNote ??
+                    currentData.workingNote
+                ),
+                proofNote: sanitizeString(
+                    payload.proofNote ??
+                    currentData.proofNote
+                ),
+                reflectionNote: sanitizeString(
+                    payload.reflectionNote ??
+                    currentData.reflectionNote
+                ),
+                noteUpdatedAt: ts
+            };
+
+            [
+                'verificationStatus',
+                'verificationDecision',
+                'verificationFeedback',
+                'verificationEvidenceSummary',
+                'verificationProvider',
+                'verificationModel',
+                'verificationRequestedAt',
+                'verificationCompletedAt',
+                'verificationAttemptCount'
+            ].forEach((key) => {
+                if (payload[key] !== undefined) {
+                    next[key] = payload[key];
+                }
+            });
+
+            if (payload.verificationConfidence !== undefined) {
+                next.verificationConfidence = Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        toNumber(
+                            payload.verificationConfidence,
+                            0
+                        )
+                    )
+                );
+            }
+
+            if (
+                payload.verificationScores &&
+                typeof payload.verificationScores === 'object'
+            ) {
+                next.verificationScores =
+                    payload.verificationScores;
+            }
+
+            if (payload.verificationMissingItems !== undefined) {
+                next.verificationMissingItems =
+                    sanitizeStringArray(
+                        payload.verificationMissingItems,
+                        6
+                    );
+            }
+
+            return next;
+        }
+    );
+
+    return result?.mission || null;
+}
+
+async function saveMissionVerificationV1(uid, missionId, payload = {}) {
+    return saveMissionJournalV1(
+        uid,
+        missionId,
+        payload
+    );
+}
+
+async function completeMissionAfterVerificationV1(
+    uid,
+    missionId,
+    payload = {}
+) {
+    const ts = nowIso();
+    let transitioned = false;
+
+    const result = await mutateMissionWithVersionRetryV1(
+        uid,
+        missionId,
+        (currentData) => {
+            if (
+                sanitizeString(currentData.status).toLowerCase() ===
+                'completed'
+            ) {
+                return null;
+            }
+
+            transitioned = true;
+
+            return {
+                workingNote: sanitizeString(
+                    payload.workingNote ??
+                    currentData.workingNote
+                ),
+                proofNote: sanitizeString(
+                    payload.proofNote ??
+                    currentData.proofNote
+                ),
+                reflectionNote: sanitizeString(
+                    payload.reflectionNote ??
+                    currentData.reflectionNote
+                ),
+                completionNote: sanitizeString(
+                    payload.completionNote ??
+                    payload.proofNote ??
+                    currentData.completionNote
+                ),
+                noteUpdatedAt: ts,
+                verificationStatus: sanitizeString(
+                    payload.verificationStatus ||
+                    'approved'
+                ),
+                verificationDecision: sanitizeString(
+                    payload.verificationDecision ||
+                    'approved'
+                ),
+                verificationConfidence: Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        toNumber(
+                            payload.verificationConfidence,
+                            0
+                        )
+                    )
+                ),
+                verificationScores:
+                    payload.verificationScores &&
+                    typeof payload.verificationScores === 'object'
+                        ? payload.verificationScores
+                        : {},
+                verificationFeedback: sanitizeString(
+                    payload.verificationFeedback
+                ),
+                verificationMissingItems: sanitizeStringArray(
+                    payload.verificationMissingItems,
+                    6
+                ),
+                verificationEvidenceSummary: sanitizeString(
+                    payload.verificationEvidenceSummary
+                ),
+                verificationProvider: sanitizeString(
+                    payload.verificationProvider
+                ),
+                verificationModel: sanitizeString(
+                    payload.verificationModel
+                ),
+                verificationRequestedAt:
+                    payload.verificationRequestedAt ||
+                    currentData.verificationRequestedAt ||
+                    ts,
+                verificationCompletedAt:
+                    payload.verificationCompletedAt ||
+                    ts,
+                verificationAttemptCount: toNumber(
+                    payload.verificationAttemptCount ??
+                    currentData.verificationAttemptCount,
+                    0
+                ),
+                status: 'completed',
+                completedAt: ts,
+                updatedAt: ts
+            };
+        }
+    );
+
+    return {
+        mission: result?.mission || null,
+        transitioned:
+            transitioned &&
+            result?.skipped !== true
+    };
+}
+
+/* END PATCH: Phase 3C.6E — Mission Journal persistence and verified completion v1 */
 
 async function updateMissionOutcomeMetrics(uid, missionId, metrics = {}) {
     const mission = await getMissionById(uid, missionId);
@@ -7696,6 +7995,9 @@ module.exports = {
     updateMissionStatus,
     updateMission,
     completeMission: updateMissionCompletion,
+    saveMissionJournalV1,
+    saveMissionVerificationV1,
+    completeMissionAfterVerificationV1,
     updateMissionOutcomeMetrics,
     getMissionProgress,
     listRecentMissions,

@@ -7377,7 +7377,7 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
                                     data-mission-id="${academyFeedEscapeHtml(todayMission.id)}"
                                     data-mission-title="${academyFeedEscapeHtml(todayMission.title || '')}"
                                 >
-                                    Complete Mission
+                                    Open Mission Note
                                 </button>
                             ` : ''}
                         </div>
@@ -7877,39 +7877,412 @@ async function academyUpdateMissionStatus(missionId, status, note = '') {
         showToast(error.message || "Mission update failed.", "error");
     }
 }
-async function academyCompleteMission(missionId) {
+
+/* PATCH: Phase 3C.6E — Mission Journal + AI review UI v1 */
+
+const academyMissionJournalCacheV1 = new Map();
+
+let academyMissionJournalStateV1 = {
+    missionId: '',
+    title: '',
+    mission: null,
+    busy: false
+};
+
+function academyCacheMissionJournalMissionsV1(homeData = {}) {
+    [
+        homeData?.allMissions,
+        homeData?.roadmapSteps,
+        homeData?.steps,
+        homeData?.todayMissions,
+        homeData?.missions
+    ].forEach((source) => {
+        if (!Array.isArray(source)) return;
+
+        source.forEach((mission) => {
+            const missionId = String(mission?.id || '').trim();
+            if (!missionId) return;
+
+            academyMissionJournalCacheV1.set(
+                missionId,
+                {
+                    ...(academyMissionJournalCacheV1.get(missionId) || {}),
+                    ...mission
+                }
+            );
+        });
+    });
+}
+
+function academySetMissionJournalReviewV1(verification = null) {
+    const reviewEl = document.getElementById(
+        'academy-mission-journal-review'
+    );
+
+    if (!reviewEl) return;
+
+    const source = verification && typeof verification === 'object'
+        ? verification
+        : null;
+
+    const decision = String(
+        source?.decision ||
+        source?.status ||
+        ''
+    ).trim().toLowerCase();
+
+    const rawMissingItems = Array.isArray(source?.missingItems)
+        ? source.missingItems
+        : [];
+
+    const hasReviewState = [
+        'approved',
+        'needs_revision',
+        'manual_review',
+        'review_delayed',
+        'verification_pending'
+    ].includes(decision);
+
+    if (
+        !source ||
+        (
+            !source.feedback &&
+            rawMissingItems.length === 0 &&
+            !hasReviewState
+        )
+    ) {
+        reviewEl.innerHTML = '';
+        reviewEl.removeAttribute('data-tone');
+        reviewEl.classList.add('hidden-step');
+        return;
+    }
+
+    const tone = decision === 'approved'
+        ? 'approved'
+        : decision === 'review_delayed' ||
+          source.status === 'review_delayed'
+            ? 'delayed'
+            : 'revision';
+
+    const title = decision === 'approved'
+        ? 'Academy AI Review: Approved'
+        : decision === 'verification_pending'
+            ? 'Academy AI Review: In Progress'
+            : tone === 'delayed'
+                ? 'Academy AI Review: Delayed'
+                : decision === 'manual_review'
+                    ? 'Academy AI Review: Manual Review'
+                    : 'Academy AI Review: Needs Revision';
+
+    const missingItems = rawMissingItems
+        .map((item) => String(item || '').trim())
+        .filter(Boolean);
+
+    reviewEl.setAttribute('data-tone', tone);
+    reviewEl.innerHTML = `
+        <strong>${academyFeedEscapeHtml(title)}</strong>
+        <span>${academyFeedEscapeHtml(
+            source.feedback ||
+            'Update the Mission Journal and submit it again.'
+        )}</span>
+        ${
+            missingItems.length
+                ? `
+                    <ul>
+                        ${missingItems
+                            .map((item) =>
+                                `<li>${academyFeedEscapeHtml(item)}</li>`
+                            )
+                            .join('')}
+                    </ul>
+                `
+                : ''
+        }
+    `;
+    reviewEl.classList.remove('hidden-step');
+}
+
+function academySetMissionJournalBusyV1(busy = false, source = '') {
+    academyMissionJournalStateV1.busy = busy === true;
+
+    const saveButton = document.getElementById(
+        'btn-save-mission-journal'
+    );
+    const reviewButton = document.getElementById(
+        'btn-review-mission-journal'
+    );
+    const cancelButton = document.getElementById(
+        'btn-cancel-mission-journal'
+    );
+    const closeButton = document.getElementById(
+        'close-mission-journal-modal'
+    );
+
+    [saveButton, reviewButton, cancelButton, closeButton].forEach((button) => {
+        if (!button) return;
+
+        button.disabled = busy === true;
+        button.setAttribute(
+            'aria-disabled',
+            busy ? 'true' : 'false'
+        );
+    });
+
+    if (saveButton) {
+        saveButton.setAttribute(
+            'aria-busy',
+            busy && source === 'save' ? 'true' : 'false'
+        );
+        saveButton.textContent = busy && source === 'save'
+            ? 'Saving...'
+            : (saveButton.dataset.idleLabel || 'Save Note');
+    }
+
+    if (reviewButton) {
+        reviewButton.setAttribute(
+            'aria-busy',
+            busy && source === 'review' ? 'true' : 'false'
+        );
+        reviewButton.textContent = busy && source === 'review'
+            ? 'Academy AI Reviewing...'
+            : (
+                reviewButton.dataset.idleLabel ||
+                'Submit for AI Review'
+            );
+    }
+}
+
+function academyCloseMissionJournalV1() {
+    if (academyMissionJournalStateV1.busy) return;
+
+    document
+        .getElementById('academy-mission-journal-modal')
+        ?.classList
+        .add('hidden-step');
+
+    academyMissionJournalStateV1 = {
+        missionId: '',
+        title: '',
+        mission: null,
+        busy: false
+    };
+}
+
+function academyOpenMissionJournalV1(missionId = '', missionTitle = '') {
+    const cleanMissionId = String(missionId || '').trim();
+
+    if (!cleanMissionId) {
+        showToast('Mission data is unavailable.', 'error');
+        return;
+    }
+
+    const mission =
+        academyMissionJournalCacheV1.get(cleanMissionId) ||
+        {};
+
+    const title = String(
+        mission.title ||
+        missionTitle ||
+        'Mission Note'
+    ).trim();
+
+    academyMissionJournalStateV1 = {
+        missionId: cleanMissionId,
+        title,
+        mission,
+        busy: false
+    };
+
+    const titleEl = document.getElementById(
+        'academy-mission-journal-title'
+    );
+    const contextEl = document.getElementById(
+        'academy-mission-journal-context'
+    );
+    const workingEl = document.getElementById(
+        'academy-mission-journal-working-note'
+    );
+    const proofEl = document.getElementById(
+        'academy-mission-journal-proof-note'
+    );
+    const reflectionEl = document.getElementById(
+        'academy-mission-journal-reflection-note'
+    );
+    const proofHintEl = document.getElementById(
+        'academy-mission-journal-proof-hint'
+    );
+    const reflectionHintEl = document.getElementById(
+        'academy-mission-journal-reflection-hint'
+    );
+
+    if (titleEl) titleEl.textContent = title;
+
+    if (contextEl) {
+        const objective = String(
+            mission.missionObjective ||
+            mission.description ||
+            ''
+        ).trim();
+
+        contextEl.textContent = objective
+            ? `Mission objective: ${objective}`
+            : 'Record what you did, the result you produced, and what you learned.';
+    }
+
+    if (workingEl) {
+        workingEl.value = String(mission.workingNote || '');
+    }
+
+    if (proofEl) {
+        proofEl.value = String(
+            mission.proofNote ||
+            mission.completionNote ||
+            ''
+        );
+    }
+
+    if (reflectionEl) {
+        reflectionEl.value = String(mission.reflectionNote || '');
+    }
+
+    if (proofHintEl) {
+        const proofRequirement = String(
+            mission.proofOfCompletion ||
+            mission.doneLooksLike ||
+            ''
+        ).trim();
+
+        proofHintEl.textContent = proofRequirement
+            ? `Required proof: ${proofRequirement}`
+            : 'The Academy AI checks this against the mission’s proof requirement.';
+    }
+
+    if (reflectionHintEl) {
+        const reflectionPrompt = String(
+            mission.reflectionPrompt ||
+            ''
+        ).trim();
+
+        reflectionHintEl.textContent = reflectionPrompt
+            ? `Reflection prompt: ${reflectionPrompt}`
+            : 'Answer with a specific lesson, friction point, or correction.';
+    }
+
+    academySetMissionJournalReviewV1({
+        status: mission.verificationStatus,
+        decision: mission.verificationDecision,
+        feedback: mission.verificationFeedback,
+        missingItems: mission.verificationMissingItems
+    });
+
+    academySetMissionJournalBusyV1(false);
+
+    document
+        .getElementById('academy-mission-journal-modal')
+        ?.classList
+        .remove('hidden-step');
+
+    window.setTimeout(() => {
+        (workingEl || proofEl || reflectionEl)?.focus?.();
+    }, 80);
+}
+
+function academyReadMissionJournalFormV1() {
+    return {
+        workingNote: String(
+            document.getElementById(
+                'academy-mission-journal-working-note'
+            )?.value || ''
+        ).trim(),
+        proofNote: String(
+            document.getElementById(
+                'academy-mission-journal-proof-note'
+            )?.value || ''
+        ).trim(),
+        reflectionNote: String(
+            document.getElementById(
+                'academy-mission-journal-reflection-note'
+            )?.value || ''
+        ).trim()
+    };
+}
+
+function academyMergeMissionJournalCacheV1(missionId = '', payload = {}) {
+    const cleanMissionId = String(missionId || '').trim();
+    if (!cleanMissionId) return;
+
+    academyMissionJournalCacheV1.set(
+        cleanMissionId,
+        {
+            ...(academyMissionJournalCacheV1.get(cleanMissionId) || {}),
+            ...payload
+        }
+    );
+
+    academyMissionJournalStateV1.mission =
+        academyMissionJournalCacheV1.get(cleanMissionId);
+}
+
+async function academySaveMissionJournalV1() {
+    const missionId = String(
+        academyMissionJournalStateV1.missionId || ''
+    ).trim();
+    const journal = academyReadMissionJournalFormV1();
+
+    if (!missionId) {
+        showToast('Mission data is unavailable.', 'error');
+        return false;
+    }
+
+    if (
+        !journal.workingNote &&
+        !journal.proofNote &&
+        !journal.reflectionNote
+    ) {
+        showToast(
+            'Write at least one Mission Journal entry before saving.',
+            'error'
+        );
+        return false;
+    }
+
+    academySetMissionJournalBusyV1(true, 'save');
+
     try {
         const result = await academyAuthedFetch(
-            `/api/academy/missions/${missionId}/complete`,
+            `/api/academy/missions/${missionId}/journal`,
             {
-                method: 'POST',
-                body: JSON.stringify({
-                    completionNote: ''
-                })
+                method: 'PATCH',
+                body: JSON.stringify(journal)
             }
         );
 
-        applyAcademyHomeRuntimePatch({
+        academyMergeMissionJournalCacheV1(
             missionId,
-            status: 'completed',
-            note: '',
-            todayProgress: result?.todayProgress,
-            behaviorProfile: result?.behaviorProfile,
-            previousBehaviorProfile:
-                result?.previousBehaviorProfile,
-            plannerStats: result?.plannerStats,
-            adaptivePlanning: result?.adaptivePlanning
-        });
+            {
+                ...journal,
+                noteUpdatedAt:
+                    result?.journal?.noteUpdatedAt ||
+                    new Date().toISOString(),
+                verificationStatus:
+                    result?.verification?.status ||
+                    'draft',
+                verificationDecision:
+                    result?.verification?.decision ||
+                    '',
+                verificationFeedback:
+                    result?.verification?.feedback ||
+                    '',
+                verificationMissingItems:
+                    result?.verification?.missingItems ||
+                    []
+            }
+        );
 
-        academyApplyProgressionResultV1(result);
-
-        await loadAcademyHome(true);
+        academySetMissionJournalReviewV1(result?.verification);
 
         showToast(
-            academyBuildXpSuccessMessageV1(
-                result,
-                'Mission completed'
-            ),
+            'Mission Journal saved. No XP was awarded.',
             'success'
         );
 
@@ -7917,13 +8290,255 @@ async function academyCompleteMission(missionId) {
     } catch (error) {
         showToast(
             error.message ||
-            'Mission completion failed.',
+            'Mission Journal save failed.',
             'error'
         );
 
         return false;
+    } finally {
+        academySetMissionJournalBusyV1(false);
     }
 }
+
+async function academyCompleteMission(missionId, journal = {}) {
+    return academyAuthedFetch(
+        `/api/academy/missions/${missionId}/complete`,
+        {
+            method: 'POST',
+            body: JSON.stringify(journal)
+        }
+    );
+}
+
+async function academySubmitMissionForReviewV1() {
+    const missionId = String(
+        academyMissionJournalStateV1.missionId || ''
+    ).trim();
+    const journal = academyReadMissionJournalFormV1();
+
+    if (!missionId) {
+        showToast('Mission data is unavailable.', 'error');
+        return false;
+    }
+
+    if (journal.workingNote.length < 20) {
+        showToast(
+            'Add a more concrete Working Note before AI review.',
+            'error'
+        );
+        return false;
+    }
+
+    if (journal.proofNote.length < 30) {
+        showToast(
+            'Add a specific Proof / Result before AI review.',
+            'error'
+        );
+        return false;
+    }
+
+    if (journal.reflectionNote.length < 20) {
+        showToast(
+            'Add a specific Reflection before AI review.',
+            'error'
+        );
+        return false;
+    }
+
+    academySetMissionJournalBusyV1(true, 'review');
+
+    academySetMissionJournalReviewV1({
+        status: 'verification_pending',
+        decision: 'verification_pending',
+        feedback:
+            'The Academy AI is checking the mission objective, result, proof, and reflection.',
+        missingItems: []
+    });
+
+    try {
+        const result = await academyCompleteMission(
+            missionId,
+            journal
+        );
+
+        const verification = result?.verification || {};
+
+        academyMergeMissionJournalCacheV1(
+            missionId,
+            {
+                ...journal,
+                status: result?.status || 'pending',
+                verificationStatus:
+                    verification.status ||
+                    verification.decision ||
+                    '',
+                verificationDecision:
+                    verification.decision ||
+                    '',
+                verificationConfidence:
+                    verification.confidence ||
+                    0,
+                verificationScores:
+                    verification.scores ||
+                    {},
+                verificationFeedback:
+                    verification.feedback ||
+                    '',
+                verificationMissingItems:
+                    verification.missingItems ||
+                    [],
+                verificationEvidenceSummary:
+                    verification.evidenceSummary ||
+                    ''
+            }
+        );
+
+        academySetMissionJournalReviewV1(verification);
+
+        if (result?.approved === true) {
+            applyAcademyHomeRuntimePatch({
+                missionId,
+                status: 'completed',
+                note: journal.proofNote,
+                todayProgress: result?.todayProgress,
+                behaviorProfile: result?.behaviorProfile,
+                previousBehaviorProfile:
+                    result?.previousBehaviorProfile,
+                plannerStats: result?.plannerStats,
+                adaptivePlanning: result?.adaptivePlanning
+            });
+
+            academyApplyProgressionResultV1(result);
+
+            await loadAcademyHome(true);
+
+            showToast(
+                academyBuildXpSuccessMessageV1(
+                    result,
+                    'Mission verified and completed'
+                ),
+                'success'
+            );
+
+            academyMissionJournalStateV1.busy = false;
+            academyCloseMissionJournalV1();
+
+            return true;
+        }
+
+        const delayed =
+            result?.reviewDelayed === true ||
+            verification.status === 'review_delayed';
+
+        showToast(
+            delayed
+                ? 'Mission Journal saved. AI review is delayed; no XP was awarded.'
+                : 'The Academy AI needs a stronger submission. No XP was awarded.',
+            delayed ? 'info' : 'error'
+        );
+
+        return false;
+    } catch (error) {
+        showToast(
+            error.message ||
+            'Academy AI mission review failed.',
+            'error'
+        );
+
+        return false;
+    } finally {
+        academySetMissionJournalBusyV1(false);
+    }
+}
+
+function academyBindMissionJournalV1() {
+    if (window.__academyMissionJournalBoundV1) return;
+
+    window.__academyMissionJournalBoundV1 = true;
+
+    document
+        .getElementById('close-mission-journal-modal')
+        ?.addEventListener(
+            'click',
+            academyCloseMissionJournalV1
+        );
+
+    document
+        .getElementById('btn-cancel-mission-journal')
+        ?.addEventListener(
+            'click',
+            academyCloseMissionJournalV1
+        );
+
+    document
+        .getElementById('btn-save-mission-journal')
+        ?.addEventListener(
+            'click',
+            academySaveMissionJournalV1
+        );
+
+    document
+        .getElementById('btn-review-mission-journal')
+        ?.addEventListener(
+            'click',
+            academySubmitMissionForReviewV1
+        );
+
+    document
+        .getElementById('academy-mission-journal-modal')
+        ?.addEventListener(
+            'click',
+            (event) => {
+                if (
+                    event.target?.id ===
+                    'academy-mission-journal-modal'
+                ) {
+                    academyCloseMissionJournalV1();
+                }
+            }
+        );
+
+    const legacyForm = document.getElementById(
+        'academy-mission-action-form'
+    );
+
+    if (
+        legacyForm &&
+        legacyForm.dataset.boundMissionAction !== 'true'
+    ) {
+        legacyForm.dataset.boundMissionAction = 'true';
+        legacyForm.addEventListener(
+            'submit',
+            academySubmitMissionAction
+        );
+    }
+
+    document
+        .getElementById('close-mission-action-modal')
+        ?.addEventListener(
+            'click',
+            academyCloseMissionActionModal
+        );
+
+    document
+        .getElementById('btn-cancel-mission-action')
+        ?.addEventListener(
+            'click',
+            academyCloseMissionActionModal
+        );
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener(
+        'DOMContentLoaded',
+        academyBindMissionJournalV1
+    );
+} else {
+    academyBindMissionJournalV1();
+}
+
+/* END PATCH: Phase 3C.6E — Mission Journal + AI review UI v1 */
+
 
 let academyMissionActionState = {
     missionId: '',
@@ -8646,6 +9261,8 @@ function renderAcademyHome(homeData = null) {
                     : Array.isArray(homeData?.allMissions)
                         ? homeData.allMissions.slice(0, 5)
                         : [];
+
+    academyCacheMissionJournalMissionsV1(homeData || {});
 
     const roadmapRepairReason =
         String(
@@ -9388,7 +10005,7 @@ const missionsHtml = missions.length
     </div>
 
                     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-                        <button type="button" data-academy-action="complete" data-mission-id="${missionId}" data-mission-title="${title}" class="btn-primary" style="width:auto;padding:8px 12px;" ${isCompleted ? 'disabled' : ''}>Complete</button>
+                        <button type="button" data-academy-action="complete" data-mission-id="${missionId}" data-mission-title="${title}" class="btn-primary" style="width:auto;padding:8px 12px;" ${isCompleted ? 'disabled' : ''}>${isCompleted ? 'Completed' : 'Open Mission Note'}</button>
                         <button type="button" data-academy-action="skip" data-mission-id="${missionId}" data-mission-title="${title}" class="btn-secondary" style="width:auto;padding:8px 12px;">Skip</button>
                         <button type="button" data-academy-action="stuck" data-mission-id="${missionId}" data-mission-title="${title}" class="btn-secondary" style="width:auto;padding:8px 12px;">Stuck</button>
                     </div>
@@ -9622,23 +10239,43 @@ if (dynamicChatContainer) {
     });
 
 document.querySelectorAll('[data-academy-action="complete"]').forEach((button) => {
-    button.addEventListener('click', async () => {
-        const missionId = String(button.getAttribute('data-mission-id') || '').trim();
+    button.addEventListener('click', () => {
+        if (
+            button?.dataset?.loading === 'true' ||
+            button?.disabled
+        ) {
+            return;
+        }
+
+        const missionId = String(
+            button.getAttribute('data-mission-id') || ''
+        ).trim();
+
+        const missionTitle = String(
+            button.getAttribute('data-mission-title') || ''
+        ).trim();
+
         if (!missionId) return;
 
-        const ok = await runDashboardButtonAction(button, 'Completing...', async () => {
-            return await academyCompleteMission(missionId);
-        });
+        setDashboardButtonLoadingState(
+            button,
+            true,
+            'Opening...'
+        );
 
-        // If success, permanently lock the button so user sees it's synced
-        if (ok && button && button.isConnected) {
-            button.dataset.loading = 'false';
-            button.dataset.idleLabel = 'Completed';
-            button.disabled = true;
-            button.setAttribute('aria-disabled', 'true');
-            button.setAttribute('aria-busy', 'false');
-            button.textContent = 'Completed';
-        }
+        academyOpenMissionJournalV1(
+            missionId,
+            missionTitle
+        );
+
+        window.setTimeout(() => {
+            if (button.isConnected) {
+                setDashboardButtonLoadingState(
+                    button,
+                    false
+                );
+            }
+        }, 260);
     });
 });
 
