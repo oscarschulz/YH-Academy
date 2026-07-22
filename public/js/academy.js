@@ -8636,7 +8636,16 @@ function renderAcademyHome(homeData = null) {
     const summary = roadmap.summary || {};
     const focusAreas = Array.isArray(roadmap.focusAreas) ? roadmap.focusAreas : [];
     const today = homeData?.today || {};
-    const missions = Array.isArray(homeData?.missions) ? homeData.missions : [];
+    const missions =
+        Array.isArray(homeData?.missions) && homeData.missions.length
+            ? homeData.missions
+            : Array.isArray(homeData?.todayMissions) && homeData.todayMissions.length
+                ? homeData.todayMissions
+                : Array.isArray(homeData?.roadmapSteps) && homeData.roadmapSteps.length
+                    ? homeData.roadmapSteps.slice(0, 5)
+                    : Array.isArray(homeData?.allMissions)
+                        ? homeData.allMissions.slice(0, 5)
+                        : [];
 
     const roadmapRepairReason =
         String(
@@ -9588,7 +9597,20 @@ if (dynamicChatContainer) {
     });
 
     document.getElementById('academy-home-open-checkin')?.addEventListener('click', () => {
-        academyOpenCheckin();
+        academySetRoadmapInnerTab('today');
+
+        window.requestAnimationFrame(() => {
+            const todayPanel = document.querySelector(
+                '[data-academy-roadmap-inner-panel="today"]'
+            );
+
+            if (todayPanel) {
+                todayPanel.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
     });
 
     document.getElementById('academy-home-open-coach')?.addEventListener('click', async (event) => {
@@ -9934,17 +9956,23 @@ function academySetRoadmapInnerTab(tab = 'overview') {
     });
 
     try {
-        sessionStorage.setItem('yh_academy_roadmap_inner_tab_v1', cleanTab);
+        sessionStorage.setItem('yh_academy_roadmap_inner_tab_v2', cleanTab);
     } catch (_) {}
 }
 
-function academyGetSavedRoadmapInnerTab() {
+function academyGetSavedRoadmapInnerTab(defaultTab = 'overview') {
+    const cleanDefault = ['overview', 'today', 'sprint', 'progress', 'coach'].includes(
+        String(defaultTab || '').trim().toLowerCase()
+    )
+        ? String(defaultTab || '').trim().toLowerCase()
+        : 'overview';
+
     try {
-        const saved = sessionStorage.getItem('yh_academy_roadmap_inner_tab_v1') || '';
+        const saved = sessionStorage.getItem('yh_academy_roadmap_inner_tab_v2') || '';
         if (['overview', 'today', 'sprint', 'progress', 'coach'].includes(saved)) return saved;
     } catch (_) {}
 
-    return 'overview';
+    return cleanDefault;
 }
 
 function academyBuildRoadmapTabbedShellFromCurrentDom() {
@@ -10086,7 +10114,18 @@ function academyBuildRoadmapTabbedShellFromCurrentDom() {
         academyOpenCheckin();
     });
 
-    academySetRoadmapInnerTab(academyGetSavedRoadmapInnerTab());
+    const todaySlotHasMissionCards = Boolean(
+        chatWelcomeBox.querySelector(
+            '[data-roadmap-slot="today"] .academy-home-missions > div, ' +
+            '[data-roadmap-slot="today"] [data-academy-action]'
+        )
+    );
+
+    academySetRoadmapInnerTab(
+        academyGetSavedRoadmapInnerTab(
+            todaySlotHasMissionCards ? 'today' : 'overview'
+        )
+    );
 }
 
 
