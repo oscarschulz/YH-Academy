@@ -11,7 +11,6 @@
 
     let academyProgressionLoadPromise = null;
     let academyProgressionLoaded = false;
-    let academySoloModeStateV1 = null;
 
     /* PATCH: Live Squad UI state v1 */
     let academySquadLoadPromise = null;
@@ -172,259 +171,6 @@
         return payload;
     }
 
-
-    /* PATCH: Phase 3C.7B — Dashboard Solo Mode preview v1 */
-
-    function extractAcademySoloModeV1(
-        payload = {}
-    ) {
-        const progression =
-            payload?.progression &&
-            typeof payload.progression ===
-                'object'
-                ? payload.progression
-                : payload;
-
-        return (
-            progression?.soloMode &&
-            typeof progression.soloMode ===
-                'object'
-                ? progression.soloMode
-                : null
-        );
-    }
-
-    function syncAcademySoloModeStateV1(
-        payload = {}
-    ) {
-        const soloMode =
-            extractAcademySoloModeV1(
-                payload
-            );
-
-        if (!soloMode) {
-            return null;
-        }
-
-        academySoloModeStateV1 = {
-            ...soloMode,
-
-            campaign:
-                soloMode?.campaign &&
-                typeof soloMode.campaign ===
-                    'object'
-                    ? {
-                        ...soloMode.campaign
-                    }
-                    : {},
-
-            attributes:
-                soloMode?.attributes &&
-                typeof soloMode.attributes ===
-                    'object'
-                    ? {
-                        ...soloMode.attributes
-                    }
-                    : {}
-        };
-
-        return academySoloModeStateV1;
-    }
-
-    function readAcademySoloModeSessionV1() {
-        try {
-            const parsed =
-                JSON.parse(
-                    sessionStorage.getItem(
-                        'yh_academy_progression_v1'
-                    ) || 'null'
-                );
-
-            return extractAcademySoloModeV1(
-                parsed?.progression ||
-                parsed ||
-                {}
-            );
-        } catch (_) {
-            return null;
-        }
-    }
-
-    function buildAcademySoloModePreviewV1() {
-        const soloMode =
-            academySoloModeStateV1 ||
-            readAcademySoloModeSessionV1();
-
-        if (!soloMode) {
-            return `
-                <div class="yh-game-solo-preview-v1 is-loading">
-                    <small>Solo Campaign</small>
-
-                    <strong>
-                        Syncing verified progress...
-                    </strong>
-                </div>
-            `;
-        }
-
-        const campaign =
-            soloMode?.campaign &&
-            typeof soloMode.campaign ===
-                'object'
-                ? soloMode.campaign
-                : {};
-
-        const completed =
-            Math.max(
-                0,
-                Math.round(
-                    Number(
-                        campaign.completed || 0
-                    )
-                )
-            );
-
-        const total =
-            Math.max(
-                0,
-                Math.round(
-                    Number(
-                        campaign.total || 0
-                    )
-                )
-            );
-
-        const percentage =
-            Math.max(
-                0,
-                Math.min(
-                    100,
-                    Math.round(
-                        Number(
-                            campaign.percentage || 0
-                        )
-                    )
-                )
-            );
-
-        const verifiedMissionCount =
-            Math.max(
-                0,
-                Math.round(
-                    Number(
-                        soloMode
-                            ?.verifiedMissionCount ||
-                        0
-                    )
-                )
-            );
-
-        const totalGrowthPoints =
-            Math.max(
-                0,
-                Math.round(
-                    Number(
-                        soloMode
-                            ?.totalGrowthPoints ||
-                        0
-                    )
-                )
-            );
-
-        const strongest =
-            soloMode?.strongestGrowthArea &&
-            typeof soloMode
-                .strongestGrowthArea ===
-                'object'
-                ? soloMode
-                    .strongestGrowthArea
-                : null;
-
-        const strongestLabel =
-            String(
-                strongest?.label ||
-                'Not established'
-            ).trim();
-
-        const strongestPoints =
-            Math.max(
-                0,
-                Math.round(
-                    Number(
-                        strongest?.points || 0
-                    )
-                )
-            );
-
-        return `
-            <div class="yh-game-solo-preview-v1">
-                <div class="yh-game-solo-preview-head-v1">
-                    <div>
-                        <small>
-                            Solo Campaign
-                        </small>
-
-                        <strong>
-                            ${
-                                escapeHtml(
-                                    campaign.goal ||
-                                    'Personal Roadmap'
-                                )
-                            }
-                        </strong>
-                    </div>
-
-                    <span>
-                        ${percentage}%
-                    </span>
-                </div>
-
-                <div
-                    class="yh-game-solo-preview-track-v1"
-                    aria-hidden="true"
-                >
-                    <span
-                        style="width:${percentage}%"
-                    ></span>
-                </div>
-
-                <div class="yh-game-solo-preview-stats-v1">
-                    <span>
-                        <b>${completed}/${total}</b>
-                        Campaign
-                    </span>
-
-                    <span>
-                        <b>${verifiedMissionCount}</b>
-                        Verified
-                    </span>
-
-                    <span>
-                        <b>${totalGrowthPoints}</b>
-                        Growth
-                    </span>
-                </div>
-
-                <div class="yh-game-solo-preview-strongest-v1">
-                    <small>
-                        Strongest Growth
-                    </small>
-
-                    <strong>
-                        ${escapeHtml(strongestLabel)}
-                        ${
-                            strongestPoints > 0
-                                ? `<span>+${strongestPoints}</span>`
-                                : ''
-                        }
-                    </strong>
-                </div>
-            </div>
-        `;
-    }
-
-    /* END PATCH: Phase 3C.7B — Dashboard Solo Mode preview v1 */
-
     async function loadAcademyProgressionOnce({
         force = false
     } = {}) {
@@ -445,10 +191,6 @@
                     await fetchAcademyGameJson(
                         '/api/academy/progression'
                     );
-
-                syncAcademySoloModeStateV1(
-                    progressionPayload
-                );
 
                 window.YHUGameCore
                     ?.setAcademyProgressionCache?.(
@@ -4743,12 +4485,6 @@ function openSquadDetailsModalV1(
                         : ''
                 }
 
-                ${
-                    division === 'academy'
-                        ? buildAcademySoloModePreviewV1()
-                        : ''
-                }
-
                 <p class="yh-game-division-status">
                     ${escapeHtml(snapshot.progressionLabel)}
                 </p>
@@ -6277,10 +6013,6 @@ function resolveAcademyLeaderboardNameV1(
                 : null;
 
         if (progression) {
-            syncAcademySoloModeStateV1(
-                progression
-            );
-
             window.YHUGameCore
                 ?.setAcademyProgressionCache?.(
                     progression
@@ -6522,13 +6254,7 @@ function resolveAcademyLeaderboardNameV1(
 
     window.addEventListener(
         'yhu:academy-progression-updated',
-        (event) => {
-            syncAcademySoloModeStateV1(
-                event?.detail || {}
-            );
-
-            renderDashboardGameFoundation();
-        }
+        renderDashboardGameFoundation
     );
 
     window.addEventListener(
@@ -6586,10 +6312,6 @@ window.addEventListener(
                 typeof progression ===
                     'object'
             ) {
-                syncAcademySoloModeStateV1(
-                    progression
-                );
-
                 window.YHUGameCore
                     ?.setAcademyProgressionCache?.(
                         progression
