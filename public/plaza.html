@@ -13,10 +13,10 @@
     href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/plaza.css?v=20260713-dashboard-child-target-guard-v149" />
+<link rel="stylesheet" href="/css/plaza.css?v=20260723-phase3d-fe1-open-world-shell-v1" />
 <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260714-plaza-academy-parity-v217" />
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/plaza.js?v=20260714-dashboard-live-screen-switch-v26" defer></script>
+<script src="/js/plaza.js?v=20260723-phase3d-fe1-open-world-shell-v1" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page yh-plaza-access-booting" data-yh-view="plaza" data-yh-page="plaza">
 
@@ -68,6 +68,10 @@
           </div>
 
           <div class="yh-plaza-side-nav">
+            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="explorer">
+              <span class="yh-plaza-nav-btn-title">Explorer</span>
+            </button>
+
             <button type="button" class="yh-plaza-nav-btn is-active" data-nav-tab="feed">
               <span class="yh-plaza-nav-btn-title">Feed</span>
             </button>
@@ -167,6 +171,134 @@
           </div>
 
           <div class="yh-plaza-tab-panels yh-plaza-screen-stack">
+            <section
+              class="yh-plaza-panel yh-plaza-screen yh-plaza-explorer-screen-v1"
+              id="plazaPanelExplorer"
+              data-plaza-panel="explorer"
+              data-plaza-screen="explorer"
+              role="tabpanel"
+              hidden
+            >
+              <div class="yh-plaza-open-world-v1">
+                <header class="yh-plaza-open-world-hero-v1">
+                  <div class="yh-plaza-open-world-hero-copy-v1">
+                    <span class="yh-plaza-open-world-kicker-v1">Open World Mode</span>
+                    <h2>Explore the movement layer.</h2>
+                    <p>
+                      Discover regional zones, opportunity quests, members, meetups, and bridge routes
+                      without replacing the existing Plaza workflows.
+                    </p>
+
+                    <div class="yh-plaza-open-world-actions-v1">
+                      <button type="button" class="yh-plaza-btn yh-plaza-btn-primary" data-plaza-open-world-screen="opportunities">
+                        Browse Opportunity Quests
+                      </button>
+                      <button type="button" class="yh-plaza-btn yh-plaza-btn-secondary" data-plaza-open-world-screen="atlas">
+                        Open World Atlas
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="yh-plaza-open-world-profile-v1" aria-label="Explorer progression preview">
+                    <span>Explorer Profile</span>
+                    <strong>Progression wiring pending</strong>
+                    <small>
+                      Reputation, levels, quest completion, and zone discovery will connect during the backend wiring pass.
+                    </small>
+                  </div>
+                </header>
+
+                <section class="yh-plaza-open-world-metrics-v1" id="plazaExplorerMetrics" aria-label="Current Plaza world signals"></section>
+
+                <div class="yh-plaza-open-world-grid-v1">
+                  <section class="yh-plaza-open-world-card-v1 yh-plaza-open-world-map-v1">
+                    <div class="yh-plaza-open-world-card-head-v1">
+                      <div>
+                        <span>World Map</span>
+                        <h3>Regional Zones</h3>
+                      </div>
+                      <button type="button" data-plaza-open-world-screen="regions">View All Regions</button>
+                    </div>
+
+                    <div class="yh-plaza-open-world-zone-grid-v1" id="plazaExplorerZoneGrid"></div>
+                  </section>
+
+                  <section class="yh-plaza-open-world-card-v1 yh-plaza-open-world-quest-v1">
+                    <div class="yh-plaza-open-world-card-head-v1">
+                      <div>
+                        <span>Quest Board</span>
+                        <h3>Available Next Move</h3>
+                      </div>
+                    </div>
+
+                    <div id="plazaExplorerQuestSlot"></div>
+                  </section>
+                </div>
+
+                <section class="yh-plaza-open-world-lanes-v1" aria-label="Open World activity lanes">
+                  <button type="button" data-plaza-open-world-screen="opportunities">
+                    <span>Quest Lane</span>
+                    <strong>Opportunity Quests</strong>
+                    <small>Find work, collaborations, services, and projects.</small>
+                  </button>
+
+                  <button type="button" data-plaza-open-world-screen="directory">
+                    <span>Social Lane</span>
+                    <strong>Member Discovery</strong>
+                    <small>Find builders, connectors, operators, and specialists.</small>
+                  </button>
+
+                  <button type="button" data-plaza-open-world-screen="meetups">
+                    <span>Event Lane</span>
+                    <strong>Regional Meetups</strong>
+                    <small>Enter local gatherings and patron-led sessions.</small>
+                  </button>
+
+                  <button type="button" data-plaza-open-world-screen="bridge">
+                    <span>Bridge Lane</span>
+                    <strong>Cross-Division Routes</strong>
+                    <small>See how Academy execution can become wider access.</small>
+                  </button>
+                </section>
+
+                <div class="yh-plaza-open-world-grid-v1">
+                  <section class="yh-plaza-open-world-card-v1">
+                    <div class="yh-plaza-open-world-card-head-v1">
+                      <div>
+                        <span>Explorer Progression</span>
+                        <h3>Planned Rank Path</h3>
+                      </div>
+                      <span class="yh-plaza-open-world-preview-badge-v1">Frontend Preview</span>
+                    </div>
+
+                    <div class="yh-plaza-open-world-rank-path-v1">
+                      <span class="is-current"><b>01</b> Newcomer</span>
+                      <span><b>02</b> Explorer</span>
+                      <span><b>03</b> Connector</span>
+                      <span><b>04</b> Regional Operator</span>
+                      <span><b>05</b> World Builder</span>
+                    </div>
+
+                    <p class="yh-plaza-open-world-disclaimer-v1">
+                      No reputation or rank is being awarded yet. These states are presentation-only until the Plaza event ledger is wired.
+                    </p>
+                  </section>
+
+                  <section class="yh-plaza-open-world-card-v1">
+                    <div class="yh-plaza-open-world-card-head-v1">
+                      <div>
+                        <span>World Signals</span>
+                        <h3>Live Movement</h3>
+                      </div>
+                      <button type="button" data-plaza-open-world-screen="feed">Open Feed</button>
+                    </div>
+
+                    <div class="yh-plaza-open-world-signals-v1" id="plazaExplorerSignals"></div>
+                  </section>
+                </div>
+              </div>
+            </section>
+
             <section class="yh-plaza-panel yh-plaza-screen is-active" id="plazaPanelFeed" data-plaza-panel="feed" data-plaza-screen="feed" role="tabpanel">
               <form class="yh-plaza-feed-composer" id="plazaFeedComposerForm">
                 <div class="yh-plaza-feed-composer-main">

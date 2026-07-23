@@ -3803,6 +3803,44 @@ body[data-yh-view="academy"] .chat-messages {
     white-space: nowrap;
 }
 
+.academy-solo-milestones-v1 {
+    display: grid;
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.academy-solo-milestone-card-v1 {
+    min-width: 0;
+    display: grid;
+    gap: 5px;
+    padding: 12px 13px;
+    border: 1px solid rgba(103, 232, 249, 0.13);
+    background: rgba(2, 8, 23, 0.4);
+}
+
+.academy-solo-milestone-card-v1 small {
+    color: #67e8f9;
+    font-family: "Orbitron", sans-serif;
+    font-size: 0.63rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.academy-solo-milestone-card-v1 strong {
+    color: #ffffff;
+    font-family: "Rajdhani", "Poppins", sans-serif;
+    font-size: 1.05rem;
+    line-height: 1.05;
+}
+
+.academy-solo-milestone-card-v1 span {
+    color: #94a3b8;
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
 .academy-solo-attributes-v1 {
     display: grid;
     grid-template-columns:
@@ -3894,7 +3932,8 @@ body[data-yh-view="academy"] .chat-messages {
         min-width: 58px;
     }
 
-    .academy-solo-mode-metrics-v1 {
+    .academy-solo-mode-metrics-v1,
+    .academy-solo-milestones-v1 {
         grid-template-columns: 1fr;
     }
 }

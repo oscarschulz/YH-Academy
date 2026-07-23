@@ -7902,6 +7902,18 @@ function academyNormalizeSoloModeUiV1(
             ? soloMode.attributes
             : {};
 
+    const sourceStreak =
+        soloMode?.streak &&
+        typeof soloMode.streak === 'object'
+            ? soloMode.streak
+            : {};
+
+    const sourceCampaignMilestones =
+        soloMode?.campaignMilestones &&
+        typeof soloMode.campaignMilestones === 'object'
+            ? soloMode.campaignMilestones
+            : {};
+
     const attributes = {};
 
     ACADEMY_SOLO_ATTRIBUTE_ORDER_V1
@@ -7997,7 +8009,131 @@ function academyNormalizeSoloModeUiV1(
                         0
                     )
                 )
-            )
+            ),
+
+        streak: {
+            current:
+                Math.max(
+                    0,
+                    Math.round(
+                        Number(
+                            sourceStreak.current ||
+                            0
+                        )
+                    )
+                ),
+
+            longest:
+                Math.max(
+                    0,
+                    Math.round(
+                        Number(
+                            sourceStreak.longest ||
+                            0
+                        )
+                    )
+                ),
+
+            lastActiveDate:
+                String(
+                    sourceStreak.lastActiveDate ||
+                    ''
+                ).trim(),
+
+            nextMilestone:
+                Number.isFinite(
+                    Number(
+                        sourceStreak.nextMilestone
+                    )
+                )
+                    ? Math.max(
+                        0,
+                        Math.round(
+                            Number(
+                                sourceStreak.nextMilestone
+                            )
+                        )
+                    )
+                    : null,
+
+            reached:
+                Array.isArray(
+                    sourceStreak.reached
+                )
+                    ? sourceStreak.reached
+                        .map(
+                            (value) =>
+                                Math.round(
+                                    Number(value)
+                                )
+                        )
+                        .filter(
+                            (value) =>
+                                Number.isFinite(
+                                    value
+                                ) &&
+                                value > 0
+                        )
+                    : []
+        },
+
+        campaignMilestones: {
+            reached:
+                Array.isArray(
+                    sourceCampaignMilestones.reached
+                )
+                    ? sourceCampaignMilestones.reached
+                        .map(
+                            (value) =>
+                                Math.round(
+                                    Number(value)
+                                )
+                        )
+                        .filter(
+                            (value) =>
+                                Number.isFinite(
+                                    value
+                                ) &&
+                                value > 0
+                        )
+                    : [],
+
+            latest:
+                Number.isFinite(
+                    Number(
+                        sourceCampaignMilestones.latest
+                    )
+                )
+                    ? Math.max(
+                        0,
+                        Math.round(
+                            Number(
+                                sourceCampaignMilestones.latest
+                            )
+                        )
+                    )
+                    : null,
+
+            next:
+                Number.isFinite(
+                    Number(
+                        sourceCampaignMilestones.next
+                    )
+                )
+                    ? Math.max(
+                        0,
+                        Math.round(
+                            Number(
+                                sourceCampaignMilestones.next
+                            )
+                        )
+                    )
+                    : null,
+
+            complete:
+                sourceCampaignMilestones.complete ===
+                true
+        }
     };
 }
 
@@ -8067,6 +8203,32 @@ function academyRenderSoloModeUiV1(
                 )
             )
         );
+
+    const streak =
+        normalized.streak;
+
+    const campaignMilestones =
+        normalized.campaignMilestones;
+
+    const streakDayLabel =
+        streak.current === 1
+            ? 'day'
+            : 'days';
+
+    const nextStreakCopy =
+        streak.nextMilestone
+            ? `Next milestone: ${streak.nextMilestone} days`
+            : 'All core streak milestones reached';
+
+    const campaignMilestoneCopy =
+        campaignMilestones.latest
+            ? `${campaignMilestones.latest}% reached`
+            : 'No campaign milestone yet';
+
+    const nextCampaignCopy =
+        campaignMilestones.next
+            ? `Next milestone: ${campaignMilestones.next}%`
+            : 'Campaign milestones complete';
 
     const attributesHtml =
         ACADEMY_SOLO_ATTRIBUTE_ORDER_V1
@@ -8193,6 +8355,38 @@ function academyRenderSoloModeUiV1(
                             : ''
                     }
                 </strong>
+            </div>
+        </div>
+
+        <div class="academy-solo-milestones-v1">
+            <div class="academy-solo-milestone-card-v1">
+                <small>
+                    Verified Solo Streak
+                </small>
+
+                <strong>
+                    ${streak.current}
+                    ${streakDayLabel}
+                </strong>
+
+                <span>
+                    Longest: ${streak.longest} days
+                    · ${academyEscapeSoloUiV1(nextStreakCopy)}
+                </span>
+            </div>
+
+            <div class="academy-solo-milestone-card-v1">
+                <small>
+                    Campaign Milestone
+                </small>
+
+                <strong>
+                    ${academyEscapeSoloUiV1(campaignMilestoneCopy)}
+                </strong>
+
+                <span>
+                    ${academyEscapeSoloUiV1(nextCampaignCopy)}
+                </span>
             </div>
         </div>
 

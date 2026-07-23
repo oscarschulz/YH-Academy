@@ -4425,6 +4425,13 @@ const plazaOpsAdapter = createLocalPlazaOpsAdapter({
 const plazaState = plazaAdapter.getState();
 
 const plazaConfig = {
+  explorer: {
+    title: "Explorer",
+    note: "Open World command layer for regional zones, opportunity quests, member discovery, meetups, and cross-division routes.",
+    navTab: "explorer",
+    toolbar: null,
+    breadcrumb: ["Plazas", "Explorer"]
+  },
   feed: {
     title: "Feed",
     note: "Network movement, wins, introductions, opportunities, and regional updates across YH Universe.",
@@ -4561,6 +4568,7 @@ const plazaConfig = {
 };
 
 const PLAZA_SCREEN_ICON_ASSETS = Object.freeze({
+  explorer: "/assets/academy/plaza%20icons/plaza%20atlas.png",
   feed: "/assets/academy/plaza%20icons/feed.png",
   inbox: "/assets/academy/plaza%20icons/inbox.png",
   messages: "/assets/academy/plaza%20icons/conversations.png",
@@ -4654,6 +4662,7 @@ function syncPlazaWorkspaceTitleChrome(screenName = "feed", titleText = "Feed") 
 }
 
 const PRIMARY_SCREENS = new Set([
+  "explorer",
   "feed",
   "inbox",
   "opportunities",
@@ -4780,6 +4789,7 @@ const plazaNavButtons = Array.from(document.querySelectorAll("[data-nav-tab]"));
 const plazaFeedFilters = Array.from(document.querySelectorAll("[data-feed-filter]"));
 
 const PLAZA_SCREEN_LOADER_LABELS = {
+  explorer: "Loading Open World...",
   feed: "Loading Feed...",
   opportunities: "Loading Opportunities...",
   directory: "Loading Directory...",
@@ -6109,6 +6119,15 @@ function isPlazaDashboardScreenHydratedV26(
       screenName
     );
 
+  if (cleanScreen === "explorer") {
+    return (
+      plazaServerFeedLoaded === true &&
+      plazaServerOpportunitiesLoaded === true &&
+      plazaServerDirectoryLoaded === true &&
+      plazaServerRegionsLoaded === true
+    );
+  }
+
   if (cleanScreen === "feed") {
     return plazaServerFeedLoaded === true;
   }
@@ -6182,6 +6201,24 @@ function startPlazaDashboardScreenHydrationV26(
 
   const tasks = [];
   const silent = { silent: true };
+
+  if (cleanScreen === "explorer") {
+    if (!plazaServerFeedLoaded) {
+      tasks.push(loadPlazaFeedFromServer(silent));
+    }
+
+    if (!plazaServerOpportunitiesLoaded) {
+      tasks.push(loadPlazaOpportunitiesFromServer(silent));
+    }
+
+    if (!plazaServerDirectoryLoaded) {
+      tasks.push(loadPlazaDirectoryFromServer(silent));
+    }
+
+    if (!plazaServerRegionsLoaded) {
+      tasks.push(loadPlazaRegionsFromServer(silent));
+    }
+  }
 
   if (
     cleanScreen === "feed" &&
@@ -6899,6 +6936,194 @@ function renderPatronBenefitsPreview(item = {}) {
     </div>
   `;
 }
+
+/* PATCH: Phase 3D-FE-1 — Plazas Open World shell v1 */
+function renderPlazaExplorerScreenV1() {
+  const metricsNode = document.getElementById("plazaExplorerMetrics");
+  const zoneGrid = document.getElementById("plazaExplorerZoneGrid");
+  const questSlot = document.getElementById("plazaExplorerQuestSlot");
+  const signalsNode = document.getElementById("plazaExplorerSignals");
+
+  if (!metricsNode && !zoneGrid && !questSlot && !signalsNode) return;
+
+  const regions = safeArray(getPlazaRegionsForRender());
+  const opportunities = plazaServerOpportunitiesLoaded
+    ? safeArray(plazaServerOpportunities)
+    : safeArray(plazaAdapter.getOpportunities());
+  const directory = plazaServerDirectoryLoaded
+    ? safeArray(plazaServerDirectory)
+    : safeArray(plazaAdapter.getDirectory());
+  const feedItems = plazaServerFeedLoaded
+    ? safeArray(plazaServerFeedItems)
+    : safeArray(plazaAdapter.getFeed("all"));
+
+  if (metricsNode) {
+    const metrics = [
+      {
+        label: "Regional Zones",
+        value: regions.length,
+        note: "Existing Plaza topology"
+      },
+      {
+        label: "Opportunity Quests",
+        value: opportunities.length,
+        note: "Currently available"
+      },
+      {
+        label: "Visible Members",
+        value: directory.length,
+        note: "Current directory signal"
+      },
+      {
+        label: "World Signals",
+        value: feedItems.length,
+        note: "Current feed movement"
+      }
+    ];
+
+    metricsNode.innerHTML = metrics.map((metric) => `
+      <article>
+        <small>${escapeHtml(metric.label)}</small>
+        <strong>${Number(metric.value || 0).toLocaleString()}</strong>
+        <span>${escapeHtml(metric.note)}</span>
+      </article>
+    `).join("");
+  }
+
+  if (zoneGrid) {
+    const groups = new Map();
+
+    regions.forEach((item) => {
+      const key = String(
+        item.network ||
+        item.continent ||
+        item.region ||
+        "Global Network"
+      ).trim() || "Global Network";
+
+      const current = groups.get(key) || {
+        name: key,
+        plazas: 0,
+        countries: 0,
+        regionId: ""
+      };
+
+      current.plazas += 1;
+      current.countries += safeArray(item.countries).length;
+      current.regionId = current.regionId || String(item.id || "").trim();
+
+      groups.set(key, current);
+    });
+
+    const zones = Array.from(groups.values())
+      .sort((a, b) => {
+        if (b.plazas !== a.plazas) return b.plazas - a.plazas;
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, 6);
+
+    zoneGrid.innerHTML = zones.length
+      ? zones.map((zone, index) => `
+          <button
+            type="button"
+            class="yh-plaza-open-world-zone-v1"
+            data-plaza-open-world-screen="atlas"
+            style="--yh-zone-index:${index}"
+          >
+            <span aria-hidden="true"></span>
+            <strong>${escapeHtml(zone.name)}</strong>
+            <small>
+              ${Number(zone.plazas).toLocaleString()} Plazas
+              •
+              ${Number(zone.countries).toLocaleString()} Countries
+            </small>
+          </button>
+        `).join("")
+      : `
+          <div class="yh-plaza-open-world-empty-v1">
+            Regional topology will appear here when Plaza zone data is available.
+          </div>
+        `;
+  }
+
+  if (questSlot) {
+    const quest = opportunities[0] || null;
+
+    questSlot.innerHTML = quest
+      ? `
+          <article class="yh-plaza-open-world-featured-quest-v1">
+            <span>
+              ${escapeHtml(quest.type || "Opportunity")}
+              •
+              ${escapeHtml(quest.region || "Global")}
+            </span>
+
+            <h4>${escapeHtml(quest.title || "Plaza Opportunity")}</h4>
+
+            <p>
+              ${escapeHtml(
+                quest.text ||
+                quest.description ||
+                "Open the Opportunity Quest board to review the full route."
+              )}
+            </p>
+
+            <button type="button" data-plaza-open-world-screen="opportunities">
+              Review Quest Board
+            </button>
+          </article>
+        `
+      : `
+          <div class="yh-plaza-open-world-empty-v1">
+            <strong>No opportunity quest is available yet.</strong>
+            <span>
+              The shell will surface real Plaza opportunities here without inventing placeholder quests.
+            </span>
+            <button type="button" data-plaza-open-world-screen="opportunities">
+              Open Opportunity Board
+            </button>
+          </div>
+        `;
+  }
+
+  if (signalsNode) {
+    const signals = [
+      ...feedItems.slice(0, 2).map((item) => ({
+        label: item.type || item.tag || "Plaza Signal",
+        title: item.title || item.text || "Plaza activity",
+        meta: [item.member || item.authorName, item.region]
+          .filter(Boolean)
+          .join(" • ")
+      })),
+      ...opportunities.slice(0, 1).map((item) => ({
+        label: "Opportunity Quest",
+        title: item.title || "Plaza opportunity",
+        meta: item.region || "Global"
+      }))
+    ].slice(0, 3);
+
+    signalsNode.innerHTML = signals.length
+      ? signals.map((signal) => `
+          <article>
+            <small>${escapeHtml(signal.label)}</small>
+            <strong>${escapeHtml(signal.title)}</strong>
+            <span>${escapeHtml(signal.meta || "Plaza")}</span>
+          </article>
+        `).join("")
+      : `
+          <div class="yh-plaza-open-world-empty-v1">
+            No live Plaza signals are available yet.
+          </div>
+        `;
+  }
+}
+
+function openPlazaExplorerScreenV1(options = {}) {
+  renderPlazaExplorerScreenV1();
+  openScreen("explorer", options);
+}
+/* END PATCH: Phase 3D-FE-1 — Plazas Open World shell v1 */
+
 function renderAtlasScreen() {
   if (!plazaAtlasGrid) return;
 
@@ -9572,6 +9797,11 @@ function bindEvents() {
     button.addEventListener("click", () => {
       const targetTab = button.dataset.navTab || "feed";
 
+      if (targetTab === "explorer") {
+        openPlazaExplorerScreenV1({ resetHistory: true, pushHistory: false });
+        return;
+      }
+
       if (targetTab === "inbox") {
         openInboxScreen({ resetHistory: true, pushHistory: false });
         return;
@@ -9643,6 +9873,26 @@ function bindEvents() {
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+
+    const openWorldRoute = target.closest("[data-plaza-open-world-screen]");
+    if (openWorldRoute instanceof HTMLElement) {
+      const targetScreen = String(
+        openWorldRoute.getAttribute("data-plaza-open-world-screen") || "explorer"
+      ).trim().toLowerCase();
+
+      if (targetScreen === "explorer") {
+        openPlazaExplorerScreenV1({ resetHistory: true, pushHistory: false });
+      } else if (targetScreen === "atlas") {
+        openAtlasScreen({ resetHistory: true, pushHistory: false });
+      } else if (targetScreen === "meetups") {
+        openMeetupsScreen({ resetHistory: true, pushHistory: false });
+      } else {
+        openScreen(targetScreen, { resetHistory: true, pushHistory: false });
+        renderPlazaBootTargetScreenOnly(targetScreen);
+      }
+
+      return;
+    }
 
     if (target.matches("[data-close-modal]")) {
       closeModal();
@@ -12196,6 +12446,10 @@ function renderPlazaBootTargetScreenOnly(screenName = "feed") {
   });
 
   switch (cleanScreen) {
+    case "explorer":
+      renderPlazaExplorerScreenV1();
+      break;
+
     case "inbox":
       renderInboxScreen();
       break;
@@ -12464,6 +12718,7 @@ if (plazaRequestComposerForm) {
   };
 
   const criticalHydrationKeysByScreen = {
+    explorer: ["feed", "opportunities", "directory", "regions"],
     feed: ["feed"],
     inbox: ["requests", "messages"],
     messages: ["messages"],

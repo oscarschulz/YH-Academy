@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 <link rel="stylesheet" href="/css/style.css?v=20260720-dashboard-stable-refresh-shell-v1">
 <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260717-referral-tab-v2">
-<link rel="stylesheet" href="/css/yhu-game-system.css?v=20260723-phase3c7b-solo-mode-ui-v1">
+<link rel="stylesheet" href="/css/yhu-game-system.css?v=20260723-phase3d-fe1-open-world-shell-v1">
 <link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260710-dashboard-v2-stable-shell-owner-v1">
 
 <!-- PATCH: Dashboard state owner early paint v3 -->
@@ -228,6 +228,7 @@
                     <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="academy-voice">Live Voice</button>
                     <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="academy-profile">Profile</button>
 
+                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-explorer">Explorer</button>
                     <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-feed">Feed</button>
                     <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-inbox">Inbox</button>
                     <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-conversations">Conversations</button>
@@ -267,6 +268,7 @@
             </div>
 
             <div class="yh-mobile-subnav-group" data-yh-mobile-subnav-group="plazas">
+                <button type="button" data-yh-mobile-subtab="plazas-explorer">Explorer</button>
                 <button type="button" data-yh-mobile-subtab="plazas-feed">Feed</button>
                 <button type="button" data-yh-mobile-subtab="plazas-inbox">Inbox</button>
                 <button type="button" data-yh-mobile-subtab="plazas-conversations">Conversations</button>
@@ -456,6 +458,13 @@
         </button>
 
             <div class="yh-sidebar-subnav" id="yh-sidebar-subnav-plazas" aria-hidden="true">
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-explorer">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/plaza%20icons/plaza%20atlas.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Explorer</span>
+                </button>
+
                 <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-feed">
                     <span class="yh-sidebar-subnav-icon">
                         <img src="/assets/academy/plaza%20icons/feed.png" alt="" class="yh-sidebar-subnav-icon-img">
@@ -3907,10 +3916,10 @@
 <script src="/js/yh-shared-runtime.js?v=20260721-phase3c5a-lifecycle-v1"></script>
 
 
-<script src="/js/dashboard.js?v=20260721-child-loader-ready-gate-v1"></script>
+<script src="/js/dashboard.js?v=20260723-phase3d-fe1-open-world-shell-v1"></script>
 
 <script src="/js/yhu-game-core.js?v=20260719-squad-ranking-v1"></script>
-<script src="/js/yhu-game-dashboard.js?v=20260723-phase3c7b-solo-mode-ui-v1"></script>
+<script src="/js/yhu-game-dashboard.js?v=20260723-phase3d-fe1-open-world-shell-v1"></script>
 
 <script src="/js/dashboard-mobile-fix.js?v=20260627-yh-live-cache-v4"></script>
 </body>

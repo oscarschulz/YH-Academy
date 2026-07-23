@@ -225,6 +225,26 @@
                     ? {
                         ...soloMode.attributes
                     }
+                    : {},
+
+            streak:
+                soloMode?.streak &&
+                typeof soloMode.streak ===
+                    'object'
+                    ? {
+                        ...soloMode.streak
+                    }
+                    : {},
+
+            campaignMilestones:
+                soloMode?.campaignMilestones &&
+                typeof soloMode
+                    .campaignMilestones ===
+                    'object'
+                    ? {
+                        ...soloMode
+                            .campaignMilestones
+                    }
                     : {}
         };
 
@@ -356,6 +376,80 @@
                 )
             );
 
+        const streak =
+            soloMode?.streak &&
+            typeof soloMode.streak ===
+                'object'
+                ? soloMode.streak
+                : {};
+
+        const currentStreak =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        streak.current || 0
+                    )
+                )
+            );
+
+        const nextStreak =
+            Number.isFinite(
+                Number(
+                    streak.nextMilestone
+                )
+            )
+                ? Math.max(
+                    0,
+                    Math.round(
+                        Number(
+                            streak.nextMilestone
+                        )
+                    )
+                )
+                : null;
+
+        const campaignMilestones =
+            soloMode?.campaignMilestones &&
+            typeof soloMode
+                .campaignMilestones ===
+                'object'
+                ? soloMode
+                    .campaignMilestones
+                : {};
+
+        const latestCampaignMilestone =
+            Number.isFinite(
+                Number(
+                    campaignMilestones.latest
+                )
+            )
+                ? Math.max(
+                    0,
+                    Math.round(
+                        Number(
+                            campaignMilestones.latest
+                        )
+                    )
+                )
+                : null;
+
+        const nextCampaignMilestone =
+            Number.isFinite(
+                Number(
+                    campaignMilestones.next
+                )
+            )
+                ? Math.max(
+                    0,
+                    Math.round(
+                        Number(
+                            campaignMilestones.next
+                        )
+                    )
+                )
+                : null;
+
         return `
             <div class="yh-game-solo-preview-v1">
                 <div class="yh-game-solo-preview-head-v1">
@@ -418,6 +512,40 @@
                                 : ''
                         }
                     </strong>
+                </div>
+
+                <div class="yh-game-solo-preview-milestones-v1">
+                    <span>
+                        <small>Solo Streak</small>
+                        <strong>
+                            ${currentStreak}
+                            ${currentStreak === 1 ? 'day' : 'days'}
+                        </strong>
+                    </span>
+
+                    <span>
+                        <small>Next Streak</small>
+                        <strong>
+                            ${
+                                nextStreak
+                                    ? `${nextStreak} days`
+                                    : 'Core complete'
+                            }
+                        </strong>
+                    </span>
+
+                    <span>
+                        <small>Campaign</small>
+                        <strong>
+                            ${
+                                latestCampaignMilestone
+                                    ? `${latestCampaignMilestone}% reached`
+                                    : nextCampaignMilestone
+                                        ? `Next ${nextCampaignMilestone}%`
+                                        : 'Complete'
+                            }
+                        </strong>
+                    </span>
                 </div>
             </div>
         `;
@@ -4618,8 +4746,8 @@ function openSquadDetailsModalV1(
                 label: 'Enter Academy'
             },
             plaza: {
-                selector: '[data-yh-dashboard-shell="plazas"]',
-                label: 'Explore Plazas'
+                selector: '[data-yh-sidebar-child="plazas-explorer"]',
+                label: 'Enter Open World'
             },
             federation: {
                 selector: '[data-yh-dashboard-shell="federation"]',
@@ -4639,6 +4767,30 @@ function openSquadDetailsModalV1(
                     class="yh-game-progress-fill"
                     style="width:${safeScore}%"
                 ></span>
+            </div>
+        `;
+    }
+
+
+    function buildPlazaOpenWorldPreviewV1() {
+        return `
+            <div class="yh-game-plaza-open-world-preview-v1">
+                <div>
+                    <small>Open World Shell</small>
+                    <strong>Explorer Mode</strong>
+                </div>
+
+                <div class="yh-game-plaza-open-world-lanes-v1">
+                    <span>World Map</span>
+                    <span>Opportunity Quests</span>
+                    <span>Regional Zones</span>
+                    <span>Reputation Layer</span>
+                </div>
+
+                <p>
+                    Frontend concept is active. Reputation, quest completion,
+                    and Explorer ranks remain unwired until the backend pass.
+                </p>
             </div>
         `;
     }
@@ -4746,7 +4898,9 @@ function openSquadDetailsModalV1(
                 ${
                     division === 'academy'
                         ? buildAcademySoloModePreviewV1()
-                        : ''
+                        : division === 'plaza'
+                            ? buildPlazaOpenWorldPreviewV1()
+                            : ''
                 }
 
                 <p class="yh-game-division-status">

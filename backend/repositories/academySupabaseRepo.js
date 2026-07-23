@@ -2218,6 +2218,12 @@ const ACADEMY_SOLO_ATTRIBUTE_LABELS_V1 = Object.freeze({
     philosophy: 'Philosophy'
 });
 
+const ACADEMY_SOLO_STREAK_MILESTONES_V1 =
+    Object.freeze([3, 7, 14, 30]);
+
+const ACADEMY_SOLO_CAMPAIGN_MILESTONES_V1 =
+    Object.freeze([25, 50, 75, 100]);
+
 function academySoloEmptyAttributesV1() {
     return ACADEMY_SOLO_ATTRIBUTE_KEYS_V1.reduce(
         (out, key) => {
@@ -2479,6 +2485,512 @@ function academySoloMissionAttributesV1(mission = {}) {
     };
 }
 
+function academySoloDateKeyV1(value = '') {
+    const iso = toIso(value);
+
+    if (!iso) {
+        return '';
+    }
+
+    const date = new Date(iso);
+
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    return date.toISOString().slice(0, 10);
+}
+
+function academySoloUtcDayNumberV1(dateKey = '') {
+    const cleanDateKey =
+        sanitizeString(dateKey);
+
+    if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(
+            cleanDateKey
+        )
+    ) {
+        return null;
+    }
+
+    const date = new Date(
+        `${cleanDateKey}T00:00:00.000Z`
+    );
+
+    if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    return Math.floor(
+        date.getTime() /
+        86400000
+    );
+}
+
+function academySoloComputeStreakV1(
+    activityDates = []
+) {
+    const dates =
+        Array.from(
+            new Set(
+                (Array.isArray(activityDates)
+                    ? activityDates
+                    : [])
+                    .map(academySoloDateKeyV1)
+                    .filter(Boolean)
+            )
+        )
+            .sort();
+
+    const milestoneReachedAt = {};
+    let longest = 0;
+    let finalRunLength = 0;
+    let runLength = 0;
+    let previousDayNumber = null;
+
+    for (const dateKey of dates) {
+        const dayNumber =
+            academySoloUtcDayNumberV1(
+                dateKey
+            );
+
+        if (dayNumber === null) {
+            continue;
+        }
+
+        if (
+            previousDayNumber !== null &&
+            dayNumber === previousDayNumber + 1
+        ) {
+            runLength += 1;
+        } else {
+            runLength = 1;
+        }
+
+        previousDayNumber = dayNumber;
+        finalRunLength = runLength;
+        longest = Math.max(
+            longest,
+            runLength
+        );
+
+        for (
+            const threshold of
+            ACADEMY_SOLO_STREAK_MILESTONES_V1
+        ) {
+            if (
+                runLength >= threshold &&
+                !milestoneReachedAt[threshold]
+            ) {
+                milestoneReachedAt[threshold] =
+                    dateKey;
+            }
+        }
+    }
+
+    const lastActiveDate =
+        dates[dates.length - 1] ||
+        '';
+
+    const todayKey =
+        academySoloDateKeyV1(
+            nowIso()
+        );
+
+    const todayDayNumber =
+        academySoloUtcDayNumberV1(
+            todayKey
+        );
+
+    const lastDayNumber =
+        academySoloUtcDayNumberV1(
+            lastActiveDate
+        );
+
+    const current =
+        lastDayNumber !== null &&
+        todayDayNumber !== null &&
+        (
+            lastDayNumber === todayDayNumber ||
+            lastDayNumber === todayDayNumber - 1
+        )
+            ? finalRunLength
+            : 0;
+
+    const reached =
+        ACADEMY_SOLO_STREAK_MILESTONES_V1
+            .filter(
+                (threshold) =>
+                    longest >= threshold
+            );
+
+    const nextMilestone =
+        ACADEMY_SOLO_STREAK_MILESTONES_V1
+            .find(
+                (threshold) =>
+                    longest < threshold
+            ) ||
+        null;
+
+    return {
+        current,
+        longest,
+        lastActiveDate,
+        nextMilestone,
+        reached,
+        milestoneReachedAt
+    };
+}
+
+async function recordAcademySoloDerivedEventV1(
+    uid = '',
+    {
+        eventType = '',
+        sourceId = '',
+        roadmapId = '',
+        eventAt = '',
+        metadata = {}
+    } = {}
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    const cleanEventType =
+        sanitizeString(eventType);
+
+    const cleanSourceId =
+        sanitizeString(sourceId);
+
+    if (
+        !cleanUid ||
+        !cleanEventType ||
+        !cleanSourceId
+    ) {
+        return {
+            ok: false,
+            created: false,
+            skipped: true,
+            reason: 'missing_event_identity'
+        };
+    }
+
+    const eventId =
+        academyProgressionSafeEventIdV1(
+            `${cleanEventType}:${cleanSourceId}`
+        );
+
+    const existingRow =
+        await getOne(
+            ACADEMY_SOLO_EVENT_RECORD_TYPE,
+            cleanUid,
+            eventId
+        ).catch(() => null);
+
+    if (existingRow) {
+        return {
+            ok: true,
+            created: false,
+            skipped: false,
+            event: rowData(existingRow)
+        };
+    }
+
+    const timestamp =
+        toIso(eventAt) ||
+        nowIso();
+
+    const payload = {
+        id: eventId,
+        eventId,
+        userId: cleanUid,
+        division: 'academy',
+        mode: 'solo',
+        eventType: cleanEventType,
+        sourceId: cleanSourceId,
+        sourceType: 'academySoloProgression',
+        roadmapId:
+            sanitizeString(roadmapId),
+        growthPoints: 0,
+        attributes:
+            academySoloEmptyAttributesV1(),
+        eventAt: timestamp,
+        metadata:
+            metadata &&
+            typeof metadata === 'object'
+                ? normalizeForJson(
+                    metadata
+                )
+                : {},
+        createdAt: timestamp,
+        updatedAt: timestamp
+    };
+
+    const saved =
+        await upsertRecord(
+            ACADEMY_SOLO_EVENT_RECORD_TYPE,
+            cleanUid,
+            eventId,
+            payload,
+            {
+                insertOnly: true
+            }
+        );
+
+    if (!saved) {
+        const concurrentRow =
+            await getOne(
+                ACADEMY_SOLO_EVENT_RECORD_TYPE,
+                cleanUid,
+                eventId
+            ).catch(() => null);
+
+        return {
+            ok: true,
+            created: false,
+            skipped: false,
+            event: rowData(concurrentRow)
+        };
+    }
+
+    return {
+        ok: true,
+        created: true,
+        skipped: false,
+        event: rowData(saved)
+    };
+}
+
+async function reconcileAcademySoloMilestonesV1(
+    uid = '',
+    {
+        activeRoadmap = null,
+        missions = [],
+        events = []
+    } = {}
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    if (!cleanUid) {
+        return {
+            activityDays: 0,
+            streak: academySoloComputeStreakV1([]),
+            campaignPercentage: 0
+        };
+    }
+
+    const missionEvents =
+        (Array.isArray(events)
+            ? events
+            : [])
+            .filter(
+                (event) =>
+                    sanitizeString(
+                        event?.eventType
+                    ) ===
+                    'roadmap_mission_completed'
+            );
+
+    for (const event of missionEvents) {
+        const dateKey =
+            academySoloDateKeyV1(
+                event?.eventAt ||
+                event?.createdAt ||
+                event?.updatedAt
+            );
+
+        if (!dateKey) {
+            continue;
+        }
+
+        await recordAcademySoloDerivedEventV1(
+            cleanUid,
+            {
+                eventType:
+                    'solo_activity_day',
+                sourceId:
+                    dateKey,
+                roadmapId:
+                    event?.roadmapId ||
+                    activeRoadmap?.id ||
+                    '',
+                eventAt:
+                    event?.eventAt ||
+                    `${dateKey}T12:00:00.000Z`,
+                metadata: {
+                    activityDate:
+                        dateKey,
+                    sourceMissionId:
+                        sanitizeString(
+                            event?.sourceId
+                        )
+                }
+            }
+        );
+    }
+
+    const activityDates =
+        missionEvents
+            .map(
+                (event) =>
+                    academySoloDateKeyV1(
+                        event?.eventAt ||
+                        event?.createdAt ||
+                        event?.updatedAt
+                    )
+            )
+            .filter(Boolean);
+
+    const streak =
+        academySoloComputeStreakV1(
+            activityDates
+        );
+
+    for (
+        const threshold of
+        streak.reached
+    ) {
+        const reachedDate =
+            streak.milestoneReachedAt[
+                threshold
+            ] ||
+            streak.lastActiveDate;
+
+        await recordAcademySoloDerivedEventV1(
+            cleanUid,
+            {
+                eventType:
+                    'solo_streak_milestone',
+                sourceId:
+                    `verified:${threshold}`,
+                roadmapId:
+                    activeRoadmap?.id ||
+                    '',
+                eventAt:
+                    reachedDate
+                        ? `${reachedDate}T12:00:00.000Z`
+                        : nowIso(),
+                metadata: {
+                    threshold,
+                    label:
+                        threshold === 3
+                            ? 'Momentum'
+                            : threshold === 7
+                                ? 'Consistent Operator'
+                                : threshold === 14
+                                    ? 'Discipline Builder'
+                                    : 'Solo Campaign Veteran',
+                    activityType:
+                        'ai_verified_roadmap_mission'
+                }
+            }
+        );
+    }
+
+    const currentMissionIds =
+        new Set(
+            (Array.isArray(missions)
+                ? missions
+                : [])
+                .map(
+                    (mission) =>
+                        sanitizeString(
+                            mission?.id
+                        )
+                )
+                .filter(Boolean)
+        );
+
+    const currentVerifiedMissionIds =
+        new Set(
+            missionEvents
+                .filter(
+                    (event) =>
+                        currentMissionIds.has(
+                            sanitizeString(
+                                event?.sourceId
+                            )
+                        )
+                )
+                .map(
+                    (event) =>
+                        sanitizeString(
+                            event?.sourceId
+                        )
+                )
+                .filter(Boolean)
+        );
+
+    const total =
+        currentMissionIds.size;
+
+    const completed =
+        currentVerifiedMissionIds.size;
+
+    const campaignPercentage =
+        total > 0
+            ? Math.max(
+                0,
+                Math.min(
+                    100,
+                    Math.round(
+                        (
+                            completed /
+                            total
+                        ) *
+                        100
+                    )
+                )
+            )
+            : 0;
+
+    const roadmapId =
+        sanitizeString(
+            activeRoadmap?.id
+        ) ||
+        'no_active_roadmap';
+
+    for (
+        const threshold of
+        ACADEMY_SOLO_CAMPAIGN_MILESTONES_V1
+    ) {
+        if (
+            campaignPercentage <
+            threshold
+        ) {
+            continue;
+        }
+
+        await recordAcademySoloDerivedEventV1(
+            cleanUid,
+            {
+                eventType:
+                    'solo_campaign_milestone',
+                sourceId:
+                    `${roadmapId}:${threshold}`,
+                roadmapId:
+                    activeRoadmap?.id ||
+                    '',
+                eventAt:
+                    nowIso(),
+                metadata: {
+                    threshold,
+                    campaignPercentage,
+                    completed,
+                    total
+                }
+            }
+        );
+    }
+
+    return {
+        activityDays:
+            new Set(activityDates).size,
+        streak,
+        campaignPercentage
+    };
+}
+
 async function recordAcademySoloMissionCompletionV1(
     uid = '',
     mission = {}
@@ -2659,16 +3171,98 @@ function buildAcademySoloModeSummaryV1({
 
     const verifiedMissionIds = new Set();
     const currentCampaignMissionIds = new Set();
+    const activityDates = new Set();
+    const storedCampaignMilestones = new Set();
     let totalGrowthPoints = 0;
 
     for (const event of Array.isArray(events) ? events : []) {
+        const eventType =
+            sanitizeString(
+                event?.eventType
+            );
+
         if (
-            sanitizeString(event?.eventType) !==
+            eventType ===
+            'solo_activity_day'
+        ) {
+            const dateKey =
+                sanitizeString(
+                    event?.metadata
+                        ?.activityDate
+                ) ||
+                academySoloDateKeyV1(
+                    event?.eventAt
+                );
+
+            if (dateKey) {
+                activityDates.add(
+                    dateKey
+                );
+            }
+
+            continue;
+        }
+
+        if (
+            eventType ===
+            'solo_campaign_milestone'
+        ) {
+            const eventRoadmapId =
+                sanitizeString(
+                    event?.roadmapId
+                );
+
+            const currentRoadmapId =
+                sanitizeString(
+                    activeRoadmap?.id
+                );
+
+            const threshold =
+                Math.round(
+                    toNumber(
+                        event?.metadata
+                            ?.threshold,
+                        0
+                    )
+                );
+
+            if (
+                currentRoadmapId &&
+                eventRoadmapId ===
+                    currentRoadmapId &&
+                ACADEMY_SOLO_CAMPAIGN_MILESTONES_V1
+                    .includes(
+                        threshold
+                    )
+            ) {
+                storedCampaignMilestones
+                    .add(
+                        threshold
+                    );
+            }
+
+            continue;
+        }
+
+        if (
+            eventType !==
             'roadmap_mission_completed'
         ) {
             continue;
         }
 
+        const missionDate =
+            academySoloDateKeyV1(
+                event?.eventAt ||
+                event?.createdAt ||
+                event?.updatedAt
+            );
+
+        if (missionDate) {
+            activityDates.add(
+                missionDate
+            );
+        }
         const sourceId = sanitizeString(event?.sourceId);
 
         if (sourceId) {
@@ -2752,8 +3346,37 @@ function buildAcademySoloModeSummaryV1({
             }
             : null;
 
+    const streak =
+        academySoloComputeStreakV1(
+            Array.from(
+                activityDates
+            )
+        );
+
+    const reachedCampaignMilestones =
+        ACADEMY_SOLO_CAMPAIGN_MILESTONES_V1
+            .filter(
+                (threshold) =>
+                    storedCampaignMilestones
+                        .has(
+                            threshold
+                        ) ||
+                    percentage >= threshold
+            );
+
+    const nextCampaignMilestone =
+        ACADEMY_SOLO_CAMPAIGN_MILESTONES_V1
+            .find(
+                (threshold) =>
+                    !reachedCampaignMilestones
+                        .includes(
+                            threshold
+                        )
+            ) ||
+        null;
+
     return {
-        version: 'academy-solo-mode-v1',
+        version: 'academy-solo-mode-v2',
         mode: 'solo',
         campaign: {
             roadmapId: sanitizeString(activeRoadmap?.id),
@@ -2769,6 +3392,34 @@ function buildAcademySoloModeSummaryV1({
         strongestGrowthArea,
         totalGrowthPoints,
         verifiedMissionCount: verifiedMissionIds.size,
+
+        streak: {
+            current:
+                streak.current,
+            longest:
+                streak.longest,
+            lastActiveDate:
+                streak.lastActiveDate,
+            nextMilestone:
+                streak.nextMilestone,
+            reached:
+                streak.reached
+        },
+
+        campaignMilestones: {
+            reached:
+                reachedCampaignMilestones,
+            latest:
+                reachedCampaignMilestones[
+                    reachedCampaignMilestones.length - 1
+                ] ||
+                null,
+            next:
+                nextCampaignMilestone,
+            complete:
+                percentage >= 100
+        },
+
         eventCount: Array.isArray(events)
             ? events.length
             : 0,
@@ -3193,10 +3844,33 @@ async function syncAcademyProgressionFromCurrentStateV1(
     const rank = academyProgressionRankFromXpV1(totalXp);
     const level = academyProgressionLevelFromXpV1(totalXp);
 
-    const soloEvents = await listAcademySoloEventsV1(
+    let soloEvents = await listAcademySoloEventsV1(
         cleanUid,
         500
     ).catch(() => []);
+
+    await reconcileAcademySoloMilestonesV1(
+        cleanUid,
+        {
+            activeRoadmap,
+            missions,
+            events: soloEvents
+        }
+    ).catch((error) => {
+        /*
+         * Streak and milestone projection must never block
+         * the canonical Academy progression response.
+         */
+        console.warn(
+            'Academy Solo milestone reconciliation skipped:',
+            error?.message || error
+        );
+    });
+
+    soloEvents = await listAcademySoloEventsV1(
+        cleanUid,
+        500
+    ).catch(() => soloEvents);
 
     const soloMode = buildAcademySoloModeSummaryV1({
         activeRoadmap,

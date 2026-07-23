@@ -619,6 +619,7 @@ function buildPlazaUrl() {
 
 /* PATCH: Dashboard Plazas child tab icon assets v1 */
 const DASHBOARD_PLAZA_ICON_ASSETS = Object.freeze({
+    explorer: '/assets/academy/plaza%20icons/plaza%20atlas.png',
     feed: '/assets/academy/plaza%20icons/feed.png',
     inbox: '/assets/academy/plaza%20icons/inbox.png',
     conversations: '/assets/academy/plaza%20icons/conversations.png',
@@ -671,6 +672,7 @@ function getDashboardCurrentPlazaIconKeyFromFrame(frame) {
 }
 
 const DASHBOARD_PLAZA_ICON_LABELS = Object.freeze({
+    explorer: 'Explorer',
     feed: 'Feed',
     inbox: 'Inbox',
     conversations: 'Conversations',
@@ -13008,6 +13010,19 @@ const dashboardUnifiedWorkspaceCopy = {
         mode: 'Movement Hub',
         stage: 'Plazas Preview'
     },
+    'plazas-explorer': {
+        key: 'plazas-explorer',
+        division: 'plazas',
+        kicker: 'Plazas / Open World',
+        title: 'PLAZA EXPLORER',
+        intro: 'Open World command shell for zones, quests, members, meetups, and bridge routes.',
+        eyebrow: 'Open World Mode',
+        headline: 'Explore the active movement layer.',
+        body: 'This frontend shell connects the existing Plaza screens into one game-oriented Explorer experience without changing their current workflows.',
+        focus: 'World Map',
+        mode: 'Open World',
+        stage: 'Frontend Concept'
+    },
     'plazas-feed': {
         key: 'plazas-feed',
         division: 'plazas',
@@ -13575,6 +13590,17 @@ const dashboardUnifiedWorkspaceLaunchMap = {
         plazaScreen: 'feed',
         buttonText: 'Open Plazas →',
         loadingLabel: 'Opening Plazas...'
+    },
+    'plazas-explorer': {
+        division: 'plazas',
+        title: 'Open Plaza Explorer',
+        kicker: 'Plazas / Open World',
+        copy: 'Enter the frontend Open World shell for regional zones, opportunity quests, member discovery, meetups, and bridge routes.',
+        routeLabel: '/plaza.html?tab=explorer',
+        url: '/plaza.html?tab=explorer',
+        plazaScreen: 'explorer',
+        buttonText: 'Enter Open World →',
+        loadingLabel: 'Opening Plaza Explorer...'
     },
     'plazas-feed': {
         division: 'plazas',
