@@ -4144,3 +4144,615 @@ body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaz
 }
 /* END PATCH: Phase 3D-FE-1 — Plazas Open World shell v1 */
 
+/* ========================================================= */
+/* PHASE 3D-FE-2 — PLAZA OPPORTUNITY QUEST SYSTEM             */
+/* Frontend presentation only; existing business actions stay */
+/* ========================================================= */
+.yh-plaza-quest-board-head-v1 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.55fr);
+  gap: 18px;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+
+.yh-plaza-quest-board-copy-v1,
+.yh-plaza-quest-board-summary-v1,
+.yh-plaza-quest-wiring-note-v1,
+.yh-plaza-quest-card-v1,
+.yh-plaza-quest-briefing-hero-v1 {
+  border: 1px solid rgba(var(--yh-accent-rgb), 0.18);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(var(--yh-accent-rgb), 0.11), transparent 38%),
+    rgba(3, 8, 20, 0.78);
+}
+
+.yh-plaza-quest-board-copy-v1 {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+}
+
+.yh-plaza-quest-board-copy-v1 h2 {
+  margin: 0;
+  color: #ffffff;
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-size: clamp(1.55rem, 2.2vw, 2.25rem);
+  line-height: 1;
+}
+
+.yh-plaza-quest-board-copy-v1 p {
+  margin: 0;
+  color: var(--yh-text-dim);
+  line-height: 1.65;
+}
+
+.yh-plaza-quest-board-summary-v1 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 16px;
+}
+
+.yh-plaza-quest-board-summary-v1 span {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--yh-text-dim);
+  font-size: 0.82rem;
+}
+
+.yh-plaza-quest-board-summary-v1 b {
+  color: #ffffff;
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 1.25rem;
+}
+
+.yh-plaza-quest-filter-bar-v1 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.yh-plaza-quest-filter-bar-v1 button {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 13px;
+  border: 1px solid rgba(var(--yh-accent-rgb), 0.16);
+  background: rgba(3, 8, 20, 0.68);
+  color: var(--yh-text-dim);
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.yh-plaza-quest-filter-bar-v1 button:hover,
+.yh-plaza-quest-filter-bar-v1 button.is-active {
+  border-color: rgba(var(--yh-accent-rgb), 0.42);
+  background: rgba(var(--yh-accent-rgb), 0.13);
+  color: #ffffff;
+}
+
+.yh-plaza-quest-filter-bar-v1 b {
+  min-width: 24px;
+  display: inline-grid;
+  place-items: center;
+  padding: 3px 6px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--yh-accent-2);
+  font-size: 0.75rem;
+}
+
+.yh-plaza-quest-wiring-note-v1 {
+  margin-bottom: 14px;
+  padding: 13px 15px;
+  color: var(--yh-text-dim);
+  line-height: 1.55;
+}
+
+.yh-plaza-quest-wiring-note-v1 strong {
+  color: #ffffff;
+}
+
+.yh-plaza-quest-composer-v1 {
+  margin-top: 0;
+}
+
+.yh-plaza-quest-card-v1 {
+  position: relative;
+  gap: 14px;
+}
+
+.yh-plaza-quest-card-top-v1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.yh-plaza-quest-class-v1,
+.yh-plaza-quest-state-v1 {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 7px 10px;
+  border: 1px solid rgba(var(--yh-accent-rgb), 0.22);
+  background: rgba(var(--yh-accent-rgb), 0.09);
+  color: var(--yh-accent-2);
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.yh-plaza-quest-state-v1 {
+  border-color: rgba(74, 222, 128, 0.24);
+  background: rgba(34, 197, 94, 0.09);
+  color: #86efac;
+  text-align: right;
+}
+
+.yh-plaza-quest-card-v1[data-quest-state="completed"] .yh-plaza-quest-state-v1,
+.yh-plaza-quest-card-v1[data-quest-state="active-deal"] .yh-plaza-quest-state-v1 {
+  border-color: rgba(103, 232, 249, 0.34);
+  background: rgba(56, 189, 248, 0.12);
+  color: #a5f3fc;
+}
+
+.yh-plaza-quest-card-v1[data-quest-state="closed"] .yh-plaza-quest-state-v1,
+.yh-plaza-quest-card-v1[data-quest-state="expired"] .yh-plaza-quest-state-v1 {
+  border-color: rgba(248, 113, 113, 0.28);
+  background: rgba(127, 29, 29, 0.13);
+  color: #fecaca;
+}
+
+.yh-plaza-quest-card-copy-v1 {
+  display: grid;
+  gap: 8px;
+}
+
+.yh-plaza-quest-card-copy-v1 h3,
+.yh-plaza-quest-card-copy-v1 p {
+  margin: 0;
+}
+
+.yh-plaza-quest-card-copy-v1 p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+.yh-plaza-quest-facts-v1,
+.yh-plaza-quest-detail-list-v1 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.yh-plaza-quest-fact-v1 {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.yh-plaza-quest-fact-v1 small,
+.yh-plaza-quest-requirement-v1 small,
+.yh-plaza-quest-reward-callout-v1 small,
+.yh-plaza-quest-briefing-state-v1 small {
+  color: var(--yh-text-dim);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.yh-plaza-quest-fact-v1 strong,
+.yh-plaza-quest-requirement-v1 strong {
+  min-width: 0;
+  color: var(--yh-text-soft);
+  font-size: 0.88rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.yh-plaza-quest-requirement-v1 {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border-left: 2px solid rgba(var(--yh-accent-rgb), 0.52);
+  background: rgba(var(--yh-accent-rgb), 0.055);
+}
+
+.yh-plaza-quest-chip-row-v1 {
+  margin-top: 0;
+}
+
+.yh-plaza-quest-briefing-btn-v1 {
+  flex: 1 1 190px;
+}
+
+.yh-plaza-quest-empty-v1 {
+  grid-column: 1 / -1;
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.yh-plaza-quest-briefing-hero-v1 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(200px, 0.6fr);
+  gap: 18px;
+  align-items: center;
+  padding: 20px;
+}
+
+.yh-plaza-quest-briefing-hero-v1 > div:first-child {
+  display: grid;
+  gap: 8px;
+}
+
+.yh-plaza-quest-briefing-hero-v1 > div:first-child > span {
+  color: var(--yh-accent-2);
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.yh-plaza-quest-briefing-hero-v1 h3,
+.yh-plaza-quest-briefing-hero-v1 p {
+  margin: 0;
+}
+
+.yh-plaza-quest-briefing-hero-v1 h3 {
+  color: #ffffff;
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-size: clamp(1.55rem, 2vw, 2.2rem);
+  line-height: 1;
+}
+
+.yh-plaza-quest-briefing-hero-v1 p {
+  color: var(--yh-text-dim);
+  line-height: 1.65;
+}
+
+.yh-plaza-quest-briefing-state-v1 {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid rgba(var(--yh-accent-rgb), 0.18);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.yh-plaza-quest-briefing-state-v1 strong {
+  color: #ffffff;
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-size: 1.55rem;
+}
+
+.yh-plaza-quest-briefing-state-v1 span {
+  color: var(--yh-accent-2);
+}
+
+.yh-plaza-quest-detail-grid-v1 .yh-plaza-detail-block {
+  min-width: 0;
+}
+
+.yh-plaza-quest-reward-callout-v1 {
+  display: grid;
+  gap: 5px;
+  margin: 12px 0;
+  padding: 14px;
+  border: 1px solid rgba(250, 204, 21, 0.2);
+  background: rgba(133, 77, 14, 0.09);
+}
+
+.yh-plaza-quest-reward-callout-v1 strong {
+  color: #fde68a;
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-size: 1.35rem;
+}
+
+@media (max-width: 1180px) {
+  .yh-plaza-quest-board-head-v1,
+  .yh-plaza-quest-briefing-hero-v1 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .yh-plaza-quest-board-copy-v1,
+  .yh-plaza-quest-board-summary-v1,
+  .yh-plaza-quest-briefing-hero-v1 {
+    padding: 15px;
+  }
+
+  .yh-plaza-quest-board-summary-v1,
+  .yh-plaza-quest-facts-v1,
+  .yh-plaza-quest-detail-list-v1 {
+    grid-template-columns: 1fr;
+  }
+
+  .yh-plaza-quest-filter-bar-v1 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .yh-plaza-quest-filter-bar-v1 button {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .yh-plaza-quest-card-top-v1 {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .yh-plaza-quest-state-v1 {
+    text-align: left;
+  }
+}
+/* END PHASE 3D-FE-2 — PLAZA OPPORTUNITY QUEST SYSTEM */
+
+/* ========================================================= */
+/* PHASE 3D-FE-3 — PLAZA REPUTATION + EXPLORER PROGRESSION   */
+/* Frontend concept only; verified reputation remains unwired  */
+/* ========================================================= */
+
+.yh-plaza-explorer-profile-v2 {
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.yh-plaza-explorer-profile-head-v2 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.yh-plaza-explorer-profile-head-v2 > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.yh-plaza-explorer-profile-head-v2 > div > span,
+.yh-plaza-explorer-profile-stats-v2 small,
+.yh-plaza-explorer-zone-state-v2 {
+  color: #a78bfa;
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.yh-plaza-explorer-profile-head-v2 strong {
+  color: #ffffff;
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-size: clamp(1.45rem, 2vw, 2rem);
+  line-height: 1;
+}
+
+.yh-plaza-explorer-profile-stats-v2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.yh-plaza-explorer-profile-stats-v2 > span {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 11px;
+  border: 1px solid rgba(167, 139, 250, 0.15);
+  background: rgba(139, 92, 246, 0.055);
+}
+
+.yh-plaza-explorer-profile-stats-v2 b {
+  min-width: 0;
+  color: #ffffff;
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
+.yh-plaza-explorer-progression-grid-v2 {
+  align-items: stretch;
+}
+
+.yh-plaza-explorer-rank-path-v2 {
+  display: grid;
+  gap: 8px;
+}
+
+.yh-plaza-explorer-rank-path-v2 article {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 11px;
+  align-items: center;
+  padding: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+  opacity: 0.62;
+}
+
+.yh-plaza-explorer-rank-path-v2 article.is-current {
+  opacity: 1;
+  border-color: rgba(167, 139, 250, 0.35);
+  background:
+    radial-gradient(circle at 100% 0, rgba(139, 92, 246, 0.17), transparent 40%),
+    rgba(139, 92, 246, 0.08);
+}
+
+.yh-plaza-explorer-rank-path-v2 b {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  color: #c4b5fd;
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 0.76rem;
+}
+
+.yh-plaza-explorer-rank-path-v2 article > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.yh-plaza-explorer-rank-path-v2 strong {
+  color: #ffffff;
+}
+
+.yh-plaza-explorer-rank-path-v2 small {
+  color: #8fa3bd;
+  line-height: 1.45;
+}
+
+.yh-plaza-explorer-reputation-grid-v2 {
+  display: grid;
+  gap: 8px;
+}
+
+.yh-plaza-explorer-reputation-grid-v2 article {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.yh-plaza-explorer-reputation-grid-v2 article > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.yh-plaza-explorer-reputation-grid-v2 strong {
+  color: #ffffff;
+}
+
+.yh-plaza-explorer-reputation-grid-v2 small {
+  color: #8fa3bd;
+  line-height: 1.45;
+}
+
+.yh-plaza-explorer-reputation-grid-v2 article > span {
+  color: #facc15;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.yh-plaza-explorer-activity-log-v2 {
+  display: grid;
+  gap: 8px;
+}
+
+.yh-plaza-explorer-activity-log-v2 article {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label value"
+    "state state";
+  gap: 4px 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.yh-plaza-explorer-activity-log-v2 span {
+  grid-area: label;
+  color: #dff7ff;
+  font-weight: 700;
+}
+
+.yh-plaza-explorer-activity-log-v2 strong {
+  grid-area: value;
+  color: #ffffff;
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+}
+
+.yh-plaza-explorer-activity-log-v2 small {
+  grid-area: state;
+  color: #8fa3bd;
+}
+
+.yh-plaza-open-world-zone-v1 > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.yh-plaza-open-world-zone-v1.is-home {
+  border-color: rgba(34, 197, 94, 0.38);
+  background:
+    radial-gradient(circle at 100% 0, rgba(34, 197, 94, 0.15), transparent 40%),
+    rgba(3, 8, 20, 0.78);
+}
+
+.yh-plaza-open-world-zone-v1.is-home .yh-plaza-explorer-zone-state-v2 {
+  color: #86efac;
+}
+
+.yh-plaza-open-world-zone-v1.is-discovered {
+  border-color: rgba(56, 189, 248, 0.32);
+}
+
+.yh-plaza-open-world-zone-v1.is-available {
+  opacity: 0.86;
+}
+
+.yh-plaza-explorer-active-quest-meta-v2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.yh-plaza-explorer-active-quest-meta-v2 small {
+  padding: 7px 9px;
+  border: 1px solid rgba(167, 139, 250, 0.16);
+  background: rgba(139, 92, 246, 0.055);
+  color: #c4b5fd;
+}
+
+@media (max-width: 720px) {
+  .yh-plaza-explorer-profile-head-v2 {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .yh-plaza-explorer-profile-stats-v2 {
+    grid-template-columns: 1fr;
+  }
+
+  .yh-plaza-explorer-reputation-grid-v2 article {
+    align-items: start;
+    grid-template-columns: 1fr;
+  }
+
+  .yh-plaza-explorer-reputation-grid-v2 article > span {
+    white-space: normal;
+  }
+}
+
+/* END PHASE 3D-FE-3 — PLAZA REPUTATION + EXPLORER PROGRESSION */
+

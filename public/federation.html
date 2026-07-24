@@ -15,7 +15,7 @@
     href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/federation.css?v=20260714-federation-child-layout-v83" />
+<link rel="stylesheet" href="/css/federation.css?v=20260724-phase3e-fe3-council-governance-diplomacy-v1" />
 <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260714-federation-command-shell-v219" />
 </head>
 <body data-yh-view="federation" data-yh-page="federation">
@@ -680,13 +680,301 @@
             </section>
 
       <section class="fed-section is-active-panel" id="command" data-section="command">
-        <div class="fed-section-head">
-          <div class="fed-kicker">Member Layer</div>
-          <h3>Federation Command</h3>
+        <div class="fed-section-head fed-strategic-command-heading-v1">
+          <div class="fed-kicker">Strategy Mode</div>
+          <h3>Federation Strategic Command</h3>
           <p>
-            Approved members operate from here. This layer is for referrals, regional leverage,
-            strategic positioning, and controlled access rather than public-facing browsing.
+            Coordinate leadership, diplomacy, controlled introductions, deal rooms, and regional
+            leverage without replacing the Federation's existing member and access workflows.
           </p>
+        </div>
+
+        <div class="fed-strategic-command-shell-v1" id="federationStrategicCommandV1">
+          <header class="fed-strategic-hero-v1">
+            <div class="fed-strategic-hero-copy-v1">
+              <span>Federation Strategy Mode</span>
+              <h4>Move from access to strategic positioning.</h4>
+              <p>
+                Read the current network, choose the correct Federation lane, and move one serious
+                operation forward. Influence, promotions, and council authority remain unwired until
+                the later backend progression pass.
+              </p>
+
+              <div class="fed-strategic-hero-actions-v1">
+                <button class="fed-btn fed-btn-primary" type="button" data-jump="#deal-rooms">
+                  Review Operations
+                </button>
+                <button class="fed-btn fed-btn-secondary" type="button" data-jump="#connect">
+                  Open Diplomacy Lane
+                </button>
+              </div>
+            </div>
+
+            <aside class="fed-strategic-profile-v1" aria-label="Federation strategic profile preview">
+              <div class="fed-strategic-profile-head-v1">
+                <div>
+                  <small>Strategic Profile</small>
+                  <strong id="fedStrategicRankV1">Observer</strong>
+                </div>
+                <span>Frontend Preview</span>
+              </div>
+
+              <div class="fed-strategic-profile-grid-v1">
+                <span>
+                  <small>Home Region</small>
+                  <b id="fedStrategicRegionV1">Not established</b>
+                </span>
+                <span>
+                  <small>Active Operations</small>
+                  <b id="fedStrategicOperationsV1">0</b>
+                </span>
+                <span>
+                  <small>Strategic Alerts</small>
+                  <b id="fedStrategicAlertsV1">0</b>
+                </span>
+                <span>
+                  <small>Influence</small>
+                  <b>Wiring pending</b>
+                </span>
+              </div>
+            </aside>
+          </header>
+
+          <section class="fed-strategic-metrics-v1" id="fedStrategicMetricsV1" aria-label="Federation strategic signals"></section>
+
+          <div class="fed-strategic-grid-v1">
+            <section class="fed-strategic-card-v1 fed-strategic-operation-v1">
+              <div class="fed-strategic-card-head-v1">
+                <div>
+                  <span>Active Operation</span>
+                  <h4>Current strategic next move</h4>
+                </div>
+                <button type="button" data-jump="#deal-rooms">Open Deal Rooms</button>
+              </div>
+              <div id="fedStrategicOperationSlotV1"></div>
+            </section>
+
+            <section class="fed-strategic-card-v1">
+              <div class="fed-strategic-card-head-v1">
+                <div>
+                  <span>Strategic Network</span>
+                  <h4>Regional command signals</h4>
+                </div>
+                <button type="button" data-jump="#directory">Open Directory</button>
+              </div>
+              <div class="fed-strategic-region-grid-v1" id="fedStrategicRegionGridV1"></div>
+            </section>
+          </div>
+
+          <section class="fed-strategic-operations-board-v2" aria-label="Federation strategic operations board">
+            <div class="fed-strategic-card-head-v1 fed-strategic-operations-head-v2">
+              <div>
+                <span>Strategic Operations Board</span>
+                <h4>Convert current Federation activity into visible operation states</h4>
+              </div>
+              <span class="fed-strategic-preview-badge-v1">Frontend Framework</span>
+            </div>
+
+            <div class="fed-strategic-operation-summary-v2" id="fedStrategicOperationSummaryV2"></div>
+
+            <div class="fed-strategic-operation-filters-v2" id="fedStrategicOperationFiltersV2" aria-label="Operation filters">
+              <button type="button" class="is-active" data-fed-operation-filter="all">All</button>
+              <button type="button" data-fed-operation-filter="active">Active</button>
+              <button type="button" data-fed-operation-filter="deal-rooms">Deal Rooms</button>
+              <button type="button" data-fed-operation-filter="diplomacy">Diplomacy</button>
+              <button type="button" data-fed-operation-filter="review">Review</button>
+            </div>
+
+            <div class="fed-strategic-operation-board-v2" id="fedStrategicOperationsBoardV2"></div>
+
+            <p class="fed-strategic-disclaimer-v1">
+              Operation phases, risk labels, and lane classifications are derived from current Deal Room,
+              Connect, and request statuses. No new operation record, influence reward, or completion ledger is created here.
+            </p>
+          </section>
+
+          <div class="fed-strategic-grid-v1 fed-strategic-influence-layout-v2">
+            <section class="fed-strategic-card-v1">
+              <div class="fed-strategic-card-head-v1">
+                <div>
+                  <span>Influence Framework</span>
+                  <h4>Strategic capability categories</h4>
+                </div>
+                <span class="fed-strategic-preview-badge-v1">Wiring Pending</span>
+              </div>
+
+              <div class="fed-strategic-influence-grid-v2" id="fedStrategicInfluenceGridV2"></div>
+
+              <p class="fed-strategic-disclaimer-v1">
+                Existing activity can provide source signals, but no influence points, promotions, or authority are being awarded yet.
+              </p>
+            </section>
+
+            <section class="fed-strategic-card-v1">
+              <div class="fed-strategic-card-head-v1">
+                <div>
+                  <span>Operation Lifecycle</span>
+                  <h4>Planned strategic phases</h4>
+                </div>
+                <span class="fed-strategic-preview-badge-v1">Status Derived</span>
+              </div>
+
+              <div class="fed-strategic-phase-path-v2" id="fedStrategicPhasePathV2">
+                <article><b>01</b><div><strong>Intelligence Gathering</strong><small>Read the request, opportunity, region, and constraints.</small></div></article>
+                <article><b>02</b><div><strong>Formation</strong><small>Identify participants and establish the protected route.</small></div></article>
+                <article><b>03</b><div><strong>Negotiation</strong><small>Align terms, expectations, price, and strategic fit.</small></div></article>
+                <article><b>04</b><div><strong>Execution</strong><small>Move the active operation through the agreed action.</small></div></article>
+                <article><b>05</b><div><strong>Review</strong><small>Validate outcome, settlement, and strategic value.</small></div></article>
+                <article><b>06</b><div><strong>Completed</strong><small>Preserve the result for the later influence ledger.</small></div></article>
+              </div>
+            </section>
+          </div>
+
+          <section class="fed-strategic-lanes-v1" aria-label="Federation command lanes">
+            <button type="button" data-jump="#deal-rooms">
+              <span>Operations Lane</span>
+              <strong>Deal Rooms</strong>
+              <small>Review partnerships, collaborations, and supervised strategic work.</small>
+            </button>
+            <button type="button" data-jump="#connect">
+              <span>Diplomacy Lane</span>
+              <strong>Strategic Connect</strong>
+              <small>Request controlled introductions and protected network access.</small>
+            </button>
+            <button type="button" data-jump="#requests">
+              <span>Intelligence Lane</span>
+              <strong>Request Pipeline</strong>
+              <small>Track pending, reviewed, matched, and completed network moves.</small>
+            </button>
+            <button type="button" data-jump="#referrals">
+              <span>Council Lane</span>
+              <strong>Trusted Referrals</strong>
+              <small>Route qualified people into the Federation review pipeline.</small>
+            </button>
+          </section>
+
+          <div class="fed-strategic-grid-v1 fed-strategic-rank-grid-v1">
+            <section class="fed-strategic-card-v1">
+              <div class="fed-strategic-card-head-v1">
+                <div>
+                  <span>Federation Rank Path</span>
+                  <h4>Leadership progression</h4>
+                </div>
+                <span class="fed-strategic-preview-badge-v1">Frontend Preview</span>
+              </div>
+
+              <div class="fed-strategic-rank-path-v1" id="fedStrategicRankPathV1">
+                <article data-fed-strategic-rank="observer"><b>01</b><div><strong>Observer</strong><small>Federation access not yet active.</small></div></article>
+                <article data-fed-strategic-rank="delegate"><b>02</b><div><strong>Delegate</strong><small>Approved Federation member starting state.</small></div></article>
+                <article data-fed-strategic-rank="representative"><b>03</b><div><strong>Representative</strong><small>Verified strategic contribution.</small></div></article>
+                <article data-fed-strategic-rank="strategist"><b>04</b><div><strong>Strategist</strong><small>Consistent cross-network outcomes.</small></div></article>
+                <article data-fed-strategic-rank="council-member"><b>05</b><div><strong>Council Member</strong><small>Trusted governance participation.</small></div></article>
+                <article data-fed-strategic-rank="regional-leader"><b>06</b><div><strong>Regional Leader</strong><small>Verified regional leadership.</small></div></article>
+                <article data-fed-strategic-rank="federation-commander"><b>07</b><div><strong>Federation Commander</strong><small>Cross-region strategic authority.</small></div></article>
+              </div>
+            </section>
+
+            <section class="fed-strategic-card-v1">
+              <div class="fed-strategic-card-head-v1">
+                <div>
+                  <span>Command Status</span>
+                  <h4>Current strategic readiness</h4>
+                </div>
+                <span class="fed-strategic-preview-badge-v1">Unwired</span>
+              </div>
+
+              <div class="fed-strategic-readiness-v1" id="fedStrategicReadinessV1"></div>
+
+              <p class="fed-strategic-disclaimer-v1">
+                Existing Federation requests, referrals, deal rooms, access, and directory actions remain active.
+                Influence points, council standing, alliances, and automatic rank promotion are not being awarded yet.
+              </p>
+            </section>
+          </div>
+
+          <section class="fed-strategic-council-shell-v3" aria-label="Federation council chamber preview">
+            <div class="fed-strategic-card-head-v1 fed-strategic-council-head-v3">
+              <div>
+                <span>Council Chamber</span>
+                <h4>Read governance signals without inventing council authority</h4>
+              </div>
+              <span class="fed-strategic-preview-badge-v1">Frontend Framework</span>
+            </div>
+
+            <div class="fed-strategic-council-metrics-v3" id="fedStrategicCouncilMetricsV3"></div>
+
+            <p class="fed-strategic-disclaimer-v1">
+              Council standing, seats, votes, decisions, and governance authority are not active.
+              This chamber only organizes source signals already visible in Federation records.
+            </p>
+          </section>
+
+          <div class="fed-strategic-grid-v1 fed-strategic-governance-layout-v3">
+            <section class="fed-strategic-card-v1">
+              <div class="fed-strategic-card-head-v1">
+                <div>
+                  <span>Governance Framework</span>
+                  <h4>Planned strategic review path</h4>
+                </div>
+                <span class="fed-strategic-preview-badge-v1">Authority Unwired</span>
+              </div>
+
+              <div class="fed-strategic-governance-framework-v3" id="fedStrategicGovernanceFrameworkV3"></div>
+
+              <p class="fed-strategic-disclaimer-v1">
+                No proposal vote, council review action, approval permission, or governance record is created by this interface.
+              </p>
+            </section>
+
+            <section class="fed-strategic-card-v1">
+              <div class="fed-strategic-card-head-v1">
+                <div>
+                  <span>Regional Concerns</span>
+                  <h4>Signals requiring strategic attention</h4>
+                </div>
+                <button type="button" data-jump="#requests">Open Requests</button>
+              </div>
+
+              <div class="fed-strategic-regional-concerns-v3" id="fedStrategicRegionalConcernsV3"></div>
+            </section>
+          </div>
+
+          <section class="fed-strategic-diplomacy-shell-v3" aria-label="Federation diplomacy board">
+            <div class="fed-strategic-card-head-v1 fed-strategic-diplomacy-head-v3">
+              <div>
+                <span>Diplomacy Board</span>
+                <h4>Track introductions, requests, relationships, and strategic handoffs</h4>
+              </div>
+              <button type="button" data-jump="#connect">Open Strategic Connect</button>
+            </div>
+
+            <div class="fed-strategic-diplomacy-summary-v3" id="fedStrategicDiplomacySummaryV3"></div>
+            <div class="fed-strategic-diplomacy-board-v3" id="fedStrategicDiplomacyBoardV3"></div>
+
+            <p class="fed-strategic-disclaimer-v1">
+              Relationship and alliance labels are source-signal summaries only. No alliance, diplomatic status,
+              negotiation authority, or protected contact access is granted here.
+            </p>
+          </section>
+
+          <section class="fed-strategic-regional-shell-v3" aria-label="Federation regional strategy map">
+            <div class="fed-strategic-card-head-v1 fed-strategic-regional-head-v3">
+              <div>
+                <span>Regional Strategy Map</span>
+                <h4>See where members, operations, and diplomacy signals intersect</h4>
+              </div>
+              <button type="button" data-jump="#directory">Open Directory</button>
+            </div>
+
+            <div class="fed-strategic-regional-map-v3" id="fedStrategicRegionalMapV3"></div>
+
+            <div class="fed-strategic-regional-relationships-v3" id="fedStrategicRegionalRelationshipsV3"></div>
+
+            <p class="fed-strategic-disclaimer-v1">
+              Regions are derived from current member, Deal Room, and Connect records. No territory ownership,
+              alliance control, regional command permission, or season state is created.
+            </p>
+          </section>
         </div>
 
         <div class="fed-command-layout" id="memberCommandPanel"></div>
@@ -1637,6 +1925,6 @@
     </aside>
   </div>
 
-<script src="/js/federation.js?v=20260717-federation-deadlock-fix-v111"></script>
+<script src="/js/federation.js?v=20260724-phase3e-fe3-council-governance-diplomacy-v1"></script>
 </body>
 </html>

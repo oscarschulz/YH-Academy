@@ -1162,6 +1162,10 @@ async function loadFederationServerState(options = {}) {
   } finally {
     federationServerState.loading = false;
     federationServerState.lastFetchAt = Date.now();
+
+    if (typeof renderFederationStrategicCommandV1 === "function") {
+      renderFederationStrategicCommandV1(getCurrentUserState());
+    }
   }
 
   return federationServerState;
@@ -2604,6 +2608,10 @@ async function loadFederationConnectData(options = {}) {
   } finally {
     federationConnectState.loading = false;
     renderFederationConnectSection();
+
+    if (typeof renderFederationStrategicCommandV1 === "function") {
+      renderFederationStrategicCommandV1(getCurrentUserState());
+    }
   }
 }
 
@@ -3948,6 +3956,1115 @@ function buildStatusTimelineMarkup(status = "Pending") {
   `;
 }
 
+/* PATCH: Phase 3E-FE-1 — Federation Strategic Command shell v1 */
+const FEDERATION_STRATEGIC_PREVIEW_KEY_V1 = "yhFederationStrategicPreviewV1";
+
+function normalizeFederationStrategicStatusV1(value = "") {
+  return String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+function isFederationStrategicOpenStatusV1(value = "") {
+  const status = normalizeFederationStrategicStatusV1(value);
+  return ![
+    "completed",
+    "closed",
+    "cancelled",
+    "canceled",
+    "rejected",
+    "expired",
+    "failed"
+  ].includes(status);
+}
+
+function resolveFederationStrategicRankV1(state = {}) {
+  return state?.type === "member"
+    ? { key: "delegate", label: "Delegate" }
+    : { key: "observer", label: "Observer" };
+}
+
+function resolveFederationStrategicRegionV1(member = null) {
+  const city = String(member?.city || "").trim();
+  const country = String(member?.country || "").trim();
+  const label = [city, country].filter(Boolean).join(", ");
+  return label || "Not established";
+}
+
+function getFederationStrategicOperationV1() {
+  const dealRooms = Array.isArray(federationServerState.dealRooms)
+    ? federationServerState.dealRooms
+    : [];
+
+  const activeDeal = dealRooms.find((room) => {
+    return isFederationStrategicOpenStatusV1(
+      room.dealStatus || room.adminStatus || room.status
+    );
+  });
+
+  if (activeDeal) {
+    return {
+      kind: "Deal Room",
+      title: String(activeDeal.title || "Federation Deal Room").trim(),
+      objective: String(
+        activeDeal.description ||
+        activeDeal.partnerNeed ||
+        "Review the operation and identify the next controlled action."
+      ).trim(),
+      region: "Cross-network",
+      phase: String(activeDeal.dealStatus || activeDeal.adminStatus || "Proposed").trim(),
+      participants: 0,
+      economicContext: Number(activeDeal.expectedValueAmount || 0) > 0
+        ? `${String(activeDeal.currency || "USD").toUpperCase()} ${Number(activeDeal.expectedValueAmount || 0).toLocaleString()}`
+        : "Economic value not specified"
+    };
+  }
+
+  const opportunities = Array.isArray(federationConnectState.opportunities)
+    ? federationConnectState.opportunities
+    : [];
+  const opportunity = opportunities[0];
+
+  if (opportunity) {
+    return {
+      kind: "Connection Operation",
+      title: String(opportunity.title || "Strategic connection opportunity").trim(),
+      objective: String(
+        opportunity.summary ||
+        opportunity.description ||
+        "Review the controlled connection route and prepare the correct request."
+      ).trim(),
+      region: [opportunity.city, opportunity.country].filter(Boolean).join(", ") || "Protected region",
+      phase: String(opportunity.status || "Available").trim(),
+      participants: 0,
+      economicContext: "Protected connection route"
+    };
+  }
+
+  return null;
+}
+
+function getFederationStrategicSignalsV1(state = {}) {
+  const members = typeof getMembers === "function" ? getMembers() : [];
+  const requests = Array.isArray(federationConnectState.requests)
+    ? federationConnectState.requests
+    : [];
+  const dealRooms = Array.isArray(federationServerState.dealRooms)
+    ? federationServerState.dealRooms
+    : [];
+  const operation = getFederationStrategicOperationV1();
+
+  const activeOperations = dealRooms.filter((room) => {
+    return isFederationStrategicOpenStatusV1(
+      room.dealStatus || room.adminStatus || room.status
+    );
+  }).length + (operation?.kind === "Connection Operation" ? 1 : 0);
+
+  const strategicAlerts = requests.filter((request) => {
+    const status = normalizeFederationStrategicStatusV1(request.status);
+    return [
+      "pending",
+      "under_review",
+      "reviewing",
+      "matched",
+      "payment_pending",
+      "awaiting_payment"
+    ].includes(status);
+  }).length + dealRooms.filter((room) => {
+    const status = normalizeFederationStrategicStatusV1(
+      room.adminStatus || room.dealStatus || room.status
+    );
+    return ["pending_admin_review", "pending", "proposed", "reviewing"].includes(status);
+  }).length;
+
+  const countries = Array.from(new Set(
+    members.map((member) => String(member.country || "").trim()).filter(Boolean)
+  ));
+  const sectors = Array.from(new Set(
+    members.map((member) => String(member.category || "").trim()).filter(Boolean)
+  ));
+
+  return {
+    state,
+    members,
+    requests,
+    dealRooms,
+    operation,
+    activeOperations,
+    strategicAlerts,
+    countries,
+    sectors
+  };
+}
+
+/* PATCH: Phase 3E-FE-2 — Federation Strategic Operations and Influence v1 */
+let federationStrategicOperationFilterV2 = "all";
+
+function resolveFederationOperationPhaseV2(value = "") {
+  const status = normalizeFederationStrategicStatusV1(value);
+
+  if (["completed", "complete", "intro_delivered", "settled", "paid_completed"].includes(status)) {
+    return "Completed";
+  }
+
+  if (["closed", "cancelled", "canceled", "rejected", "expired", "failed"].includes(status)) {
+    return "Closed";
+  }
+
+  if (["review", "reviewing", "under_review", "pending_admin_review", "pending_review", "screening", "shortlisted"].includes(status)) {
+    return "Review";
+  }
+
+  if (["active", "in_progress", "execution", "live", "paid", "approved", "intro_in_progress"].includes(status)) {
+    return "Execution";
+  }
+
+  if (["negotiation", "negotiating", "pricing_sent", "payment_pending", "awaiting_payment", "terms_pending"].includes(status)) {
+    return "Negotiation";
+  }
+
+  if (["matched", "formation", "forming", "proposed", "accepted", "pending_admin_match"].includes(status)) {
+    return "Formation";
+  }
+
+  return "Intelligence Gathering";
+}
+
+function resolveFederationOperationRiskV2(operation = {}) {
+  const status = normalizeFederationStrategicStatusV1(operation.status);
+  const amount = Math.max(0, Number(operation.valueAmount || 0));
+
+  if (["failed", "rejected", "cancelled", "canceled", "expired"].includes(status)) {
+    return "Closed Risk";
+  }
+
+  if (amount >= 100000 || ["payment_pending", "awaiting_payment", "negotiation"].includes(status)) {
+    return "Elevated";
+  }
+
+  if (operation.kind === "Connection Opportunity" || operation.kind === "Diplomacy Request") {
+    return "Protected";
+  }
+
+  return "Controlled";
+}
+
+function getFederationOperationNextActionV2(phase = "") {
+  const actions = {
+    "Intelligence Gathering": "Review operation brief",
+    "Formation": "Confirm the protected route",
+    "Negotiation": "Advance terms and alignment",
+    "Execution": "Track the active strategic action",
+    "Review": "Review outcome and next decision",
+    "Completed": "Open completed operation record",
+    "Closed": "Review closed operation context"
+  };
+
+  return actions[phase] || "Review operation";
+}
+
+function getFederationStrategicOperationsV2(signals = getFederationStrategicSignalsV1(getCurrentUserState())) {
+  const dealRooms = Array.isArray(signals?.dealRooms) ? signals.dealRooms : [];
+  const requests = Array.isArray(signals?.requests) ? signals.requests : [];
+  const opportunities = Array.isArray(federationConnectState.opportunities)
+    ? federationConnectState.opportunities
+    : [];
+
+  const dealOperations = dealRooms.map((room, index) => {
+    const rawStatus = String(room.dealStatus || room.adminStatus || room.status || "proposed").trim();
+    const valueAmount = Math.max(0, Number(room.expectedValueAmount || 0));
+    const phase = resolveFederationOperationPhaseV2(rawStatus);
+
+    return {
+      id: String(room.id || `deal-room-${index + 1}`).trim(),
+      kind: "Deal Room",
+      lane: "deal-rooms",
+      title: String(room.title || "Federation Deal Room").trim(),
+      objective: String(room.description || room.partnerNeed || "Review the supervised strategic work route.").trim(),
+      status: rawStatus,
+      phase,
+      risk: resolveFederationOperationRiskV2({ kind: "Deal Room", status: rawStatus, valueAmount }),
+      region: String(room.region || room.country || "Cross-network").trim(),
+      participants: room.creatorName ? 1 : 0,
+      valueAmount,
+      economicContext: valueAmount > 0
+        ? `${String(room.currency || "USD").toUpperCase()} ${valueAmount.toLocaleString()}`
+        : "Economic value not specified",
+      target: "#deal-rooms",
+      createdAt: String(room.createdAt || room.updatedAt || "").trim()
+    };
+  });
+
+  const diplomacyRequests = requests.map((request, index) => {
+    const rawStatus = String(request.status || request.reviewStatus || "pending_admin_match").trim();
+    const phase = resolveFederationOperationPhaseV2(rawStatus);
+    const title = String(
+      request.title ||
+      request.requestTitle ||
+      request.targetTitle ||
+      request.providerName ||
+      "Federation connection request"
+    ).trim();
+
+    return {
+      id: String(request.id || `diplomacy-request-${index + 1}`).trim(),
+      kind: "Diplomacy Request",
+      lane: "diplomacy",
+      title,
+      objective: String(
+        request.message ||
+        request.requestIntent ||
+        request.notes ||
+        "Track the controlled introduction and admin review route."
+      ).trim(),
+      status: rawStatus,
+      phase,
+      risk: resolveFederationOperationRiskV2({ kind: "Diplomacy Request", status: rawStatus }),
+      region: [request.city, request.country].filter(Boolean).join(", ") || "Protected network",
+      participants: 0,
+      valueAmount: 0,
+      economicContext: typeof formatFederationConnectBudget === "function"
+        ? formatFederationConnectBudget(request.budgetRange)
+        : "Budget context protected",
+      target: "#requests",
+      createdAt: String(request.createdAt || request.updatedAt || "").trim()
+    };
+  });
+
+  const opportunityOperations = opportunities.map((opportunity, index) => {
+    const rawStatus = String(
+      opportunity.saleStatus ||
+      opportunity.pipelineStage ||
+      opportunity.status ||
+      "available"
+    ).trim();
+    const phase = resolveFederationOperationPhaseV2(rawStatus);
+    const valueAmount = Math.max(0, Number(opportunity.buyerPriceAmount || opportunity.sellerPriceAmount || 0));
+
+    return {
+      id: String(opportunity.id || `connection-opportunity-${index + 1}`).trim(),
+      kind: "Connection Opportunity",
+      lane: "diplomacy",
+      title: String(opportunity.title || "Strategic connection opportunity").trim(),
+      objective: String(opportunity.summary || "Review the protected connection route.").trim(),
+      status: rawStatus,
+      phase,
+      risk: resolveFederationOperationRiskV2({ kind: "Connection Opportunity", status: rawStatus, valueAmount }),
+      region: [opportunity.city, opportunity.country].filter(Boolean).join(", ") || "Protected region",
+      participants: 0,
+      valueAmount,
+      economicContext: valueAmount > 0
+        ? `${String(opportunity.currency || "USD").toUpperCase()} ${valueAmount.toLocaleString()}`
+        : "Protected connection route",
+      target: "#connect",
+      createdAt: String(opportunity.createdAt || opportunity.updatedAt || "").trim()
+    };
+  });
+
+  const phaseOrder = {
+    "Execution": 0,
+    "Negotiation": 1,
+    "Formation": 2,
+    "Review": 3,
+    "Intelligence Gathering": 4,
+    "Completed": 5,
+    "Closed": 6
+  };
+
+  return [...dealOperations, ...diplomacyRequests, ...opportunityOperations]
+    .sort((a, b) => {
+      const phaseDiff = (phaseOrder[a.phase] ?? 9) - (phaseOrder[b.phase] ?? 9);
+      if (phaseDiff !== 0) return phaseDiff;
+      return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+    });
+}
+
+function filterFederationStrategicOperationsV2(operations = [], filter = federationStrategicOperationFilterV2) {
+  const cleanFilter = String(filter || "all").trim().toLowerCase();
+
+  if (cleanFilter === "active") {
+    return operations.filter((item) => !["Completed", "Closed"].includes(item.phase));
+  }
+
+  if (cleanFilter === "deal-rooms") {
+    return operations.filter((item) => item.lane === "deal-rooms");
+  }
+
+  if (cleanFilter === "diplomacy") {
+    return operations.filter((item) => item.lane === "diplomacy");
+  }
+
+  if (cleanFilter === "review") {
+    return operations.filter((item) => item.phase === "Review");
+  }
+
+  return operations;
+}
+
+function getFederationStrategicOperationSummaryV2(operations = []) {
+  const active = operations.filter((item) => !["Completed", "Closed"].includes(item.phase));
+  const primaryOperation = active[0] || operations[0] || null;
+
+  return {
+    total: operations.length,
+    active: active.length,
+    negotiation: operations.filter((item) => item.phase === "Negotiation").length,
+    execution: operations.filter((item) => item.phase === "Execution").length,
+    review: operations.filter((item) => item.phase === "Review").length,
+    completed: operations.filter((item) => item.phase === "Completed").length,
+    primaryOperation
+  };
+}
+
+function renderFederationStrategicOperationsV2(signals = getFederationStrategicSignalsV1(getCurrentUserState())) {
+  const board = qs("#fedStrategicOperationsBoardV2");
+  const summaryNode = qs("#fedStrategicOperationSummaryV2");
+  const operations = getFederationStrategicOperationsV2(signals);
+  const summary = getFederationStrategicOperationSummaryV2(operations);
+  const visible = filterFederationStrategicOperationsV2(operations);
+
+  qsa("[data-fed-operation-filter]").forEach((button) => {
+    button.classList.toggle(
+      "is-active",
+      button.getAttribute("data-fed-operation-filter") === federationStrategicOperationFilterV2
+    );
+  });
+
+  if (summaryNode) {
+    const cards = [
+      ["Total Signals", summary.total, "Deal Rooms, requests, and opportunities"],
+      ["Active", summary.active, "Not completed or closed"],
+      ["Execution", summary.execution, "Operations currently moving"],
+      ["In Review", summary.review, "Awaiting validation or decision"]
+    ];
+
+    summaryNode.innerHTML = cards.map(([label, value, note]) => `
+      <article>
+        <small>${escapeHtml(label)}</small>
+        <strong>${Number(value || 0).toLocaleString()}</strong>
+        <span>${escapeHtml(note)}</span>
+      </article>
+    `).join("");
+  }
+
+  if (board) {
+    board.innerHTML = visible.length
+      ? visible.slice(0, 12).map((operation) => `
+          <article class="fed-strategic-operation-item-v2" data-fed-operation-phase="${escapeHtml(operation.phase)}">
+            <div class="fed-strategic-operation-item-head-v2">
+              <div>
+                <span>${escapeHtml(operation.kind)}</span>
+                <h5>${escapeHtml(operation.title)}</h5>
+              </div>
+              <b>${escapeHtml(operation.phase)}</b>
+            </div>
+
+            <p>${escapeHtml(operation.objective)}</p>
+
+            <div class="fed-strategic-operation-meta-v2">
+              <span><small>Region</small><strong>${escapeHtml(operation.region)}</strong></span>
+              <span><small>Risk</small><strong>${escapeHtml(operation.risk)}</strong></span>
+              <span><small>Economics</small><strong>${escapeHtml(operation.economicContext)}</strong></span>
+            </div>
+
+            <div class="fed-strategic-operation-action-v2">
+              <small>${escapeHtml(getFederationOperationNextActionV2(operation.phase))}</small>
+              <button type="button" data-jump="${escapeHtml(operation.target)}">Open Route</button>
+            </div>
+          </article>
+        `).join("")
+      : `
+          <div class="fed-strategic-empty-v1">
+            <strong>No operations match this filter.</strong>
+            <span>Current Federation records remain unchanged. Select another view or open the existing Deal Room and Connect screens.</span>
+          </div>
+        `;
+  }
+
+  return summary;
+}
+
+function renderFederationInfluenceFrameworkV2(signals = {}, state = getCurrentUserState(), operationSummary = {}) {
+  const node = qs("#fedStrategicInfluenceGridV2");
+  if (!node) return;
+
+  const referrals = federationServerState.referrals && typeof federationServerState.referrals === "object"
+    ? federationServerState.referrals
+    : {};
+  const economicOperations = Array.isArray(signals.dealRooms)
+    ? signals.dealRooms.filter((room) => Number(room.expectedValueAmount || 0) > 0).length
+    : 0;
+
+  const categories = [
+    ["Diplomatic Influence", Number(signals.requests?.length || 0) + Number(federationConnectState.opportunities?.length || 0), "Connection and introduction signals"],
+    ["Economic Influence", economicOperations, "Deal Rooms with visible economic context"],
+    ["Leadership", state?.type === "member" ? 1 : 0, state?.type === "member" ? "Approved member signal" : "Federation approval required"],
+    ["Strategic Intelligence", Number(signals.strategicAlerts || 0), "Pending review and decision signals"],
+    ["Governance Contribution", Number(referrals.total || 0), "Referral pipeline signals"],
+    ["Alliance Strength", Number(signals.countries?.length || 0), "Visible country network signals"]
+  ];
+
+  node.innerHTML = categories.map(([label, signal, note]) => `
+    <article>
+      <div>
+        <strong>${escapeHtml(label)}</strong>
+        <small>${escapeHtml(note)}</small>
+      </div>
+      <span>
+        <b>${Number(signal || 0).toLocaleString()}</b>
+        <small>source signals</small>
+      </span>
+      <em>Wiring pending</em>
+    </article>
+  `).join("");
+}
+
+function bindFederationStrategicOperationFiltersV2(shell = qs("#federationStrategicCommandV1")) {
+  if (!shell || shell.dataset.fedOperationFiltersBoundV2 === "true") return;
+  shell.dataset.fedOperationFiltersBoundV2 = "true";
+
+  shell.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-fed-operation-filter]");
+    if (!button) return;
+
+    federationStrategicOperationFilterV2 = String(
+      button.getAttribute("data-fed-operation-filter") || "all"
+    ).trim().toLowerCase() || "all";
+
+    const state = getCurrentUserState();
+    const signals = getFederationStrategicSignalsV1(state);
+    const summary = renderFederationStrategicOperationsV2(signals);
+    renderFederationInfluenceFrameworkV2(signals, state, summary);
+  });
+}
+/* END PATCH: Phase 3E-FE-2 — Federation Strategic Operations and Influence v1 */
+
+/* PATCH: Phase 3E-FE-3 — Federation Council, Governance, Diplomacy, and Regional Strategy v1 */
+function getFederationRegionalLabelV3(value = "") {
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  const normalized = normalizeFederationStrategicStatusV1(text);
+  if ([
+    "cross_network",
+    "protected_network",
+    "protected_region",
+    "network_wide",
+    "not_established"
+  ].includes(normalized)) {
+    return "";
+  }
+
+  const parts = text
+    .split(",")
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+
+  return parts.length ? parts[parts.length - 1] : text;
+}
+
+function isFederationStrategicHandoffStatusV3(value = "") {
+  return [
+    "matched",
+    "approved",
+    "accepted",
+    "intro_in_progress",
+    "introduction_in_progress",
+    "intro_delivered",
+    "completed"
+  ].includes(normalizeFederationStrategicStatusV1(value));
+}
+
+function getFederationCouncilGovernanceSnapshotV3(signals = {}, operations = [], state = getCurrentUserState()) {
+  const activeProposals = operations.filter((operation) => {
+    return (
+      operation.kind === "Deal Room" &&
+      ["Intelligence Gathering", "Formation", "Review"].includes(operation.phase)
+    );
+  });
+
+  const strategicSessions = operations.filter((operation) => {
+    return ["Negotiation", "Execution"].includes(operation.phase);
+  });
+
+  const reviewSignals = operations.filter((operation) => operation.phase === "Review");
+  const regionalConcernLabels = new Set();
+
+  operations.forEach((operation) => {
+    if (
+      operation.phase !== "Review" &&
+      !["Elevated", "Closed Risk"].includes(operation.risk)
+    ) {
+      return;
+    }
+
+    const label = getFederationRegionalLabelV3(operation.region);
+    if (label) regionalConcernLabels.add(label);
+  });
+
+  const referrals = federationServerState.referrals && typeof federationServerState.referrals === "object"
+    ? federationServerState.referrals
+    : {};
+
+  const regionalConcerns = Math.max(
+    regionalConcernLabels.size,
+    Number(signals.strategicAlerts || 0)
+  );
+
+  return {
+    councilStatus: "Wiring pending",
+    governanceAuthority: "Wiring pending",
+    activeProposals: activeProposals.length,
+    strategicSessions: strategicSessions.length,
+    regionalConcerns,
+    reviewSignals: reviewSignals.length,
+    referralSignals: Number(referrals.total || 0),
+    concernItems: operations
+      .filter((operation) => {
+        return operation.phase === "Review" || ["Elevated", "Closed Risk"].includes(operation.risk);
+      })
+      .slice(0, 5)
+  };
+}
+
+function getFederationDiplomacySnapshotV3(signals = {}, operations = []) {
+  const diplomacyOperations = operations.filter((operation) => operation.lane === "diplomacy");
+  const activeIntroductions = diplomacyOperations.filter((operation) => {
+    return (
+      operation.kind === "Diplomacy Request" &&
+      isFederationStrategicHandoffStatusV3(operation.status) &&
+      !["Completed", "Closed"].includes(operation.phase)
+    );
+  });
+
+  const requests = Array.isArray(signals.requests) ? signals.requests : [];
+  const pendingDiplomaticRequests = requests.filter((request) => {
+    const rawStatus = request.status || request.reviewStatus || "pending_admin_match";
+    const phase = resolveFederationOperationPhaseV2(rawStatus);
+    return (
+      !["Completed", "Closed"].includes(phase) &&
+      !isFederationStrategicHandoffStatusV3(rawStatus)
+    );
+  });
+
+  const strategicHandoffs = requests.filter((request) => {
+    return isFederationStrategicHandoffStatusV3(
+      request.status || request.reviewStatus || request.matchStatus
+    );
+  });
+
+  const regionalLabels = new Set();
+  diplomacyOperations.forEach((operation) => {
+    const label = getFederationRegionalLabelV3(operation.region);
+    if (label) regionalLabels.add(label);
+  });
+
+  return {
+    totalSignals: diplomacyOperations.length,
+    activeIntroductions: activeIntroductions.length,
+    pendingDiplomaticRequests: pendingDiplomaticRequests.length,
+    regionalRelationships: regionalLabels.size,
+    allianceSignals: Number(signals.countries?.length || 0),
+    strategicHandoffs: strategicHandoffs.length,
+    items: diplomacyOperations.slice(0, 8)
+  };
+}
+
+function getFederationRegionalStrategySnapshotV3(signals = {}, operations = [], homeRegion = "Not established") {
+  const regionMap = new Map();
+
+  function ensureRegion(label = "") {
+    const cleanLabel = getFederationRegionalLabelV3(label);
+    if (!cleanLabel) return null;
+
+    if (!regionMap.has(cleanLabel)) {
+      regionMap.set(cleanLabel, {
+        label: cleanLabel,
+        members: 0,
+        operations: 0,
+        diplomacy: 0,
+        concerns: 0,
+        isHome: false
+      });
+    }
+
+    return regionMap.get(cleanLabel);
+  }
+
+  (Array.isArray(signals.members) ? signals.members : []).forEach((member) => {
+    const entry = ensureRegion(member.country || member.city);
+    if (entry) entry.members += 1;
+  });
+
+  operations.forEach((operation) => {
+    const entry = ensureRegion(operation.region);
+    if (!entry) return;
+
+    entry.operations += 1;
+    if (operation.lane === "diplomacy") entry.diplomacy += 1;
+    if (operation.phase === "Review" || ["Elevated", "Closed Risk"].includes(operation.risk)) {
+      entry.concerns += 1;
+    }
+  });
+
+  const homeLabel = getFederationRegionalLabelV3(homeRegion);
+  if (homeLabel) {
+    const homeEntry = ensureRegion(homeLabel);
+    if (homeEntry) homeEntry.isHome = true;
+  }
+
+  const regions = Array.from(regionMap.values())
+    .map((region) => ({
+      ...region,
+      sourceSignals: region.members + region.operations
+    }))
+    .sort((a, b) => {
+      if (a.isHome !== b.isHome) return a.isHome ? -1 : 1;
+      return b.sourceSignals - a.sourceSignals || a.label.localeCompare(b.label);
+    })
+    .slice(0, 8);
+
+  let status = "No regional signal";
+  if (regions.length >= 4) status = "Multi-region network visible";
+  else if (regions.length >= 2) status = "Regional network forming";
+  else if (regions.length === 1) status = "Single-region signal";
+
+  const relationshipBase = regions.find((region) => region.isHome) || regions[0] || null;
+  const relationships = relationshipBase
+    ? regions
+        .filter((region) => region.label !== relationshipBase.label)
+        .slice(0, 4)
+        .map((region) => ({
+          from: relationshipBase.label,
+          to: region.label,
+          signals: relationshipBase.sourceSignals + region.sourceSignals
+        }))
+    : [];
+
+  return {
+    status,
+    activeRegions: regions.length,
+    homeRegion: homeLabel || "Not established",
+    regions,
+    relationships
+  };
+}
+
+function renderFederationCouncilGovernanceV3(snapshot = {}) {
+  const metricsNode = qs("#fedStrategicCouncilMetricsV3");
+  const frameworkNode = qs("#fedStrategicGovernanceFrameworkV3");
+  const concernsNode = qs("#fedStrategicRegionalConcernsV3");
+
+  if (metricsNode) {
+    const metrics = [
+      ["Council Standing", snapshot.councilStatus || "Wiring pending", "No council seat or standing awarded"],
+      ["Governance Authority", snapshot.governanceAuthority || "Wiring pending", "No permissions or approval authority"],
+      ["Active Proposals", Number(snapshot.activeProposals || 0), "Open Deal Room proposal signals"],
+      ["Strategic Sessions", Number(snapshot.strategicSessions || 0), "Negotiation and execution signals"],
+      ["Regional Concerns", Number(snapshot.regionalConcerns || 0), "Review, alert, and risk signals"]
+    ];
+
+    metricsNode.innerHTML = metrics.map(([label, value, note]) => `
+      <article>
+        <small>${escapeHtml(label)}</small>
+        <strong>${typeof value === "number" ? value.toLocaleString() : escapeHtml(value)}</strong>
+        <span>${escapeHtml(note)}</span>
+      </article>
+    `).join("");
+  }
+
+  if (frameworkNode) {
+    const stages = [
+      ["01", "Proposal Intake", Number(snapshot.activeProposals || 0), "Open Deal Room signals enter the review path."],
+      ["02", "Strategic Review", Number(snapshot.reviewSignals || 0), "Current records awaiting validation or decision context."],
+      ["03", "Regional Coordination", Number(snapshot.regionalConcerns || 0), "Regional signals requiring attention or alignment."],
+      ["04", "Trusted Referral Signal", Number(snapshot.referralSignals || 0), "Existing referral activity supporting future governance contribution."],
+      ["05", "Authority Layer", 0, "Council permissions, decisions, and authority remain unwired."]
+    ];
+
+    frameworkNode.innerHTML = stages.map(([index, label, value, note]) => `
+      <article>
+        <b>${escapeHtml(index)}</b>
+        <div>
+          <strong>${escapeHtml(label)}</strong>
+          <small>${escapeHtml(note)}</small>
+        </div>
+        <span>${Number(value || 0).toLocaleString()} signals</span>
+      </article>
+    `).join("");
+  }
+
+  if (concernsNode) {
+    concernsNode.innerHTML = snapshot.concernItems?.length
+      ? snapshot.concernItems.map((operation) => `
+          <article>
+            <div>
+              <small>${escapeHtml(operation.kind)}</small>
+              <strong>${escapeHtml(operation.title)}</strong>
+            </div>
+            <span>${escapeHtml(operation.region)}</span>
+            <b>${escapeHtml(operation.phase)} • ${escapeHtml(operation.risk)}</b>
+            <button type="button" data-jump="${escapeHtml(operation.target)}">Review Signal</button>
+          </article>
+        `).join("")
+      : `
+          <div class="fed-strategic-empty-v1">
+            <strong>No regional concern signal is visible.</strong>
+            <span>Current requests and operations do not expose a review or elevated-risk regional signal.</span>
+          </div>
+        `;
+  }
+}
+
+function renderFederationDiplomacyBoardV3(snapshot = {}) {
+  const summaryNode = qs("#fedStrategicDiplomacySummaryV3");
+  const boardNode = qs("#fedStrategicDiplomacyBoardV3");
+
+  if (summaryNode) {
+    const metrics = [
+      ["Active Introductions", snapshot.activeIntroductions, "Open connection and introduction routes"],
+      ["Pending Diplomatic Requests", snapshot.pendingDiplomaticRequests, "Requests not completed or closed"],
+      ["Regional Relationships", snapshot.regionalRelationships, "Regions visible across diplomacy records"],
+      ["Alliance Signals", snapshot.allianceSignals, "Country network signals, not active alliances"],
+      ["Strategic Handoffs", snapshot.strategicHandoffs, "Matched or introduction-stage request signals"]
+    ];
+
+    summaryNode.innerHTML = metrics.map(([label, value, note]) => `
+      <article>
+        <small>${escapeHtml(label)}</small>
+        <strong>${Number(value || 0).toLocaleString()}</strong>
+        <span>${escapeHtml(note)}</span>
+      </article>
+    `).join("");
+  }
+
+  if (boardNode) {
+    boardNode.innerHTML = snapshot.items?.length
+      ? snapshot.items.map((operation) => `
+          <article>
+            <div class="fed-strategic-diplomacy-item-head-v3">
+              <div>
+                <small>${escapeHtml(operation.kind)}</small>
+                <strong>${escapeHtml(operation.title)}</strong>
+              </div>
+              <b>${escapeHtml(operation.phase)}</b>
+            </div>
+            <p>${escapeHtml(operation.objective)}</p>
+            <div class="fed-strategic-diplomacy-meta-v3">
+              <span><small>Region</small><strong>${escapeHtml(operation.region)}</strong></span>
+              <span><small>Risk</small><strong>${escapeHtml(operation.risk)}</strong></span>
+              <span><small>Route</small><strong>${escapeHtml(operation.kind)}</strong></span>
+            </div>
+            <button type="button" data-jump="${escapeHtml(operation.target)}">Open Diplomatic Route</button>
+          </article>
+        `).join("")
+      : `
+          <div class="fed-strategic-empty-v1">
+            <strong>No diplomacy record is visible.</strong>
+            <span>Existing Connect opportunities and requests will populate this board without generating a new diplomatic record.</span>
+            <button type="button" data-jump="#connect">Open Strategic Connect</button>
+          </div>
+        `;
+  }
+}
+
+function renderFederationRegionalStrategyV3(snapshot = {}) {
+  const mapNode = qs("#fedStrategicRegionalMapV3");
+  const relationshipsNode = qs("#fedStrategicRegionalRelationshipsV3");
+
+  if (mapNode) {
+    mapNode.innerHTML = snapshot.regions?.length
+      ? snapshot.regions.map((region) => `
+          <button
+            type="button"
+            class="${region.isHome ? "is-home" : ""}"
+            data-jump="#directory"
+          >
+            <span>${region.isHome ? "Home Region" : "Strategic Region"}</span>
+            <strong>${escapeHtml(region.label)}</strong>
+            <div>
+              <small>${Number(region.members || 0).toLocaleString()} members</small>
+              <small>${Number(region.operations || 0).toLocaleString()} operations</small>
+              <small>${Number(region.diplomacy || 0).toLocaleString()} diplomacy</small>
+            </div>
+            <em>${Number(region.sourceSignals || 0).toLocaleString()} source signals</em>
+          </button>
+        `).join("")
+      : `
+          <div class="fed-strategic-empty-v1">
+            <strong>No regional strategy signal is available.</strong>
+            <span>Approved member locations and current operation regions will populate this map.</span>
+          </div>
+        `;
+  }
+
+  if (relationshipsNode) {
+    const header = `
+      <div class="fed-strategic-regional-state-v3">
+        <span>
+          <small>Regional Strategy State</small>
+          <strong>${escapeHtml(snapshot.status || "No regional signal")}</strong>
+        </span>
+        <span>
+          <small>Active Regions</small>
+          <strong>${Number(snapshot.activeRegions || 0).toLocaleString()}</strong>
+        </span>
+        <span>
+          <small>Home Region</small>
+          <strong>${escapeHtml(snapshot.homeRegion || "Not established")}</strong>
+        </span>
+      </div>
+    `;
+
+    const lanes = snapshot.relationships?.length
+      ? `
+          <div class="fed-strategic-relationship-lanes-v3">
+            ${snapshot.relationships.map((relationship) => `
+              <article>
+                <span>${escapeHtml(relationship.from)}</span>
+                <b aria-hidden="true">→</b>
+                <span>${escapeHtml(relationship.to)}</span>
+                <small>${Number(relationship.signals || 0).toLocaleString()} combined source signals</small>
+              </article>
+            `).join("")}
+          </div>
+        `
+      : `
+          <div class="fed-strategic-empty-v1">
+            Regional relationship lanes require at least two visible regional source signals.
+          </div>
+        `;
+
+    relationshipsNode.innerHTML = header + lanes;
+  }
+}
+
+function renderFederationCouncilGovernanceDiplomacyV3(signals = {}, state = getCurrentUserState(), operations = []) {
+  const homeRegion = resolveFederationStrategicRegionV1(
+    state?.type === "member" ? state.member : null
+  );
+
+  const governance = getFederationCouncilGovernanceSnapshotV3(signals, operations, state);
+  const diplomacy = getFederationDiplomacySnapshotV3(signals, operations);
+  const regionalStrategy = getFederationRegionalStrategySnapshotV3(signals, operations, homeRegion);
+
+  renderFederationCouncilGovernanceV3(governance);
+  renderFederationDiplomacyBoardV3(diplomacy);
+  renderFederationRegionalStrategyV3(regionalStrategy);
+
+  return {
+    governance,
+    diplomacy,
+    regionalStrategy
+  };
+}
+/* END PATCH: Phase 3E-FE-3 — Federation Council, Governance, Diplomacy, and Regional Strategy v1 */
+
+function saveFederationStrategicPreviewV1(preview = {}) {
+  try {
+    sessionStorage.setItem(
+      FEDERATION_STRATEGIC_PREVIEW_KEY_V1,
+      JSON.stringify(preview)
+    );
+  } catch (_) {}
+
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: "yhu:federation-strategic-preview-updated",
+        detail: preview
+      }, window.location.origin);
+    }
+  } catch (_) {}
+}
+
+function renderFederationStrategicCommandV1(state = getCurrentUserState()) {
+  const shell = qs("#federationStrategicCommandV1");
+  if (!shell) return;
+
+  const member = state?.type === "member" ? state.member : null;
+  const rank = resolveFederationStrategicRankV1(state);
+  const homeRegion = resolveFederationStrategicRegionV1(member);
+  const signals = getFederationStrategicSignalsV1(state);
+
+  const rankNode = qs("#fedStrategicRankV1");
+  const regionNode = qs("#fedStrategicRegionV1");
+  const operationsNode = qs("#fedStrategicOperationsV1");
+  const alertsNode = qs("#fedStrategicAlertsV1");
+  const metricsNode = qs("#fedStrategicMetricsV1");
+  const operationNode = qs("#fedStrategicOperationSlotV1");
+  const regionGridNode = qs("#fedStrategicRegionGridV1");
+  const readinessNode = qs("#fedStrategicReadinessV1");
+
+  if (rankNode) rankNode.textContent = rank.label;
+  if (regionNode) regionNode.textContent = homeRegion;
+  if (operationsNode) operationsNode.textContent = String(signals.activeOperations);
+  if (alertsNode) alertsNode.textContent = String(signals.strategicAlerts);
+
+  qsa("[data-fed-strategic-rank]", shell).forEach((node) => {
+    node.classList.toggle(
+      "is-current",
+      node.getAttribute("data-fed-strategic-rank") === rank.key
+    );
+  });
+
+  if (metricsNode) {
+    const metrics = [
+      ["Approved Members", signals.members.length, "Current verified network visibility"],
+      ["Countries Active", signals.countries.length, homeRegion === "Not established" ? "Home region not established" : `Home: ${homeRegion}`],
+      ["Strategic Sectors", signals.sectors.length, member?.category || "No member lane established"],
+      ["Request Signals", signals.requests.length, "Existing request workflow"]
+    ];
+
+    metricsNode.innerHTML = metrics.map(([label, value, note]) => `
+      <article>
+        <small>${escapeHtml(label)}</small>
+        <strong>${Number(value || 0).toLocaleString()}</strong>
+        <span>${escapeHtml(note)}</span>
+      </article>
+    `).join("");
+  }
+
+  if (operationNode) {
+    const operation = signals.operation;
+    operationNode.innerHTML = operation
+      ? `
+          <article class="fed-strategic-operation-card-v1">
+            <span>${escapeHtml(operation.kind)}</span>
+            <h5>${escapeHtml(operation.title)}</h5>
+            <p>${escapeHtml(operation.objective)}</p>
+            <div>
+              <small>${escapeHtml(operation.region)}</small>
+              <small>${escapeHtml(operation.phase)}</small>
+              <small>${escapeHtml(operation.economicContext)}</small>
+            </div>
+            <button type="button" data-jump="${operation.kind === "Deal Room" ? "#deal-rooms" : "#connect"}">
+              Review Strategic Route
+            </button>
+          </article>
+        `
+      : `
+          <div class="fed-strategic-empty-v1">
+            <strong>No active strategic operation is available.</strong>
+            <span>Real Deal Room or Federation Connect records will appear here without invented operations.</span>
+            <button type="button" data-jump="#deal-rooms">Open Deal Rooms</button>
+          </div>
+        `;
+  }
+
+  if (regionGridNode) {
+    const countryCounts = new Map();
+    signals.members.forEach((candidate) => {
+      const country = String(candidate.country || "").trim();
+      if (!country) return;
+      countryCounts.set(country, (countryCounts.get(country) || 0) + 1);
+    });
+
+    const regions = Array.from(countryCounts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 6);
+
+    regionGridNode.innerHTML = regions.length
+      ? regions.map(([country, count]) => {
+          const isHome = homeRegion.toLowerCase().includes(country.toLowerCase());
+          return `
+            <button type="button" class="${isHome ? "is-home" : "is-active"}" data-jump="#directory">
+              <small>${isHome ? "Home Region" : "Active Network"}</small>
+              <strong>${escapeHtml(country)}</strong>
+              <span>${Number(count).toLocaleString()} visible ${count === 1 ? "member" : "members"}</span>
+            </button>
+          `;
+        }).join("")
+      : `
+          <div class="fed-strategic-empty-v1">
+            No verified regional member signals are visible yet.
+          </div>
+        `;
+  }
+
+  if (readinessNode) {
+    const readiness = [
+      ["Influence", "Wiring pending", "No influence points awarded"],
+      ["Council Standing", "Wiring pending", "Governance system not connected"],
+      ["Alliance Status", signals.countries.length ? "Network visible" : "Not established", `${signals.countries.length} active country signals`],
+      ["Command Access", state?.type === "member" ? "Active" : "Restricted", state?.type === "member" ? "Approved Federation member" : "Federation approval required"]
+    ];
+
+    readinessNode.innerHTML = readiness.map(([label, value, note]) => `
+      <article>
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(value)}</strong>
+        <small>${escapeHtml(note)}</small>
+      </article>
+    `).join("");
+  }
+
+  const operationSummaryV2 = renderFederationStrategicOperationsV2(signals);
+  renderFederationInfluenceFrameworkV2(signals, state, operationSummaryV2);
+  bindFederationStrategicOperationFiltersV2(shell);
+
+  const federationOperationsV3 = getFederationStrategicOperationsV2(signals);
+  const federationStrategyV3 = renderFederationCouncilGovernanceDiplomacyV3(
+    signals,
+    state,
+    federationOperationsV3
+  );
+
+  const primaryOperationV2 = operationSummaryV2.primaryOperation || null;
+
+  saveFederationStrategicPreviewV1({
+    version: "federation-strategic-preview-v3",
+    rank: rank.label,
+    homeRegion,
+    activeOperations: operationSummaryV2.active,
+    strategicAlerts: signals.strategicAlerts,
+    approvedMembers: signals.members.length,
+    countriesActive: signals.countries.length,
+    influenceStatus: "Wiring pending",
+    operationSummary: {
+      total: operationSummaryV2.total,
+      active: operationSummaryV2.active,
+      negotiation: operationSummaryV2.negotiation,
+      execution: operationSummaryV2.execution,
+      review: operationSummaryV2.review,
+      completed: operationSummaryV2.completed
+    },
+    influenceFramework: {
+      wired: 0,
+      total: 6,
+      status: "Wiring pending"
+    },
+    governance: {
+      councilStatus: federationStrategyV3.governance.councilStatus,
+      governanceAuthority: federationStrategyV3.governance.governanceAuthority,
+      activeProposals: federationStrategyV3.governance.activeProposals,
+      strategicSessions: federationStrategyV3.governance.strategicSessions,
+      regionalConcerns: federationStrategyV3.governance.regionalConcerns
+    },
+    diplomacy: {
+      totalSignals: federationStrategyV3.diplomacy.totalSignals,
+      activeIntroductions: federationStrategyV3.diplomacy.activeIntroductions,
+      pendingDiplomaticRequests: federationStrategyV3.diplomacy.pendingDiplomaticRequests,
+      regionalRelationships: federationStrategyV3.diplomacy.regionalRelationships,
+      allianceSignals: federationStrategyV3.diplomacy.allianceSignals,
+      strategicHandoffs: federationStrategyV3.diplomacy.strategicHandoffs
+    },
+    regionalStrategy: {
+      status: federationStrategyV3.regionalStrategy.status,
+      activeRegions: federationStrategyV3.regionalStrategy.activeRegions,
+      homeRegion: federationStrategyV3.regionalStrategy.homeRegion
+    },
+    activeOperation: primaryOperationV2
+      ? {
+          title: primaryOperationV2.title,
+          kind: primaryOperationV2.kind,
+          phase: primaryOperationV2.phase,
+          risk: primaryOperationV2.risk
+        }
+      : null,
+    updatedAt: new Date().toISOString()
+  });
+}
+/* END PATCH: Phase 3E-FE-1 — Federation Strategic Command shell v1 */
+
 function renderMemberCommandSection() {
   const section = qs("#command");
   const container = qs("#memberCommandPanel");
@@ -3955,6 +5072,8 @@ function renderMemberCommandSection() {
   if (!section || !container) return;
 
   const state = getCurrentUserState();
+
+  renderFederationStrategicCommandV1(state);
 
   container.dataset.yhFederationCommandReady = "false";
   container.dataset.yhFederationCommandState =

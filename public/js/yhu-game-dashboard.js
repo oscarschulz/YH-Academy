@@ -12,6 +12,8 @@
     let academyProgressionLoadPromise = null;
     let academyProgressionLoaded = false;
     let academySoloModeStateV1 = null;
+    let plazaExplorerPreviewStateV2 = null;
+    let federationStrategicPreviewStateV1 = null;
 
     /* PATCH: Live Squad UI state v1 */
     let academySquadLoadPromise = null;
@@ -4750,8 +4752,8 @@ function openSquadDetailsModalV1(
                 label: 'Enter Open World'
             },
             federation: {
-                selector: '[data-yh-dashboard-shell="federation"]',
-                label: 'Open Federation'
+                selector: '[data-yh-sidebar-child="federation-command"]',
+                label: 'Open Strategic Command'
             }
         };
 
@@ -4772,28 +4774,367 @@ function openSquadDetailsModalV1(
     }
 
 
+    /* PATCH: Phase 3D-FE-3 — Dashboard Explorer profile preview v2 */
+
+    function readPlazaExplorerPreviewV2() {
+        if (
+            plazaExplorerPreviewStateV2 &&
+            typeof plazaExplorerPreviewStateV2 === 'object'
+        ) {
+            return plazaExplorerPreviewStateV2;
+        }
+
+        try {
+            const parsed = JSON.parse(
+                sessionStorage.getItem(
+                    'yhPlazaExplorerPreviewV2'
+                ) || 'null'
+            );
+
+            if (
+                parsed &&
+                typeof parsed === 'object'
+            ) {
+                plazaExplorerPreviewStateV2 = {
+                    ...parsed
+                };
+
+                return plazaExplorerPreviewStateV2;
+            }
+        } catch (_) {}
+
+        return null;
+    }
+
+    function syncPlazaExplorerPreviewV2(
+        payload = {}
+    ) {
+        if (
+            !payload ||
+            typeof payload !== 'object'
+        ) {
+            return null;
+        }
+
+        plazaExplorerPreviewStateV2 = {
+            ...payload,
+
+            activeQuest:
+                payload?.activeQuest &&
+                typeof payload.activeQuest ===
+                    'object'
+                    ? {
+                        ...payload.activeQuest
+                    }
+                    : null
+        };
+
+        return plazaExplorerPreviewStateV2;
+    }
+
     function buildPlazaOpenWorldPreviewV1() {
+        const preview =
+            readPlazaExplorerPreviewV2();
+
+        const rank =
+            String(
+                preview?.rank ||
+                'Newcomer'
+            ).trim();
+
+        const homeZone =
+            String(
+                preview?.homeZone ||
+                'Not established'
+            ).trim();
+
+        const availableQuests =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        preview?.availableQuests ||
+                        0
+                    )
+                )
+            );
+
+        const visibleRegions =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        preview?.visibleRegions ||
+                        0
+                    )
+                )
+            );
+
+        const reputationStatus =
+            String(
+                preview?.reputationStatus ||
+                'Wiring pending'
+            ).trim();
+
+        const activeQuestTitle =
+            String(
+                preview?.activeQuest?.title ||
+                ''
+            ).trim();
+
         return `
-            <div class="yh-game-plaza-open-world-preview-v1">
-                <div>
-                    <small>Open World Shell</small>
-                    <strong>Explorer Mode</strong>
+            <div class="yh-game-plaza-open-world-preview-v1 yh-game-plaza-explorer-preview-v2">
+                <div class="yh-game-plaza-explorer-head-v2">
+                    <div>
+                        <small>Explorer Profile</small>
+                        <strong>${escapeHtml(rank)}</strong>
+                    </div>
+
+                    <span>
+                        Frontend Preview
+                    </span>
                 </div>
 
-                <div class="yh-game-plaza-open-world-lanes-v1">
-                    <span>World Map</span>
-                    <span>Opportunity Quests</span>
-                    <span>Regional Zones</span>
-                    <span>Reputation Layer</span>
+                <div class="yh-game-plaza-explorer-stats-v2">
+                    <span>
+                        <small>Home Zone</small>
+                        <b>${escapeHtml(homeZone)}</b>
+                    </span>
+
+                    <span>
+                        <small>Available Quests</small>
+                        <b>${availableQuests}</b>
+                    </span>
+
+                    <span>
+                        <small>Visible Regions</small>
+                        <b>${visibleRegions}</b>
+                    </span>
+
+                    <span>
+                        <small>Reputation</small>
+                        <b>${escapeHtml(reputationStatus)}</b>
+                    </span>
+                </div>
+
+                <div class="yh-game-plaza-explorer-next-v2">
+                    <small>Current Next Move</small>
+                    <strong>
+                        ${
+                            activeQuestTitle
+                                ? escapeHtml(
+                                    activeQuestTitle
+                                )
+                                : 'Open Explorer Mode'
+                        }
+                    </strong>
                 </div>
 
                 <p>
-                    Frontend concept is active. Reputation, quest completion,
-                    and Explorer ranks remain unwired until the backend pass.
+                    Current Plaza signals can populate this preview.
+                    Verified reputation, quest completion, and higher
+                    Explorer ranks remain unwired until the backend pass.
                 </p>
             </div>
         `;
     }
+
+    /* END PATCH: Phase 3D-FE-3 — Dashboard Explorer profile preview v2 */
+
+    /* PATCH: Phase 3E-FE-1 — Dashboard Federation Strategic preview v1 */
+
+    function readFederationStrategicPreviewV1() {
+        if (
+            federationStrategicPreviewStateV1 &&
+            typeof federationStrategicPreviewStateV1 === 'object'
+        ) {
+            return federationStrategicPreviewStateV1;
+        }
+
+        try {
+            const parsed = JSON.parse(
+                sessionStorage.getItem(
+                    'yhFederationStrategicPreviewV1'
+                ) || 'null'
+            );
+
+            if (parsed && typeof parsed === 'object') {
+                federationStrategicPreviewStateV1 = {
+                    ...parsed
+                };
+                return federationStrategicPreviewStateV1;
+            }
+        } catch (_) {}
+
+        return null;
+    }
+
+    function syncFederationStrategicPreviewV1(payload = {}) {
+        if (!payload || typeof payload !== 'object') return null;
+
+        federationStrategicPreviewStateV1 = {
+            ...payload,
+            governance:
+                payload?.governance &&
+                typeof payload.governance === 'object'
+                    ? { ...payload.governance }
+                    : {},
+            diplomacy:
+                payload?.diplomacy &&
+                typeof payload.diplomacy === 'object'
+                    ? { ...payload.diplomacy }
+                    : {},
+            regionalStrategy:
+                payload?.regionalStrategy &&
+                typeof payload.regionalStrategy === 'object'
+                    ? { ...payload.regionalStrategy }
+                    : {},
+            activeOperation:
+                payload?.activeOperation &&
+                typeof payload.activeOperation === 'object'
+                    ? { ...payload.activeOperation }
+                    : null
+        };
+
+        return federationStrategicPreviewStateV1;
+    }
+
+    function buildFederationStrategicPreviewV1() {
+        const preview = readFederationStrategicPreviewV1();
+
+        const rank = String(preview?.rank || 'Observer').trim();
+        const homeRegion = String(preview?.homeRegion || 'Not established').trim();
+        const activeOperations = Math.max(
+            0,
+            Math.round(Number(preview?.activeOperations || 0))
+        );
+        const strategicAlerts = Math.max(
+            0,
+            Math.round(Number(preview?.strategicAlerts || 0))
+        );
+        const influenceStatus = String(
+            preview?.influenceStatus || 'Wiring pending'
+        ).trim();
+        const operationTitle = String(
+            preview?.activeOperation?.title || ''
+        ).trim();
+        const operationPhase = String(
+            preview?.activeOperation?.phase || 'No active phase'
+        ).trim();
+        const operationRisk = String(
+            preview?.activeOperation?.risk || 'Not assessed'
+        ).trim();
+        const influenceWired = Math.max(
+            0,
+            Math.round(Number(preview?.influenceFramework?.wired || 0))
+        );
+        const influenceTotal = Math.max(
+            0,
+            Math.round(Number(preview?.influenceFramework?.total || 6))
+        );
+        const councilStatus = String(
+            preview?.governance?.councilStatus || 'Wiring pending'
+        ).trim();
+        const activeProposals = Math.max(
+            0,
+            Math.round(Number(preview?.governance?.activeProposals || 0))
+        );
+        const diplomaticSignals = Math.max(
+            0,
+            Math.round(Number(preview?.diplomacy?.totalSignals || 0))
+        );
+        const regionalStrategyState = String(
+            preview?.regionalStrategy?.status || 'No regional signal'
+        ).trim();
+        const governanceAuthority = String(
+            preview?.governance?.governanceAuthority || 'Wiring pending'
+        ).trim();
+
+        return `
+            <div class="yh-game-federation-strategic-preview-v1">
+                <div class="yh-game-federation-strategic-head-v1">
+                    <div>
+                        <small>Strategic Profile</small>
+                        <strong>${escapeHtml(rank)}</strong>
+                    </div>
+                    <span>Frontend Preview</span>
+                </div>
+
+                <div class="yh-game-federation-strategic-stats-v1">
+                    <span>
+                        <small>Home Region</small>
+                        <b>${escapeHtml(homeRegion)}</b>
+                    </span>
+                    <span>
+                        <small>Active Operations</small>
+                        <b>${activeOperations}</b>
+                    </span>
+                    <span>
+                        <small>Strategic Alerts</small>
+                        <b>${strategicAlerts}</b>
+                    </span>
+                    <span>
+                        <small>Influence</small>
+                        <b>${escapeHtml(influenceStatus)}</b>
+                    </span>
+                </div>
+
+                <div class="yh-game-federation-strategic-next-v1">
+                    <small>Current Next Move</small>
+                    <strong>
+                        ${operationTitle ? escapeHtml(operationTitle) : 'Open Strategic Command'}
+                    </strong>
+                </div>
+
+                <div class="yh-game-federation-operation-state-v2">
+                    <span>
+                        <small>Operation Phase</small>
+                        <b>${escapeHtml(operationPhase)}</b>
+                    </span>
+                    <span>
+                        <small>Risk Context</small>
+                        <b>${escapeHtml(operationRisk)}</b>
+                    </span>
+                    <span>
+                        <small>Influence Layers</small>
+                        <b>${influenceWired}/${influenceTotal} wired</b>
+                    </span>
+                </div>
+
+                <div class="yh-game-federation-governance-state-v3">
+                    <span>
+                        <small>Council Status</small>
+                        <b>${escapeHtml(councilStatus)}</b>
+                    </span>
+                    <span>
+                        <small>Active Proposals</small>
+                        <b>${activeProposals}</b>
+                    </span>
+                    <span>
+                        <small>Diplomatic Signals</small>
+                        <b>${diplomaticSignals}</b>
+                    </span>
+                    <span>
+                        <small>Regional Strategy State</small>
+                        <b>${escapeHtml(regionalStrategyState)}</b>
+                    </span>
+                </div>
+
+                <div class="yh-game-federation-governance-note-v3">
+                    <small>Governance</small>
+                    <strong>${escapeHtml(governanceAuthority)}</strong>
+                </div>
+
+                <p>
+                    Council, governance, diplomacy, and regional strategy now use
+                    current Federation source signals. Votes, seats, alliances,
+                    rewards, promotions, and authority remain disabled until backend wiring.
+                </p>
+            </div>
+        `;
+    }
+
+    /* END PATCH: Phase 3E-FE-1 — Dashboard Federation Strategic preview v1 */
 
     function buildDivisionCard(snapshot = {}) {
         const division = String(snapshot.division || '').trim();
@@ -4900,7 +5241,9 @@ function openSquadDetailsModalV1(
                         ? buildAcademySoloModePreviewV1()
                         : division === 'plaza'
                             ? buildPlazaOpenWorldPreviewV1()
-                            : ''
+                            : division === 'federation'
+                                ? buildFederationStrategicPreviewV1()
+                                : ''
                 }
 
                 <p class="yh-game-division-status">
@@ -6757,6 +7100,18 @@ window.addEventListener(
 
         if (
             data.type ===
+            'yhu:federation-strategic-preview-updated'
+        ) {
+            syncFederationStrategicPreviewV1(
+                data.detail || {}
+            );
+
+            renderDashboardGameFoundation();
+            return;
+        }
+
+        if (
+            data.type ===
             'yhu:academy-squad-action-completed'
         ) {
             void refreshAcademySquadLiveStateV1(
@@ -6773,6 +7128,28 @@ window.addEventListener(
 );
 
 /* END PATCH: Receive Academy iframe live updates v2 */
+    window.addEventListener(
+        'yhu:federation-strategic-preview-updated',
+        (event) => {
+            syncFederationStrategicPreviewV1(
+                event?.detail || {}
+            );
+
+            renderDashboardGameFoundation();
+        }
+    );
+
+    window.addEventListener(
+        'yhu:plaza-explorer-preview-updated',
+        (event) => {
+            syncPlazaExplorerPreviewV2(
+                event?.detail || {}
+            );
+
+            renderDashboardGameFoundation();
+        }
+    );
+
     window.addEventListener('pagehide', () => {
         clearAcademyGameRenderRetryTimersV1();
     });

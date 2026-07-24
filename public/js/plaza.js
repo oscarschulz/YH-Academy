@@ -1288,6 +1288,13 @@ function normalizeServerOpportunityItem(item, index = 0) {
       ? item.paymentProviderOptions
       : [],
 
+    status: item?.status || item?.opportunityStatus || "",
+    deadline: item?.deadline || item?.dueDate || item?.expiresAt || "",
+    createdAt: item?.createdAt || "",
+    requiredSkills: item?.requiredSkills || item?.skills || item?.serviceTags || [],
+    expectedOutput: item?.expectedOutput || item?.serviceOutcome || "",
+    applicantsCount: item?.applicantsCount || item?.applicationCount || 0,
+
     academySignalLabel: item?.academySignalLabel || ""
   }, index);
 }
@@ -2791,6 +2798,13 @@ function normalizeOpportunityItem(item, index) {
     paymentProviderOptions: Array.isArray(item?.paymentProviderOptions)
       ? item.paymentProviderOptions
       : [],
+
+    status: String(item?.status || item?.opportunityStatus || ""),
+    deadline: String(item?.deadline || item?.dueDate || item?.expiresAt || ""),
+    createdAt: String(item?.createdAt || ""),
+    requiredSkills: normalizeSignalList(item?.requiredSkills || item?.skills || item?.serviceTags),
+    expectedOutput: String(item?.expectedOutput || item?.serviceOutcome || ""),
+    applicantsCount: Math.max(0, Number(item?.applicantsCount || item?.applicationCount || 0)),
 
     academySignalLabel: String(item?.academySignalLabel || "")
   };
@@ -4440,11 +4454,11 @@ const plazaConfig = {
     breadcrumb: ["Plazas", "Feed"]
   },
   opportunities: {
-    title: "Opportunities",
-    note: "Find work, collaboration, projects, partnerships, introductions, service needs, and regional openings.",
+    title: "Opportunity Quests",
+    note: "Browse structured contracts, collaborations, projects, services, connector paths, and regional quests without changing their existing business workflows.",
     navTab: "opportunities",
     toolbar: null,
-    breadcrumb: ["Plazas", "Opportunities"]
+    breadcrumb: ["Plazas", "Opportunity Quests"]
   },
   directory: {
     title: "Directory",
@@ -4538,11 +4552,11 @@ const plazaConfig = {
     breadcrumb: ["Plazas", "Messages", "Conversation"]
   },
   "opportunity-detail": {
-    title: "Opportunity Detail",
-    note: "Structured fit, related members, and next-step routing inside the same Plaza workspace.",
+    title: "Quest Briefing",
+    note: "Review the objective, issuer, operator fit, reward context, transaction state, and tracked Plaza next step.",
     navTab: "opportunities",
     toolbar: null,
-    breadcrumb: ["Plazas", "Opportunities", "Opportunity Detail"]
+    breadcrumb: ["Plazas", "Opportunity Quests", "Quest Briefing"]
   },
   "project-detail": {
     title: "Project Detail",
@@ -4681,6 +4695,7 @@ const plazaRuntime = {
   currentScreen: "feed",
   previousScreen: "feed",
   feedFilter: "all",
+  questFilter: "all",
   activeInboxRole: "all",
   activeNotificationRole: "all",
   activeConversationId: "",
@@ -4730,6 +4745,7 @@ function savePlazaUiState() {
   persistStoredUiState(PLAZA_UI_STATE_KEY, {
     currentScreen: PRIMARY_SCREENS.has(plazaRuntime.currentScreen) ? plazaRuntime.currentScreen : "feed",
     feedFilter: plazaRuntime.feedFilter || "all",
+    questFilter: plazaRuntime.questFilter || "all",
     activeInboxRole: plazaRuntime.activeInboxRole || "all",
     activeNotificationRole: plazaRuntime.activeNotificationRole || "all",
     directoryRegion: plazaRegionFilter?.value || "all",
@@ -4760,6 +4776,7 @@ function restorePlazaUiState() {
   const urlTargetScreen = readPlazaLaunchScreenFromUrl();
 
   plazaRuntime.feedFilter = String(saved.feedFilter || "all");
+  plazaRuntime.questFilter = String(saved.questFilter || "all");
   plazaRuntime.activeInboxRole = String(saved.activeInboxRole || "all");
   plazaRuntime.activeNotificationRole = String(saved.activeNotificationRole || "all");
 
@@ -5113,6 +5130,8 @@ const plazaRequestComposerSubmitBtn = document.getElementById("plazaRequestCompo
 
 const plazaDirectoryGrid = document.getElementById("plazaDirectoryGrid");
 const plazaOpportunityGrid = document.getElementById("plazaOpportunityGrid");
+const plazaQuestBoardSummaryV1 = document.getElementById("plazaQuestBoardSummaryV1");
+const plazaQuestFilterBarV1 = document.getElementById("plazaQuestFilterBarV1");
 const plazaRegionGrid = document.getElementById("plazaRegionGrid");
 const plazaBridgeGrid = document.getElementById("plazaBridgeGrid");
 const plazaRequestsScreenList = document.getElementById("plazaRequestsScreenList");
@@ -6705,25 +6724,296 @@ function renderDirectory() {
   `).join("");
 }
 
+
+/* PATCH: Phase 3D-FE-2 — Opportunity Quest presentation v1 */
+const PLAZA_QUEST_FILTERS_V1 = new Set([
+  "all",
+  "available",
+  "contract",
+  "collaboration",
+  "paid",
+  "regional",
+  "my-activity"
+]);
+
+function getPlazaQuestClassV1(item = {}) {
+  const type = String(item.type || "").trim().toLowerCase();
+  const escalation = String(item.federationEscalation || "none").trim().toLowerCase();
+
+  if (type.includes("service")) return "Service Quest";
+  if (type.includes("collaboration") || type.includes("partnership")) return "Collaboration Quest";
+  if (type.includes("introduction") || escalation.includes("federation")) return "Connector Quest";
+  if (type.includes("regional")) return "Regional Quest";
+  if (type.includes("project")) return "Project Quest";
+  if (
+    type.includes("job") ||
+    type.includes("hire") ||
+    type.includes("hiring") ||
+    type.includes("bounty") ||
+    type.includes("operator")
+  ) {
+    return "Contract Quest";
+  }
+
+  return "Opportunity Quest";
+}
+
+function getPlazaQuestStateV1(item = {}) {
+  const values = [
+    item.status,
+    item.dealStatus,
+    item.paymentStatus,
+    item.paymentLedgerStatus
+  ]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean);
+
+  const joined = values.join(" ");
+
+  if (/expired/.test(joined)) return "Expired";
+  if (/cancel|closed|rejected|declined/.test(joined)) return "Closed";
+  if (/complete|completed|settled|released|paid/.test(joined)) return "Completed";
+  if (/active|in.progress|engaged|accepted/.test(joined)) return "Active Deal";
+  if (/payment|transaction|ledger|funding|escrow/.test(joined) && /pending|draft|created|processing/.test(joined)) {
+    return "Transaction Pending";
+  }
+  if (/discussion|conversation|contacted|matched/.test(joined)) return "In Discussion";
+  if (/review|pending|submitted|screening/.test(joined)) return "Reviewing";
+
+  return "Available";
+}
+
+function getPlazaQuestDifficultyV1(item = {}) {
+  const type = String(item.type || "").trim().toLowerCase();
+  const economy = String(item.economyMode || "not_sure").trim().toLowerCase();
+  const escalation = String(item.federationEscalation || "none").trim().toLowerCase();
+  const value = Math.max(
+    normalizePlazaMoneyValue(item.budgetMin),
+    normalizePlazaMoneyValue(item.budgetMax),
+    normalizePlazaMoneyValue(item.pricingAmount)
+  );
+
+  if (
+    escalation === "federation_paid_intro" ||
+    escalation === "federation_candidate" ||
+    economy === "equity" ||
+    value >= 5000
+  ) {
+    return "Elite";
+  }
+
+  if (
+    ["paid", "commission", "revenue_share", "bounty"].includes(economy) ||
+    type.includes("project") ||
+    type.includes("hiring") ||
+    type.includes("partnership") ||
+    value >= 500
+  ) {
+    return "Advanced";
+  }
+
+  return "Standard";
+}
+
+function getPlazaQuestRewardV1(item = {}) {
+  const moneyRange = formatPlazaMoneyRange(item);
+  const commission = getPlazaOpportunityCommissionLabel(item);
+  const economy = String(item.economyMode || "not_sure").trim().toLowerCase();
+
+  if (moneyRange) return moneyRange;
+  if (commission) return commission;
+  if (economy === "free") return "Signal / relationship value";
+  if (economy === "equity") return "Equity discussion";
+  if (economy === "revenue_share") return "Revenue-share terms pending";
+
+  return "Reward details pending";
+}
+
+function getPlazaQuestRequirementV1(item = {}) {
+  const requirements = String(item.serviceRequirements || "").trim();
+  if (requirements) return requirements;
+
+  const skills = safeArray(item.requiredSkills).map((entry) => String(entry || "").trim()).filter(Boolean);
+  if (skills.length) return skills.slice(0, 4).join(", ");
+
+  if (item.serviceCategory) return item.serviceCategory;
+  if (item.serviceProviderType) return titleCase(item.serviceProviderType);
+
+  return "Open requirement";
+}
+
+function getPlazaQuestExpectedOutputV1(item = {}) {
+  return String(
+    item.expectedOutput ||
+    item.serviceOutcome ||
+    "Expected output not specified"
+  ).trim();
+}
+
+function isPlazaPaidQuestV1(item = {}) {
+  const economy = String(item.economyMode || "not_sure").trim().toLowerCase();
+  return (
+    ["paid", "commission", "revenue_share", "bounty", "equity"].includes(economy) ||
+    Boolean(formatPlazaMoneyRange(item)) ||
+    normalizePlazaMoneyValue(item.pricingAmount) > 0
+  );
+}
+
+function getPlazaCurrentUserIdV1() {
+  const directKeys = ["yh_user_id", "yh_uid", "user_id", "uid"];
+
+  try {
+    for (const key of directKeys) {
+      const value = String(
+        sessionStorage.getItem(key) ||
+        localStorage.getItem(key) ||
+        ""
+      ).trim();
+      if (value) return value;
+    }
+  } catch (_) {}
+
+  try {
+    const token = getPlazaRealtimeStoredToken();
+    const payloadSegment = String(token || "").split(".")[1] || "";
+    if (!payloadSegment) return "";
+
+    const normalized = payloadSegment.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(padded));
+
+    return String(payload.uid || payload.userId || payload.sub || "").trim();
+  } catch (_) {
+    return "";
+  }
+}
+
+function isPlazaQuestOwnedByCurrentUserV1(item = {}) {
+  const currentUserId = getPlazaCurrentUserIdV1();
+  if (!currentUserId) return false;
+
+  return [item.userId, item.authorId, item.ownerUid, item.createdByUserId]
+    .some((value) => String(value || "").trim() === currentUserId);
+}
+
+function doesPlazaQuestMatchFilterV1(item = {}, filter = "all") {
+  const cleanFilter = PLAZA_QUEST_FILTERS_V1.has(filter) ? filter : "all";
+  const questClass = getPlazaQuestClassV1(item);
+  const questState = getPlazaQuestStateV1(item);
+  const region = String(item.region || "").trim().toLowerCase();
+
+  if (cleanFilter === "available") return questState === "Available";
+  if (cleanFilter === "contract") return questClass === "Contract Quest";
+  if (cleanFilter === "collaboration") return questClass === "Collaboration Quest";
+  if (cleanFilter === "paid") return isPlazaPaidQuestV1(item);
+  if (cleanFilter === "regional") {
+    return questClass === "Regional Quest" || Boolean(region && !["global", "unknown region"].includes(region));
+  }
+  if (cleanFilter === "my-activity") return isPlazaQuestOwnedByCurrentUserV1(item);
+
+  return true;
+}
+
+function renderPlazaQuestBoardSummaryV1(items = []) {
+  if (!plazaQuestBoardSummaryV1) return;
+
+  const counts = {
+    all: items.length,
+    available: items.filter((item) => getPlazaQuestStateV1(item) === "Available").length,
+    contract: items.filter((item) => getPlazaQuestClassV1(item) === "Contract Quest").length,
+    collaboration: items.filter((item) => getPlazaQuestClassV1(item) === "Collaboration Quest").length,
+    paid: items.filter(isPlazaPaidQuestV1).length,
+    regional: items.filter((item) => doesPlazaQuestMatchFilterV1(item, "regional")).length,
+    "my-activity": items.filter(isPlazaQuestOwnedByCurrentUserV1).length
+  };
+
+  plazaQuestBoardSummaryV1.innerHTML = `
+    <span><b>${counts.all}</b> Visible Quests</span>
+    <span><b>${counts.available}</b> Available</span>
+    <span><b>${counts.paid}</b> Paid Paths</span>
+    <span><b>${counts.regional}</b> Regional</span>
+  `;
+
+  document.querySelectorAll("[data-plaza-quest-filter-count]").forEach((node) => {
+    const key = String(node.getAttribute("data-plaza-quest-filter-count") || "all");
+    node.textContent = String(counts[key] || 0);
+  });
+
+  plazaQuestFilterBarV1?.querySelectorAll("[data-plaza-quest-filter]").forEach((button) => {
+    button.classList.toggle(
+      "is-active",
+      button.getAttribute("data-plaza-quest-filter") === plazaRuntime.questFilter
+    );
+  });
+}
+
+function renderPlazaQuestFactV1(label = "", value = "") {
+  return `
+    <div class="yh-plaza-quest-fact-v1">
+      <small>${escapeHtml(label)}</small>
+      <strong>${escapeHtml(value || "Not specified")}</strong>
+    </div>
+  `;
+}
+/* END PATCH: Phase 3D-FE-2 — Opportunity Quest presentation v1 */
+
 function renderOpportunities() {
   if (!plazaOpportunityGrid) return;
 
-  const items = plazaServerOpportunitiesLoaded
+  const sourceItems = plazaServerOpportunitiesLoaded
     ? plazaServerOpportunities
     : plazaAdapter.getOpportunities();
 
+  renderPlazaQuestBoardSummaryV1(sourceItems);
+
+  const cleanFilter = PLAZA_QUEST_FILTERS_V1.has(plazaRuntime.questFilter)
+    ? plazaRuntime.questFilter
+    : "all";
+
+  const items = sourceItems.filter((item) => {
+    return doesPlazaQuestMatchFilterV1(item, cleanFilter);
+  });
+
+  if (!sourceItems.length) {
+    plazaOpportunityGrid.innerHTML = `
+      <div class="yh-plaza-empty yh-plaza-quest-empty-v1">
+        No Plaza opportunity quests are available yet.
+      </div>
+    `;
+    return;
+  }
+
   if (!items.length) {
-    plazaOpportunityGrid.innerHTML = `<div class="yh-plaza-empty">No Plaza opportunities yet.</div>`;
+    const message = cleanFilter === "my-activity"
+      ? "No opportunity quests are currently connected to your member identity."
+      : "No opportunity quests match this filter.";
+
+    plazaOpportunityGrid.innerHTML = `
+      <div class="yh-plaza-empty yh-plaza-quest-empty-v1">
+        ${escapeHtml(message)}
+      </div>
+    `;
     return;
   }
 
   plazaOpportunityGrid.innerHTML = items.map((item) => {
     const pathClass = getPlazaOpportunityPathClass(item);
+    const questClass = getPlazaQuestClassV1(item);
+    const questState = getPlazaQuestStateV1(item);
+    const difficulty = getPlazaQuestDifficultyV1(item);
+    const reward = getPlazaQuestRewardV1(item);
+    const requirement = getPlazaQuestRequirementV1(item);
+    const deadline = String(item.deadline || "").trim() || "Open availability";
 
     return `
-      <article class="yh-plaza-opportunity-card ${escapeHtml(pathClass)}" data-economy-mode="${escapeHtml(item.economyMode)}">
-        <div class="yh-plaza-opportunity-card-head">
-          ${renderPlazaOpportunityChips(item)}
+      <article
+        class="yh-plaza-opportunity-card yh-plaza-quest-card-v1 ${escapeHtml(pathClass)}"
+        data-economy-mode="${escapeHtml(item.economyMode)}"
+        data-quest-state="${escapeHtml(questState.toLowerCase().replace(/\s+/g, "-"))}"
+      >
+        <div class="yh-plaza-quest-card-top-v1">
+          <span class="yh-plaza-quest-class-v1">${escapeHtml(questClass)}</span>
+          <span class="yh-plaza-quest-state-v1">${escapeHtml(questState)}</span>
         </div>
 
         ${renderPlazaCardOwnerButton(item, {
@@ -6732,15 +7022,30 @@ function renderOpportunities() {
           avatar: item.authorAvatar
         })}
 
-        <h3>${escapeHtml(item.title)}</h3>
-        <p>${escapeHtml(item.text)}</p>
+        <div class="yh-plaza-quest-card-copy-v1">
+          <h3>${escapeHtml(item.title)}</h3>
+          <p>${escapeHtml(item.text)}</p>
+        </div>
 
-        ${renderPlazaOpportunityServicePanel(item)}
-        ${renderPlazaOpportunityEconomyPanel(item)}
+        <div class="yh-plaza-quest-facts-v1">
+          ${renderPlazaQuestFactV1("Zone", item.region || "Global")}
+          ${renderPlazaQuestFactV1("Difficulty", difficulty)}
+          ${renderPlazaQuestFactV1("Reward", reward)}
+          ${renderPlazaQuestFactV1("Availability", deadline)}
+        </div>
+
+        <div class="yh-plaza-quest-requirement-v1">
+          <small>Required Operator Profile</small>
+          <strong>${escapeHtml(requirement)}</strong>
+        </div>
+
+        <div class="yh-plaza-opportunity-card-head yh-plaza-quest-chip-row-v1">
+          ${renderPlazaOpportunityChips(item, [difficulty])}
+        </div>
 
         <div class="yh-plaza-card-actions">
-          <button type="button" class="yh-plaza-ghost-btn" data-opportunity-id="${escapeHtml(item.id)}">
-            ${escapeHtml(getPlazaOpportunityPrimaryActionLabel(item))}
+          <button type="button" class="yh-plaza-ghost-btn yh-plaza-quest-briefing-btn-v1" data-opportunity-id="${escapeHtml(item.id)}">
+            View Quest Briefing
           </button>
           ${renderPlazaOpportunityPaymentActions(item)}
         </div>
@@ -6937,14 +7242,181 @@ function renderPatronBenefitsPreview(item = {}) {
   `;
 }
 
-/* PATCH: Phase 3D-FE-1 — Plazas Open World shell v1 */
+/* PATCH: Phase 3D-FE-3 — Plaza Reputation and Explorer progression v2 */
+const PLAZA_EXPLORER_PREVIEW_KEY_V2 = "yhPlazaExplorerPreviewV2";
+
+function normalizePlazaExplorerTextV2(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function getPlazaExplorerStoredValueV2(keys = []) {
+  for (const key of keys) {
+    try {
+      const value = String(
+        sessionStorage.getItem(key) ||
+        localStorage.getItem(key) ||
+        ""
+      ).trim();
+
+      if (value) return value;
+    } catch (_) {}
+  }
+
+  return "";
+}
+
+function getPlazaExplorerProfileLocationV2() {
+  return {
+    country: getPlazaExplorerStoredValueV2([
+      "yh_user_country",
+      "yh_user_country_of_residence",
+      "yh_user_location_country",
+      "country"
+    ]),
+    city: getPlazaExplorerStoredValueV2([
+      "yh_user_city",
+      "yh_user_location_city",
+      "city"
+    ])
+  };
+}
+
+function resolvePlazaExplorerHomeZoneV2(regions = []) {
+  const location = getPlazaExplorerProfileLocationV2();
+  const normalizedCountry = normalizePlazaExplorerTextV2(location.country);
+
+  if (!normalizedCountry) {
+    return {
+      established: false,
+      country: "",
+      city: location.city,
+      regionId: "",
+      region: "",
+      network: "",
+      label: "Not established"
+    };
+  }
+
+  const aliases = new Map([
+    ["usa", "united states of america"],
+    ["united states", "united states of america"],
+    ["uk", "united kingdom"],
+    ["uae", "united arab emirates"]
+  ]);
+
+  const targetCountry = aliases.get(normalizedCountry) || normalizedCountry;
+
+  const match = safeArray(regions).find((item) => {
+    return safeArray(item.countries).some((country) => {
+      const normalized = normalizePlazaExplorerTextV2(country);
+      return normalized === targetCountry;
+    });
+  });
+
+  if (!match) {
+    return {
+      established: false,
+      country: location.country,
+      city: location.city,
+      regionId: "",
+      region: "",
+      network: "",
+      label: "Not established"
+    };
+  }
+
+  return {
+    established: true,
+    country: location.country,
+    city: location.city,
+    regionId: String(match.id || "").trim(),
+    region: String(match.region || "").trim(),
+    network: String(match.network || match.continent || "").trim(),
+    label: String(match.label || match.region || match.network || location.country).trim()
+  };
+}
+
+function getPlazaExplorerSignalCorpusV2(items = []) {
+  return safeArray(items)
+    .map((item) => {
+      return [
+        item.region,
+        item.network,
+        item.continent,
+        item.country,
+        item.location,
+        item.title,
+        item.text
+      ].filter(Boolean).join(" ");
+    })
+    .join(" ");
+}
+
+function savePlazaExplorerPreviewV2(preview = {}) {
+  try {
+    sessionStorage.setItem(
+      PLAZA_EXPLORER_PREVIEW_KEY_V2,
+      JSON.stringify(preview)
+    );
+  } catch (_) {}
+
+  try {
+    window.dispatchEvent(
+      new CustomEvent("yhu:plaza-explorer-preview-updated", {
+        detail: preview
+      })
+    );
+  } catch (_) {}
+
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.dispatchEvent(
+        new CustomEvent("yhu:plaza-explorer-preview-updated", {
+          detail: preview
+        })
+      );
+    }
+  } catch (_) {}
+
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: "yhu:plaza-explorer-preview-updated",
+        detail: preview
+      }, window.location.origin);
+    }
+  } catch (_) {}
+}
+
 function renderPlazaExplorerScreenV1() {
   const metricsNode = document.getElementById("plazaExplorerMetrics");
   const zoneGrid = document.getElementById("plazaExplorerZoneGrid");
   const questSlot = document.getElementById("plazaExplorerQuestSlot");
   const signalsNode = document.getElementById("plazaExplorerSignals");
+  const reputationNode = document.getElementById("plazaExplorerReputationGrid");
+  const activityNode = document.getElementById("plazaExplorerActivityLog");
+  const rankNode = document.getElementById("plazaExplorerRank");
+  const homeZoneNode = document.getElementById("plazaExplorerHomeZone");
+  const availableQuestNode = document.getElementById("plazaExplorerAvailableQuests");
+  const visibleRegionsNode = document.getElementById("plazaExplorerVisibleRegions");
+  const profileNoteNode = document.getElementById("plazaExplorerProfileNote");
 
-  if (!metricsNode && !zoneGrid && !questSlot && !signalsNode) return;
+  if (
+    !metricsNode &&
+    !zoneGrid &&
+    !questSlot &&
+    !signalsNode &&
+    !reputationNode &&
+    !activityNode
+  ) {
+    return;
+  }
 
   const regions = safeArray(getPlazaRegionsForRender());
   const opportunities = plazaServerOpportunitiesLoaded
@@ -6956,18 +7428,52 @@ function renderPlazaExplorerScreenV1() {
   const feedItems = plazaServerFeedLoaded
     ? safeArray(plazaServerFeedItems)
     : safeArray(plazaAdapter.getFeed("all"));
+  const requests = plazaServerRequestsLoaded
+    ? safeArray(plazaServerRequests)
+    : typeof plazaAdapter.getRequests === "function"
+      ? safeArray(plazaAdapter.getRequests())
+      : [];
+  const conversations = plazaServerMessagesLoaded
+    ? safeArray(plazaServerMessages)
+    : [];
+  const meetups = plazaServerMeetupsLoaded
+    ? safeArray(plazaServerMeetups)
+    : [];
+
+  const availableQuests = opportunities.filter((item) => {
+    return !["Completed", "Closed", "Expired"].includes(
+      getPlazaQuestStateV1(item)
+    );
+  });
+
+  const activeQuest = availableQuests[0] || null;
+  const homeZone = resolvePlazaExplorerHomeZoneV2(regions);
+
+  if (rankNode) rankNode.textContent = "Newcomer";
+  if (homeZoneNode) homeZoneNode.textContent = homeZone.label;
+  if (availableQuestNode) {
+    availableQuestNode.textContent = Number(availableQuests.length).toLocaleString();
+  }
+  if (visibleRegionsNode) {
+    visibleRegionsNode.textContent = Number(regions.length).toLocaleString();
+  }
+  if (profileNoteNode) {
+    profileNoteNode.textContent = homeZone.established
+      ? `${homeZone.label} is derived from the saved profile country. Reputation and higher rank unlocks remain unwired.`
+      : "Home zone is not established because no saved profile country matched the current Plaza topology.";
+  }
 
   if (metricsNode) {
     const metrics = [
       {
         label: "Regional Zones",
         value: regions.length,
-        note: "Existing Plaza topology"
+        note: homeZone.established ? `Home: ${homeZone.label}` : "Home zone not established"
       },
       {
         label: "Opportunity Quests",
-        value: opportunities.length,
-        note: "Currently available"
+        value: availableQuests.length,
+        note: "Currently actionable"
       },
       {
         label: "Visible Members",
@@ -6992,6 +7498,14 @@ function renderPlazaExplorerScreenV1() {
 
   if (zoneGrid) {
     const groups = new Map();
+    const signalCorpus = normalizePlazaExplorerTextV2(
+      getPlazaExplorerSignalCorpusV2([
+        ...feedItems,
+        ...opportunities,
+        ...directory,
+        ...meetups
+      ])
+    );
 
     regions.forEach((item) => {
       const key = String(
@@ -7005,18 +7519,49 @@ function renderPlazaExplorerScreenV1() {
         name: key,
         plazas: 0,
         countries: 0,
+        countryNames: [],
         regionId: ""
       };
 
       current.plazas += 1;
       current.countries += safeArray(item.countries).length;
+      current.countryNames.push(...safeArray(item.countries));
       current.regionId = current.regionId || String(item.id || "").trim();
 
       groups.set(key, current);
     });
 
     const zones = Array.from(groups.values())
+      .map((zone) => {
+        const normalizedName = normalizePlazaExplorerTextV2(zone.name);
+        const isHome =
+          homeZone.established &&
+          normalizePlazaExplorerTextV2(homeZone.network) === normalizedName;
+
+        const isDiscovered =
+          !isHome &&
+          (
+            signalCorpus.includes(normalizedName) ||
+            zone.countryNames.some((country) => {
+              const normalizedCountry = normalizePlazaExplorerTextV2(country);
+              return normalizedCountry && signalCorpus.includes(normalizedCountry);
+            })
+          );
+
+        return {
+          ...zone,
+          state: isHome
+            ? "home"
+            : isDiscovered
+              ? "discovered"
+              : "available"
+        };
+      })
       .sort((a, b) => {
+        const order = { home: 0, discovered: 1, available: 2 };
+        if (order[a.state] !== order[b.state]) {
+          return order[a.state] - order[b.state];
+        }
         if (b.plazas !== a.plazas) return b.plazas - a.plazas;
         return a.name.localeCompare(b.name);
       })
@@ -7026,17 +7571,28 @@ function renderPlazaExplorerScreenV1() {
       ? zones.map((zone, index) => `
           <button
             type="button"
-            class="yh-plaza-open-world-zone-v1"
+            class="yh-plaza-open-world-zone-v1 is-${escapeHtml(zone.state)}"
             data-plaza-open-world-screen="atlas"
             style="--yh-zone-index:${index}"
           >
             <span aria-hidden="true"></span>
-            <strong>${escapeHtml(zone.name)}</strong>
-            <small>
-              ${Number(zone.plazas).toLocaleString()} Plazas
-              •
-              ${Number(zone.countries).toLocaleString()} Countries
-            </small>
+            <div>
+              <small class="yh-plaza-explorer-zone-state-v2">
+                ${
+                  zone.state === "home"
+                    ? "Home Zone"
+                    : zone.state === "discovered"
+                      ? "Discovered"
+                      : "Available"
+                }
+              </small>
+              <strong>${escapeHtml(zone.name)}</strong>
+              <small>
+                ${Number(zone.plazas).toLocaleString()} Plazas
+                •
+                ${Number(zone.countries).toLocaleString()} Countries
+              </small>
+            </div>
           </button>
         `).join("")
       : `
@@ -7047,26 +7603,30 @@ function renderPlazaExplorerScreenV1() {
   }
 
   if (questSlot) {
-    const quest = opportunities[0] || null;
-
-    questSlot.innerHTML = quest
+    questSlot.innerHTML = activeQuest
       ? `
           <article class="yh-plaza-open-world-featured-quest-v1">
             <span>
-              ${escapeHtml(quest.type || "Opportunity")}
+              ${escapeHtml(getPlazaQuestClassV1(activeQuest))}
               •
-              ${escapeHtml(quest.region || "Global")}
+              ${escapeHtml(activeQuest.region || "Global")}
             </span>
 
-            <h4>${escapeHtml(quest.title || "Plaza Opportunity")}</h4>
+            <h4>${escapeHtml(activeQuest.title || "Plaza Opportunity")}</h4>
 
             <p>
               ${escapeHtml(
-                quest.text ||
-                quest.description ||
+                activeQuest.text ||
+                activeQuest.description ||
                 "Open the Opportunity Quest board to review the full route."
               )}
             </p>
+
+            <div class="yh-plaza-explorer-active-quest-meta-v2">
+              <small>${escapeHtml(getPlazaQuestStateV1(activeQuest))}</small>
+              <small>${escapeHtml(getPlazaQuestDifficultyV1(activeQuest))}</small>
+              <small>${escapeHtml(getPlazaQuestRewardV1(activeQuest))}</small>
+            </div>
 
             <button type="button" data-plaza-open-world-screen="opportunities">
               Review Quest Board
@@ -7075,15 +7635,74 @@ function renderPlazaExplorerScreenV1() {
         `
       : `
           <div class="yh-plaza-open-world-empty-v1">
-            <strong>No opportunity quest is available yet.</strong>
+            <strong>No actionable opportunity quest is available yet.</strong>
             <span>
-              The shell will surface real Plaza opportunities here without inventing placeholder quests.
+              Real Plaza opportunities will appear here without invented quest data.
             </span>
             <button type="button" data-plaza-open-world-screen="opportunities">
               Open Opportunity Board
             </button>
           </div>
         `;
+  }
+
+  if (reputationNode) {
+    const categories = [
+      ["Reliability", "Verified delivery and settlement outcomes"],
+      ["Collaboration", "Completed work with other Plaza members"],
+      ["Regional Activity", "Meaningful participation in a Plaza zone"],
+      ["Opportunity Execution", "Verified quest outcomes"],
+      ["Community Contribution", "Useful signals, meetups, and support"],
+      ["Connector Trust", "Successful introductions and handoffs"]
+    ];
+
+    reputationNode.innerHTML = categories.map(([label, description]) => `
+      <article>
+        <div>
+          <strong>${escapeHtml(label)}</strong>
+          <small>${escapeHtml(description)}</small>
+        </div>
+        <span>Wiring pending</span>
+      </article>
+    `).join("");
+  }
+
+  if (activityNode) {
+    const activity = [
+      {
+        label: "Opportunity Quests",
+        value: availableQuests.length,
+        state: activeQuest ? "Available now" : "No active quest"
+      },
+      {
+        label: "Requests",
+        value: requests.length,
+        state: requests.length ? "Visible workflow" : "No visible request"
+      },
+      {
+        label: "Conversations",
+        value: conversations.length,
+        state: conversations.length ? "Available context" : "No visible conversation"
+      },
+      {
+        label: "Meetups",
+        value: meetups.length,
+        state: meetups.length ? "Regional activity visible" : "No visible meetup"
+      },
+      {
+        label: "Regions",
+        value: regions.length,
+        state: homeZone.established ? homeZone.label : "Home zone not established"
+      }
+    ];
+
+    activityNode.innerHTML = activity.map((item) => `
+      <article>
+        <span>${escapeHtml(item.label)}</span>
+        <strong>${Number(item.value || 0).toLocaleString()}</strong>
+        <small>${escapeHtml(item.state)}</small>
+      </article>
+    `).join("");
   }
 
   if (signalsNode) {
@@ -7095,8 +7714,8 @@ function renderPlazaExplorerScreenV1() {
           .filter(Boolean)
           .join(" • ")
       })),
-      ...opportunities.slice(0, 1).map((item) => ({
-        label: "Opportunity Quest",
+      ...availableQuests.slice(0, 1).map((item) => ({
+        label: getPlazaQuestClassV1(item),
         title: item.title || "Plaza opportunity",
         meta: item.region || "Global"
       }))
@@ -7116,13 +7735,32 @@ function renderPlazaExplorerScreenV1() {
           </div>
         `;
   }
+
+  savePlazaExplorerPreviewV2({
+    version: "plaza-explorer-preview-v2",
+    rank: "Newcomer",
+    reputationStatus: "Wiring pending",
+    homeZone: homeZone.label,
+    homeZoneEstablished: homeZone.established,
+    availableQuests: availableQuests.length,
+    visibleRegions: regions.length,
+    visibleMembers: directory.length,
+    activeQuest: activeQuest
+      ? {
+          id: String(activeQuest.id || "").trim(),
+          title: String(activeQuest.title || "Plaza Opportunity").trim(),
+          state: getPlazaQuestStateV1(activeQuest)
+        }
+      : null,
+    updatedAt: new Date().toISOString()
+  });
 }
 
 function openPlazaExplorerScreenV1(options = {}) {
   renderPlazaExplorerScreenV1();
   openScreen("explorer", options);
 }
-/* END PATCH: Phase 3D-FE-1 — Plazas Open World shell v1 */
+/* END PATCH: Phase 3D-FE-3 — Plaza Reputation and Explorer progression v2 */
 
 function renderAtlasScreen() {
   if (!plazaAtlasGrid) return;
@@ -9052,48 +9690,101 @@ function renderOpportunityDetailScreen(item) {
 
   const relatedMembers = plazaAdapter.getRelatedMembers(item.region);
   const relatedBridge = plazaAdapter.getRegionBridge(item.region);
-  const economyContext = buildPlazaOpportunityEconomyContext(item);
+  const questClass = getPlazaQuestClassV1(item);
+  const questState = getPlazaQuestStateV1(item);
+  const difficulty = getPlazaQuestDifficultyV1(item);
+  const reward = getPlazaQuestRewardV1(item);
+  const requirement = getPlazaQuestRequirementV1(item);
+  const expectedOutput = getPlazaQuestExpectedOutputV1(item);
+  const deadline = String(item.deadline || "").trim() || "Open availability";
+  const academySignal = String(item.academySignalLabel || "").trim();
 
   plazaOpportunityDetailTitle.textContent = item.title;
-  plazaOpportunityDetailMeta.innerHTML = renderPlazaOpportunityChips(item, ["Plaza movement layer"]);
+  plazaOpportunityDetailMeta.innerHTML = renderPlazaOpportunityChips(item, [
+    questClass,
+    questState,
+    difficulty
+  ]);
 
   plazaOpportunityDetailBody.innerHTML = `
-    <div class="yh-plaza-detail-grid">
-      <article class="yh-plaza-detail-block">
-        <span class="yh-plaza-view-chip">Overview</span>
+    <section class="yh-plaza-quest-briefing-hero-v1">
+      <div>
+        <span>${escapeHtml(questClass)}</span>
         <h3>${escapeHtml(item.title)}</h3>
         <p>${escapeHtml(item.text)}</p>
-        <div class="yh-plaza-card-note">Action path: ${escapeHtml(getPlazaOpportunityPrimaryActionLabel(item))}</div>
+      </div>
+
+      <div class="yh-plaza-quest-briefing-state-v1">
+        <small>Current Quest State</small>
+        <strong>${escapeHtml(questState)}</strong>
+        <span>${escapeHtml(difficulty)} difficulty</span>
+      </div>
+    </section>
+
+    <div class="yh-plaza-detail-grid yh-plaza-quest-detail-grid-v1">
+      <article class="yh-plaza-detail-block">
+        <span class="yh-plaza-view-chip">Quest Issuer</span>
+        ${renderPlazaCardOwnerButton(item, {
+          name: item.authorName || "Plaza Member",
+          subtitle: `${getPlazaOpportunitySourceLabel(item)} • ${item.region}`,
+          avatar: item.authorAvatar
+        })}
+        <div class="yh-plaza-card-note">Issuer identity remains connected to the existing Plaza profile and messaging flow.</div>
       </article>
 
       <article class="yh-plaza-detail-block">
-        <span class="yh-plaza-view-chip">Marketplace Economics</span>
-        ${renderPlazaOpportunityEconomyPanel(item) || `<div class="yh-plaza-empty">No monetization details have been added yet.</div>`}
+        <span class="yh-plaza-view-chip">Quest Requirements</span>
+        <div class="yh-plaza-quest-detail-list-v1">
+          ${renderPlazaQuestFactV1("Required operator profile", requirement)}
+          ${renderPlazaQuestFactV1("Expected output", expectedOutput)}
+          ${renderPlazaQuestFactV1("Availability", deadline)}
+          ${renderPlazaQuestFactV1("Applicants", item.applicantsCount ? String(item.applicantsCount) : "Not surfaced")}
+        </div>
       </article>
     </div>
 
-    <div class="yh-plaza-detail-grid">
+    <div class="yh-plaza-detail-grid yh-plaza-quest-detail-grid-v1">
       <article class="yh-plaza-detail-block">
-        <span class="yh-plaza-view-chip">Why it sits in Plaza</span>
-        <p>This opportunity is visible in Plaza because it needs discovery, trusted matching, and a structured next step instead of random outreach.</p>
-        <div class="yh-plaza-card-note">${escapeHtml(economyContext || "Use the primary action to open a tracked request that will appear in My Requests.")}</div>
+        <span class="yh-plaza-view-chip">Reward and Economics</span>
+        <div class="yh-plaza-quest-reward-callout-v1">
+          <small>Visible Reward Context</small>
+          <strong>${escapeHtml(reward)}</strong>
+        </div>
+        ${renderPlazaOpportunityEconomyPanel(item) || `<div class="yh-plaza-empty">Reward details have not been specified.</div>`}
       </article>
 
       <article class="yh-plaza-detail-block">
-        <span class="yh-plaza-view-chip">Escalation Logic</span>
-        <p>${escapeHtml(getPlazaOpportunityEscalationLabel(item) || "This opportunity currently stays inside Plaza unless the requester or admin turns it into a Federation escalation.")}</p>
+        <span class="yh-plaza-view-chip">Transaction Safety</span>
+        <p>
+          Current request, conversation, payment-ledger, and settlement controls remain the source of truth.
+          The Quest layer does not mark an opportunity complete or award Plaza Reputation.
+        </p>
+        <div class="yh-plaza-card-note">Next tracked action: ${escapeHtml(getPlazaOpportunityPrimaryActionLabel(item))}</div>
+      </article>
+    </div>
+
+    <div class="yh-plaza-detail-grid yh-plaza-quest-detail-grid-v1">
+      <article class="yh-plaza-detail-block">
+        <span class="yh-plaza-view-chip">Academy Signal</span>
+        <p>${escapeHtml(academySignal || "No Academy readiness signal is attached to this quest yet.")}</p>
+        <div class="yh-plaza-card-note">Academy growth does not automatically approve or complete this Plaza opportunity.</div>
+      </article>
+
+      <article class="yh-plaza-detail-block">
+        <span class="yh-plaza-view-chip">Escalation Route</span>
+        <p>${escapeHtml(getPlazaOpportunityEscalationLabel(item) || "This quest remains inside Plaza unless its existing workflow is escalated toward Federation.")}</p>
         <div class="yh-plaza-card-note">Source: ${escapeHtml(getPlazaOpportunitySourceLabel(item))}</div>
       </article>
     </div>
 
-    <div class="yh-plaza-detail-grid">
+    <div class="yh-plaza-detail-grid yh-plaza-quest-detail-grid-v1">
       <article class="yh-plaza-detail-block">
-        <span class="yh-plaza-view-chip">Relevant members</span>
+        <span class="yh-plaza-view-chip">Relevant Members</span>
         ${relatedMembers.length ? relatedMembers.map(renderMiniMemberCard).join("") : `<div class="yh-plaza-empty">No matching members surfaced yet.</div>`}
       </article>
 
       <article class="yh-plaza-detail-block">
-        <span class="yh-plaza-view-chip">Related bridge lanes</span>
+        <span class="yh-plaza-view-chip">Related Bridge Lanes</span>
         ${relatedBridge.length ? relatedBridge.map(renderMiniBridgeCard).join("") : `<div class="yh-plaza-empty">No bridge lane surfaced for this region yet.</div>`}
       </article>
     </div>
@@ -9873,6 +10564,21 @@ function bindEvents() {
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+
+    const questFilterButton = target.closest("[data-plaza-quest-filter]");
+    if (questFilterButton instanceof HTMLButtonElement) {
+      const requestedFilter = String(
+        questFilterButton.getAttribute("data-plaza-quest-filter") || "all"
+      ).trim().toLowerCase();
+
+      plazaRuntime.questFilter = PLAZA_QUEST_FILTERS_V1.has(requestedFilter)
+        ? requestedFilter
+        : "all";
+
+      renderOpportunities();
+      savePlazaUiState();
+      return;
+    }
 
     const openWorldRoute = target.closest("[data-plaza-open-world-screen]");
     if (openWorldRoute instanceof HTMLElement) {
@@ -12584,6 +13290,10 @@ async function initPlaza() {
   plazaFeedFilters.forEach((item) => {
     item.classList.toggle("is-active", item.dataset.feedFilter === plazaRuntime.feedFilter);
   });
+
+  if (!PLAZA_QUEST_FILTERS_V1.has(plazaRuntime.questFilter)) {
+    plazaRuntime.questFilter = "all";
+  }
 
   openScreen(restoredScreen, {
     resetHistory: true,

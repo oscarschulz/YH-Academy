@@ -13,10 +13,10 @@
     href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/plaza.css?v=20260723-phase3d-fe1-open-world-shell-v1" />
+<link rel="stylesheet" href="/css/plaza.css?v=20260723-phase3d-fe3-explorer-progression-v1" />
 <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260714-plaza-academy-parity-v217" />
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/plaza.js?v=20260723-phase3d-fe1-open-world-shell-v1" defer></script>
+<script src="/js/plaza.js?v=20260723-phase3d-fe3-explorer-progression-v1" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page yh-plaza-access-booting" data-yh-view="plaza" data-yh-page="plaza">
 
@@ -89,7 +89,7 @@
             </button>
 
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="opportunities">
-              <span class="yh-plaza-nav-btn-title">Opportunities</span>
+              <span class="yh-plaza-nav-btn-title">Opportunity Quests</span>
             </button>
 
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="directory">
@@ -199,11 +199,36 @@
                     </div>
                   </div>
 
-                  <div class="yh-plaza-open-world-profile-v1" aria-label="Explorer progression preview">
-                    <span>Explorer Profile</span>
-                    <strong>Progression wiring pending</strong>
-                    <small>
-                      Reputation, levels, quest completion, and zone discovery will connect during the backend wiring pass.
+                  <div class="yh-plaza-open-world-profile-v1 yh-plaza-explorer-profile-v2" aria-label="Explorer profile preview">
+                    <div class="yh-plaza-explorer-profile-head-v2">
+                      <div>
+                        <span>Explorer Profile</span>
+                        <strong id="plazaExplorerRank">Newcomer</strong>
+                      </div>
+                      <span class="yh-plaza-open-world-preview-badge-v1">Frontend Preview</span>
+                    </div>
+
+                    <div class="yh-plaza-explorer-profile-stats-v2">
+                      <span>
+                        <small>Home Zone</small>
+                        <b id="plazaExplorerHomeZone">Not established</b>
+                      </span>
+                      <span>
+                        <small>Available Quests</small>
+                        <b id="plazaExplorerAvailableQuests">0</b>
+                      </span>
+                      <span>
+                        <small>Visible Regions</small>
+                        <b id="plazaExplorerVisibleRegions">0</b>
+                      </span>
+                      <span>
+                        <small>Plaza Reputation</small>
+                        <b>Wiring pending</b>
+                      </span>
+                    </div>
+
+                    <small id="plazaExplorerProfileNote">
+                      Current Plaza data is visible. Reputation, verified quest completion, and rank unlocks remain unwired.
                     </small>
                   </div>
                 </header>
@@ -261,26 +286,86 @@
                   </button>
                 </section>
 
-                <div class="yh-plaza-open-world-grid-v1">
+                <div class="yh-plaza-open-world-grid-v1 yh-plaza-explorer-progression-grid-v2">
                   <section class="yh-plaza-open-world-card-v1">
                     <div class="yh-plaza-open-world-card-head-v1">
                       <div>
                         <span>Explorer Progression</span>
-                        <h3>Planned Rank Path</h3>
+                        <h3>Rank Path</h3>
                       </div>
                       <span class="yh-plaza-open-world-preview-badge-v1">Frontend Preview</span>
                     </div>
 
-                    <div class="yh-plaza-open-world-rank-path-v1">
-                      <span class="is-current"><b>01</b> Newcomer</span>
-                      <span><b>02</b> Explorer</span>
-                      <span><b>03</b> Connector</span>
-                      <span><b>04</b> Regional Operator</span>
-                      <span><b>05</b> World Builder</span>
+                    <div class="yh-plaza-explorer-rank-path-v2" id="plazaExplorerRankPath">
+                      <article class="is-current" data-plaza-explorer-rank="newcomer">
+                        <b>01</b>
+                        <div>
+                          <strong>Newcomer</strong>
+                          <small>Approved Plaza access.</small>
+                        </div>
+                      </article>
+                      <article data-plaza-explorer-rank="explorer">
+                        <b>02</b>
+                        <div>
+                          <strong>Explorer</strong>
+                          <small>Participate across Plaza zones.</small>
+                        </div>
+                      </article>
+                      <article data-plaza-explorer-rank="connector">
+                        <b>03</b>
+                        <div>
+                          <strong>Connector</strong>
+                          <small>Complete verified connections.</small>
+                        </div>
+                      </article>
+                      <article data-plaza-explorer-rank="regional-operator">
+                        <b>04</b>
+                        <div>
+                          <strong>Regional Operator</strong>
+                          <small>Build consistent regional outcomes.</small>
+                        </div>
+                      </article>
+                      <article data-plaza-explorer-rank="world-builder">
+                        <b>05</b>
+                        <div>
+                          <strong>World Builder</strong>
+                          <small>Create cross-region economic impact.</small>
+                        </div>
+                      </article>
                     </div>
 
                     <p class="yh-plaza-open-world-disclaimer-v1">
-                      No reputation or rank is being awarded yet. These states are presentation-only until the Plaza event ledger is wired.
+                      Newcomer is the current frontend state for an approved Plaza member. Higher ranks remain locked until verified reputation events are wired.
+                    </p>
+                  </section>
+
+                  <section class="yh-plaza-open-world-card-v1">
+                    <div class="yh-plaza-open-world-card-head-v1">
+                      <div>
+                        <span>Reputation Framework</span>
+                        <h3>Operator Signals</h3>
+                      </div>
+                      <span class="yh-plaza-open-world-preview-badge-v1">Locked</span>
+                    </div>
+
+                    <div class="yh-plaza-explorer-reputation-grid-v2" id="plazaExplorerReputationGrid"></div>
+                  </section>
+                </div>
+
+                <div class="yh-plaza-open-world-grid-v1">
+                  <section class="yh-plaza-open-world-card-v1">
+                    <div class="yh-plaza-open-world-card-head-v1">
+                      <div>
+                        <span>Explorer Activity</span>
+                        <h3>Current Working Signals</h3>
+                      </div>
+                      <button type="button" data-plaza-open-world-screen="requests">Open Requests</button>
+                    </div>
+
+                    <div class="yh-plaza-explorer-activity-log-v2" id="plazaExplorerActivityLog"></div>
+
+                    <p class="yh-plaza-open-world-disclaimer-v1">
+                      Visible activity is not the same as verified completion. Reputation will only move after the later backend event-ledger pass.
                     </p>
                   </section>
 
@@ -440,7 +525,50 @@
               </section>
 
             <section class="yh-plaza-panel yh-plaza-screen" id="plazaPanelOpportunities" data-plaza-panel="opportunities" data-plaza-screen="opportunities" role="tabpanel" hidden>
-              <form class="yh-plaza-feed-composer" id="plazaOpportunityComposerForm">
+              <header class="yh-plaza-quest-board-head-v1">
+                <div class="yh-plaza-quest-board-copy-v1">
+                  <span class="yh-plaza-section-kicker">Opportunity Quest Board</span>
+                  <h2>Turn real Plaza opportunities into structured next moves.</h2>
+                  <p>
+                    Browse existing work, service, collaboration, project, connector, and regional opportunities
+                    through a game-style quest layer without replacing their current transaction or request logic.
+                  </p>
+                </div>
+
+                <div class="yh-plaza-quest-board-summary-v1" id="plazaQuestBoardSummaryV1" aria-label="Opportunity Quest summary"></div>
+              </header>
+
+              <div class="yh-plaza-quest-filter-bar-v1" id="plazaQuestFilterBarV1" aria-label="Opportunity Quest filters">
+                <button type="button" class="is-active" data-plaza-quest-filter="all">
+                  <span>All Quests</span><b data-plaza-quest-filter-count="all">0</b>
+                </button>
+                <button type="button" data-plaza-quest-filter="available">
+                  <span>Available</span><b data-plaza-quest-filter-count="available">0</b>
+                </button>
+                <button type="button" data-plaza-quest-filter="contract">
+                  <span>Contracts</span><b data-plaza-quest-filter-count="contract">0</b>
+                </button>
+                <button type="button" data-plaza-quest-filter="collaboration">
+                  <span>Collaborations</span><b data-plaza-quest-filter-count="collaboration">0</b>
+                </button>
+                <button type="button" data-plaza-quest-filter="paid">
+                  <span>Paid</span><b data-plaza-quest-filter-count="paid">0</b>
+                </button>
+                <button type="button" data-plaza-quest-filter="regional">
+                  <span>Regional</span><b data-plaza-quest-filter-count="regional">0</b>
+                </button>
+                <button type="button" data-plaza-quest-filter="my-activity">
+                  <span>My Activity</span><b data-plaza-quest-filter-count="my-activity">0</b>
+                </button>
+              </div>
+
+              <div class="yh-plaza-quest-wiring-note-v1">
+                <strong>Frontend quest presentation only.</strong>
+                Current opportunity, request, conversation, payment-ledger, and settlement actions remain active.
+                Plaza Reputation and quest-completion rewards are not being awarded yet.
+              </div>
+
+              <form class="yh-plaza-feed-composer yh-plaza-quest-composer-v1" id="plazaOpportunityComposerForm">
                 <div class="yh-plaza-feed-composer-main">
                   <label class="yh-plaza-feed-composer-field">
                     <span>Type</span>
@@ -572,7 +700,7 @@
 
                 <div class="yh-plaza-feed-composer-actions">
                   <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaOpportunityComposerSubmitBtn">
-                    Post Opportunity
+                    Post Opportunity Quest
                   </button>
                 </div>
               </form>
@@ -1157,9 +1285,9 @@
               <div class="yh-plaza-screen-shell">
                 <div class="yh-plaza-screen-head">
                   <div>
-                    <span class="yh-plaza-section-kicker">Opportunity Detail</span>
-                    <h2 class="yh-plaza-screen-title" id="plazaOpportunityDetailTitle">Opportunity Detail</h2>
-                    <p class="yh-plaza-panel-note">Structured fit, related members, and next-step routing inside the same Plaza workspace.</p>
+                    <span class="yh-plaza-section-kicker">Quest Briefing</span>
+                    <h2 class="yh-plaza-screen-title" id="plazaOpportunityDetailTitle">Opportunity Quest</h2>
+                    <p class="yh-plaza-panel-note">Review the objective, issuer, fit, reward context, transaction state, and tracked next step.</p>
                   </div>
                   <div class="yh-plaza-screen-meta" id="plazaOpportunityDetailMeta"></div>
                 </div>
