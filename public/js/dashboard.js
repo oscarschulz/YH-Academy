@@ -10729,18 +10729,7 @@ function syncPlazaEntryButton(snapshot = null) {
 
     syncDashboardDivisionAccessPolling();
 
-    if (
-        currentSnapshot.canEnterPlaza === true ||
-        normalizePlazaStatus(
-            currentSnapshot.applicationStatus || ''
-        ) === 'approved'
-    ) {
-        window.setTimeout(() => {
-            prewarmDashboardPlazaInlineFrameV26(
-                'plaza-access-approved'
-            );
-        }, 0);
-    }
+
 
     return currentSnapshot;
 }
@@ -14203,96 +14192,6 @@ function getDashboardInlinePlazaDocumentPathV26(frame) {
     }
 }
 
-function prewarmDashboardPlazaInlineFrameV26(
-    reason = 'approved-cache'
-) {
-    const frame = document.getElementById(
-        'yh-universe-workspace-inline-frame'
-    );
-
-    if (!frame) return false;
-
-    const plazaState =
-        getDashboardInlineDivisionState('plazas');
-
-    if (plazaState?.approved !== true) {
-        return false;
-    }
-
-    const activeWorkspaceKey = String(
-        document.body?.getAttribute(
-            'data-yh-unified-workspace'
-        ) || 'overview'
-    ).trim().toLowerCase();
-
-    if (
-        activeWorkspaceKey &&
-        activeWorkspaceKey !== 'overview' &&
-        activeWorkspaceKey !== 'plazas' &&
-        !activeWorkspaceKey.startsWith('plazas-')
-    ) {
-        return false;
-    }
-
-    const feedMeta =
-        getDashboardUnifiedWorkspaceLaunchMeta(
-            'plazas-feed'
-        );
-
-    if (!feedMeta) return false;
-
-    const prewarmUrl =
-        buildDashboardInlineWorkspaceUrl(
-            feedMeta
-        );
-
-    const currentSrc =
-        normalizeDashboardInlineNavigationUrl(
-            frame.getAttribute('src') || ''
-        );
-
-    const loadedPath =
-        getDashboardInlinePlazaDocumentPathV26(
-            frame
-        );
-
-    if (loadedPath === '/plaza.html') {
-        frame.dataset.yhDashboardPlazaPrewarmed =
-            'true';
-
-        frame.dataset.yhDashboardPlazaPrewarmReason =
-            String(reason || 'ready');
-
-        return true;
-    }
-
-    if (
-        currentSrc &&
-        currentSrc !== 'about:blank' &&
-        currentSrc.startsWith('/plaza.html')
-    ) {
-        frame.dataset.yhDashboardPlazaPrewarmed =
-            'true';
-
-        frame.dataset.yhDashboardPlazaPrewarmReason =
-            String(reason || 'loading');
-
-        return true;
-    }
-
-    frame.dataset.yhDashboardPlazaPrewarmed =
-        'true';
-
-    frame.dataset.yhDashboardPlazaPrewarmReason =
-        String(reason || 'start');
-
-    frame.setAttribute(
-        'src',
-        prewarmUrl
-    );
-
-    return true;
-}
 
 function switchDashboardInlinePlazaScreenInLoadedFrameV26(
     frame,
@@ -18521,18 +18420,6 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
         });
     }
 
-    if (
-        copy.key === 'overview' ||
-        copy.key === 'plazas'
-    ) {
-        window.setTimeout(() => {
-            prewarmDashboardPlazaInlineFrameV26(
-                copy.key === 'plazas'
-                    ? 'plazas-parent-open'
-                    : 'dashboard-overview-idle'
-            );
-        }, copy.key === 'plazas' ? 0 : 120);
-    }
 
     return copy;
 }
@@ -18758,6 +18645,7 @@ function installDashboardMobileAppShellV1() {
         'academy-profile': ['Academy', 'Profile'],
 
         plazas: ['YH Universe', 'Plazas'],
+        'plazas-explorer': ['Plazas', 'Explorer'],
         'plazas-feed': ['Plazas', 'Feed'],
         'plazas-inbox': ['Plazas', 'Inbox'],
         'plazas-conversations': ['Plazas', 'Conversations'],
@@ -18865,8 +18753,8 @@ function installDashboardMobileAppShellV1() {
             },
             plazas: {
                 prefix: 'plazas',
-                defaultKey: 'plazas-feed',
-                defaultLabel: 'Feed',
+                defaultKey: 'plazas-explorer',
+                defaultLabel: 'Explorer',
                 menuLabel: 'Plazas sections',
                 ariaLabel: 'Plazas'
             },
@@ -40454,17 +40342,24 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
             headline: 'Application-gated marketplace and networking hub.',
             body: 'Use the Plazas to discover opportunities, regional hubs, directories, bridge paths, requests, meetups, and member conversations. The parent tab introduces the division; child tabs open the active tools.',
             signal: 'Strategic Review',
-            status: 'Plaza access unlocks Feed, Inbox, Conversations, Meetups, Opportunities, Directory, Regions, Atlas, Patron, Bridge, and Requests.',
+            status: 'Plaza access unlocks Explorer, Feed, Inbox, Conversations, Meetups, Opportunities, Directory, Regions, Atlas, Become Patron, Patron Desk, Bridge, and Requests.',
             icon: '/assets/dashboard/plaza.png',
             children: [
+                { key: 'plazas-explorer', label: 'Explorer', text: 'Open the Plaza world map, rank path, and active signals.' },
                 { key: 'plazas-feed', label: 'Feed', text: 'See movement and marketplace updates.' },
+                { key: 'plazas-inbox', label: 'Inbox', text: 'Review incoming requests and Plaza updates.' },
+                { key: 'plazas-conversations', label: 'Conversations', text: 'Continue Plaza member and business discussions.' },
+                { key: 'plazas-meetups', label: 'Meetups', text: 'Find and organize regional gatherings.' },
                 { key: 'plazas-opportunities', label: 'Opportunities', text: 'Find services, offers, and monetization paths.' },
                 { key: 'plazas-directory', label: 'Directory', text: 'Search trusted members and operators.' },
                 { key: 'plazas-regions', label: 'Regions', text: 'Explore regional hubs and network routes.' },
+                { key: 'plazas-atlas', label: 'Plaza Atlas', text: 'Browse the complete Plaza geography and topology.' },
+                { key: 'plazas-patron', label: 'Become Patron', text: 'Apply for a Plaza leadership and Patron role.' },
+                { key: 'plazas-patron-desk', label: 'Patron Desk', text: 'Manage routed requests, recommendations, and payouts.' },
                 { key: 'plazas-bridge', label: 'Bridge', text: 'Request bridge support and movement paths.' },
                 { key: 'plazas-requests', label: 'Requests', text: 'Track submitted Plaza requests.' }
             ],
-            primary: { key: 'plazas-feed', label: 'Open Feed' }
+            primary: { key: 'plazas-explorer', label: 'Open Explorer' }
         },
         federation: {
             kicker: 'Federation Workspace',

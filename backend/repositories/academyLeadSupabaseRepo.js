@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { yhuSupabaseAdmin } = require('../../config/supabaseAdmin');
 
 const TABLE = 'yhu_academy_lead_records';
@@ -348,6 +349,398 @@ async function getAcademyLeadRecord(recordType = '', sourceDocumentPath = '') {
   return data || null;
 }
 
+/* PATCH: Academy lead-record idempotency and concurrency v2 */
+function buildAcademyLeadDeterministicDocumentIdV2(
+  ownerUserId = '',
+  clientRequestId = '',
+  prefix = 'record'
+) {
+  const cleanOwner =
+    cleanText(ownerUserId);
+
+  const cleanRequestId =
+    cleanText(clientRequestId)
+      .replace(
+        /[^a-zA-Z0-9_-]+/g,
+        '_'
+      )
+      .slice(0, 160);
+
+  const cleanPrefix =
+    cleanText(prefix || 'record')
+      .replace(
+        /[^a-zA-Z0-9_-]+/g,
+        '_'
+      )
+      .slice(0, 32) ||
+    'record';
+
+  if (
+    !cleanOwner ||
+    !cleanRequestId
+  ) {
+    return '';
+  }
+
+  return (
+    `${cleanPrefix}_` +
+    crypto
+      .createHash('sha256')
+      .update(
+        `${cleanOwner}|${cleanRequestId}`
+      )
+      .digest('hex')
+      .slice(0, 40)
+  );
+}
+
+async function createAcademyLeadRecordOnceV2(
+  payload = {}
+) {
+  const recordType =
+    cleanText(
+      payload.record_type
+    );
+
+  const sourceDocumentPath =
+    cleanText(
+      payload.source_document_path
+    );
+
+  if (
+    !recordType ||
+    !sourceDocumentPath
+  ) {
+    throw makeHttpError(
+      'record_type and source_document_path are required.',
+      400
+    );
+  }
+
+  const finalPayload = {
+    ...payload,
+
+    source_collection_root:
+      cleanText(
+        payload.source_collection_root ||
+        getCollectionRoot(
+          payload.source_collection_path
+        )
+      ),
+
+    status:
+      normalizeStatus(
+        payload.status ||
+        payload.data?.status ||
+        'active'
+      ),
+
+    review_status:
+      normalizeStatus(
+        payload.review_status ||
+        payload.data?.reviewStatus ||
+        payload.status ||
+        'active'
+      )
+  };
+
+  const {
+    data,
+    error
+  } = await yhuSupabaseAdmin
+    .from(TABLE)
+    .upsert(
+      finalPayload,
+      {
+        onConflict:
+          'record_type,source_document_path',
+
+        ignoreDuplicates:
+          true
+      }
+    )
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    throw makeHttpError(
+      `Academy lead record create failed: ${error.message}`,
+      500
+    );
+  }
+
+  if (data) {
+    return {
+      record:
+        data,
+
+      created:
+        true,
+
+      duplicate:
+        false
+    };
+  }
+
+  const existing =
+    await getAcademyLeadRecord(
+      recordType,
+      sourceDocumentPath
+    );
+
+  if (!existing) {
+    throw makeHttpError(
+      'Academy lead record create returned no record.',
+      500
+    );
+  }
+
+  return {
+    record:
+      existing,
+
+    created:
+      false,
+
+    duplicate:
+      true
+  };
+}
+
+async function mutateAcademyLeadRecordV2(
+  recordType = '',
+  sourceDocumentPath = '',
+  mutator,
+  {
+    expectedUpdatedAt = '',
+    maxAttempts = 5
+  } = {}
+) {
+  const cleanType =
+    cleanText(recordType);
+
+  const cleanPath =
+    cleanText(
+      sourceDocumentPath
+    );
+
+  if (
+    !cleanType ||
+    !cleanPath ||
+    typeof mutator !==
+      'function'
+  ) {
+    throw makeHttpError(
+      'Valid Academy lead record mutation is required.',
+      400
+    );
+  }
+
+  const cleanExpectedUpdatedAt =
+    normalizeDate(
+      expectedUpdatedAt
+    );
+
+  const attempts =
+    Math.max(
+      1,
+      Math.min(
+        10,
+        Number(maxAttempts) ||
+        5
+      )
+    );
+
+  for (
+    let attempt = 0;
+    attempt < attempts;
+    attempt += 1
+  ) {
+    const current =
+      await getAcademyLeadRecord(
+        cleanType,
+        cleanPath
+      );
+
+    if (!current) {
+      throw makeHttpError(
+        'Academy lead record not found.',
+        404
+      );
+    }
+
+    const currentData =
+      current.data &&
+      typeof current.data ===
+        'object'
+        ? current.data
+        : {};
+
+    const currentVersion =
+      normalizeDate(
+        current.updated_at_source ||
+        current.updated_at ||
+        currentData.updatedAt
+      );
+
+    if (
+      attempt === 0 &&
+      cleanExpectedUpdatedAt &&
+      currentVersion &&
+      cleanExpectedUpdatedAt !==
+        currentVersion
+    ) {
+      throw makeHttpError(
+        'This record changed after you opened it. Refresh and retry.',
+        409
+      );
+    }
+
+    const patch =
+      await mutator(
+        {
+          ...currentData
+        },
+        current
+      );
+
+    if (
+      !patch ||
+      typeof patch !==
+        'object' ||
+      Array.isArray(patch)
+    ) {
+      throw makeHttpError(
+        'Invalid Academy lead record update.',
+        500
+      );
+    }
+
+    if (
+      patch.__skipMutation ===
+      true
+    ) {
+      return current;
+    }
+
+    const safePatch = {
+      ...patch
+    };
+
+    delete safePatch
+      .__skipMutation;
+
+    const nextVersion =
+      nowIso();
+
+    const nextData = {
+      ...currentData,
+      ...safePatch,
+
+      id:
+        current.source_document_id ||
+        currentData.id,
+
+      createdAt:
+        currentData.createdAt ||
+        current.created_at_source ||
+        nextVersion,
+
+      updatedAt:
+        nextVersion
+    };
+
+    const built =
+      buildAcademyLeadPayload({
+        recordType:
+          cleanType,
+
+        sourceCollectionPath:
+          current.source_collection_path,
+
+        sourceCollectionRoot:
+          current.source_collection_root,
+
+        sourceDocumentId:
+          current.source_document_id,
+
+        sourceDocumentPath:
+          cleanPath,
+
+        ownerUserId:
+          current.owner_user_id,
+
+        data:
+          nextData
+      });
+
+    const updatePayload = {
+      ...built,
+
+      created_at_source:
+        current.created_at_source ||
+        built.created_at_source,
+
+      updated_at_source:
+        nextVersion
+    };
+
+    let query =
+      yhuSupabaseAdmin
+        .from(TABLE)
+        .update(
+          updatePayload
+        )
+        .eq(
+          'id',
+          current.id
+        )
+        .eq(
+          'record_type',
+          cleanType
+        )
+        .eq(
+          'source_document_path',
+          cleanPath
+        );
+
+    query =
+      currentVersion
+        ? query.eq(
+          'updated_at_source',
+          currentVersion
+        )
+        : query.is(
+          'updated_at_source',
+          null
+        );
+
+    const {
+      data: saved,
+      error
+    } = await query
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      throw makeHttpError(
+        `Academy lead record update failed: ${error.message}`,
+        500
+      );
+    }
+
+    if (saved) {
+      return saved;
+    }
+  }
+
+  throw makeHttpError(
+    'This record changed during the request. Refresh and retry.',
+    409
+  );
+}
+/* END PATCH: Academy lead-record idempotency and concurrency v2 */
+
 async function deleteAcademyLeadRecord(recordType = '', sourceDocumentPath = '') {
   const cleanType = cleanText(recordType);
   const cleanPath = cleanText(sourceDocumentPath);
@@ -429,8 +822,11 @@ module.exports = {
   COLLECTION_TO_TYPE,
   assertTableReady,
   buildAcademyLeadPayload,
+  buildAcademyLeadDeterministicDocumentIdV2,
   upsertAcademyLeadRecord,
+  createAcademyLeadRecordOnceV2,
   getAcademyLeadRecord,
+  mutateAcademyLeadRecordV2,
   deleteAcademyLeadRecord,
   listAcademyLeadRecords,
   countAcademyLeadRecordsByType,

@@ -439,25 +439,50 @@ async function deleteByUidAndEmail({ uid = '', email = '' } = {}) {
 
 
 /* PATCH: Table-safe profile persistence mirrors v1 */
-function normalizePersistentProfileList(value = []) {
+function normalizePersistentProfileList(
+    value = [],
+    limit = 12
+) {
+    const safeLimit =
+        Math.max(
+            1,
+            Math.min(
+                50,
+                Number(limit) || 12
+            )
+        );
+
     if (Array.isArray(value)) {
         return value
             .map((item) => cleanText(item))
             .filter(Boolean)
-            .slice(0, 12);
+            .slice(0, safeLimit);
     }
 
     return String(value || '')
         .split(',')
         .map((item) => cleanText(item))
         .filter(Boolean)
-        .slice(0, 12);
+        .slice(0, safeLimit);
 }
 
 function buildPersistentProfileMirrorFields(user = {}) {
     const searchTags = normalizePersistentProfileList(user.searchTags || user.search_tags || user.tags || []);
     const lookingFor = normalizePersistentProfileList(user.lookingFor || user.looking_for || []);
     const canOffer = normalizePersistentProfileList(user.canOffer || user.can_offer || []);
+
+    const communityNiches = normalizePersistentProfileList(
+        user.communityNiches ||
+        user.community_niches ||
+        [],
+        20
+    );
+
+    const defaultNiche = cleanText(
+        user.defaultNiche ||
+        user.default_niche ||
+        ''
+    );
 
     const marketplaceReady =
         user.marketplaceReady === true ||
@@ -480,6 +505,12 @@ function buildPersistentProfileMirrorFields(user = {}) {
         searchTags,
         search_tags: searchTags,
         tags: searchTags,
+
+        communityNiches,
+        community_niches: communityNiches,
+
+        defaultNiche,
+        default_niche: defaultNiche,
 
         roleTrack: cleanText(user.roleTrack || user.role_track || ''),
         role_track: cleanText(user.roleTrack || user.role_track || ''),

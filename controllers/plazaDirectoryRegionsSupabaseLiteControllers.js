@@ -25,10 +25,22 @@ function getViewerFromRequest(req = {}) {
     const user = req.user || {};
 
     return {
-        id: sanitizeText(user.id || user.firebaseUid || user.uid),
-        firebaseUid: sanitizeText(user.firebaseUid || user.id || user.uid),
-        email: sanitizeText(user.email).toLowerCase(),
-        username: sanitizeText(user.username),
+        id: sanitizeText(
+            user.id ||
+            user.firebaseUid ||
+            user.uid
+        ),
+        firebaseUid: sanitizeText(
+            user.firebaseUid ||
+            user.id ||
+            user.uid
+        ),
+        email: sanitizeText(
+            user.email
+        ).toLowerCase(),
+        username: sanitizeText(
+            user.username
+        ),
         name: sanitizeText(
             user.name ||
             user.fullName ||
@@ -36,29 +48,88 @@ function getViewerFromRequest(req = {}) {
             user.username ||
             user.email ||
             'YH Member'
-        )
+        ),
+        role: sanitizeText(
+            user.role ||
+            user.accountRole ||
+            user.userRole
+        ).toLowerCase(),
+        isAdmin:
+            user.isAdmin === true ||
+            user.admin === true,
+        adminRoles:
+            Array.isArray(
+                user.adminRoles
+            )
+                ? user.adminRoles
+                    .map((item) =>
+                        sanitizeText(item)
+                            .toLowerCase()
+                    )
+                    .filter(Boolean)
+                : []
     };
 }
 
-function buildDirectoryPayloadFromRequest(req = {}, viewer = {}) {
+function isPrivilegedPlazaViewer(viewer = {}) {
+    return Boolean(
+        viewer.isAdmin === true ||
+        [
+            'admin',
+            'superadmin',
+            'super_admin',
+            'plaza_admin',
+            'system_admin'
+        ].includes(viewer.role) ||
+        viewer.adminRoles.includes('plaza') ||
+        viewer.adminRoles.includes('plaza_admin') ||
+        viewer.adminRoles.includes('superadmin') ||
+        viewer.adminRoles.includes('system_admin')
+    );
+}
+
+function buildDirectoryPayloadFromRequest(
+    req = {},
+    viewer = {}
+) {
     const body = req.body || {};
-    const now = new Date().toISOString();
+    const now =
+        new Date().toISOString();
+
+    const isPrivileged =
+        isPrivilegedPlazaViewer(
+            viewer
+        );
+
+    const requestedDivision =
+        sanitizeText(
+            body.division
+        ).toLowerCase();
+
+    const requestedTrust =
+        sanitizeText(
+            body.trust
+        ).toLowerCase();
 
     return {
-        ...body,
-        id: sanitizeText(body.id || body.userId || body.firebaseUid || viewer.id),
-        userId: sanitizeText(body.userId || body.firebaseUid || viewer.id),
-        firebaseUid: sanitizeText(body.firebaseUid || viewer.firebaseUid || viewer.id),
-        email: sanitizeText(body.email || viewer.email).toLowerCase(),
-        username: sanitizeText(body.username || viewer.username),
+        id: viewer.id,
+        userId: viewer.id,
+        firebaseUid:
+            viewer.firebaseUid ||
+            viewer.id,
+        email: viewer.email,
+        username: viewer.username,
+
         name: clampText(
             body.name ||
             body.fullName ||
             body.displayName ||
             viewer.name,
             120,
-            viewer.name || 'YH Member'
+            viewer.name ||
+            'YH Member'
         ),
+
         headline: clampText(
             body.headline ||
             body.title ||
@@ -67,23 +138,132 @@ function buildDirectoryPayloadFromRequest(req = {}, viewer = {}) {
             'Plaza Member',
             180
         ),
-        bio: clampText(body.bio || body.about || body.description || body.summary, 1500),
-        region: clampText(body.region || body.location || 'Global', 120, 'Global') || 'Global',
-        avatarUrl: clampText(body.avatarUrl || body.photoURL || body.profilePhotoUrl, 1000),
-        role: clampText(body.role || body.memberRole || 'member', 80, 'member'),
-        skills: safeArray(body.skills),
-        services: safeArray(body.services),
-        tags: safeArray(body.tags),
-        status: sanitizeText(body.status || 'active'),
-        reviewStatus: sanitizeText(body.reviewStatus || body.status || 'active'),
-        createdAt: body.createdAt || now,
+
+        bio: clampText(
+            body.bio ||
+            body.about ||
+            body.description ||
+            body.summary ||
+            body.focus,
+            1500
+        ),
+
+        focus: clampText(
+            body.focus ||
+            body.bio ||
+            body.about ||
+            body.description,
+            1500
+        ),
+
+        region: clampText(
+            body.region ||
+            body.location ||
+            'Global',
+            120,
+            'Global'
+        ) || 'Global',
+
+        avatarUrl: clampText(
+            body.avatarUrl ||
+            body.photoURL ||
+            body.profilePhotoUrl,
+            1000
+        ),
+
+        role: clampText(
+            body.role ||
+            body.memberRole ||
+            'member',
+            80,
+            'member'
+        ),
+
+        division:
+            isPrivileged &&
+            [
+                'academy',
+                'federation',
+                'both'
+            ].includes(
+                requestedDivision
+            )
+                ? requestedDivision
+                : '',
+
+        source: 'plaza',
+
+        trust:
+            isPrivileged &&
+            [
+                'verified',
+                'connector',
+                'leader'
+            ].includes(
+                requestedTrust
+            )
+                ? requestedTrust
+                : '',
+
+        canManageDirectoryAuthority:
+            isPrivileged,
+
+        availability: clampText(
+            body.availability,
+            80
+        ),
+
+        workMode: clampText(
+            body.workMode,
+            80
+        ),
+
+        marketplaceMode: clampText(
+            body.marketplaceMode ||
+            'no',
+            20,
+            'no'
+        ),
+
+        lookingFor:
+            safeArray(
+                body.lookingFor
+            ),
+
+        canOffer:
+            safeArray(
+                body.canOffer
+            ),
+
+        skills:
+            safeArray(
+                body.skills
+            ),
+
+        services:
+            safeArray(
+                body.services
+            ),
+
+        tags:
+            safeArray(
+                body.tags
+            ),
+
+        status: 'active',
+        reviewStatus: 'active',
+        createdAt: now,
         updatedAt: now
     };
 }
 
-function buildRegionPayloadFromRequest(req = {}) {
+function buildRegionPayloadFromRequest(
+    req = {},
+    viewer = {}
+) {
     const body = req.body || {};
-    const now = new Date().toISOString();
+    const now =
+        new Date().toISOString();
 
     const name = clampText(
         body.name ||
@@ -95,26 +275,105 @@ function buildRegionPayloadFromRequest(req = {}) {
 
     const slug = clampText(
         body.slug ||
-        name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
+        name
+            .toLowerCase()
+            .replace(
+                /[^a-z0-9]+/g,
+                '-'
+            )
+            .replace(
+                /^-+|-+$/g,
+                ''
+            ),
         160
     );
 
+    const isPrivileged =
+        isPrivilegedPlazaViewer(
+            viewer
+        );
+
     return {
-        ...body,
-        id: sanitizeText(body.id || slug),
+        id: '',
+        clientCreateId: clampText(
+            body.clientCreateId,
+            180
+        ),
         name,
         slug,
-        title: clampText(body.title || name, 140),
-        description: clampText(body.description || body.summary || body.body, 1600),
-        summary: clampText(body.summary || body.description || body.body, 600),
-        country: clampText(body.country, 120),
-        city: clampText(body.city, 120),
-        region: clampText(body.region || name || 'Global', 140, 'Global') || 'Global',
-        memberCount: Number.isFinite(Number(body.memberCount)) ? Number(body.memberCount) : 0,
-        tags: safeArray(body.tags),
-        status: sanitizeText(body.status || 'active'),
-        reviewStatus: sanitizeText(body.reviewStatus || body.status || 'active'),
-        createdAt: body.createdAt || now,
+
+        title: clampText(
+            body.title ||
+            body.label ||
+            name,
+            140
+        ),
+
+        description: clampText(
+            body.description ||
+            body.summary ||
+            body.body ||
+            body.text,
+            1600
+        ),
+
+        summary: clampText(
+            body.summary ||
+            body.description ||
+            body.body ||
+            body.text,
+            600
+        ),
+
+        country: clampText(
+            body.country,
+            120
+        ),
+
+        city: clampText(
+            body.city,
+            120
+        ),
+
+        region: clampText(
+            body.region ||
+            name ||
+            'Global',
+            140,
+            'Global'
+        ) || 'Global',
+
+        memberCount: 0,
+
+        tags:
+            safeArray(
+                body.tags
+            ),
+
+        authorId:
+            viewer.id,
+
+        authorFirebaseUid:
+            viewer.firebaseUid ||
+            viewer.id,
+
+        authorEmail:
+            viewer.email,
+
+        authorName:
+            viewer.name,
+
+        status:
+            isPrivileged
+                ? 'active'
+                : 'pending_review',
+
+        reviewStatus:
+            isPrivileged
+                ? 'active'
+                : 'pending_review',
+
+        createdAt: now,
         updatedAt: now
     };
 }
@@ -131,27 +390,60 @@ exports.getDirectory = async (req, res) => {
         }
 
         const limit = Math.min(
-            Math.max(parseInt(req.query.limit, 10) || 80, 1),
+            Math.max(
+                parseInt(
+                    req.query.limit,
+                    10
+                ) || 80,
+                1
+            ),
             160
         );
 
-        const directory = await directoryRegionsRepo.listDirectory(limit);
+        const cursor = clampText(
+            req.query.cursor,
+            1200
+        );
+
+        const page =
+            await directoryRegionsRepo
+                .listDirectory({
+                    limit,
+                    cursor
+                });
 
         return res.json({
             success: true,
             source: 'supabase',
-            directory,
-            profiles: directory,
-            members: directory,
-            directoryCount: directory.length
+            directory:
+                page.items,
+            profiles:
+                page.items,
+            members:
+                page.items,
+            directoryCount:
+                page.items.length,
+            hasMore:
+                page.hasMore === true,
+            nextCursor:
+                page.nextCursor || '',
+            fetchedAt:
+                new Date().toISOString()
         });
     } catch (error) {
-        console.error('plazaDirectoryRegionsSupabaseLite.getDirectory error:', error);
+        console.error(
+            'plazaDirectoryRegionsSupabaseLite.getDirectory error:',
+            error
+        );
 
-        return res.status(500).json({
+        return res.status(
+            Number(error?.status) || 500
+        ).json({
             success: false,
             source: 'supabase',
-            message: error?.message || 'Failed to load Plaza directory.'
+            message:
+                error?.message ||
+                'Failed to load Plaza directory.'
         });
     }
 };
@@ -167,8 +459,25 @@ exports.upsertDirectoryProfile = async (req, res) => {
             });
         }
 
-        const payload = buildDirectoryPayloadFromRequest(req, viewer);
-        const profile = await directoryRegionsRepo.upsertDirectoryProfile(payload);
+        const expectedUpdatedAt =
+            sanitizeText(
+                req.body?.expectedUpdatedAt
+            );
+
+        const payload =
+            buildDirectoryPayloadFromRequest(
+                req,
+                viewer
+            );
+
+        const profile =
+            await directoryRegionsRepo
+                .upsertDirectoryProfile(
+                    payload,
+                    {
+                        expectedUpdatedAt
+                    }
+                );
 
         return res.status(200).json({
             success: true,
@@ -179,10 +488,14 @@ exports.upsertDirectoryProfile = async (req, res) => {
     } catch (error) {
         console.error('plazaDirectoryRegionsSupabaseLite.upsertDirectoryProfile error:', error);
 
-        return res.status(500).json({
+        return res.status(
+            Number(error?.status) || 500
+        ).json({
             success: false,
             source: 'supabase',
-            message: error?.message || 'Failed to save Plaza directory profile.'
+            message:
+                error?.message ||
+                'Failed to save Plaza directory profile.'
         });
     }
 };
@@ -199,25 +512,56 @@ exports.getRegions = async (req, res) => {
         }
 
         const limit = Math.min(
-            Math.max(parseInt(req.query.limit, 10) || 100, 1),
+            Math.max(
+                parseInt(
+                    req.query.limit,
+                    10
+                ) || 100,
+                1
+            ),
             200
         );
 
-        const regions = await directoryRegionsRepo.listRegions(limit);
+        const cursor = clampText(
+            req.query.cursor,
+            1200
+        );
+
+        const page =
+            await directoryRegionsRepo
+                .listRegions({
+                    limit,
+                    cursor
+                });
 
         return res.json({
             success: true,
             source: 'supabase',
-            regions,
-            regionCount: regions.length
+            regions:
+                page.items,
+            regionCount:
+                page.items.length,
+            hasMore:
+                page.hasMore === true,
+            nextCursor:
+                page.nextCursor || '',
+            fetchedAt:
+                new Date().toISOString()
         });
     } catch (error) {
-        console.error('plazaDirectoryRegionsSupabaseLite.getRegions error:', error);
+        console.error(
+            'plazaDirectoryRegionsSupabaseLite.getRegions error:',
+            error
+        );
 
-        return res.status(500).json({
+        return res.status(
+            Number(error?.status) || 500
+        ).json({
             success: false,
             source: 'supabase',
-            message: error?.message || 'Failed to load Plaza regions.'
+            message:
+                error?.message ||
+                'Failed to load Plaza regions.'
         });
     }
 };
@@ -233,7 +577,18 @@ exports.createRegion = async (req, res) => {
             });
         }
 
-        const payload = buildRegionPayloadFromRequest(req);
+        const payload =
+            buildRegionPayloadFromRequest(
+                req,
+                viewer
+            );
+
+        if (!payload.clientCreateId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Client create id is required.'
+            });
+        }
 
         if (!payload.name) {
             return res.status(400).json({
@@ -242,17 +597,60 @@ exports.createRegion = async (req, res) => {
             });
         }
 
-        const region = await directoryRegionsRepo.createRegion(payload);
+        const result =
+            await directoryRegionsRepo
+                .createRegion(
+                    payload
+                );
 
-        return res.status(201).json({
+        const region = result.region;
+
+        const published =
+            [
+                'active',
+                'approved',
+                'published',
+                'verified'
+            ].includes(
+                sanitizeText(
+                    region?.status
+                ).toLowerCase()
+            ) &&
+            [
+                'active',
+                'approved',
+                'published',
+                'verified'
+            ].includes(
+                sanitizeText(
+                    region?.reviewStatus
+                ).toLowerCase()
+            );
+
+        return res.status(
+            result.created === true
+                ? published
+                    ? 201
+                    : 202
+                : 200
+        ).json({
             success: true,
             source: 'supabase',
+            created:
+                result.created === true,
+            duplicate:
+                result.duplicate === true,
+            published,
+            pendingReview:
+                !published,
             region
         });
     } catch (error) {
         console.error('plazaDirectoryRegionsSupabaseLite.createRegion error:', error);
 
-        return res.status(500).json({
+        return res.status(
+            Number(error?.status) || 500
+        ).json({
             success: false,
             source: 'supabase',
             message: error?.message || 'Failed to create Plaza region.'

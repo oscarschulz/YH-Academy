@@ -3950,7 +3950,7 @@ body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaz
   background: linear-gradient(180deg, rgba(10, 38, 78, 0.84), rgba(3, 12, 31, 0.96));
   color: #fff;
   cursor: pointer;
-  transform: translateY(calc((var(--yh-zone-index, 0) % 2) * 8px));
+  transform: translateY(var(--yh-zone-offset, 0px));
 }
 
 .yh-plaza-open-world-zone-v1 > span {

@@ -9516,7 +9516,7 @@ function renderPlazaExplorerScreenV1() {
             type="button"
             class="yh-plaza-open-world-zone-v1 is-${escapeHtml(zone.state)}"
             data-plaza-open-world-screen="atlas"
-            style="--yh-zone-index:${index}"
+            style="--yh-zone-offset:${index % 2 === 0 ? 0 : 8}px"
           >
             <span aria-hidden="true"></span>
             <div>

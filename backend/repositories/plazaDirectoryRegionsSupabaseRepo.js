@@ -38,6 +38,47 @@ function buildId(prefix = 'plaza') {
     return prefix + '_' + Date.now() + '_' + crypto.randomBytes(5).toString('hex');
 }
 
+function plazaDirectoryRegionHttpError(
+    message = '',
+    status = 500
+) {
+    const error = new Error(
+        sanitizeText(message) ||
+        'Plaza directory or region operation failed.'
+    );
+
+    error.status = Number(status) || 500;
+    return error;
+}
+
+function buildDeterministicRegionId(
+    ownerUserId = '',
+    clientCreateId = ''
+) {
+    const owner = sanitizeText(
+        ownerUserId
+    );
+
+    const createKey = sanitizeText(
+        clientCreateId
+    );
+
+    if (!owner || !createKey) {
+        throw plazaDirectoryRegionHttpError(
+            'Region owner and client create id are required.',
+            400
+        );
+    }
+
+    const digest = crypto
+        .createHash('sha256')
+        .update(`${owner}:${createKey}`)
+        .digest('hex')
+        .slice(0, 40);
+
+    return `plaza_region_${digest}`;
+}
+
 function normalizeStatus(value = '', fallback = 'active') {
     const clean = cleanLower(value || fallback);
     return clean || fallback;
@@ -54,7 +95,195 @@ function isReadableStatus(value = '') {
         'removed'
     ].includes(status);
 }
+function isPublishedStatus(value = '') {
+    return [
+        'active',
+        'approved',
+        'published',
+        'verified'
+    ].includes(
+        normalizeStatus(
+            value || 'active'
+        )
+    );
+}
 
+const PLAZA_PUBLISHED_STATUSES = [
+    'active',
+    'approved',
+    'published',
+    'verified'
+];
+
+function encodeDirectoryRegionCursor(
+    kind = '',
+    timestamp = '',
+    id = ''
+) {
+    return Buffer
+        .from(
+            JSON.stringify({
+                version: 1,
+                kind: sanitizeText(kind),
+                timestamp: toIso(timestamp),
+                id: sanitizeText(id)
+            }),
+            'utf8'
+        )
+        .toString('base64url');
+}
+
+function normalizeDirectoryRegionCursorTimestamp(
+    value = ''
+) {
+    const clean = sanitizeText(value);
+    const parsed = Date.parse(clean);
+
+    if (
+        !clean ||
+        !Number.isFinite(parsed)
+    ) {
+        return '';
+    }
+
+    return new Date(parsed).toISOString();
+}
+
+function quoteDirectoryRegionPostgrestFilterValue(
+    value = ''
+) {
+    const clean = sanitizeText(value);
+
+    return `"${clean
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')}"`;
+}
+
+function decodeDirectoryRegionCursor(
+    value = '',
+    expectedKind = ''
+) {
+    const clean = sanitizeText(value);
+
+    if (!clean) return null;
+
+    try {
+        const parsed = JSON.parse(
+            Buffer
+                .from(
+                    clean,
+                    'base64url'
+                )
+                .toString('utf8')
+        );
+
+        const timestamp =
+            normalizeDirectoryRegionCursorTimestamp(
+                parsed?.timestamp
+            );
+
+        const id = sanitizeText(
+            parsed?.id
+        );
+
+        if (
+            Number(parsed?.version) !== 1 ||
+            sanitizeText(parsed?.kind) !==
+                sanitizeText(expectedKind) ||
+            !timestamp ||
+            !id ||
+            id.length > 240
+        ) {
+            throw new Error(
+                'Cursor payload is invalid.'
+            );
+        }
+
+        return {
+            timestamp,
+            id
+        };
+    } catch (_) {
+        throw plazaDirectoryRegionHttpError(
+            'Invalid Plaza pagination cursor.',
+            400
+        );
+    }
+}
+
+function applyDescendingDirectoryRegionCursor(
+    query,
+    column = '',
+    cursor = null
+) {
+    if (!cursor) return query;
+
+    const cleanColumn = sanitizeText(
+        column
+    );
+
+    const timestamp =
+        quoteDirectoryRegionPostgrestFilterValue(
+            cursor.timestamp
+        );
+
+    const id =
+        quoteDirectoryRegionPostgrestFilterValue(
+            cursor.id
+        );
+
+    return query.or(
+        `${cleanColumn}.lt.${timestamp},and(${cleanColumn}.eq.${timestamp},source_document_id.lt.${id})`
+    );
+}
+
+function buildDirectoryRegionPage(
+    rows = [],
+    options = {}
+) {
+    const safeRows = Array.isArray(rows)
+        ? rows
+        : [];
+
+    const limit = Math.max(
+        1,
+        Number(options.limit || 1)
+    );
+
+    const pageRows = safeRows.slice(
+        0,
+        limit
+    );
+
+    const hasMore =
+        safeRows.length > limit;
+
+    const lastRow =
+        pageRows[
+            pageRows.length - 1
+        ];
+
+    return {
+        items: pageRows.map(
+            options.mapRow
+        ),
+        hasMore,
+        nextCursor:
+            hasMore &&
+            lastRow
+                ? encodeDirectoryRegionCursor(
+                    options.kind,
+                    lastRow[
+                        options.column
+                    ] ||
+                    lastRow.updated_at ||
+                    lastRow.created_at,
+                    lastRow.source_document_id ||
+                    lastRow.id
+                )
+                : ''
+    };
+}
 function normalizeTags(value = []) {
     const raw = Array.isArray(value)
         ? value
@@ -118,8 +347,57 @@ function normalizeDirectoryProfile(input = {}) {
         bio,
         region: sanitizeText(input.region || input.location || 'Global') || 'Global',
         avatarUrl: sanitizeText(input.avatarUrl || input.photoURL || input.profilePhotoUrl || ''),
-        role: sanitizeText(input.role || input.memberRole || ''),
-        skills: safeArray(input.skills).map(sanitizeText).filter(Boolean),
+        role: sanitizeText(
+            input.role ||
+            input.memberRole ||
+            ''
+        ),
+        division: sanitizeText(
+            input.division ||
+            'academy'
+        ),
+        source: sanitizeText(
+            input.source ||
+            'plaza'
+        ),
+        trust: sanitizeText(
+            input.trust ||
+            'verified'
+        ),
+        focus: sanitizeText(
+            input.focus ||
+            bio
+        ),
+        availability: sanitizeText(
+            input.availability ||
+            ''
+        ),
+        workMode: sanitizeText(
+            input.workMode ||
+            ''
+        ),
+        marketplaceMode: sanitizeText(
+            input.marketplaceMode ||
+            'no'
+        ),
+        lookingFor:
+            safeArray(
+                input.lookingFor
+            )
+                .map(sanitizeText)
+                .filter(Boolean),
+        canOffer:
+            safeArray(
+                input.canOffer
+            )
+                .map(sanitizeText)
+                .filter(Boolean),
+        skills:
+            safeArray(
+                input.skills
+            )
+                .map(sanitizeText)
+                .filter(Boolean),
         services: safeArray(input.services).map(sanitizeText).filter(Boolean),
         tags: normalizeTags([
             ...(safeArray(input.tags)),
@@ -168,8 +446,56 @@ function normalizeRegion(input = {}) {
         country: sanitizeText(input.country || ''),
         city: sanitizeText(input.city || ''),
         region: sanitizeText(input.region || name || 'Global') || 'Global',
-        memberCount: Number.isFinite(Number(input.memberCount)) ? Number(input.memberCount) : 0,
-        status: normalizeStatus(input.status || 'active'),
+        memberCount:
+            Number.isFinite(
+                Number(
+                    input.memberCount
+                )
+            )
+                ? Number(
+                    input.memberCount
+                )
+                : 0,
+
+        authorId: sanitizeText(
+            input.authorId ||
+            input.createdByUid ||
+            input.ownerUid ||
+            ''
+        ),
+
+        authorFirebaseUid:
+            sanitizeText(
+                input.authorFirebaseUid ||
+                input.firebaseUid ||
+                ''
+            ),
+
+        authorEmail:
+            sanitizeText(
+                input.authorEmail ||
+                input.createdByEmail ||
+                ''
+            ).toLowerCase(),
+
+        authorName:
+            sanitizeText(
+                input.authorName ||
+                input.createdByName ||
+                'YH Member'
+            ),
+
+        clientCreateId:
+            sanitizeText(
+                input.clientCreateId ||
+                ''
+            ),
+
+        status:
+            normalizeStatus(
+                input.status ||
+                'active'
+            ),
         reviewStatus: normalizeStatus(input.reviewStatus || input.status || 'active'),
         tags: normalizeTags([
             ...(safeArray(input.tags)),
@@ -233,8 +559,18 @@ function buildRegionRow(input = {}) {
         record_type: 'region',
         source_collection_path: 'plazaRegions',
         source_document_id: data.id,
-        source_document_path: 'plazaRegions/' + data.id,
-        status: normalizeStatus(data.status),
+        source_document_path:
+            'plazaRegions/' +
+            data.id,
+        owner_user_id:
+            sanitizeText(
+                data.authorId ||
+                data.authorFirebaseUid
+            ),
+        status:
+            normalizeStatus(
+                data.status
+            ),
         review_status: normalizeStatus(data.reviewStatus || data.status),
         title: sanitizeText(data.title || data.name),
         summary: sanitizeText(data.summary || data.description).slice(0, 600),
@@ -257,7 +593,20 @@ function buildRegionRow(input = {}) {
             city: sanitizeText(data.city),
             memberCount: Number.isFinite(Number(data.memberCount)) ? Number(data.memberCount) : 0
         },
-        private_meta: {},
+        private_meta: {
+            authorEmail:
+                sanitizeText(
+                    data.authorEmail
+                ),
+            authorFirebaseUid:
+                sanitizeText(
+                    data.authorFirebaseUid
+                ),
+            clientCreateId:
+                sanitizeText(
+                    data.clientCreateId
+                )
+        },
         data,
         created_at_source: toIso(data.createdAt) || nowIso(),
         updated_at_source: toIso(data.updatedAt) || nowIso()
@@ -277,7 +626,10 @@ async function getExisting(recordType = '', sourceDocumentId = '') {
 }
 
 async function upsertRecord(row = {}) {
-    const existing = await getExisting(row.record_type, row.source_document_id).catch(() => null);
+    const existing = await getExisting(
+        row.record_type,
+        row.source_document_id
+    );
 
     if (existing?.id) {
         const { data, error } = await yhuSupabaseAdmin
@@ -315,8 +667,54 @@ function mapDirectoryRow(row = {}) {
         bio: sanitizeText(data.bio || row.body || ''),
         region: sanitizeText(data.region || row.region || 'Global'),
         avatarUrl: sanitizeText(data.avatarUrl || row.public_meta?.avatarUrl || ''),
-        role: sanitizeText(data.role || row.category || ''),
-        skills: safeArray(data.skills || row.public_meta?.skills),
+        role: sanitizeText(
+            data.role ||
+            row.category ||
+            ''
+        ),
+        division: sanitizeText(
+            data.division ||
+            'academy'
+        ),
+        source: sanitizeText(
+            data.source ||
+            'plaza'
+        ),
+        trust: sanitizeText(
+            data.trust ||
+            'verified'
+        ),
+        focus: sanitizeText(
+            data.focus ||
+            data.bio ||
+            row.body ||
+            ''
+        ),
+        availability: sanitizeText(
+            data.availability ||
+            ''
+        ),
+        workMode: sanitizeText(
+            data.workMode ||
+            ''
+        ),
+        marketplaceMode: sanitizeText(
+            data.marketplaceMode ||
+            'no'
+        ),
+        lookingFor:
+            safeArray(
+                data.lookingFor
+            ),
+        canOffer:
+            safeArray(
+                data.canOffer
+            ),
+        skills:
+            safeArray(
+                data.skills ||
+                row.public_meta?.skills
+            ),
         services: safeArray(data.services || row.public_meta?.services),
         tags: safeArray(data.tags || row.tags),
         status: normalizeStatus(data.status || row.status),
@@ -339,10 +737,62 @@ function mapRegionRow(row = {}) {
         country: sanitizeText(data.country || row.public_meta?.country || ''),
         city: sanitizeText(data.city || row.public_meta?.city || ''),
         region: sanitizeText(data.region || row.region || data.name || 'Global'),
-        memberCount: Number.isFinite(Number(data.memberCount || row.public_meta?.memberCount))
-            ? Number(data.memberCount || row.public_meta?.memberCount)
-            : 0,
-        tags: safeArray(data.tags || row.tags),
+        memberCount:
+            Number.isFinite(
+                Number(
+                    data.memberCount ||
+                    row.public_meta
+                        ?.memberCount
+                )
+            )
+                ? Number(
+                    data.memberCount ||
+                    row.public_meta
+                        ?.memberCount
+                )
+                : 0,
+
+        authorId: sanitizeText(
+            data.authorId ||
+            row.owner_user_id ||
+            ''
+        ),
+
+        authorFirebaseUid:
+            sanitizeText(
+                data.authorFirebaseUid ||
+                row.private_meta
+                    ?.authorFirebaseUid ||
+                ''
+            ),
+
+        authorEmail:
+            sanitizeText(
+                data.authorEmail ||
+                row.private_meta
+                    ?.authorEmail ||
+                ''
+            ).toLowerCase(),
+
+        authorName:
+            sanitizeText(
+                data.authorName ||
+                'YH Member'
+            ),
+
+        clientCreateId:
+            sanitizeText(
+                data.clientCreateId ||
+                row.private_meta
+                    ?.clientCreateId ||
+                ''
+            ),
+
+        tags:
+            safeArray(
+                data.tags ||
+                row.tags
+            ),
         status: normalizeStatus(data.status || row.status),
         reviewStatus: normalizeStatus(data.reviewStatus || row.review_status),
         createdAt: toIso(data.createdAt || row.created_at_source || row.created_at),
@@ -368,49 +818,484 @@ async function importRegion(id = '', payload = {}) {
     return mapRegionRow(await upsertRecord(row));
 }
 
-async function upsertDirectoryProfile(payload = {}) {
-    return importDirectoryProfile(
-        payload.id || payload.userId || payload.firebaseUid || payload.uid || buildId('plaza_directory'),
-        payload
+async function upsertDirectoryProfile(
+    payload = {},
+    options = {}
+) {
+    const id = sanitizeText(
+        payload.id ||
+        payload.userId ||
+        payload.firebaseUid ||
+        payload.uid ||
+        buildId(
+            'plaza_directory'
+        )
     );
+
+    const expectedUpdatedAt = toIso(
+        options.expectedUpdatedAt ||
+        payload.expectedUpdatedAt
+    );
+
+    const existing =
+        await getExisting(
+            'directory_profile',
+            id
+        );
+
+    const current =
+        existing
+            ? mapDirectoryRow(
+                existing
+            )
+            : null;
+
+    const safePayload = {
+        ...payload
+    };
+
+    const canManageAuthority =
+        safePayload
+            .canManageDirectoryAuthority ===
+        true;
+
+    delete safePayload
+        .canManageDirectoryAuthority;
+    delete safePayload.expectedUpdatedAt;
+
+    const nextUpdatedAt = nowIso();
+
+    const nextData = {
+        ...(current || {}),
+        ...safePayload,
+        id,
+        userId: id,
+        firebaseUid: sanitizeText(
+            safePayload.firebaseUid ||
+            current?.firebaseUid ||
+            id
+        ),
+        division:
+            canManageAuthority
+                ? sanitizeText(
+                    safePayload.division ||
+                    current?.division ||
+                    'academy'
+                )
+                : sanitizeText(
+                    current?.division ||
+                    'academy'
+                ),
+        trust:
+            canManageAuthority
+                ? sanitizeText(
+                    safePayload.trust ||
+                    current?.trust ||
+                    'verified'
+                )
+                : sanitizeText(
+                    current?.trust ||
+                    'verified'
+                ),
+        status: sanitizeText(
+            current?.status ||
+            'active'
+        ),
+        reviewStatus: sanitizeText(
+            current?.reviewStatus ||
+            'active'
+        ),
+        createdAt:
+            current?.createdAt ||
+            toIso(
+                safePayload.createdAt
+            ) ||
+            nextUpdatedAt,
+        updatedAt:
+            nextUpdatedAt
+    };
+
+    const row = buildDirectoryRow(
+        nextData
+    );
+
+    if (existing?.id) {
+        if (!expectedUpdatedAt) {
+            throw plazaDirectoryRegionHttpError(
+                'Directory profile version is required. Reload and retry.',
+                428
+            );
+        }
+
+        const currentUpdatedAt = toIso(
+            current?.updatedAt ||
+            existing.updated_at_source ||
+            existing.updated_at
+        );
+
+        if (
+            currentUpdatedAt !==
+            expectedUpdatedAt
+        ) {
+            throw plazaDirectoryRegionHttpError(
+                'This directory profile changed in another session. Reload and retry.',
+                409
+            );
+        }
+
+        const {
+            data,
+            error
+        } = await yhuSupabaseAdmin
+            .from(TABLE)
+            .update(row)
+            .eq('id', existing.id)
+            .eq(
+                'record_type',
+                'directory_profile'
+            )
+            .eq(
+                'source_document_id',
+                id
+            )
+            .eq(
+                'updated_at_source',
+                expectedUpdatedAt
+            )
+            .select('*')
+            .maybeSingle();
+
+        if (error) {
+            throw new Error(
+                'Plaza directory update failed: ' +
+                error.message
+            );
+        }
+
+        if (!data) {
+            throw plazaDirectoryRegionHttpError(
+                'This directory profile changed in another session. Reload and retry.',
+                409
+            );
+        }
+
+        return mapDirectoryRow(data);
+    }
+
+    const {
+        data,
+        error
+    } = await yhuSupabaseAdmin
+        .from(TABLE)
+        .insert(row)
+        .select('*')
+        .single();
+
+    if (error) {
+        if (
+            error.code === '23505' ||
+            /duplicate|unique/i.test(
+                error.message ||
+                ''
+            )
+        ) {
+            throw plazaDirectoryRegionHttpError(
+                'This directory profile was created in another session. Reload and retry.',
+                409
+            );
+        }
+
+        throw new Error(
+            'Plaza directory insert failed: ' +
+            error.message
+        );
+    }
+
+    return mapDirectoryRow(data);
+}
+
+async function resolveExistingRegionCreate(
+    existing = null,
+    ownerUserId = ''
+) {
+    if (!existing) return null;
+
+    const current = mapRegionRow(
+        existing
+    );
+
+    const currentOwner = sanitizeText(
+        current.authorId ||
+        current.authorFirebaseUid
+    );
+
+    if (
+        currentOwner !==
+        sanitizeText(ownerUserId)
+    ) {
+        throw plazaDirectoryRegionHttpError(
+            'Region idempotency key belongs to another user.',
+            409
+        );
+    }
+
+    return {
+        created: false,
+        duplicate: true,
+        region: current
+    };
 }
 
 async function createRegion(payload = {}) {
-    return importRegion(payload.id || payload.slug || buildId('plaza_region'), payload);
+    const ownerUserId = sanitizeText(
+        payload.authorId ||
+        payload.authorFirebaseUid
+    );
+
+    const clientCreateId = sanitizeText(
+        payload.clientCreateId
+    ).slice(0, 180);
+
+    const regionId =
+        buildDeterministicRegionId(
+            ownerUserId,
+            clientCreateId
+        );
+
+    const existing = await getExisting(
+        'region',
+        regionId
+    );
+
+    const existingResult =
+        await resolveExistingRegionCreate(
+            existing,
+            ownerUserId
+        );
+
+    if (existingResult) {
+        return existingResult;
+    }
+
+    const row = buildRegionRow({
+        ...payload,
+        id: regionId,
+        clientCreateId,
+        authorId: ownerUserId
+    });
+
+    const {
+        data,
+        error
+    } = await yhuSupabaseAdmin
+        .from(TABLE)
+        .insert(row)
+        .select('*')
+        .single();
+
+    if (error) {
+        if (
+            error.code === '23505' ||
+            /duplicate|unique/i.test(
+                error.message ||
+                ''
+            )
+        ) {
+            const duplicate =
+                await getExisting(
+                    'region',
+                    regionId
+                );
+
+            const duplicateResult =
+                await resolveExistingRegionCreate(
+                    duplicate,
+                    ownerUserId
+                );
+
+            if (duplicateResult) {
+                return duplicateResult;
+            }
+        }
+
+        throw new Error(
+            'Plaza region insert failed: ' +
+            error.message
+        );
+    }
+
+    return {
+        created: true,
+        duplicate: false,
+        region: mapRegionRow(data)
+    };
 }
+async function listDirectory(options = {}) {
+    const limit = typeof options === 'number'
+        ? options
+        : options.limit;
 
-async function listDirectory(limit = 80) {
-    const safeLimit = Math.max(1, Math.min(Number(limit || 80), 160));
+    const safeLimit = Math.max(
+        1,
+        Math.min(
+            Number(limit || 80),
+            160
+        )
+    );
 
-    const { data, error } = await yhuSupabaseAdmin
+    const cursor =
+        decodeDirectoryRegionCursor(
+            typeof options === 'number'
+                ? ''
+                : options.cursor,
+            'directory'
+        );
+
+    let query = yhuSupabaseAdmin
         .from(TABLE)
         .select('*')
-        .eq('record_type', 'directory_profile')
-        .order('updated_at_source', { ascending: false, nullsFirst: false })
-        .limit(safeLimit);
+        .eq(
+            'record_type',
+            'directory_profile'
+        )
+        .in(
+            'status',
+            PLAZA_PUBLISHED_STATUSES
+        )
+        .in(
+            'review_status',
+            PLAZA_PUBLISHED_STATUSES
+        )
+        .order(
+            'updated_at_source',
+            {
+                ascending: false,
+                nullsFirst: false
+            }
+        )
+        .order(
+            'source_document_id',
+            {
+                ascending: false
+            }
+        );
 
-    if (error) throw new Error('Plaza directory list failed: ' + error.message);
+    query =
+        applyDescendingDirectoryRegionCursor(
+            query,
+            'updated_at_source',
+            cursor
+        );
 
-    return (Array.isArray(data) ? data : [])
-        .map(mapDirectoryRow)
-        .filter((item) => isReadableStatus(item.status || item.reviewStatus || 'active'));
+    const {
+        data,
+        error
+    } = await query.limit(
+        safeLimit + 1
+    );
+
+    if (error) {
+        throw new Error(
+            'Plaza directory list failed: ' +
+            error.message
+        );
+    }
+
+    return buildDirectoryRegionPage(
+        data,
+        {
+            limit: safeLimit,
+            kind: 'directory',
+            column:
+                'updated_at_source',
+            mapRow:
+                mapDirectoryRow
+        }
+    );
 }
 
-async function listRegions(limit = 100) {
-    const safeLimit = Math.max(1, Math.min(Number(limit || 100), 200));
+async function listRegions(options = {}) {
+    const limit = typeof options === 'number'
+        ? options
+        : options.limit;
 
-    const { data, error } = await yhuSupabaseAdmin
+    const safeLimit = Math.max(
+        1,
+        Math.min(
+            Number(limit || 100),
+            200
+        )
+    );
+
+    const cursor =
+        decodeDirectoryRegionCursor(
+            typeof options === 'number'
+                ? ''
+                : options.cursor,
+            'regions'
+        );
+
+    let query = yhuSupabaseAdmin
         .from(TABLE)
         .select('*')
-        .eq('record_type', 'region')
-        .order('title', { ascending: true, nullsFirst: false })
-        .limit(safeLimit);
+        .eq(
+            'record_type',
+            'region'
+        )
+        .in(
+            'status',
+            PLAZA_PUBLISHED_STATUSES
+        )
+        .in(
+            'review_status',
+            PLAZA_PUBLISHED_STATUSES
+        )
+        .order(
+            'updated_at_source',
+            {
+                ascending: false,
+                nullsFirst: false
+            }
+        )
+        .order(
+            'source_document_id',
+            {
+                ascending: false
+            }
+        );
 
-    if (error) throw new Error('Plaza regions list failed: ' + error.message);
+    query =
+        applyDescendingDirectoryRegionCursor(
+            query,
+            'updated_at_source',
+            cursor
+        );
 
-    return (Array.isArray(data) ? data : [])
-        .map(mapRegionRow)
-        .filter((item) => isReadableStatus(item.status || item.reviewStatus || 'active'));
+    const {
+        data,
+        error
+    } = await query.limit(
+        safeLimit + 1
+    );
+
+    if (error) {
+        throw new Error(
+            'Plaza regions list failed: ' +
+            error.message
+        );
+    }
+
+    return buildDirectoryRegionPage(
+        data,
+        {
+            limit: safeLimit,
+            kind: 'regions',
+            column:
+                'updated_at_source',
+            mapRow:
+                mapRegionRow
+        }
+    );
 }
 
 async function deleteRecord(recordType = '', id = '') {

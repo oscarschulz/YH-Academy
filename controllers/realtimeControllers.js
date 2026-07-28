@@ -1,4 +1,4 @@
-const realtimeRepo = require('../backend/repositories/realtimeFirestoreRepo');
+const realtimeRepo = require('../backend/repositories/realtimeSupabaseRepo');
 
 const sanitizeText = (value, fallback = '') => {
     if (value === null || value === undefined) return fallback;
@@ -6,11 +6,30 @@ const sanitizeText = (value, fallback = '') => {
 };
 
 const sendError = (res, error, fallbackMessage = 'Something went wrong.', statusCode = 500) => {
-    const message = sanitizeText(error?.message, fallbackMessage);
-    return res.status(statusCode).json({
-        success: false,
-        message
-    });
+    const message =
+        sanitizeText(
+            error?.message,
+            fallbackMessage
+        );
+
+    const resolvedStatusCode =
+        Number(
+            error?.statusCode ||
+            error?.status ||
+            statusCode
+        );
+
+    return res
+        .status(
+            resolvedStatusCode >= 400 &&
+            resolvedStatusCode < 600
+                ? resolvedStatusCode
+                : statusCode
+        )
+        .json({
+            success: false,
+            message
+        });
 };
 
 function getViewerFromRequest(req) {
@@ -35,21 +54,22 @@ exports.getBootstrap = async (req, res) => {
         const data = await realtimeRepo.getBootstrap(viewer.id);
         return res.json({ success: true, data });
     } catch (error) {
-        console.warn('getBootstrap fail-soft fallback:', error?.message || error);
+        console.error(
+            'getBootstrap error:',
+            error
+        );
 
-        return res.json({
-            success: true,
-            degraded: true,
-            warning: 'Realtime bootstrap is temporarily using safe fallback data.',
-            data: {
-                selfProfile: null,
-                rooms: [],
-                vaultItems: [],
-                liveRooms: [],
-                notifications: [],
-                leaderboard: []
-            }
-        });
+        /*
+         * Do not return an empty success payload.
+         * The client must keep its last good Supabase
+         * snapshot during a temporary backend failure.
+         */
+        return sendError(
+            res,
+            error,
+            'Realtime bootstrap is temporarily unavailable.',
+            503
+        );
     }
 };
 
@@ -60,14 +80,21 @@ exports.getRooms = async (req, res) => {
         const rooms = await realtimeRepo.getRooms(viewer.id);
         return res.json({ success: true, rooms });
     } catch (error) {
-        console.warn('getRooms fail-soft fallback:', error?.message || error);
+        console.error(
+            'getRooms error:',
+            error
+        );
 
-        return res.json({
-            success: true,
-            degraded: true,
-            warning: 'Realtime rooms are temporarily unavailable.',
-            rooms: []
-        });
+        /*
+         * An empty success response would erase the
+         * current inbox on a transient database error.
+         */
+        return sendError(
+            res,
+            error,
+            'Realtime rooms are temporarily unavailable.',
+            503
+        );
     }
 };
 
@@ -347,18 +374,39 @@ exports.createLiveRoom = async (req, res) => {
 
 exports.getNotifications = async (req, res) => {
     try {
-        const viewer = getViewerFromRequest(req);
-        const notifications = await realtimeRepo.getNotifications(viewer.id);
+        const viewer =
+            getViewerFromRequest(req);
 
-        const unreadCount = (Array.isArray(notifications) ? notifications : []).filter((item) => {
-            return !(
-                item?.isRead === true ||
-                item?.is_read === true ||
-                item?.read === true ||
-                item?.readAt ||
-                item?.read_at
-            );
-        }).length;
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message:
+                    'Missing authenticated user.'
+            });
+        }
+
+        const notifications =
+            await realtimeRepo
+                .getNotifications(
+                    viewer.id
+                );
+
+        const unreadCount =
+            (
+                Array.isArray(
+                    notifications
+                )
+                    ? notifications
+                    : []
+            ).filter((item) => {
+                return !(
+                    item?.isRead === true ||
+                    item?.is_read === true ||
+                    item?.read === true ||
+                    item?.readAt ||
+                    item?.read_at
+                );
+            }).length;
 
         return res.json({
             success: true,
@@ -366,17 +414,25 @@ exports.getNotifications = async (req, res) => {
             unreadCount
         });
     } catch (error) {
-        console.warn('getNotifications fail-soft fallback:', error?.message || error);
+        console.error(
+            'getNotifications error:',
+            error
+        );
 
-        return res.json({
-            success: true,
-            degraded: true,
-            warning: 'Realtime notifications are temporarily unavailable.',
-            notifications: [],
-            unreadCount: 0
-        });
+        /*
+         * Never replace the member's current bell state
+         * with an empty-success snapshot after a temporary
+         * Supabase failure.
+         */
+        return sendError(
+            res,
+            error,
+            'Realtime notifications are temporarily unavailable.',
+            503
+        );
     }
 };
+
 
 exports.readAllNotifications = async (req, res) => {
     try {
@@ -466,9 +522,14 @@ exports.toggleFollow = async (req, res) => {
         );
 
         const result = await realtimeRepo.toggleFollow({
-            followerUserId: viewer.id,
-            followingUserId,
-            actorName: viewer.name || viewer.username || 'Someone'
+            followerId:
+                viewer.id,
+            followingId:
+                followingUserId,
+            actorName:
+                viewer.name ||
+                viewer.username ||
+                'Someone'
         });
 
         return res.json({

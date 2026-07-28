@@ -43,6 +43,51 @@ function buildId(prefix = 'plaza') {
     return prefix + '_' + Date.now() + '_' + crypto.randomBytes(5).toString('hex');
 }
 
+function plazaRecordHttpError(message = '', status = 500) {
+    const error = new Error(
+        sanitizeText(message) ||
+        'Plaza record operation failed.'
+    );
+
+    error.status = Number(status) || 500;
+    return error;
+}
+
+function buildDeterministicRecordId(
+    recordType = '',
+    ownerUserId = '',
+    clientCreateId = ''
+) {
+    const cleanType = sanitizeText(recordType);
+    const cleanOwner = sanitizeText(ownerUserId);
+    const cleanClientId = sanitizeText(clientCreateId);
+
+    if (
+        !cleanType ||
+        !cleanOwner ||
+        !cleanClientId
+    ) {
+        throw plazaRecordHttpError(
+            'Record type, owner, and client create id are required.',
+            400
+        );
+    }
+
+    const prefix = cleanType === 'feed_post'
+        ? 'plaza_feed'
+        : cleanType === 'opportunity'
+            ? 'plaza_opp'
+            : 'plaza_record';
+
+    const digest = crypto
+        .createHash('sha256')
+        .update(`${cleanType}:${cleanOwner}:${cleanClientId}`)
+        .digest('hex')
+        .slice(0, 40);
+
+    return `${prefix}_${digest}`;
+}
+
 function normalizeStatus(value = '', fallback = 'active') {
     const clean = cleanLower(value || fallback);
     return clean || fallback;
@@ -58,6 +103,196 @@ function isReadablePlazaStatus(value = '') {
         'blocked',
         'removed'
     ].includes(status);
+}
+
+function isPublishedPlazaStatus(value = '') {
+    return [
+        'active',
+        'approved',
+        'published',
+        'verified'
+    ].includes(
+        normalizeStatus(
+            value || 'active'
+        )
+    );
+}
+
+const PLAZA_PUBLISHED_STATUSES = [
+    'active',
+    'approved',
+    'published',
+    'verified'
+];
+
+function encodePlazaRecordCursor(
+    kind = '',
+    timestamp = '',
+    id = ''
+) {
+    return Buffer
+        .from(
+            JSON.stringify({
+                version: 1,
+                kind: sanitizeText(kind),
+                timestamp: toIso(timestamp),
+                id: sanitizeText(id)
+            }),
+            'utf8'
+        )
+        .toString('base64url');
+}
+
+function normalizePlazaCursorTimestamp(
+    value = ''
+) {
+    const clean = sanitizeText(value);
+    const parsed = Date.parse(clean);
+
+    if (
+        !clean ||
+        !Number.isFinite(parsed)
+    ) {
+        return '';
+    }
+
+    return new Date(parsed).toISOString();
+}
+
+function quotePlazaPostgrestFilterValue(
+    value = ''
+) {
+    const clean = sanitizeText(value);
+
+    return `"${clean
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')}"`;
+}
+
+function decodePlazaRecordCursor(
+    value = '',
+    expectedKind = ''
+) {
+    const clean = sanitizeText(value);
+
+    if (!clean) return null;
+
+    try {
+        const parsed = JSON.parse(
+            Buffer
+                .from(
+                    clean,
+                    'base64url'
+                )
+                .toString('utf8')
+        );
+
+        const timestamp =
+            normalizePlazaCursorTimestamp(
+                parsed?.timestamp
+            );
+
+        const id = sanitizeText(
+            parsed?.id
+        );
+
+        if (
+            Number(parsed?.version) !== 1 ||
+            sanitizeText(parsed?.kind) !==
+                sanitizeText(expectedKind) ||
+            !timestamp ||
+            !id ||
+            id.length > 240
+        ) {
+            throw new Error(
+                'Cursor payload is invalid.'
+            );
+        }
+
+        return {
+            timestamp,
+            id
+        };
+    } catch (_) {
+        throw plazaRecordHttpError(
+            'Invalid Plaza pagination cursor.',
+            400
+        );
+    }
+}
+
+function applyDescendingPlazaRecordCursor(
+    query,
+    column = '',
+    cursor = null
+) {
+    if (!cursor) return query;
+
+    const cleanColumn = sanitizeText(
+        column
+    );
+
+    const timestamp =
+        quotePlazaPostgrestFilterValue(
+            cursor.timestamp
+        );
+
+    const id =
+        quotePlazaPostgrestFilterValue(
+            cursor.id
+        );
+
+    return query.or(
+        `${cleanColumn}.lt.${timestamp},and(${cleanColumn}.eq.${timestamp},source_document_id.lt.${id})`
+    );
+}
+
+function buildPlazaRecordPage(
+    rows = [],
+    options = {}
+) {
+    const safeRows = Array.isArray(rows)
+        ? rows
+        : [];
+
+    const limit = Math.max(
+        1,
+        Number(options.limit || 1)
+    );
+
+    const pageRows = safeRows.slice(
+        0,
+        limit
+    );
+
+    const hasMore =
+        safeRows.length > limit;
+
+    const lastRow =
+        pageRows[
+            pageRows.length - 1
+        ];
+
+    return {
+        items: pageRows.map(
+            options.mapRow
+        ),
+        hasMore,
+        nextCursor:
+            hasMore &&
+            lastRow
+                ? encodePlazaRecordCursor(
+                    options.kind,
+                    lastRow[
+                        options.column
+                    ] ||
+                    lastRow.updated_at ||
+                    lastRow.created_at,
+                    lastRow.source_document_id ||
+                    lastRow.id
+                )
+                : ''
+    };
 }
 
 function normalizeTags(value = []) {
@@ -95,6 +330,7 @@ function normalizeFeedData(input = {}) {
         authorFirebaseUid: sanitizeText(input.authorFirebaseUid || input.firebaseUid || ''),
         authorEmail: sanitizeText(input.authorEmail || input.createdByEmail || '').toLowerCase(),
         authorName: sanitizeText(input.authorName || input.member || input.createdByName || 'YH Member'),
+        clientCreateId: sanitizeText(input.clientCreateId || ''),
         status: normalizeStatus(input.status || 'active'),
         reviewStatus: normalizeStatus(input.reviewStatus || input.status || 'active'),
         createdAt: toIso(input.createdAt) || now,
@@ -138,6 +374,7 @@ function normalizeOpportunityData(input = {}) {
         authorFirebaseUid: sanitizeText(input.authorFirebaseUid || input.firebaseUid || ''),
         authorEmail: sanitizeText(input.authorEmail || input.createdByEmail || '').toLowerCase(),
         authorName: sanitizeText(input.authorName || input.createdByName || 'YH Member'),
+        clientCreateId: sanitizeText(input.clientCreateId || ''),
 
         status: normalizeStatus(input.status || 'active'),
         reviewStatus: normalizeStatus(input.reviewStatus || input.status || 'active'),
@@ -169,7 +406,9 @@ function buildFeedRow(input = {}) {
             action: sanitizeText(data.action),
             member: sanitizeText(data.member)
         },
-        private_meta: {},
+        private_meta: {
+            clientCreateId: sanitizeText(data.clientCreateId)
+        },
         data,
         created_at_source: toIso(data.createdAt) || nowIso(),
         updated_at_source: toIso(data.updatedAt) || nowIso()
@@ -211,7 +450,11 @@ function buildOpportunityRow(input = {}) {
             federationEscalation: sanitizeText(data.federationEscalation),
             marketplaceMode: sanitizeText(data.marketplaceMode)
         },
-        private_meta: {},
+        private_meta: {
+            clientCreateId: sanitizeText(
+                data.clientCreateId
+            )
+        },
         data,
         created_at_source: toIso(data.createdAt) || nowIso(),
         updated_at_source: toIso(data.updatedAt) || nowIso()
@@ -231,7 +474,10 @@ async function getExisting(recordType = '', sourceDocumentId = '') {
 }
 
 async function upsertRecord(row = {}) {
-    const existing = await getExisting(row.record_type, row.source_document_id).catch(() => null);
+    const existing = await getExisting(
+        row.record_type,
+        row.source_document_id
+    );
 
     if (existing?.id) {
         const { data, error } = await yhuSupabaseAdmin
@@ -273,6 +519,11 @@ function mapFeedRow(row = {}) {
         authorFirebaseUid: sanitizeText(data.authorFirebaseUid || ''),
         authorEmail: sanitizeText(data.authorEmail || '').toLowerCase(),
         authorName: sanitizeText(data.authorName || data.member || 'YH Member'),
+        clientCreateId: sanitizeText(
+            data.clientCreateId ||
+            row.private_meta?.clientCreateId ||
+            ''
+        ),
         status: normalizeStatus(data.status || row.status),
         reviewStatus: normalizeStatus(data.reviewStatus || row.review_status),
         createdAt: toIso(data.createdAt || row.created_at_source || row.created_at),
@@ -314,6 +565,11 @@ function mapOpportunityRow(row = {}) {
         authorFirebaseUid: sanitizeText(data.authorFirebaseUid || ''),
         authorEmail: sanitizeText(data.authorEmail || '').toLowerCase(),
         authorName: sanitizeText(data.authorName || 'YH Member'),
+        clientCreateId: sanitizeText(
+            data.clientCreateId ||
+            row.private_meta?.clientCreateId ||
+            ''
+        ),
 
         status: normalizeStatus(data.status || row.status),
         reviewStatus: normalizeStatus(data.reviewStatus || row.review_status),
@@ -340,46 +596,318 @@ async function importOpportunity(id = '', payload = {}) {
     return mapOpportunityRow(await upsertRecord(row));
 }
 
+async function resolveExistingCreate(
+    existing = null,
+    context = {}
+) {
+    if (!existing) return null;
+
+    const ownerUserId = sanitizeText(
+        context.ownerUserId
+    );
+
+    const mapRow = context.mapRow;
+    const current = mapRow(existing);
+
+    if (
+        sanitizeText(
+            current.authorId ||
+            current.authorFirebaseUid
+        ) !== ownerUserId
+    ) {
+        throw plazaRecordHttpError(
+            'Create idempotency key belongs to another user.',
+            409
+        );
+    }
+
+    return {
+        created: false,
+        duplicate: true,
+        record: current
+    };
+}
+
+async function createRecordOnce(options = {}) {
+    const recordType = sanitizeText(
+        options.recordType
+    );
+
+    const payload = options.payload || {};
+    const buildRow = options.buildRow;
+    const mapRow = options.mapRow;
+
+    const ownerUserId = sanitizeText(
+        payload.authorId ||
+        payload.authorFirebaseUid
+    );
+
+    const clientCreateId = sanitizeText(
+        payload.clientCreateId
+    ).slice(0, 180);
+
+    const recordId = buildDeterministicRecordId(
+        recordType,
+        ownerUserId,
+        clientCreateId
+    );
+
+    const existing = await getExisting(
+        recordType,
+        recordId
+    );
+
+    const existingResult =
+        await resolveExistingCreate(
+            existing,
+            {
+                ownerUserId,
+                mapRow
+            }
+        );
+
+    if (existingResult) {
+        return existingResult;
+    }
+
+    const row = buildRow({
+        ...payload,
+        id: recordId,
+        clientCreateId,
+        authorId: ownerUserId
+    });
+
+    const {
+        data,
+        error
+    } = await yhuSupabaseAdmin
+        .from(TABLE)
+        .insert(row)
+        .select('*')
+        .single();
+
+    if (error) {
+        if (
+            error.code === '23505' ||
+            /duplicate|unique/i.test(
+                error.message || ''
+            )
+        ) {
+            const duplicate = await getExisting(
+                recordType,
+                recordId
+            );
+
+            const duplicateResult =
+                await resolveExistingCreate(
+                    duplicate,
+                    {
+                        ownerUserId,
+                        mapRow
+                    }
+                );
+
+            if (duplicateResult) {
+                return duplicateResult;
+            }
+        }
+
+        throw new Error(
+            'Plaza record insert failed: ' +
+            error.message
+        );
+    }
+
+    return {
+        created: true,
+        duplicate: false,
+        record: mapRow(data)
+    };
+}
+
 async function createFeedPost(payload = {}) {
-    return importFeedPost(payload.id || buildId('plaza_feed'), payload);
+    return createRecordOnce({
+        recordType: 'feed_post',
+        payload,
+        buildRow: buildFeedRow,
+        mapRow: mapFeedRow
+    });
 }
 
 async function createOpportunity(payload = {}) {
-    return importOpportunity(payload.id || buildId('plaza_opp'), payload);
+    return createRecordOnce({
+        recordType: 'opportunity',
+        payload,
+        buildRow: buildOpportunityRow,
+        mapRow: mapOpportunityRow
+    });
 }
 
-async function listFeed(limit = 40) {
-    const safeLimit = Math.max(1, Math.min(Number(limit || 40), 100));
+async function listFeed(options = {}) {
+    const limit = typeof options === 'number'
+        ? options
+        : options.limit;
 
-    const { data, error } = await yhuSupabaseAdmin
+    const safeLimit = Math.max(
+        1,
+        Math.min(
+            Number(limit || 40),
+            100
+        )
+    );
+
+    const cursor =
+        decodePlazaRecordCursor(
+            typeof options === 'number'
+                ? ''
+                : options.cursor,
+            'feed'
+        );
+
+    let query = yhuSupabaseAdmin
         .from(TABLE)
         .select('*')
-        .eq('record_type', 'feed_post')
-        .order('created_at_source', { ascending: false, nullsFirst: false })
-        .limit(safeLimit);
+        .eq(
+            'record_type',
+            'feed_post'
+        )
+        .in(
+            'status',
+            PLAZA_PUBLISHED_STATUSES
+        )
+        .in(
+            'review_status',
+            PLAZA_PUBLISHED_STATUSES
+        )
+        .order(
+            'created_at_source',
+            {
+                ascending: false,
+                nullsFirst: false
+            }
+        )
+        .order(
+            'source_document_id',
+            {
+                ascending: false
+            }
+        );
 
-    if (error) throw new Error('Plaza feed list failed: ' + error.message);
+    query =
+        applyDescendingPlazaRecordCursor(
+            query,
+            'created_at_source',
+            cursor
+        );
 
-    return (Array.isArray(data) ? data : [])
-        .map(mapFeedRow)
-        .filter((item) => isReadablePlazaStatus(item.status || item.reviewStatus || 'active'));
+    const {
+        data,
+        error
+    } = await query.limit(
+        safeLimit + 1
+    );
+
+    if (error) {
+        throw new Error(
+            'Plaza feed list failed: ' +
+            error.message
+        );
+    }
+
+    return buildPlazaRecordPage(
+        data,
+        {
+            limit: safeLimit,
+            kind: 'feed',
+            column:
+                'created_at_source',
+            mapRow: mapFeedRow
+        }
+    );
 }
 
-async function listOpportunities(limit = 60) {
-    const safeLimit = Math.max(1, Math.min(Number(limit || 60), 120));
+async function listOpportunities(options = {}) {
+    const limit = typeof options === 'number'
+        ? options
+        : options.limit;
 
-    const { data, error } = await yhuSupabaseAdmin
+    const safeLimit = Math.max(
+        1,
+        Math.min(
+            Number(limit || 60),
+            120
+        )
+    );
+
+    const cursor =
+        decodePlazaRecordCursor(
+            typeof options === 'number'
+                ? ''
+                : options.cursor,
+            'opportunities'
+        );
+
+    let query = yhuSupabaseAdmin
         .from(TABLE)
         .select('*')
-        .eq('record_type', 'opportunity')
-        .order('created_at_source', { ascending: false, nullsFirst: false })
-        .limit(safeLimit);
+        .eq(
+            'record_type',
+            'opportunity'
+        )
+        .in(
+            'status',
+            PLAZA_PUBLISHED_STATUSES
+        )
+        .in(
+            'review_status',
+            PLAZA_PUBLISHED_STATUSES
+        )
+        .order(
+            'created_at_source',
+            {
+                ascending: false,
+                nullsFirst: false
+            }
+        )
+        .order(
+            'source_document_id',
+            {
+                ascending: false
+            }
+        );
 
-    if (error) throw new Error('Plaza opportunities list failed: ' + error.message);
+    query =
+        applyDescendingPlazaRecordCursor(
+            query,
+            'created_at_source',
+            cursor
+        );
 
-    return (Array.isArray(data) ? data : [])
-        .map(mapOpportunityRow)
-        .filter((item) => isReadablePlazaStatus(item.status || item.reviewStatus || 'active'));
+    const {
+        data,
+        error
+    } = await query.limit(
+        safeLimit + 1
+    );
+
+    if (error) {
+        throw new Error(
+            'Plaza opportunities list failed: ' +
+            error.message
+        );
+    }
+
+    return buildPlazaRecordPage(
+        data,
+        {
+            limit: safeLimit,
+            kind: 'opportunities',
+            column:
+                'created_at_source',
+            mapRow:
+                mapOpportunityRow
+        }
+    );
 }
 
 async function deleteRecord(recordType = '', id = '') {

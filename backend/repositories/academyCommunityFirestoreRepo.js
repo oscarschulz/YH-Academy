@@ -1,6 +1,12 @@
 const crypto = require('crypto');
 const { yhuSupabaseAdmin } = require('../../config/supabaseAdmin');
 
+const academyMemberProfileSupabaseRepo =
+    require('./academyMemberProfileSupabaseRepo');
+
+const yhuUsersSupabaseRepo =
+    require('./yhuUsersSupabaseRepo');
+
 const ACADEMY_COMMUNITY_NICHES = [
     { key: 'ecommerce', label: 'E-commerce', description: 'Stores, products, fulfillment, branding, and online selling.' },
     { key: 'digital_products', label: 'Digital Products', description: 'PDFs, templates, courses, paid resources, and productized knowledge.' },
@@ -43,6 +49,165 @@ function nowIso() {
 function buildId(prefix = 'acm') {
     return `${prefix}_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
 }
+
+/* PATCH: Academy Community feed integrity helpers v2 */
+function communityHttpErrorV2(
+    message = 'Community request failed.',
+    statusCode = 400
+) {
+    const error = new Error(
+        sanitizeText(message) ||
+        'Community request failed.'
+    );
+
+    error.statusCode =
+        Number(statusCode) || 400;
+
+    return error;
+}
+
+function encodeCommunityFeedCursorV2(payload = {}) {
+    const json =
+        JSON.stringify(
+            payload &&
+            typeof payload === 'object'
+                ? payload
+                : {}
+        );
+
+    return Buffer
+        .from(json, 'utf8')
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/g, '');
+}
+
+function decodeCommunityFeedCursorV2(value = '') {
+    const clean =
+        sanitizeText(value);
+
+    if (!clean) {
+        return null;
+    }
+
+    try {
+        const normalized =
+            clean
+                .replace(/-/g, '+')
+                .replace(/_/g, '/');
+
+        const padding =
+            normalized.length % 4
+                ? '='.repeat(
+                    4 -
+                    (
+                        normalized.length %
+                        4
+                    )
+                )
+                : '';
+
+        const parsed =
+            JSON.parse(
+                Buffer
+                    .from(
+                        normalized + padding,
+                        'base64'
+                    )
+                    .toString('utf8')
+            );
+
+        return (
+            parsed &&
+            typeof parsed === 'object' &&
+            !Array.isArray(parsed)
+        )
+            ? parsed
+            : null;
+    } catch (_) {
+        throw communityHttpErrorV2(
+            'Invalid Academy feed cursor.',
+            400
+        );
+    }
+}
+
+async function listCommunityRowsPagedV2(
+    buildQuery,
+    {
+        pageSize = 1000,
+        maxRows = 20000,
+        label = 'Community records'
+    } = {}
+) {
+    if (typeof buildQuery !== 'function') {
+        return [];
+    }
+
+    const safePageSize =
+        Math.max(
+            1,
+            Math.min(
+                1000,
+                Number(pageSize) || 1000
+            )
+        );
+
+    const safeMaxRows =
+        Math.max(
+            safePageSize,
+            Math.min(
+                50000,
+                Number(maxRows) || 20000
+            )
+        );
+
+    const rows = [];
+    let offset = 0;
+
+    while (rows.length < safeMaxRows) {
+        const query =
+            buildQuery();
+
+        const {
+            data,
+            error
+        } = await query.range(
+            offset,
+            offset + safePageSize - 1
+        );
+
+        if (error) {
+            throw new Error(
+                `${label} lookup failed: ${error.message}`
+            );
+        }
+
+        const batch =
+            Array.isArray(data)
+                ? data
+                : [];
+
+        rows.push(...batch);
+
+        if (
+            batch.length <
+            safePageSize
+        ) {
+            break;
+        }
+
+        offset +=
+            batch.length;
+    }
+
+    return rows.slice(
+        0,
+        safeMaxRows
+    );
+}
+/* END PATCH: Academy Community feed integrity helpers v2 */
 
 function normalizeNicheKey(value = '') {
     return sanitizeText(value)
@@ -113,39 +278,300 @@ function buildSearchPostPreview(value = '', maxLength = 140) {
 }
 
 function mapProfileRow(row = {}, fallback = {}) {
-    const userData = row.user_data && typeof row.user_data === 'object' ? row.user_data : {};
-    const academyData = row.academy_data && typeof row.academy_data === 'object' ? row.academy_data : {};
+    const canonicalProfile =
+        row && typeof row === 'object'
+            ? academyMemberProfileSupabaseRepo
+                .rowToFirestoreUser(row)
+            : {};
+
+    const publicMeta =
+        row.public_meta &&
+        typeof row.public_meta === 'object'
+            ? row.public_meta
+            : {};
+
+    const data =
+        row.data &&
+        typeof row.data === 'object'
+            ? row.data
+            : {};
+
+    const source = {
+        ...data,
+        ...publicMeta,
+        ...canonicalProfile
+    };
 
     const fullName =
-        sanitizeText(row.full_name) ||
-        sanitizeText(row.display_name) ||
-        sanitizeText(academyData.fullName || academyData.displayName || academyData.display_name) ||
-        sanitizeText(userData.fullName || userData.displayName || userData.name) ||
-        sanitizeText(fallback.name || fallback.fullName || fallback.username) ||
+        sanitizeText(
+            source.fullName ||
+            source.name ||
+            source.displayName ||
+            row.full_name ||
+            row.display_name
+        ) ||
+        sanitizeText(
+            fallback.name ||
+            fallback.fullName ||
+            fallback.username
+        ) ||
         'Hustler';
 
     const displayName =
-        sanitizeText(row.display_name) ||
-        sanitizeText(academyData.displayName || academyData.display_name) ||
+        sanitizeText(
+            source.displayName ||
+            source.display_name ||
+            row.display_name
+        ) ||
         fullName;
 
+    const communityNiches =
+        mapArray(
+            source.communityNiches ||
+            source.community_niches ||
+            []
+        );
+
+    const defaultNiche =
+        sanitizeText(
+            source.defaultNiche ||
+            source.default_niche ||
+            ''
+        );
+
     return {
-        id: sanitizeText(row.user_id || fallback.id || fallback.firebaseUid),
-        email: sanitizeText(row.email || userData.email || fallback.email).toLowerCase(),
+        id: sanitizeText(
+            source.id ||
+            source.uid ||
+            source.userId ||
+            source.firebaseUid ||
+            row.user_id ||
+            fallback.id ||
+            fallback.firebaseUid
+        ),
+
+        email: sanitizeText(
+            source.email ||
+            row.email ||
+            fallback.email
+        ).toLowerCase(),
+
         fullName,
         display_name: displayName,
         displayName,
-        username: sanitizeText(row.username || academyData.username || userData.username || fallback.username).replace(/^@+/, ''),
-        avatar: sanitizeText(row.avatar || academyData.avatar || userData.avatar || userData.profilePhoto || userData.photoURL),
-        role_label: sanitizeText(row.role_label || academyData.role_label || academyData.roleLabel || userData.roleLabel || userData.role || 'Academy Member') || 'Academy Member',
-        roleLabel: sanitizeText(row.role_label || academyData.role_label || academyData.roleLabel || userData.roleLabel || userData.role || 'Academy Member') || 'Academy Member',
-        bio: sanitizeText(row.bio || academyData.bio || userData.bio || userData.profileBio || userData.about || userData.description),
-        cover_photo: sanitizeText(row.cover_photo || academyData.cover_photo || academyData.coverPhoto || userData.coverPhoto),
-        search_tags: mapArray(row.search_tags),
-        community_niches: mapArray(row.community_niches),
-        default_niche: sanitizeText(row.default_niche),
-        created_at: row.created_at_source || row.created_at || '',
-        updated_at: row.updated_at_source || row.updated_at || ''
+
+        username: sanitizeText(
+            source.username ||
+            row.username ||
+            fallback.username
+        ).replace(/^@+/, ''),
+
+        avatar: sanitizeText(
+            source.avatar ||
+            source.profilePhoto ||
+            source.photoURL ||
+            row.avatar ||
+            fallback.avatar ||
+            fallback.profilePhoto ||
+            fallback.photoURL
+        ),
+
+        role_label:
+            sanitizeText(
+                source.roleLabel ||
+                source.role_label ||
+                source.role ||
+                row.role_label ||
+                fallback.roleLabel ||
+                fallback.role
+            ) ||
+            'Academy Member',
+
+        roleLabel:
+            sanitizeText(
+                source.roleLabel ||
+                source.role_label ||
+                source.role ||
+                row.role_label ||
+                fallback.roleLabel ||
+                fallback.role
+            ) ||
+            'Academy Member',
+
+        bio: sanitizeText(
+            source.bio ||
+            source.profileBio ||
+            source.about ||
+            source.description
+        ),
+
+        cover_photo: sanitizeText(
+            source.coverPhoto ||
+            source.cover_photo ||
+            source.coverUrl ||
+            source.cover_url
+        ),
+
+        search_tags: mapArray(
+            source.searchTags ||
+            source.search_tags ||
+            source.tags ||
+            []
+        ),
+
+        community_niches:
+            communityNiches,
+
+        communityNiches:
+            communityNiches,
+
+        default_niche:
+            defaultNiche,
+
+        defaultNiche:
+            defaultNiche,
+
+        has_academy_access:
+            source.hasAcademyAccess === true ||
+            source.has_academy_access === true,
+
+        academy_membership_status:
+            sanitizeText(
+                source.academyMembershipStatus ||
+                source.academy_membership_status ||
+                source.academyApplicationStatus ||
+                source.academy_application_status
+            ),
+
+        created_at:
+            row.created_at_source ||
+            source.createdAt ||
+            row.created_at ||
+            '',
+
+        updated_at:
+            row.updated_at_source ||
+            source.updatedAt ||
+            row.updated_at ||
+            ''
+    };
+}
+
+function mapYhuUserRowToCommunitySeedV1(
+    row = {},
+    fallback = {}
+) {
+    const rawData =
+        row.raw_data &&
+        typeof row.raw_data === 'object'
+            ? row.raw_data
+            : {};
+
+    const data =
+        row.data &&
+        typeof row.data === 'object'
+            ? row.data
+            : {};
+
+    const publicMeta =
+        row.public_meta &&
+        typeof row.public_meta === 'object'
+            ? row.public_meta
+            : {};
+
+    const source = {
+        ...rawData,
+        ...data,
+        ...publicMeta,
+        ...row,
+        ...fallback
+    };
+
+    const userId = normalizeUserId(
+        source.user_id ||
+        source.firebase_uid ||
+        source.firebaseUid ||
+        source.uid ||
+        source.userId ||
+        source.id
+    );
+
+    if (!userId) {
+        return null;
+    }
+
+    return {
+        ...source,
+
+        id: userId,
+        uid: userId,
+        userId,
+        firebaseUid: userId,
+
+        email: sanitizeText(
+            source.email
+        ).toLowerCase(),
+
+        fullName: sanitizeText(
+            source.full_name ||
+            source.fullName ||
+            source.name ||
+            source.display_name ||
+            source.displayName ||
+            source.username ||
+            'Hustler'
+        ),
+
+        displayName: sanitizeText(
+            source.display_name ||
+            source.displayName ||
+            source.full_name ||
+            source.fullName ||
+            source.name ||
+            source.username ||
+            'Hustler'
+        ),
+
+        username: sanitizeText(
+            source.username ||
+            source.handle ||
+            ''
+        ).replace(/^@+/, ''),
+
+        avatar: sanitizeText(
+            source.avatar ||
+            source.profile_photo ||
+            source.profilePhoto ||
+            source.photo_url ||
+            source.photoURL ||
+            ''
+        ),
+
+        profilePhoto: sanitizeText(
+            source.profile_photo ||
+            source.profilePhoto ||
+            source.photo_url ||
+            source.photoURL ||
+            source.avatar ||
+            ''
+        ),
+
+        photoURL: sanitizeText(
+            source.photo_url ||
+            source.photoURL ||
+            source.avatar ||
+            source.profile_photo ||
+            source.profilePhoto ||
+            ''
+        ),
+
+        roleLabel:
+            sanitizeText(
+                source.role_label ||
+                source.roleLabel ||
+                source.role
+            ) ||
+            'Academy Member'
     };
 }
 
@@ -182,79 +608,142 @@ async function getProfileRow(userId) {
 }
 
 async function ensureViewerProfile(user = {}) {
-    const viewerId = normalizeUserId(user?.id || user?.firebaseUid || user?.uid);
-    if (!viewerId) throw new Error('Missing viewer id.');
+    const viewerId = normalizeUserId(
+        user?.id ||
+        user?.firebaseUid ||
+        user?.uid
+    );
 
-    const existing = await getProfileRow(viewerId);
-    if (existing) return mapProfileRow(existing, user);
-
-    const now = nowIso();
-    const snapshot = buildAuthorSnapshot({}, user);
-
-    const row = {
-        user_id: viewerId,
-        email: sanitizeText(user.email).toLowerCase(),
-        full_name: snapshot.fullName,
-        display_name: snapshot.displayName,
-        username: snapshot.username,
-        avatar: snapshot.avatar,
-        role_label: snapshot.roleLabel,
-        bio: '',
-        cover_photo: '',
-        search_tags: [],
-        community_niches: [],
-        default_niche: '',
-        user_data: {
-            id: viewerId,
-            email: sanitizeText(user.email).toLowerCase(),
-            name: sanitizeText(user.name || snapshot.fullName),
-            username: snapshot.username
-        },
-        academy_data: {},
-        created_at_source: now,
-        updated_at_source: now
-    };
-
-    const { data, error } = await yhuSupabaseAdmin
-        .from('yhu_academy_member_profiles')
-        .upsert(row, { onConflict: 'user_id' })
-        .select('*')
-        .single();
-
-    if (error) {
-        throw new Error(`Academy member profile create failed: ${error.message}`);
+    if (!viewerId) {
+        throw new Error(
+            'Missing viewer id.'
+        );
     }
 
-    return mapProfileRow(data, user);
+    const existing =
+        await getProfileRow(
+            viewerId
+        );
+
+    if (existing) {
+        return mapProfileRow(
+            existing,
+            user
+        );
+    }
+
+    const yhuUserRow =
+        await yhuUsersSupabaseRepo
+            .getByUid(viewerId)
+            .catch(() => null);
+
+    const canonicalSeed =
+        mapYhuUserRowToCommunitySeedV1(
+            yhuUserRow || {},
+            user
+        ) || {
+            ...user,
+            id: viewerId,
+            uid: viewerId,
+            userId: viewerId,
+            firebaseUid: viewerId
+        };
+
+    const saved =
+        await academyMemberProfileSupabaseRepo
+            .upsertProfileFromUserData(
+                viewerId,
+                canonicalSeed
+            );
+
+    if (!saved) {
+        throw new Error(
+            'Academy member profile create failed.'
+        );
+    }
+
+    return mapProfileRow(
+        saved,
+        canonicalSeed
+    );
 }
 
 async function getViewerProfile(user = {}) {
     return ensureViewerProfile(user);
 }
 
-async function getProfileOrFallback(userId, fallback = {}) {
-    const row = await getProfileRow(userId);
-    if (row) return mapProfileRow(row, fallback);
+async function getProfileOrFallback(
+    userId,
+    fallback = {}
+) {
+    const cleanUserId =
+        normalizeUserId(userId);
 
-    const cleanUserId = normalizeUserId(userId);
-    if (!cleanUserId) return null;
+    if (!cleanUserId) {
+        return null;
+    }
 
-    return {
-        id: cleanUserId,
-        email: sanitizeText(fallback.email).toLowerCase(),
-        fullName: sanitizeText(fallback.fullName || fallback.name || fallback.username || 'Hustler'),
-        display_name: sanitizeText(fallback.display_name || fallback.displayName || fallback.fullName || fallback.name || fallback.username || 'Hustler'),
-        displayName: sanitizeText(fallback.displayName || fallback.display_name || fallback.fullName || fallback.name || fallback.username || 'Hustler'),
-        username: sanitizeText(fallback.username).replace(/^@+/, ''),
-        avatar: sanitizeText(fallback.avatar || fallback.profilePhoto || fallback.photoURL),
-        role_label: sanitizeText(fallback.role_label || fallback.roleLabel || 'Academy Member'),
-        roleLabel: sanitizeText(fallback.roleLabel || fallback.role_label || 'Academy Member'),
-        bio: sanitizeText(fallback.bio),
-        cover_photo: sanitizeText(fallback.cover_photo || fallback.coverPhoto),
-        search_tags: mapArray(fallback.search_tags || fallback.searchTags),
-        community_niches: mapArray(fallback.community_niches || fallback.communityNiches),
-        default_niche: sanitizeText(fallback.default_niche || fallback.defaultNiche)
-    };
+    const row =
+        await getProfileRow(
+            cleanUserId
+        );
+
+    if (row) {
+        return mapProfileRow(
+            row,
+            fallback
+        );
+    }
+
+    /*
+     * Do not synthesize a fake "Hustler" profile for an
+     * arbitrary id. A relationship target must exist in
+     * the canonical YHU user inventory.
+     */
+    const yhuUserRow =
+        await yhuUsersSupabaseRepo
+            .getByUid(cleanUserId)
+            .catch(() => null);
+
+    if (!yhuUserRow) {
+        return null;
+    }
+
+    const canonicalSeed =
+        mapYhuUserRowToCommunitySeedV1(
+            yhuUserRow,
+            fallback
+        );
+
+    if (!canonicalSeed) {
+        return null;
+    }
+
+    const saved =
+        await academyMemberProfileSupabaseRepo
+            .upsertProfileFromUserData(
+                cleanUserId,
+                canonicalSeed
+            )
+            .catch(() => null);
+
+    return saved
+        ? mapProfileRow(
+            saved,
+            canonicalSeed
+        )
+        : {
+            ...canonicalSeed,
+            id: cleanUserId,
+            community_niches: mapArray(
+                canonicalSeed.communityNiches ||
+                canonicalSeed.community_niches
+            ),
+            default_niche: sanitizeText(
+                canonicalSeed.defaultNiche ||
+                canonicalSeed.default_niche
+            )
+        };
 }
 
 async function getAcademyFollowerCount(userId) {
@@ -298,56 +787,157 @@ async function getAcademyFriendCount(userId) {
 }
 
 async function getFollowingIdsForUser(userId) {
-    const { data, error } = await yhuSupabaseAdmin
-        .from('yhu_academy_user_follows')
-        .select('following_id')
-        .eq('follower_id', normalizeUserId(userId))
-        .limit(500);
+    const normalizedUserId =
+        normalizeUserId(userId);
 
-    if (error) throw new Error(`Following ids lookup failed: ${error.message}`);
+    if (!normalizedUserId) {
+        return [];
+    }
 
-    return (Array.isArray(data) ? data : [])
-        .map((row) => sanitizeText(row.following_id))
-        .filter(Boolean);
+    const rows =
+        await listCommunityRowsPagedV2(
+            () =>
+                yhuSupabaseAdmin
+                    .from(
+                        'yhu_academy_user_follows'
+                    )
+                    .select(
+                        'following_id'
+                    )
+                    .eq(
+                        'follower_id',
+                        normalizedUserId
+                    ),
+
+            {
+                label:
+                    'Following ids'
+            }
+        );
+
+    return Array.from(
+        new Set(
+            rows
+                .map((row) =>
+                    sanitizeText(
+                        row.following_id
+                    )
+                )
+                .filter(Boolean)
+        )
+    );
 }
 
 async function getFollowerIdsForUser(userId) {
-    const { data, error } = await yhuSupabaseAdmin
-        .from('yhu_academy_user_follows')
-        .select('follower_id')
-        .eq('following_id', normalizeUserId(userId))
-        .limit(500);
+    const normalizedUserId =
+        normalizeUserId(userId);
 
-    if (error) throw new Error(`Follower ids lookup failed: ${error.message}`);
+    if (!normalizedUserId) {
+        return [];
+    }
 
-    return (Array.isArray(data) ? data : [])
-        .map((row) => sanitizeText(row.follower_id))
-        .filter(Boolean);
+    const rows =
+        await listCommunityRowsPagedV2(
+            () =>
+                yhuSupabaseAdmin
+                    .from(
+                        'yhu_academy_user_follows'
+                    )
+                    .select(
+                        'follower_id'
+                    )
+                    .eq(
+                        'following_id',
+                        normalizedUserId
+                    ),
+
+            {
+                label:
+                    'Follower ids'
+            }
+        );
+
+    return Array.from(
+        new Set(
+            rows
+                .map((row) =>
+                    sanitizeText(
+                        row.follower_id
+                    )
+                )
+                .filter(Boolean)
+        )
+    );
 }
 
 async function getFriendIdsForUser(userId) {
-    const normalizedUserId = normalizeUserId(userId);
+    const normalizedUserId =
+        normalizeUserId(userId);
 
-    const [left, right] = await Promise.all([
-        yhuSupabaseAdmin
-            .from('yhu_academy_friendships')
-            .select('user_two_id')
-            .eq('user_one_id', normalizedUserId)
-            .limit(500),
-        yhuSupabaseAdmin
-            .from('yhu_academy_friendships')
-            .select('user_one_id')
-            .eq('user_two_id', normalizedUserId)
-            .limit(500)
+    if (!normalizedUserId) {
+        return [];
+    }
+
+    const [
+        leftRows,
+        rightRows
+    ] = await Promise.all([
+        listCommunityRowsPagedV2(
+            () =>
+                yhuSupabaseAdmin
+                    .from(
+                        'yhu_academy_friendships'
+                    )
+                    .select(
+                        'user_two_id'
+                    )
+                    .eq(
+                        'user_one_id',
+                        normalizedUserId
+                    ),
+
+            {
+                label:
+                    'Friend ids'
+            }
+        ),
+
+        listCommunityRowsPagedV2(
+            () =>
+                yhuSupabaseAdmin
+                    .from(
+                        'yhu_academy_friendships'
+                    )
+                    .select(
+                        'user_one_id'
+                    )
+                    .eq(
+                        'user_two_id',
+                        normalizedUserId
+                    ),
+
+            {
+                label:
+                    'Friend ids'
+            }
+        )
     ]);
 
-    if (left.error) throw new Error(`Friend ids lookup failed: ${left.error.message}`);
-    if (right.error) throw new Error(`Friend ids lookup failed: ${right.error.message}`);
+    return Array.from(
+        new Set([
+            ...leftRows.map((row) =>
+                sanitizeText(
+                    row.user_two_id
+                )
+            ),
 
-    return [
-        ...(left.data || []).map((row) => sanitizeText(row.user_two_id)),
-        ...(right.data || []).map((row) => sanitizeText(row.user_one_id))
-    ].filter(Boolean);
+            ...rightRows.map((row) =>
+                sanitizeText(
+                    row.user_one_id
+                )
+            )
+        ].filter(Boolean))
+    );
 }
 
 async function getMutualFriendCount(viewerId, targetUserId) {
@@ -541,7 +1131,18 @@ function mapPostRow(row = {}, extras = {}) {
         can_hide: Boolean(viewerId),
         following_author: toBool(extras.following_author),
         is_friend: toBool(extras.is_friend),
-        outgoing_friend_request_pending: toBool(extras.outgoing_friend_request_pending)
+        outgoing_friend_request_pending:
+            toBool(
+                extras.outgoing_friend_request_pending
+            ),
+        incoming_friend_request_pending:
+            toBool(
+                extras.incoming_friend_request_pending
+            ),
+        incoming_friend_request_id:
+            sanitizeText(
+                extras.incoming_friend_request_id
+            )
     };
 }
 
@@ -630,83 +1231,1672 @@ async function fetchCommentRow(postId, commentId) {
     return data || null;
 }
 
-async function listFeed({ viewerId, limit = 25, scope = 'global', nicheKey = '', relation = '' }) {
-    const normalizedViewerId = normalizeUserId(viewerId);
-    const normalizedLimit = Math.max(1, Math.min(toInt(limit, 25), 50));
-    const normalizedScope = normalizeFeedScope(scope);
-    const normalizedNicheKey = normalizeNicheKey(nicheKey);
-    const normalizedRelation = normalizeCircleRelation(relation);
+/* PATCH: Academy Community block propagation v3 */
+let communityBlockedUserResolverV3 = null;
 
-    let allowedAuthorIds = null;
+function setCommunityBlockedUserResolverV3(
+    resolver = null
+) {
+    communityBlockedUserResolverV3 =
+        typeof resolver === 'function'
+            ? resolver
+            : null;
+}
 
-    if (normalizedScope === 'circle') {
-        if (normalizedRelation === 'following') {
-            allowedAuthorIds = new Set(await getFollowingIdsForUser(normalizedViewerId));
-        } else if (normalizedRelation === 'followers') {
-            allowedAuthorIds = new Set(await getFollowerIdsForUser(normalizedViewerId));
-        } else {
-            allowedAuthorIds = new Set(await getFriendIdsForUser(normalizedViewerId));
+async function getCommunityBlockedUserIdSetV3(
+    viewerId = ''
+) {
+    const normalizedViewerId =
+        normalizeUserId(viewerId);
+
+    if (
+        !normalizedViewerId ||
+        typeof communityBlockedUserResolverV3 !==
+            'function'
+    ) {
+        return new Set();
+    }
+
+    const result =
+        await communityBlockedUserResolverV3(
+            normalizedViewerId
+        );
+
+    const values =
+        result instanceof Set
+            ? [...result]
+            : Array.isArray(result)
+                ? result
+                : [];
+
+    return new Set(
+        values
+            .map(normalizeUserId)
+            .filter(Boolean)
+    );
+}
+
+async function assertCommunityInteractionAllowedV3(
+    viewerId = '',
+    targetUserId = '',
+    {
+        notFoundMessage =
+            'Community content is not available.'
+    } = {}
+) {
+    const normalizedViewerId =
+        normalizeUserId(viewerId);
+
+    const normalizedTargetUserId =
+        normalizeUserId(targetUserId);
+
+    if (
+        !normalizedViewerId ||
+        !normalizedTargetUserId ||
+        normalizedViewerId ===
+            normalizedTargetUserId
+    ) {
+        return true;
+    }
+
+    const blockedUserIds =
+        await getCommunityBlockedUserIdSetV3(
+            normalizedViewerId
+        );
+
+    if (
+        blockedUserIds.has(
+            normalizedTargetUserId
+        )
+    ) {
+        throw communityHttpErrorV2(
+            notFoundMessage,
+            404
+        );
+    }
+
+    return true;
+}
+/* END PATCH: Academy Community block propagation v3 */
+
+/* PATCH: Academy Community verified media and share integrity v4 */
+let communityMediaReceiptVerifierV4 = null;
+
+function setCommunityMediaReceiptVerifierV4(
+    resolver = null
+) {
+    communityMediaReceiptVerifierV4 =
+        typeof resolver === 'function'
+            ? resolver
+            : null;
+}
+
+async function verifyCommunityMediaReceiptV4(
+    receipt = '',
+    viewerId = ''
+) {
+    const cleanReceipt =
+        sanitizeText(receipt);
+
+    const normalizedViewerId =
+        normalizeUserId(viewerId);
+
+    if (!cleanReceipt) {
+        return null;
+    }
+
+    if (
+        typeof communityMediaReceiptVerifierV4 !==
+        'function'
+    ) {
+        throw communityHttpErrorV2(
+            'Academy media verification is unavailable.',
+            503
+        );
+    }
+
+    const media =
+        await communityMediaReceiptVerifierV4(
+            cleanReceipt,
+            normalizedViewerId
+        );
+
+    const url =
+        sanitizeText(
+            media?.url
+        );
+
+    const kind =
+        sanitizeText(
+            media?.kind
+        ).toLowerCase();
+
+    const mimeType =
+        sanitizeText(
+            media?.mimeType
+        ).toLowerCase();
+
+    const sizeBytes =
+        Math.max(
+            0,
+            toInt(
+                media?.sizeBytes,
+                0
+            )
+        );
+
+    if (
+        !url.startsWith(
+            '/uploads/academy-feed/'
+        ) ||
+        ![
+            'image',
+            'video'
+        ].includes(kind) ||
+        !mimeType.startsWith(
+            `${kind}/`
+        ) ||
+        !sizeBytes
+    ) {
+        throw communityHttpErrorV2(
+            'Invalid Academy media receipt.',
+            400
+        );
+    }
+
+    return {
+        url,
+        kind,
+        mimeType,
+        sizeBytes,
+
+        receiptVersion:
+            toInt(
+                media?.receiptVersion,
+                1
+            )
+    };
+}
+
+async function assertCommunityPostVisibleToViewerV4(
+    row = null,
+    viewerId = '',
+    context = {}
+) {
+    const normalizedViewerId =
+        normalizeUserId(viewerId);
+
+    if (
+        !row ||
+        toBool(
+            row.is_deleted
+        )
+    ) {
+        throw communityHttpErrorV2(
+            'Post not found.',
+            404
+        );
+    }
+
+    const authorId =
+        normalizeUserId(
+            row.author_id
+        );
+
+    if (
+        authorId &&
+        authorId ===
+            normalizedViewerId
+    ) {
+        return true;
+    }
+
+    const hiddenForUserIds =
+        mapArray(
+            row.hidden_for_user_ids
+        );
+
+    if (
+        normalizedViewerId &&
+        hiddenForUserIds.includes(
+            normalizedViewerId
+        )
+    ) {
+        throw communityHttpErrorV2(
+            'Post not found.',
+            404
+        );
+    }
+
+    const blockedUserIds =
+        context.blockedUserIds instanceof Set
+            ? context.blockedUserIds
+            : await getCommunityBlockedUserIdSetV3(
+                normalizedViewerId
+            );
+
+    if (
+        authorId &&
+        blockedUserIds.has(
+            authorId
+        )
+    ) {
+        throw communityHttpErrorV2(
+            'Post not found.',
+            404
+        );
+    }
+
+    const feedScope =
+        normalizeFeedScope(
+            row.feed_scope
+        );
+
+    if (
+        feedScope ===
+        'global'
+    ) {
+        return true;
+    }
+
+    if (
+        feedScope ===
+        'niche'
+    ) {
+        const nicheKey =
+            normalizeNicheKey(
+                row.niche_key
+            );
+
+        const joinedNicheKeys =
+            context.joinedNicheKeys instanceof Set
+                ? context.joinedNicheKeys
+                : await getCommunityMemberNicheKeySetV2(
+                    normalizedViewerId
+                );
+
+        if (
+            nicheKey &&
+            joinedNicheKeys.has(
+                nicheKey
+            )
+        ) {
+            return true;
         }
 
-        if (!allowedAuthorIds.size) return [];
+        throw communityHttpErrorV2(
+            'Post not found.',
+            404
+        );
     }
 
-    let query = yhuSupabaseAdmin
-        .from('yhu_academy_feed_posts')
+    const relationships =
+        context.relationships &&
+        typeof context.relationships ===
+            'object'
+            ? context.relationships
+            : await loadViewerRelationshipSetsV2(
+                normalizedViewerId
+            );
+
+    if (
+        circleAudienceAllowsViewerV2(
+            row,
+            normalizedViewerId,
+            relationships
+        )
+    ) {
+        return true;
+    }
+
+    throw communityHttpErrorV2(
+        'Post not found.',
+        404
+    );
+}
+
+function buildCanonicalCommunityShareSnapshotV4(
+    sourceRow = {}
+) {
+    const author =
+        sourceRow.author_snapshot &&
+        typeof sourceRow.author_snapshot ===
+            'object'
+            ? sourceRow.author_snapshot
+            : {};
+
+    const mediaUrl =
+        sanitizeText(
+            sourceRow.media_url ||
+            sourceRow.image_url ||
+            sourceRow.video_url
+        );
+
+    const mediaKind =
+        sanitizeText(
+            sourceRow.media_kind
+        ).toLowerCase() === 'video'
+            ? 'video'
+            : mediaUrl
+                ? 'image'
+                : '';
+
+    return {
+        version: 4,
+        status: 'available',
+
+        sourcePostId:
+            sanitizeText(
+                sourceRow.post_id
+            ),
+
+        sourceAuthorId:
+            normalizeUserId(
+                sourceRow.author_id
+            ),
+
+        author: {
+            fullName:
+                sanitizeText(
+                    author.fullName ||
+                    author.full_name ||
+                    author.displayName ||
+                    author.display_name
+                ),
+
+            displayName:
+                sanitizeText(
+                    author.displayName ||
+                    author.display_name ||
+                    author.fullName ||
+                    author.full_name ||
+                    'Academy Member'
+                ),
+
+            username:
+                sanitizeText(
+                    author.username
+                ),
+
+            avatar:
+                sanitizeText(
+                    author.avatar
+                ),
+
+            roleLabel:
+                sanitizeText(
+                    author.roleLabel ||
+                    author.role_label ||
+                    'Academy Member'
+                )
+        },
+
+        body:
+            sanitizeText(
+                sourceRow.body
+            ),
+
+        media:
+            mediaUrl
+                ? {
+                    url:
+                        mediaUrl,
+
+                    kind:
+                        mediaKind,
+
+                    mimeType:
+                        sanitizeText(
+                            sourceRow.media_type
+                        ),
+
+                    sizeBytes:
+                        Math.max(
+                            0,
+                            toInt(
+                                sourceRow.media_size,
+                                0
+                            )
+                        )
+                }
+                : null,
+
+        sourceFeedScope:
+            normalizeFeedScope(
+                sourceRow.feed_scope
+            ),
+
+        sourceNicheKey:
+            normalizeNicheKey(
+                sourceRow.niche_key
+            ),
+
+        sourceNicheLabel:
+            sanitizeText(
+                sourceRow.niche_label
+            ),
+
+        sourceAudience:
+            sanitizeText(
+                sourceRow.audience
+            ).toLowerCase(),
+
+        sourceCreatedAt:
+            sourceRow.created_at_source ||
+            ''
+    };
+}
+
+async function resolveCanonicalCommunityShareV4({
+    viewerId,
+    sourcePostId,
+    relationships = null,
+    blockedUserIds = null,
+    joinedNicheKeys = null
+}) {
+    const normalizedViewerId =
+        normalizeUserId(viewerId);
+
+    let normalizedSourcePostId =
+        sanitizeText(sourcePostId);
+
+    if (!normalizedSourcePostId) {
+        throw communityHttpErrorV2(
+            'Shared post source is required.',
+            400
+        );
+    }
+
+    let sourceRow =
+        await fetchPostRow(
+            normalizedSourcePostId
+        );
+
+    const nestedSourcePostId =
+        sanitizeText(
+            sourceRow?.share?.sourcePostId ||
+            sourceRow?.data?.share?.sourcePostId
+        );
+
+    if (
+        nestedSourcePostId &&
+        nestedSourcePostId !==
+            normalizedSourcePostId
+    ) {
+        normalizedSourcePostId =
+            nestedSourcePostId;
+
+        sourceRow =
+            await fetchPostRow(
+                normalizedSourcePostId
+            );
+    }
+
+    await assertCommunityPostVisibleToViewerV4(
+        sourceRow,
+        normalizedViewerId,
+        {
+            relationships,
+            blockedUserIds,
+            joinedNicheKeys
+        }
+    );
+
+    return {
+        sourceRow,
+
+        share:
+            buildCanonicalCommunityShareSnapshotV4(
+                sourceRow
+            )
+    };
+}
+
+async function hydrateCommunityShareSnapshotsV4(
+    rows = [],
+    viewerId = '',
+    context = {}
+) {
+    const safeRows =
+        Array.isArray(rows)
+            ? rows
+            : [];
+
+    const sourcePostIds =
+        Array.from(
+            new Set(
+                safeRows
+                    .map((row) =>
+                        sanitizeText(
+                            row?.share?.sourcePostId ||
+                            row?.data?.share?.sourcePostId
+                        )
+                    )
+                    .filter(Boolean)
+            )
+        );
+
+    const hydratedByPostId =
+        new Map();
+
+    if (!sourcePostIds.length) {
+        return hydratedByPostId;
+    }
+
+    const {
+        data,
+        error
+    } = await yhuSupabaseAdmin
+        .from(
+            'yhu_academy_feed_posts'
+        )
         .select('*')
-        .eq('is_deleted', false)
-        .order('created_at_source', { ascending: false, nullsFirst: false })
-        .limit(Math.min(normalizedLimit * 8, 200));
+        .in(
+            'post_id',
+            sourcePostIds
+        );
 
-    if (normalizedScope === 'niche') {
-        query = query.eq('feed_scope', 'niche');
-        if (normalizedNicheKey) query = query.eq('niche_key', normalizedNicheKey);
-    } else if (normalizedScope === 'global') {
-        query = query.eq('feed_scope', 'global');
+    if (error) {
+        throw new Error(
+            `Shared post lookup failed: ${error.message}`
+        );
     }
 
-    const { data, error } = await query;
-    if (error) throw new Error(`Academy feed lookup failed: ${error.message}`);
+    const sourceById =
+        new Map(
+            (
+                Array.isArray(data)
+                    ? data
+                    : []
+            ).map((row) => [
+                sanitizeText(
+                    row.post_id
+                ),
+                row
+            ])
+        );
 
-    const rows = (Array.isArray(data) ? data : [])
-        .filter((row) => {
-            const hidden = mapArray(row.hidden_for_user_ids);
-            if (normalizedViewerId && hidden.includes(normalizedViewerId)) return false;
-            if (allowedAuthorIds && !allowedAuthorIds.has(sanitizeText(row.author_id))) return false;
-            return true;
-        })
-        .slice(0, normalizedLimit);
+    for (
+        const row
+        of safeRows
+    ) {
+        const postId =
+            sanitizeText(
+                row.post_id
+            );
 
-    const posts = [];
+        const sourcePostId =
+            sanitizeText(
+                row?.share?.sourcePostId ||
+                row?.data?.share?.sourcePostId
+            );
 
-    for (const row of rows) {
-        const [likeState, commentCount, friendshipState, followingIds] = await Promise.all([
-            getLikeState(row.post_id, normalizedViewerId),
-            getCommentCount(row.post_id),
-            getFriendshipState(normalizedViewerId, row.author_id),
-            normalizedViewerId ? getFollowingIdsForUser(normalizedViewerId) : Promise.resolve([])
-        ]);
+        if (
+            !postId ||
+            !sourcePostId
+        ) {
+            continue;
+        }
 
-        posts.push(mapPostRow(row, {
-            viewerId: normalizedViewerId,
-            ...likeState,
-            comment_count: commentCount,
-            ...friendshipState,
-            following_author: followingIds.includes(sanitizeText(row.author_id))
-        }));
+        const sourceRow =
+            sourceById.get(
+                sourcePostId
+            );
+
+        try {
+            await assertCommunityPostVisibleToViewerV4(
+                sourceRow,
+                viewerId,
+                context
+            );
+
+            hydratedByPostId.set(
+                postId,
+                buildCanonicalCommunityShareSnapshotV4(
+                    sourceRow
+                )
+            );
+        } catch (_) {
+            hydratedByPostId.set(
+                postId,
+                {
+                    version: 4,
+                    status: 'unavailable',
+                    unavailable: true,
+                    sourcePostId
+                }
+            );
+        }
     }
 
-    return posts;
+    return hydratedByPostId;
+}
+/* END PATCH: Academy Community verified media and share integrity v4 */
+
+/* PATCH: Academy Community feed visibility and batching v2 */
+async function getCommunityMemberNicheKeySetV2(
+    userId = ''
+) {
+    const normalizedUserId =
+        normalizeUserId(userId);
+
+    if (!normalizedUserId) {
+        return new Set();
+    }
+
+    const state =
+        await getCommunityNicheState({
+            viewerId:
+                normalizedUserId
+        });
+
+    return new Set(
+        (
+            Array.isArray(
+                state?.joinedNiches
+            )
+                ? state.joinedNiches
+                : []
+        )
+            .map((item) =>
+                normalizeNicheKey(
+                    item?.key ||
+                    item?.nicheKey ||
+                    item
+                )
+            )
+            .filter(Boolean)
+    );
+}
+
+async function loadViewerRelationshipSetsV2(
+    viewerId = ''
+) {
+    const normalizedViewerId =
+        normalizeUserId(viewerId);
+
+    if (!normalizedViewerId) {
+        return {
+            followingIds: new Set(),
+            followerIds: new Set(),
+            friendIds: new Set()
+        };
+    }
+
+    const [
+        followingIds,
+        followerIds,
+        friendIds
+    ] = await Promise.all([
+        getFollowingIdsForUser(
+            normalizedViewerId
+        ),
+        getFollowerIdsForUser(
+            normalizedViewerId
+        ),
+        getFriendIdsForUser(
+            normalizedViewerId
+        )
+    ]);
+
+    return {
+        followingIds:
+            new Set(followingIds),
+
+        followerIds:
+            new Set(followerIds),
+
+        friendIds:
+            new Set(friendIds)
+    };
+}
+
+function circleRelationAllowsAuthorV2(
+    relation = 'friends',
+    authorId = '',
+    viewerId = '',
+    relationships = {}
+) {
+    const normalizedAuthorId =
+        normalizeUserId(authorId);
+
+    const normalizedViewerId =
+        normalizeUserId(viewerId);
+
+    if (
+        !normalizedAuthorId ||
+        !normalizedViewerId
+    ) {
+        return false;
+    }
+
+    if (
+        normalizedAuthorId ===
+        normalizedViewerId
+    ) {
+        return true;
+    }
+
+    const normalizedRelation =
+        normalizeCircleRelation(
+            relation
+        );
+
+    if (
+        normalizedRelation ===
+        'following'
+    ) {
+        return relationships
+            .followingIds
+            ?.has(
+                normalizedAuthorId
+            ) === true;
+    }
+
+    if (
+        normalizedRelation ===
+        'followers'
+    ) {
+        return relationships
+            .followerIds
+            ?.has(
+                normalizedAuthorId
+            ) === true;
+    }
+
+    return relationships
+        .friendIds
+        ?.has(
+            normalizedAuthorId
+        ) === true;
+}
+
+function circleAudienceAllowsViewerV2(
+    row = {},
+    viewerId = '',
+    relationships = {}
+) {
+    const normalizedViewerId =
+        normalizeUserId(viewerId);
+
+    const authorId =
+        normalizeUserId(
+            row.author_id
+        );
+
+    if (
+        !normalizedViewerId ||
+        !authorId
+    ) {
+        return false;
+    }
+
+    if (
+        authorId ===
+        normalizedViewerId
+    ) {
+        return true;
+    }
+
+    const rawAudience =
+        sanitizeText(
+            row.audience
+        ).toLowerCase();
+
+    const audience =
+        [
+            'friends',
+            'following',
+            'followers'
+        ].includes(
+            rawAudience
+        )
+            ? rawAudience
+            : 'friends';
+
+    /*
+     * Evaluated from the post author's perspective:
+     * followers = viewer follows author
+     * following = author follows viewer
+     * friends = accepted friendship
+     */
+    if (
+        audience ===
+        'followers'
+    ) {
+        return relationships
+            .followingIds
+            ?.has(
+                authorId
+            ) === true;
+    }
+
+    if (
+        audience ===
+        'following'
+    ) {
+        return relationships
+            .followerIds
+            ?.has(
+                authorId
+            ) === true;
+    }
+
+    return relationships
+        .friendIds
+        ?.has(
+            authorId
+        ) === true;
+}
+
+async function loadPendingFriendRequestBatchV2(
+    viewerId = '',
+    authorIds = []
+) {
+    const normalizedViewerId =
+        normalizeUserId(viewerId);
+
+    const targets =
+        Array.from(
+            new Set(
+                (
+                    Array.isArray(authorIds)
+                        ? authorIds
+                        : []
+                )
+                    .map(normalizeUserId)
+                    .filter(
+                        (userId) =>
+                            userId &&
+                            userId !==
+                            normalizedViewerId
+                    )
+            )
+        );
+
+    const outgoingByAuthor =
+        new Set();
+
+    const incomingByAuthor =
+        new Map();
+
+    if (
+        !normalizedViewerId ||
+        !targets.length
+    ) {
+        return {
+            outgoingByAuthor,
+            incomingByAuthor
+        };
+    }
+
+    const [
+        outgoingRows,
+        incomingRows
+    ] = await Promise.all([
+        listCommunityRowsPagedV2(
+            () =>
+                yhuSupabaseAdmin
+                    .from(
+                        'yhu_academy_friend_requests'
+                    )
+                    .select(
+                        'request_id,receiver_id'
+                    )
+                    .eq(
+                        'sender_id',
+                        normalizedViewerId
+                    )
+                    .eq(
+                        'status',
+                        'pending'
+                    )
+                    .in(
+                        'receiver_id',
+                        targets
+                    ),
+            {
+                label:
+                    'Outgoing friend requests',
+                maxRows: 1000
+            }
+        ),
+
+        listCommunityRowsPagedV2(
+            () =>
+                yhuSupabaseAdmin
+                    .from(
+                        'yhu_academy_friend_requests'
+                    )
+                    .select(
+                        'request_id,sender_id'
+                    )
+                    .eq(
+                        'receiver_id',
+                        normalizedViewerId
+                    )
+                    .eq(
+                        'status',
+                        'pending'
+                    )
+                    .in(
+                        'sender_id',
+                        targets
+                    ),
+            {
+                label:
+                    'Incoming friend requests',
+                maxRows: 1000
+            }
+        )
+    ]);
+
+    outgoingRows.forEach((row) => {
+        const authorId =
+            normalizeUserId(
+                row.receiver_id
+            );
+
+        if (authorId) {
+            outgoingByAuthor.add(
+                authorId
+            );
+        }
+    });
+
+    incomingRows.forEach((row) => {
+        const authorId =
+            normalizeUserId(
+                row.sender_id
+            );
+
+        if (authorId) {
+            incomingByAuthor.set(
+                authorId,
+                sanitizeText(
+                    row.request_id
+                )
+            );
+        }
+    });
+
+    return {
+        outgoingByAuthor,
+        incomingByAuthor
+    };
+}
+
+async function loadPostEngagementBatchV2(
+    postIds = [],
+    viewerId = '',
+    blockedUserIds = new Set()
+) {
+    const normalizedViewerId =
+        normalizeUserId(viewerId);
+
+    const normalizedPostIds =
+        Array.from(
+            new Set(
+                (
+                    Array.isArray(postIds)
+                        ? postIds
+                        : []
+                )
+                    .map(sanitizeText)
+                    .filter(Boolean)
+            )
+        );
+
+    const likeCountByPost =
+        new Map();
+
+    const commentCountByPost =
+        new Map();
+
+    const likedPostIds =
+        new Set();
+
+    if (!normalizedPostIds.length) {
+        return {
+            likeCountByPost,
+            commentCountByPost,
+            likedPostIds
+        };
+    }
+
+    const [
+        likeRows,
+        commentRows
+    ] = await Promise.all([
+        listCommunityRowsPagedV2(
+            () =>
+                yhuSupabaseAdmin
+                    .from(
+                        'yhu_academy_feed_likes'
+                    )
+                    .select(
+                        'post_id,user_id'
+                    )
+                    .in(
+                        'post_id',
+                        normalizedPostIds
+                    ),
+            {
+                label: 'Feed likes',
+                maxRows: 50000
+            }
+        ),
+
+        listCommunityRowsPagedV2(
+            () =>
+                yhuSupabaseAdmin
+                    .from(
+                        'yhu_academy_feed_comments'
+                    )
+                    .select(
+                        'post_id,author_id,hidden_for_user_ids'
+                    )
+                    .in(
+                        'post_id',
+                        normalizedPostIds
+                    )
+                    .eq(
+                        'is_deleted',
+                        false
+                    ),
+            {
+                label: 'Feed comments',
+                maxRows: 50000
+            }
+        )
+    ]);
+
+    likeRows.forEach((row) => {
+        const postId =
+            sanitizeText(
+                row.post_id
+            );
+
+        if (!postId) return;
+
+        likeCountByPost.set(
+            postId,
+            (
+                likeCountByPost.get(
+                    postId
+                ) || 0
+            ) + 1
+        );
+
+        if (
+            normalizedViewerId &&
+            normalizeUserId(
+                row.user_id
+            ) ===
+            normalizedViewerId
+        ) {
+            likedPostIds.add(
+                postId
+            );
+        }
+    });
+
+    commentRows.forEach((row) => {
+        const postId =
+            sanitizeText(
+                row.post_id
+            );
+
+        if (!postId) return;
+
+        if (
+            normalizedViewerId &&
+            mapArray(
+                row.hidden_for_user_ids
+            ).includes(
+                normalizedViewerId
+            )
+        ) {
+            return;
+        }
+
+        const authorId =
+            normalizeUserId(
+                row.author_id
+            );
+
+        if (
+            authorId &&
+            authorId !==
+                normalizedViewerId &&
+            blockedUserIds instanceof Set &&
+            blockedUserIds.has(
+                authorId
+            )
+        ) {
+            return;
+        }
+
+        commentCountByPost.set(
+            postId,
+            (
+                commentCountByPost.get(
+                    postId
+                ) || 0
+            ) + 1
+        );
+    });
+
+    return {
+        likeCountByPost,
+        commentCountByPost,
+        likedPostIds
+    };
+}
+/* END PATCH: Academy Community feed visibility and batching v2 */
+
+async function listFeed({
+    viewerId,
+    limit = 25,
+    scope = 'global',
+    nicheKey = '',
+    relation = '',
+    cursor = ''
+}) {
+    const normalizedViewerId =
+        normalizeUserId(viewerId);
+
+    if (!normalizedViewerId) {
+        throw communityHttpErrorV2(
+            'viewerId is required.',
+            400
+        );
+    }
+
+    const normalizedLimit =
+        Math.max(
+            1,
+            Math.min(
+                toInt(limit, 25),
+                50
+            )
+        );
+
+    const normalizedScope =
+        normalizeFeedScope(scope);
+
+    const normalizedNicheKey =
+        normalizeNicheKey(nicheKey);
+
+    const normalizedRelation =
+        normalizeCircleRelation(relation);
+
+    if (
+        normalizedScope ===
+        'niche'
+    ) {
+        if (
+            !normalizedNicheKey ||
+            !getNicheMeta(
+                normalizedNicheKey
+            )
+        ) {
+            throw communityHttpErrorV2(
+                'Niche not found.',
+                404
+            );
+        }
+
+        const joinedNicheKeys =
+            await getCommunityMemberNicheKeySetV2(
+                normalizedViewerId
+            );
+
+        if (
+            !joinedNicheKeys.has(
+                normalizedNicheKey
+            )
+        ) {
+            throw communityHttpErrorV2(
+                'Join this niche before viewing its feed.',
+                403
+            );
+        }
+    }
+
+    const [
+        relationships,
+        blockedUserIds,
+        joinedNicheKeys
+    ] = await Promise.all([
+        loadViewerRelationshipSetsV2(
+            normalizedViewerId
+        ),
+
+        getCommunityBlockedUserIdSetV3(
+            normalizedViewerId
+        ),
+
+        getCommunityMemberNicheKeySetV2(
+            normalizedViewerId
+        )
+    ]);
+
+    const decodedCursor =
+        decodeCommunityFeedCursorV2(
+            cursor
+        );
+
+    if (decodedCursor) {
+        const cursorScope =
+            normalizeFeedScope(
+                decodedCursor.scope
+            );
+
+        const cursorNicheKey =
+            normalizeNicheKey(
+                decodedCursor.nicheKey
+            );
+
+        const cursorRelation =
+            normalizeCircleRelation(
+                decodedCursor.relation
+            );
+
+        if (
+            cursorScope !== normalizedScope ||
+            (
+                normalizedScope === 'niche' &&
+                cursorNicheKey !==
+                normalizedNicheKey
+            ) ||
+            (
+                normalizedScope === 'circle' &&
+                cursorRelation !==
+                normalizedRelation
+            )
+        ) {
+            throw communityHttpErrorV2(
+                'Academy feed cursor does not match the active feed.',
+                400
+            );
+        }
+    }
+
+    let scanOffset =
+        Math.max(
+            0,
+            toInt(
+                decodedCursor?.offset,
+                0
+            )
+        );
+
+    const pageBatchSize = 100;
+    const maxScanRows = 5000;
+
+    let scannedRows = 0;
+    let nextOffset = scanOffset;
+    let hasMore = false;
+
+    const selectedRows = [];
+
+    feedScan:
+    while (
+        scannedRows <
+        maxScanRows
+    ) {
+        let query =
+            yhuSupabaseAdmin
+                .from(
+                    'yhu_academy_feed_posts'
+                )
+                .select('*')
+                .eq(
+                    'is_deleted',
+                    false
+                )
+                .order(
+                    'created_at_source',
+                    {
+                        ascending: false,
+                        nullsFirst: false
+                    }
+                )
+                .order(
+                    'post_id',
+                    {
+                        ascending: false
+                    }
+                );
+
+        if (
+            normalizedScope === 'niche'
+        ) {
+            query =
+                query
+                    .eq(
+                        'feed_scope',
+                        'niche'
+                    )
+                    .eq(
+                        'niche_key',
+                        normalizedNicheKey
+                    );
+        } else if (
+            normalizedScope === 'circle'
+        ) {
+            query =
+                query.eq(
+                    'feed_scope',
+                    'circle'
+                );
+        } else {
+            query =
+                query.eq(
+                    'feed_scope',
+                    'global'
+                );
+        }
+
+        const {
+            data,
+            error
+        } = await query.range(
+            scanOffset,
+            scanOffset +
+                pageBatchSize -
+                1
+        );
+
+        if (error) {
+            throw new Error(
+                `Academy feed lookup failed: ${error.message}`
+            );
+        }
+
+        const batch =
+            Array.isArray(data)
+                ? data
+                : [];
+
+        if (!batch.length) {
+            nextOffset =
+                scanOffset;
+
+            break;
+        }
+
+        for (
+            let index = 0;
+            index < batch.length;
+            index += 1
+        ) {
+            const row =
+                batch[index];
+
+            const rawOffset =
+                scanOffset +
+                index;
+
+            scannedRows += 1;
+
+            const hidden =
+                mapArray(
+                    row.hidden_for_user_ids
+                );
+
+            if (
+                hidden.includes(
+                    normalizedViewerId
+                )
+            ) {
+                nextOffset =
+                    rawOffset + 1;
+
+                continue;
+            }
+
+            const authorId =
+                normalizeUserId(
+                    row.author_id
+                );
+
+            if (
+                authorId !==
+                    normalizedViewerId &&
+                blockedUserIds.has(
+                    authorId
+                )
+            ) {
+                nextOffset =
+                    rawOffset + 1;
+
+                continue;
+            }
+
+            if (
+                normalizedScope ===
+                'circle'
+            ) {
+                if (
+                    !circleRelationAllowsAuthorV2(
+                        normalizedRelation,
+                        authorId,
+                        normalizedViewerId,
+                        relationships
+                    ) ||
+                    !circleAudienceAllowsViewerV2(
+                        row,
+                        normalizedViewerId,
+                        relationships
+                    )
+                ) {
+                    nextOffset =
+                        rawOffset + 1;
+
+                    continue;
+                }
+            }
+
+            if (
+                selectedRows.length >=
+                normalizedLimit
+            ) {
+                hasMore = true;
+                nextOffset = rawOffset;
+                break feedScan;
+            }
+
+            selectedRows.push(row);
+            nextOffset = rawOffset + 1;
+        }
+
+        if (
+            batch.length <
+            pageBatchSize
+        ) {
+            break;
+        }
+
+        scanOffset +=
+            batch.length;
+    }
+
+    if (
+        !hasMore &&
+        scannedRows >= maxScanRows
+    ) {
+        hasMore = true;
+    }
+
+    const postIds =
+        selectedRows
+            .map((row) =>
+                sanitizeText(
+                    row.post_id
+                )
+            )
+            .filter(Boolean);
+
+    const authorIds =
+        selectedRows
+            .map((row) =>
+                normalizeUserId(
+                    row.author_id
+                )
+            )
+            .filter(Boolean);
+
+    const [
+        engagement,
+        pendingRequests,
+        hydratedShares
+    ] = await Promise.all([
+        loadPostEngagementBatchV2(
+            postIds,
+            normalizedViewerId,
+            blockedUserIds
+        ),
+
+        loadPendingFriendRequestBatchV2(
+            normalizedViewerId,
+            authorIds
+        ),
+
+        hydrateCommunityShareSnapshotsV4(
+            selectedRows,
+            normalizedViewerId,
+            {
+                relationships,
+                blockedUserIds,
+                joinedNicheKeys
+            }
+        )
+    ]);
+
+    const posts =
+        selectedRows.map((row) => {
+            const postId =
+                sanitizeText(
+                    row.post_id
+                );
+
+            const authorId =
+                normalizeUserId(
+                    row.author_id
+                );
+
+            const hydratedRow =
+                hydratedShares.has(
+                    postId
+                )
+                    ? {
+                        ...row,
+
+                        share:
+                            hydratedShares.get(
+                                postId
+                            )
+                    }
+                    : row;
+
+            return mapPostRow(
+                hydratedRow,
+                {
+                    viewerId:
+                        normalizedViewerId,
+
+                    like_count:
+                        engagement
+                            .likeCountByPost
+                            .get(postId) || 0,
+
+                    comment_count:
+                        engagement
+                            .commentCountByPost
+                            .get(postId) || 0,
+
+                    liked_by_me:
+                        engagement
+                            .likedPostIds
+                            .has(postId),
+
+                    is_friend:
+                        relationships
+                            .friendIds
+                            .has(authorId),
+
+                    following_author:
+                        relationships
+                            .followingIds
+                            .has(authorId),
+
+                    outgoing_friend_request_pending:
+                        pendingRequests
+                            .outgoingByAuthor
+                            .has(authorId),
+
+                    incoming_friend_request_pending:
+                        pendingRequests
+                            .incomingByAuthor
+                            .has(authorId),
+
+                    incoming_friend_request_id:
+                        pendingRequests
+                            .incomingByAuthor
+                            .get(authorId) || ''
+                }
+            );
+        });
+
+    return {
+        posts,
+
+        nextCursor:
+            hasMore
+                ? encodeCommunityFeedCursorV2({
+                    version: 2,
+                    offset: nextOffset,
+                    scope: normalizedScope,
+                    nicheKey:
+                        normalizedNicheKey,
+                    relation:
+                        normalizedRelation
+                })
+                : '',
+
+        hasMore,
+
+        pageInfo: {
+            version:
+                'academy-community-feed-v4',
+
+            limit:
+                normalizedLimit,
+
+            returned:
+                posts.length,
+
+            scanned:
+                scannedRows,
+
+            scope:
+                normalizedScope,
+
+            nicheKey:
+                normalizedNicheKey,
+
+            relation:
+                normalizedRelation
+        }
+    };
 }
 
 async function createPost({
     viewer,
     body,
-    imageUrl = '',
-    mediaUrl = '',
-    mediaKind = '',
-    mediaType = '',
-    mediaSize = 0,
+    mediaReceipt = '',
     visibility = 'academy',
     feedScope = 'global',
     nicheKey = '',
@@ -714,91 +2904,374 @@ async function createPost({
     audience = '',
     share = null
 }) {
-    const viewerProfile = await getViewerProfile(viewer);
-    const cleanBody = sanitizeText(body);
+    const viewerProfile =
+        await getViewerProfile(
+            viewer
+        );
 
-    if (!cleanBody) throw new Error('Post body is required.');
+    const cleanBody =
+        sanitizeText(body);
 
-    const normalizedFeedScope = normalizeFeedScope(feedScope);
-    const normalizedNicheKey = normalizedFeedScope === 'niche' ? normalizeNicheKey(nicheKey) : '';
-    const nicheMeta = normalizedNicheKey ? getNicheMeta(normalizedNicheKey) : null;
+    const requestedShareSourcePostId =
+        sanitizeText(
+            share?.sourcePostId ||
+            share?.source_post_id ||
+            ''
+        );
 
-    if (normalizedFeedScope === 'niche' && !nicheMeta) {
-        throw new Error('Niche not found.');
-    }
+    let normalizedFeedScope =
+        normalizeFeedScope(
+            feedScope
+        );
 
-    const postId = buildId('post');
-    const now = nowIso();
-    const cleanMediaUrl = sanitizeText(mediaUrl || imageUrl);
-    const cleanMediaKind = sanitizeText(mediaKind).toLowerCase() === 'video'
-        ? 'video'
-        : cleanMediaUrl
-            ? 'image'
+    let normalizedNicheKey =
+        normalizedFeedScope === 'niche'
+            ? normalizeNicheKey(
+                nicheKey
+            )
             : '';
 
-    const authorSnapshot = buildAuthorSnapshot(viewerProfile, viewer);
+    let normalizedNicheLabel =
+        sanitizeText(
+            nicheLabel
+        );
+
+    let normalizedAudience =
+        normalizedFeedScope === 'circle'
+            ? normalizeCircleRelation(
+                audience
+            )
+            : normalizedFeedScope === 'niche'
+                ? 'niche'
+                : 'global';
+
+    let canonicalShare =
+        null;
+
+    if (requestedShareSourcePostId) {
+        const [
+            relationships,
+            blockedUserIds,
+            joinedNicheKeys
+        ] = await Promise.all([
+            loadViewerRelationshipSetsV2(
+                viewerProfile.id
+            ),
+
+            getCommunityBlockedUserIdSetV3(
+                viewerProfile.id
+            ),
+
+            getCommunityMemberNicheKeySetV2(
+                viewerProfile.id
+            )
+        ]);
+
+        const resolvedShare =
+            await resolveCanonicalCommunityShareV4({
+                viewerId:
+                    viewerProfile.id,
+
+                sourcePostId:
+                    requestedShareSourcePostId,
+
+                relationships,
+                blockedUserIds,
+                joinedNicheKeys
+            });
+
+        canonicalShare =
+            resolvedShare.share;
+
+        const sourceRow =
+            resolvedShare.sourceRow;
+
+        /*
+         * A share inherits the original audience.
+         * The client cannot widen a Circle or Niche
+         * post into the Global Community.
+         */
+        normalizedFeedScope =
+            normalizeFeedScope(
+                sourceRow.feed_scope
+            );
+
+        normalizedNicheKey =
+            normalizedFeedScope === 'niche'
+                ? normalizeNicheKey(
+                    sourceRow.niche_key
+                )
+                : '';
+
+        normalizedNicheLabel =
+            normalizedFeedScope === 'niche'
+                ? sanitizeText(
+                    sourceRow.niche_label
+                )
+                : '';
+
+        normalizedAudience =
+            normalizedFeedScope === 'circle'
+                ? normalizeCircleRelation(
+                    sourceRow.audience
+                )
+                : normalizedFeedScope === 'niche'
+                    ? 'niche'
+                    : 'global';
+    }
+
+    const nicheMeta =
+        normalizedNicheKey
+            ? getNicheMeta(
+                normalizedNicheKey
+            )
+            : null;
+
+    if (
+        normalizedFeedScope === 'niche' &&
+        !nicheMeta
+    ) {
+        throw communityHttpErrorV2(
+            'Niche not found.',
+            404
+        );
+    }
+
+    if (
+        normalizedFeedScope === 'niche'
+    ) {
+        const joinedNicheKeys =
+            await getCommunityMemberNicheKeySetV2(
+                viewerProfile.id
+            );
+
+        if (
+            !joinedNicheKeys.has(
+                normalizedNicheKey
+            )
+        ) {
+            throw communityHttpErrorV2(
+                'Join this niche before posting to it.',
+                403
+            );
+        }
+    }
+
+    const canonicalMedia =
+        canonicalShare
+            ? null
+            : await verifyCommunityMediaReceiptV4(
+                mediaReceipt,
+                viewerProfile.id
+            );
+
+    if (
+        !cleanBody &&
+        !canonicalMedia &&
+        !canonicalShare
+    ) {
+        throw communityHttpErrorV2(
+            'Write something, attach verified media, or share a post.',
+            400
+        );
+    }
+
+    const postId =
+        buildId('post');
+
+    const now =
+        nowIso();
+
+    const cleanMediaUrl =
+        sanitizeText(
+            canonicalMedia?.url
+        );
+
+    const cleanMediaKind =
+        sanitizeText(
+            canonicalMedia?.kind
+        ).toLowerCase();
+
+    const cleanMediaType =
+        sanitizeText(
+            canonicalMedia?.mimeType
+        );
+
+    const cleanMediaSize =
+        Math.max(
+            0,
+            toInt(
+                canonicalMedia?.sizeBytes,
+                0
+            )
+        );
+
+    const authorSnapshot =
+        buildAuthorSnapshot(
+            viewerProfile,
+            viewer
+        );
+
+    const cleanVisibility =
+        sanitizeText(
+            visibility ||
+            'academy'
+        ) ||
+        'academy';
 
     const row = {
-        firebase_app: 'supabase',
-        post_id: postId,
-        source_document_path: `academyFeedPosts/${postId}`,
-        author_id: viewerProfile.id,
-        body: cleanBody,
-        image_url: cleanMediaKind === 'video' ? '' : sanitizeText(imageUrl || cleanMediaUrl),
-        video_url: cleanMediaKind === 'video' ? cleanMediaUrl : '',
-        media_url: cleanMediaUrl,
-        media_kind: cleanMediaKind,
-        media_type: sanitizeText(mediaType),
-        media_size: toInt(mediaSize, 0),
-        visibility: sanitizeText(visibility || 'academy'),
-        feed_scope: normalizedFeedScope,
-        niche_key: normalizedNicheKey,
-        niche_label: sanitizeText(nicheLabel || nicheMeta?.label || ''),
-        audience: sanitizeText(audience || visibility || 'academy').toLowerCase(),
+        firebase_app:
+            'supabase',
+
+        post_id:
+            postId,
+
+        source_document_path:
+            `academyFeedPosts/${postId}`,
+
+        author_id:
+            viewerProfile.id,
+
+        body:
+            cleanBody,
+
+        image_url:
+            cleanMediaKind === 'image'
+                ? cleanMediaUrl
+                : '',
+
+        video_url:
+            cleanMediaKind === 'video'
+                ? cleanMediaUrl
+                : '',
+
+        media_url:
+            cleanMediaUrl,
+
+        media_kind:
+            cleanMediaKind,
+
+        media_type:
+            cleanMediaType,
+
+        media_size:
+            cleanMediaSize,
+
+        visibility:
+            cleanVisibility,
+
+        feed_scope:
+            normalizedFeedScope,
+
+        niche_key:
+            normalizedNicheKey,
+
+        niche_label:
+            normalizedNicheLabel ||
+            nicheMeta?.label ||
+            '',
+
+        audience:
+            normalizedAudience,
+
         is_pinned: false,
         is_deleted: false,
         hidden_for_user_ids: [],
-        author_snapshot: authorSnapshot,
-        share: share && typeof share === 'object' ? share : null,
+
+        author_snapshot:
+            authorSnapshot,
+
+        share:
+            canonicalShare,
+
         created_at_source: now,
         updated_at_source: now,
         edited_at_source: null,
         deleted_at_source: null,
+
         data: {
-            body: cleanBody,
-            authorId: viewerProfile.id,
+            body:
+                cleanBody,
+
+            authorId:
+                viewerProfile.id,
+
             authorSnapshot,
-            mediaUrl: cleanMediaUrl,
-            imageUrl: cleanMediaKind === 'video' ? '' : sanitizeText(imageUrl || cleanMediaUrl),
-            videoUrl: cleanMediaKind === 'video' ? cleanMediaUrl : '',
-            mediaKind: cleanMediaKind,
-            mediaType: sanitizeText(mediaType),
-            mediaSize: toInt(mediaSize, 0),
-            visibility: sanitizeText(visibility || 'academy'),
-            feedScope: normalizedFeedScope,
-            nicheKey: normalizedNicheKey,
-            nicheLabel: sanitizeText(nicheLabel || nicheMeta?.label || ''),
-            audience: sanitizeText(audience || visibility || 'academy').toLowerCase(),
-            share: share && typeof share === 'object' ? share : null,
+
+            mediaUrl:
+                cleanMediaUrl,
+
+            imageUrl:
+                cleanMediaKind === 'image'
+                    ? cleanMediaUrl
+                    : '',
+
+            videoUrl:
+                cleanMediaKind === 'video'
+                    ? cleanMediaUrl
+                    : '',
+
+            mediaKind:
+                cleanMediaKind,
+
+            mediaType:
+                cleanMediaType,
+
+            mediaSize:
+                cleanMediaSize,
+
+            visibility:
+                cleanVisibility,
+
+            feedScope:
+                normalizedFeedScope,
+
+            nicheKey:
+                normalizedNicheKey,
+
+            nicheLabel:
+                normalizedNicheLabel ||
+                nicheMeta?.label ||
+                '',
+
+            audience:
+                normalizedAudience,
+
+            share:
+                canonicalShare,
+
             createdAt: now,
             updatedAt: now
         }
     };
 
-    const { data, error } = await yhuSupabaseAdmin
-        .from('yhu_academy_feed_posts')
+    const {
+        data,
+        error
+    } = await yhuSupabaseAdmin
+        .from(
+            'yhu_academy_feed_posts'
+        )
         .insert(row)
         .select('*')
         .single();
 
-    if (error) throw new Error(`Post create failed: ${error.message}`);
+    if (error) {
+        throw new Error(
+            `Post create failed: ${error.message}`
+        );
+    }
 
-    return mapPostRow(data, {
-        viewerId: viewerProfile.id,
-        like_count: 0,
-        comment_count: 0,
-        liked_by_me: false
-    });
+    return mapPostRow(
+        data,
+        {
+            viewerId:
+                viewerProfile.id,
+            like_count: 0,
+            comment_count: 0,
+            liked_by_me: false
+        }
+    );
 }
 
 async function updatePost({ viewerId, postId, body }) {
@@ -857,6 +3330,11 @@ async function hidePostForViewer({ viewerId, postId }) {
 
     const row = await fetchPostRow(normalizedPostId);
     if (!row || toBool(row.is_deleted)) throw new Error('Post not found.');
+
+    await assertCommunityPostVisibleToViewerV4(
+        row,
+        normalizedViewerId
+    );
 
     const hidden = Array.from(new Set([...mapArray(row.hidden_for_user_ids), normalizedViewerId]));
     const now = nowIso();
@@ -919,63 +3397,196 @@ async function deletePost({ viewerId, postId }) {
     };
 }
 
-async function togglePostLike({ viewerId, postId }) {
-    const normalizedViewerId = normalizeUserId(viewerId);
-    const normalizedPostId = sanitizeText(postId);
+async function togglePostLike({
+    viewerId,
+    postId,
+    liked = null
+}) {
+    const normalizedViewerId =
+        normalizeUserId(
+            viewerId
+        );
 
-    if (!normalizedViewerId) throw new Error('viewerId is required.');
-    if (!normalizedPostId) throw new Error('postId is required.');
+    const normalizedPostId =
+        sanitizeText(
+            postId
+        );
 
-    const row = await fetchPostRow(normalizedPostId);
-    if (!row || toBool(row.is_deleted)) throw new Error('Post not found.');
-
-    const existing = await yhuSupabaseAdmin
-        .from('yhu_academy_feed_likes')
-        .select('id')
-        .eq('post_id', normalizedPostId)
-        .eq('user_id', normalizedViewerId)
-        .maybeSingle();
-
-    if (existing.error) throw new Error(`Like lookup failed: ${existing.error.message}`);
-
-    let liked;
-
-    if (existing.data) {
-        const { error } = await yhuSupabaseAdmin
-            .from('yhu_academy_feed_likes')
-            .delete()
-            .eq('post_id', normalizedPostId)
-            .eq('user_id', normalizedViewerId);
-
-        if (error) throw new Error(`Unlike failed: ${error.message}`);
-        liked = false;
-    } else {
-        const now = nowIso();
-        const { error } = await yhuSupabaseAdmin
-            .from('yhu_academy_feed_likes')
-            .insert({
-                firebase_app: 'supabase',
-                post_id: normalizedPostId,
-                user_id: normalizedViewerId,
-                source_document_path: `academyFeedPosts/${normalizedPostId}/likes/${normalizedViewerId}`,
-                created_at_source: now,
-                data: {
-                    userId: normalizedViewerId,
-                    postId: normalizedPostId,
-                    createdAt: now
-                }
-            });
-
-        if (error) throw new Error(`Like failed: ${error.message}`);
-        liked = true;
+    if (!normalizedViewerId) {
+        throw communityHttpErrorV2(
+            'viewerId is required.',
+            400
+        );
     }
 
-    const likeState = await getLikeState(normalizedPostId, normalizedViewerId);
+    if (!normalizedPostId) {
+        throw communityHttpErrorV2(
+            'postId is required.',
+            400
+        );
+    }
+
+    const row =
+        await fetchPostRow(
+            normalizedPostId
+        );
+
+    if (
+        !row ||
+        toBool(
+            row.is_deleted
+        )
+    ) {
+        throw communityHttpErrorV2(
+            'Post not found.',
+            404
+        );
+    }
+
+    await assertCommunityPostVisibleToViewerV4(
+        row,
+        normalizedViewerId
+    );
+
+    const existing =
+        await yhuSupabaseAdmin
+            .from(
+                'yhu_academy_feed_likes'
+            )
+            .select('id')
+            .eq(
+                'post_id',
+                normalizedPostId
+            )
+            .eq(
+                'user_id',
+                normalizedViewerId
+            )
+            .maybeSingle();
+
+    if (existing.error) {
+        throw new Error(
+            `Like lookup failed: ${existing.error.message}`
+        );
+    }
+
+    const wasLiked =
+        Boolean(
+            existing.data
+        );
+
+    const desiredLikedState =
+        typeof liked === 'boolean'
+            ? liked
+            : !wasLiked;
+
+    if (desiredLikedState) {
+        const now =
+            nowIso();
+
+        const sourceDocumentPath =
+            `academyFeedPosts/${normalizedPostId}/likes/${normalizedViewerId}`;
+
+        const { error } =
+            await yhuSupabaseAdmin
+                .from(
+                    'yhu_academy_feed_likes'
+                )
+                .upsert(
+                    {
+                        firebase_app:
+                            'supabase',
+
+                        post_id:
+                            normalizedPostId,
+
+                        user_id:
+                            normalizedViewerId,
+
+                        source_document_path:
+                            sourceDocumentPath,
+
+                        created_at_source:
+                            now,
+
+                        data: {
+                            userId:
+                                normalizedViewerId,
+                            postId:
+                                normalizedPostId,
+                            createdAt:
+                                now
+                        }
+                    },
+                    {
+                        onConflict:
+                            'source_document_path'
+                    }
+                );
+
+        if (error) {
+            throw new Error(
+                `Like failed: ${error.message}`
+            );
+        }
+    } else {
+        const { error } =
+            await yhuSupabaseAdmin
+                .from(
+                    'yhu_academy_feed_likes'
+                )
+                .delete()
+                .eq(
+                    'post_id',
+                    normalizedPostId
+                )
+                .eq(
+                    'user_id',
+                    normalizedViewerId
+                );
+
+        if (error) {
+            throw new Error(
+                `Unlike failed: ${error.message}`
+            );
+        }
+    }
+
+    const likeState =
+        await getLikeState(
+            normalizedPostId,
+            normalizedViewerId
+        );
 
     return {
-        liked,
-        liked_by_me: liked,
-        like_count: likeState.like_count
+        liked:
+            likeState.liked_by_me,
+
+        liked_by_me:
+            likeState.liked_by_me,
+
+        like_count:
+            likeState.like_count,
+
+        notificationContext: {
+            postId:
+                normalizedPostId,
+
+            postOwnerId:
+                normalizeUserId(
+                    row.author_id
+                ),
+
+            postPreview:
+                buildSearchPostPreview(
+                    row.body,
+                    120
+                ),
+
+            likeCreated:
+                desiredLikedState &&
+                !wasLiked
+        }
     };
 }
 
@@ -985,8 +3596,35 @@ async function listPostComments({ viewerId, postId }) {
 
     if (!normalizedPostId) throw new Error('postId is required.');
 
-    const post = await fetchPostRow(normalizedPostId);
-    if (!post || toBool(post.is_deleted)) throw new Error('Post not found.');
+    const post =
+        await fetchPostRow(
+            normalizedPostId
+        );
+
+    if (
+        !post ||
+        toBool(
+            post.is_deleted
+        )
+    ) {
+        throw communityHttpErrorV2(
+            'Post not found.',
+            404
+        );
+    }
+
+    const blockedUserIds =
+        await getCommunityBlockedUserIdSetV3(
+            normalizedViewerId
+        );
+
+    await assertCommunityPostVisibleToViewerV4(
+        post,
+        normalizedViewerId,
+        {
+            blockedUserIds
+        }
+    );
 
     const { data, error } = await yhuSupabaseAdmin
         .from('yhu_academy_feed_comments')
@@ -998,8 +3636,37 @@ async function listPostComments({ viewerId, postId }) {
 
     if (error) throw new Error(`Comments lookup failed: ${error.message}`);
 
-    const visibleRows = (Array.isArray(data) ? data : [])
-        .filter((row) => !normalizedViewerId || !mapArray(row.hidden_for_user_ids).includes(normalizedViewerId));
+    const visibleRows =
+        (
+            Array.isArray(data)
+                ? data
+                : []
+        ).filter((row) => {
+            if (
+                normalizedViewerId &&
+                mapArray(
+                    row.hidden_for_user_ids
+                ).includes(
+                    normalizedViewerId
+                )
+            ) {
+                return false;
+            }
+
+            const authorId =
+                normalizeUserId(
+                    row.author_id
+                );
+
+            return (
+                !authorId ||
+                authorId ===
+                    normalizedViewerId ||
+                !blockedUserIds.has(
+                    authorId
+                )
+            );
+        });
 
     return visibleRows.map((row) => mapCommentRow(row, {
         viewerId: normalizedViewerId,
@@ -1017,8 +3684,27 @@ async function createPostComment({ viewer, postId, body, parentCommentId = '' })
     if (!normalizedPostId) throw new Error('postId is required.');
     if (!cleanBody) throw new Error('Comment body is required.');
 
-    const post = await fetchPostRow(normalizedPostId);
-    if (!post || toBool(post.is_deleted)) throw new Error('Post not found.');
+    const post =
+        await fetchPostRow(
+            normalizedPostId
+        );
+
+    if (
+        !post ||
+        toBool(
+            post.is_deleted
+        )
+    ) {
+        throw communityHttpErrorV2(
+            'Post not found.',
+            404
+        );
+    }
+
+    await assertCommunityPostVisibleToViewerV4(
+        post,
+        viewerProfile.id
+    );
 
     let parentData = null;
     let parentDepth = -1;
@@ -1026,7 +3712,26 @@ async function createPostComment({ viewer, postId, body, parentCommentId = '' })
 
     if (normalizedParentCommentId) {
         parentData = await fetchCommentRow(normalizedPostId, normalizedParentCommentId);
-        if (!parentData || toBool(parentData.is_deleted)) throw new Error('Parent comment not found.');
+        if (
+            !parentData ||
+            toBool(
+                parentData.is_deleted
+            )
+        ) {
+            throw communityHttpErrorV2(
+                'Parent comment not found.',
+                404
+            );
+        }
+
+        await assertCommunityInteractionAllowedV3(
+            viewerProfile.id,
+            parentData.author_id,
+            {
+                notFoundMessage:
+                    'Parent comment not found.'
+            }
+        );
 
         parentDepth = Math.max(0, toInt(parentData.depth, 0));
         rootCommentId = sanitizeText(parentData.root_comment_id || normalizedParentCommentId);
@@ -1077,11 +3782,43 @@ async function createPostComment({ viewer, postId, body, parentCommentId = '' })
 
     if (error) throw new Error(`Comment create failed: ${error.message}`);
 
-    return mapCommentRow(data, {
-        viewerId: viewerProfile.id,
-        postId: normalizedPostId,
-        postOwnerId: post.author_id
-    });
+    return {
+        comment:
+            mapCommentRow(data, {
+                viewerId:
+                    viewerProfile.id,
+
+                postId:
+                    normalizedPostId,
+
+                postOwnerId:
+                    post.author_id
+            }),
+
+        notificationContext: {
+            postId:
+                normalizedPostId,
+
+            postOwnerId:
+                normalizeUserId(
+                    post.author_id
+                ),
+
+            parentCommentId:
+                normalizedParentCommentId,
+
+            parentAuthorId:
+                normalizeUserId(
+                    parentData?.author_id
+                ),
+
+            postPreview:
+                buildSearchPostPreview(
+                    post.body,
+                    120
+                )
+        }
+    };
 }
 
 async function updatePostComment({ viewerId, postId, commentId, body }) {
@@ -1100,6 +3837,11 @@ async function updatePostComment({ viewerId, postId, commentId, body }) {
     if (!post || toBool(post.is_deleted)) throw new Error('Post not found.');
     if (!comment || toBool(comment.is_deleted)) throw new Error('Comment not found.');
     if (sanitizeText(comment.author_id) !== normalizedViewerId) throw new Error('You can only edit your own comment.');
+
+    await assertCommunityPostVisibleToViewerV4(
+        post,
+        normalizedViewerId
+    );
 
     const now = nowIso();
 
@@ -1186,8 +3928,59 @@ async function hidePostCommentForViewer({ viewerId, postId, commentId }) {
 
     if (!normalizedViewerId) throw new Error('viewerId is required.');
 
-    const comment = await fetchCommentRow(normalizedPostId, normalizedCommentId);
-    if (!comment || toBool(comment.is_deleted)) throw new Error('Comment not found.');
+    const [
+        post,
+        comment
+    ] = await Promise.all([
+        fetchPostRow(
+            normalizedPostId
+        ),
+
+        fetchCommentRow(
+            normalizedPostId,
+            normalizedCommentId
+        )
+    ]);
+
+    if (
+        !post ||
+        toBool(
+            post.is_deleted
+        )
+    ) {
+        throw communityHttpErrorV2(
+            'Post not found.',
+            404
+        );
+    }
+
+    if (
+        !comment ||
+        toBool(
+            comment.is_deleted
+        )
+    ) {
+        throw communityHttpErrorV2(
+            'Comment not found.',
+            404
+        );
+    }
+
+    await Promise.all([
+        assertCommunityPostVisibleToViewerV4(
+            post,
+            normalizedViewerId
+        ),
+
+        assertCommunityInteractionAllowedV3(
+            normalizedViewerId,
+            comment.author_id,
+            {
+                notFoundMessage:
+                    'Comment not found.'
+            }
+        )
+    ]);
 
     const hidden = Array.from(new Set([...mapArray(comment.hidden_for_user_ids), normalizedViewerId]));
     const now = nowIso();
@@ -1223,7 +4016,28 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
     const isHashtagQuery = normalizedQuery.startsWith('#') || normalizedQuery.startsWith('tag:');
     const hashtagNeedle = normalizedQuery.replace(/^tag:/, '').replace(/^#/, '').trim();
 
-    const followedIds = new Set(normalizedViewerId ? await getFollowingIdsForUser(normalizedViewerId) : []);
+    const [
+        followedUserIds,
+        blockedUserIds
+    ] = normalizedViewerId
+        ? await Promise.all([
+            getFollowingIdsForUser(
+                normalizedViewerId
+            ),
+
+            getCommunityBlockedUserIdSetV3(
+                normalizedViewerId
+            )
+        ])
+        : [
+            [],
+            new Set()
+        ];
+
+    const followedIds =
+        new Set(
+            followedUserIds
+        );
 
     if (isHashtagQuery && hashtagNeedle) {
         const { data, error } = await yhuSupabaseAdmin
@@ -1239,7 +4053,16 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
 
         for (const row of Array.isArray(data) ? data : []) {
             const authorId = sanitizeText(row.author_id);
-            if (!authorId || authorId === normalizedViewerId) continue;
+            if (
+                !authorId ||
+                authorId ===
+                    normalizedViewerId ||
+                blockedUserIds.has(
+                    authorId
+                )
+            ) {
+                continue;
+            }
 
             const hashtags = extractHashtagsFromText(row.body);
             if (!hashtags.includes(hashtagNeedle)) continue;
@@ -1300,7 +4123,16 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
             const profile = mapProfileRow(row);
             const userId = sanitizeText(profile.id);
 
-            if (!userId || userId === normalizedViewerId) return null;
+            if (
+                !userId ||
+                userId ===
+                    normalizedViewerId ||
+                blockedUserIds.has(
+                    userId
+                )
+            ) {
+                return null;
+            }
 
             const member = {
                 id: userId,
@@ -1360,13 +4192,43 @@ async function getMemberSocialCounts({ userId, viewerId = '' }) {
 }
 
 async function getMemberProfile({ viewerId, targetUserId }) {
-    const normalizedViewerId = normalizeUserId(viewerId);
-    const normalizedTargetUserId = normalizeUserId(targetUserId);
+    const normalizedViewerId =
+        normalizeUserId(
+            viewerId
+        );
 
-    if (!normalizedTargetUserId) throw new Error('targetUserId is required.');
+    const normalizedTargetUserId =
+        normalizeUserId(
+            targetUserId
+        );
 
-    const profile = await getProfileOrFallback(normalizedTargetUserId);
-    if (!profile) throw new Error('Target member not found.');
+    if (!normalizedTargetUserId) {
+        throw communityHttpErrorV2(
+            'targetUserId is required.',
+            400
+        );
+    }
+
+    await assertCommunityInteractionAllowedV3(
+        normalizedViewerId,
+        normalizedTargetUserId,
+        {
+            notFoundMessage:
+                'Target member not found.'
+        }
+    );
+
+    const profile =
+        await getProfileOrFallback(
+            normalizedTargetUserId
+        );
+
+    if (!profile) {
+        throw communityHttpErrorV2(
+            'Target member not found.',
+            404
+        );
+    }
 
     const [followerCount, followingCount, friendCount, followedIds, friendshipState, mutualFriendCount, postsResult] = await Promise.all([
         getAcademyFollowerCount(normalizedTargetUserId),
@@ -1412,214 +4274,806 @@ async function getMemberProfile({ viewerId, targetUserId }) {
     };
 }
 
-async function toggleMemberFollow({ viewerId, targetUserId }) {
-    const normalizedViewerId = normalizeUserId(viewerId);
-    const normalizedTargetUserId = normalizeUserId(targetUserId);
+async function toggleMemberFollow({
+    viewerId,
+    targetUserId,
+    following = null
+}) {
+    const normalizedViewerId =
+        normalizeUserId(
+            viewerId
+        );
 
-    if (!normalizedViewerId) throw new Error('viewerId is required.');
-    if (!normalizedTargetUserId) throw new Error('targetUserId is required.');
-    if (normalizedViewerId === normalizedTargetUserId) throw new Error('You cannot follow yourself.');
+    const normalizedTargetUserId =
+        normalizeUserId(
+            targetUserId
+        );
 
-    const targetProfile = await getProfileOrFallback(normalizedTargetUserId);
-    if (!targetProfile) throw new Error('Target member not found.');
-
-    const existing = await yhuSupabaseAdmin
-        .from('yhu_academy_user_follows')
-        .select('id')
-        .eq('follower_id', normalizedViewerId)
-        .eq('following_id', normalizedTargetUserId)
-        .maybeSingle();
-
-    if (existing.error) throw new Error(`Follow lookup failed: ${existing.error.message}`);
-
-    let following;
-
-    if (existing.data) {
-        const { error } = await yhuSupabaseAdmin
-            .from('yhu_academy_user_follows')
-            .delete()
-            .eq('follower_id', normalizedViewerId)
-            .eq('following_id', normalizedTargetUserId);
-
-        if (error) throw new Error(`Unfollow failed: ${error.message}`);
-        following = false;
-    } else {
-        const now = nowIso();
-        const followId = followKeyFor(normalizedViewerId, normalizedTargetUserId);
-
-        const { error } = await yhuSupabaseAdmin
-            .from('yhu_academy_user_follows')
-            .insert({
-                firebase_app: 'supabase',
-                source_collection_path: 'academyUserFollows',
-                follow_id: followId,
-                source_document_path: `academyUserFollows/${followId}`,
-                follower_id: normalizedViewerId,
-                following_id: normalizedTargetUserId,
-                created_at_source: now,
-                data: {
-                    followerId: normalizedViewerId,
-                    followingId: normalizedTargetUserId,
-                    createdAt: now
-                }
-            });
-
-        if (error) throw new Error(`Follow failed: ${error.message}`);
-        following = true;
+    if (!normalizedViewerId) {
+        throw communityHttpErrorV2(
+            'viewerId is required.',
+            400
+        );
     }
 
-    const [followersCount, followingCount] = await Promise.all([
-        getAcademyFollowerCount(normalizedTargetUserId),
-        getAcademyFollowingCount(normalizedViewerId)
+    if (!normalizedTargetUserId) {
+        throw communityHttpErrorV2(
+            'targetUserId is required.',
+            400
+        );
+    }
+
+    if (
+        normalizedViewerId ===
+        normalizedTargetUserId
+    ) {
+        throw communityHttpErrorV2(
+            'You cannot follow yourself.',
+            400
+        );
+    }
+
+    await assertCommunityInteractionAllowedV3(
+        normalizedViewerId,
+        normalizedTargetUserId,
+        {
+            notFoundMessage:
+                'Target member not found.'
+        }
+    );
+
+    const targetProfile =
+        await getProfileOrFallback(
+            normalizedTargetUserId
+        );
+
+    if (!targetProfile) {
+        throw communityHttpErrorV2(
+            'Target member not found.',
+            404
+        );
+    }
+
+    const existing =
+        await yhuSupabaseAdmin
+            .from(
+                'yhu_academy_user_follows'
+            )
+            .select('id')
+            .eq(
+                'follower_id',
+                normalizedViewerId
+            )
+            .eq(
+                'following_id',
+                normalizedTargetUserId
+            )
+            .maybeSingle();
+
+    if (existing.error) {
+        throw new Error(
+            `Follow lookup failed: ${existing.error.message}`
+        );
+    }
+
+    const desiredFollowingState =
+        typeof following === 'boolean'
+            ? following
+            : !Boolean(
+                existing.data
+            );
+
+    if (desiredFollowingState) {
+        const now =
+            nowIso();
+
+        const followId =
+            followKeyFor(
+                normalizedViewerId,
+                normalizedTargetUserId
+            );
+
+        const { error } =
+            await yhuSupabaseAdmin
+                .from(
+                    'yhu_academy_user_follows'
+                )
+                .upsert(
+                    {
+                        firebase_app:
+                            'supabase',
+
+                        source_collection_path:
+                            'academyUserFollows',
+
+                        follow_id:
+                            followId,
+
+                        source_document_path:
+                            `academyUserFollows/${followId}`,
+
+                        follower_id:
+                            normalizedViewerId,
+
+                        following_id:
+                            normalizedTargetUserId,
+
+                        created_at_source:
+                            now,
+
+                        data: {
+                            followerId:
+                                normalizedViewerId,
+                            followingId:
+                                normalizedTargetUserId,
+                            createdAt:
+                                now
+                        }
+                    },
+                    {
+                        onConflict:
+                            'follow_id'
+                    }
+                );
+
+        if (error) {
+            throw new Error(
+                `Follow failed: ${error.message}`
+            );
+        }
+    } else {
+        const { error } =
+            await yhuSupabaseAdmin
+                .from(
+                    'yhu_academy_user_follows'
+                )
+                .delete()
+                .eq(
+                    'follower_id',
+                    normalizedViewerId
+                )
+                .eq(
+                    'following_id',
+                    normalizedTargetUserId
+                );
+
+        if (error) {
+            throw new Error(
+                `Unfollow failed: ${error.message}`
+            );
+        }
+    }
+
+    const [
+        followersCount,
+        followingCount
+    ] = await Promise.all([
+        getAcademyFollowerCount(
+            normalizedTargetUserId
+        ),
+        getAcademyFollowingCount(
+            normalizedViewerId
+        )
     ]);
 
     return {
-        following,
-        followed_by_me: following,
-        targetUserId: normalizedTargetUserId,
-        followers_count: followersCount,
-        viewer_following_count: followingCount
+        following:
+            desiredFollowingState,
+
+        followed_by_me:
+            desiredFollowingState,
+
+        targetUserId:
+            normalizedTargetUserId,
+
+        followers_count:
+            followersCount,
+
+        viewer_following_count:
+            followingCount
     };
 }
 
-async function sendFriendRequest({ senderId, receiverId }) {
-    const normalizedSenderId = normalizeUserId(senderId);
-    const normalizedReceiverId = normalizeUserId(receiverId);
+async function sendFriendRequest({
+    senderId,
+    receiverId
+}) {
+    const normalizedSenderId =
+        normalizeUserId(
+            senderId
+        );
 
-    if (!normalizedSenderId) throw new Error('senderId is required.');
-    if (!normalizedReceiverId) throw new Error('receiverId is required.');
-    if (normalizedSenderId === normalizedReceiverId) throw new Error('You cannot send a friend request to yourself.');
+    const normalizedReceiverId =
+        normalizeUserId(
+            receiverId
+        );
 
-    const receiverProfile = await getProfileOrFallback(normalizedReceiverId);
-    if (!receiverProfile) throw new Error('Target member not found.');
+    if (!normalizedSenderId) {
+        throw communityHttpErrorV2(
+            'senderId is required.',
+            400
+        );
+    }
 
-    const state = await getFriendshipState(normalizedSenderId, normalizedReceiverId);
-    if (state.is_friend) throw new Error('You are already friends.');
-    if (state.outgoing_friend_request_pending) throw new Error('Friend request already sent.');
-    if (state.incoming_friend_request_pending) throw new Error('This member already sent you a friend request.');
+    if (!normalizedReceiverId) {
+        throw communityHttpErrorV2(
+            'receiverId is required.',
+            400
+        );
+    }
 
-    const requestId = buildId('friendreq');
-    const now = nowIso();
+    if (
+        normalizedSenderId ===
+        normalizedReceiverId
+    ) {
+        throw communityHttpErrorV2(
+            'You cannot send a friend request to yourself.',
+            400
+        );
+    }
+
+    await assertCommunityInteractionAllowedV3(
+        normalizedSenderId,
+        normalizedReceiverId,
+        {
+            notFoundMessage:
+                'Target member not found.'
+        }
+    );
+
+    const receiverProfile =
+        await getProfileOrFallback(
+            normalizedReceiverId
+        );
+
+    if (!receiverProfile) {
+        throw communityHttpErrorV2(
+            'Target member not found.',
+            404
+        );
+    }
+
+    const state =
+        await getFriendshipState(
+            normalizedSenderId,
+            normalizedReceiverId
+        );
+
+    if (state.is_friend) {
+        throw communityHttpErrorV2(
+            'You are already friends.',
+            409
+        );
+    }
+
+    if (
+        state
+            .incoming_friend_request_pending
+    ) {
+        throw communityHttpErrorV2(
+            'This member already sent you a friend request.',
+            409
+        );
+    }
+
+    if (
+        state
+            .outgoing_friend_request_pending
+    ) {
+        throw communityHttpErrorV2(
+            'Friend request already sent.',
+            409
+        );
+    }
+
+    const pairKey =
+        friendshipKeyFor(
+            normalizedSenderId,
+            normalizedReceiverId
+        );
+
+    const requestId =
+        `friendreq_${pairKey}`;
+
+    const sourceDocumentPath =
+        `academyFriendRequests/pairs/${pairKey}`;
+
+    const now =
+        nowIso();
 
     const row = {
-        firebase_app: 'supabase',
-        request_id: requestId,
-        source_document_path: `academyFriendRequests/${requestId}`,
-        sender_id: normalizedSenderId,
-        receiver_id: normalizedReceiverId,
-        status: 'pending',
-        created_at_source: now,
-        responded_at_source: null,
+        firebase_app:
+            'supabase',
+
+        request_id:
+            requestId,
+
+        source_document_path:
+            sourceDocumentPath,
+
+        sender_id:
+            normalizedSenderId,
+
+        receiver_id:
+            normalizedReceiverId,
+
+        status:
+            'pending',
+
+        created_at_source:
+            now,
+
+        responded_at_source:
+            null,
+
         data: {
-            senderId: normalizedSenderId,
-            receiverId: normalizedReceiverId,
+            senderId:
+                normalizedSenderId,
+            receiverId:
+                normalizedReceiverId,
+            pairKey,
             status: 'pending',
             createdAt: now
         }
     };
 
-    const { data, error } = await yhuSupabaseAdmin
-        .from('yhu_academy_friend_requests')
-        .insert(row)
-        .select('*')
-        .single();
+    const {
+        data: inserted,
+        error
+    } = await yhuSupabaseAdmin
+        .from(
+            'yhu_academy_friend_requests'
+        )
+        .upsert(
+            row,
+            {
+                onConflict:
+                    'source_document_path',
 
-    if (error) throw new Error(`Friend request create failed: ${error.message}`);
+                ignoreDuplicates:
+                    true
+            }
+        )
+        .select('*')
+        .maybeSingle();
+
+    if (error) {
+        throw new Error(
+            `Friend request create failed: ${error.message}`
+        );
+    }
+
+    let persisted =
+        inserted ||
+        null;
+
+    if (!persisted) {
+        const {
+            data: existingRequest,
+            error: existingRequestError
+        } = await yhuSupabaseAdmin
+            .from(
+                'yhu_academy_friend_requests'
+            )
+            .select('*')
+            .eq(
+                'source_document_path',
+                sourceDocumentPath
+            )
+            .maybeSingle();
+
+        if (existingRequestError) {
+            throw new Error(
+                `Friend request lookup failed: ${existingRequestError.message}`
+            );
+        }
+
+        persisted =
+            existingRequest ||
+            null;
+    }
+
+    if (!persisted) {
+        throw new Error(
+            'Friend request create returned no record.'
+        );
+    }
+
+    const persistedSenderId =
+        normalizeUserId(
+            persisted.sender_id
+        );
+
+    const persistedReceiverId =
+        normalizeUserId(
+            persisted.receiver_id
+        );
+
+    if (
+        persisted.status !==
+        'pending'
+    ) {
+        throw communityHttpErrorV2(
+            'Friend request has already been handled.',
+            409
+        );
+    }
+
+    if (
+        persistedSenderId !==
+            normalizedSenderId ||
+        persistedReceiverId !==
+            normalizedReceiverId
+    ) {
+        throw communityHttpErrorV2(
+            'This member already sent you a friend request.',
+            409
+        );
+    }
 
     return {
-        id: data.request_id,
-        senderId: data.sender_id,
-        receiverId: data.receiver_id,
-        status: data.status,
-        createdAt: data.created_at_source
+        id:
+            persisted.request_id,
+        senderId:
+            persisted.sender_id,
+        receiverId:
+            persisted.receiver_id,
+        status:
+            persisted.status,
+        createdAt:
+            persisted.created_at_source,
+        created:
+            Boolean(inserted)
     };
 }
 
-async function respondToFriendRequest({ responderId, requestId, action }) {
-    const normalizedResponderId = normalizeUserId(responderId);
-    const normalizedRequestId = sanitizeText(requestId);
-    const normalizedAction = sanitizeText(action).toLowerCase();
+async function ensureFriendshipForRequestV2(
+    request = {},
+    requestId = ''
+) {
+    const [
+        userOneId,
+        userTwoId
+    ] = normalizeFriendPair(
+        request.sender_id,
+        request.receiver_id
+    );
 
-    if (!normalizedResponderId) throw new Error('responderId is required.');
-    if (!normalizedRequestId) throw new Error('requestId is required.');
-    if (!['accept', 'accepted', 'decline', 'declined', 'reject', 'rejected'].includes(normalizedAction)) {
-        throw new Error('Invalid friend request action.');
+    const friendshipId =
+        friendshipKeyFor(
+            userOneId,
+            userTwoId
+        );
+
+    const now =
+        nowIso();
+
+    const {
+        data,
+        error
+    } = await yhuSupabaseAdmin
+        .from(
+            'yhu_academy_friendships'
+        )
+        .upsert(
+            {
+                firebase_app:
+                    'supabase',
+
+                friendship_id:
+                    friendshipId,
+
+                source_document_path:
+                    `academyFriendships/${friendshipId}`,
+
+                user_one_id:
+                    userOneId,
+
+                user_two_id:
+                    userTwoId,
+
+                created_at_source:
+                    request.responded_at_source ||
+                    now,
+
+                data: {
+                    userOneId,
+                    userTwoId,
+
+                    requestId:
+                        sanitizeText(
+                            requestId ||
+                            request.request_id
+                        ),
+
+                    createdAt:
+                        request.responded_at_source ||
+                        now
+                }
+            },
+            {
+                onConflict:
+                    'friendship_id'
+            }
+        )
+        .select('*')
+        .single();
+
+    if (error) {
+        throw new Error(
+            `Friendship create failed: ${error.message}`
+        );
     }
 
-    const { data: request, error: requestError } = await yhuSupabaseAdmin
-        .from('yhu_academy_friend_requests')
+    return data;
+}
+
+async function respondToFriendRequest({
+    responderId,
+    requestId,
+    action
+}) {
+    const normalizedResponderId =
+        normalizeUserId(
+            responderId
+        );
+
+    const normalizedRequestId =
+        sanitizeText(
+            requestId
+        );
+
+    const normalizedAction =
+        sanitizeText(
+            action
+        ).toLowerCase();
+
+    if (!normalizedResponderId) {
+        throw communityHttpErrorV2(
+            'responderId is required.',
+            400
+        );
+    }
+
+    if (!normalizedRequestId) {
+        throw communityHttpErrorV2(
+            'requestId is required.',
+            400
+        );
+    }
+
+    if (
+        ![
+            'accept',
+            'accepted',
+            'decline',
+            'declined',
+            'reject',
+            'rejected'
+        ].includes(
+            normalizedAction
+        )
+    ) {
+        throw communityHttpErrorV2(
+            'Invalid friend request action.',
+            400
+        );
+    }
+
+    const {
+        data: request,
+        error: requestError
+    } = await yhuSupabaseAdmin
+        .from(
+            'yhu_academy_friend_requests'
+        )
         .select('*')
-        .eq('request_id', normalizedRequestId)
+        .eq(
+            'request_id',
+            normalizedRequestId
+        )
         .maybeSingle();
 
-    if (requestError) throw new Error(`Friend request lookup failed: ${requestError.message}`);
-    if (!request || request.status !== 'pending') throw new Error('Friend request not found.');
-    if (sanitizeText(request.receiver_id) !== normalizedResponderId) throw new Error('Friend request not found.');
+    if (requestError) {
+        throw new Error(
+            `Friend request lookup failed: ${requestError.message}`
+        );
+    }
 
-    const accepted = ['accept', 'accepted'].includes(normalizedAction);
-    const now = nowIso();
+    if (
+        !request ||
+        normalizeUserId(
+            request.receiver_id
+        ) !==
+        normalizedResponderId
+    ) {
+        throw communityHttpErrorV2(
+            'Friend request not found.',
+            404
+        );
+    }
 
-    const { error: updateError } = await yhuSupabaseAdmin
-        .from('yhu_academy_friend_requests')
-        .update({
-            status: accepted ? 'accepted' : 'declined',
-            responded_at_source: now,
-            updated_at: now,
-            data: {
-                ...(request.data || {}),
-                status: accepted ? 'accepted' : 'declined',
-                respondedAt: now
-            }
-        })
-        .eq('request_id', normalizedRequestId);
-
-    if (updateError) throw new Error(`Friend request update failed: ${updateError.message}`);
-
-    let friendship = null;
+    const accepted =
+        [
+            'accept',
+            'accepted'
+        ].includes(
+            normalizedAction
+        );
 
     if (accepted) {
-        const [x, y] = normalizeFriendPair(request.sender_id, request.receiver_id);
-        const friendshipId = friendshipKeyFor(x, y);
+        await assertCommunityInteractionAllowedV3(
+            normalizedResponderId,
+            request.sender_id,
+            {
+                notFoundMessage:
+                    'Friend request cannot be accepted.'
+            }
+        );
+    }
 
-        const { data, error } = await yhuSupabaseAdmin
-            .from('yhu_academy_friendships')
-            .upsert({
-                firebase_app: 'supabase',
-                friendship_id: friendshipId,
-                source_document_path: `academyFriendships/${friendshipId}`,
-                user_one_id: x,
-                user_two_id: y,
-                created_at_source: now,
-                data: {
-                    userOneId: x,
-                    userTwoId: y,
-                    requestId: normalizedRequestId,
-                    createdAt: now
-                }
-            }, { onConflict: 'friendship_id' })
-            .select('*')
-            .single();
+    /*
+     * Repeating accept repairs an accepted request
+     * whose friendship write previously failed.
+     */
+    if (
+        request.status ===
+        'accepted'
+    ) {
+        if (!accepted) {
+            throw communityHttpErrorV2(
+                'Friend request has already been accepted.',
+                409
+            );
+        }
 
-        if (error) throw new Error(`Friendship create failed: ${error.message}`);
-        friendship = data;
+        const friendship =
+            await ensureFriendshipForRequestV2(
+                request,
+                normalizedRequestId
+            );
+
+        return {
+            request: {
+                id:
+                    normalizedRequestId,
+                senderId:
+                    request.sender_id,
+                receiverId:
+                    request.receiver_id,
+                status:
+                    'accepted',
+                respondedAt:
+                    request.responded_at_source ||
+                    ''
+            },
+
+            friendship: {
+                id:
+                    friendship.friendship_id,
+                userOneId:
+                    friendship.user_one_id,
+                userTwoId:
+                    friendship.user_two_id,
+                createdAt:
+                    friendship.created_at_source
+            },
+
+            alreadyHandled:
+                true
+        };
+    }
+
+    if (
+        request.status !==
+        'pending'
+    ) {
+        throw communityHttpErrorV2(
+            'Friend request has already been handled.',
+            409
+        );
+    }
+
+    const now =
+        nowIso();
+
+    const {
+        data: updatedRequest,
+        error: updateError
+    } = await yhuSupabaseAdmin
+        .from(
+            'yhu_academy_friend_requests'
+        )
+        .update({
+            status:
+                accepted
+                    ? 'accepted'
+                    : 'declined',
+
+            responded_at_source:
+                now,
+
+            updated_at:
+                now,
+
+            data: {
+                ...(request.data || {}),
+                status:
+                    accepted
+                        ? 'accepted'
+                        : 'declined',
+                respondedAt:
+                    now
+            }
+        })
+        .eq(
+            'request_id',
+            normalizedRequestId
+        )
+        .eq(
+            'status',
+            'pending'
+        )
+        .select('*')
+        .maybeSingle();
+
+    if (updateError) {
+        throw new Error(
+            `Friend request update failed: ${updateError.message}`
+        );
+    }
+
+    if (!updatedRequest) {
+        throw communityHttpErrorV2(
+            'Friend request has already been handled.',
+            409
+        );
+    }
+
+    let friendship =
+        null;
+
+    if (accepted) {
+        friendship =
+            await ensureFriendshipForRequestV2(
+                updatedRequest,
+                normalizedRequestId
+            );
     }
 
     return {
         request: {
-            id: normalizedRequestId,
-            senderId: request.sender_id,
-            receiverId: request.receiver_id,
-            status: accepted ? 'accepted' : 'declined',
-            respondedAt: now
+            id:
+                normalizedRequestId,
+            senderId:
+                updatedRequest.sender_id,
+            receiverId:
+                updatedRequest.receiver_id,
+            status:
+                accepted
+                    ? 'accepted'
+                    : 'declined',
+            respondedAt:
+                updatedRequest.responded_at_source ||
+                now
         },
-        friendship: friendship
-            ? {
-                id: friendship.friendship_id,
-                userOneId: friendship.user_one_id,
-                userTwoId: friendship.user_two_id,
-                createdAt: friendship.created_at_source
-            }
-            : null
+
+        friendship:
+            friendship
+                ? {
+                    id:
+                        friendship.friendship_id,
+                    userOneId:
+                        friendship.user_one_id,
+                    userTwoId:
+                        friendship.user_two_id,
+                    createdAt:
+                        friendship.created_at_source
+                }
+                : null,
+
+        alreadyHandled:
+            false
     };
 }
 
@@ -1642,10 +5096,33 @@ async function getCommunityNicheState({ viewerId }) {
         ...(Array.isArray(data) ? data.map((row) => normalizeNicheKey(row.niche_key)) : [])
     ].filter(Boolean));
 
-    const defaultNicheKey =
-        normalizeNicheKey(profile?.default_niche) ||
-        normalizeNicheKey((Array.isArray(data) ? data : []).find((row) => row.is_default)?.niche_key) ||
+    const requestedDefaultNicheKey =
+        normalizeNicheKey(
+            profile?.default_niche
+        ) ||
+        normalizeNicheKey(
+            (
+                Array.isArray(data)
+                    ? data
+                    : []
+            ).find(
+                (row) =>
+                    row.is_default
+            )?.niche_key
+        ) ||
         '';
+
+    const defaultNicheKey =
+        joinedKeys.has(
+            requestedDefaultNicheKey
+        )
+            ? requestedDefaultNicheKey
+            : (
+                [
+                    ...joinedKeys
+                ][0] ||
+                ''
+            );
 
     const joinedNiches = ACADEMY_COMMUNITY_NICHES
         .filter((item) => joinedKeys.has(item.key))
@@ -1673,63 +5150,286 @@ async function getCommunityNicheState({ viewerId }) {
 }
 
 async function persistCommunityNicheState(viewerId, joinedNiches = [], defaultNicheKey = '') {
-    const normalizedViewerId = normalizeUserId(viewerId);
-    const normalizedJoinedKeys = Array.from(new Set(
-        (Array.isArray(joinedNiches) ? joinedNiches : [])
-            .map((item) => normalizeNicheKey(item.key || item.nicheKey || item))
-            .filter((key) => getNicheMeta(key))
-    ));
+    const normalizedViewerId =
+        normalizeUserId(viewerId);
 
-    const cleanDefault =
-        normalizeNicheKey(defaultNicheKey) && normalizedJoinedKeys.includes(normalizeNicheKey(defaultNicheKey))
-            ? normalizeNicheKey(defaultNicheKey)
-            : normalizedJoinedKeys[0] || '';
-
-    const now = nowIso();
-
-    const { error: deleteError } = await yhuSupabaseAdmin
-        .from('yhu_academy_member_niches')
-        .delete()
-        .eq('user_id', normalizedViewerId);
-
-    if (deleteError) throw new Error(`Niche cleanup failed: ${deleteError.message}`);
-
-    if (normalizedJoinedKeys.length) {
-        const rows = normalizedJoinedKeys.map((key) => ({
-            user_id: normalizedViewerId,
-            niche_key: key,
-            is_default: key === cleanDefault,
-            created_at_source: now,
-            updated_at_source: now,
-            data: {
-                userId: normalizedViewerId,
-                nicheKey: key,
-                isDefault: key === cleanDefault,
-                createdAt: now,
-                updatedAt: now
-            }
-        }));
-
-        const { error } = await yhuSupabaseAdmin
-            .from('yhu_academy_member_niches')
-            .insert(rows);
-
-        if (error) throw new Error(`Niche persist failed: ${error.message}`);
+    if (!normalizedViewerId) {
+        throw new Error(
+            'viewerId is required.'
+        );
     }
 
-    const { error: profileError } = await yhuSupabaseAdmin
-        .from('yhu_academy_member_profiles')
-        .update({
-            community_niches: normalizedJoinedKeys,
-            default_niche: cleanDefault,
-            updated_at_source: now,
-            updated_at: now
-        })
-        .eq('user_id', normalizedViewerId);
+    const normalizedJoinedKeys =
+        Array.from(
+            new Set(
+                (
+                    Array.isArray(
+                        joinedNiches
+                    )
+                        ? joinedNiches
+                        : []
+                )
+                    .map((item) =>
+                        normalizeNicheKey(
+                            item?.key ||
+                            item?.nicheKey ||
+                            item
+                        )
+                    )
+                    .filter((key) =>
+                        Boolean(
+                            getNicheMeta(
+                                key
+                            )
+                        )
+                    )
+            )
+        );
 
-    if (profileError) throw new Error(`Niche profile update failed: ${profileError.message}`);
+    const requestedDefault =
+        normalizeNicheKey(
+            defaultNicheKey
+        );
 
-    return getCommunityNicheState({ viewerId: normalizedViewerId });
+    const cleanDefault =
+        requestedDefault &&
+        normalizedJoinedKeys.includes(
+            requestedDefault
+        )
+            ? requestedDefault
+            : (
+                normalizedJoinedKeys[0] ||
+                ''
+            );
+
+    const now =
+        nowIso();
+
+    const {
+        data: currentRows,
+        error: currentError
+    } = await yhuSupabaseAdmin
+        .from(
+            'yhu_academy_member_niches'
+        )
+        .select('*')
+        .eq(
+            'user_id',
+            normalizedViewerId
+        );
+
+    if (currentError) {
+        throw new Error(
+            `Community niches lookup failed: ${currentError.message}`
+        );
+    }
+
+    const currentByKey =
+        new Map(
+            (
+                Array.isArray(
+                    currentRows
+                )
+                    ? currentRows
+                    : []
+            )
+                .map((row) => [
+                    normalizeNicheKey(
+                        row.niche_key
+                    ),
+                    row
+                ])
+                .filter(
+                    ([key]) =>
+                        Boolean(key)
+                )
+        );
+
+    const missingKeys =
+        normalizedJoinedKeys.filter(
+            (key) =>
+                !currentByKey.has(
+                    key
+                )
+        );
+
+    /*
+     * Insert new memberships before removing stale
+     * memberships. A failed insert therefore cannot
+     * erase the member's previous niche state.
+     */
+    if (missingKeys.length) {
+        const rows =
+            missingKeys.map((key) => ({
+                user_id:
+                    normalizedViewerId,
+
+                niche_key:
+                    key,
+
+                is_default:
+                    key ===
+                    cleanDefault,
+
+                created_at_source:
+                    now,
+
+                updated_at_source:
+                    now,
+
+                data: {
+                    userId:
+                        normalizedViewerId,
+
+                    nicheKey:
+                        key,
+
+                    isDefault:
+                        key ===
+                        cleanDefault,
+
+                    createdAt:
+                        now,
+
+                    updatedAt:
+                        now
+                }
+            }));
+
+        const { error } =
+            await yhuSupabaseAdmin
+                .from(
+                    'yhu_academy_member_niches'
+                )
+                .insert(rows);
+
+        if (error) {
+            throw new Error(
+                `Niche persist failed: ${error.message}`
+            );
+        }
+    }
+
+    for (const key of normalizedJoinedKeys) {
+        const current =
+            currentByKey.get(
+                key
+            );
+
+        if (!current) {
+            continue;
+        }
+
+        const isDefault =
+            key ===
+            cleanDefault;
+
+        const { error } =
+            await yhuSupabaseAdmin
+                .from(
+                    'yhu_academy_member_niches'
+                )
+                .update({
+                    is_default:
+                        isDefault,
+
+                    updated_at_source:
+                        now,
+
+                    data: {
+                        ...(current.data || {}),
+
+                        userId:
+                            normalizedViewerId,
+
+                        nicheKey:
+                            key,
+
+                        isDefault,
+
+                        updatedAt:
+                            now
+                    }
+                })
+                .eq(
+                    'user_id',
+                    normalizedViewerId
+                )
+                .eq(
+                    'niche_key',
+                    key
+                );
+
+        if (error) {
+            throw new Error(
+                `Niche update failed: ${error.message}`
+            );
+        }
+    }
+
+    const staleKeys =
+        [
+            ...currentByKey.keys()
+        ].filter(
+            (key) =>
+                !normalizedJoinedKeys.includes(
+                    key
+                )
+        );
+
+    if (staleKeys.length) {
+        const { error } =
+            await yhuSupabaseAdmin
+                .from(
+                    'yhu_academy_member_niches'
+                )
+                .delete()
+                .eq(
+                    'user_id',
+                    normalizedViewerId
+                )
+                .in(
+                    'niche_key',
+                    staleKeys
+                );
+
+        if (error) {
+            throw new Error(
+                `Niche cleanup failed: ${error.message}`
+            );
+        }
+    }
+
+    /*
+     * The current Academy profile table stores
+     * extended fields inside public_meta and data.
+     * Do not write obsolete direct columns.
+     */
+    await academyMemberProfileSupabaseRepo
+        .patchProfile(
+            normalizedViewerId,
+            {
+                communityNiches:
+                    normalizedJoinedKeys,
+
+                community_niches:
+                    normalizedJoinedKeys,
+
+                defaultNiche:
+                    cleanDefault,
+
+                default_niche:
+                    cleanDefault,
+
+                updatedAt:
+                    now
+            }
+        );
+
+    return getCommunityNicheState({
+        viewerId:
+            normalizedViewerId
+    });
 }
 
 async function joinCommunityNiche({ viewerId, nicheKey, makeDefault = false }) {
@@ -1785,6 +5485,8 @@ async function leaveCommunityNiche({ viewerId, nicheKey }) {
 }
 
 module.exports = {
+    setCommunityBlockedUserResolverV3,
+    setCommunityMediaReceiptVerifierV4,
     getViewerProfile,
     getCommunityNicheState,
     joinCommunityNiche,

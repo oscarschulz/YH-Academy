@@ -38,6 +38,80 @@ function buildId(prefix = 'plaza') {
     return prefix + '_' + Date.now() + '_' + crypto.randomBytes(5).toString('hex');
 }
 
+function plazaRequestHttpError(message = '', status = 500) {
+    const error = new Error(
+        sanitizeText(message) ||
+        'Plaza request operation failed.'
+    );
+
+    error.status = Number(status) || 500;
+    return error;
+}
+
+function plazaBridgeHttpError(
+    message = '',
+    status = 500
+) {
+    const error = new Error(
+        sanitizeText(message) ||
+        'Plaza bridge operation failed.'
+    );
+
+    error.status = Number(status) || 500;
+    return error;
+}
+
+function buildDeterministicBridgeId(
+    ownerUserId = '',
+    clientCreateId = ''
+) {
+    const owner = sanitizeText(
+        ownerUserId
+    );
+
+    const createKey = sanitizeText(
+        clientCreateId
+    );
+
+    if (!owner || !createKey) {
+        throw plazaBridgeHttpError(
+            'Bridge owner and client create id are required.',
+            400
+        );
+    }
+
+    const digest = crypto
+        .createHash('sha256')
+        .update(`${owner}:${createKey}`)
+        .digest('hex')
+        .slice(0, 40);
+
+    return `plaza_bridge_${digest}`;
+}
+
+function buildDeterministicRequestId(
+    ownerUserId = '',
+    clientRequestId = ''
+) {
+    const owner = sanitizeText(ownerUserId);
+    const requestKey = sanitizeText(clientRequestId);
+
+    if (!owner || !requestKey) {
+        throw plazaRequestHttpError(
+            'Request owner and client request id are required.',
+            400
+        );
+    }
+
+    const digest = crypto
+        .createHash('sha256')
+        .update(`${owner}:${requestKey}`)
+        .digest('hex')
+        .slice(0, 40);
+
+    return `plaza_request_${digest}`;
+}
+
 function normalizeStatus(value = '', fallback = 'active') {
     const clean = cleanLower(value || fallback);
     return clean || fallback;
@@ -54,7 +128,252 @@ function isReadableStatus(value = '') {
         'removed'
     ].includes(status);
 }
+function isPublishedStatus(value = '') {
+    return [
+        'active',
+        'approved',
+        'published',
+        'verified'
+    ].includes(
+        normalizeStatus(
+            value || 'active'
+        )
+    );
+}
 
+const PLAZA_PUBLISHED_STATUSES = [
+    'active',
+    'approved',
+    'published',
+    'verified'
+];
+
+const PLAZA_HIDDEN_STATUSES = [
+    'deleted',
+    'archived',
+    'hidden',
+    'blocked',
+    'removed'
+];
+
+function plazaListHttpError(
+    message = '',
+    status = 500
+) {
+    const error = new Error(
+        sanitizeText(message) ||
+        'Plaza list operation failed.'
+    );
+
+    error.status = Number(status) || 500;
+    return error;
+}
+
+function encodeBridgeRequestCursor(
+    kind = '',
+    timestamp = '',
+    id = ''
+) {
+    return Buffer
+        .from(
+            JSON.stringify({
+                version: 1,
+                kind: sanitizeText(kind),
+                timestamp: toIso(timestamp),
+                id: sanitizeText(id)
+            }),
+            'utf8'
+        )
+        .toString('base64url');
+}
+
+function normalizeBridgeRequestCursorTimestamp(
+    value = ''
+) {
+    const clean = sanitizeText(value);
+    const parsed = Date.parse(clean);
+
+    if (
+        !clean ||
+        !Number.isFinite(parsed)
+    ) {
+        return '';
+    }
+
+    return new Date(parsed).toISOString();
+}
+
+function quoteBridgeRequestPostgrestFilterValue(
+    value = ''
+) {
+    const clean = sanitizeText(value);
+
+    return `"${clean
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')}"`;
+}
+
+function decodeBridgeRequestCursor(
+    value = '',
+    expectedKind = ''
+) {
+    const clean = sanitizeText(value);
+
+    if (!clean) return null;
+
+    try {
+        const parsed = JSON.parse(
+            Buffer
+                .from(
+                    clean,
+                    'base64url'
+                )
+                .toString('utf8')
+        );
+
+        const timestamp =
+            normalizeBridgeRequestCursorTimestamp(
+                parsed?.timestamp
+            );
+
+        const id = sanitizeText(
+            parsed?.id
+        );
+
+        if (
+            Number(parsed?.version) !== 1 ||
+            sanitizeText(parsed?.kind) !==
+                sanitizeText(expectedKind) ||
+            !timestamp ||
+            !id ||
+            id.length > 240
+        ) {
+            throw new Error(
+                'Cursor payload is invalid.'
+            );
+        }
+
+        return {
+            timestamp,
+            id
+        };
+    } catch (_) {
+        throw plazaListHttpError(
+            'Invalid Plaza pagination cursor.',
+            400
+        );
+    }
+}
+
+function applyDescendingBridgeRequestCursor(
+    query,
+    column = '',
+    cursor = null
+) {
+    if (!cursor) return query;
+
+    const cleanColumn = sanitizeText(
+        column
+    );
+
+    const timestamp =
+        quoteBridgeRequestPostgrestFilterValue(
+            cursor.timestamp
+        );
+
+    const id =
+        quoteBridgeRequestPostgrestFilterValue(
+            cursor.id
+        );
+
+    return query.or(
+        `${cleanColumn}.lt.${timestamp},and(${cleanColumn}.eq.${timestamp},source_document_id.lt.${id})`
+    );
+}
+
+function buildBridgeRequestPage(
+    rows = [],
+    options = {}
+) {
+    const safeRows = Array.isArray(rows)
+        ? rows
+        : [];
+
+    const limit = Math.max(
+        1,
+        Number(options.limit || 1)
+    );
+
+    const pageRows = safeRows.slice(
+        0,
+        limit
+    );
+
+    const hasMore =
+        safeRows.length > limit;
+
+    const lastRow =
+        pageRows[
+            pageRows.length - 1
+        ];
+
+    return {
+        items: pageRows.map(
+            options.mapRow
+        ),
+        hasMore,
+        nextCursor:
+            hasMore &&
+            lastRow
+                ? encodeBridgeRequestCursor(
+                    options.kind,
+                    lastRow[
+                        options.column
+                    ] ||
+                    lastRow.updated_at ||
+                    lastRow.created_at,
+                    lastRow.source_document_id ||
+                    lastRow.id
+                )
+                : ''
+    };
+}
+
+function comparePlazaRowsDescending(
+    left = {},
+    right = {},
+    column = ''
+) {
+    const leftTime =
+        Date.parse(
+            left[column] ||
+            left.updated_at ||
+            left.created_at ||
+            ''
+        ) || 0;
+
+    const rightTime =
+        Date.parse(
+            right[column] ||
+            right.updated_at ||
+            right.created_at ||
+            ''
+        ) || 0;
+
+    if (rightTime !== leftTime) {
+        return rightTime - leftTime;
+    }
+
+    return sanitizeText(
+        right.source_document_id ||
+        right.id
+    ).localeCompare(
+        sanitizeText(
+            left.source_document_id ||
+            left.id
+        )
+    );
+}
 function normalizeTags(value = []) {
     const raw = Array.isArray(value)
         ? value
@@ -105,6 +424,13 @@ function normalizeBridge(input = {}) {
         authorId: sanitizeText(input.authorId || input.createdByUid || input.ownerUid || ''),
         authorEmail: sanitizeText(input.authorEmail || input.createdByEmail || '').toLowerCase(),
         authorName: sanitizeText(input.authorName || input.createdByName || 'YH Member'),
+        clientCreateId: sanitizeText(input.clientCreateId || ''),
+        stage: sanitizeText(input.stage || 'Bridge Path'),
+        nextStep: sanitizeText(
+            input.nextStep ||
+            'Review and decide the next structured move.'
+        ),
+        action: sanitizeText(input.action || 'Open Bridge Detail'),
         status: normalizeStatus(input.status || 'active'),
         reviewStatus: normalizeStatus(input.reviewStatus || input.status || 'active'),
         createdAt: toIso(input.createdAt) || now,
@@ -150,6 +476,11 @@ function normalizeRequest(input = {}) {
         authorName: sanitizeText(input.authorName || input.createdByName || 'YH Member'),
         assignedTo: sanitizeText(input.assignedTo || input.assigneeId || ''),
         targetUserId: sanitizeText(input.targetUserId || input.recipientId || ''),
+        clientRequestId: sanitizeText(input.clientRequestId || ''),
+        deletedAt: toIso(input.deletedAt),
+        deletedBy: sanitizeText(input.deletedBy || ''),
+        deletedByName: sanitizeText(input.deletedByName || ''),
+        deleteReason: sanitizeText(input.deleteReason || ''),
         status: normalizeStatus(input.status || 'open'),
         reviewStatus: normalizeStatus(input.reviewStatus || input.status || 'active'),
         createdAt: toIso(input.createdAt) || now,
@@ -179,10 +510,14 @@ function buildBridgeRow(input = {}) {
             slug: sanitizeText(data.slug),
             origin: sanitizeText(data.origin),
             destination: sanitizeText(data.destination),
-            category: sanitizeText(data.category)
+            category: sanitizeText(data.category),
+            stage: sanitizeText(data.stage),
+            nextStep: sanitizeText(data.nextStep),
+            action: sanitizeText(data.action)
         },
         private_meta: {
-            authorEmail: sanitizeText(data.authorEmail)
+            authorEmail: sanitizeText(data.authorEmail),
+            clientCreateId: sanitizeText(data.clientCreateId)
         },
         data,
         created_at_source: toIso(data.createdAt) || nowIso(),
@@ -218,7 +553,10 @@ function buildRequestRow(input = {}) {
             authorEmail: sanitizeText(data.authorEmail),
             authorFirebaseUid: sanitizeText(data.authorFirebaseUid),
             assignedTo: sanitizeText(data.assignedTo),
-            targetUserId: sanitizeText(data.targetUserId)
+            targetUserId: sanitizeText(data.targetUserId),
+            clientRequestId: sanitizeText(data.clientRequestId),
+            deletedAt: sanitizeText(data.deletedAt),
+            deletedBy: sanitizeText(data.deletedBy)
         },
         data,
         created_at_source: toIso(data.createdAt) || nowIso(),
@@ -239,8 +577,10 @@ async function getExisting(recordType = '', sourceDocumentId = '') {
 }
 
 async function upsertRecord(row = {}) {
-    const existing = await getExisting(row.record_type, row.source_document_id).catch(() => null);
-
+    const existing = await getExisting(
+        row.record_type,
+        row.source_document_id
+    );
     if (existing?.id) {
         const { data, error } = await yhuSupabaseAdmin
             .from(TABLE)
@@ -266,27 +606,69 @@ async function upsertRecord(row = {}) {
 function mapBridgeRow(row = {}) {
     const data = row.data && typeof row.data === 'object' ? row.data : {};
 
+    const origin = sanitizeText(
+        data.origin ||
+        row.public_meta?.origin ||
+        ''
+    );
+
+    const destination = sanitizeText(
+        data.destination ||
+        row.public_meta?.destination ||
+        ''
+    );
+
+    const description = sanitizeText(
+        data.description ||
+        row.body ||
+        ''
+    );
+
     return {
         id: sanitizeText(row.source_document_id || data.id || row.id),
         title: sanitizeText(data.title || row.title || 'Plaza bridge'),
         name: sanitizeText(data.name || row.public_meta?.name || data.title || row.title || 'Plaza bridge'),
         slug: sanitizeText(data.slug || row.public_meta?.slug || ''),
-        description: sanitizeText(data.description || row.body || ''),
+        description,
+        text: description,
         summary: sanitizeText(data.summary || row.summary || ''),
-        origin: sanitizeText(data.origin || row.public_meta?.origin || ''),
-        destination: sanitizeText(data.destination || row.public_meta?.destination || ''),
+        origin,
+        destination,
+        left: origin,
+        right: destination,
         region: sanitizeText(data.region || row.region || 'Global'),
         category: sanitizeText(data.category || row.category || 'bridge'),
+        stage: sanitizeText(
+            data.stage ||
+            row.public_meta?.stage ||
+            'Bridge Path'
+        ),
+        nextStep: sanitizeText(
+            data.nextStep ||
+            row.public_meta?.nextStep ||
+            'Review and decide the next structured move.'
+        ),
+        action: sanitizeText(
+            data.action ||
+            row.public_meta?.action ||
+            'Open Bridge Detail'
+        ),
         tags: safeArray(data.tags || row.tags),
         authorId: sanitizeText(data.authorId || row.owner_user_id || ''),
         authorEmail: sanitizeText(data.authorEmail || row.private_meta?.authorEmail || '').toLowerCase(),
         authorName: sanitizeText(data.authorName || 'YH Member'),
+        clientCreateId: sanitizeText(
+            data.clientCreateId ||
+            row.private_meta?.clientCreateId ||
+            ''
+        ),
         status: normalizeStatus(data.status || row.status),
         reviewStatus: normalizeStatus(data.reviewStatus || row.review_status),
         createdAt: toIso(data.createdAt || row.created_at_source || row.created_at),
         updatedAt: toIso(data.updatedAt || row.updated_at_source || row.updated_at)
     };
 }
+
 
 function mapRequestRow(row = {}) {
     const data = row.data && typeof row.data === 'object' ? row.data : {};
@@ -296,20 +678,75 @@ function mapRequestRow(row = {}) {
         title: sanitizeText(data.title || row.title || 'Plaza request'),
         subject: sanitizeText(data.subject || row.public_meta?.subject || data.title || row.title || ''),
         description: sanitizeText(data.description || row.body || ''),
+        message: sanitizeText(data.message || data.description || row.body || ''),
         summary: sanitizeText(data.summary || row.summary || ''),
+
         requestType: sanitizeText(data.requestType || row.public_meta?.requestType || row.category || 'general'),
+        objective: sanitizeText(data.objective || data.requestType || 'Connection request'),
+        sourceType: sanitizeText(data.sourceType || data.requestType || 'general'),
+        targetId: sanitizeText(data.targetId || ''),
+        targetLabel: sanitizeText(data.targetLabel || data.title || row.title || 'General Plaza request'),
+        context: sanitizeText(data.context || ''),
+        name: sanitizeText(data.name || data.authorName || row.public_meta?.authorName || 'YH Member'),
+
+        providerId: sanitizeText(data.providerId || ''),
+        providerName: sanitizeText(data.providerName || ''),
+        serviceCategory: sanitizeText(data.serviceCategory || ''),
+        serviceTags: safeArray(data.serviceTags),
+        serviceProviderType: sanitizeText(data.serviceProviderType || ''),
+        servicePriceType: sanitizeText(data.servicePriceType || ''),
+        serviceDeliveryTime: sanitizeText(data.serviceDeliveryTime || ''),
+        requestIntent: sanitizeText(data.requestIntent || ''),
+        requestPriority: sanitizeText(data.requestPriority || data.priority || 'normal'),
+
+        routeKey: sanitizeText(data.routeKey || data.sourceType || 'general'),
+        routeLabel: sanitizeText(data.routeLabel || data.targetLabel || data.title || row.title || ''),
+        matchingStatus: sanitizeText(data.matchingStatus || ''),
+        matchingPriority: sanitizeText(data.matchingPriority || ''),
+
+        routedToPatron: data.routedToPatron === true,
+        patronRouteStatus: sanitizeText(data.patronRouteStatus || ''),
+        patronRegionId: sanitizeText(data.patronRegionId || ''),
+        patronRegion: sanitizeText(data.patronRegion || ''),
+        patronUserId: sanitizeText(data.patronUserId || ''),
+        patronName: sanitizeText(data.patronName || ''),
+        patronRole: sanitizeText(data.patronRole || ''),
+        patronInboxRole: sanitizeText(data.patronInboxRole || ''),
+        patronHandledAt: toIso(data.patronHandledAt),
+        patronHandledBy: sanitizeText(data.patronHandledBy || ''),
+        patronActionNote: sanitizeText(data.patronActionNote || ''),
+
+        headline: sanitizeText(data.headline || ''),
+        experience: sanitizeText(data.experience || ''),
+        portfolioLink: sanitizeText(data.portfolioLink || ''),
+        attachmentMeta: safeArray(data.attachmentMeta),
+        matchedEntityLabels: safeArray(data.matchedEntityLabels),
+        decisionSummary: sanitizeText(data.decisionSummary || ''),
+        resolutionSummary: sanitizeText(data.resolutionSummary || ''),
+        statusHistory: safeArray(data.statusHistory),
+
         priority: sanitizeText(data.priority || row.public_meta?.priority || 'normal'),
         region: sanitizeText(data.region || row.region || 'Global'),
         category: sanitizeText(data.category || row.category || 'request'),
         tags: safeArray(data.tags || row.tags),
+
         authorId: sanitizeText(data.authorId || row.owner_user_id || ''),
         authorFirebaseUid: sanitizeText(data.authorFirebaseUid || row.private_meta?.authorFirebaseUid || ''),
         authorEmail: sanitizeText(data.authorEmail || row.private_meta?.authorEmail || '').toLowerCase(),
         authorName: sanitizeText(data.authorName || row.public_meta?.authorName || 'YH Member'),
         assignedTo: sanitizeText(data.assignedTo || row.private_meta?.assignedTo || ''),
         targetUserId: sanitizeText(data.targetUserId || row.private_meta?.targetUserId || row.target_user_id || ''),
+        clientRequestId: sanitizeText(data.clientRequestId || row.private_meta?.clientRequestId || ''),
+
         status: normalizeStatus(data.status || row.status || 'open'),
         reviewStatus: normalizeStatus(data.reviewStatus || row.review_status || 'active'),
+        resolvedAt: toIso(data.resolvedAt || ''),
+        deletedAt: toIso(data.deletedAt || row.private_meta?.deletedAt || ''),
+        deletedBy: sanitizeText(data.deletedBy || row.private_meta?.deletedBy || ''),
+        deletedByName: sanitizeText(data.deletedByName || ''),
+        deleteReason: sanitizeText(data.deleteReason || ''),
+        updatedBy: sanitizeText(data.updatedBy || ''),
+        updatedByName: sanitizeText(data.updatedByName || ''),
         createdAt: toIso(data.createdAt || row.created_at_source || row.created_at),
         updatedAt: toIso(data.updatedAt || row.updated_at_source || row.updated_at)
     };
@@ -333,46 +770,556 @@ async function importRequest(id = '', payload = {}) {
     return mapRequestRow(await upsertRecord(row));
 }
 
+async function resolveExistingBridgeCreate(
+    existing = null,
+    ownerUserId = ''
+) {
+    if (!existing) return null;
+
+    const current = mapBridgeRow(
+        existing
+    );
+
+    if (
+        sanitizeText(
+            current.authorId
+        ) !==
+        sanitizeText(ownerUserId)
+    ) {
+        throw plazaBridgeHttpError(
+            'Bridge idempotency key belongs to another user.',
+            409
+        );
+    }
+
+    return {
+        created: false,
+        duplicate: true,
+        bridge: current
+    };
+}
+
 async function createBridge(payload = {}) {
-    return importBridge(payload.id || payload.slug || buildId('plaza_bridge'), payload);
+    const ownerUserId = sanitizeText(
+        payload.authorId
+    );
+
+    const clientCreateId = sanitizeText(
+        payload.clientCreateId
+    ).slice(0, 180);
+
+    const bridgeId =
+        buildDeterministicBridgeId(
+            ownerUserId,
+            clientCreateId
+        );
+
+    const existing = await getExisting(
+        'bridge_path',
+        bridgeId
+    );
+
+    const existingResult =
+        await resolveExistingBridgeCreate(
+            existing,
+            ownerUserId
+        );
+
+    if (existingResult) {
+        return existingResult;
+    }
+
+    const row = buildBridgeRow({
+        ...payload,
+        id: bridgeId,
+        clientCreateId,
+        authorId: ownerUserId
+    });
+
+    const {
+        data,
+        error
+    } = await yhuSupabaseAdmin
+        .from(TABLE)
+        .insert(row)
+        .select('*')
+        .single();
+
+    if (error) {
+        if (
+            error.code === '23505' ||
+            /duplicate|unique/i.test(
+                error.message ||
+                ''
+            )
+        ) {
+            const duplicate =
+                await getExisting(
+                    'bridge_path',
+                    bridgeId
+                );
+
+            const duplicateResult =
+                await resolveExistingBridgeCreate(
+                    duplicate,
+                    ownerUserId
+                );
+
+            if (duplicateResult) {
+                return duplicateResult;
+            }
+        }
+
+        throw new Error(
+            'Plaza bridge insert failed: ' +
+            error.message
+        );
+    }
+
+    return {
+        created: true,
+        duplicate: false,
+        bridge: mapBridgeRow(data)
+    };
+}
+
+async function resolveExistingRequestCreate(
+    existing = null,
+    payload = {},
+    context = {}
+) {
+    if (!existing) return null;
+
+    const ownerUserId = sanitizeText(
+        context.ownerUserId
+    );
+
+    const clientRequestId = sanitizeText(
+        context.clientRequestId
+    );
+
+    const requestId = sanitizeText(
+        context.requestId
+    );
+
+    const current = mapRequestRow(existing);
+
+    if (
+        sanitizeText(
+            current.authorId ||
+            current.authorFirebaseUid
+        ) !== ownerUserId
+    ) {
+        throw plazaRequestHttpError(
+            'Request idempotency key belongs to another user.',
+            409
+        );
+    }
+
+    const incomingStatus = normalizeStatus(
+        payload.status || 'submitted'
+    );
+
+    if (
+        current.status === 'draft' &&
+        incomingStatus === 'submitted'
+    ) {
+        const promoted = await updateRequest(
+            requestId,
+            {
+                ...payload,
+                id: requestId,
+                clientRequestId,
+                createdAt: current.createdAt,
+                status: 'Submitted'
+            },
+            {
+                expectedUpdatedAt: current.updatedAt
+            }
+        );
+
+        return {
+            created: false,
+            duplicate: true,
+            promoted: true,
+            request: promoted
+        };
+    }
+
+    return {
+        created: false,
+        duplicate: true,
+        promoted: false,
+        request: current
+    };
 }
 
 async function createRequest(payload = {}) {
-    return importRequest(payload.id || buildId('plaza_request'), payload);
+    const ownerUserId = sanitizeText(
+        payload.authorId ||
+        payload.authorFirebaseUid
+    );
+
+    const clientRequestId = sanitizeText(
+        payload.clientRequestId
+    ).slice(0, 180);
+
+    const requestId = buildDeterministicRequestId(
+        ownerUserId,
+        clientRequestId
+    );
+
+    const existing = await getExisting(
+        'request',
+        requestId
+    );
+
+    const existingResult =
+        await resolveExistingRequestCreate(
+            existing,
+            payload,
+            {
+                requestId,
+                ownerUserId,
+                clientRequestId
+            }
+        );
+
+    if (existingResult) {
+        return existingResult;
+    }
+
+    const row = buildRequestRow({
+        ...payload,
+        id: requestId,
+        clientRequestId,
+        authorId: ownerUserId
+    });
+
+    const {
+        data,
+        error
+    } = await yhuSupabaseAdmin
+        .from(TABLE)
+        .insert(row)
+        .select('*')
+        .single();
+
+    if (error) {
+        if (
+            error.code === '23505' ||
+            /duplicate|unique/i.test(
+                error.message || ''
+            )
+        ) {
+            const duplicate = await getExisting(
+                'request',
+                requestId
+            );
+
+            const duplicateResult =
+                await resolveExistingRequestCreate(
+                    duplicate,
+                    payload,
+                    {
+                        requestId,
+                        ownerUserId,
+                        clientRequestId
+                    }
+                );
+
+            if (duplicateResult) {
+                return duplicateResult;
+            }
+        }
+
+        throw new Error(
+            'Plaza request insert failed: ' +
+            error.message
+        );
+    }
+
+    return {
+        created: true,
+        duplicate: false,
+        promoted: false,
+        request: mapRequestRow(data)
+    };
 }
 
-async function listBridge(limit = 80) {
-    const safeLimit = Math.max(1, Math.min(Number(limit || 80), 160));
+async function listBridge(options = {}) {
+    const limit = typeof options === 'number'
+        ? options
+        : options.limit;
 
-    const { data, error } = await yhuSupabaseAdmin
+    const safeLimit = Math.max(
+        1,
+        Math.min(
+            Number(limit || 80),
+            160
+        )
+    );
+
+    const cursor =
+        decodeBridgeRequestCursor(
+            typeof options === 'number'
+                ? ''
+                : options.cursor,
+            'bridge'
+        );
+
+    let query = yhuSupabaseAdmin
         .from(TABLE)
         .select('*')
-        .eq('record_type', 'bridge_path')
-        .order('updated_at_source', { ascending: false, nullsFirst: false })
-        .limit(safeLimit);
+        .eq(
+            'record_type',
+            'bridge_path'
+        )
+        .in(
+            'status',
+            PLAZA_PUBLISHED_STATUSES
+        )
+        .in(
+            'review_status',
+            PLAZA_PUBLISHED_STATUSES
+        )
+        .order(
+            'updated_at_source',
+            {
+                ascending: false,
+                nullsFirst: false
+            }
+        )
+        .order(
+            'source_document_id',
+            {
+                ascending: false
+            }
+        );
 
-    if (error) throw new Error('Plaza bridge list failed: ' + error.message);
+    query =
+        applyDescendingBridgeRequestCursor(
+            query,
+            'updated_at_source',
+            cursor
+        );
 
-    return (Array.isArray(data) ? data : [])
-        .map(mapBridgeRow)
-        .filter((item) => isReadableStatus(item.status || item.reviewStatus || 'active'));
+    const {
+        data,
+        error
+    } = await query.limit(
+        safeLimit + 1
+    );
+
+    if (error) {
+        throw new Error(
+            'Plaza bridge list failed: ' +
+            error.message
+        );
+    }
+
+    return buildBridgeRequestPage(
+        data,
+        {
+            limit: safeLimit,
+            kind: 'bridge',
+            column:
+                'updated_at_source',
+            mapRow:
+                mapBridgeRow
+        }
+    );
 }
 
-async function listRequests(limit = 100) {
-    const safeLimit = Math.max(1, Math.min(Number(limit || 100), 200));
+async function listRequests(options = {}) {
+    const viewerId = sanitizeText(
+        typeof options === 'number'
+            ? ''
+            : options.viewerId
+    );
 
-    const { data, error } = await yhuSupabaseAdmin
-        .from(TABLE)
-        .select('*')
-        .eq('record_type', 'request')
-        .order('created_at_source', { ascending: false, nullsFirst: false })
-        .limit(safeLimit);
+    const limit = typeof options === 'number'
+        ? options
+        : options.limit;
 
-    if (error) throw new Error('Plaza requests list failed: ' + error.message);
+    const safeLimit = Math.max(
+        1,
+        Math.min(
+            Number(limit || 100),
+            200
+        )
+    );
 
-    return (Array.isArray(data) ? data : [])
-        .map(mapRequestRow)
-        .filter((item) => isReadableStatus(item.status || item.reviewStatus || 'active'));
+    const cursor =
+        decodeBridgeRequestCursor(
+            typeof options === 'number'
+                ? ''
+                : options.cursor,
+            'requests'
+        );
+
+    if (!viewerId) {
+        throw plazaListHttpError(
+            'Plaza request viewer is required.',
+            400
+        );
+    }
+
+    const makeQuery = () => {
+        let query = yhuSupabaseAdmin
+            .from(TABLE)
+            .select('*')
+            .eq(
+                'record_type',
+                'request'
+            )
+            .not(
+                'status',
+                'in',
+                `(${PLAZA_HIDDEN_STATUSES.join(',')})`
+            )
+            .order(
+                'updated_at_source',
+                {
+                    ascending: false,
+                    nullsFirst: false
+                }
+            )
+            .order(
+                'source_document_id',
+                {
+                    ascending: false
+                }
+            );
+
+        query =
+            applyDescendingBridgeRequestCursor(
+                query,
+                'updated_at_source',
+                cursor
+            );
+
+        return query.limit(
+            safeLimit + 1
+        );
+    };
+
+    const results = await Promise.all([
+        makeQuery()
+            .eq(
+                'owner_user_id',
+                viewerId
+            ),
+
+        makeQuery()
+            .eq(
+                'target_user_id',
+                viewerId
+            ),
+
+        makeQuery()
+            .contains(
+                'data',
+                {
+                    assignedTo:
+                        viewerId
+                }
+            ),
+
+        makeQuery()
+            .contains(
+                'data',
+                {
+                    targetUserId:
+                        viewerId
+                }
+            ),
+
+        makeQuery()
+            .contains(
+                'data',
+                {
+                    patronUserId:
+                        viewerId
+                }
+            )
+    ]);
+
+    const failed = results.find(
+        (result) =>
+            result.error
+    );
+
+    if (failed?.error) {
+        throw new Error(
+            'Plaza requests list failed: ' +
+            failed.error.message
+        );
+    }
+
+    const rowsById = new Map();
+
+    results.forEach((result) => {
+        (
+            Array.isArray(result.data)
+                ? result.data
+                : []
+        ).forEach((row) => {
+            const id = sanitizeText(
+                row.source_document_id ||
+                row.id
+            );
+
+            if (!id) return;
+
+            const existing =
+                rowsById.get(id);
+
+            if (
+                !existing ||
+                comparePlazaRowsDescending(
+                    row,
+                    existing,
+                    'updated_at_source'
+                ) <= 0
+            ) {
+                rowsById.set(
+                    id,
+                    row
+                );
+            }
+        });
+    });
+
+    const rows = Array.from(
+        rowsById.values()
+    )
+        .filter((row) =>
+            isReadableStatus(
+                row.status ||
+                row.review_status ||
+                'active'
+            )
+        )
+        .sort((left, right) =>
+            comparePlazaRowsDescending(
+                left,
+                right,
+                'updated_at_source'
+            )
+        );
+
+    return buildBridgeRequestPage(
+        rows,
+        {
+            limit: safeLimit,
+            kind: 'requests',
+            column:
+                'updated_at_source',
+            mapRow:
+                mapRequestRow
+        }
+    );
 }
 
 async function getRequestById(id = '') {
@@ -392,28 +1339,184 @@ async function getRequestById(id = '') {
     return data ? mapRequestRow(data) : null;
 }
 
-async function updateRequest(id = '', patch = {}) {
-    const existing = await getExisting('request', id);
+async function updateRequest(
+    id = '',
+    patch = {},
+    options = {}
+) {
+    const cleanId = sanitizeText(id);
+    const expectedUpdatedAt = toIso(
+        options.expectedUpdatedAt ||
+        patch.expectedUpdatedAt
+    );
 
-    if (!existing) {
-        throw new Error('Plaza request not found.');
+    if (!cleanId) {
+        throw plazaRequestHttpError(
+            'Plaza request id is required.',
+            400
+        );
     }
 
-    const current = existing.data && typeof existing.data === 'object' ? existing.data : {};
-    const nextData = {
-        ...current,
-        ...patch,
-        id: sanitizeText(id),
-        updatedAt: nowIso()
+    if (!expectedUpdatedAt) {
+        throw plazaRequestHttpError(
+            'Request version is required. Reload and retry.',
+            428
+        );
+    }
+
+    const existing = await getExisting(
+        'request',
+        cleanId
+    );
+
+    if (!existing) {
+        throw plazaRequestHttpError(
+            'Plaza request not found.',
+            404
+        );
+    }
+
+    const current =
+        existing.data &&
+        typeof existing.data === 'object'
+            ? existing.data
+            : {};
+
+    const currentUpdatedAt = toIso(
+        current.updatedAt ||
+        existing.updated_at_source ||
+        existing.updated_at
+    );
+
+    if (
+        currentUpdatedAt !==
+        expectedUpdatedAt
+    ) {
+        throw plazaRequestHttpError(
+            'This Plaza request changed in another session. Reload and retry.',
+            409
+        );
+    }
+
+    if (
+        normalizeStatus(
+            current.status ||
+            existing.status
+        ) === 'deleted'
+    ) {
+        throw plazaRequestHttpError(
+            'This Plaza request has already been deleted.',
+            410
+        );
+    }
+
+    const safePatch = {
+        ...patch
     };
 
-    return importRequest(id, nextData);
+    delete safePatch.expectedUpdatedAt;
+
+    const nextUpdatedAt = nowIso();
+
+    const nextData = {
+        ...current,
+        ...safePatch,
+        id: cleanId,
+        createdAt:
+            toIso(current.createdAt) ||
+            toIso(existing.created_at_source) ||
+            nextUpdatedAt,
+        updatedAt:
+            nextUpdatedAt
+    };
+
+    const row = buildRequestRow(
+        nextData
+    );
+
+    const {
+        data,
+        error
+    } = await yhuSupabaseAdmin
+        .from(TABLE)
+        .update(row)
+        .eq('id', existing.id)
+        .eq('record_type', 'request')
+        .eq('source_document_id', cleanId)
+        .eq(
+            'updated_at_source',
+            expectedUpdatedAt
+        )
+        .select('*')
+        .maybeSingle();
+
+    if (error) {
+        throw new Error(
+            'Plaza request update failed: ' +
+            error.message
+        );
+    }
+
+    if (!data) {
+        throw plazaRequestHttpError(
+            'This Plaza request changed in another session. Reload and retry.',
+            409
+        );
+    }
+
+    return mapRequestRow(data);
 }
 
-async function advanceRequestStatus(id = '', status = '') {
-    return updateRequest(id, {
-        status: sanitizeText(status || 'open')
-    });
+async function advanceRequestStatus(
+    id = '',
+    status = '',
+    options = {}
+) {
+    return updateRequest(
+        id,
+        {
+            status: sanitizeText(
+                status || 'open'
+            )
+        },
+        options
+    );
+}
+
+async function softDeleteRequest(
+    id = '',
+    options = {}
+) {
+    const deletedAt = nowIso();
+
+    return updateRequest(
+        id,
+        {
+            status: 'deleted',
+            reviewStatus: 'deleted',
+            deletedAt,
+            deletedBy: sanitizeText(
+                options.deletedBy
+            ),
+            deletedByName: sanitizeText(
+                options.deletedByName
+            ),
+            deleteReason: sanitizeText(
+                options.deleteReason ||
+                'Deleted by request owner.'
+            ),
+            updatedBy: sanitizeText(
+                options.deletedBy
+            ),
+            updatedByName: sanitizeText(
+                options.deletedByName
+            )
+        },
+        {
+            expectedUpdatedAt:
+                options.expectedUpdatedAt
+        }
+    );
 }
 
 async function deleteRecord(recordType = '', id = '') {
@@ -444,6 +1547,7 @@ module.exports = {
     getRequestById,
     updateRequest,
     advanceRequestStatus,
+    softDeleteRequest,
     deleteRecord,
     mapBridgeRow,
     mapRequestRow
