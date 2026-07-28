@@ -5681,6 +5681,29 @@ async function awardAcademySquadXpV1(
 
 /* END PATCH: Automatic Squad Mission action hooks v1 */
 
+/* PATCH: Verification-safe Academy mission XP guard v1 */
+function isAcademyMissionVerifiedCompletedV1(
+    mission = {}
+) {
+    const status =
+        sanitize(
+            mission.status || ''
+        ).toLowerCase();
+
+    const verificationDecision =
+        sanitize(
+            mission.verificationDecision ||
+            mission.verificationStatus ||
+            ''
+        ).toLowerCase();
+
+    return (
+        status === 'completed' &&
+        verificationDecision === 'approved'
+    );
+}
+/* END PATCH: Verification-safe Academy mission XP guard v1 */
+
 async function awardAcademyMissionXpV1(
     uid = '',
     mission = {}
@@ -5691,6 +5714,24 @@ async function awardAcademyMissionXpV1(
         return {
             xpAwarded: 0,
             created: false
+        };
+    }
+
+    if (
+        !isAcademyMissionVerifiedCompletedV1(
+            mission
+        )
+    ) {
+        return {
+            xpAwarded: 0,
+            created: false,
+            reason:
+                'mission_not_verified_approved',
+            squadXp: {
+                created: false,
+                awarded: 0
+            },
+            squadMissionProgress: null
         };
     }
 
@@ -5713,7 +5754,19 @@ async function awardAcademyMissionXpV1(
                     ),
                     difficultyLevel: sanitize(
                         mission.difficultyLevel || ''
-                    )
+                    ),
+                    verificationDecision:
+                        'approved',
+                    verificationStatus:
+                        sanitize(
+                            mission.verificationStatus ||
+                            'approved'
+                        ),
+                    verificationProvider:
+                        sanitize(
+                            mission.verificationProvider ||
+                            ''
+                        )
                 }
             });
 
@@ -6264,10 +6317,15 @@ exports.saveMissionJournal = async (req, res) => {
             });
         }
 
-        if (sanitize(mission.status).toLowerCase() === 'completed') {
+        if (
+            isAcademyMissionVerifiedCompletedV1(
+                mission
+            )
+        ) {
             return res.status(409).json({
                 success: false,
-                message: 'Completed mission notes are locked.'
+                message:
+                    'Verified completed mission notes are locked.'
             });
         }
 
@@ -6376,7 +6434,11 @@ exports.completeMission = async (req, res) => {
             });
         }
 
-        if (sanitize(mission.status).toLowerCase() === 'completed') {
+        if (
+            isAcademyMissionVerifiedCompletedV1(
+                mission
+            )
+        ) {
             const progression = await syncAcademyProgressionAfterActionV1(
                 uid,
                 access.userData || {}
@@ -6637,6 +6699,14 @@ exports.completeMission = async (req, res) => {
         const completionTransitioned =
             completionResult?.transitioned === true;
 
+        const verificationTransitioned =
+            completionResult?.verificationTransitioned ===
+            true;
+
+        const rewardTransitioned =
+            completionTransitioned ||
+            verificationTransitioned;
+
         if (completionTransitioned) {
             const missionCompletedAt = completedMission?.completedAt;
             const missionCreatedAt =
@@ -6722,10 +6792,11 @@ exports.completeMission = async (req, res) => {
         let soloModeEvent = {
             created: false,
             skipped: true,
-            reason: 'mission_not_transitioned'
+            reason:
+                'mission_not_verified_transitioned'
         };
 
-        if (completionTransitioned) {
+        if (rewardTransitioned) {
             try {
                 soloModeEvent =
                     await academyFirestoreRepo
@@ -6752,7 +6823,7 @@ exports.completeMission = async (req, res) => {
         }
 
         const missionXpResult =
-            completionTransitioned
+            rewardTransitioned
                 ? await awardAcademyMissionXpV1(
                     uid,
                     completedMission || mission
@@ -6913,10 +6984,15 @@ exports.updateMissionStatus = async (req, res) => {
             });
         }
 
-        if (sanitize(mission.status).toLowerCase() === 'completed') {
+        if (
+            isAcademyMissionVerifiedCompletedV1(
+                mission
+            )
+        ) {
             return res.status(409).json({
                 success: false,
-                message: 'A verified completed mission cannot be reopened from this action.'
+                message:
+                    'A verified completed mission cannot be reopened from this action.'
             });
         }
 
@@ -7087,133 +7163,6 @@ exports.updateMissionStatus = async (req, res) => {
     }
 };
 
-exports.submitCheckin = async (req, res) => {
-    try {
-        const uid = getAcademyAuthUid(req);
-
-        if (!uid) {
-            return res.status(401).json({ success: false, message: 'Unauthorized.' });
-        }
-
-        const access = await requireApprovedRoadmapAccess(uid, res);
-        if (!access) return;
-
-        const activeRoadmap = await academyFirestoreRepo.getActiveRoadmap(uid);
-
-        if (!activeRoadmap) {
-            return res.status(404).json({
-                success: false,
-                message: 'No active roadmap found for check-in.'
-            });
-        }
-
-        const energyScore = clamp(toInt(req.body.energyScore, 0), 0, 10);
-        const moodScore = clamp(toInt(req.body.moodScore, 0), 0, 10);
-        const disciplineScore = clamp(toInt(req.body.disciplineScore, 0), 0, 10);
-        const completedToday = req.body.completedToday === true || sanitize(req.body.completedToday).toLowerCase() === 'true';
-        const avoidanceCategory = sanitize(req.body.avoidanceCategory || '');
-        const avoidanceNote = sanitize(req.body.avoidanceNote || '');
-        const reflectionText = sanitize(req.body.reflectionText || '');
-        const correctionForTomorrow = sanitize(req.body.correctionForTomorrow || '');
-        const completedSummary = sanitize(req.body.completedSummary || '');
-        const blockerText = sanitize(req.body.blockerText || '');
-        const tomorrowFocus = sanitize(req.body.tomorrowFocus || '');
-        const badHabitAvoided =
-            req.body.badHabitAvoided === true ||
-            sanitize(req.body.badHabitAvoided).toLowerCase() === 'true' ||
-            Boolean(avoidanceCategory || avoidanceNote);
-        const checkinDate = sanitize(req.body.checkinDate || new Date().toISOString().slice(0, 10));
-        const rawMissionSignals = req.body?.missionSignals && typeof req.body.missionSignals === 'object'
-            ? req.body.missionSignals
-            : {};
-        const missionSignals = {
-            total: Math.max(0, toInt(rawMissionSignals.total, 0)),
-            completed: Math.max(0, toInt(rawMissionSignals.completed, 0)),
-            pending: Math.max(0, toInt(rawMissionSignals.pending, 0)),
-            skipped: Math.max(0, toInt(rawMissionSignals.skipped, 0)),
-            stuck: Math.max(0, toInt(rawMissionSignals.stuck, 0))
-        };
-
-        await academyFirestoreRepo.createCheckin(uid, activeRoadmap.id, {
-            energyScore,
-            moodScore,
-            disciplineScore,
-            completedToday,
-            badHabitAvoided,
-            avoidanceCategory,
-            avoidanceNote,
-            reflectionText,
-            correctionForTomorrow,
-            completedSummary,
-            blockerText,
-            tomorrowFocus,
-            checkinDate,
-            aiFeedback: {
-                type: 'daily_checkin',
-                missionSignals
-            }
-        });
-
-        const completedMissionIds = Array.isArray(req.body?.completedMissionIds)
-            ? req.body.completedMissionIds
-            : [];
-
-        const skippedMissionIds = Array.isArray(req.body?.skippedMissionIds)
-            ? req.body.skippedMissionIds
-            : [];
-
-        const stuckMissionIds = Array.isArray(req.body?.stuckMissionIds)
-            ? req.body.stuckMissionIds
-            : [];
-
-        for (const missionId of completedMissionIds) {
-            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
-                userDifficultyScore: clamp(toInt(req.body?.difficultyToday, 0), 0, 10),
-                userUsefulnessScore: clamp(toInt(req.body?.usefulnessToday, 0), 0, 10)
-            });
-        }
-
-        for (const missionId of skippedMissionIds) {
-            const mission = await academyFirestoreRepo.getMissionById(uid, missionId);
-            const existingSkipCount = toInt(mission?.outcomeMetrics?.skipCount, 0);
-
-            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
-                skipCount: existingSkipCount + 1,
-                lastSkipReasonCategory: sanitize(req.body?.skipReasonCategory || 'time_overload')
-            });
-        }
-
-        for (const missionId of stuckMissionIds) {
-            const mission = await academyFirestoreRepo.getMissionById(uid, missionId);
-            const existingStuckCount = toInt(mission?.outcomeMetrics?.stuckCount, 0);
-
-            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
-                stuckCount: existingStuckCount + 1
-            });
-        }
-
-        const behaviorState = await refreshBehaviorState(uid);
-        const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, activeRoadmap.id);
-
-        return res.json({
-            success: true,
-            message: 'Check-in saved.',
-            behaviorProfile: behaviorState.behaviorProfile,
-            previousBehaviorProfile: behaviorState.previousBehaviorProfile,
-            plannerStats: behaviorState.plannerStats,
-            adaptivePlanning: homePayload?.adaptivePlanning || {},
-            foundationMissions: homePayload?.foundationMissions || [],
-            transformationSystem: homePayload?.transformationSystem || {},
-            recentCheckins: homePayload?.recentCheckins || []
-        });
-    } catch (error) {
-        console.error('Submit Check-in Error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while saving check-in.'
-        });
-    }
-};
 exports.submitMembershipApplication = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
@@ -10120,9 +10069,25 @@ exports.submitCheckin = async (req, res) => {
 
         const energyScore = clamp(toInt(req.body.energyScore, 0), 0, 10);
         const moodScore = clamp(toInt(req.body.moodScore, 0), 0, 10);
+        const disciplineScore = clamp(toInt(req.body.disciplineScore, 0), 0, 10);
+        const completedToday =
+            req.body.completedToday === true ||
+            sanitize(req.body.completedToday).toLowerCase() === 'true';
+        const avoidanceCategory = sanitize(req.body.avoidanceCategory || '');
+        const avoidanceNote = sanitize(req.body.avoidanceNote || '');
+        const reflectionText = sanitize(req.body.reflectionText || '');
+        const correctionForTomorrow = sanitize(req.body.correctionForTomorrow || '');
         const completedSummary = sanitize(req.body.completedSummary || '');
         const blockerText = sanitize(req.body.blockerText || '');
         const tomorrowFocus = sanitize(req.body.tomorrowFocus || '');
+        const badHabitAvoided =
+            req.body.badHabitAvoided === true ||
+            sanitize(req.body.badHabitAvoided).toLowerCase() === 'true' ||
+            Boolean(avoidanceCategory || avoidanceNote);
+        const checkinDate = sanitize(
+            req.body.checkinDate ||
+            new Date().toISOString().slice(0, 10)
+        );
         const rawMissionSignals = req.body?.missionSignals && typeof req.body.missionSignals === 'object'
             ? req.body.missionSignals
             : {};
@@ -10134,27 +10099,30 @@ exports.submitCheckin = async (req, res) => {
             stuck: Math.max(0, toInt(rawMissionSignals.stuck, 0))
         };
 
-const savedCheckin =
-    await academyFirestoreRepo.createCheckin(
-        uid,
-        activeRoadmap.id,
-        {
-            energyScore,
-            moodScore,
-            completedSummary,
-            blockerText,
-            tomorrowFocus,
-            checkinDate:
-                sanitize(
-                    req.body.checkinDate ||
-                    new Date().toISOString().slice(0, 10)
-                ),
-            aiFeedback: {
-                type: 'daily_checkin',
-                missionSignals
-            }
-        }
-    );
+        const savedCheckin =
+            await academyFirestoreRepo.createCheckin(
+                uid,
+                activeRoadmap.id,
+                {
+                    energyScore,
+                    moodScore,
+                    disciplineScore,
+                    completedToday,
+                    badHabitAvoided,
+                    avoidanceCategory,
+                    avoidanceNote,
+                    reflectionText,
+                    correctionForTomorrow,
+                    completedSummary,
+                    blockerText,
+                    tomorrowFocus,
+                    checkinDate,
+                    aiFeedback: {
+                        type: 'daily_checkin',
+                        missionSignals
+                    }
+                }
+            );
 
         const completedMissionIds = Array.isArray(req.body?.completedMissionIds)
             ? req.body.completedMissionIds
@@ -10228,13 +10196,10 @@ const checkinXpResult =
         uid,
         savedCheckin || {
             roadmapId: activeRoadmap.id,
-            checkinDate:
-                sanitize(
-                    req.body.checkinDate ||
-                    new Date().toISOString().slice(0, 10)
-                ),
+            checkinDate,
             energyScore,
-            moodScore
+            moodScore,
+            disciplineScore
         }
     );
 
@@ -10253,46 +10218,33 @@ const homePayload =
         activeRoadmap.id
     );
 
-return res.json({
+        return res.json({
             success: true,
             message: 'Check-in saved.',
+            checkin: savedCheckin,
             behaviorProfile: behaviorState.behaviorProfile,
             previousBehaviorProfile: behaviorState.previousBehaviorProfile,
             plannerStats: behaviorState.plannerStats,
-    adaptivePlanning: homePayload?.adaptivePlanning || {},
-
-    xp: {
-        awarded:
-            checkinXpResult.xpAwarded,
-
-        eventCreated:
-            checkinXpResult.created,
-
-        eventType:
-            'daily_checkin'
-    },
-
-    squadXp:
-        checkinXpResult.squadXp ||
-        {
-            created: false,
-            awarded: 0
-        },
-
-    squadMissionProgress: {
-        action:
-            checkinXpResult
-                .squadMissionProgress ||
-            null,
-
-        squadXp:
-            checkinXpResult
-                .squadXp
-                ?.squadMissionProgress ||
-            null
-    },
-
-    progression
+            adaptivePlanning: homePayload?.adaptivePlanning || {},
+            foundationMissions: homePayload?.foundationMissions || [],
+            transformationSystem: homePayload?.transformationSystem || {},
+            recentCheckins: homePayload?.recentCheckins || [],
+            xp: {
+                awarded: checkinXpResult.xpAwarded,
+                eventCreated: checkinXpResult.created,
+                eventType: 'daily_checkin'
+            },
+            squadXp: checkinXpResult.squadXp || {
+                created: false,
+                awarded: 0
+            },
+            squadMissionProgress: {
+                action: checkinXpResult.squadMissionProgress || null,
+                squadXp:
+                    checkinXpResult.squadXp?.squadMissionProgress ||
+                    null
+            },
+            progression
         });
     } catch (error) {
         console.error('Submit Check-in Error:', error);
@@ -13488,150 +13440,536 @@ function getAcademyLeadMergedSource(supabaseItems = [], firestoreItems = []) {
 }
 /* END PATCH: Academy Lead Supabase read merge helpers */
 
-async function listAcademyLeadMissionsSupabasePrimary(uid = '') {
-    try {
-        const [supabaseItems, firestoreItems] = await Promise.all([
-            listAcademyLeadSupabaseReadRecords('lead_mission', uid),
-            academyFirestoreRepo.listLeadMissionLeads(uid).catch((error) => {
-                console.error('Academy lead Firestore merge read failed:', error?.message || error);
-                return [];
-            })
-        ]);
+function mergeAcademyCanonicalLeadRowsV1(
+    searchMirrorItems = [],
+    canonicalItems = []
+) {
+    const merged =
+        new Map();
 
-        const items = mergeAcademyLeadReadItems(supabaseItems, firestoreItems);
+    (
+        Array.isArray(
+            searchMirrorItems
+        )
+            ? searchMirrorItems
+            : []
+    ).forEach((item, index) => {
+        const key =
+            getAcademyLeadReadMergeKey(
+                item,
+                `search-mirror-${index}`
+            );
 
-        return {
-            source: getAcademyLeadMergedSource(supabaseItems, firestoreItems),
-            items,
-            counts: {
-                supabase: supabaseItems.length,
-                firestore: Array.isArray(firestoreItems) ? firestoreItems.length : 0,
-                merged: items.length
+        if (!key) return;
+
+        merged.set(
+            key,
+            {
+                ...(
+                    item &&
+                    typeof item ===
+                        'object'
+                        ? item
+                        : {}
+                ),
+
+                sourceDatabase:
+                    'supabase-search-mirror'
             }
+        );
+    });
+
+    (
+        Array.isArray(
+            canonicalItems
+        )
+            ? canonicalItems
+            : []
+    ).forEach((item, index) => {
+        const key =
+            getAcademyLeadReadMergeKey(
+                item,
+                `canonical-${index}`
+            );
+
+        if (!key) return;
+
+        const mirrorItem =
+            merged.get(key) ||
+            {};
+
+        const canonicalItem =
+            item &&
+            typeof item ===
+                'object'
+                ? item
+                : {};
+
+        const next = {
+            ...mirrorItem,
+            ...canonicalItem,
+
+            sourceDatabase:
+                'supabase-primary'
         };
-    } catch (error) {
-        console.error('Academy lead missions Supabase read failed; using Firestore fallback:', error?.message || error);
 
-        return {
-            source: 'firestore-fallback',
-            items: await academyFirestoreRepo.listLeadMissionLeads(uid)
-        };
-    }
-}async function getAcademyLeadMissionByIdSupabasePrimary(uid = '', leadId = '') {
-    try {
-        const sourceDocumentPath = `users/${uid}/academyLeadMissions/${leadId}`;
+        /*
+         * These admin-routing fields may still exist
+         * only in the searchable Supabase compatibility
+         * record until that record is promoted into the
+         * canonical core table.
+         */
+        [
+            'assignmentStatus',
+            'reviewStatus',
+            'completionProof',
+            'submittedAt',
+            'submittedByUid',
+            'submittedByName',
+            'sourceDivision',
+            'sourceFeature',
+            'sourceRecordId',
+            'routedSourceTitle',
+            'missionBrief',
+            'missionType',
+            'academyMissionNeed',
+            'assignedByAdmin',
+            'assignedAt'
+        ].forEach((field) => {
+            const canonicalValue =
+                academyLeadDualSyncText(
+                    canonicalItem[field]
+                );
 
-        const [record, firestoreItem] = await Promise.all([
-            academyLeadSupabaseRepo.getAcademyLeadRecord('lead_mission', sourceDocumentPath),
-            academyFirestoreRepo.getLeadMissionLeadById(uid, leadId).catch((error) => {
-                console.error('Academy lead Firestore detail merge read failed:', error?.message || error);
-                return null;
-            })
-        ]);
+            const mirrorValue =
+                academyLeadDualSyncText(
+                    mirrorItem[field]
+                );
 
-        if (record || firestoreItem) {
-            const supabaseItem = record
-                ? mapAcademyLeadSupabaseRecordToControllerPayload(record)
-                : null;
+            if (
+                !canonicalValue &&
+                mirrorValue
+            ) {
+                next[field] =
+                    mirrorItem[field];
+            }
+        });
 
-            const merged = mergeAcademyLeadReadItems(
-                supabaseItem ? [supabaseItem] : [],
-                firestoreItem ? [firestoreItem] : []
-            )[0] || null;
-
-            return {
-                source: record && firestoreItem
-                    ? 'supabase-merged'
-                    : record
-                        ? 'supabase-primary'
-                        : 'firestore-fallback',
-                item: merged
-            };
+        if (
+            canonicalItem.routedFromAdmin !==
+                true &&
+            mirrorItem.routedFromAdmin ===
+                true
+        ) {
+            next.routedFromAdmin =
+                true;
         }
-    } catch (error) {
-        console.error('Academy lead mission Supabase lookup failed; using Firestore fallback:', error?.message || error);
-    }
+
+        [
+            'opportunityValueAmount',
+            'buyerPriceAmount',
+            'sellerPriceAmount',
+            'universeCommissionAmount',
+            'operatorPayoutAmount'
+        ].forEach((field) => {
+            const canonicalAmount =
+                Number(
+                    canonicalItem[field]
+                );
+
+            const mirrorAmount =
+                Number(
+                    mirrorItem[field]
+                );
+
+            if (
+                !(
+                    Number.isFinite(
+                        canonicalAmount
+                    ) &&
+                    canonicalAmount > 0
+                ) &&
+                Number.isFinite(
+                    mirrorAmount
+                ) &&
+                mirrorAmount > 0
+            ) {
+                next[field] =
+                    mirrorAmount;
+            }
+        });
+
+        merged.set(
+            key,
+            next
+        );
+    });
+
+    return Array.from(
+        merged.values()
+    ).sort((a, b) =>
+        String(
+            b.updatedAt ||
+            b.createdAt ||
+            ''
+        ).localeCompare(
+            String(
+                a.updatedAt ||
+                a.createdAt ||
+                ''
+            )
+        )
+    );
+}
+
+async function listAcademyLeadMissionsSupabasePrimary(uid = '') {
+    const canonicalItems =
+        await academyFirestoreRepo
+            .listLeadMissionLeads(
+                uid
+            );
+
+    const searchMirrorItems =
+        await listAcademyLeadSupabaseReadRecords(
+            'lead_mission',
+            uid
+        ).catch((error) => {
+            console.warn(
+                'Academy lead searchable Supabase mirror read skipped:',
+                error?.message ||
+                error
+            );
+
+            return [];
+        });
+
+    const items =
+        mergeAcademyCanonicalLeadRowsV1(
+            searchMirrorItems,
+            canonicalItems
+        );
 
     return {
-        source: 'firestore-fallback',
-        item: await academyFirestoreRepo.getLeadMissionLeadById(uid, leadId)
+        source:
+            canonicalItems.length
+                ? (
+                    searchMirrorItems.length
+                        ? 'supabase-primary-with-search-mirror'
+                        : 'supabase-primary'
+                )
+                : searchMirrorItems.length
+                    ? 'supabase-search-mirror-compat'
+                    : 'supabase-primary',
+
+        items,
+
+        counts: {
+            canonical:
+                canonicalItems.length,
+
+            searchMirror:
+                searchMirrorItems.length,
+
+            merged:
+                items.length
+        }
     };
-}async function listAcademyLeadMissionFollowUpsSupabasePrimary(uid = '') {
-    try {
-        const leadResult = await listAcademyLeadMissionsSupabasePrimary(uid);
+}
+async function getAcademyLeadMissionByIdSupabasePrimary(
+    uid = '',
+    leadId = ''
+) {
+    const canonicalItem =
+        await academyFirestoreRepo
+            .getLeadMissionLeadById(
+                uid,
+                leadId
+            );
 
-        return {
-            source: leadResult.source,
-            items: buildAcademyLeadFollowUpsFromSupabaseLeads(leadResult.items),
-            counts: leadResult.counts
-        };
-    } catch (error) {
-        console.error('Academy lead follow-ups Supabase read failed; using Firestore fallback:', error?.message || error);
+    const sourceDocumentPath =
+        `users/${uid}/academyLeadMissions/${leadId}`;
 
-        return {
-            source: 'firestore-fallback',
-            items: await academyFirestoreRepo.listLeadMissionFollowUps(uid)
-        };
-    }
-}async function listAcademyLeadMissionPayoutsSupabasePrimary(uid = '') {
-    try {
-        const [supabaseItems, firestoreItems] = await Promise.all([
-            listAcademyLeadSupabaseReadRecords('lead_payout', uid),
-            academyFirestoreRepo.listLeadMissionPayouts(uid).catch((error) => {
-                console.error('Academy lead payout Firestore merge read failed:', error?.message || error);
-                return [];
-            })
-        ]);
+    const record =
+        await academyLeadSupabaseRepo
+            .getAcademyLeadRecord(
+                'lead_mission',
+                sourceDocumentPath
+            )
+            .catch((error) => {
+                console.warn(
+                    'Academy lead searchable Supabase detail mirror skipped:',
+                    error?.message ||
+                    error
+                );
 
-        const items = mergeAcademyLeadReadItems(supabaseItems, firestoreItems);
+                return null;
+            });
 
-        return {
-            source: getAcademyLeadMergedSource(supabaseItems, firestoreItems),
-            items,
-            counts: {
-                supabase: supabaseItems.length,
-                firestore: Array.isArray(firestoreItems) ? firestoreItems.length : 0,
-                merged: items.length
+    const searchMirrorItem =
+        record
+            ? mapAcademyLeadSupabaseRecordToControllerPayload(
+                record
+            )
+            : null;
+
+    const item =
+        mergeAcademyCanonicalLeadRowsV1(
+            searchMirrorItem
+                ? [
+                    searchMirrorItem
+                ]
+                : [],
+
+            canonicalItem
+                ? [
+                    canonicalItem
+                ]
+                : []
+        )[0] ||
+        null;
+
+    return {
+        source:
+            canonicalItem
+                ? (
+                    searchMirrorItem
+                        ? 'supabase-primary-with-search-mirror'
+                        : 'supabase-primary'
+                )
+                : searchMirrorItem
+                    ? 'supabase-search-mirror-compat'
+                    : 'supabase-primary',
+
+        item
+    };
+}
+async function listAcademyLeadMissionFollowUpsSupabasePrimary(
+    uid = ''
+) {
+    const leadResult =
+        await listAcademyLeadMissionsSupabasePrimary(
+            uid
+        );
+
+    return {
+        source:
+            leadResult.source,
+
+        items:
+            buildAcademyLeadFollowUpsFromSupabaseLeads(
+                leadResult.items
+            ),
+
+        counts:
+            leadResult.counts
+    };
+}
+function mergeAcademyCanonicalEconomyRowsV2(
+    searchMirrorItems = [],
+    canonicalItems = []
+) {
+    const merged =
+        new Map();
+
+    (
+        Array.isArray(
+            searchMirrorItems
+        )
+            ? searchMirrorItems
+            : []
+    ).forEach((item, index) => {
+        const key =
+            getAcademyLeadReadMergeKey(
+                item,
+                `economy-mirror-${index}`
+            );
+
+        if (!key) return;
+
+        merged.set(
+            key,
+            {
+                ...(
+                    item &&
+                    typeof item ===
+                        'object'
+                        ? item
+                        : {}
+                ),
+
+                sourceDatabase:
+                    'supabase-search-mirror'
             }
-        };
-    } catch (error) {
-        console.error('Academy lead payouts Supabase read failed; using Firestore fallback:', error?.message || error);
+        );
+    });
 
-        return {
-            source: 'firestore-fallback',
-            items: await academyFirestoreRepo.listLeadMissionPayouts(uid)
-        };
-    }
-}async function listAcademyLeadMissionDealsSupabasePrimary(uid = '') {
-    try {
-        const [supabaseItems, firestoreItems] = await Promise.all([
-            listAcademyLeadSupabaseReadRecords('lead_deal', uid),
-            academyFirestoreRepo.listLeadMissionDeals(uid).catch((error) => {
-                console.error('Academy lead deal Firestore merge read failed:', error?.message || error);
-                return [];
-            })
-        ]);
+    (
+        Array.isArray(
+            canonicalItems
+        )
+            ? canonicalItems
+            : []
+    ).forEach((item, index) => {
+        const key =
+            getAcademyLeadReadMergeKey(
+                item,
+                `economy-canonical-${index}`
+            );
 
-        const items = mergeAcademyLeadReadItems(supabaseItems, firestoreItems);
+        if (!key) return;
 
-        return {
-            source: getAcademyLeadMergedSource(supabaseItems, firestoreItems),
-            items,
-            counts: {
-                supabase: supabaseItems.length,
-                firestore: Array.isArray(firestoreItems) ? firestoreItems.length : 0,
-                merged: items.length
+        const mirrorItem =
+            merged.get(key) ||
+            {};
+
+        merged.set(
+            key,
+            {
+                ...mirrorItem,
+
+                ...(
+                    item &&
+                    typeof item ===
+                        'object'
+                        ? item
+                        : {}
+                ),
+
+                sourceDatabase:
+                    'supabase-primary'
             }
-        };
-    } catch (error) {
-        console.error('Academy lead deals Supabase read failed; using Firestore fallback:', error?.message || error);
+        );
+    });
 
-        return {
-            source: 'firestore-fallback',
-            items: await academyFirestoreRepo.listLeadMissionDeals(uid)
-        };
-    }
-}/* END PATCH: Academy Lead Supabase-primary read helpers */
+    return Array.from(
+        merged.values()
+    ).sort((a, b) =>
+        String(
+            b.updatedAt ||
+            b.createdAt ||
+            ''
+        ).localeCompare(
+            String(
+                a.updatedAt ||
+                a.createdAt ||
+                ''
+            )
+        )
+    );
+}
+
+async function listAcademyLeadMissionPayoutsSupabasePrimary(
+    uid = ''
+) {
+    const canonicalItems =
+        await academyFirestoreRepo
+            .listLeadMissionPayouts(
+                uid
+            );
+
+    const searchMirrorItems =
+        await listAcademyLeadSupabaseReadRecords(
+            'lead_payout',
+            uid
+        ).catch((error) => {
+            console.warn(
+                'Academy payout searchable Supabase mirror read skipped:',
+                error?.message ||
+                error
+            );
+
+            return [];
+        });
+
+    const items =
+        mergeAcademyCanonicalEconomyRowsV2(
+            searchMirrorItems,
+            canonicalItems
+        );
+
+    return {
+        source:
+            canonicalItems.length
+                ? (
+                    searchMirrorItems.length
+                        ? 'supabase-primary-with-search-mirror'
+                        : 'supabase-primary'
+                )
+                : searchMirrorItems.length
+                    ? 'supabase-search-mirror-compat'
+                    : 'supabase-primary',
+
+        items,
+
+        counts: {
+            canonical:
+                canonicalItems.length,
+
+            searchMirror:
+                searchMirrorItems.length,
+
+            merged:
+                items.length
+        }
+    };
+}
+
+async function listAcademyLeadMissionDealsSupabasePrimary(
+    uid = ''
+) {
+    const canonicalItems =
+        await academyFirestoreRepo
+            .listLeadMissionDeals(
+                uid
+            );
+
+    const searchMirrorItems =
+        await listAcademyLeadSupabaseReadRecords(
+            'lead_deal',
+            uid
+        ).catch((error) => {
+            console.warn(
+                'Academy deal searchable Supabase mirror read skipped:',
+                error?.message ||
+                error
+            );
+
+            return [];
+        });
+
+    const items =
+        mergeAcademyCanonicalEconomyRowsV2(
+            searchMirrorItems,
+            canonicalItems
+        );
+
+    return {
+        source:
+            canonicalItems.length
+                ? (
+                    searchMirrorItems.length
+                        ? 'supabase-primary-with-search-mirror'
+                        : 'supabase-primary'
+                )
+                : searchMirrorItems.length
+                    ? 'supabase-search-mirror-compat'
+                    : 'supabase-primary',
+
+        items,
+
+        counts: {
+            canonical:
+                canonicalItems.length,
+
+            searchMirror:
+                searchMirrorItems.length,
+
+            merged:
+                items.length
+        }
+    };
+}
+/* END PATCH: Academy Lead Supabase-primary read helpers */
 
 exports.listAcademyOpportunityMissions = async (req, res) => {
     try {
@@ -13730,11 +14068,20 @@ exports.getLeadMissionsWorkspace = async (req, res) => {
             dealResult.source
         ];
 
-        const workspaceSource = workspaceSources.includes('firestore-fallback')
-            ? 'firestore-fallback'
-            : workspaceSources.includes('supabase-merged')
-                ? 'supabase-merged'
-                : 'supabase-primary';
+        const workspaceSource =
+            workspaceSources.includes(
+                'firestore-fallback'
+            )
+                ? 'mixed-supabase-primary-with-legacy-economy-fallback'
+                : workspaceSources.some(
+                    (source) =>
+                        source ===
+                            'supabase-search-mirror-compat' ||
+                        source ===
+                            'supabase-primary-with-search-mirror'
+                )
+                    ? 'supabase-primary-with-compatibility-mirrors'
+                    : 'supabase-primary';
 
         return res.json({
             success: true,
@@ -13746,7 +14093,7 @@ exports.getLeadMissionsWorkspace = async (req, res) => {
                 followUpSource: followUpResult.source,
                 payoutSource: payoutResult.source,
                 dealSource: dealResult.source,
-                scriptSource: 'firestore',
+                scriptSource: 'supabase-primary-or-default',
                 leadCounts: leadResult.counts || null,
                 followUpCounts: followUpResult.counts || null,
                 payoutCounts: payoutResult.counts || null,
@@ -13768,9 +14115,17 @@ exports.getLeadMissionsWorkspace = async (req, res) => {
 };
 exports.submitRoutedLeadMission = async (req, res) => {
     try {
-        const uid = getAcademyAuthUid(req);
-        const leadId = sanitize(req.params?.id);
-        const body = req.body || {};
+        const uid =
+            getAcademyAuthUid(req);
+
+        const leadId =
+            sanitize(
+                req.params?.id
+            );
+
+        const body =
+            req.body ||
+            {};
 
         if (!uid) {
             return res.status(401).json({
@@ -13782,116 +14137,244 @@ exports.submitRoutedLeadMission = async (req, res) => {
         if (!leadId) {
             return res.status(400).json({
                 success: false,
-                message: 'Mission id is required.'
+                message:
+                    'Mission id is required.'
             });
         }
 
-        const existingLead = await academyFirestoreRepo.getLeadMissionLeadById(uid, leadId);
+        const existingResult =
+            await getAcademyLeadMissionByIdSupabasePrimary(
+                uid,
+                leadId
+            );
+
+        const existingLead =
+            existingResult.item;
 
         if (!existingLead) {
             return res.status(404).json({
                 success: false,
-                message: 'Assigned mission not found.'
+                message:
+                    'Assigned mission not found.'
             });
         }
 
         const isRoutedMission =
-            existingLead.routedFromAdmin === true ||
-            String(existingLead.sourceMethod || '').trim().toLowerCase().startsWith('admin_routed_') ||
-            String(existingLead.callType || '').trim().toLowerCase() === 'opportunity_mission' ||
-            Boolean(String(existingLead.assignmentStatus || '').trim());
+            existingLead.routedFromAdmin ===
+                true ||
+            String(
+                existingLead.sourceMethod ||
+                ''
+            )
+                .trim()
+                .toLowerCase()
+                .startsWith(
+                    'admin_routed_'
+                ) ||
+            String(
+                existingLead.callType ||
+                ''
+            )
+                .trim()
+                .toLowerCase() ===
+                'opportunity_mission' ||
+            Boolean(
+                String(
+                    existingLead.assignmentStatus ||
+                    ''
+                ).trim()
+            );
 
         if (!isRoutedMission) {
             return res.status(400).json({
                 success: false,
-                message: 'Only admin-routed Academy missions can be submitted here.'
+                message:
+                    'Only admin-routed Academy missions can be submitted here.'
             });
         }
 
-        const completionProof = sanitize(body.completionProof || body.proof || body.note).slice(0, 2500);
+        const completionProof =
+            sanitize(
+                body.completionProof ||
+                body.proof ||
+                body.note
+            ).slice(0, 2500);
 
         if (!completionProof) {
             return res.status(400).json({
                 success: false,
-                message: 'Completion proof is required.'
+                message:
+                    'Completion proof is required.'
             });
         }
 
-        const now = new Date().toISOString();
+        /*
+         * A historical searchable Supabase record may
+         * not yet have a matching canonical core row.
+         * Promote it into yhu_academy_core_records before
+         * applying the submission state transition.
+         */
+        let canonicalLead =
+            await academyFirestoreRepo
+                .getLeadMissionLeadById(
+                    uid,
+                    leadId
+                );
 
-        const currentNotes = sanitize(existingLead.notes || '');
-        const nextNotes = [
-            currentNotes,
-            `Submission proof (${now}):\n${completionProof}`
-        ].filter(Boolean).join('\n\n');
+        if (!canonicalLead) {
+            const compatibilitySeed = {
+                ...(
+                    existingLead.data &&
+                    typeof existingLead.data ===
+                        'object'
+                        ? existingLead.data
+                        : {}
+                ),
+                ...existingLead
+            };
 
-        const updatedLead = await academyFirestoreRepo.updateLeadMissionLead(uid, leadId, {
-            taskStatus: 'submitted',
-            pipelineStage: 'submitted',
-            callOutcome: 'Submitted for admin review',
-            nextAction: 'Waiting for admin review',
-            notes: nextNotes,
-            status: 'active'
-        });
+            delete compatibilitySeed
+                .data;
+            delete compatibilitySeed
+                .sourceDatabase;
+            delete compatibilitySeed
+                .supabaseRecordId;
 
-        await firestore
-            .collection('users')
-            .doc(uid)
-            .collection('academyLeadMissions')
-            .doc(leadId)
-            .set({
-                assignmentStatus: 'submitted',
-                reviewStatus: 'pending_review',
-                completionProof,
-                submittedAt: Timestamp.now(),
-                submittedByUid: uid,
-                submittedByName: sanitize(req.user?.name || req.user?.username || 'Operator'),
-                updatedAt: Timestamp.now()
-            }, { merge: true });
+            canonicalLead =
+                await academyFirestoreRepo
+                    .createLeadMissionLead(
+                        uid,
+                        {
+                            ...compatibilitySeed,
 
-        await universeCollectionMirrorRepo.mirrorAcademyLead({
-            action: 'submitted_for_review',
-            operatorUid: uid,
-            operator: req.user,
-            lead: {
-                ...updatedLead,
-                id: leadId,
-                assignmentStatus: 'submitted',
-                reviewStatus: 'pending_review',
-                completionProof,
-                submittedByUid: uid,
-                submittedByName: sanitize(req.user?.name || req.user?.username || 'Operator')
-            }
-        });
+                            id:
+                                leadId,
 
-        /* PATCH: Academy lead submit Supabase dual-sync */
+                            ownerUid:
+                                uid,
+
+                            clientRequestId:
+                                `compat_${leadId}`
+                        }
+                    );
+        }
+
+        const submittedByName =
+            sanitize(
+                req.user?.name ||
+                req.user?.username ||
+                'Operator'
+            );
+
+        const submission =
+            await academyFirestoreRepo
+                .submitRoutedLeadMissionV1(
+                    uid,
+                    leadId,
+                    {
+                        completionProof,
+
+                        submittedByUid:
+                            uid,
+
+                        submittedByName,
+
+                        expectedUpdatedAt:
+                            sanitize(
+                                body.expectedUpdatedAt ||
+                                body.expected_updated_at ||
+                                ''
+                            )
+                    }
+                );
+
+        const updatedLead =
+            submission?.lead ||
+            null;
+
+        if (!updatedLead) {
+            return res.status(404).json({
+                success: false,
+                message:
+                    'Assigned mission not found.'
+            });
+        }
+
+        try {
+            await universeCollectionMirrorRepo
+                .mirrorAcademyLead({
+                    action:
+                        'submitted_for_review',
+
+                    operatorUid:
+                        uid,
+
+                    operator:
+                        req.user,
+
+                    lead:
+                        updatedLead
+                });
+        } catch (mirrorError) {
+            console.warn(
+                'Academy submitted lead collection mirror skipped:',
+                mirrorError?.message ||
+                mirrorError
+            );
+        }
+
         await syncAcademyControllerLeadToSupabaseRecord(
             uid,
+            updatedLead,
             {
-                ...updatedLead,
-                id: leadId,
-                assignmentStatus: 'submitted',
-                reviewStatus: 'pending_review',
-                completionProof,
-                submittedByUid: uid,
-                submittedByName: sanitize(req.user?.name || req.user?.username || 'Operator')
-            },
-            { source: 'academy-lead-submit' }
+                source:
+                    'academy-lead-submit'
+            }
         );
-        /* END PATCH: Academy lead submit Supabase dual-sync */
-
 
         return res.json({
             success: true,
-            message: 'Mission submitted for admin review.',
-            lead: updatedLead
+
+            duplicate:
+                submission?.duplicate ===
+                true,
+
+            message:
+                submission?.duplicate ===
+                true
+                    ? 'Mission was already submitted for admin review.'
+                    : 'Mission submitted for admin review.',
+
+            lead:
+                updatedLead
         });
     } catch (error) {
-        console.error('submitRoutedLeadMission error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to submit assigned mission.'
-        });
+        console.error(
+            'submitRoutedLeadMission error:',
+            error
+        );
+
+        const statusCode =
+            Number(
+                error?.statusCode ||
+                error?.status ||
+                500
+            );
+
+        return res
+            .status(
+                statusCode >= 400 &&
+                statusCode < 600
+                    ? statusCode
+                    : 500
+            )
+            .json({
+                success: false,
+
+                message:
+                    error?.message ||
+                    'Failed to submit assigned mission.'
+            });
     }
 };
 /* =========================================================
@@ -14151,6 +14634,46 @@ function buildExternalContactPath(
     );
 }
 
+function buildExternalContactRequestKeyV2(
+    body = {},
+    payload = {}
+) {
+    const explicitRequestId =
+        sanitize(
+            body.clientRequestId ||
+            body.client_request_id
+        )
+            .replace(
+                /[^a-zA-Z0-9_-]+/g,
+                '_'
+            )
+            .slice(0, 160);
+
+    if (explicitRequestId) {
+        return `request_${explicitRequestId}`;
+    }
+
+    const emailKey =
+        normalizeDashboardContactEmail(
+            payload.email
+        );
+
+    if (emailKey) {
+        return `email_${emailKey}`;
+    }
+
+    const phoneKey =
+        normalizeDashboardContactPhoneKey(
+            payload.phone
+        );
+
+    if (phoneKey) {
+        return `phone_${phoneKey}`;
+    }
+
+    return '';
+}
+
 async function findExternalContactDuplicate(
     uid = '',
     payload = {},
@@ -14351,6 +14874,34 @@ exports.createExternalContact = async (
             });
         }
 
+        const requestKey =
+            buildExternalContactRequestKeyV2(
+                req.body || {},
+                payload
+            );
+
+        const deterministicId =
+            requestKey &&
+            typeof academyLeadSupabaseRepo
+                .buildAcademyLeadDeterministicDocumentIdV2 ===
+                'function'
+                ? academyLeadSupabaseRepo
+                    .buildAcademyLeadDeterministicDocumentIdV2(
+                        uid,
+                        requestKey,
+                        'external'
+                    )
+                : '';
+
+        const contactId =
+            deterministicId ||
+            (
+                `external-${Date.now()}-` +
+                Math.random()
+                    .toString(36)
+                    .slice(2, 10)
+            );
+
         const duplicate =
             await findExternalContactDuplicate(
                 uid,
@@ -14358,6 +14909,32 @@ exports.createExternalContact = async (
             );
 
         if (duplicate) {
+            const duplicateId =
+                sanitize(
+                    duplicate.source_document_id ||
+                    duplicate?.data?.id
+                );
+
+            if (
+                deterministicId &&
+                duplicateId ===
+                    deterministicId
+            ) {
+                return res.json({
+                    success: true,
+                    duplicate: true,
+
+                    message:
+                        'External contact was already saved.',
+
+                    contact:
+                        mapDashboardContactRecord(
+                            duplicate,
+                            'external'
+                        )
+                });
+            }
+
             return res.status(409).json({
                 success: false,
 
@@ -14365,12 +14942,6 @@ exports.createExternalContact = async (
                     'An external contact with this email or phone number already exists.'
             });
         }
-
-        const contactId =
-            `external-${Date.now()}-` +
-            Math.random()
-                .toString(36)
-                .slice(2, 10);
 
         const now =
             new Date().toISOString();
@@ -14409,6 +14980,9 @@ exports.createExternalContact = async (
                         id:
                             contactId,
 
+                        clientRequestId:
+                            requestKey,
+
                         title:
                             payload.fullName ||
                             payload.companyName ||
@@ -14435,35 +15009,80 @@ exports.createExternalContact = async (
                     }
                 });
 
+        const createResult =
+            typeof academyLeadSupabaseRepo
+                .createAcademyLeadRecordOnceV2 ===
+                'function'
+                ? await academyLeadSupabaseRepo
+                    .createAcademyLeadRecordOnceV2(
+                        recordPayload
+                    )
+                : {
+                    record:
+                        await academyLeadSupabaseRepo
+                            .upsertAcademyLeadRecord(
+                                recordPayload
+                            ),
+
+                    created: true,
+                    duplicate: false
+                };
+
         const saved =
-            await academyLeadSupabaseRepo
-                .upsertAcademyLeadRecord(
-                    recordPayload
-                );
+            createResult?.record ||
+            null;
 
-        return res.status(201).json({
-            success: true,
+        if (!saved) {
+            throw new Error(
+                'External contact create returned no record.'
+            );
+        }
 
-            message:
-                'External contact saved.',
+        return res
+            .status(
+                createResult?.duplicate ===
+                    true
+                    ? 200
+                    : 201
+            )
+            .json({
+                success: true,
 
-            contact:
-                mapDashboardContactRecord(
-                    saved,
-                    'external'
-                )
-        });
+                duplicate:
+                    createResult?.duplicate ===
+                    true,
+
+                message:
+                    createResult?.duplicate ===
+                        true
+                        ? 'External contact was already saved.'
+                        : 'External contact saved.',
+
+                contact:
+                    mapDashboardContactRecord(
+                        saved,
+                        'external'
+                    )
+            });
     } catch (error) {
         console.error(
             'createExternalContact error:',
             error
         );
 
+        const statusCode =
+            Number(
+                error?.statusCode ||
+                error?.status ||
+                500
+            );
+
         return res
             .status(
-                Number(
-                    error?.statusCode
-                ) || 500
+                statusCode >= 400 &&
+                statusCode < 600
+                    ? statusCode
+                    : 500
             )
             .json({
                 success: false,
@@ -14474,6 +15093,7 @@ exports.createExternalContact = async (
             });
     }
 };
+
 
 exports.updateExternalContact = async (
     req,
@@ -14562,76 +15182,123 @@ exports.updateExternalContact = async (
             });
         }
 
-        const existingData =
-            existing.data &&
-            typeof existing.data ===
-                'object'
-                ? existing.data
-                : {};
+        const expectedUpdatedAt =
+            sanitize(
+                req.body?.expectedUpdatedAt ||
+                req.body?.expected_updated_at ||
+                ''
+            );
 
-        const recordPayload =
-            academyLeadSupabaseRepo
-                .buildAcademyLeadPayload({
-                    recordType:
+        let saved = null;
+
+        if (
+            typeof academyLeadSupabaseRepo
+                .mutateAcademyLeadRecordV2 ===
+            'function'
+        ) {
+            saved =
+                await academyLeadSupabaseRepo
+                    .mutateAcademyLeadRecordV2(
                         'external_contact',
+                        sourceDocumentPath,
+                        (currentData) => ({
+                            ...currentData,
+                            ...payload,
 
-                    sourceCollectionPath:
-                        `users/${uid}/externalContacts`,
+                            id:
+                                contactId,
 
-                    sourceCollectionRoot:
-                        'externalContacts',
+                            title:
+                                payload.fullName ||
+                                payload.companyName ||
+                                payload.email ||
+                                payload.phone,
 
-                    sourceDocumentId:
-                        contactId,
+                            contactName:
+                                payload.fullName,
 
-                    sourceDocumentPath,
+                            contactType:
+                                'external',
 
-                    ownerUserId:
-                        uid,
+                            sourceDivision:
+                                'dashboard',
 
-                    data: {
-                        ...existingData,
-                        ...payload,
+                            status:
+                                'active'
+                        }),
+                        {
+                            expectedUpdatedAt
+                        }
+                    );
+        } else {
+            const existingData =
+                existing.data &&
+                typeof existing.data ===
+                    'object'
+                    ? existing.data
+                    : {};
 
-                        id:
+            const recordPayload =
+                academyLeadSupabaseRepo
+                    .buildAcademyLeadPayload({
+                        recordType:
+                            'external_contact',
+
+                        sourceCollectionPath:
+                            `users/${uid}/externalContacts`,
+
+                        sourceCollectionRoot:
+                            'externalContacts',
+
+                        sourceDocumentId:
                             contactId,
 
-                        title:
-                            payload.fullName ||
-                            payload.companyName ||
-                            payload.email ||
-                            payload.phone,
+                        sourceDocumentPath,
 
-                        contactName:
-                            payload.fullName,
+                        ownerUserId:
+                            uid,
 
-                        contactType:
-                            'external',
+                        data: {
+                            ...existingData,
+                            ...payload,
 
-                        sourceDivision:
-                            'dashboard',
+                            id:
+                                contactId,
 
-                        status:
-                            'active',
+                            title:
+                                payload.fullName ||
+                                payload.companyName ||
+                                payload.email ||
+                                payload.phone,
 
-                        createdAt:
-                            existingData.createdAt ||
-                            existing
-                                .created_at_source ||
-                            new Date()
-                                .toISOString(),
+                            contactName:
+                                payload.fullName,
 
-                        updatedAt:
-                            new Date()
-                                .toISOString()
-                    }
-                });
+                            contactType:
+                                'external',
 
-        const saved =
-            await academyLeadSupabaseRepo
-                .upsertAcademyLeadRecord(
-                    recordPayload
-                );
+                            sourceDivision:
+                                'dashboard',
+
+                            status:
+                                'active',
+
+                            createdAt:
+                                existingData.createdAt ||
+                                existing.created_at_source ||
+                                new Date().toISOString(),
+
+                            updatedAt:
+                                new Date().toISOString()
+                        }
+                    });
+
+            saved =
+                await academyLeadSupabaseRepo
+                    .upsertAcademyLeadRecord(
+                        recordPayload
+                    );
+        }
 
         return res.json({
             success: true,
@@ -14651,11 +15318,19 @@ exports.updateExternalContact = async (
             error
         );
 
+        const statusCode =
+            Number(
+                error?.statusCode ||
+                error?.status ||
+                500
+            );
+
         return res
             .status(
-                Number(
-                    error?.statusCode
-                ) || 500
+                statusCode >= 400 &&
+                statusCode < 600
+                    ? statusCode
+                    : 500
             )
             .json({
                 success: false,
@@ -14666,6 +15341,7 @@ exports.updateExternalContact = async (
             });
     }
 };
+
 
 exports.deleteExternalContact = async (
     req,
@@ -14785,7 +15461,8 @@ exports.listMyLeadMissionsLeads = async (req, res) => {
 
 exports.createLeadMissionLead = async (req, res) => {
     try {
-        const uid = getAcademyAuthUid(req);
+        const uid =
+            getAcademyAuthUid(req);
 
         if (!uid) {
             return res.status(401).json({
@@ -14794,115 +15471,193 @@ exports.createLeadMissionLead = async (req, res) => {
             });
         }
 
-        const payload = normalizeLeadMissionPayload(req.body || {});
+        const payload =
+            normalizeLeadMissionPayload(
+                req.body || {}
+            );
 
-        payload.universeCommissionRate = 0;
-        payload.universeCommissionAmount = 0;
-        payload.platformCommissionRate = 0;
-        payload.platformCommissionAmount = 0;
-        payload.operatorPayoutAmount = 0;
-        payload.buyerPriceAmount = Math.max(0, Number(payload.sellerPriceAmount || 0));
+        payload.clientRequestId =
+            sanitize(
+                req.body?.clientRequestId ||
+                req.body?.client_request_id ||
+                ''
+            )
+                .replace(
+                    /[^a-zA-Z0-9_-]+/g,
+                    '_'
+                )
+                .slice(0, 160);
 
-        if (!payload.tier || !payload.companyName) {
+        payload.universeCommissionRate =
+            0;
+
+        payload.universeCommissionAmount =
+            0;
+
+        payload.platformCommissionRate =
+            0;
+
+        payload.platformCommissionAmount =
+            0;
+
+        payload.operatorPayoutAmount =
+            0;
+
+        payload.buyerPriceAmount =
+            Math.max(
+                0,
+                Number(
+                    payload.sellerPriceAmount ||
+                    0
+                )
+            );
+
+        if (
+            !payload.tier ||
+            !payload.companyName
+        ) {
             return res.status(400).json({
                 success: false,
-                message: 'Tier and company name are required.'
+                message:
+                    'Tier and company name are required.'
             });
         }
 
-        const lead = await academyFirestoreRepo.createLeadMissionLead(uid, payload);
+        const lead =
+            await academyFirestoreRepo
+                .createLeadMissionLead(
+                    uid,
+                    payload
+                );
 
-        await universeCollectionMirrorRepo.mirrorAcademyLead({
-            action: 'created',
-            operatorUid: uid,
-            operator: req.user,
-            lead
-        });
+        const duplicateCreate =
+            lead?.duplicateCreate ===
+            true;
 
-        /* PATCH: Academy lead create Supabase dual-sync */
+        if (!duplicateCreate) {
+            try {
+                await universeCollectionMirrorRepo
+                    .mirrorAcademyLead({
+                        action: 'created',
+                        operatorUid: uid,
+                        operator: req.user,
+                        lead
+                    });
+            } catch (mirrorError) {
+                console.warn(
+                    'Academy lead create collection mirror skipped:',
+                    mirrorError?.message ||
+                    mirrorError
+                );
+            }
+        }
+
         await syncAcademyControllerLeadToSupabaseRecord(
             uid,
             lead,
-            { source: 'academy-lead-create' }
+            {
+                source:
+                    duplicateCreate
+                        ? 'academy-lead-create-retry'
+                        : 'academy-lead-create'
+            }
         );
-        /* END PATCH: Academy lead create Supabase dual-sync */
 
         const playbookCompletion =
-            await awardAcademyPlaybookCompletionXpV1(
-                uid,
-                lead
-            );
+            duplicateCreate
+                ? {
+                    completed: false,
+                    xpAwarded: 0,
+                    created: false,
 
-        /*
-         * This runs only inside the POST/create endpoint.
-         * Editing or deleting an existing lead cannot add
-         * another verified-lead contribution.
-         */
-        const verifiedLeadMissionProgress =
-            await advanceAcademySquadMissionV1(
-                uid,
-                {
-                    missionType:
-                        'verified_leads',
-
-                    eventType:
-                        'academy_verified_lead_created',
-
-                    sourceId:
+                    playbookKey:
                         sanitize(
-                            lead.id ||
-                            lead?.data?.id ||
+                            lead.missionPlaybookKey ||
+                            lead?.data?.missionPlaybookKey ||
                             ''
                         ),
 
-                    sourceType:
-                        'academyLeadMission',
+                    squadXp: {
+                        created: false,
+                        awarded: 0
+                    },
 
-                    amount:
-                        1,
-
-                    label:
-                        'Verified lead created',
-
-                    eventAt:
-                        lead.createdAt ||
-                        lead.updatedAt ||
-                        new Date()
-                            .toISOString(),
-
-                    metadata: {
-                        companyName:
-                            sanitize(
-                                lead.companyName ||
-                                lead?.data?.companyName ||
-                                ''
-                            ),
-
-                        contactName:
-                            sanitize(
-                                lead.contactName ||
-                                lead?.data?.contactName ||
-                                ''
-                            ),
-
-                        contactRole:
-                            sanitize(
-                                lead.contactRole ||
-                                lead?.data?.contactRole ||
-                                ''
-                            ),
-
-                        playbookKey:
-                            sanitize(
-                                lead.missionPlaybookKey ||
-                                lead?.data?.missionPlaybookKey ||
-                                ''
-                            )
-                    }
+                    squadMissionProgress:
+                        null
                 }
-            );
+                : await awardAcademyPlaybookCompletionXpV1(
+                    uid,
+                    lead
+                );
+
+        const verifiedLeadMissionProgress =
+            duplicateCreate
+                ? null
+                : await advanceAcademySquadMissionV1(
+                    uid,
+                    {
+                        missionType:
+                            'verified_leads',
+
+                        eventType:
+                            'academy_verified_lead_created',
+
+                        sourceId:
+                            sanitize(
+                                lead.id ||
+                                lead?.data?.id ||
+                                ''
+                            ),
+
+                        sourceType:
+                            'academyLeadMission',
+
+                        amount:
+                            1,
+
+                        label:
+                            'Verified lead created',
+
+                        eventAt:
+                            lead.createdAt ||
+                            lead.updatedAt ||
+                            new Date()
+                                .toISOString(),
+
+                        metadata: {
+                            companyName:
+                                sanitize(
+                                    lead.companyName ||
+                                    lead?.data?.companyName ||
+                                    ''
+                                ),
+
+                            contactName:
+                                sanitize(
+                                    lead.contactName ||
+                                    lead?.data?.contactName ||
+                                    ''
+                                ),
+
+                            contactRole:
+                                sanitize(
+                                    lead.contactRole ||
+                                    lead?.data?.contactRole ||
+                                    ''
+                                ),
+
+                            playbookKey:
+                                sanitize(
+                                    lead.missionPlaybookKey ||
+                                    lead?.data?.missionPlaybookKey ||
+                                    ''
+                                )
+                        }
+                    }
+                );
 
         const progression =
+            !duplicateCreate &&
             playbookCompletion.completed
                 ? await syncAcademyProgressionAfterActionV1(
                     uid,
@@ -14910,70 +15665,102 @@ exports.createLeadMissionLead = async (req, res) => {
                 )
                 : null;
 
-        return res.status(201).json({
-            success: true,
-            lead,
+        return res
+            .status(
+                duplicateCreate
+                    ? 200
+                    : 201
+            )
+            .json({
+                success: true,
 
-            missionCompletion: {
-                completed:
-                    playbookCompletion.completed,
+                duplicate:
+                    duplicateCreate,
 
-                playbookKey:
-                    playbookCompletion.playbookKey,
+                lead,
 
-                sourceMissionTitle:
-                    sanitize(
-                        lead.sourceMissionTitle ||
-                        lead?.data?.sourceMissionTitle ||
-                        ''
-                    )
-            },
+                missionCompletion: {
+                    completed:
+                        playbookCompletion.completed,
 
-            xp: {
-                awarded:
-                    playbookCompletion.xpAwarded,
+                    playbookKey:
+                        playbookCompletion.playbookKey,
 
-                eventCreated:
-                    playbookCompletion.created,
-
-                eventType:
-                    'mission_playbook_completed'
-            },
-
-            squadXp:
-                playbookCompletion.squadXp ||
-                {
-                    created: false,
-                    awarded: 0
+                    sourceMissionTitle:
+                        sanitize(
+                            lead.sourceMissionTitle ||
+                            lead?.data?.sourceMissionTitle ||
+                            ''
+                        )
                 },
 
-            squadMissionProgress: {
-                verifiedLead:
-                    verifiedLeadMissionProgress ||
-                    null,
+                xp: {
+                    awarded:
+                        playbookCompletion.xpAwarded,
 
-                missionPlaybook:
-                    playbookCompletion
-                        .squadMissionProgress ||
-                    null,
+                    eventCreated:
+                        playbookCompletion.created,
+
+                    eventType:
+                        'mission_playbook_completed'
+                },
 
                 squadXp:
-                    playbookCompletion
-                        .squadXp
-                        ?.squadMissionProgress ||
-                    null
-            },
+                    playbookCompletion.squadXp ||
+                    {
+                        created: false,
+                        awarded: 0
+                    },
 
-            progression
-        });
+                squadMissionProgress: {
+                    verifiedLead:
+                        verifiedLeadMissionProgress ||
+                        null,
+
+                    missionPlaybook:
+                        playbookCompletion
+                            .squadMissionProgress ||
+                        null,
+
+                    squadXp:
+                        playbookCompletion
+                            .squadXp
+                            ?.squadMissionProgress ||
+                        null
+                },
+
+                progression
+            });
     } catch (error) {
-        console.error('createLeadMissionLead error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to create lead.'
-        });
+        console.error(
+            'createLeadMissionLead error:',
+            error
+        );
+
+        const statusCode =
+            Number(
+                error?.statusCode ||
+                error?.status ||
+                500
+            );
+
+        return res
+            .status(
+                statusCode >= 400 &&
+                statusCode < 600
+                    ? statusCode
+                    : 500
+            )
+            .json({
+                success: false,
+
+                message:
+                    error?.message ||
+                    'Failed to create lead.'
+            });
     }
 };
+
 
 exports.getMyLeadMissionLeadById = async (req, res) => {
     try {
@@ -15013,8 +15800,13 @@ exports.getMyLeadMissionLeadById = async (req, res) => {
 
 exports.updateMyLeadMissionLead = async (req, res) => {
     try {
-        const uid = getAcademyAuthUid(req);
-        const leadId = sanitize(req.params?.id);
+        const uid =
+            getAcademyAuthUid(req);
+
+        const leadId =
+            sanitize(
+                req.params?.id
+            );
 
         if (!uid) {
             return res.status(401).json({
@@ -15023,16 +15815,48 @@ exports.updateMyLeadMissionLead = async (req, res) => {
             });
         }
 
-        const payload = normalizeLeadMissionPayload(req.body || {});
+        if (!leadId) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Lead ID is required.'
+            });
+        }
 
-        delete payload.universeCommissionRate;
-        delete payload.universeCommissionAmount;
-        delete payload.platformCommissionRate;
-        delete payload.platformCommissionAmount;
-        delete payload.operatorPayoutAmount;
-        delete payload.buyerPriceAmount;
+        const payload =
+            normalizeLeadMissionPayload(
+                req.body ||
+                {}
+            );
 
-        const lead = await academyFirestoreRepo.updateLeadMissionLead(uid, leadId, payload);
+        delete payload
+            .universeCommissionRate;
+        delete payload
+            .universeCommissionAmount;
+        delete payload
+            .platformCommissionRate;
+        delete payload
+            .platformCommissionAmount;
+        delete payload
+            .operatorPayoutAmount;
+        delete payload
+            .buyerPriceAmount;
+
+        const lead =
+            await academyFirestoreRepo
+                .updateLeadMissionLead(
+                    uid,
+                    leadId,
+                    payload,
+                    {
+                        expectedUpdatedAt:
+                            sanitize(
+                                req.body?.expectedUpdatedAt ||
+                                req.body?.expected_updated_at ||
+                                ''
+                            )
+                    }
+                );
 
         if (!lead) {
             return res.status(404).json({
@@ -15041,32 +15865,62 @@ exports.updateMyLeadMissionLead = async (req, res) => {
             });
         }
 
-        await universeCollectionMirrorRepo.mirrorAcademyLead({
-            action: 'updated',
-            operatorUid: uid,
-            operator: req.user,
-            lead
-        });
+        try {
+            await universeCollectionMirrorRepo
+                .mirrorAcademyLead({
+                    action: 'updated',
+                    operatorUid: uid,
+                    operator: req.user,
+                    lead
+                });
+        } catch (mirrorError) {
+            console.warn(
+                'Academy lead update collection mirror skipped:',
+                mirrorError?.message ||
+                mirrorError
+            );
+        }
 
-        /* PATCH: Academy lead update Supabase dual-sync */
         await syncAcademyControllerLeadToSupabaseRecord(
             uid,
             lead,
-            { source: 'academy-lead-update' }
+            {
+                source:
+                    'academy-lead-update'
+            }
         );
-        /* END PATCH: Academy lead update Supabase dual-sync */
-
 
         return res.json({
             success: true,
             lead
         });
     } catch (error) {
-        console.error('updateMyLeadMissionLead error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to update lead.'
-        });
+        console.error(
+            'updateMyLeadMissionLead error:',
+            error
+        );
+
+        const statusCode =
+            Number(
+                error?.statusCode ||
+                error?.status ||
+                500
+            );
+
+        return res
+            .status(
+                statusCode >= 400 &&
+                statusCode < 600
+                    ? statusCode
+                    : 500
+            )
+            .json({
+                success: false,
+
+                message:
+                    error?.message ||
+                    'Failed to update lead.'
+            });
     }
 };
 
@@ -15160,11 +16014,19 @@ exports.deleteMyLeadMissionLead = async (
          * Remove the dual-synced searchable lead record.
          * XP events and progression records are deliberately untouched.
          */
-        await academyLeadSupabaseRepo
-            .deleteAcademyLeadRecord(
-                'lead_mission',
-                sourceDocumentPath
+        try {
+            await academyLeadSupabaseRepo
+                .deleteAcademyLeadRecord(
+                    'lead_mission',
+                    sourceDocumentPath
+                );
+        } catch (searchMirrorError) {
+            console.warn(
+                'Academy deleted lead searchable Supabase mirror cleanup skipped:',
+                searchMirrorError?.message ||
+                searchMirrorError
             );
+        }
 
         try {
             await universeCollectionMirrorRepo
@@ -15331,129 +16193,206 @@ function academyChampionsSafeArrayV1(value) {
     return Array.isArray(value) ? value : [];
 }
 
-function academyChampionsCompletedMissionCountV1(homePayload = {}) {
-    const progress = homePayload.progress && typeof homePayload.progress === 'object'
-        ? homePayload.progress
-        : {};
+function academyChampionsNormalizeLeaderboardEntryV2(entry = {}, index = 0) {
+    const position = Math.max(
+        1,
+        academyChampionsSafeNumberV1(
+            entry.position,
+            index + 1
+        )
+    );
 
-    const today = homePayload.today && typeof homePayload.today === 'object'
-        ? homePayload.today
-        : {};
+    return {
+        id: sanitize(entry.userId || entry.id || ''),
+        name: sanitize(
+            entry.displayName ||
+            entry.name ||
+            entry.username ||
+            'Academy Member'
+        ) || 'Academy Member',
+        username: sanitize(entry.username || ''),
+        avatar: sanitize(entry.avatar || ''),
+        position,
+        xp: Math.max(
+            0,
+            academyChampionsSafeNumberV1(
+                entry.xp ?? entry.weeklyXp,
+                0
+            )
+        ),
+        totalXp: Math.max(
+            0,
+            academyChampionsSafeNumberV1(
+                entry.totalXp,
+                0
+            )
+        ),
+        weeklyXp: Math.max(
+            0,
+            academyChampionsSafeNumberV1(
+                entry.weeklyXp ?? entry.xp,
+                0
+            )
+        ),
+        level: Math.max(
+            1,
+            academyChampionsSafeNumberV1(
+                entry.level,
+                1
+            )
+        ),
+        rank: sanitize(entry.rank || 'Initiate') || 'Initiate',
+        rankKey: sanitize(entry.rankKey || 'initiate') || 'initiate',
+        streakDays: Math.max(
+            0,
+            academyChampionsSafeNumberV1(
+                entry.streakDays,
+                0
+            )
+        ),
+        completedMissions: Math.max(
+            0,
+            academyChampionsSafeNumberV1(
+                entry.completedMissions,
+                0
+            )
+        ),
 
-    const allMissions = academyChampionsSafeArrayV1(homePayload.allMissions);
-    const missions = academyChampionsSafeArrayV1(homePayload.missions);
+        lastReconciledAt:
+            sanitize(
+                entry.lastReconciledAt ||
+                ''
+            ),
 
-    const explicitCompleted =
-        progress.completed ??
-        today.missionsCompleted ??
-        homePayload.transformationSystem?.completedMissions;
+        stale:
+            entry.stale === true,
 
-    if (Number.isFinite(Number(explicitCompleted))) {
-        return Math.max(0, academyChampionsSafeNumberV1(explicitCompleted, 0));
-    }
+        freshnessStatus:
+            sanitize(
+                entry.freshnessStatus ||
+                ''
+            ),
 
-    const source = allMissions.length ? allMissions : missions;
-
-    return source.filter((mission) => {
-        const status = String(mission?.status || '').trim().toLowerCase();
-        return status === 'completed' || mission?.completed === true || mission?.done === true;
-    }).length;
+        weeklyResetApplied:
+            entry.weeklyResetApplied ===
+            true
+    };
 }
 
-function academyChampionsTotalMissionCountV1(homePayload = {}) {
-    const progress = homePayload.progress && typeof homePayload.progress === 'object'
-        ? homePayload.progress
-        : {};
+function buildAcademyChampionsPayloadV2(
+    uid = '',
+    progression = {},
+    profile = {},
+    weeklyLeaderboardSnapshot = {},
+    questAchievementState = {},
+    helperLeaderboardSnapshot = {}
+) {
+    const canonicalProgression =
+        progression && typeof progression === 'object'
+            ? progression
+            : {};
 
-    const today = homePayload.today && typeof homePayload.today === 'object'
-        ? homePayload.today
-        : {};
-
-    const allMissions = academyChampionsSafeArrayV1(homePayload.allMissions);
-    const missions = academyChampionsSafeArrayV1(homePayload.missions);
-
-    const explicitTotal =
-        progress.total ??
-        today.missionsTotal ??
-        homePayload.transformationSystem?.totalMissions;
-
-    if (Number.isFinite(Number(explicitTotal))) {
-        return Math.max(0, academyChampionsSafeNumberV1(explicitTotal, 0));
-    }
-
-    return Math.max(allMissions.length, missions.length, 0);
-}
-
-function academyChampionsRankFromXpV1(xp = 0) {
-    const score = Math.max(0, academyChampionsSafeNumberV1(xp, 0));
-
-    if (score >= 9000) return { key: 'academy_elite', label: 'Academy Elite', nextLabel: 'Max Rank', minXp: 9000, nextXp: 9000 };
-    if (score >= 6500) return { key: 'vanguard', label: 'Vanguard', nextLabel: 'Academy Elite', minXp: 6500, nextXp: 9000 };
-    if (score >= 4500) return { key: 'captain', label: 'Captain', nextLabel: 'Vanguard', minXp: 4500, nextXp: 6500 };
-    if (score >= 3000) return { key: 'strategist', label: 'Strategist', nextLabel: 'Captain', minXp: 3000, nextXp: 4500 };
-    if (score >= 1800) return { key: 'operator', label: 'Operator', nextLabel: 'Strategist', minXp: 1800, nextXp: 3000 };
-    if (score >= 900) return { key: 'executor', label: 'Executor', nextLabel: 'Operator', minXp: 900, nextXp: 1800 };
-    if (score >= 300) return { key: 'builder', label: 'Builder', nextLabel: 'Executor', minXp: 300, nextXp: 900 };
-
-    return { key: 'initiate', label: 'Initiate', nextLabel: 'Builder', minXp: 0, nextXp: 300 };
-}
-
-function academyChampionsLevelFromXpV1(xp = 0) {
-    const score = Math.max(0, academyChampionsSafeNumberV1(xp, 0));
-    return Math.max(1, Math.floor(score / 350) + 1);
-}
-
-function buildAcademyChampionsPayloadV1(uid = '', homePayload = {}, profile = {}) {
-    const completedMissions = academyChampionsCompletedMissionCountV1(homePayload);
-    const totalMissions = academyChampionsTotalMissionCountV1(homePayload);
-    const recentCheckins = academyChampionsSafeArrayV1(homePayload.recentCheckins);
-    const streakDays = Math.max(
+    const completedMissions = Math.max(
         0,
         academyChampionsSafeNumberV1(
-            homePayload.streakDays ??
-            homePayload.today?.streakDays ??
-            homePayload.transformationSystem?.currentStreak,
+            canonicalProgression.completedMissions,
             0
         )
     );
 
-    const completionRate = totalMissions > 0
-        ? Math.round((completedMissions / totalMissions) * 100)
-        : 0;
+    const totalMissions = Math.max(
+        0,
+        academyChampionsSafeNumberV1(
+            canonicalProgression.totalMissions,
+            0
+        )
+    );
 
-    const checkinCount = recentCheckins.length;
+    const completionRate = Math.max(
+        0,
+        Math.min(
+            100,
+            academyChampionsSafeNumberV1(
+                canonicalProgression.completionRate,
+                totalMissions > 0
+                    ? Math.round(
+                        (completedMissions / totalMissions) * 100
+                    )
+                    : 0
+            )
+        )
+    );
+
+    const streakDays = Math.max(
+        0,
+        academyChampionsSafeNumberV1(
+            canonicalProgression.streakDays,
+            0
+        )
+    );
+
+    const checkinCount = Math.max(
+        0,
+        academyChampionsSafeNumberV1(
+            canonicalProgression.checkinCount,
+            0
+        )
+    );
+
+    const helperSnapshot =
+        helperLeaderboardSnapshot &&
+        typeof helperLeaderboardSnapshot === 'object'
+            ? helperLeaderboardSnapshot
+            : {};
+
+    const helperPlayerEntry =
+        helperSnapshot.playerEntry &&
+        typeof helperSnapshot.playerEntry === 'object'
+            ? helperSnapshot.playerEntry
+            : null;
+
     const helperScore = Math.max(
         0,
         academyChampionsSafeNumberV1(
-            profile.helperScore ??
-            profile.helper_score ??
-            profile.academyHelperScore ??
+            helperPlayerEntry?.totalHelperScore ??
+            questAchievementState?.achievements
+                ?.helperScore?.value ??
             0,
             0
         )
     );
 
-    const missionXp = completedMissions * 50;
-    const checkinXp = Math.min(checkinCount, 60) * 20;
-    const streakXp = streakDays * 25;
-    const helperXp = helperScore * 80;
-    const consistencyBonus = streakDays >= 7 ? 100 : streakDays >= 3 ? 35 : 0;
-    const completionBonus = completionRate >= 100 && totalMissions > 0 ? 250 : completionRate >= 70 ? 120 : completionRate >= 40 ? 50 : 0;
+    const questState =
+        questAchievementState?.quests &&
+        typeof questAchievementState.quests === 'object'
+            ? questAchievementState.quests
+            : {
+                daily: [],
+                weekly: [],
+                all: [],
+                completedUnclaimed: 0,
+                claimed: 0
+            };
 
-    const xp = Math.max(
-        0,
-        Math.round(missionXp + checkinXp + streakXp + helperXp + consistencyBonus + completionBonus)
-    );
-
-    const rank = academyChampionsRankFromXpV1(xp);
-    const level = academyChampionsLevelFromXpV1(xp);
-    const nextXp = Math.max(rank.nextXp, xp);
-    const rankSpan = Math.max(1, rank.nextXp - rank.minXp);
-    const rankProgress = rank.nextXp === rank.minXp
-        ? 100
-        : Math.max(0, Math.min(100, Math.round(((xp - rank.minXp) / rankSpan) * 100)));
+    const achievementState =
+        questAchievementState?.achievements &&
+        typeof questAchievementState.achievements === 'object'
+            ? questAchievementState.achievements
+            : {
+                unlocked: [],
+                unlockedCount: 0,
+                totalAvailable: 0,
+                primary: null,
+                helperScore: {
+                    wired: false,
+                    value: 0,
+                    status:
+                        'awaiting_verified_help_events'
+                }
+            };
 
     const displayName = sanitize(
+        canonicalProgression.displayName ||
         profile.display_name ||
         profile.displayName ||
         profile.fullName ||
@@ -15463,6 +16402,7 @@ function buildAcademyChampionsPayloadV1(uid = '', homePayload = {}, profile = {}
     ) || 'You';
 
     const username = sanitize(
+        canonicalProgression.username ||
         profile.username ||
         profile.handle ||
         ''
@@ -15472,83 +16412,537 @@ function buildAcademyChampionsPayloadV1(uid = '', homePayload = {}, profile = {}
         id: sanitize(uid),
         name: displayName,
         username,
-        xp,
-        level,
-        rank: rank.label,
-        rankKey: rank.key,
-        nextRank: rank.nextLabel,
-        nextXp,
-        rankProgress,
+        avatar: sanitize(
+            canonicalProgression.avatar ||
+            profile.avatar ||
+            profile.profilePhoto ||
+            profile.photoURL ||
+            ''
+        ),
+        xp: Math.max(
+            0,
+            academyChampionsSafeNumberV1(
+                canonicalProgression.totalXp,
+                0
+            )
+        ),
+        totalXp: Math.max(
+            0,
+            academyChampionsSafeNumberV1(
+                canonicalProgression.totalXp,
+                0
+            )
+        ),
+        weeklyXp: Math.max(
+            0,
+            academyChampionsSafeNumberV1(
+                canonicalProgression.weeklyXp,
+                0
+            )
+        ),
+        level: Math.max(
+            1,
+            academyChampionsSafeNumberV1(
+                canonicalProgression.level,
+                1
+            )
+        ),
+        rank: sanitize(
+            canonicalProgression.rank ||
+            'Initiate'
+        ) || 'Initiate',
+        rankKey: sanitize(
+            canonicalProgression.rankKey ||
+            'initiate'
+        ) || 'initiate',
+        nextRank: sanitize(
+            canonicalProgression.nextRank ||
+            'Builder'
+        ) || 'Builder',
+        nextXp: Math.max(
+            0,
+            academyChampionsSafeNumberV1(
+                canonicalProgression.nextXp,
+                300
+            )
+        ),
+        rankProgress: Math.max(
+            0,
+            Math.min(
+                100,
+                academyChampionsSafeNumberV1(
+                    canonicalProgression.rankProgress,
+                    0
+                )
+            )
+        ),
         completedMissions,
         totalMissions,
         completionRate,
         streakDays,
         checkinCount,
         helperScore,
-        badge: streakDays >= 7
-            ? 'Consistency Builder'
-            : completedMissions >= 10
-                ? 'Mission Finisher'
-                : completedMissions > 0
-                    ? 'First Wins'
-                    : 'New Challenger'
+
+        badge:
+            sanitize(
+                achievementState?.primary?.label ||
+                'No achievement unlocked'
+            ) ||
+            'No achievement unlocked',
+
+        badgeKey:
+            sanitize(
+                achievementState?.primary?.achievementKey ||
+                achievementState?.primary?.id ||
+                ''
+            ),
+
+        badgeRarity:
+            sanitize(
+                achievementState?.primary?.rarity ||
+                ''
+            ),
+
+        badgePersistent:
+            Boolean(
+                achievementState?.primary
+            ),
+
+        achievementCount:
+            Math.max(
+                0,
+                academyChampionsSafeNumberV1(
+                    achievementState?.unlockedCount,
+                    0
+                )
+            )
     };
+
+    const leaderboardSnapshot =
+        Array.isArray(
+            weeklyLeaderboardSnapshot
+        )
+            ? {
+                leaderboard:
+                    weeklyLeaderboardSnapshot,
+                playerPosition: null,
+                playerEntry: null,
+                totalRanked:
+                    weeklyLeaderboardSnapshot.length,
+                freshness: {},
+                rankingPolicy: {}
+            }
+            : weeklyLeaderboardSnapshot &&
+                typeof weeklyLeaderboardSnapshot ===
+                    'object'
+                ? weeklyLeaderboardSnapshot
+                : {
+                    leaderboard: [],
+                    playerPosition: null,
+                    playerEntry: null,
+                    totalRanked: 0,
+                    freshness: {},
+                    rankingPolicy: {}
+                };
+
+    const normalizedLeaderboard = academyChampionsSafeArrayV1(
+        leaderboardSnapshot.leaderboard
+    ).map(academyChampionsNormalizeLeaderboardEntryV2);
+
+    const topBuilders = normalizedLeaderboard
+        .slice(0, 3)
+        .map((entry) => ({
+            ...entry,
+            label: `${entry.weeklyXp.toLocaleString()} weekly XP`
+        }));
+
+    const mostConsistent = [...normalizedLeaderboard]
+        .sort((a, b) => {
+            if (b.streakDays !== a.streakDays) {
+                return b.streakDays - a.streakDays;
+            }
+
+            if (b.weeklyXp !== a.weeklyXp) {
+                return b.weeklyXp - a.weeklyXp;
+            }
+
+            return a.position - b.position;
+        })
+        .slice(0, 3)
+        .map((entry, index) => ({
+            ...entry,
+            position: index + 1,
+            label:
+                entry.streakDays > 0
+                    ? `${entry.streakDays} day streak`
+                    : 'No active streak'
+        }));
+
+    const topHelpers =
+        academyChampionsSafeArrayV1(
+            helperSnapshot.leaderboard ||
+            helperSnapshot.topHelpers
+        )
+            .slice(0, 3)
+            .map((entry, index) => ({
+                id:
+                    sanitize(
+                        entry.id ||
+                        entry.userId ||
+                        ''
+                    ),
+
+                name:
+                    sanitize(
+                        entry.name ||
+                        entry.displayName ||
+                        entry.username ||
+                        'Academy Member'
+                    ) ||
+                    'Academy Member',
+
+                username:
+                    sanitize(
+                        entry.username ||
+                        ''
+                    ),
+
+                avatar:
+                    sanitize(
+                        entry.avatar ||
+                        ''
+                    ),
+
+                position:
+                    Math.max(
+                        1,
+                        academyChampionsSafeNumberV1(
+                            entry.position,
+                            index + 1
+                        )
+                    ),
+
+                helperScore:
+                    Math.max(
+                        0,
+                        academyChampionsSafeNumberV1(
+                            entry.totalHelperScore ??
+                            entry.helperScore,
+                            0
+                        )
+                    ),
+
+                totalHelperScore:
+                    Math.max(
+                        0,
+                        academyChampionsSafeNumberV1(
+                            entry.totalHelperScore ??
+                            entry.helperScore,
+                            0
+                        )
+                    ),
+
+                weeklyHelperScore:
+                    Math.max(
+                        0,
+                        academyChampionsSafeNumberV1(
+                            entry.weeklyHelperScore,
+                            0
+                        )
+                    ),
+
+                contributionCount:
+                    Math.max(
+                        0,
+                        academyChampionsSafeNumberV1(
+                            entry.contributionCount,
+                            0
+                        )
+                    ),
+
+                completedSquadMissions:
+                    Math.max(
+                        0,
+                        academyChampionsSafeNumberV1(
+                            entry.completedSquadMissions,
+                            0
+                        )
+                    ),
+
+                label:
+                    sanitize(
+                        entry.label ||
+                        `${academyChampionsSafeNumberV1(
+                            entry.weeklyHelperScore,
+                            0
+                        )} weekly Helper points`
+                    )
+            }));
+
+    const ownLeaderboardEntry =
+        leaderboardSnapshot.playerEntry &&
+        typeof leaderboardSnapshot.playerEntry ===
+            'object'
+            ? academyChampionsNormalizeLeaderboardEntryV2(
+                leaderboardSnapshot.playerEntry,
+                Math.max(
+                    0,
+                    academyChampionsSafeNumberV1(
+                        leaderboardSnapshot.playerPosition,
+                        1
+                    ) - 1
+                )
+            )
+            : normalizedLeaderboard.find(
+                (entry) =>
+                    String(entry.id) ===
+                    String(uid)
+            ) || null;
+
+    const exactPlayerPosition =
+        Math.max(
+            0,
+            academyChampionsSafeNumberV1(
+                leaderboardSnapshot.playerPosition ||
+                ownLeaderboardEntry?.position,
+                0
+            )
+        ) || null;
 
     return {
         success: true,
-        version: 'academy-champions-v1',
+        version: 'academy-champions-v3',
         generatedAt: new Date().toISOString(),
+        source: 'academy_progression_v1',
+        serverBacked: true,
+        progressionPersistent: true,
+        progression: canonicalProgression,
         player: primaryPlayer,
+        playerPosition:
+            exactPlayerPosition,
+
+        leaderboardFreshness:
+            leaderboardSnapshot.freshness ||
+            {},
+
+        leaderboardExactPosition:
+            leaderboardSnapshot.exactPosition ===
+            true,
+
+        leaderboardTotalRanked:
+            Math.max(
+                0,
+                academyChampionsSafeNumberV1(
+                    leaderboardSnapshot.totalRanked,
+                    normalizedLeaderboard.length
+                )
+            ),
+
         xpRules: {
             missionCompleted: 50,
-            recentCheckin: 20,
-            streakDay: 25,
-            helperPoint: 80,
-            weeklyStreakBonus: 100
+            dailyCheckin: 20,
+            threeDayStreakBonus: 35,
+            sevenDayStreakBonus: 100,
+            roadmapCompletionBonuses: {
+                fortyPercent: 50,
+                seventyPercent: 120,
+                complete: 250
+            }
         },
         leaderboards: {
-            topBuilders: [
-                {
-                    ...primaryPlayer,
-                    position: 1,
-                    label: 'Your current execution score'
-                }
-            ],
-            mostConsistent: [
-                {
-                    ...primaryPlayer,
-                    position: 1,
-                    label: streakDays > 0 ? `${streakDays} day streak` : 'Start with today’s check-in'
-                }
-            ],
-            topHelpers: [
-                {
-                    ...primaryPlayer,
-                    position: 1,
-                    label: helperScore > 0 ? `${helperScore} helper score` : 'Helper score unlocks in Phase 2'
-                }
-            ]
+            period: 'weekly',
+            topBuilders,
+            mostConsistent,
+            topHelpers,
+
+            helperLeaderboardWired:
+                helperSnapshot.wired === true,
+
+            helperPeriod:
+                helperSnapshot.period ||
+                'weekly',
+
+            helperTotalRanked:
+                Math.max(
+                    0,
+                    academyChampionsSafeNumberV1(
+                        helperSnapshot.totalRanked,
+                        topHelpers.length
+                    )
+                ),
+
+            helperRule:
+                sanitize(
+                    helperSnapshot.rule ||
+                    'one_point_per_unique_contribution_to_completed_squad_mission'
+                ),
+
+            playerPosition:
+                exactPlayerPosition,
+
+            totalRanked:
+                Math.max(
+                    0,
+                    academyChampionsSafeNumberV1(
+                        leaderboardSnapshot.totalRanked,
+                        normalizedLeaderboard.length
+                    )
+                ),
+
+            freshness:
+                leaderboardSnapshot.freshness ||
+                {},
+
+            rankingPolicy:
+                leaderboardSnapshot.rankingPolicy ||
+                {}
         },
+        questPersistence: {
+            wired: true,
+            status: 'active',
+            serverBacked: true,
+            persistent: true,
+
+            version:
+                questAchievementState?.version ||
+                'academy-quest-achievement-v1'
+        },
+
         quests: {
-            daily: [
-                {
-                    title: 'Complete one roadmap mission',
-                    xp: 50,
-                    status: completedMissions > 0 ? 'active' : 'recommended'
-                },
-                {
-                    title: 'Submit today’s check-in',
-                    xp: 20,
-                    status: checkinCount > 0 ? 'active' : 'recommended'
-                }
-            ],
-            weekly: [
-                {
-                    title: 'Maintain a 7-day streak',
-                    xp: 100,
-                    status: streakDays >= 7 ? 'completed' : 'in_progress'
-                }
-            ]
+            daily:
+                academyChampionsSafeArrayV1(
+                    questState.daily
+                ),
+
+            weekly:
+                academyChampionsSafeArrayV1(
+                    questState.weekly
+                ),
+
+            completedUnclaimed:
+                Math.max(
+                    0,
+                    academyChampionsSafeNumberV1(
+                        questState.completedUnclaimed,
+                        0
+                    )
+                ),
+
+            claimed:
+                Math.max(
+                    0,
+                    academyChampionsSafeNumberV1(
+                        questState.claimed,
+                        0
+                    )
+                )
+        },
+
+        achievements: {
+            unlocked:
+                academyChampionsSafeArrayV1(
+                    achievementState.unlocked
+                ),
+
+            unlockedCount:
+                Math.max(
+                    0,
+                    academyChampionsSafeNumberV1(
+                        achievementState.unlockedCount,
+                        0
+                    )
+                ),
+
+            totalAvailable:
+                Math.max(
+                    0,
+                    academyChampionsSafeNumberV1(
+                        achievementState.totalAvailable,
+                        0
+                    )
+                ),
+
+            primary:
+                achievementState.primary ||
+                null,
+
+            helperScore: {
+                ...(
+                    achievementState.helperScore &&
+                    typeof achievementState.helperScore === 'object'
+                        ? achievementState.helperScore
+                        : {}
+                ),
+
+                wired:
+                    helperSnapshot.wired === true ||
+                    achievementState.helperScore
+                        ?.wired === true,
+
+                value:
+                    helperScore,
+
+                weeklyValue:
+                    Math.max(
+                        0,
+                        academyChampionsSafeNumberV1(
+                            helperPlayerEntry
+                                ?.weeklyHelperScore ??
+                            achievementState.helperScore
+                                ?.weeklyValue,
+                            0
+                        )
+                    ),
+
+                contributionCount:
+                    Math.max(
+                        0,
+                        academyChampionsSafeNumberV1(
+                            helperPlayerEntry
+                                ?.contributionCount ??
+                            achievementState.helperScore
+                                ?.contributionCount,
+                            0
+                        )
+                    ),
+
+                completedSquadMissions:
+                    Math.max(
+                        0,
+                        academyChampionsSafeNumberV1(
+                            helperPlayerEntry
+                                ?.completedSquadMissions ??
+                            achievementState.helperScore
+                                ?.completedSquadMissions,
+                            0
+                        )
+                    ),
+
+                status:
+                    helperSnapshot.wired === true
+                        ? 'active'
+                        : sanitize(
+                            achievementState.helperScore
+                                ?.status ||
+                            'temporarily_unavailable'
+                        ),
+
+                source:
+                    sanitize(
+                        helperSnapshot.source ||
+                        achievementState.helperScore
+                            ?.source ||
+                        'completed_squad_mission_contributions_v1'
+                    ),
+
+                rule:
+                    sanitize(
+                        helperSnapshot.rule ||
+                        achievementState.helperScore
+                            ?.rule ||
+                        'one_point_per_unique_contribution_to_completed_squad_mission'
+                    )
+            }
         }
     };
 }
@@ -15558,7 +16952,10 @@ exports.getAcademyChampions = async (req, res) => {
         const uid = getAcademyAuthUid(req);
 
         if (!uid) {
-            return res.status(401).json({ success: false, message: 'Unauthorized.' });
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
         }
 
         /*
@@ -15566,30 +16963,294 @@ exports.getAcademyChampions = async (req, res) => {
           Academy-approved users even while Roadmap setup is being initialized.
           Do not hard-block it behind the Roadmap access gate.
         */
-        const access = await requireApprovedAcademyMembership(uid, res);
+        const access = await requireApprovedAcademyMembership(
+            uid,
+            res
+        );
+
         if (!access) return;
 
-        const [homePayload, profile] = await Promise.all([
-            academyFirestoreRepo.buildAcademyHomePayload(uid).catch((error) => {
-                console.warn('Academy Champions home fallback:', error?.message || error);
-                return null;
-            }),
-            academyFirestoreRepo.getCurrentProfile(uid).catch(() => null)
-        ]);
+        const profile = await academyFirestoreRepo
+            .getCurrentProfile(uid)
+            .catch(() => null);
+
+        const canonicalProfile =
+            profile ||
+            access.userData ||
+            {};
+
+        const progression =
+            await academyFirestoreRepo
+                .syncAcademyProgressionFromCurrentStateV1(
+                    uid,
+                    canonicalProfile
+                );
+
+        const questAchievementState =
+            await academyFirestoreRepo
+                .syncAcademyQuestAchievementStateV1(
+                    uid,
+                    progression
+                );
+
+        const weeklyLeaderboardSnapshot =
+            await academyFirestoreRepo
+                .getAcademyProgressionLeaderboardSnapshotV2(
+                    'weekly',
+                    50,
+                    uid
+                )
+                .catch((error) => {
+                    console.warn(
+                        'Academy Champions leaderboard fallback:',
+                        error?.message || error
+                    );
+
+                    return {
+                        leaderboard: [],
+                        playerPosition: null,
+                        playerEntry: null,
+                        exactPosition: false,
+                        totalRanked: 0,
+                        freshness: {
+                            status:
+                                'unavailable'
+                        },
+                        rankingPolicy: {}
+                    };
+                });
+
+        const helperLeaderboardSnapshot =
+            await academyFirestoreRepo
+                .getAcademyHelperLeaderboardSnapshotV1(
+                    uid,
+                    50
+                )
+                .catch((error) => {
+                    console.warn(
+                        'Academy Helper leaderboard unavailable:',
+                        error?.message ||
+                        error
+                    );
+
+                    return {
+                        version:
+                            'academy-helper-leaderboard-v1',
+
+                        wired: false,
+                        period: 'weekly',
+                        leaderboard: [],
+                        topHelpers: [],
+                        playerEntry: null,
+                        playerPosition: null,
+                        totalRanked: 0,
+
+                        source:
+                            'completed_squad_mission_contributions_v1',
+
+                        rule:
+                            'one_point_per_unique_contribution_to_completed_squad_mission'
+                    };
+                });
 
         return res.json(
-            buildAcademyChampionsPayloadV1(
+            buildAcademyChampionsPayloadV2(
                 uid,
-                homePayload || {},
-                profile || access.userData || {}
+                progression,
+                canonicalProfile,
+                weeklyLeaderboardSnapshot,
+                questAchievementState,
+                helperLeaderboardSnapshot
             )
         );
     } catch (error) {
-        console.error('Academy Champions Error:', error);
+        console.error(
+            'Academy Champions Error:',
+            error
+        );
+
         return res.status(500).json({
             success: false,
-            message: 'Server error while loading Academy Champions.'
+            message:
+                'Server error while loading canonical Academy progression.'
         });
+    }
+};
+
+exports.claimAcademyQuestReward = async (
+    req,
+    res
+) => {
+    try {
+        const uid =
+            getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const access =
+            await requireApprovedAcademyMembership(
+                uid,
+                res
+            );
+
+        if (!access) return;
+
+        const questId =
+            sanitize(
+                req.params.questId ||
+                ''
+            );
+
+        if (!questId) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Academy quest reward identity is required.'
+            });
+        }
+
+        const profile =
+            await academyFirestoreRepo
+                .getCurrentProfile(uid)
+                .catch(() => null);
+
+        const canonicalProfile =
+            profile ||
+            access.userData ||
+            {};
+
+        const currentProgression =
+            await academyFirestoreRepo
+                .syncAcademyProgressionFromCurrentStateV1(
+                    uid,
+                    canonicalProfile
+                );
+
+        /*
+         * Create or refresh the current canonical
+         * quest-period records before validating
+         * the reward claim.
+         */
+        await academyFirestoreRepo
+            .syncAcademyQuestAchievementStateV1(
+                uid,
+                currentProgression
+            );
+
+        const claim =
+            await academyFirestoreRepo
+                .claimAcademyQuestRewardV1(
+                    uid,
+                    questId
+                );
+
+        /*
+         * Reconcile progression again so the
+         * claimed reward appears immediately.
+         */
+        const progression =
+            await academyFirestoreRepo
+                .syncAcademyProgressionFromCurrentStateV1(
+                    uid,
+                    canonicalProfile
+                );
+
+        const questAchievementState =
+            await academyFirestoreRepo
+                .syncAcademyQuestAchievementStateV1(
+                    uid,
+                    progression
+                );
+
+        const weeklyLeaderboardSnapshot =
+            await academyFirestoreRepo
+                .getAcademyProgressionLeaderboardSnapshotV2(
+                    'weekly',
+                    50,
+                    uid
+                )
+                .catch(() => ({
+                    leaderboard: [],
+                    playerPosition: null,
+                    playerEntry: null,
+                    exactPosition: false,
+                    totalRanked: 0,
+                    freshness: {
+                        status:
+                            'unavailable'
+                    },
+                    rankingPolicy: {}
+                }));
+
+        const helperLeaderboardSnapshot =
+            await academyFirestoreRepo
+                .getAcademyHelperLeaderboardSnapshotV1(
+                    uid,
+                    50
+                )
+                .catch(() => ({
+                    version:
+                        'academy-helper-leaderboard-v1',
+
+                    wired: false,
+                    period: 'weekly',
+                    leaderboard: [],
+                    topHelpers: [],
+                    playerEntry: null,
+                    playerPosition: null,
+                    totalRanked: 0,
+
+                    source:
+                        'completed_squad_mission_contributions_v1',
+
+                    rule:
+                        'one_point_per_unique_contribution_to_completed_squad_mission'
+                }));
+
+        return res.json({
+            ...buildAcademyChampionsPayloadV2(
+                uid,
+                progression,
+                canonicalProfile,
+                weeklyLeaderboardSnapshot,
+                questAchievementState,
+                helperLeaderboardSnapshot
+            ),
+
+            claim
+        });
+    } catch (error) {
+        const statusCode =
+            Number(
+                error?.statusCode ||
+                error?.status ||
+                500
+            );
+
+        console.error(
+            'claimAcademyQuestReward error:',
+            error
+        );
+
+        return res
+            .status(
+                statusCode >= 400 &&
+                statusCode < 600
+                    ? statusCode
+                    : 500
+            )
+            .json({
+                success: false,
+
+                message:
+                    error?.message ||
+                    'Server error while claiming the Academy quest reward.'
+            });
     }
 };
 /* END PATCH: Academy Champions System controller v1 */
@@ -15625,11 +17286,19 @@ exports.getAcademyProgression = async (req, res) => {
                     profile || access.userData || {}
                 );
 
+        const questAchievementState =
+            await academyFirestoreRepo
+                .syncAcademyQuestAchievementStateV1(
+                    uid,
+                    progression
+                );
+
         return res.json({
             success: true,
-            version: 'academy-progression-v1',
+            version: 'academy-progression-v2',
             generatedAt: new Date().toISOString(),
-            progression
+            progression,
+            questAchievementState
         });
     } catch (error) {
         console.error(
@@ -15703,28 +17372,61 @@ exports.getAcademyProgressionLeaderboard = async (
                     return null;
                 });
 
-        const leaderboard =
+        const leaderboardSnapshot =
             await academyFirestoreRepo
-                .listAcademyProgressionLeaderboardV1(
+                .getAcademyProgressionLeaderboardSnapshotV2(
                     period,
-                    limit
+                    limit,
+                    uid
                 );
-
-        const ownEntry =
-            leaderboard.find(
-                (entry) =>
-                    String(entry.userId) === String(uid)
-            ) || null;
 
         return res.json({
             success: true,
-            version: 'academy-leaderboard-v1',
-            generatedAt: new Date().toISOString(),
-            period,
-            leaderboard,
-            player: ownProgression,
+            version: 'academy-leaderboard-v2',
+
+            generatedAt:
+                leaderboardSnapshot.generatedAt ||
+                new Date().toISOString(),
+
+            period:
+                leaderboardSnapshot.period ||
+                period,
+
+            leaderboard:
+                leaderboardSnapshot.leaderboard ||
+                [],
+
+            player:
+                ownProgression,
+
+            playerEntry:
+                leaderboardSnapshot.playerEntry ||
+                null,
+
             playerPosition:
-                ownEntry?.position || null
+                leaderboardSnapshot.playerPosition ||
+                null,
+
+            exactPosition:
+                leaderboardSnapshot.exactPosition ===
+                true,
+
+            totalRanked:
+                Math.max(
+                    0,
+                    toInt(
+                        leaderboardSnapshot.totalRanked,
+                        0
+                    )
+                ),
+
+            freshness:
+                leaderboardSnapshot.freshness ||
+                {},
+
+            rankingPolicy:
+                leaderboardSnapshot.rankingPolicy ||
+                {}
         });
     } catch (error) {
         console.error(

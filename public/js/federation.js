@@ -941,6 +941,7 @@ const federationServerState = {
   referrals: null,
   command: null,
   dealRooms: [],
+  influence: null,
   error: ""
 };
 
@@ -1061,12 +1062,19 @@ async function loadFederationServerState(options = {}) {
         ? meResult.referrals
         : null;
 
-    if (meResult.canEnterFederation === true) {
-      const [directorySettled, commandSettled, referralSettled, dealRoomsSettled] = await Promise.allSettled([
+    if (federationServerState.canEnterFederation === true) {
+      const [
+        directorySettled,
+        commandSettled,
+        referralSettled,
+        dealRoomsSettled,
+        influenceSettled
+      ] = await Promise.allSettled([
         federationConnectFetch("/api/federation/directory"),
         federationConnectFetch("/api/federation/command"),
         federationConnectFetch("/api/federation/referrals"),
-        federationConnectFetch("/api/federation/deal-rooms")
+        federationConnectFetch("/api/federation/deal-rooms"),
+        federationConnectFetch("/api/federation/influence?limit=50")
       ]);
 
       if (directorySettled.status === "fulfilled") {
@@ -1120,9 +1128,25 @@ async function loadFederationServerState(options = {}) {
         console.error("Federation deal rooms load error:", dealRoomsSettled.reason);
         federationServerState.dealRooms = [];
       }
+
+      if (influenceSettled.status === "fulfilled") {
+        federationServerState.influence =
+          writeFederationInfluenceCacheV1(
+            influenceSettled.value || {}
+          );
+      } else {
+        console.error(
+          "Federation Influence load error:",
+          influenceSettled.reason
+        );
+
+        federationServerState.influence =
+          readFederationInfluenceCacheV1();
+      }
     } else {
       federationServerState.members = [];
       federationServerState.command = null;
+      federationServerState.influence = null;
     }
 
     federationServerState.loaded = true;
@@ -1153,6 +1177,10 @@ async function loadFederationServerState(options = {}) {
     federationServerState.dealRooms = Array.isArray(federationServerState.dealRooms)
       ? federationServerState.dealRooms
       : [];
+
+    federationServerState.influence =
+      federationServerState.influence ||
+      readFederationInfluenceCacheV1();
 
     federationServerState.error = isExpectedFederationInlineFetchFailure(error)
       ? ""
@@ -3958,6 +3986,299 @@ function buildStatusTimelineMarkup(status = "Pending") {
 
 /* PATCH: Phase 3E-FE-1 — Federation Strategic Command shell v1 */
 const FEDERATION_STRATEGIC_PREVIEW_KEY_V1 = "yhFederationStrategicPreviewV1";
+const FEDERATION_INFLUENCE_CACHE_KEY_V1 = "yh_federation_influence_v1";
+
+let federationInfluenceSnapshotV1 = null;
+
+function normalizeFederationInfluenceCountV1(value = 0) {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed)
+    ? Math.max(0, Math.round(parsed))
+    : 0;
+}
+
+function normalizeFederationInfluenceSnapshotV1(payload = {}) {
+  const profile =
+    payload?.profile &&
+    typeof payload.profile === "object"
+      ? payload.profile
+      : payload?.influence &&
+        typeof payload.influence === "object"
+        ? payload.influence
+        : {};
+
+  const events = Array.isArray(payload?.events)
+    ? payload.events.map((event = {}) => ({
+        id: String(event.id || "").trim(),
+        eventKey: String(event.eventKey || "").trim(),
+        userId: String(event.userId || "").trim(),
+        eventType: String(event.eventType || "")
+          .trim()
+          .toLowerCase(),
+        sourceType: String(event.sourceType || "")
+          .trim()
+          .toLowerCase(),
+        sourceId: String(event.sourceId || "").trim(),
+        beneficiaryRole: String(
+          event.beneficiaryRole ||
+          "member"
+        )
+          .trim()
+          .toLowerCase(),
+        influencePoints: Number.isFinite(
+          Number(event.influencePoints)
+        )
+          ? Math.round(
+              Number(event.influencePoints)
+            )
+          : 0,
+        region:
+          String(
+            event.region ||
+            "Global"
+          ).trim() ||
+          "Global",
+        occurredAt: String(
+          event.occurredAt ||
+          event.createdAt ||
+          ""
+        ).trim(),
+        metadata:
+          event.metadata &&
+          typeof event.metadata === "object"
+            ? event.metadata
+            : {}
+      }))
+    : [];
+
+  const loaded =
+    payload?.loaded === true ||
+    payload?.success === true ||
+    Boolean(
+      profile.userId ||
+      profile.source ||
+      payload?.fetchedAt
+    );
+
+  return {
+    loaded,
+
+    profile: {
+      userId: String(
+        profile.userId ||
+        ""
+      ).trim(),
+
+      division: "federation",
+
+      totalInfluence:
+        normalizeFederationInfluenceCountV1(
+          profile.totalInfluence
+        ),
+
+      weeklyInfluence:
+        normalizeFederationInfluenceCountV1(
+          profile.weeklyInfluence
+        ),
+
+      eventCount:
+        normalizeFederationInfluenceCountV1(
+          profile.eventCount ??
+          payload?.eventCount ??
+          events.length
+        ),
+
+      weekStartAt: String(
+        profile.weekStartAt ||
+        ""
+      ).trim(),
+
+      lastEventAt: String(
+        profile.lastEventAt ||
+        ""
+      ).trim(),
+
+      lastEventType: String(
+        profile.lastEventType ||
+        ""
+      )
+        .trim()
+        .toLowerCase(),
+
+      source: String(
+        profile.source ||
+        "federation_influence_ledger_v1"
+      ).trim(),
+
+      updatedAt: String(
+        profile.updatedAt ||
+        ""
+      ).trim()
+    },
+
+    events,
+
+    fetchedAt: String(
+      payload?.fetchedAt ||
+      new Date().toISOString()
+    ).trim()
+  };
+}
+
+function readFederationInfluenceCacheV1() {
+  if (
+    federationInfluenceSnapshotV1 &&
+    typeof federationInfluenceSnapshotV1 ===
+      "object"
+  ) {
+    return federationInfluenceSnapshotV1;
+  }
+
+  try {
+    const parsed = JSON.parse(
+      sessionStorage.getItem(
+        FEDERATION_INFLUENCE_CACHE_KEY_V1
+      ) || "null"
+    );
+
+    if (
+      parsed &&
+      typeof parsed === "object"
+    ) {
+      federationInfluenceSnapshotV1 =
+        normalizeFederationInfluenceSnapshotV1(
+          parsed
+        );
+
+      return federationInfluenceSnapshotV1;
+    }
+  } catch (_) {}
+
+  return normalizeFederationInfluenceSnapshotV1({
+    loaded: false,
+    profile: {},
+    events: []
+  });
+}
+
+function writeFederationInfluenceCacheV1(payload = {}) {
+  const snapshot =
+    normalizeFederationInfluenceSnapshotV1(
+      payload
+    );
+
+  federationInfluenceSnapshotV1 =
+    snapshot;
+
+  try {
+    sessionStorage.setItem(
+      FEDERATION_INFLUENCE_CACHE_KEY_V1,
+      JSON.stringify(snapshot)
+    );
+  } catch (_) {}
+
+  try {
+    window.dispatchEvent(
+      new CustomEvent(
+        "yhu:federation-influence-updated",
+        {
+          detail: snapshot
+        }
+      )
+    );
+  } catch (_) {}
+
+  try {
+    if (
+      window.parent &&
+      window.parent !== window
+    ) {
+      window.parent.dispatchEvent(
+        new CustomEvent(
+          "yhu:federation-influence-updated",
+          {
+            detail: snapshot
+          }
+        )
+      );
+
+      window.parent.postMessage(
+        {
+          type:
+            "yhu:federation-influence-updated",
+
+          detail:
+            snapshot
+        },
+        window.location.origin
+      );
+    }
+  } catch (_) {}
+
+  return snapshot;
+}
+
+function getFederationInfluenceCategoryV1(
+  eventType = ""
+) {
+  const clean = String(
+    eventType ||
+    ""
+  )
+    .trim()
+    .toLowerCase();
+
+  if (
+    /paid|payment|economic|deal|settlement/.test(
+      clean
+    )
+  ) {
+    return "economic";
+  }
+
+  if (
+    /connect|intro|diplom|handoff/.test(
+      clean
+    )
+  ) {
+    return "diplomatic";
+  }
+
+  if (
+    /leader|command|mentor/.test(
+      clean
+    )
+  ) {
+    return "leadership";
+  }
+
+  if (
+    /intelligence|review|risk|research/.test(
+      clean
+    )
+  ) {
+    return "intelligence";
+  }
+
+  if (
+    /governance|council|proposal|vote/.test(
+      clean
+    )
+  ) {
+    return "governance";
+  }
+
+  if (
+    /alliance|region|territory/.test(
+      clean
+    )
+  ) {
+    return "alliance";
+  }
+
+  return "intelligence";
+}
 
 function normalizeFederationStrategicStatusV1(value = "") {
   return String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -3976,10 +4297,75 @@ function isFederationStrategicOpenStatusV1(value = "") {
   ].includes(status);
 }
 
-function resolveFederationStrategicRankV1(state = {}) {
-  return state?.type === "member"
-    ? { key: "delegate", label: "Delegate" }
-    : { key: "observer", label: "Observer" };
+function resolveFederationStrategicRankV1(
+  state = {},
+  totalInfluence = 0
+) {
+  if (state?.type !== "member") {
+    return {
+      key: "observer",
+      label: "Observer",
+      nextLabel: "Delegate",
+      nextAt: 0
+    };
+  }
+
+  const total =
+    normalizeFederationInfluenceCountV1(
+      totalInfluence
+    );
+
+  if (total >= 250) {
+    return {
+      key: "federation-commander",
+      label: "Federation Commander",
+      nextLabel: "Max Rank",
+      nextAt: 250
+    };
+  }
+
+  if (total >= 100) {
+    return {
+      key: "regional-leader",
+      label: "Regional Leader",
+      nextLabel: "Federation Commander",
+      nextAt: 250
+    };
+  }
+
+  if (total >= 50) {
+    return {
+      key: "council-member",
+      label: "Council Member",
+      nextLabel: "Regional Leader",
+      nextAt: 100
+    };
+  }
+
+  if (total >= 20) {
+    return {
+      key: "strategist",
+      label: "Strategist",
+      nextLabel: "Council Member",
+      nextAt: 50
+    };
+  }
+
+  if (total >= 5) {
+    return {
+      key: "representative",
+      label: "Representative",
+      nextLabel: "Strategist",
+      nextAt: 20
+    };
+  }
+
+  return {
+    key: "delegate",
+    label: "Delegate",
+    nextLabel: "Representative",
+    nextAt: 5
+  };
 }
 
 function resolveFederationStrategicRegionV1(member = null) {
@@ -4382,39 +4768,153 @@ function renderFederationStrategicOperationsV2(signals = getFederationStrategicS
   return summary;
 }
 
-function renderFederationInfluenceFrameworkV2(signals = {}, state = getCurrentUserState(), operationSummary = {}) {
+function renderFederationInfluenceFrameworkV2(
+  signals = {},
+  state = getCurrentUserState(),
+  operationSummary = {},
+  influenceSnapshot = readFederationInfluenceCacheV1()
+) {
   const node = qs("#fedStrategicInfluenceGridV2");
   if (!node) return;
 
-  const referrals = federationServerState.referrals && typeof federationServerState.referrals === "object"
-    ? federationServerState.referrals
-    : {};
-  const economicOperations = Array.isArray(signals.dealRooms)
-    ? signals.dealRooms.filter((room) => Number(room.expectedValueAmount || 0) > 0).length
+  const snapshot =
+    influenceSnapshot &&
+    typeof influenceSnapshot === "object"
+      ? influenceSnapshot
+      : readFederationInfluenceCacheV1();
+
+  const events = Array.isArray(snapshot.events)
+    ? snapshot.events
+    : [];
+
+  const categoryPoints = events.reduce(
+    (totals, event) => {
+      const category =
+        getFederationInfluenceCategoryV1(
+          event.eventType
+        );
+
+      totals[category] =
+        (
+          totals[category] ||
+          0
+        ) +
+        Number(
+          event.influencePoints ||
+          0
+        );
+
+      return totals;
+    },
+    {}
+  );
+
+  const referrals =
+    federationServerState.referrals &&
+    typeof federationServerState.referrals ===
+      "object"
+      ? federationServerState.referrals
+      : {};
+
+  const economicOperations = Array.isArray(
+    signals.dealRooms
+  )
+    ? signals.dealRooms.filter(
+        (room) =>
+          Number(
+            room.expectedValueAmount ||
+            0
+          ) > 0
+      ).length
     : 0;
 
   const categories = [
-    ["Diplomatic Influence", Number(signals.requests?.length || 0) + Number(federationConnectState.opportunities?.length || 0), "Connection and introduction signals"],
-    ["Economic Influence", economicOperations, "Deal Rooms with visible economic context"],
-    ["Leadership", state?.type === "member" ? 1 : 0, state?.type === "member" ? "Approved member signal" : "Federation approval required"],
-    ["Strategic Intelligence", Number(signals.strategicAlerts || 0), "Pending review and decision signals"],
-    ["Governance Contribution", Number(referrals.total || 0), "Referral pipeline signals"],
-    ["Alliance Strength", Number(signals.countries?.length || 0), "Visible country network signals"]
+    [
+      "diplomatic",
+      "Diplomatic Influence",
+      Number(signals.requests?.length || 0) +
+        Number(
+          federationConnectState.opportunities
+            ?.length ||
+          0
+        ),
+      "Verified introductions, connections, and handoffs"
+    ],
+    [
+      "economic",
+      "Economic Influence",
+      economicOperations,
+      "Verified paid connections, settlements, and Deal Room outcomes"
+    ],
+    [
+      "leadership",
+      "Leadership",
+      state?.type === "member" ? 1 : 0,
+      "Verified command, mentoring, and leadership outcomes"
+    ],
+    [
+      "intelligence",
+      "Strategic Intelligence",
+      Number(
+        signals.strategicAlerts ||
+        0
+      ),
+      "Verified strategic review, research, and risk outcomes"
+    ],
+    [
+      "governance",
+      "Governance Contribution",
+      Number(
+        referrals.total ||
+        0
+      ),
+      "Verified council and governance contribution events"
+    ],
+    [
+      "alliance",
+      "Alliance Strength",
+      Number(
+        signals.countries?.length ||
+        0
+      ),
+      "Verified alliance and regional coordination events"
+    ]
   ];
 
-  node.innerHTML = categories.map(([label, signal, note]) => `
-    <article>
-      <div>
-        <strong>${escapeHtml(label)}</strong>
-        <small>${escapeHtml(note)}</small>
-      </div>
-      <span>
-        <b>${Number(signal || 0).toLocaleString()}</b>
-        <small>source signals</small>
-      </span>
-      <em>Wiring pending</em>
-    </article>
-  `).join("");
+  node.innerHTML = categories
+    .map(
+      ([
+        key,
+        label,
+        signal,
+        note
+      ]) => `
+        <article>
+          <div>
+            <strong>${escapeHtml(label)}</strong>
+            <small>${escapeHtml(note)}</small>
+          </div>
+
+          <span>
+            <b>
+              ${Number(
+                categoryPoints[key] ||
+                0
+              ).toLocaleString()}
+            </b>
+            <small>Influence pts</small>
+          </span>
+
+          <em>
+            ${Number(
+              signal ||
+              0
+            ).toLocaleString()} source signals
+          </em>
+        </article>
+      `
+    )
+    .join("");
 }
 
 function bindFederationStrategicOperationFiltersV2(shell = qs("#federationStrategicCommandV1")) {
@@ -4881,7 +5381,52 @@ function renderFederationStrategicCommandV1(state = getCurrentUserState()) {
   if (!shell) return;
 
   const member = state?.type === "member" ? state.member : null;
-  const rank = resolveFederationStrategicRankV1(state);
+
+  const influenceSnapshot =
+    federationServerState.influence &&
+    typeof federationServerState.influence ===
+      "object"
+      ? federationServerState.influence
+      : readFederationInfluenceCacheV1();
+
+  const influenceProfile =
+    influenceSnapshot.profile &&
+    typeof influenceSnapshot.profile ===
+      "object"
+      ? influenceSnapshot.profile
+      : {};
+
+  const influenceEvents = Array.isArray(
+    influenceSnapshot.events
+  )
+    ? influenceSnapshot.events
+    : [];
+
+  const influenceLoaded =
+    influenceSnapshot.loaded === true;
+
+  const totalInfluence =
+    normalizeFederationInfluenceCountV1(
+      influenceProfile.totalInfluence
+    );
+
+  const weeklyInfluence =
+    normalizeFederationInfluenceCountV1(
+      influenceProfile.weeklyInfluence
+    );
+
+  const influenceEventCount =
+    normalizeFederationInfluenceCountV1(
+      influenceProfile.eventCount ??
+      influenceEvents.length
+    );
+
+  const rank =
+    resolveFederationStrategicRankV1(
+      state,
+      totalInfluence
+    );
+
   const homeRegion = resolveFederationStrategicRegionV1(member);
   const signals = getFederationStrategicSignalsV1(state);
 
@@ -4889,6 +5434,11 @@ function renderFederationStrategicCommandV1(state = getCurrentUserState()) {
   const regionNode = qs("#fedStrategicRegionV1");
   const operationsNode = qs("#fedStrategicOperationsV1");
   const alertsNode = qs("#fedStrategicAlertsV1");
+  const influenceTotalNode = qs("#fedStrategicInfluenceTotalV1");
+  const profileBadgeNode = qs("#fedStrategicProfileBadgeV1");
+  const influenceBadgeNode = qs("#fedStrategicInfluenceBadgeV1");
+  const rankBadgeNode = qs("#fedStrategicRankBadgeV1");
+  const commandStatusBadgeNode = qs("#fedStrategicCommandStatusBadgeV1");
   const metricsNode = qs("#fedStrategicMetricsV1");
   const operationNode = qs("#fedStrategicOperationSlotV1");
   const regionGridNode = qs("#fedStrategicRegionGridV1");
@@ -4898,6 +5448,27 @@ function renderFederationStrategicCommandV1(state = getCurrentUserState()) {
   if (regionNode) regionNode.textContent = homeRegion;
   if (operationsNode) operationsNode.textContent = String(signals.activeOperations);
   if (alertsNode) alertsNode.textContent = String(signals.strategicAlerts);
+
+  if (influenceTotalNode) {
+    influenceTotalNode.textContent =
+      influenceLoaded
+        ? totalInfluence.toLocaleString()
+        : "Syncing";
+  }
+
+  [
+    profileBadgeNode,
+    influenceBadgeNode,
+    rankBadgeNode,
+    commandStatusBadgeNode
+  ]
+    .filter(Boolean)
+    .forEach((node) => {
+      node.textContent =
+        influenceLoaded
+          ? "Live Ledger"
+          : "Syncing Ledger";
+    });
 
   qsa("[data-fed-strategic-rank]", shell).forEach((node) => {
     node.classList.toggle(
@@ -4982,7 +5553,15 @@ function renderFederationStrategicCommandV1(state = getCurrentUserState()) {
 
   if (readinessNode) {
     const readiness = [
-      ["Influence", "Wiring pending", "No influence points awarded"],
+      [
+        "Influence",
+        influenceLoaded
+          ? `${totalInfluence.toLocaleString()} total`
+          : "Syncing ledger",
+        influenceLoaded
+          ? `${weeklyInfluence.toLocaleString()} this week • ${influenceEventCount.toLocaleString()} verified events`
+          : "Waiting for the canonical Influence profile"
+      ],
       ["Council Standing", "Wiring pending", "Governance system not connected"],
       ["Alliance Status", signals.countries.length ? "Network visible" : "Not established", `${signals.countries.length} active country signals`],
       ["Command Access", state?.type === "member" ? "Active" : "Restricted", state?.type === "member" ? "Approved Federation member" : "Federation approval required"]
@@ -4998,7 +5577,14 @@ function renderFederationStrategicCommandV1(state = getCurrentUserState()) {
   }
 
   const operationSummaryV2 = renderFederationStrategicOperationsV2(signals);
-  renderFederationInfluenceFrameworkV2(signals, state, operationSummaryV2);
+
+  renderFederationInfluenceFrameworkV2(
+    signals,
+    state,
+    operationSummaryV2,
+    influenceSnapshot
+  );
+
   bindFederationStrategicOperationFiltersV2(shell);
 
   const federationOperationsV3 = getFederationStrategicOperationsV2(signals);
@@ -5011,14 +5597,24 @@ function renderFederationStrategicCommandV1(state = getCurrentUserState()) {
   const primaryOperationV2 = operationSummaryV2.primaryOperation || null;
 
   saveFederationStrategicPreviewV1({
-    version: "federation-strategic-preview-v3",
+    version: "federation-strategic-preview-v4",
     rank: rank.label,
+    rankKey: rank.key,
+    nextRank: rank.nextLabel,
+    nextRankAt: rank.nextAt,
     homeRegion,
     activeOperations: operationSummaryV2.active,
     strategicAlerts: signals.strategicAlerts,
     approvedMembers: signals.members.length,
     countriesActive: signals.countries.length,
-    influenceStatus: "Wiring pending",
+    influenceLoaded,
+    totalInfluence,
+    weeklyInfluence,
+    influenceEventCount,
+    influenceStatus:
+      influenceLoaded
+        ? `${totalInfluence.toLocaleString()} total • ${weeklyInfluence.toLocaleString()} weekly`
+        : "Syncing ledger",
     operationSummary: {
       total: operationSummaryV2.total,
       active: operationSummaryV2.active,
@@ -5028,9 +5624,17 @@ function renderFederationStrategicCommandV1(state = getCurrentUserState()) {
       completed: operationSummaryV2.completed
     },
     influenceFramework: {
-      wired: 0,
+      wired:
+        influenceLoaded
+          ? 1
+          : 0,
       total: 6,
-      status: "Wiring pending"
+      eventCount:
+        influenceEventCount,
+      status:
+        influenceLoaded
+          ? "Canonical ledger live"
+          : "Syncing ledger"
     },
     governance: {
       councilStatus: federationStrategyV3.governance.councilStatus,

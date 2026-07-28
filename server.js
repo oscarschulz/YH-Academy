@@ -10,14 +10,16 @@ const { firestore } = require('./config/firebaseAdmin');
 const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const jwt = require('jsonwebtoken');
 const publicLandingEventsRepo = require('./backend/repositories/publicLandingEventsRepo');
-const realtimeFirestoreRepo = require('./backend/repositories/realtimeFirestoreRepo');
+const realtimeSupabaseRepo = require('./backend/repositories/realtimeSupabaseRepo');
 const paymentLedgerRepo = require('./backend/repositories/paymentLedgerRepo');
 const verifiedBadgeSupabaseRepo = require('./backend/repositories/verifiedBadgeSupabaseRepo');
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
 const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const yhuSupabaseMirrorRepo = require('./backend/repositories/yhuSupabaseMirrorRepo');
 const federationConnectSupabaseRepo = require('./backend/repositories/federationConnectSupabaseRepo');
+const federationInfluenceSupabaseRepo = require('./backend/repositories/federationInfluenceSupabaseRepo');
 const adminBroadcastSupabaseRepo = require('./backend/repositories/adminBroadcastSupabaseRepo');
+const userNotificationsSupabaseRepo = require('./backend/repositories/userNotificationsSupabaseRepo');
 const { yhuSupabaseAdmin } = require('./config/supabaseAdmin');
 const app = express();
 app.set('trust proxy', 1);
@@ -55,8 +57,12 @@ publicLandingNamespace.on('connection', (socket) => {
     });
 });
 
-const chatMessagesCol = firestore.collection('chatMessages');
-const chatRoomsCol = firestore.collection('chatRooms');
+/*
+ * Firestore chat messages are read only by the controlled
+ * migration-on-empty bridge. All active message writes and
+ * authoritative reads use Supabase.
+ */
+const legacyChatMessagesCol = firestore.collection('chatMessages');
 const liveRoomsCol = firestore.collection('liveRooms');
 const leadMissionOperatorsCol = firestore.collection('leadMissionOperators');
 const plazaConversationsCol = firestore.collection('plazaConversations');
@@ -369,9 +375,34 @@ async function appendYHVerifiedBadgePaymentNotification(payerUid = '', notificat
         read_at: ''
     };
 
+    const existingNotification =
+        current.find(
+            (item) =>
+                sanitizeText(item?.id) ===
+                id
+        ) ||
+        null;
+
+    const alreadyExists =
+        Boolean(
+            existingNotification
+        );
+
+    /*
+     * A duplicate payment webhook must not reset an
+     * existing notification from read back to unread.
+     */
+    const persistedNotification =
+        existingNotification ||
+        nextNotification;
+
     const next = [
-        nextNotification,
-        ...current.filter((item) => sanitizeText(item?.id) !== id)
+        persistedNotification,
+        ...current.filter(
+            (item) =>
+                sanitizeText(item?.id) !==
+                id
+        )
     ].slice(0, 40);
 
     await userRef.set({
@@ -385,7 +416,16 @@ async function appendYHVerifiedBadgePaymentNotification(payerUid = '', notificat
         await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
         /* END PATCH: yhu_users Supabase safe write sync */
 
-    return nextNotification;
+    if (!alreadyExists) {
+        emitRealtimeNotificationV2(
+            cleanPayerUid,
+            normalizeUserInProductNotification(
+                nextNotification
+            )
+        );
+    }
+
+    return persistedNotification;
 }
 
 async function resolveYHVerifiedBadgePaymentFromWebhook(paymentId = '', trackId = '') {
@@ -1312,109 +1352,718 @@ function isFederationPaidStatus(value = '') {
     return clean === 'paid' || clean === 'completed' || clean === 'intro_delivered';
 }
 
-async function syncStripePaidFederationRequestToAcademyEconomy(request = {}, action = 'stripe_checkout_completed') {
+const FEDERATION_PAID_CONNECTION_INFLUENCE_POINTS_V1 = 5;
+
+async function recordVerifiedFederationPaidConnectionInfluenceV1(
+    request = {},
+    context = {}
+) {
+    const requestId =
+        sanitizeText(
+            request.id ||
+            context.requestId
+        );
+
+    const requesterUid =
+        sanitizeText(
+            request.requesterUid ||
+            context.requesterUid
+        );
+
+    if (
+        !requestId ||
+        !requesterUid
+    ) {
+        return null;
+    }
+
+    const provider =
+        sanitizeText(
+            context.provider ||
+            request.selectedPaymentProvider ||
+            request.paymentProviderLabel ||
+            'payment-webhook'
+        ).toLowerCase();
+
+    const opportunityTitle =
+        sanitizeText(
+            request.opportunityTitle ||
+            request.title ||
+            'Federation paid connection'
+        ).slice(0, 220);
+
+    const region =
+        sanitizeText(
+            request.region ||
+            request.country ||
+            'Federation'
+        ) ||
+        'Federation';
+
+    const influenceResult =
+        await federationInfluenceSupabaseRepo
+            .recordVerifiedEventOnce({
+                userId:
+                    requesterUid,
+
+                eventType:
+                    'paid_connection_confirmed',
+
+                sourceType:
+                    'federation_connection_request',
+
+                sourceId:
+                    requestId,
+
+                beneficiaryRole:
+                    'requester',
+
+                influencePoints:
+                    FEDERATION_PAID_CONNECTION_INFLUENCE_POINTS_V1,
+
+                region,
+
+                verifiedBy:
+                    `${provider || 'payment'}-webhook`,
+
+                verifiedSource:
+                    'federation_paid_connection_payment_v1',
+
+                occurredAt:
+                    new Date().toISOString(),
+
+                metadata: {
+                    requestId,
+                    requesterUid,
+                    opportunityTitle,
+                    provider,
+
+                    paymentLedgerId:
+                        sanitizeText(
+                            request.paymentLedgerId ||
+                            context.paymentLedgerId
+                        ),
+
+                    paymentStatus:
+                        sanitizeText(
+                            request.paymentStatus ||
+                            request.status ||
+                            'paid'
+                        ).toLowerCase(),
+
+                    paymentMethod:
+                        sanitizeText(
+                            request.paymentMethod ||
+                            context.paymentMethod
+                        ),
+
+                    sourcePaymentMode:
+                        sanitizeText(
+                            request.sourcePaymentMode ||
+                            context.sourcePaymentMode ||
+                            'paid_intro'
+                        ),
+
+                    amount:
+                        Math.max(
+                            0,
+                            Number(
+                                request.pricingAmount ||
+                                request.dealPackage?.pricingAmount ||
+                                context.amount ||
+                                0
+                            ) || 0
+                        ),
+
+                    currency:
+                        sanitizeText(
+                            request.currency ||
+                            request.dealPackage?.currency ||
+                            context.currency ||
+                            'USD'
+                        ).toUpperCase() ||
+                        'USD'
+                }
+            });
+
+    const event =
+        influenceResult?.event &&
+        typeof influenceResult.event === 'object'
+            ? influenceResult.event
+            : {};
+
+    const influencePoints =
+        Number.isFinite(
+            Number(
+                event.influencePoints
+            )
+        )
+            ? Number(
+                event.influencePoints
+            )
+            : FEDERATION_PAID_CONNECTION_INFLUENCE_POINTS_V1;
+
+    const notificationText =
+        `Payment for "${opportunityTitle}" was verified. ` +
+        `+${influencePoints} Federation Influence has been added.`;
+
+    const notificationId =
+        `federation_influence_paid_connection_${requestId}`;
+
+    const existingNotifications =
+        await userNotificationsSupabaseRepo
+            .listUserNotifications(
+                requesterUid,
+                {
+                    sourceField:
+                        'inProductReviewNotifications',
+
+                    limit: 80
+                }
+            );
+
+    const existingNotification =
+        existingNotifications.find(
+            (item) =>
+                sanitizeText(
+                    item?.id
+                ) === notificationId
+        ) ||
+        null;
+
+    /*
+     * Webhook retries must not reset an already-read
+     * notification back to unread.
+     */
+    const notification =
+        existingNotification ||
+        await userNotificationsSupabaseRepo
+            .upsertNotification(
+                requesterUid,
+                {
+                    id:
+                        notificationId,
+
+                    title:
+                        'Federation Influence awarded',
+
+                    text:
+                        notificationText,
+
+                    message:
+                        notificationText,
+
+                    body:
+                        notificationText,
+
+                    target:
+                        'federation-requests',
+
+                    targetType:
+                        'federation-requests',
+
+                    target_type:
+                        'federation-requests',
+
+                    targetId:
+                        requestId,
+
+                    target_id:
+                        requestId,
+
+                    color:
+                        'var(--amber)',
+
+                    avatarStr:
+                        'F',
+
+                    initial:
+                        'F',
+
+                    source:
+                        'federation-influence',
+
+                    notificationType:
+                        'federation-influence-award',
+
+                    applicationField:
+                        'federationConnectionRequest',
+
+                    applicationStatus:
+                        'paid',
+
+                    influencePoints,
+
+                    influenceEventKey:
+                        sanitizeText(
+                            event.eventKey
+                        ),
+
+                    provider,
+                    region,
+
+                    isRead: false,
+                    is_read: false,
+                    read: false,
+
+                    createdAt:
+                        sanitizeText(
+                            event.occurredAt ||
+                            event.createdAt
+                        ) ||
+                        new Date().toISOString()
+                },
+                {
+                    source:
+                        'payment:federation-paid-connection',
+
+                    sourceField:
+                        'inProductReviewNotifications'
+                }
+            );
+
+    return {
+        requesterUid,
+        influenceResult,
+        notification
+    };
+}
+
+async function syncStripePaidFederationRequestToAcademyEconomy(
+    request = {},
+    action = 'stripe_checkout_completed'
+) {
     try {
-        const requestId = sanitizeText(request.id);
-        const ownerUid = sanitizeText(request.ownerUid);
-        const leadId = sanitizeText(request.leadId);
+        const requestId =
+            sanitizeText(
+                request.id
+            );
 
-        if (!requestId || !ownerUid || !leadId) {
+        const ownerUid =
+            sanitizeText(
+                request.ownerUid
+            );
+
+        const leadId =
+            sanitizeText(
+                request.leadId
+            );
+
+        if (
+            !requestId ||
+            !ownerUid ||
+            !leadId
+        ) {
             return false;
         }
 
-        const userRef = firestore.collection('users').doc(ownerUid);
-        const leadRef = userRef.collection('academyLeadMissions').doc(leadId);
-        const leadSnap = await leadRef.get();
+        const lead =
+            await academyFirestoreRepo
+                .getLeadMissionLeadById(
+                    ownerUid,
+                    leadId
+                );
 
-        if (!leadSnap.exists) {
+        if (!lead) {
             return false;
         }
 
-        const now = Timestamp.now();
-        const pricingAmount = Math.max(0, Number(request.pricingAmount || request.dealPackage?.pricingAmount || 0));
-        const platformCommissionRate = Math.max(0, Math.min(100, Number(request.platformCommissionRate || request.dealPackage?.platformCommissionRate || 0)));
-        const platformCommissionAmount = Math.max(0, Number(request.platformCommissionAmount || request.dealPackage?.platformCommissionAmount || 0));
-        const operatorPayoutAmount = Math.max(0, Number(request.operatorPayoutAmount || request.dealPackage?.operatorPayoutAmount || 0));
-        const currency = sanitizeText(request.currency || request.dealPackage?.currency || 'USD').toUpperCase() || 'USD';
-        const mirrorId = `fedreq_${requestId}`;
+        const nowIsoValue =
+            new Date()
+                .toISOString();
 
-        const dealRef = userRef.collection('academyLeadDeals').doc(mirrorId);
-        const payoutRef = userRef.collection('academyLeadPayouts').doc(mirrorId);
+        const pricingAmount =
+            Math.max(
+                0,
+                Number(
+                    request.pricingAmount ||
+                    request.dealPackage
+                        ?.pricingAmount ||
+                    0
+                )
+            );
 
-        const [dealSnap, payoutSnap] = await Promise.all([
-            dealRef.get(),
-            payoutRef.get()
-        ]);
+        const platformCommissionRate =
+            Math.max(
+                0,
+                Math.min(
+                    100,
+                    Number(
+                        request.platformCommissionRate ||
+                        request.dealPackage
+                            ?.platformCommissionRate ||
+                        0
+                    )
+                )
+            );
 
-        const adminNote = sanitizeText(
-            request.dealNotes ||
-            `Stripe payment confirmed for Federation paid introduction via ${action}.`
-        ).slice(0, 900);
+        const platformCommissionAmount =
+            Math.max(
+                0,
+                Number(
+                    request.platformCommissionAmount ||
+                    request.dealPackage
+                        ?.platformCommissionAmount ||
+                    0
+                )
+            );
 
-        await dealRef.set({
+        const operatorPayoutAmount =
+            Math.max(
+                0,
+                Number(
+                    request.operatorPayoutAmount ||
+                    request.dealPackage
+                        ?.operatorPayoutAmount ||
+                    0
+                )
+            );
+
+        const currency =
+            sanitizeText(
+                request.currency ||
+                request.dealPackage
+                    ?.currency ||
+                'USD'
+            )
+                .toUpperCase() ||
+            'USD';
+
+        const mirrorId =
+            `fedreq_${requestId}`;
+
+        const adminNote =
+            sanitizeText(
+                request.dealNotes ||
+                `Stripe payment confirmed for Federation paid introduction via ${action}.`
+            ).slice(0, 900);
+
+        const dealPayload = {
             leadId,
-            federationRequestId: requestId,
-            dealType: 'federation_paid_introduction',
-            dealStatus: 'paid',
-            grossValue: pricingAmount,
+
+            federationRequestId:
+                requestId,
+
+            title:
+                sanitizeText(
+                    request.opportunityTitle ||
+                    'Federation paid introduction'
+                ),
+
+            opportunityTitle:
+                sanitizeText(
+                    request.opportunityTitle ||
+                    'Federation paid introduction'
+                ),
+
+            dealType:
+                'federation_paid_introduction',
+
+            status:
+                'paid',
+
+            dealStatus:
+                'paid',
+
+            grossValue:
+                pricingAmount,
+
+            amount:
+                pricingAmount,
+
             currency,
+
             platformCommissionRate,
             platformCommissionAmount,
             operatorPayoutAmount,
-            paymentStatus: 'paid',
-            payoutStatus: 'approved',
-            commissionStatus: 'earned',
-            stripeCheckoutSessionId: sanitizeText(request.stripeCheckoutSessionId),
-            stripePaymentIntentId: sanitizeText(request.stripePaymentIntentId),
-            opportunityTitle: sanitizeText(request.opportunityTitle || 'Federation paid introduction'),
-            operatorVisibleNote: adminNote,
-            sourceDivision: 'federation',
-            sourceFeature: 'connect',
-            ...(dealSnap.exists ? {} : { createdAt: now }),
-            updatedAt: now
-        }, { merge: true });
 
-        if (operatorPayoutAmount > 0 || pricingAmount > 0) {
-            await payoutRef.set({
-                leadId,
-                federationRequestId: requestId,
-                basisType: 'federation_paid_introduction',
-                amount: operatorPayoutAmount,
-                currency,
-                status: 'approved',
+            paymentStatus:
+                'paid',
+
+            payoutStatus:
+                'approved',
+
+            commissionStatus:
+                'earned',
+
+            stripeCheckoutSessionId:
+                sanitizeText(
+                    request.stripeCheckoutSessionId
+                ),
+
+            stripePaymentIntentId:
+                sanitizeText(
+                    request.stripePaymentIntentId
+                ),
+
+            operatorVisibleNote:
                 adminNote,
-                sourceDivision: 'federation',
-                sourceFeature: 'connect',
-                dealGrossValue: pricingAmount,
-                platformCommissionRate,
-                platformCommissionAmount,
-                paymentStatus: 'paid',
-                commissionStatus: 'earned',
-                stripeCheckoutSessionId: sanitizeText(request.stripeCheckoutSessionId),
-                stripePaymentIntentId: sanitizeText(request.stripePaymentIntentId),
-                ...(payoutSnap.exists ? {} : { createdAt: now }),
-                approvedAt: now,
-                updatedAt: now
-            }, { merge: true });
+
+            sourceDivision:
+                'federation',
+
+            sourceFeature:
+                'connect',
+
+            sourceRecordId:
+                requestId,
+
+            updatedAt:
+                nowIsoValue
+        };
+
+        const payoutPayload = {
+            leadId,
+
+            federationRequestId:
+                requestId,
+
+            title:
+                sanitizeText(
+                    request.opportunityTitle ||
+                    'Federation paid introduction payout'
+                ),
+
+            basisType:
+                'federation_paid_introduction',
+
+            amount:
+                operatorPayoutAmount,
+
+            payoutAmount:
+                operatorPayoutAmount,
+
+            currency,
+
+            status:
+                'approved',
+
+            payoutStatus:
+                'approved',
+
+            adminNote,
+
+            sourceDivision:
+                'federation',
+
+            sourceFeature:
+                'connect',
+
+            sourceRecordId:
+                requestId,
+
+            dealGrossValue:
+                pricingAmount,
+
+            platformCommissionRate,
+            platformCommissionAmount,
+
+            paymentStatus:
+                'paid',
+
+            commissionStatus:
+                'earned',
+
+            stripeCheckoutSessionId:
+                sanitizeText(
+                    request.stripeCheckoutSessionId
+                ),
+
+            stripePaymentIntentId:
+                sanitizeText(
+                    request.stripePaymentIntentId
+                ),
+
+            approvedAt:
+                nowIsoValue,
+
+            updatedAt:
+                nowIsoValue
+        };
+
+        /*
+         * Supabase core is authoritative. These writes
+         * complete before any legacy Firestore mirror.
+         */
+        await academyFirestoreRepo
+            .upsertLeadMissionDealV2(
+                ownerUid,
+                mirrorId,
+                dealPayload
+            );
+
+        if (
+            operatorPayoutAmount > 0 ||
+            pricingAmount > 0
+        ) {
+            await academyFirestoreRepo
+                .upsertLeadMissionPayoutV2(
+                    ownerUid,
+                    mirrorId,
+                    payoutPayload
+                );
         }
 
-        await leadRef.set({
-            federationRequestId: requestId,
-            lastFederationRequestStatus: 'paid',
-            lastFederationDealStatus: 'paid',
-            lastFederationDealValue: pricingAmount,
-            lastFederationOperatorPayout: operatorPayoutAmount,
-            lastFederationPaymentStatus: 'paid',
-            lastFederationEconomySyncedAt: now,
-            updatedAt: now
-        }, { merge: true });
+        await academyFirestoreRepo
+            .updateLeadMissionLead(
+                ownerUid,
+                leadId,
+                {
+                    federationRequestId:
+                        requestId,
+
+                    lastFederationRequestStatus:
+                        'paid',
+
+                    lastFederationDealStatus:
+                        'paid',
+
+                    lastFederationDealValue:
+                        pricingAmount,
+
+                    lastFederationOperatorPayout:
+                        operatorPayoutAmount,
+
+                    lastFederationPaymentStatus:
+                        'paid',
+
+                    lastFederationEconomySyncedAt:
+                        nowIsoValue
+                }
+            );
+
+        /*
+         * Firestore remains a best-effort compatibility
+         * mirror for older admin/economy readers only.
+         */
+        try {
+            const now =
+                Timestamp.now();
+
+            const userRef =
+                firestore
+                    .collection('users')
+                    .doc(ownerUid);
+
+            const legacyLeadRef =
+                userRef
+                    .collection(
+                        'academyLeadMissions'
+                    )
+                    .doc(leadId);
+
+            const dealRef =
+                userRef
+                    .collection(
+                        'academyLeadDeals'
+                    )
+                    .doc(mirrorId);
+
+            const payoutRef =
+                userRef
+                    .collection(
+                        'academyLeadPayouts'
+                    )
+                    .doc(mirrorId);
+
+            const [
+                legacyLeadSnap,
+                dealSnap,
+                payoutSnap
+            ] = await Promise.all([
+                legacyLeadRef.get(),
+                dealRef.get(),
+                payoutRef.get()
+            ]);
+
+            await dealRef.set({
+                ...dealPayload,
+
+                ...(dealSnap.exists
+                    ? {}
+                    : {
+                        createdAt:
+                            now
+                    }),
+
+                updatedAt:
+                    now
+            }, {
+                merge: true
+            });
+
+            if (
+                operatorPayoutAmount > 0 ||
+                pricingAmount > 0
+            ) {
+                await payoutRef.set({
+                    ...payoutPayload,
+
+                    ...(payoutSnap.exists
+                        ? {}
+                        : {
+                            createdAt:
+                                now
+                        }),
+
+                    approvedAt:
+                        now,
+
+                    updatedAt:
+                        now
+                }, {
+                    merge: true
+                });
+            }
+
+            if (legacyLeadSnap.exists) {
+                await legacyLeadRef.set({
+                    federationRequestId:
+                        requestId,
+
+                    lastFederationRequestStatus:
+                        'paid',
+
+                    lastFederationDealStatus:
+                        'paid',
+
+                    lastFederationDealValue:
+                        pricingAmount,
+
+                    lastFederationOperatorPayout:
+                        operatorPayoutAmount,
+
+                    lastFederationPaymentStatus:
+                        'paid',
+
+                    lastFederationEconomySyncedAt:
+                        now,
+
+                    updatedAt:
+                        now
+                }, {
+                    merge: true
+                });
+            }
+        } catch (legacyMirrorError) {
+            console.warn(
+                'Academy economy Firestore compatibility mirror skipped:',
+                legacyMirrorError?.message ||
+                legacyMirrorError
+            );
+        }
 
         return true;
     } catch (error) {
-        console.error('sync stripe paid federation request to academy economy error:', error);
+        console.error(
+            'sync stripe paid federation request to Academy Supabase economy error:',
+            error
+        );
+
         return false;
     }
 }
+
 
 function parseCookieHeader(raw = '') {
     const out = {};
@@ -1746,10 +2395,10 @@ async function canUserAccessLiveRoom(userId, roomId) {
 
     try {
         if (
-            realtimeFirestoreRepo &&
-            typeof realtimeFirestoreRepo.getLiveRooms === 'function'
+            realtimeSupabaseRepo &&
+            typeof realtimeSupabaseRepo.getLiveRooms === 'function'
         ) {
-            const liveRooms = await realtimeFirestoreRepo.getLiveRooms();
+            const liveRooms = await realtimeSupabaseRepo.getLiveRooms();
 
             const matchedRoom = (Array.isArray(liveRooms) ? liveRooms : []).find((room) => {
                 return sanitizeText(room.id || room.room_id || room.roomId || room.source_document_id) === cleanRoomId;
@@ -1830,156 +2479,217 @@ async function syncServerYhuUserToSupabase(userRef = null, source = 'server') {
 /* END PATCH: yhu_users Supabase safe write sync helper */
 
 async function canUserAccessRoom(userId, roomId) {
-    const cleanUserId = sanitizeText(userId);
-    const cleanRoomId = sanitizeText(roomId);
+    const cleanUserId =
+        sanitizeText(userId);
 
-    if (!cleanUserId || !cleanRoomId) return false;
-    if (cleanRoomId === 'YH-community' || cleanRoomId === 'main-chat') return true;
+    const cleanRoomId =
+        sanitizeText(roomId);
 
-    try {
-        if (
-            realtimeFirestoreRepo &&
-            typeof realtimeFirestoreRepo.getChatRoomForSocket === 'function'
-        ) {
-            const room = await realtimeFirestoreRepo.getChatRoomForSocket(cleanRoomId, cleanUserId);
-
-            if (!room) {
-                return canUserAccessLiveRoom(cleanUserId, cleanRoomId);
-            }
-
-            const memberIds = Array.isArray(room.member_ids)
-                ? room.member_ids.map((value) => String(value))
-                : [];
-
-            const blockedByUserIds = Array.isArray(room.blocked_by_user_ids)
-                ? room.blocked_by_user_ids.map((value) => String(value))
-                : [];
-
-            if (!memberIds.includes(String(cleanUserId))) return false;
-            if (blockedByUserIds.includes(String(cleanUserId))) return false;
-
-            return true;
-        }
-    } catch (supabaseError) {
-        console.warn('canUserAccessRoom Supabase check failed:', supabaseError?.message || supabaseError);
+    if (
+        !cleanUserId ||
+        !cleanRoomId
+    ) {
+        return false;
     }
 
-    const snap = await chatRoomsCol.doc(cleanRoomId).get();
-
-    if (!snap.exists) {
-        return canUserAccessLiveRoom(cleanUserId, cleanRoomId);
+    if (
+        cleanRoomId ===
+            'YH-community' ||
+        cleanRoomId ===
+            'main-chat'
+    ) {
+        return true;
     }
 
-    const data = snap.data() || {};
-    const memberIds = Array.isArray(data.member_ids)
-        ? data.member_ids.map((value) => String(value))
-        : [];
-    const blockedByUserIds = Array.isArray(data.blocked_by_user_ids)
-        ? data.blocked_by_user_ids.map((value) => String(value))
-        : [];
+    /*
+     * Supabase is authoritative for private Academy
+     * rooms. A Supabase failure must not silently
+     * switch new traffic back to Firestore.
+     */
+    const room =
+        await realtimeSupabaseRepo
+            .getChatRoomForSocket(
+                cleanRoomId,
+                cleanUserId
+            );
 
-    if (!memberIds.includes(String(cleanUserId))) return false;
-    if (blockedByUserIds.includes(String(cleanUserId))) return false;
+    if (!room) {
+        return canUserAccessLiveRoom(
+            cleanUserId,
+            cleanRoomId
+        );
+    }
+
+    const memberIds =
+        Array.isArray(
+            room.member_ids
+        )
+            ? room.member_ids
+                .map((value) =>
+                    String(value)
+                )
+                .filter(Boolean)
+            : [];
+
+    if (
+        !memberIds.includes(
+            String(
+                cleanUserId
+            )
+        )
+    ) {
+        return false;
+    }
+
+    if (
+        room.is_blocked === true &&
+        room.is_blocked_by_me !==
+            true
+    ) {
+        return false;
+    }
 
     return true;
 }
 
-async function getAcademyProfileAccessBlockStatus(viewerId = '', targetUserId = '') {
-    const cleanViewerId = sanitizeText(viewerId);
-    const cleanTargetUserId = sanitizeText(targetUserId);
+async function getAcademyCommunityBlockedUserMapV3(
+    viewerId = ''
+) {
+    const cleanViewerId =
+        sanitizeText(viewerId);
 
-    if (!cleanViewerId || !cleanTargetUserId || cleanViewerId === cleanTargetUserId) {
+    const blockedUserMap =
+        new Map();
+
+    if (!cleanViewerId) {
+        return blockedUserMap;
+    }
+
+    const blockedRelationships =
+        await realtimeSupabaseRepo
+            .listBlockedUsersForMemberV1(
+                cleanViewerId
+            );
+
+    (
+        Array.isArray(
+            blockedRelationships
+        )
+            ? blockedRelationships
+            : []
+    ).forEach((entry) => {
+        const blockedUserId =
+            sanitizeText(
+                entry?.userId
+            );
+
+        if (!blockedUserId) {
+            return;
+        }
+
+        blockedUserMap.set(
+            blockedUserId,
+            sanitizeText(
+                entry?.roomId
+            )
+        );
+    });
+
+    return blockedUserMap;
+}
+
+async function getAcademyProfileAccessBlockStatus(
+    viewerId = '',
+    targetUserId = ''
+) {
+    const cleanViewerId =
+        sanitizeText(viewerId);
+
+    const cleanTargetUserId =
+        sanitizeText(targetUserId);
+
+    if (
+        !cleanViewerId ||
+        !cleanTargetUserId ||
+        cleanViewerId ===
+            cleanTargetUserId
+    ) {
         return {
             blocked: false,
             roomId: ''
         };
     }
 
-    const roomsSnap = await chatRoomsCol
-        .where('member_ids', 'array-contains', cleanViewerId)
-        .limit(100)
-        .get();
-
-    for (const doc of roomsSnap.docs) {
-        const roomData = doc.data() || {};
-
-        const memberIds = Array.isArray(roomData.member_ids)
-            ? roomData.member_ids.map((value) => String(value)).filter(Boolean)
-            : [];
-
-        if (!memberIds.includes(cleanTargetUserId)) continue;
-
-        const roomType = sanitizeText(roomData.room_type || roomData.type).toLowerCase();
-        const isDirectRoom = roomType === 'dm' || memberIds.length === 2;
-
-        if (!isDirectRoom) continue;
-
-        const blockedByUserIds = Array.isArray(roomData.blocked_by_user_ids)
-            ? roomData.blocked_by_user_ids.map((value) => String(value)).filter(Boolean)
-            : [];
-
-        const blockedByOwnerUserIds = Array.isArray(roomData.blocked_by_owner_user_ids)
-            ? roomData.blocked_by_owner_user_ids.map((value) => String(value)).filter(Boolean)
-            : [];
-
-        const targetBlockedViewer =
-            blockedByUserIds.includes(cleanViewerId) &&
-            (
-                blockedByOwnerUserIds.includes(cleanTargetUserId) ||
-                !blockedByOwnerUserIds.length
-            );
-
-        if (targetBlockedViewer) {
-            return {
-                blocked: true,
-                roomId: doc.id
-            };
-        }
-    }
+    const blockedUserMap =
+        await getAcademyCommunityBlockedUserMapV3(
+            cleanViewerId
+        );
 
     return {
-        blocked: false,
-        roomId: ''
+        blocked:
+            blockedUserMap.has(
+                cleanTargetUserId
+            ),
+
+        roomId:
+            blockedUserMap.get(
+                cleanTargetUserId
+            ) ||
+            ''
     };
 }
 
-async function markRoomAsReadForUser(userId, roomId) {
-    const cleanUserId = sanitizeText(userId);
-    const cleanRoomId = sanitizeText(roomId);
+if (
+    typeof academyCommunityRepo
+        ?.setCommunityBlockedUserResolverV3 ===
+    'function'
+) {
+    academyCommunityRepo
+        .setCommunityBlockedUserResolverV3(
+            async (viewerId = '') => {
+                const blockedUserMap =
+                    await getAcademyCommunityBlockedUserMapV3(
+                        viewerId
+                    );
 
-    if (!cleanUserId || !cleanRoomId) return false;
-    if (cleanRoomId === 'YH-community' || cleanRoomId === 'main-chat') return true;
+                return [
+                    ...blockedUserMap.keys()
+                ];
+            }
+        );
+}
 
-    try {
-        if (
-            realtimeFirestoreRepo &&
-            typeof realtimeFirestoreRepo.markRoomAsReadForUser === 'function'
-        ) {
-            const marked = await realtimeFirestoreRepo.markRoomAsReadForUser(cleanUserId, cleanRoomId);
-            if (marked) return true;
-        }
-    } catch (supabaseError) {
-        console.warn('markRoomAsReadForUser Supabase failed:', supabaseError?.message || supabaseError);
+async function markRoomAsReadForUser(
+    userId,
+    roomId
+) {
+    const cleanUserId =
+        sanitizeText(userId);
+
+    const cleanRoomId =
+        sanitizeText(roomId);
+
+    if (
+        !cleanUserId ||
+        !cleanRoomId
+    ) {
+        return false;
     }
 
-    const roomRef = chatRoomsCol.doc(cleanRoomId);
-    const roomSnap = await roomRef.get();
-    if (!roomSnap.exists) return false;
+    if (
+        cleanRoomId ===
+            'YH-community' ||
+        cleanRoomId ===
+            'main-chat'
+    ) {
+        return true;
+    }
 
-    const roomData = roomSnap.data() || {};
-    const unreadCounts =
-        roomData.unread_counts && typeof roomData.unread_counts === 'object'
-            ? { ...roomData.unread_counts }
-            : {};
-
-    unreadCounts[cleanUserId] = 0;
-
-    await roomRef.set({
-        unread_counts: unreadCounts,
-        updated_at: Timestamp.now()
-    }, { merge: true });
-
-    return true;
+    return realtimeSupabaseRepo
+        .markRoomAsReadForUser(
+            cleanUserId,
+            cleanRoomId
+        );
 }
 
 function getChatRoomStringArray(roomData = {}, key = '') {
@@ -1999,48 +2709,49 @@ function isChatRoomDirectMessage(roomData = {}) {
     return roomType === 'dm' || memberIds.length === 2;
 }
 
-async function getUserOwnedChatRoomActionContext(userId = '', roomId = '') {
-    const cleanUserId = sanitizeText(userId);
-    const cleanRoomId = sanitizeText(roomId);
+async function getUserOwnedChatRoomActionContext(
+    userId = '',
+    roomId = ''
+) {
+    try {
+        const context =
+            await realtimeSupabaseRepo
+                .getChatRoomActionContextV1(
+                    userId,
+                    roomId
+                );
 
-    if (!cleanUserId || !cleanRoomId || cleanRoomId === 'YH-community' || cleanRoomId === 'main-chat') {
+        return {
+            ok: true,
+
+            roomData:
+                context.roomData,
+
+            room:
+                context.room,
+
+            memberIds:
+                context.memberIds,
+
+            otherMemberIds:
+                context.otherMemberIds
+        };
+    } catch (error) {
         return {
             ok: false,
-            status: 400,
-            message: 'Valid private room is required.'
+
+            status:
+                Number(
+                    error?.statusCode ||
+                    error?.status ||
+                    500
+                ),
+
+            message:
+                error?.message ||
+                'Failed to load conversation.'
         };
     }
-
-    const roomRef = chatRoomsCol.doc(cleanRoomId);
-    const roomSnap = await roomRef.get();
-
-    if (!roomSnap.exists) {
-        return {
-            ok: false,
-            status: 404,
-            message: 'Conversation not found.'
-        };
-    }
-
-    const roomData = roomSnap.data() || {};
-    const memberIds = getChatRoomMemberIds(roomData);
-
-    if (!memberIds.includes(String(cleanUserId))) {
-        return {
-            ok: false,
-            status: 403,
-            message: 'Access denied for this room.'
-        };
-    }
-
-    return {
-        ok: true,
-        roomRef,
-        roomSnap,
-        roomData,
-        memberIds,
-        otherMemberIds: memberIds.filter((memberId) => memberId && memberId !== String(cleanUserId))
-    };
 }
 
 function sendChatRoomActionError(res, context) {
@@ -2628,6 +3339,219 @@ function getBusinessChatUserRoom(userId = '') {
     return 'business-user:' + sanitizeText(userId);
 }
 
+/* PATCH: Academy Supabase message delivery and migration bridge v2 */
+function getAcademyMessagesUserRoomV2(userId = '') {
+    const cleanUserId = sanitizeText(userId);
+
+    return cleanUserId
+        ? `academy-messages-user:${cleanUserId}`
+        : '';
+}
+
+/* PATCH: Realtime notification socket delivery v2 */
+function getRealtimeNotificationUserRoomV2(
+    userId = ''
+) {
+    const cleanUserId =
+        sanitizeText(userId);
+
+    return cleanUserId
+        ? `realtime-notifications-user:${cleanUserId}`
+        : '';
+}
+
+function emitRealtimeNotificationV2(
+    userId = '',
+    notification = null
+) {
+    const cleanUserId =
+        sanitizeText(userId);
+
+    if (
+        !cleanUserId ||
+        !notification ||
+        typeof notification !== 'object'
+    ) {
+        return false;
+    }
+
+    const userRoom =
+        getRealtimeNotificationUserRoomV2(
+            cleanUserId
+        );
+
+    if (!userRoom) return false;
+
+    io.to(userRoom).emit(
+        'realtimeNotification',
+        {
+            notification
+        }
+    );
+
+    return true;
+}
+
+global.yhEmitRealtimeNotification =
+    emitRealtimeNotificationV2;
+/* END PATCH: Realtime notification socket delivery v2 */
+
+function emitAcademyMessageEventV2({
+    roomId = '',
+    memberIds = [],
+    eventName = '',
+    payload = null
+} = {}) {
+    const cleanRoomId = sanitizeText(roomId);
+    const cleanEventName = sanitizeText(eventName);
+
+    if (
+        !cleanRoomId ||
+        !cleanEventName
+    ) {
+        return false;
+    }
+
+    let operator = io.to(cleanRoomId);
+
+    [
+        ...new Set(
+            (
+                Array.isArray(memberIds)
+                    ? memberIds
+                    : []
+            )
+                .map(sanitizeText)
+                .filter(Boolean)
+        )
+    ].forEach((memberId) => {
+        const userRoom =
+            getAcademyMessagesUserRoomV2(
+                memberId
+            );
+
+        if (userRoom) {
+            operator = operator.to(userRoom);
+        }
+    });
+
+    operator.emit(
+        cleanEventName,
+        payload
+    );
+
+    return true;
+}
+
+function isAcademyLegacyMessageMigrationEnabledV2() {
+    const value = sanitizeText(
+        process.env
+            .YHU_REALTIME_FIRESTORE_MIGRATION_READS ||
+        'on'
+    ).toLowerCase();
+
+    return ![
+        'off',
+        'false',
+        'disabled'
+    ].includes(value);
+}
+
+async function loadAcademyChatHistoryFromSupabaseV2({
+    roomId = '',
+    viewerId = '',
+    limit = 80,
+    allowUnregisteredRoom = false
+} = {}) {
+    const cleanRoomId = sanitizeText(roomId);
+    const cleanViewerId = sanitizeText(viewerId);
+
+    const safeLimit = Math.max(
+        1,
+        Math.min(
+            200,
+            Number(limit) || 80
+        )
+    );
+
+    let history =
+        await realtimeSupabaseRepo
+            .listChatMessages(
+                cleanRoomId,
+                cleanViewerId,
+                safeLimit,
+                {
+                    allowUnregisteredRoom
+                }
+            );
+
+    if (
+        history.length ||
+        !isAcademyLegacyMessageMigrationEnabledV2() ||
+        typeof realtimeSupabaseRepo
+            .importLegacyChatMessageV2 !==
+            'function'
+    ) {
+        return history;
+    }
+
+    /*
+     * Firestore is only a migration source.
+     * Legacy rows are never returned directly.
+     */
+    try {
+        const legacySnapshot =
+            await legacyChatMessagesCol
+                .where(
+                    'room',
+                    '==',
+                    cleanRoomId
+                )
+                .limit(200)
+                .get();
+
+        for (
+            const docSnap
+            of legacySnapshot.docs
+        ) {
+            await realtimeSupabaseRepo
+                .importLegacyChatMessageV2({
+                    messageId:
+                        docSnap.id,
+
+                    roomId:
+                        cleanRoomId,
+
+                    legacyData:
+                        docSnap.data() ||
+                        {}
+                });
+        }
+
+        if (legacySnapshot.size) {
+            history =
+                await realtimeSupabaseRepo
+                    .listChatMessages(
+                        cleanRoomId,
+                        cleanViewerId,
+                        safeLimit,
+                        {
+                            allowUnregisteredRoom
+                        }
+                    );
+        }
+    } catch (migrationError) {
+        console.warn(
+            'Academy legacy message migration skipped:',
+            migrationError?.message ||
+            migrationError
+        );
+    }
+
+    return history;
+}
+/* END PATCH: Academy Supabase message delivery and migration bridge v2 */
+
 function getBusinessChatParticipantIds(data = {}) {
     return Array.isArray(data.participantIds)
         ? data.participantIds.map((item) => sanitizeText(item)).filter(Boolean)
@@ -2722,6 +3646,8 @@ io.on('connection', async (socket) => {
     console.log('⚡ A hustler connected:', socket.id, socket.user.id);
 
     socket.join(getBusinessChatUserRoom(socket.user.id));
+    socket.join(getAcademyMessagesUserRoomV2(socket.user.id));
+    socket.join(getRealtimeNotificationUserRoomV2(socket.user.id));
 
     socket.on('joinBusinessChat', async (payload = {}, ack) => {
         try {
@@ -2784,509 +3710,795 @@ io.on('connection', async (socket) => {
     });
 
     socket.on('joinRoom', async (room) => {
+        const roomId = sanitizeText(
+            typeof room === 'string'
+                ? room
+                : room?.roomId ||
+                    room?.room
+        );
+
         try {
-            const roomId = sanitizeText(room);
             if (!roomId) return;
 
-            const allowed = await canUserAccessRoom(socket.user.id, roomId);
+            const allowed =
+                await canUserAccessRoom(
+                    socket.user.id,
+                    roomId
+                );
+
             if (!allowed) {
-                socket.emit('socketRoomError', { roomId, message: 'Access denied for this room.' });
+                socket.emit(
+                    'socketRoomError',
+                    {
+                        roomId,
+                        message:
+                            'Access denied for this room.'
+                    }
+                );
+
                 return;
             }
 
             socket.join(roomId);
 
-            let supabaseHistory = [];
-            let legacyHistory = [];
+            const registeredRoom =
+                await realtimeSupabaseRepo
+                    .getChatRoomForSocket(
+                        roomId,
+                        socket.user.id
+                    );
 
-            try {
-                if (
-                    realtimeFirestoreRepo &&
-                    typeof realtimeFirestoreRepo.listChatMessages === 'function'
-                ) {
-                    supabaseHistory = await realtimeFirestoreRepo.listChatMessages(roomId, socket.user.id, 80);
+            const history =
+                await loadAcademyChatHistoryFromSupabaseV2({
+                    roomId,
+                    viewerId:
+                        socket.user.id,
+                    limit: 80,
+
+                    allowUnregisteredRoom:
+                        !registeredRoom &&
+                        allowed
+                });
+
+            socket.emit(
+                'chatHistory',
+                {
+                    roomId,
+
+                    messages:
+                        Array.isArray(history)
+                            ? history
+                            : [],
+
+                    source: 'supabase'
                 }
-            } catch (supabaseError) {
-                console.warn('joinRoom Supabase history failed:', supabaseError?.message || supabaseError);
-                supabaseHistory = [];
-            }
-
-            try {
-                const historySnap = await chatMessagesCol
-                    .where('room', '==', roomId)
-                    .limit(200)
-                    .get();
-
-                legacyHistory = historySnap.docs
-                    .map((docSnap) => {
-                        const data = docSnap.data() || {};
-                        const viewerHiddenMessageIds = Array.isArray(data.hidden_for_user_ids)
-                            ? data.hidden_for_user_ids.map((value) => sanitizeText(value)).filter(Boolean)
-                            : [];
-
-                        if (viewerHiddenMessageIds.includes(String(socket.user.id))) {
-                            return null;
-                        }
-
-                        return mapChatMessageDoc(docSnap);
-                    })
-                    .filter(Boolean);
-            } catch (legacyError) {
-                console.warn('joinRoom legacy Firestore history skipped:', legacyError?.message || legacyError);
-                legacyHistory = [];
-            }
-
-            const historyById = new Map();
-
-            [...legacyHistory, ...supabaseHistory].forEach((message) => {
-                if (!message || !message.id) return;
-                historyById.set(String(message.id), message);
-            });
-
-            const history = Array.from(historyById.values())
-                .sort((a, b) => {
-                    const aTime = new Date(a.time || 0).getTime();
-                    const bTime = new Date(b.time || 0).getTime();
-                    return aTime - bTime;
-                })
-                .slice(-80);
-
-            socket.emit('chatHistory', history);
+            );
         } catch (error) {
-            console.error('joinRoom error:', error);
+            console.error(
+                'joinRoom error:',
+                error
+            );
+
+            socket.emit(
+                'socketRoomError',
+                {
+                    roomId,
+
+                    message:
+                        error?.message ||
+                        'Failed to load this conversation.'
+                }
+            );
         }
     });
 
-    socket.on('sendMessage', async (data) => {
+    socket.on('sendMessage', async (data = {}, ack) => {
+        const roomId = sanitizeText(
+            data?.room ||
+            data?.roomId
+        );
+
         try {
-            const roomId = sanitizeText(data?.room);
-            const text = sanitizeText(data?.text);
-            const attachment = sanitizeChatMessageAttachment(data?.attachment);
+            const text =
+                sanitizeText(
+                    data?.text
+                );
+
+            const attachment =
+                sanitizeChatMessageAttachment(
+                    data?.attachment
+                );
 
             const hasValidAttachment =
-                attachment &&
-                (
-                    attachment.url.startsWith('/uploads/academy-messages/') ||
-                    attachment.url.startsWith('/assets/academy/gifs/')
-                ) &&
-                attachment.originalName;
-
-            if (!roomId || (!text && !hasValidAttachment)) return;
-
-            const allowed = await canUserAccessRoom(socket.user.id, roomId);
-            if (!allowed) {
-                socket.emit('sendMessageError', {
-                    roomId,
-                    message: 'You can no longer access this conversation.'
-                });
-                return;
-            }
-
-            let roomData = {};
-            let memberIds = [];
-
-            try {
-                if (
-                    realtimeFirestoreRepo &&
-                    typeof realtimeFirestoreRepo.getChatRoomForSocket === 'function'
-                ) {
-                    roomData = await realtimeFirestoreRepo.getChatRoomForSocket(roomId, socket.user.id) || {};
-                    memberIds = Array.isArray(roomData.member_ids)
-                        ? roomData.member_ids.map((value) => String(value)).filter(Boolean)
-                        : [];
-                }
-            } catch (supabaseError) {
-                console.warn('sendMessage Supabase room check failed:', supabaseError?.message || supabaseError);
-            }
-
-            if (!roomData.id && roomId !== 'YH-community' && roomId !== 'main-chat') {
-                const roomRef = chatRoomsCol.doc(roomId);
-                const roomSnap = await roomRef.get();
-                roomData = roomSnap.exists ? (roomSnap.data() || {}) : {};
-                memberIds = roomSnap.exists ? getChatRoomMemberIds(roomData) : [];
-            }
-
-            if (roomData && roomData.id) {
-                const blockedByUserIds = getChatRoomStringArray(roomData, 'blocked_by_user_ids');
-                if (blockedByUserIds.includes(String(socket.user.id))) {
-                    socket.emit('sendMessageError', {
-                        roomId,
-                        message: 'You can no longer send messages in this conversation.'
-                    });
-                    return;
-                }
-
-                const restrictedByUserIds = getChatRoomStringArray(roomData, 'restricted_by_user_ids');
-                const recipientIds = memberIds.filter((memberId) => {
-                    return memberId && memberId !== String(socket.user.id);
-                });
-
-                const recipientRestrictedSender = recipientIds.some((memberId) => {
-                    return restrictedByUserIds.includes(String(memberId));
-                });
-
-                if (recipientRestrictedSender) {
-                    socket.emit('sendMessageError', {
-                        roomId,
-                        message: 'This member has restricted messages from you.'
-                    });
-                    return;
-                }
-            }
-
-            const authorName = sanitizeText(socket.user.name || socket.user.username || 'Hustler');
-            const fallbackText = hasValidAttachment
-                ? (
-                    attachment.category === 'gif' || attachment.isAnimated
-                        ? `GIF · ${attachment.originalName || 'Clip'}`
-                        : `📎 ${attachment.originalName || 'Attachment'}`
-                )
-                : '';
+                Boolean(
+                    attachment &&
+                    (
+                        attachment.url.startsWith(
+                            '/uploads/academy-messages/'
+                        ) ||
+                        attachment.url.startsWith(
+                            '/assets/academy/gifs/'
+                        )
+                    ) &&
+                    attachment.originalName
+                );
 
             if (
-                realtimeFirestoreRepo &&
-                typeof realtimeFirestoreRepo.createChatMessage === 'function'
+                !roomId ||
+                (
+                    !text &&
+                    !hasValidAttachment
+                )
             ) {
-                const outgoing = await realtimeFirestoreRepo.createChatMessage({
-                    roomId,
-                    userId: socket.user.id,
-                    authorName,
-                    text: text || fallbackText,
-                    attachment: hasValidAttachment ? attachment : null
-                });
+                const message =
+                    'Message text or attachment is required.';
 
-                io.to(outgoing.room).emit('receiveMessage', outgoing);
+                if (
+                    typeof ack ===
+                    'function'
+                ) {
+                    ack({
+                        success: false,
+                        message
+                    });
+                }
+
                 return;
             }
 
-            const payload = {
-                room: roomId,
-                author: authorName,
-                initial: authorName.charAt(0).toUpperCase(),
-                avatar: '',
-                text: text || fallbackText,
-                attachment: hasValidAttachment ? attachment : null,
-                time: new Date().toISOString(),
-                upvotes: 0,
-                created_at: Timestamp.now(),
-                created_by_user_id: socket.user.id
-            };
+            const allowed =
+                await canUserAccessRoom(
+                    socket.user.id,
+                    roomId
+                );
 
-            const ref = chatMessagesCol.doc();
-            await ref.set(payload);
+            if (!allowed) {
+                const message =
+                    'You can no longer access this conversation.';
 
-            const outgoing = {
-                id: ref.id,
-                room: payload.room,
-                author: payload.author,
-                authorId: payload.created_by_user_id,
-                author_id: payload.created_by_user_id,
-                createdByUserId: payload.created_by_user_id,
-                created_by_user_id: payload.created_by_user_id,
-                initial: payload.initial,
-                avatar: payload.avatar,
-                text: payload.text,
-                attachment: payload.attachment,
-                time: payload.time,
-                upvotes: 0
-            };
+                socket.emit(
+                    'sendMessageError',
+                    {
+                        roomId,
+                        message
+                    }
+                );
 
-            io.to(payload.room).emit('receiveMessage', outgoing);
+                if (
+                    typeof ack ===
+                    'function'
+                ) {
+                    ack({
+                        success: false,
+                        message
+                    });
+                }
+
+                return;
+            }
+
+            const registeredRoom =
+                await realtimeSupabaseRepo
+                    .getChatRoomForSocket(
+                        roomId,
+                        socket.user.id
+                    );
+
+            const fallbackText =
+                hasValidAttachment
+                    ? (
+                        attachment.category ===
+                            'gif' ||
+                        attachment.isAnimated
+                            ? `GIF · ${attachment.originalName || 'Clip'}`
+                            : `📎 ${attachment.originalName || 'Attachment'}`
+                    )
+                    : '';
+
+            const result =
+                await realtimeSupabaseRepo
+                    .createChatMessage({
+                        roomId,
+
+                        userId:
+                            socket.user.id,
+
+                        text:
+                            text ||
+                            fallbackText,
+
+                        attachment:
+                            hasValidAttachment
+                                ? attachment
+                                : null,
+
+                        clientMessageId:
+                            sanitizeText(
+                                data?.clientMessageId ||
+                                data?.client_message_id
+                            ),
+
+                        allowUnregisteredRoom:
+                            !registeredRoom &&
+                            allowed
+                    });
+
+            const {
+                deliveryMemberIds = [],
+                roomState = null,
+                ...outgoing
+            } = result;
+
+            const notificationRecipients =
+                Array.from(
+                    new Set(
+                        (
+                            Array.isArray(
+                                deliveryMemberIds
+                            )
+                                ? deliveryMemberIds
+                                : []
+                        )
+                            .map(sanitizeText)
+                            .filter(
+                                (memberId) =>
+                                    memberId &&
+                                    memberId !==
+                                        socket.user.id
+                            )
+                    )
+                );
+
+            /*
+             * The canonical message is already persisted.
+             * Deliver and acknowledge it immediately;
+             * notification side effects must not delay chat.
+             */
+            emitAcademyMessageEventV2({
+                roomId:
+                    outgoing.room ||
+                    roomId,
+
+                memberIds:
+                    deliveryMemberIds,
+
+                eventName:
+                    'receiveMessage',
+
+                payload:
+                    outgoing
+            });
+
+            if (
+                typeof ack ===
+                'function'
+            ) {
+                ack({
+                    success: true,
+                    message:
+                        outgoing,
+                    room:
+                        roomState
+                });
+            }
+
+            if (
+                notificationRecipients.length &&
+                outgoing.id
+            ) {
+                const notificationBody =
+                    sanitizeText(
+                        outgoing.text ||
+                        outgoing.attachment
+                            ?.originalName ||
+                        'Sent you a message.'
+                    ).slice(0, 220);
+
+                const notificationResults =
+                    await Promise.allSettled(
+                        notificationRecipients.map(
+                            (recipientUserId) =>
+                                realtimeSupabaseRepo
+                                    .createNotification({
+                                        notificationId:
+                                            `chat_message_${outgoing.id}_${recipientUserId}`,
+                                        userId:
+                                            recipientUserId,
+                                        type:
+                                            'message',
+                                        notificationType:
+                                            'academy-message',
+                                        source:
+                                            'academy-messages',
+                                        title:
+                                            `New message from ${sanitizeText(
+                                                outgoing.author ||
+                                                'a member'
+                                            )}`,
+                                        body:
+                                            notificationBody,
+                                        target:
+                                            'dm',
+                                        targetId:
+                                            outgoing.room ||
+                                            roomId,
+                                        avatarStr:
+                                            sanitizeText(
+                                                outgoing.initial ||
+                                                outgoing.author ||
+                                                'M'
+                                            )
+                                                .charAt(0)
+                                                .toUpperCase(),
+                                        createdAt:
+                                            outgoing.time ||
+                                            new Date()
+                                                .toISOString(),
+                                        metadata: {
+                                            roomId:
+                                                outgoing.room ||
+                                                roomId,
+                                            messageId:
+                                                outgoing.id,
+                                            authorId:
+                                                sanitizeText(
+                                                    outgoing.authorId ||
+                                                    outgoing.author_id ||
+                                                    socket.user.id
+                                                ),
+                                            authorName:
+                                                sanitizeText(
+                                                    outgoing.author ||
+                                                    socket.user.name ||
+                                                    'Member'
+                                                )
+                                        }
+                                    })
+                        )
+                    );
+
+                const notificationFailures =
+                    notificationResults.filter(
+                        (result) =>
+                            result.status ===
+                            'rejected'
+                    );
+
+                if (
+                    notificationFailures.length
+                ) {
+                    console.warn(
+                        'Academy message notification delivery partially failed:',
+                        notificationFailures.map(
+                            (result) =>
+                                result.reason
+                                    ?.message ||
+                                String(
+                                    result.reason ||
+                                    'Notification failed.'
+                                )
+                        )
+                    );
+                }
+            }
+
         } catch (error) {
-            console.error('sendMessage error:', error);
+            console.error(
+                'sendMessage error:',
+                error
+            );
+
+            const message =
+                error?.message ||
+                'Message could not be sent.';
+
+            socket.emit(
+                'sendMessageError',
+                {
+                    roomId,
+                    message
+                }
+            );
+
+            if (
+                typeof ack ===
+                'function'
+            ) {
+                ack({
+                    success: false,
+                    message
+                });
+            }
         }
     });
 
-    socket.on('upvoteMessage', async (msgId) => {
+    socket.on('upvoteMessage', async (payload = {}, ack) => {
+        const messageId = sanitizeText(
+            typeof payload === 'string'
+                ? payload
+                : payload?.id ||
+                    payload?.messageId
+        );
+
         try {
-            const messageId = sanitizeText(msgId);
-            if (!messageId) return;
-
-            if (
-                realtimeFirestoreRepo &&
-                typeof realtimeFirestoreRepo.upvoteChatMessage === 'function'
-            ) {
-                const result = await realtimeFirestoreRepo.upvoteChatMessage({
-                    messageId,
-                    userId: socket.user.id
-                });
-
-                const allowed = await canUserAccessRoom(socket.user.id, result.roomId);
-                if (!allowed) return;
-
-                io.to(result.roomId).emit('messageUpvoted', {
-                    id: messageId,
-                    upvotes: result.upvotes
-                });
-                return;
+            if (!messageId) {
+                throw new Error(
+                    'Message id is required.'
+                );
             }
 
-            const ref = chatMessagesCol.doc(messageId);
-            const snap = await ref.get();
-            if (!snap.exists) return;
+            const result =
+                await realtimeSupabaseRepo
+                    .upvoteChatMessage({
+                        messageId,
 
-            const current = snap.data() || {};
-            const roomId = sanitizeText(current.room);
+                        userId:
+                            socket.user.id,
 
-            const allowed = await canUserAccessRoom(socket.user.id, roomId);
-            if (!allowed) return;
+                        upvoted:
+                            typeof payload?.upvoted ===
+                                'boolean'
+                                ? payload.upvoted
+                                : null
+                    });
 
-            const nextUpvotes = (Number(current.upvotes) || 0) + 1;
+            emitAcademyMessageEventV2({
+                roomId:
+                    result.roomId,
 
-            await ref.update({
-                upvotes: nextUpvotes
+                memberIds:
+                    result.deliveryMemberIds,
+
+                eventName:
+                    'messageUpvoted',
+
+                payload: {
+                    id: messageId,
+                    roomId:
+                        result.roomId,
+                    upvotes:
+                        result.upvotes
+                }
             });
 
-            io.to(roomId).emit('messageUpvoted', {
-                id: messageId,
-                upvotes: nextUpvotes
-            });
+            if (
+                typeof ack ===
+                'function'
+            ) {
+                ack({
+                    success: true,
+                    id: messageId,
+                    roomId:
+                        result.roomId,
+                    upvotes:
+                        result.upvotes,
+                    upvoted:
+                        result.upvoted
+                });
+            }
         } catch (error) {
-            console.error('upvoteMessage error:', error);
+            console.error(
+                'upvoteMessage error:',
+                error
+            );
+
+            const message =
+                error?.message ||
+                'Message reaction failed.';
+
+            socket.emit(
+                'messageUpvoteError',
+                {
+                    id: messageId,
+                    message
+                }
+            );
+
+            if (
+                typeof ack ===
+                'function'
+            ) {
+                ack({
+                    success: false,
+                    message
+                });
+            }
         }
     });
 
     socket.on('editMessage', async (payload = {}, ack) => {
-        try {
-            const messageId = sanitizeText(payload?.id || payload?.messageId || '');
-            const nextText = sanitizeText(payload?.text || '');
+        const messageId =
+            sanitizeText(
+                payload?.id ||
+                payload?.messageId
+            );
 
-            if (!messageId || !nextText) {
-                if (typeof ack === 'function') {
-                    ack({ success: false, message: 'Message text is required.' });
-                }
-                return;
+        try {
+            const nextText =
+                sanitizeText(
+                    payload?.text
+                );
+
+            if (
+                !messageId ||
+                !nextText
+            ) {
+                throw new Error(
+                    'Message text is required.'
+                );
+            }
+
+            const result =
+                await realtimeSupabaseRepo
+                    .editChatMessage({
+                        messageId,
+                        userId:
+                            socket.user.id,
+                        text:
+                            nextText
+                    });
+
+            const eventPayload = {
+                id: messageId,
+                roomId:
+                    result.roomId,
+
+                text:
+                    result.message?.text ||
+                    nextText,
+
+                editedAt:
+                    result.editedAt
+            };
+
+            emitAcademyMessageEventV2({
+                roomId:
+                    result.roomId,
+
+                memberIds:
+                    result.deliveryMemberIds,
+
+                eventName:
+                    'messageEdited',
+
+                payload:
+                    eventPayload
+            });
+
+            if (result.roomState) {
+                emitAcademyMessageEventV2({
+                    roomId:
+                        result.roomId,
+
+                    memberIds:
+                        result.deliveryMemberIds,
+
+                    eventName:
+                        'academyRoomStateUpdated',
+
+                    payload: {
+                        roomId:
+                            result.roomId,
+                        room:
+                            result.roomState
+                    }
+                });
             }
 
             if (
-                realtimeFirestoreRepo &&
-                typeof realtimeFirestoreRepo.editChatMessage === 'function'
+                typeof ack ===
+                'function'
             ) {
-                const result = await realtimeFirestoreRepo.editChatMessage({
-                    messageId,
-                    userId: socket.user.id,
-                    text: nextText
+                ack({
+                    success: true,
+                    ...eventPayload
                 });
-
-                const allowed = await canUserAccessRoom(socket.user.id, result.roomId);
-                if (!allowed) {
-                    if (typeof ack === 'function') {
-                        ack({ success: false, message: 'You can no longer access this conversation.' });
-                    }
-                    return;
-                }
-
-                io.to(result.roomId).emit('messageEdited', {
-                    id: messageId,
-                    text: nextText,
-                    editedAt: result.editedAt
-                });
-
-                if (typeof ack === 'function') {
-                    ack({ success: true, id: messageId, text: nextText, editedAt: result.editedAt });
-                }
-                return;
-            }
-
-            const ref = chatMessagesCol.doc(messageId);
-            const snap = await ref.get();
-
-            if (!snap.exists) {
-                if (typeof ack === 'function') {
-                    ack({ success: false, message: 'Message not found.' });
-                }
-                return;
-            }
-
-            const current = snap.data() || {};
-            const ownerId = sanitizeText(current.created_by_user_id);
-            const roomId = sanitizeText(current.room);
-
-            const allowed = await canUserAccessRoom(socket.user.id, roomId);
-            if (!allowed) {
-                if (typeof ack === 'function') {
-                    ack({ success: false, message: 'You can no longer access this conversation.' });
-                }
-                return;
-            }
-
-            if (!ownerId || ownerId !== socket.user.id) {
-                socket.emit('messageEditError', {
-                    id: messageId,
-                    message: 'Only the original sender can edit this message.'
-                });
-
-                if (typeof ack === 'function') {
-                    ack({ success: false, message: 'Only the original sender can edit this message.' });
-                }
-                return;
-            }
-
-            const editedAt = new Date().toISOString();
-
-            await ref.set({
-                text: nextText,
-                edited_at: Timestamp.now(),
-                editedAt,
-                updated_at: Timestamp.now()
-            }, { merge: true });
-
-            io.to(roomId).emit('messageEdited', {
-                id: messageId,
-                text: nextText,
-                editedAt
-            });
-
-            if (typeof ack === 'function') {
-                ack({ success: true, id: messageId, text: nextText, editedAt });
             }
         } catch (error) {
-            console.error('editMessage error:', error);
+            console.error(
+                'editMessage error:',
+                error
+            );
 
-            if (typeof ack === 'function') {
-                ack({ success: false, message: error?.message || 'Message edit failed.' });
+            const message =
+                error?.message ||
+                'Message edit failed.';
+
+            socket.emit(
+                'messageEditError',
+                {
+                    id: messageId,
+                    message
+                }
+            );
+
+            if (
+                typeof ack ===
+                'function'
+            ) {
+                ack({
+                    success: false,
+                    message
+                });
             }
         }
     });
 
     socket.on('hideMessageForMe', async (payload = {}, ack) => {
+        const messageId = sanitizeText(
+            typeof payload === 'string'
+                ? payload
+                : payload?.id ||
+                    payload?.messageId
+        );
+
         try {
-            const messageId = sanitizeText(
-                typeof payload === 'string'
-                    ? payload
-                    : payload?.id || payload?.messageId || ''
+            if (!messageId) {
+                throw new Error(
+                    'Message id is required.'
+                );
+            }
+
+            const result =
+                await realtimeSupabaseRepo
+                    .hideChatMessageForUser({
+                        messageId,
+                        userId:
+                            socket.user.id
+                    });
+
+            const eventPayload = {
+                id: messageId,
+                roomId:
+                    result.roomId
+            };
+
+            socket.emit(
+                'messageHiddenForMe',
+                eventPayload
             );
 
-            if (!messageId) {
-                if (typeof ack === 'function') {
-                    ack({ success: false, message: 'Message id is required.' });
-                }
-                return;
-            }
-
             if (
-                realtimeFirestoreRepo &&
-                typeof realtimeFirestoreRepo.hideChatMessageForUser === 'function'
+                typeof ack ===
+                'function'
             ) {
-                const result = await realtimeFirestoreRepo.hideChatMessageForUser({
-                    messageId,
-                    userId: socket.user.id
+                ack({
+                    success: true,
+                    ...eventPayload
                 });
-
-                const allowed = await canUserAccessRoom(socket.user.id, result.roomId);
-                if (!allowed) {
-                    if (typeof ack === 'function') {
-                        ack({ success: false, message: 'You can no longer access this conversation.' });
-                    }
-                    return;
-                }
-
-                socket.emit('messageHiddenForMe', {
-                    id: messageId
-                });
-
-                if (typeof ack === 'function') {
-                    ack({ success: true, id: messageId });
-                }
-                return;
-            }
-
-            const ref = chatMessagesCol.doc(messageId);
-            const snap = await ref.get();
-
-            if (!snap.exists) {
-                if (typeof ack === 'function') {
-                    ack({ success: false, message: 'Message not found.' });
-                }
-                return;
-            }
-
-            const current = snap.data() || {};
-            const roomId = sanitizeText(current.room);
-
-            const allowed = await canUserAccessRoom(socket.user.id, roomId);
-            if (!allowed) {
-                if (typeof ack === 'function') {
-                    ack({ success: false, message: 'You can no longer access this conversation.' });
-                }
-                return;
-            }
-
-            await ref.set({
-                hidden_for_user_ids: FieldValue.arrayUnion(String(socket.user.id)),
-                updated_at: Timestamp.now()
-            }, { merge: true });
-
-            socket.emit('messageHiddenForMe', {
-                id: messageId
-            });
-
-            if (typeof ack === 'function') {
-                ack({ success: true, id: messageId });
             }
         } catch (error) {
-            console.error('hideMessageForMe error:', error);
+            console.error(
+                'hideMessageForMe error:',
+                error
+            );
 
-            socket.emit('messageHideError', {
-                message: 'Could not remove this message for you.'
-            });
+            const message =
+                error?.message ||
+                'Could not remove this message for you.';
 
-            if (typeof ack === 'function') {
-                ack({ success: false, message: error?.message || 'Could not remove this message for you.' });
-            }
-        }
-    });
-
-    socket.on('deleteMessage', async (msgId) => {
-        try {
-            const messageId = sanitizeText(msgId);
-            if (!messageId) return;
-
-            if (
-                realtimeFirestoreRepo &&
-                typeof realtimeFirestoreRepo.deleteChatMessage === 'function'
-            ) {
-                const result = await realtimeFirestoreRepo.deleteChatMessage({
-                    messageId,
-                    userId: socket.user.id
-                });
-
-                const allowed = await canUserAccessRoom(socket.user.id, result.roomId);
-                if (!allowed) return;
-
-                io.to(result.roomId).emit('messageDeleted', messageId);
-                return;
-            }
-
-            const ref = chatMessagesCol.doc(messageId);
-            const snap = await ref.get();
-            if (!snap.exists) return;
-
-            const current = snap.data() || {};
-            const ownerId = sanitizeText(current.created_by_user_id);
-            const roomId = sanitizeText(current.room);
-
-            const allowed = await canUserAccessRoom(socket.user.id, roomId);
-            if (!allowed) return;
-
-            if (!ownerId || ownerId !== socket.user.id) {
-                socket.emit('messageDeleteError', {
+            socket.emit(
+                'messageHideError',
+                {
                     id: messageId,
-                    message: 'Only the original sender can delete this message.'
+                    message
+                }
+            );
+
+            if (
+                typeof ack ===
+                'function'
+            ) {
+                ack({
+                    success: false,
+                    message
                 });
-                return;
             }
-
-            await ref.delete();
-            io.to(roomId).emit('messageDeleted', messageId);
-        } catch (error) {
-            console.error('deleteMessage error:', error);
-
-            socket.emit('messageDeleteError', {
-                message: error?.message || 'Message delete failed.'
-            });
         }
     });
+
+    socket.on('deleteMessage', async (payload = {}, ack) => {
+        const messageId = sanitizeText(
+            typeof payload === 'string'
+                ? payload
+                : payload?.id ||
+                    payload?.messageId
+        );
+
+        try {
+            if (!messageId) {
+                throw new Error(
+                    'Message id is required.'
+                );
+            }
+
+            const result =
+                await realtimeSupabaseRepo
+                    .deleteChatMessage({
+                        messageId,
+                        userId:
+                            socket.user.id
+                    });
+
+            const eventPayload = {
+                id: messageId,
+                roomId:
+                    result.roomId
+            };
+
+            emitAcademyMessageEventV2({
+                roomId:
+                    result.roomId,
+
+                memberIds:
+                    result.deliveryMemberIds,
+
+                eventName:
+                    'messageDeleted',
+
+                payload:
+                    eventPayload
+            });
+
+            if (result.roomState) {
+                emitAcademyMessageEventV2({
+                    roomId:
+                        result.roomId,
+
+                    memberIds:
+                        result.deliveryMemberIds,
+
+                    eventName:
+                        'academyRoomStateUpdated',
+
+                    payload: {
+                        roomId:
+                            result.roomId,
+                        room:
+                            result.roomState
+                    }
+                });
+            }
+
+            if (
+                typeof ack ===
+                'function'
+            ) {
+                ack({
+                    success: true,
+                    ...eventPayload
+                });
+            }
+        } catch (error) {
+            console.error(
+                'deleteMessage error:',
+                error
+            );
+
+            const message =
+                error?.message ||
+                'Message delete failed.';
+
+            socket.emit(
+                'messageDeleteError',
+                {
+                    id: messageId,
+                    message
+                }
+            );
+
+            if (
+                typeof ack ===
+                'function'
+            ) {
+                ack({
+                    success: false,
+                    message
+                });
+            }
+        }
+    });
+
 
     function getSocketVoiceDisplayName() {
         return sanitizeText(
@@ -3356,11 +4568,11 @@ io.on('connection', async (socket) => {
 
                 try {
                     if (
-                        typeof realtimeFirestoreRepo !== 'undefined' &&
-                        realtimeFirestoreRepo &&
-                        typeof realtimeFirestoreRepo.joinLiveRoom === 'function'
+                        typeof realtimeSupabaseRepo !== 'undefined' &&
+                        realtimeSupabaseRepo &&
+                        typeof realtimeSupabaseRepo.joinLiveRoom === 'function'
                     ) {
-                        await realtimeFirestoreRepo.joinLiveRoom({
+                        await realtimeSupabaseRepo.joinLiveRoom({
                             userId: socket.user.id,
                             roomId
                         });
@@ -3552,6 +4764,7 @@ const ACADEMY_PROFILE_UPLOAD_DIR = path.join(ACADEMY_UPLOADS_ROOT, 'academy-prof
 const ACADEMY_MESSAGE_UPLOAD_DIR = path.join(ACADEMY_UPLOADS_ROOT, 'academy-messages');
 const ACADEMY_FEED_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ACADEMY_FEED_MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+const ACADEMY_FEED_UPLOAD_RECEIPT_TTL_MS = 60 * 60 * 1000;
 const ACADEMY_PROFILE_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ACADEMY_MESSAGE_MAX_FILE_BYTES = 50 * 1024 * 1024;
 
@@ -3614,36 +4827,717 @@ function getAcademyUploadKind(mime = '') {
     return '';
 }
 
-async function saveAcademyFeedUploadToLocal({ buffer, mimeType = '', originalName = '', userId = '' }) {
-    const cleanMimeType = sanitizeText(mimeType).toLowerCase().split(';')[0];
-    const safeUserId = sanitizeUploadSegment(userId || 'member');
+/* PATCH: Academy feed binary signature and receipt verification v4 */
+function academyFeedBase64UrlEncodeV4(value = '') {
+    return Buffer
+        .from(String(value || ''), 'utf8')
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/g, '');
+}
 
-    const decodedOriginalName = safeDecodeUploadHeaderValue(originalName || 'upload');
-    const baseOriginalName = path.basename(decodedOriginalName || 'upload');
-    const fileExtFromName = path.extname(baseOriginalName).toLowerCase();
-    const safeBaseName = sanitizeUploadSegment(path.basename(baseOriginalName, fileExtFromName) || 'upload');
+function academyFeedBase64UrlDecodeV4(value = '') {
+    const clean = sanitizeText(value);
 
-    const derivedKind = getAcademyUploadKind(cleanMimeType);
-    const fileExt =
-        fileExtFromName ||
-        getUploadExtFromMime(cleanMimeType) ||
-        (derivedKind === 'video' ? '.mp4' : '.jpg');
+    const normalized =
+        clean
+            .replace(/-/g, '+')
+            .replace(/_/g, '/');
 
-    const fileName = `${Date.now()}_${safeUserId}_${crypto.randomBytes(6).toString('hex')}_${safeBaseName}${fileExt}`;
+    const padding =
+        normalized.length % 4
+            ? '='.repeat(
+                4 -
+                (
+                    normalized.length %
+                    4
+                )
+            )
+            : '';
 
-    await fs.promises.mkdir(ACADEMY_FEED_UPLOAD_DIR, { recursive: true });
+    return Buffer
+        .from(
+            normalized + padding,
+            'base64'
+        )
+        .toString('utf8');
+}
 
-    const filePath = path.join(ACADEMY_FEED_UPLOAD_DIR, fileName);
-    await fs.promises.writeFile(filePath, buffer);
+function detectAcademyFeedMediaSignatureV4(
+    buffer = Buffer.alloc(0),
+    declaredMimeType = ''
+) {
+    if (
+        !Buffer.isBuffer(buffer) ||
+        buffer.length < 4
+    ) {
+        return null;
+    }
+
+    const declaredMime =
+        sanitizeText(
+            declaredMimeType
+        )
+            .toLowerCase()
+            .split(';')[0];
+
+    const hex =
+        buffer
+            .subarray(
+                0,
+                Math.min(
+                    buffer.length,
+                    32
+                )
+            )
+            .toString('hex');
+
+    if (
+        hex.startsWith('ffd8ff')
+    ) {
+        return {
+            kind: 'image',
+            mimeType: 'image/jpeg',
+            extension: '.jpg'
+        };
+    }
+
+    if (
+        hex.startsWith(
+            '89504e470d0a1a0a'
+        )
+    ) {
+        return {
+            kind: 'image',
+            mimeType: 'image/png',
+            extension: '.png'
+        };
+    }
+
+    const sixByteAscii =
+        buffer
+            .subarray(
+                0,
+                Math.min(
+                    6,
+                    buffer.length
+                )
+            )
+            .toString('ascii');
+
+    if (
+        sixByteAscii === 'GIF87a' ||
+        sixByteAscii === 'GIF89a'
+    ) {
+        return {
+            kind: 'image',
+            mimeType: 'image/gif',
+            extension: '.gif'
+        };
+    }
+
+    if (
+        buffer.length >= 12 &&
+        buffer
+            .subarray(0, 4)
+            .toString('ascii') ===
+            'RIFF' &&
+        buffer
+            .subarray(8, 12)
+            .toString('ascii') ===
+            'WEBP'
+    ) {
+        return {
+            kind: 'image',
+            mimeType: 'image/webp',
+            extension: '.webp'
+        };
+    }
+
+    if (
+        buffer.length >= 12 &&
+        buffer
+            .subarray(4, 8)
+            .toString('ascii') ===
+            'ftyp'
+    ) {
+        const brand =
+            buffer
+                .subarray(8, 12)
+                .toString('ascii')
+                .toLowerCase();
+
+        if (
+            [
+                'avif',
+                'avis'
+            ].includes(brand)
+        ) {
+            return {
+                kind: 'image',
+                mimeType: 'image/avif',
+                extension: '.avif'
+            };
+        }
+
+        if (
+            [
+                'heic',
+                'heix',
+                'hevc',
+                'hevx',
+                'mif1',
+                'msf1'
+            ].includes(brand)
+        ) {
+            return {
+                kind: 'image',
+
+                mimeType:
+                    declaredMime ===
+                    'image/heif'
+                        ? 'image/heif'
+                        : 'image/heic',
+
+                extension:
+                    declaredMime ===
+                    'image/heif'
+                        ? '.heif'
+                        : '.heic'
+            };
+        }
+
+        if (
+            brand ===
+            'qt  '
+        ) {
+            return {
+                kind: 'video',
+                mimeType: 'video/quicktime',
+                extension: '.mov'
+            };
+        }
+
+        if (
+            [
+                'isom',
+                'iso2',
+                'iso3',
+                'iso4',
+                'iso5',
+                'iso6',
+                'mp41',
+                'mp42',
+                'avc1',
+                'dash',
+                'm4v ',
+                'm4v1',
+                '3gp4',
+                '3gp5'
+            ].includes(brand)
+        ) {
+            return {
+                kind: 'video',
+                mimeType: 'video/mp4',
+                extension: '.mp4'
+            };
+        }
+
+        return null;
+    }
+
+    if (
+        hex.startsWith(
+            '1a45dfa3'
+        )
+    ) {
+        return {
+            kind: 'video',
+
+            mimeType:
+                declaredMime ===
+                'video/x-matroska'
+                    ? 'video/x-matroska'
+                    : 'video/webm',
+
+            extension:
+                declaredMime ===
+                'video/x-matroska'
+                    ? '.mkv'
+                    : '.webm'
+        };
+    }
+
+    if (
+        buffer
+            .subarray(0, 4)
+            .toString('ascii') ===
+        'OggS'
+    ) {
+        return {
+            kind: 'video',
+            mimeType: 'video/ogg',
+            extension: '.ogv'
+        };
+    }
+
+    return null;
+}
+
+function createAcademyFeedUploadReceiptV4({
+    userId = '',
+    media = {}
+} = {}) {
+    const cleanUserId =
+        sanitizeText(userId);
+
+    const secret =
+        sanitizeText(
+            process.env.JWT_SECRET
+        );
+
+    if (
+        !cleanUserId ||
+        !secret
+    ) {
+        throw new Error(
+            'Academy media receipt signing is unavailable.'
+        );
+    }
+
+    const issuedAt =
+        Date.now();
+
+    const payload = {
+        version: 4,
+
+        userId:
+            cleanUserId,
+
+        url:
+            sanitizeText(
+                media.url
+            ),
+
+        kind:
+            sanitizeText(
+                media.kind
+            ).toLowerCase(),
+
+        mimeType:
+            sanitizeText(
+                media.mimeType
+            ).toLowerCase(),
+
+        sizeBytes:
+            Number(
+                media.sizeBytes ||
+                0
+            ) ||
+            0,
+
+        sha256:
+            sanitizeText(
+                media.sha256
+            ),
+
+        issuedAt,
+
+        expiresAt:
+            issuedAt +
+            ACADEMY_FEED_UPLOAD_RECEIPT_TTL_MS
+    };
+
+    const encodedPayload =
+        academyFeedBase64UrlEncodeV4(
+            JSON.stringify(
+                payload
+            )
+        );
+
+    const signature =
+        crypto
+            .createHmac(
+                'sha256',
+                secret
+            )
+            .update(
+                encodedPayload
+            )
+            .digest('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/g, '');
+
+    return `${encodedPayload}.${signature}`;
+}
+
+async function verifyAcademyFeedUploadReceiptV4(
+    receipt = '',
+    expectedUserId = ''
+) {
+    const cleanReceipt =
+        sanitizeText(receipt);
+
+    const cleanExpectedUserId =
+        sanitizeText(
+            expectedUserId
+        );
+
+    const secret =
+        sanitizeText(
+            process.env.JWT_SECRET
+        );
+
+    if (
+        !cleanReceipt ||
+        !cleanExpectedUserId ||
+        !secret
+    ) {
+        const error =
+            new Error(
+                'Invalid Academy media receipt.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const [
+        encodedPayload,
+        providedSignature,
+        ...extraParts
+    ] = cleanReceipt.split('.');
+
+    if (
+        !encodedPayload ||
+        !providedSignature ||
+        extraParts.length
+    ) {
+        const error =
+            new Error(
+                'Invalid Academy media receipt.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const expectedSignature =
+        crypto
+            .createHmac(
+                'sha256',
+                secret
+            )
+            .update(
+                encodedPayload
+            )
+            .digest('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/g, '');
+
+    const providedBuffer =
+        Buffer.from(
+            providedSignature
+        );
+
+    const expectedBuffer =
+        Buffer.from(
+            expectedSignature
+        );
+
+    if (
+        providedBuffer.length !==
+            expectedBuffer.length ||
+        !crypto.timingSafeEqual(
+            providedBuffer,
+            expectedBuffer
+        )
+    ) {
+        const error =
+            new Error(
+                'Invalid Academy media receipt.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    let payload;
+
+    try {
+        payload =
+            JSON.parse(
+                academyFeedBase64UrlDecodeV4(
+                    encodedPayload
+                )
+            );
+    } catch (_) {
+        const error =
+            new Error(
+                'Invalid Academy media receipt.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const url =
+        sanitizeText(
+            payload?.url
+        );
+
+    const fileName =
+        path.basename(
+            url
+        );
+
+    const canonicalUrl =
+        fileName
+            ? `/uploads/academy-feed/${fileName}`
+            : '';
+
+    if (
+        Number(
+            payload?.version
+        ) !== 4 ||
+        sanitizeText(
+            payload?.userId
+        ) !==
+            cleanExpectedUserId ||
+        !url ||
+        url !== canonicalUrl ||
+        Number(
+            payload?.expiresAt
+        ) <= Date.now()
+    ) {
+        const error =
+            new Error(
+                'Academy media receipt expired or does not match this user.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const kind =
+        sanitizeText(
+            payload?.kind
+        ).toLowerCase();
+
+    const mimeType =
+        sanitizeText(
+            payload?.mimeType
+        ).toLowerCase();
+
+    const sizeBytes =
+        Number(
+            payload?.sizeBytes ||
+            0
+        ) ||
+        0;
+
+    if (
+        ![
+            'image',
+            'video'
+        ].includes(kind) ||
+        !mimeType.startsWith(
+            `${kind}/`
+        ) ||
+        !sizeBytes
+    ) {
+        const error =
+            new Error(
+                'Invalid Academy media receipt.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const filePath =
+        path.join(
+            ACADEMY_FEED_UPLOAD_DIR,
+            fileName
+        );
+
+    let stat;
+
+    try {
+        stat =
+            await fs.promises.stat(
+                filePath
+            );
+    } catch (_) {
+        const error =
+            new Error(
+                'Uploaded Academy media is no longer available.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (
+        !stat.isFile() ||
+        stat.size !==
+            sizeBytes
+    ) {
+        const error =
+            new Error(
+                'Uploaded Academy media failed verification.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
 
     return {
-        url: `/uploads/academy-feed/${fileName}`,
-        kind: derivedKind,
-        mimeType: cleanMimeType,
-        sizeBytes: buffer.length,
-        originalName: baseOriginalName
+        receiptVersion: 4,
+        url,
+        kind,
+        mimeType,
+        sizeBytes,
+
+        sha256:
+            sanitizeText(
+                payload?.sha256
+            )
     };
 }
+
+async function saveAcademyFeedUploadToLocal({
+    buffer,
+    detectedMedia = {},
+    originalName = '',
+    userId = ''
+}) {
+    const safeUserId =
+        sanitizeUploadSegment(
+            userId ||
+            'member'
+        );
+
+    const decodedOriginalName =
+        safeDecodeUploadHeaderValue(
+            originalName ||
+            'upload'
+        );
+
+    const baseOriginalName =
+        path.basename(
+            decodedOriginalName ||
+            'upload'
+        );
+
+    const safeBaseName =
+        sanitizeUploadSegment(
+            path.basename(
+                baseOriginalName,
+                path.extname(
+                    baseOriginalName
+                )
+            ) ||
+            'upload'
+        );
+
+    const canonicalMimeType =
+        sanitizeText(
+            detectedMedia.mimeType
+        ).toLowerCase();
+
+    const canonicalKind =
+        sanitizeText(
+            detectedMedia.kind
+        ).toLowerCase();
+
+    const canonicalExtension =
+        sanitizeText(
+            detectedMedia.extension
+        ).toLowerCase();
+
+    if (
+        ![
+            'image',
+            'video'
+        ].includes(
+            canonicalKind
+        ) ||
+        !canonicalMimeType.startsWith(
+            `${canonicalKind}/`
+        ) ||
+        !canonicalExtension.startsWith(
+            '.'
+        )
+    ) {
+        throw new Error(
+            'Unsupported Academy media signature.'
+        );
+    }
+
+    const fileName =
+        `${Date.now()}_${safeUserId}_${crypto.randomBytes(6).toString('hex')}_${safeBaseName}${canonicalExtension}`;
+
+    await fs.promises.mkdir(
+        ACADEMY_FEED_UPLOAD_DIR,
+        {
+            recursive: true
+        }
+    );
+
+    const filePath =
+        path.join(
+            ACADEMY_FEED_UPLOAD_DIR,
+            fileName
+        );
+
+    await fs.promises.writeFile(
+        filePath,
+        buffer
+    );
+
+    return {
+        url:
+            `/uploads/academy-feed/${fileName}`,
+
+        kind:
+            canonicalKind,
+
+        mimeType:
+            canonicalMimeType,
+
+        sizeBytes:
+            buffer.length,
+
+        sha256:
+            crypto
+                .createHash(
+                    'sha256'
+                )
+                .update(
+                    buffer
+                )
+                .digest('hex'),
+
+        originalName:
+            baseOriginalName
+    };
+}
+
+if (
+    typeof academyCommunityRepo
+        ?.setCommunityMediaReceiptVerifierV4 ===
+    'function'
+) {
+    academyCommunityRepo
+        .setCommunityMediaReceiptVerifierV4(
+            verifyAcademyFeedUploadReceiptV4
+        );
+}
+/* END PATCH: Academy feed binary signature and receipt verification v4 */
 async function saveAcademyMessageUploadToLocal({ buffer, mimeType = '', originalName = '', userId = '' }) {
     const cleanMimeType = sanitizeText(mimeType || 'application/octet-stream').toLowerCase().split(';')[0] || 'application/octet-stream';
     const safeUserId = sanitizeUploadSegment(userId || 'member');
@@ -3966,6 +5860,35 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                                 'stripe_checkout_completed'
                             );
 
+                        await recordVerifiedFederationPaidConnectionInfluenceV1(
+                            syncedRequest,
+                            {
+                                provider: 'stripe',
+                                requestId,
+
+                                requesterUid:
+                                    sanitizeText(
+                                        current.requesterUid ||
+                                        metadata.requesterUid
+                                    ),
+
+                                paymentLedgerId:
+                                    paymentLedgerId ||
+                                    sanitizeText(
+                                        current.paymentLedgerId
+                                    ),
+
+                                paymentMethod:
+                                    'card_bank_wallet',
+
+                                sourcePaymentMode:
+                                    metadata.kind ===
+                                    'federation_lead_purchase'
+                                        ? 'lead_purchase'
+                                        : 'paid_intro'
+                            }
+                        );
+
                         await createServerAdminBroadcastWithSupabaseSync({
                             audience: sanitizeText(current.requesterName || current.requesterEmail || 'Federation Member'),
                             subject: 'Federation paid introduction payment confirmed',
@@ -4273,6 +6196,33 @@ app.post('/api/oxapay/webhook', express.raw({ type: 'application/json' }), async
                     syncedRequest,
                     'oxapay_invoice_paid'
                 );
+
+            await recordVerifiedFederationPaidConnectionInfluenceV1(
+                syncedRequest,
+                {
+                    provider: 'oxapay',
+                    requestId,
+
+                    requesterUid:
+                        sanitizeText(
+                            current.requesterUid
+                        ),
+
+                    paymentLedgerId:
+                        sanitizeText(
+                            current.paymentLedgerId
+                        ),
+
+                    paymentMethod:
+                        'crypto',
+
+                    sourcePaymentMode:
+                        sanitizeText(
+                            current.sourcePaymentMode ||
+                            'lead_purchase'
+                        )
+                }
+            );
 
             await createServerAdminBroadcastWithSupabaseSync({
                 audience: sanitizeText(current.requesterName || current.requesterEmail || 'Federation Member'),
@@ -4792,6 +6742,7 @@ const apiLimiter = rateLimit({
             if (path === '/federation/deal-rooms') return true;
             if (path === '/federation/connect/opportunities') return true;
             if (path === '/federation/connect/my-requests') return true;
+            if (path === '/federation/influence') return true;
 
             if (path === '/universe/collections' || path.startsWith('/universe/collections/')) return true;
         }
@@ -4826,7 +6777,6 @@ const { createAdminRouters } = require('./routes/admin-auth-routes');
 const { startAiNurtureWorker } = require('./backend/services/aiNurtureWorker');
 const academyMemberProfileSupabaseRepo = require('./backend/repositories/academyMemberProfileSupabaseRepo');
 const yhuUsersSupabaseRepo = require('./backend/repositories/yhuUsersSupabaseRepo');
-const userNotificationsSupabaseRepo = require('./backend/repositories/userNotificationsSupabaseRepo');
 
 const { pageRouter: adminPageRouter, apiRouter: adminApiRouter } = createAdminRouters({
     privateAdminDir: path.join(__dirname, 'private', 'admin')
@@ -4927,97 +6877,210 @@ app.post(
     '/api/academy/feed/uploads',
     requireApiUser,
     express.raw({
-        type: ['image/*', 'video/*', 'application/octet-stream'],
+        type: [
+            'image/*',
+            'video/*',
+            'application/octet-stream'
+        ],
         limit: '100mb'
     }),
     async (req, res) => {
         try {
-            const transportMimeType = sanitizeText(req.headers?.['content-type'])
-                .toLowerCase()
-                .split(';')[0];
+            const transportMimeType =
+                sanitizeText(
+                    req.headers?.['content-type']
+                )
+                    .toLowerCase()
+                    .split(';')[0];
 
-            const declaredMimeType = sanitizeText(req.headers?.['x-file-mime'])
-                .toLowerCase()
-                .split(';')[0];
+            const declaredMimeType =
+                sanitizeText(
+                    req.headers?.['x-file-mime']
+                )
+                    .toLowerCase()
+                    .split(';')[0];
 
-            const mimeType = declaredMimeType || transportMimeType;
-            const originalName = safeDecodeUploadHeaderValue(req.headers?.['x-file-name'] || 'upload');
-            const requestedKind = sanitizeText(req.headers?.['x-media-kind']).toLowerCase();
+            const originalName =
+                safeDecodeUploadHeaderValue(
+                    req.headers?.['x-file-name'] ||
+                    'upload'
+                );
 
-            const buffer = Buffer.isBuffer(req.body)
-                ? req.body
-                : typeof req.body === 'string'
-                    ? Buffer.from(req.body)
-                    : Buffer.alloc(0);
+            const requestedKind =
+                sanitizeText(
+                    req.headers?.['x-media-kind']
+                ).toLowerCase();
 
-            const detectedKind = getAcademyUploadKind(mimeType);
-            const mediaKind =
-                requestedKind === 'video'
-                    ? 'video'
-                    : requestedKind === 'image'
-                        ? 'image'
-                        : detectedKind;
+            const buffer =
+                Buffer.isBuffer(req.body)
+                    ? req.body
+                    : typeof req.body ===
+                        'string'
+                        ? Buffer.from(
+                            req.body
+                        )
+                        : Buffer.alloc(0);
 
             if (!buffer.length) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'No file data received.'
-                });
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            'No file data received.'
+                    });
             }
 
-            if (!mediaKind || !['image', 'video'].includes(mediaKind)) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Only image and video uploads are supported.'
-                });
+            const detectedMedia =
+                detectAcademyFeedMediaSignatureV4(
+                    buffer,
+                    declaredMimeType ||
+                    transportMimeType
+                );
+
+            if (!detectedMedia) {
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            'Unsupported or invalid image/video file.'
+                    });
             }
 
-            if (mediaKind === 'image' && !mimeType.startsWith('image/')) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid image upload.'
-                });
+            if (
+                requestedKind &&
+                requestedKind !==
+                    detectedMedia.kind
+            ) {
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            'Uploaded file does not match the selected media type.'
+                    });
             }
 
-            if (mediaKind === 'video' && !mimeType.startsWith('video/')) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid video upload.'
-                });
+            const declaredKind =
+                getAcademyUploadKind(
+                    declaredMimeType
+                );
+
+            const transportKind =
+                getAcademyUploadKind(
+                    transportMimeType
+                );
+
+            if (
+                declaredKind &&
+                declaredKind !==
+                    detectedMedia.kind
+            ) {
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            'Declared file type does not match the uploaded file.'
+                    });
+            }
+
+            if (
+                transportKind &&
+                transportKind !==
+                    detectedMedia.kind
+            ) {
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            'Transport file type does not match the uploaded file.'
+                    });
             }
 
             const maxBytes =
-                mediaKind === 'video'
+                detectedMedia.kind ===
+                'video'
                     ? ACADEMY_FEED_MAX_VIDEO_BYTES
                     : ACADEMY_FEED_MAX_IMAGE_BYTES;
 
-            if (buffer.length > maxBytes) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        mediaKind === 'video'
-                            ? 'Video must be 100MB or smaller.'
-                            : 'Image must be 10MB or smaller.'
-                });
+            if (
+                buffer.length >
+                maxBytes
+            ) {
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+
+                        message:
+                            detectedMedia.kind ===
+                            'video'
+                                ? 'Video must be 100MB or smaller.'
+                                : 'Image must be 10MB or smaller.'
+                    });
             }
 
-            const media = await saveAcademyFeedUploadToLocal({
-                buffer,
-                mimeType,
-                originalName,
-                userId: req.user.id
-            });
+            const media =
+                await saveAcademyFeedUploadToLocal({
+                    buffer,
+                    detectedMedia,
+                    originalName,
 
-            return res.status(201).json({
-                success: true,
-                media
-            });
+                    userId:
+                        req.user.id
+                });
+
+            const receipt =
+                createAcademyFeedUploadReceiptV4({
+                    userId:
+                        req.user.id,
+                    media
+                });
+
+            return res
+                .status(201)
+                .set(
+                    'Cache-Control',
+                    'no-store'
+                )
+                .json({
+                    success: true,
+
+                    media: {
+                        ...media,
+                        receipt
+                    }
+                });
         } catch (error) {
-            console.error('academy feed upload error:', error);
-            return res.status(500).json({
-                success: false,
-                message: 'Failed to upload media.'
-            });
+            console.error(
+                'academy feed upload error:',
+                error
+            );
+
+            const statusCode =
+                Number(
+                    error?.statusCode ||
+                    error?.status ||
+                    500
+                );
+
+            return res
+                .status(
+                    statusCode >= 400 &&
+                    statusCode < 600
+                        ? statusCode
+                        : 500
+                )
+                .json({
+                    success: false,
+
+                    message:
+                        error?.message ||
+                        'Failed to upload media.'
+                });
         }
     }
 );
@@ -5131,146 +7194,217 @@ app.get('/api/realtime/profile-access/:targetUserId', requireApiUser, async (req
 
 app.patch('/api/realtime/rooms/:roomId/hide', requireApiUser, async (req, res) => {
     try {
-        const roomId = sanitizeText(req.params.roomId);
-        const userId = sanitizeText(req.user?.id);
-        const context = await getUserOwnedChatRoomActionContext(userId, roomId);
+        const roomId =
+            sanitizeText(
+                req.params.roomId
+            );
 
-        if (!context.ok) {
-            return sendChatRoomActionError(res, context);
-        }
+        const userId =
+            sanitizeText(
+                req.user?.id
+            );
 
-        await context.roomRef.set({
-            hidden_for_user_ids: FieldValue.arrayUnion(userId),
-            deleted_for_user_ids: FieldValue.arrayUnion(userId),
-            updated_at: Timestamp.now()
-        }, { merge: true });
+        const room =
+            await realtimeSupabaseRepo
+                .hideRoomForUser({
+                    userId,
+                    roomId,
+                    hidden: true
+                });
 
         return res.json({
             success: true,
             roomId,
+            room,
             hidden: true,
-            deletedForCurrentUserOnly: true
+            deletedForCurrentUserOnly:
+                true
         });
     } catch (error) {
-        console.error('hide realtime room error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to delete conversation from your inbox.'
-        });
+        console.error(
+            'hide realtime room error:',
+            error
+        );
+
+        const statusCode =
+            Number(
+                error?.statusCode ||
+                error?.status ||
+                500
+            );
+
+        return res
+            .status(
+                statusCode >= 400 &&
+                statusCode < 600
+                    ? statusCode
+                    : 500
+            )
+            .json({
+                success: false,
+                message:
+                    error?.message ||
+                    'Failed to delete conversation from your inbox.'
+            });
     }
 });
 
 app.patch('/api/realtime/rooms/:roomId/restrict', requireApiUser, async (req, res) => {
     try {
-        const roomId = sanitizeText(req.params.roomId);
-        const userId = sanitizeText(req.user?.id);
-        const context = await getUserOwnedChatRoomActionContext(userId, roomId);
+        const roomId =
+            sanitizeText(
+                req.params.roomId
+            );
 
-        if (!context.ok) {
-            return sendChatRoomActionError(res, context);
-        }
+        const userId =
+            sanitizeText(
+                req.user?.id
+            );
 
-        if (!isChatRoomDirectMessage(context.roomData)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Restrict is only available for direct messages.'
-            });
-        }
+        const restricted =
+            req.body?.restricted !==
+            false;
 
-        const restricted = req.body?.restricted !== false;
+        const room =
+            await realtimeSupabaseRepo
+                .setRoomRestricted({
+                    userId,
+                    roomId,
+                    restricted
+                });
 
-        await context.roomRef.set({
-            restricted_by_user_ids: restricted
-                ? FieldValue.arrayUnion(userId)
-                : FieldValue.arrayRemove(userId),
-            updated_at: Timestamp.now()
-        }, { merge: true });
-
-        io.to(roomId).emit('roomAccessUpdated', {
-            roomId,
-            action: 'restrict',
-            restricted,
-            restrictedByUserId: userId
-        });
+        io.to(roomId).emit(
+            'roomAccessUpdated',
+            {
+                roomId,
+                action:
+                    restricted
+                        ? 'restrict'
+                        : 'unrestrict',
+                restricted,
+                restrictedByUserId:
+                    userId
+            }
+        );
 
         return res.json({
             success: true,
             roomId,
-            restricted
+            restricted,
+            room
         });
     } catch (error) {
-        console.error('restrict realtime room error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to restrict conversation.'
-        });
+        console.error(
+            'restrict realtime room error:',
+            error
+        );
+
+        const statusCode =
+            Number(
+                error?.statusCode ||
+                error?.status ||
+                500
+            );
+
+        return res
+            .status(
+                statusCode >= 400 &&
+                statusCode < 600
+                    ? statusCode
+                    : 500
+            )
+            .json({
+                success: false,
+                message:
+                    error?.message ||
+                    'Failed to restrict conversation.'
+            });
     }
 });
 
 app.patch('/api/realtime/rooms/:roomId/block', requireApiUser, async (req, res) => {
     try {
-        const roomId = sanitizeText(req.params.roomId);
-        const userId = sanitizeText(req.user?.id);
-        const context = await getUserOwnedChatRoomActionContext(userId, roomId);
+        const roomId =
+            sanitizeText(
+                req.params.roomId
+            );
 
-        if (!context.ok) {
-            return sendChatRoomActionError(res, context);
-        }
+        const userId =
+            sanitizeText(
+                req.user?.id
+            );
 
-        if (!isChatRoomDirectMessage(context.roomData)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Block is only available for direct messages.'
-            });
-        }
+        const blocked =
+            req.body?.blocked !==
+            false;
 
-        const blockedUserIds = context.otherMemberIds;
+        const room =
+            await realtimeSupabaseRepo
+                .setRoomBlocked({
+                    userId,
+                    roomId,
+                    blocked
+                });
 
-        if (!blockedUserIds.length) {
-            return res.status(400).json({
-                success: false,
-                message: 'No user found to block.'
-            });
-        }
+        const blockedUserIds =
+            Array.isArray(
+                room?.blocked_user_ids
+            )
+                ? room.blocked_user_ids
+                : [];
 
-        const blocked = req.body?.blocked !== false;
+        io.to(roomId).emit(
+            'roomAccessUpdated',
+            {
+                roomId,
 
-        const patch = blocked
-            ? {
-                blocked_by_user_ids: FieldValue.arrayUnion(...blockedUserIds),
-                blocked_by_owner_user_ids: FieldValue.arrayUnion(userId),
-                hidden_for_user_ids: FieldValue.arrayRemove(userId),
-                updated_at: Timestamp.now()
+                action:
+                    blocked
+                        ? 'block'
+                        : 'unblock',
+
+                blocked,
+
+                blockedByUserId:
+                    userId,
+
+                blockedUserIds
             }
-            : {
-                blocked_by_user_ids: FieldValue.arrayRemove(...blockedUserIds),
-                blocked_by_owner_user_ids: FieldValue.arrayRemove(userId),
-                hidden_for_user_ids: FieldValue.arrayRemove(userId),
-                updated_at: Timestamp.now()
-            };
-
-        await context.roomRef.set(patch, { merge: true });
-
-        io.to(roomId).emit('roomAccessUpdated', {
-            roomId,
-            action: blocked ? 'block' : 'unblock',
-            blocked,
-            blockedByUserId: userId,
-            blockedUserIds
-        });
+        );
 
         return res.json({
             success: true,
             roomId,
             blocked,
-            blockedUserIds
+            blockedUserIds,
+            room
         });
     } catch (error) {
-        console.error('block realtime room error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to update block status.'
-        });
+        console.error(
+            'block realtime room error:',
+            error
+        );
+
+        const statusCode =
+            Number(
+                error?.statusCode ||
+                error?.status ||
+                500
+            );
+
+        return res
+            .status(
+                statusCode >= 400 &&
+                statusCode < 600
+                    ? statusCode
+                    : 500
+            )
+            .json({
+                success: false,
+                message:
+                    error?.message ||
+                    'Failed to update block status.'
+            });
     }
 });
 
@@ -6373,79 +8507,6 @@ app.get('/api/federation/connect/my-requests', requireApiUser, async (req, res) 
 });
 /* END PATCH: Federation Supabase read overrides batch 1 */
 
-app.get('/api/federation/command', requireApiUser, async (req, res) => {
-    try {
-        const fedState = await getFederationUserState(req);
-
-        if (!fedState.approved) {
-            return res.status(403).json({
-                success: false,
-                message: 'Federation access is required.'
-            });
-        }
-
-        const membersSnap = await firestore
-            .collection('users')
-            .where('hasFederationAccess', '==', true)
-            .limit(300)
-            .get();
-
-        const members = [];
-        membersSnap.forEach((docSnap) => members.push(mapFederationMemberUserDoc(docSnap)));
-
-        let requests = [];
-
-        try {
-            const requestsSnap = await firestore
-                .collection('federationConnectionRequests')
-                .where('requesterUid', '==', fedState.userId)
-                .limit(100)
-                .get();
-
-            requestsSnap.forEach((docSnap) => requests.push(mapFederationRequestDoc(docSnap)));
-        } catch (error) {
-            console.error('federation command requests query error:', error);
-            requests = [];
-        }
-
-        let connectOpportunitiesCount = 0;
-
-        try {
-            connectOpportunitiesCount = await countSupabaseFederationReadyLeadMissions();
-        } catch (error) {
-            console.error('federation command Supabase opportunities count error:', error?.message || error);
-            connectOpportunitiesCount = 0;
-        }
-
-        const countries = new Set(members.map((member) => member.country).filter(Boolean));
-        const categories = new Set(members.map((member) => member.category).filter(Boolean));
-        return res.json({
-            success: true,
-            command: {
-                member: fedState.member,
-                stats: {
-                    approvedMembers: members.length,
-                    countriesActive: countries.size,
-                    sectorsLive: categories.size,
-                    connectOpportunities: connectOpportunitiesCount,
-                    myRequests: requests.length,
-                    pendingRequests: requests.filter((item) =>
-                        ['pending_admin_match', 'pending_review'].includes(String(item.status || '').toLowerCase())
-                    ).length,
-                    completedRequests: requests.filter((item) =>
-                        String(item.status || '').toLowerCase() === 'completed'
-                    ).length
-                }
-            }
-        });
-    } catch (error) {
-        console.error('federation command error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to load Federation command.'
-        });
-    }
-});
 
 app.get('/api/federation/referrals', requireApiUser, async (req, res) => {
     try {
@@ -6473,40 +8534,6 @@ app.get('/api/federation/referrals', requireApiUser, async (req, res) => {
     }
 });
 
-app.get('/api/federation/deal-rooms', requireApiUser, async (req, res) => {
-    try {
-        const fedState = await getFederationUserState(req);
-
-        if (!fedState.approved) {
-            return res.status(403).json({
-                success: false,
-                message: 'Federation access is required.'
-            });
-        }
-
-        const snap = await firestore
-            .collection('federationDealRooms')
-            .where('participantUids', 'array-contains', fedState.userId)
-            .limit(100)
-            .get();
-
-        const rooms = [];
-        snap.forEach((docSnap) => rooms.push(mapFederationDealRoomDoc(docSnap)));
-
-        rooms.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-
-        return res.json({
-            success: true,
-            rooms
-        });
-    } catch (error) {
-        console.error('federation deal rooms list error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to load Federation Deal Rooms.'
-        });
-    }
-});
 
 app.post('/api/federation/deal-rooms', requireApiUser, async (req, res) => {
     try {
@@ -6600,75 +8627,6 @@ app.post('/api/federation/deal-rooms', requireApiUser, async (req, res) => {
     }
 });
 
-
-app.get('/api/federation/requests', requireApiUser, async (req, res) => {
-    try {
-        const requesterUid = sanitizeText(req.user?.id);
-
-        if (!requesterUid) {
-            return res.status(401).json({
-                success: false,
-                message: 'Unauthorized.'
-            });
-        }
-
-        try {
-            const supabaseResult = await yhuSupabaseMirrorRepo.listFederationRequestsByRequester(requesterUid, 100);
-
-            if (supabaseResult.ok) {
-                return res.json({
-                    success: true,
-                    source: 'supabase',
-                    requests: supabaseResult.requests || []
-                });
-            }
-        } catch (supabaseError) {
-            console.error('Supabase federation requests list error:', supabaseError?.message || supabaseError);
-        }
-
-        const fedState = await getFederationUserState(req);
-
-        if (!fedState.approved) {
-            return res.status(403).json({
-                success: false,
-                message: 'Federation access is required.'
-            });
-        }
-
-        const snap = await firestore
-            .collection('federationConnectionRequests')
-            .where('requesterUid', '==', fedState.userId)
-            .limit(100)
-            .get();
-
-        const requests = [];
-        snap.forEach((docSnap) => requests.push(mapFederationRequestDoc(docSnap)));
-
-        requests.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-
-        return res.json({
-            success: true,
-            source: 'firebase-fallback',
-            requests
-        });
-    } catch (error) {
-        console.error('federation requests error:', error);
-
-        if (yhuSupabaseMirrorRepo.isFirebaseQuotaError(error)) {
-            return res.json({
-                success: true,
-                source: 'firebase-quota-exhausted',
-                requests: [],
-                warning: 'Firebase quota is exhausted. New Supabase-saved requests will appear after they are created.'
-            });
-        }
-
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to load Federation requests.'
-        });
-    }
-});
 
 app.get('/api/federation/connect/opportunities', requireApiUser, async (req, res) => {
     try {
@@ -7381,68 +9339,6 @@ app.post('/api/federation/connect/requests/:requestId/checkout-session', require
     }
 });
 
-
-
-app.get('/api/federation/connect/my-requests', requireApiUser, async (req, res) => {
-    try {
-        const requesterUid = sanitizeText(req.user?.id);
-
-        if (!requesterUid) {
-            return res.status(401).json({
-                success: false,
-                message: 'Unauthorized.'
-            });
-        }
-
-        try {
-            const supabaseResult = await yhuSupabaseMirrorRepo.listFederationRequestsByRequester(requesterUid, 100);
-
-            if (supabaseResult.ok) {
-                return res.json({
-                    success: true,
-                    source: 'supabase',
-                    requests: supabaseResult.requests || []
-                });
-            }
-        } catch (supabaseError) {
-            console.error('Supabase federation connect my-requests error:', supabaseError?.message || supabaseError);
-        }
-
-        const snap = await firestore
-            .collection('federationConnectionRequests')
-            .where('requesterUid', '==', requesterUid)
-            .limit(100)
-            .get();
-
-        const requests = [];
-        snap.forEach((docSnap) => requests.push(mapFederationRequestDoc(docSnap)));
-
-        requests.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-
-        return res.json({
-            success: true,
-            source: 'firebase-fallback',
-            requests
-        });
-    } catch (error) {
-        console.error('federation connect my-requests error:', error);
-
-        if (yhuSupabaseMirrorRepo.isFirebaseQuotaError(error)) {
-            return res.json({
-                success: true,
-                source: 'firebase-quota-exhausted',
-                requests: [],
-                warning: 'Firebase quota is exhausted. New Supabase-saved requests will appear after they are created.'
-            });
-        }
-
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to load your Federation Connect requests.'
-        });
-    }
-});
-
 app.post('/api/federation/connect/requests', requireApiUser, async (req, res) => {
     try {
         const requesterUid = sanitizeText(req.user?.id);
@@ -8109,27 +10005,82 @@ function buildInProductReviewNotification({
     };
 }
 
-async function appendUserInProductNotification(userRef, user = {}, notification = {}) {
-    const current = await listServerUserInProductNotifications(userRef.id, user);
+async function appendUserInProductNotification(
+    userRef,
+    user = {},
+    notification = {}
+) {
+    const normalizedNotification =
+        normalizeUserInProductNotification(
+            notification
+        );
+
+    const current =
+        await listServerUserInProductNotifications(
+            userRef.id,
+            user
+        );
+
+    const alreadyExists =
+        current.some(
+            (item) =>
+                sanitizeText(item?.id) ===
+                sanitizeText(
+                    normalizedNotification.id
+                )
+        );
 
     const next = [
-        normalizeUserInProductNotification(notification),
-        ...current.filter((item) => sanitizeText(item?.id) !== sanitizeText(notification?.id))
-    ].slice(0, USER_IN_PRODUCT_NOTIFICATION_LIMIT);
+        normalizedNotification,
+        ...current.filter(
+            (item) =>
+                sanitizeText(item?.id) !==
+                sanitizeText(
+                    normalizedNotification.id
+                )
+        )
+    ].slice(
+        0,
+        USER_IN_PRODUCT_NOTIFICATION_LIMIT
+    );
 
     await userRef.set({
-        inProductReviewNotifications: next,
-        updatedAt: new Date().toISOString()
-    }, { merge: true });
-        /* PATCH: User Notifications Supabase sync after Firestore write */
-        await syncServerUserInProductNotifications(userRef.id, next, 'server:user-notification-write');
-        /* END PATCH: User Notifications Supabase sync after Firestore write */
-        /* PATCH: yhu_users Supabase safe write sync */
-        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
-        /* END PATCH: yhu_users Supabase safe write sync */
+        inProductReviewNotifications:
+            next,
+        updatedAt:
+            new Date().toISOString()
+    }, {
+        merge: true
+    });
+
+    /* PATCH: User Notifications Supabase sync after Firestore write */
+    await syncServerUserInProductNotifications(
+        userRef.id,
+        next,
+        'server:user-notification-write'
+    );
+    /* END PATCH: User Notifications Supabase sync after Firestore write */
+
+    /* PATCH: yhu_users Supabase safe write sync */
+    await syncServerYhuUserToSupabase(
+        userRef,
+        'server:userRef-write'
+    );
+    /* END PATCH: yhu_users Supabase safe write sync */
+
+    if (
+        !alreadyExists &&
+        normalizedNotification.id
+    ) {
+        emitRealtimeNotificationV2(
+            userRef.id,
+            normalizedNotification
+        );
+    }
 
     return next;
 }
+
 
 app.get('/api/member/system-notifications', requireApiUser, async (req, res) => {
     try {
@@ -9712,7 +11663,7 @@ app.get('/api/academy/membership-status', requireApiUser, async (req, res, next)
 app.use('/api', apiRoutes);
 app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, res) => {
     try {
-        const room = await realtimeFirestoreRepo.joinLiveRoom({
+        const room = await realtimeSupabaseRepo.joinLiveRoom({
             userId: req.user.id,
             roomId: req.params.roomId
         });
@@ -9732,7 +11683,7 @@ app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, re
 
 app.post('/api/realtime/live-rooms/:roomId/leave', requireApiUser, async (req, res) => {
     try {
-        const room = await realtimeFirestoreRepo.leaveLiveRoom({
+        const room = await realtimeSupabaseRepo.leaveLiveRoom({
             userId: req.user.id,
             roomId: req.params.roomId
         });
@@ -9752,7 +11703,7 @@ app.post('/api/realtime/live-rooms/:roomId/leave', requireApiUser, async (req, r
 
 app.post('/api/realtime/live-rooms/:roomId/end', requireApiUser, async (req, res) => {
     try {
-        const room = await realtimeFirestoreRepo.endLiveRoom({
+        const room = await realtimeSupabaseRepo.endLiveRoom({
             userId: req.user.id,
             roomId: req.params.roomId
         });

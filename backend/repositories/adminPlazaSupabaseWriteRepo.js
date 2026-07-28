@@ -1,5 +1,7 @@
 const { yhuSupabaseAdmin } = require('../../config/supabaseAdmin');
 const adminPlazaSupabaseRepo = require('./adminPlazaSupabaseRepo');
+const plazaEventLedgerSupabaseRepo = require('./plazaEventLedgerSupabaseRepo');
+const userNotificationsSupabaseRepo = require('./userNotificationsSupabaseRepo');
 
 const TABLE = 'yhu_plaza_records';
 
@@ -53,6 +55,141 @@ function getPublicMeta(row = {}) {
 
 function getPrivateMeta(row = {}) {
   return row.private_meta && typeof row.private_meta === 'object' ? row.private_meta : {};
+}
+
+const PLAZA_OPPORTUNITY_APPROVAL_REPUTATION_POINTS = 5;
+const PLAZA_OPPORTUNITY_APPROVAL_EVENT_TYPE = 'opportunity_approved';
+const PLAZA_OPPORTUNITY_APPROVAL_SOURCE_TYPE = 'plaza_opportunity';
+const PLAZA_OPPORTUNITY_APPROVAL_VERIFIED_SOURCE = 'admin_plaza_listing_status_v1';
+
+function getPlazaOpportunityApprovalContext(row = {}) {
+  const data = getData(row);
+
+  return {
+    data,
+    ownerUserId: cleanText(
+      row.owner_user_id ||
+      data.authorId ||
+      data.authorFirebaseUid ||
+      data.ownerUserId ||
+      data.ownerUid ||
+      data.createdByUserId ||
+      data.createdByUid ||
+      ''
+    ),
+    title: cleanText(
+      data.title ||
+      row.title ||
+      'Plaza opportunity'
+    ).slice(0, 220),
+    region: cleanText(
+      data.region ||
+      row.region ||
+      'Global'
+    ) || 'Global'
+  };
+}
+
+async function recordApprovedPlazaOpportunityReputation({
+  opportunityRow = {},
+  listingId = '',
+  adminName = 'admin'
+} = {}) {
+  const cleanListingId = cleanText(listingId);
+  const context = getPlazaOpportunityApprovalContext(opportunityRow);
+
+  if (!context.ownerUserId) {
+    throw makeHttpError(
+      'Plaza listing owner is missing; approval cannot award verified Reputation.',
+      409
+    );
+  }
+
+  const verifiedBy = cleanText(adminName || 'admin');
+
+  const eventResult = await plazaEventLedgerSupabaseRepo.recordVerifiedEventOnce({
+    userId: context.ownerUserId,
+    eventType: PLAZA_OPPORTUNITY_APPROVAL_EVENT_TYPE,
+    sourceType: PLAZA_OPPORTUNITY_APPROVAL_SOURCE_TYPE,
+    sourceId: cleanListingId,
+    beneficiaryRole: 'issuer',
+    reputationPoints: PLAZA_OPPORTUNITY_APPROVAL_REPUTATION_POINTS,
+    region: context.region,
+    verifiedBy,
+    verifiedSource: PLAZA_OPPORTUNITY_APPROVAL_VERIFIED_SOURCE,
+    occurredAt: cleanText(
+      context.data.reviewedAt ||
+      context.data.updatedAt ||
+      opportunityRow.updated_at_source ||
+      ''
+    ) || nowIso(),
+    metadata: {
+      opportunityId: cleanListingId,
+      opportunityTitle: context.title,
+      opportunityType: cleanText(
+        context.data.type ||
+        opportunityRow.category ||
+        'Opportunity'
+      ),
+      region: context.region,
+      approvedStatus: 'active',
+      approvedBy: verifiedBy,
+      ownerUserId: context.ownerUserId
+    }
+  });
+
+  const event =
+    eventResult?.event && typeof eventResult.event === 'object'
+      ? eventResult.event
+      : {};
+
+  const reputationPoints = Number.isFinite(Number(event.reputationPoints))
+    ? Number(event.reputationPoints)
+    : PLAZA_OPPORTUNITY_APPROVAL_REPUTATION_POINTS;
+
+  const notificationText =
+    `Your opportunity "${context.title}" was approved. ` +
+    `+${reputationPoints} Plaza Reputation has been added.`;
+
+  const notification = await userNotificationsSupabaseRepo.upsertNotification(
+    context.ownerUserId,
+    {
+      id: `plaza_reputation_opportunity_approved_${cleanListingId}`,
+      title: 'Plaza opportunity approved',
+      text: notificationText,
+      message: notificationText,
+      body: notificationText,
+      target: 'plaza',
+      targetType: 'plaza',
+      target_type: 'plaza',
+      targetId: cleanListingId,
+      target_id: cleanListingId,
+      color: 'var(--green)',
+      avatarStr: 'P',
+      initial: 'P',
+      source: 'plaza-reputation',
+      notificationType: 'plaza-reputation-award',
+      applicationField: 'plazaOpportunity',
+      applicationStatus: 'active',
+      reputationPoints,
+      reputationEventKey: cleanText(event.eventKey),
+      region: context.region,
+      isRead: false,
+      is_read: false,
+      read: false,
+      createdAt: cleanText(event.occurredAt || event.createdAt) || nowIso()
+    },
+    {
+      source: 'admin:plaza-opportunity-approval',
+      sourceField: 'inProductReviewNotifications'
+    }
+  );
+
+  return {
+    ownerUserId: context.ownerUserId,
+    eventResult,
+    notification
+  };
 }
 
 async function getRawRecord(recordType = '', sourceDocumentId = '') {
@@ -298,11 +435,25 @@ async function updatePlazaListingStatus(listingId = '', body = {}, adminName = '
   }
 
   const data = getData(current);
+  const explicitApproval = nextStatus === 'active';
+
+  if (
+    explicitApproval &&
+    !getPlazaOpportunityApprovalContext(current).ownerUserId
+  ) {
+    throw makeHttpError(
+      'Plaza listing owner is missing; approval cannot be verified.',
+      409
+    );
+  }
+
+  const reviewedAt = nowIso();
+
   const nextData = {
     ...data,
     reviewedBy: cleanText(adminName || 'admin'),
-    reviewedAt: nowIso(),
-    updatedAt: nowIso()
+    reviewedAt,
+    updatedAt: reviewedAt
   };
 
   if (nextStatus) {
@@ -312,7 +463,7 @@ async function updatePlazaListingStatus(listingId = '', body = {}, adminName = '
 
   if (typeof featuredValue === 'boolean') {
     nextData.featured = featuredValue;
-    nextData.featuredAt = featuredValue ? nowIso() : '';
+    nextData.featuredAt = featuredValue ? reviewedAt : '';
   }
 
   await updateRawRecord('opportunity', cleanId, {
@@ -326,7 +477,70 @@ async function updatePlazaListingStatus(listingId = '', body = {}, adminName = '
     updated_at_source: nextData.updatedAt
   });
 
-  return await getAdminListingById(cleanId);
+  let reputationAward = null;
+
+  if (explicitApproval) {
+    const approvedRow = await getRawRecord('opportunity', cleanId);
+
+    reputationAward = await recordApprovedPlazaOpportunityReputation({
+      opportunityRow: approvedRow || current,
+      listingId: cleanId,
+      adminName
+    });
+
+    const event =
+      reputationAward?.eventResult?.event &&
+      typeof reputationAward.eventResult.event === 'object'
+        ? reputationAward.eventResult.event
+        : {};
+
+    const reputationUpdatedAt = nowIso();
+
+    await updateRawRecord('opportunity', cleanId, {
+      data: {
+        ...getData(approvedRow || current),
+        plazaReputationRule: 'opportunity_approved_v1',
+        plazaReputationEventKey: cleanText(event.eventKey),
+        plazaReputationPoints: Number(
+          event.reputationPoints ||
+          PLAZA_OPPORTUNITY_APPROVAL_REPUTATION_POINTS
+        ),
+        plazaReputationAwardedAt:
+          cleanText(event.occurredAt || event.createdAt) ||
+          reputationUpdatedAt,
+        updatedAt: reputationUpdatedAt
+      },
+      public_meta: {
+        plazaReputationRule: 'opportunity_approved_v1',
+        plazaReputationPoints: Number(
+          event.reputationPoints ||
+          PLAZA_OPPORTUNITY_APPROVAL_REPUTATION_POINTS
+        )
+      },
+      updated_at_source: reputationUpdatedAt
+    });
+  }
+
+  const listing = await getAdminListingById(cleanId);
+
+  if (listing && reputationAward) {
+    const event = reputationAward.eventResult?.event || {};
+    const profile = reputationAward.eventResult?.profile || {};
+
+    listing.reputationAward = {
+      created: reputationAward.eventResult?.created === true,
+      duplicate: reputationAward.eventResult?.duplicate === true,
+      eventKey: cleanText(event.eventKey),
+      reputationPoints: Number(
+        event.reputationPoints ||
+        PLAZA_OPPORTUNITY_APPROVAL_REPUTATION_POINTS
+      ),
+      totalReputation: Number(profile.totalReputation || 0),
+      weeklyReputation: Number(profile.weeklyReputation || 0)
+    };
+  }
+
+  return listing;
 }
 
 async function routePlazaRequest(requestId = '', body = {}, adminName = 'admin') {

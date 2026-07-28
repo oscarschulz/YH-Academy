@@ -12,7 +12,9 @@
         academyProgression: 'yh_academy_progression_v1',
         academyLeaderboard: 'yh_academy_leaderboard_weekly_v1',
         plazaAccess: 'yh_plaza_access_status_v1',
+        plazaReputation: 'yh_plaza_reputation_v1',
         federationAccess: 'yh_federation_access_status_v1',
+        federationInfluence: 'yh_federation_influence_v1',
         squadPreview: 'yh_game_squad_preview_v1'
     });
 
@@ -133,28 +135,90 @@
     function resolvePlazaRank(score = 0) {
         const safeScore = clampScore(score);
 
-        if (safeScore >= 90) return 'Global Connector';
-        if (safeScore >= 75) return 'Regional Leader';
-        if (safeScore >= 60) return 'Regional Operator';
-        if (safeScore >= 40) return 'Deal Builder';
+        if (safeScore >= 100) return 'World Builder';
+        if (safeScore >= 50) return 'Regional Operator';
         if (safeScore >= 20) return 'Connector';
-        if (safeScore >= 5) return 'Networker';
+        if (safeScore >= 5) return 'Explorer';
 
-        return 'Explorer';
+        return 'Newcomer';
     }
 
-    function resolveFederationRank(score = 0, approved = false) {
-        const safeScore = clampScore(score);
+    function resolveFederationRank(
+        totalInfluence = 0,
+        approved = false
+    ) {
+        const total = Math.max(
+            0,
+            Number(totalInfluence) || 0
+        );
 
-        if (!approved && safeScore < 20) return 'Candidate';
-        if (safeScore >= 90) return 'Architect';
-        if (safeScore >= 78) return 'Core Member';
-        if (safeScore >= 64) return 'Commander';
-        if (safeScore >= 48) return 'Strategist';
-        if (safeScore >= 30) return 'Operator';
-        if (safeScore >= 15) return 'Contributor';
+        if (!approved) {
+            return {
+                key: 'observer',
+                label: 'Observer',
+                minimum: 0,
+                nextLabel: 'Delegate',
+                nextAt: 0
+            };
+        }
 
-        return 'Candidate';
+        if (total >= 250) {
+            return {
+                key: 'federation-commander',
+                label: 'Federation Commander',
+                minimum: 250,
+                nextLabel: 'Max Rank',
+                nextAt: 250
+            };
+        }
+
+        if (total >= 100) {
+            return {
+                key: 'regional-leader',
+                label: 'Regional Leader',
+                minimum: 100,
+                nextLabel: 'Federation Commander',
+                nextAt: 250
+            };
+        }
+
+        if (total >= 50) {
+            return {
+                key: 'council-member',
+                label: 'Council Member',
+                minimum: 50,
+                nextLabel: 'Regional Leader',
+                nextAt: 100
+            };
+        }
+
+        if (total >= 20) {
+            return {
+                key: 'strategist',
+                label: 'Strategist',
+                minimum: 20,
+                nextLabel: 'Council Member',
+                nextAt: 50
+            };
+        }
+
+        if (total >= 5) {
+            return {
+                key: 'representative',
+                label: 'Representative',
+                minimum: 5,
+                nextLabel: 'Strategist',
+                nextAt: 20
+            };
+        }
+
+        return {
+            key: 'delegate',
+            label: 'Delegate',
+            minimum: 0,
+            nextLabel: 'Representative',
+            nextAt: 5
+        };
     }
 
     function getAcademySnapshot() {
@@ -359,147 +423,672 @@
     }
 
 
+    function normalizePlazaReputationSnapshot(payload = {}) {
+        const profile =
+            payload?.profile &&
+            typeof payload.profile === 'object'
+                ? payload.profile
+                : payload?.reputation &&
+                  typeof payload.reputation === 'object'
+                    ? payload.reputation
+                    : {};
+
+        const events =
+            Array.isArray(payload?.events)
+                ? payload.events
+                : [];
+
+        const loaded =
+            payload?.loaded === true ||
+            payload?.success === true ||
+            Boolean(
+                profile.userId ||
+                profile.source ||
+                payload?.fetchedAt
+            );
+
+        return {
+            loaded,
+
+            profile: {
+                userId:
+                    String(
+                        profile.userId ||
+                        ''
+                    ).trim(),
+
+                division:
+                    'plaza',
+
+                totalReputation:
+                    Math.max(
+                        0,
+                        Math.round(
+                            Number(
+                                profile.totalReputation ||
+                                0
+                            ) || 0
+                        )
+                    ),
+
+                weeklyReputation:
+                    Math.max(
+                        0,
+                        Math.round(
+                            Number(
+                                profile.weeklyReputation ||
+                                0
+                            ) || 0
+                        )
+                    ),
+
+                eventCount:
+                    Math.max(
+                        0,
+                        Math.round(
+                            Number(
+                                profile.eventCount ??
+                                payload?.eventCount ??
+                                events.length ??
+                                0
+                            ) || 0
+                        )
+                    ),
+
+                weekStartAt:
+                    String(
+                        profile.weekStartAt ||
+                        ''
+                    ).trim(),
+
+                lastEventAt:
+                    String(
+                        profile.lastEventAt ||
+                        ''
+                    ).trim(),
+
+                lastEventType:
+                    String(
+                        profile.lastEventType ||
+                        ''
+                    )
+                        .trim()
+                        .toLowerCase(),
+
+                source:
+                    String(
+                        profile.source ||
+                        'plaza_event_ledger_v1'
+                    ).trim(),
+
+                updatedAt:
+                    String(
+                        profile.updatedAt ||
+                        ''
+                    ).trim()
+            },
+
+            events,
+
+            fetchedAt:
+                String(
+                    payload?.fetchedAt ||
+                    ''
+                ).trim()
+        };
+    }
+
+    function setPlazaReputationCache(payload = {}) {
+        const snapshot =
+            normalizePlazaReputationSnapshot(
+                payload
+            );
+
+        const saved =
+            writeJsonStorage(
+                STORAGE_KEYS.plazaReputation,
+                snapshot,
+                sessionStorage
+            );
+
+        if (saved) {
+            window.dispatchEvent(
+                new CustomEvent(
+                    'yhu:plaza-reputation-updated',
+                    {
+                        detail:
+                            snapshot
+                    }
+                )
+            );
+        }
+
+        return saved;
+    }
+
+    function getPlazaReputationSnapshot() {
+        return normalizePlazaReputationSnapshot(
+            readJsonStorage(
+                STORAGE_KEYS.plazaReputation,
+                {}
+            )
+        );
+    }
+
     function getPlazaSnapshot() {
-        const access = readJsonStorage(STORAGE_KEYS.plazaAccess, {});
-        const academy = getAcademySnapshot();
+        const access =
+            readJsonStorage(
+                STORAGE_KEYS.plazaAccess,
+                {}
+            );
+
+        const reputation =
+            getPlazaReputationSnapshot();
+
+        const profile =
+            reputation.profile ||
+            {};
 
         const application =
-            access.application && typeof access.application === 'object'
+            access.application &&
+            typeof access.application === 'object'
                 ? access.application
                 : {};
 
-        const rawScore = getFirstFiniteNumber([
-            access.opportunityScore,
-            access.reputationScore,
-            access.member?.opportunityScore,
-            access.member?.reputationScore,
-            application.opportunityScore,
-            application.reputationScore
-        ]);
+        const approved =
+            isApprovedAccess(
+                access,
+                'plaza'
+            );
 
-        const approved = isApprovedAccess(access, 'plaza');
-        const hasVerifiedScore = rawScore !== null;
+        const hasPersistentReputation =
+            reputation.loaded === true;
 
-        const fallbackScore =
-            academy.hasVerifiedScore
-                ? (
-                    approved
-                        ? Math.max(20, Math.round(academy.score * 0.72))
-                        : Math.round(academy.score * 0.45)
+        const totalReputation =
+            Math.max(
+                0,
+                Number(
+                    profile.totalReputation ||
+                    0
+                ) || 0
+            );
+
+        const weeklyReputation =
+            Math.max(
+                0,
+                Number(
+                    profile.weeklyReputation ||
+                    0
+                ) || 0
+            );
+
+        const eventCount =
+            Math.max(
+                0,
+                Number(
+                    profile.eventCount ||
+                    reputation.events?.length ||
+                    0
+                ) || 0
+            );
+
+        const score =
+            hasPersistentReputation
+                ? clampScore(
+                    totalReputation
                 )
                 : 0;
 
-        const score = clampScore(
-            hasVerifiedScore ? rawScore : fallbackScore
-        );
+        const applicationStatus =
+            normalizeStatus(
+                access.applicationStatus ||
+                application.status ||
+                ''
+            );
 
-        const applicationStatus = normalizeStatus(
-            access.applicationStatus ||
-            application.status ||
-            ''
-        );
+        const rank =
+            hasPersistentReputation
+                ? resolvePlazaRank(
+                    totalReputation
+                )
+                : approved
+                    ? 'Syncing Ledger'
+                    : 'Awaiting Signal';
+
+        const nextObjective =
+            !approved
+                ? 'Activate Plaza access'
+                : !hasPersistentReputation
+                    ? 'Sync your canonical Reputation ledger'
+                    : totalReputation < 5
+                        ? 'Earn your first verified Opportunity approval'
+                        : totalReputation < 20
+                            ? 'Build toward Connector rank'
+                            : totalReputation < 50
+                                ? 'Build toward Regional Operator rank'
+                                : totalReputation < 100
+                                    ? 'Build toward World Builder rank'
+                                    : 'Expand your verified Plaza impact';
 
         return {
-            division: 'plaza',
+            division:
+                'plaza',
+
             score,
             approved,
-            hasVerifiedScore,
-            isPreview: !hasVerifiedScore,
-            rank:
-                hasVerifiedScore || score > 0
-                    ? resolvePlazaRank(score)
-                    : 'Awaiting Signal',
-            mode: 'Open World',
+
+            hasVerifiedScore:
+                hasPersistentReputation,
+
+            hasPersistentReputation,
+
+            isPreview:
+                !hasPersistentReputation,
+
+            rank,
+
+            rankProgress:
+                score,
+
+            totalReputation,
+            weeklyReputation,
+            eventCount,
+
+            lastEventAt:
+                String(
+                    profile.lastEventAt ||
+                    ''
+                ).trim(),
+
+            lastEventType:
+                String(
+                    profile.lastEventType ||
+                    ''
+                )
+                    .trim()
+                    .toLowerCase(),
+
+            mode:
+                'Open World',
+
             progressionLabel:
-                hasVerifiedScore
-                    ? 'Verified opportunity signal'
+                hasPersistentReputation
+                    ? `${totalReputation.toLocaleString()} canonical Reputation`
                     : approved
-                        ? 'Preview based on current Academy readiness'
+                        ? 'Syncing canonical Plaza Reputation'
                         : applicationStatus === 'pending'
                             ? 'Application under review'
                             : 'Build your opportunity signal',
-            nextObjective:
-                approved
-                    ? 'Explore a contract or expand your network'
-                    : 'Strengthen readiness and apply for Plazas',
+
+            nextObjective,
             applicationStatus
         };
+    }
+
+
+    function normalizeFederationInfluenceSnapshot(
+        payload = {}
+    ) {
+        const profile =
+            payload?.profile &&
+            typeof payload.profile === 'object'
+                ? payload.profile
+                : payload?.influence &&
+                  typeof payload.influence === 'object'
+                    ? payload.influence
+                    : {};
+
+        const events =
+            Array.isArray(payload?.events)
+                ? payload.events
+                : [];
+
+        const loaded =
+            payload?.loaded === true ||
+            payload?.success === true ||
+            Boolean(
+                profile.userId ||
+                profile.source ||
+                payload?.fetchedAt
+            );
+
+        return {
+            loaded,
+
+            profile: {
+                userId:
+                    String(
+                        profile.userId ||
+                        ''
+                    ).trim(),
+
+                division:
+                    'federation',
+
+                totalInfluence:
+                    Math.max(
+                        0,
+                        Math.round(
+                            Number(
+                                profile.totalInfluence ||
+                                0
+                            ) || 0
+                        )
+                    ),
+
+                weeklyInfluence:
+                    Math.max(
+                        0,
+                        Math.round(
+                            Number(
+                                profile.weeklyInfluence ||
+                                0
+                            ) || 0
+                        )
+                    ),
+
+                eventCount:
+                    Math.max(
+                        0,
+                        Math.round(
+                            Number(
+                                profile.eventCount ??
+                                payload?.eventCount ??
+                                events.length
+                            ) || 0
+                        )
+                    ),
+
+                weekStartAt:
+                    String(
+                        profile.weekStartAt ||
+                        ''
+                    ).trim(),
+
+                lastEventAt:
+                    String(
+                        profile.lastEventAt ||
+                        ''
+                    ).trim(),
+
+                lastEventType:
+                    String(
+                        profile.lastEventType ||
+                        ''
+                    )
+                        .trim()
+                        .toLowerCase(),
+
+                source:
+                    String(
+                        profile.source ||
+                        'federation_influence_ledger_v1'
+                    ).trim(),
+
+                updatedAt:
+                    String(
+                        profile.updatedAt ||
+                        ''
+                    ).trim()
+            },
+
+            events,
+
+            fetchedAt:
+                String(
+                    payload?.fetchedAt ||
+                    ''
+                ).trim()
+        };
+    }
+
+    function setFederationInfluenceCache(
+        payload = {}
+    ) {
+        const snapshot =
+            normalizeFederationInfluenceSnapshot(
+                payload
+            );
+
+        const saved =
+            writeJsonStorage(
+                STORAGE_KEYS.federationInfluence,
+                snapshot,
+                sessionStorage
+            );
+
+        if (saved) {
+            window.dispatchEvent(
+                new CustomEvent(
+                    'yhu:federation-influence-updated',
+                    {
+                        detail:
+                            snapshot
+                    }
+                )
+            );
+        }
+
+        return saved;
+    }
+
+    function getFederationInfluenceSnapshot() {
+        return normalizeFederationInfluenceSnapshot(
+            readJsonStorage(
+                STORAGE_KEYS.federationInfluence,
+                {}
+            )
+        );
+    }
+
+    function getFederationRankProgress(
+        rank = {},
+        totalInfluence = 0
+    ) {
+        const total =
+            Math.max(
+                0,
+                Number(totalInfluence) || 0
+            );
+
+        const minimum =
+            Math.max(
+                0,
+                Number(rank.minimum) || 0
+            );
+
+        const nextAt =
+            Math.max(
+                minimum,
+                Number(rank.nextAt) || minimum
+            );
+
+        if (
+            rank.nextLabel === 'Max Rank' ||
+            nextAt <= minimum
+        ) {
+            return 100;
+        }
+
+        return clampScore(
+            (
+                (
+                    total -
+                    minimum
+                ) /
+                (
+                    nextAt -
+                    minimum
+                )
+            ) *
+            100
+        );
     }
 
     function getFederationSnapshot() {
-        const access = readJsonStorage(STORAGE_KEYS.federationAccess, {});
-        const academy = getAcademySnapshot();
-        const plaza = getPlazaSnapshot();
+        const access =
+            readJsonStorage(
+                STORAGE_KEYS.federationAccess,
+                {}
+            );
+
+        const influence =
+            getFederationInfluenceSnapshot();
+
+        const profile =
+            influence.profile ||
+            {};
 
         const application =
-            access.application && typeof access.application === 'object'
+            access.application &&
+            typeof access.application === 'object'
                 ? access.application
                 : {};
 
-        const approved = isApprovedAccess(access, 'federation');
+        const approved =
+            isApprovedAccess(
+                access,
+                'federation'
+            );
 
-        const rawScore = getFirstFiniteNumber([
-            access.strategicTrust,
-            access.trustScore,
-            access.member?.strategicTrust,
-            access.member?.trustScore,
-            application.strategicTrust,
-            application.trustScore
-        ]);
+        const hasPersistentInfluence =
+            influence.loaded === true;
 
-        const hasVerifiedScore = rawScore !== null;
+        const totalInfluence =
+            Math.max(
+                0,
+                Number(
+                    profile.totalInfluence ||
+                    0
+                ) || 0
+            );
 
-        const fallbackScore =
-            plaza.score > 0 || academy.score > 0
-                ? (
-                    approved
-                        ? Math.max(
-                            25,
-                            Math.round(
-                                (plaza.score * 0.7) +
-                                (academy.score * 0.15)
-                            )
-                        )
-                        : Math.round(plaza.score * 0.35)
+        const weeklyInfluence =
+            Math.max(
+                0,
+                Number(
+                    profile.weeklyInfluence ||
+                    0
+                ) || 0
+            );
+
+        const eventCount =
+            Math.max(
+                0,
+                Number(
+                    profile.eventCount ||
+                    influence.events?.length ||
+                    0
+                ) || 0
+            );
+
+        const rankMeta =
+            resolveFederationRank(
+                totalInfluence,
+                approved
+            );
+
+        const rankProgress =
+            hasPersistentInfluence
+                ? getFederationRankProgress(
+                    rankMeta,
+                    totalInfluence
                 )
                 : 0;
 
-        const score = clampScore(
-            hasVerifiedScore ? rawScore : fallbackScore
-        );
+        const applicationStatus =
+            normalizeStatus(
+                access.applicationStatus ||
+                application.status ||
+                ''
+            );
 
-        const applicationStatus = normalizeStatus(
-            access.applicationStatus ||
-            application.status ||
-            ''
-        );
+        const rank =
+            !approved
+                ? 'Observer'
+                : hasPersistentInfluence
+                    ? rankMeta.label
+                    : 'Syncing Ledger';
+
+        const nextObjective =
+            !approved
+                ? (
+                    applicationStatus === 'pending'
+                        ? 'Wait for Federation clearance'
+                        : 'Activate Federation access'
+                )
+                : !hasPersistentInfluence
+                    ? 'Sync your canonical Influence ledger'
+                    : rankMeta.nextLabel === 'Max Rank'
+                        ? 'Expand verified Federation impact'
+                        : `Reach ${rankMeta.nextLabel} at ${rankMeta.nextAt.toLocaleString()} Influence`;
 
         return {
-            division: 'federation',
-            score,
+            division:
+                'federation',
+
+            score:
+                rankProgress,
+
             approved,
-            hasVerifiedScore,
-            isPreview: !hasVerifiedScore,
-            rank:
-                hasVerifiedScore || score > 0
-                    ? resolveFederationRank(score, approved)
-                    : 'Awaiting Signal',
-            mode: 'Strategic Multiplayer',
+
+            hasVerifiedScore:
+                hasPersistentInfluence,
+
+            hasPersistentInfluence,
+
+            isPreview:
+                !hasPersistentInfluence,
+
+            rank,
+
+            rankKey:
+                rankMeta.key,
+
+            nextRank:
+                rankMeta.nextLabel,
+
+            nextRankAt:
+                rankMeta.nextAt,
+
+            rankProgress,
+
+            totalInfluence,
+            weeklyInfluence,
+            eventCount,
+
+            lastEventAt:
+                String(
+                    profile.lastEventAt ||
+                    ''
+                ).trim(),
+
+            lastEventType:
+                String(
+                    profile.lastEventType ||
+                    ''
+                )
+                    .trim()
+                    .toLowerCase(),
+
+            mode:
+                'Strategic Multiplayer',
+
             progressionLabel:
-                hasVerifiedScore
-                    ? 'Verified strategic trust signal'
+                hasPersistentInfluence
+                    ? `${totalInfluence.toLocaleString()} canonical Influence`
                     : approved
-                        ? 'Preview based on current division readiness'
+                        ? 'Syncing canonical Federation Influence'
                         : applicationStatus === 'pending'
                             ? 'Clearance under review'
                             : 'Build strategic readiness',
-            nextObjective:
-                approved
-                    ? 'Join a strategic operation'
-                    : 'Build Plaza reputation and strategic trust',
+
+            nextObjective,
             applicationStatus
         };
     }
+
+
 
     function getOperatorRank(averageScore = 0) {
         const score = clampScore(averageScore);
@@ -558,17 +1147,77 @@
                 ? payload.leaderboard
                 : [];
 
+        const period =
+            String(
+                payload?.period ||
+                'weekly'
+            )
+                .trim()
+                .toLowerCase() ===
+            'all_time'
+                ? 'all_time'
+                : 'weekly';
+
         const playerPosition =
             Number(payload?.playerPosition) || null;
 
+        const playerEntry =
+            payload?.playerEntry &&
+            typeof payload.playerEntry ===
+                'object'
+                ? payload.playerEntry
+                : null;
+
+        const freshness =
+            payload?.freshness &&
+            typeof payload.freshness ===
+                'object'
+                ? payload.freshness
+                : {};
+
+        const rankingPolicy =
+            payload?.rankingPolicy &&
+            typeof payload.rankingPolicy ===
+                'object'
+                ? payload.rankingPolicy
+                : {};
+
+        const cachePayload = {
+            leaderboard,
+            playerPosition,
+            playerEntry,
+
+            exactPosition:
+                payload?.exactPosition ===
+                true,
+
+            totalRanked:
+                Math.max(
+                    0,
+                    Number(
+                        payload?.totalRanked ||
+                        leaderboard.length ||
+                        0
+                    ) || 0
+                ),
+
+            period,
+            freshness,
+            rankingPolicy,
+
+            generatedAt:
+                String(
+                    payload?.generatedAt ||
+                    ''
+                ).trim(),
+
+            cachedAt:
+                new Date().toISOString()
+        };
+
         const saved = writeJsonStorage(
             STORAGE_KEYS.academyLeaderboard,
-            {
-                leaderboard,
-                playerPosition,
-                period: payload?.period || 'weekly',
-                cachedAt: new Date().toISOString()
-            },
+            cachePayload,
             sessionStorage
         );
 
@@ -591,7 +1240,25 @@
             ) {
                 setAcademyProgressionCache({
                     ...progression,
-                    weeklyPosition: playerPosition
+
+                    ...(
+                        period === 'all_time'
+                            ? {
+                                allTimePosition:
+                                    playerPosition
+                            }
+                            : {
+                                weeklyPosition:
+                                    playerPosition
+                            }
+                    ),
+
+                    leaderboardFreshness:
+                        freshness,
+
+                    leaderboardExactPosition:
+                        payload?.exactPosition ===
+                        true
                 });
             }
 
@@ -599,10 +1266,8 @@
                 new CustomEvent(
                     'yhu:academy-leaderboard-updated',
                     {
-                        detail: {
-                            leaderboard,
-                            playerPosition
-                        }
+                        detail:
+                            cachePayload
                     }
                 )
             );
@@ -617,7 +1282,13 @@
             {
                 leaderboard: [],
                 playerPosition: null,
-                period: 'weekly'
+                playerEntry: null,
+                exactPosition: false,
+                totalRanked: 0,
+                period: 'weekly',
+                freshness: {},
+                rankingPolicy: {},
+                generatedAt: ''
             }
         );
     }
@@ -952,6 +1623,12 @@
 
         setAcademySquadCacheV1,
         getAcademySquadSnapshotV1,
+
+        setPlazaReputationCache,
+        getPlazaReputationSnapshot,
+
+        setFederationInfluenceCache,
+        getFederationInfluenceSnapshot,
 
         getAcademySnapshot,
         getPlazaSnapshot,

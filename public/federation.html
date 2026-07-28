@@ -710,13 +710,13 @@
               </div>
             </div>
 
-            <aside class="fed-strategic-profile-v1" aria-label="Federation strategic profile preview">
+            <aside class="fed-strategic-profile-v1" aria-label="Federation strategic profile">
               <div class="fed-strategic-profile-head-v1">
                 <div>
                   <small>Strategic Profile</small>
                   <strong id="fedStrategicRankV1">Observer</strong>
                 </div>
-                <span>Frontend Preview</span>
+                <span id="fedStrategicProfileBadgeV1">Syncing Ledger</span>
               </div>
 
               <div class="fed-strategic-profile-grid-v1">
@@ -733,8 +733,8 @@
                   <b id="fedStrategicAlertsV1">0</b>
                 </span>
                 <span>
-                  <small>Influence</small>
-                  <b>Wiring pending</b>
+                  <small>Total Influence</small>
+                  <b id="fedStrategicInfluenceTotalV1">0</b>
                 </span>
               </div>
             </aside>
@@ -800,13 +800,13 @@
                   <span>Influence Framework</span>
                   <h4>Strategic capability categories</h4>
                 </div>
-                <span class="fed-strategic-preview-badge-v1">Wiring Pending</span>
+                <span class="fed-strategic-preview-badge-v1" id="fedStrategicInfluenceBadgeV1">Syncing Ledger</span>
               </div>
 
               <div class="fed-strategic-influence-grid-v2" id="fedStrategicInfluenceGridV2"></div>
 
               <p class="fed-strategic-disclaimer-v1">
-                Existing activity can provide source signals, but no influence points, promotions, or authority are being awarded yet.
+                Influence totals and strategic rank are derived from immutable, server-verified events. Additional trusted event sources remain intentionally limited.
               </p>
             </section>
 
@@ -860,17 +860,17 @@
                   <span>Federation Rank Path</span>
                   <h4>Leadership progression</h4>
                 </div>
-                <span class="fed-strategic-preview-badge-v1">Frontend Preview</span>
+                <span class="fed-strategic-preview-badge-v1" id="fedStrategicRankBadgeV1">Syncing Ledger</span>
               </div>
 
               <div class="fed-strategic-rank-path-v1" id="fedStrategicRankPathV1">
                 <article data-fed-strategic-rank="observer"><b>01</b><div><strong>Observer</strong><small>Federation access not yet active.</small></div></article>
-                <article data-fed-strategic-rank="delegate"><b>02</b><div><strong>Delegate</strong><small>Approved Federation member starting state.</small></div></article>
-                <article data-fed-strategic-rank="representative"><b>03</b><div><strong>Representative</strong><small>Verified strategic contribution.</small></div></article>
-                <article data-fed-strategic-rank="strategist"><b>04</b><div><strong>Strategist</strong><small>Consistent cross-network outcomes.</small></div></article>
-                <article data-fed-strategic-rank="council-member"><b>05</b><div><strong>Council Member</strong><small>Trusted governance participation.</small></div></article>
-                <article data-fed-strategic-rank="regional-leader"><b>06</b><div><strong>Regional Leader</strong><small>Verified regional leadership.</small></div></article>
-                <article data-fed-strategic-rank="federation-commander"><b>07</b><div><strong>Federation Commander</strong><small>Cross-region strategic authority.</small></div></article>
+                <article data-fed-strategic-rank="delegate"><b>02</b><div><strong>Delegate</strong><small>Approved member starting rank at 0 Influence.</small></div></article>
+                <article data-fed-strategic-rank="representative"><b>03</b><div><strong>Representative</strong><small>Unlocks at 5 verified Influence.</small></div></article>
+                <article data-fed-strategic-rank="strategist"><b>04</b><div><strong>Strategist</strong><small>Unlocks at 20 verified Influence.</small></div></article>
+                <article data-fed-strategic-rank="council-member"><b>05</b><div><strong>Council Member</strong><small>Unlocks at 50 verified Influence; governance authority remains separate.</small></div></article>
+                <article data-fed-strategic-rank="regional-leader"><b>06</b><div><strong>Regional Leader</strong><small>Unlocks at 100 verified Influence.</small></div></article>
+                <article data-fed-strategic-rank="federation-commander"><b>07</b><div><strong>Federation Commander</strong><small>Unlocks at 250 verified Influence.</small></div></article>
               </div>
             </section>
 
@@ -880,14 +880,13 @@
                   <span>Command Status</span>
                   <h4>Current strategic readiness</h4>
                 </div>
-                <span class="fed-strategic-preview-badge-v1">Unwired</span>
+                <span class="fed-strategic-preview-badge-v1" id="fedStrategicCommandStatusBadgeV1">Syncing Ledger</span>
               </div>
 
               <div class="fed-strategic-readiness-v1" id="fedStrategicReadinessV1"></div>
 
               <p class="fed-strategic-disclaimer-v1">
-                Existing Federation requests, referrals, deal rooms, access, and directory actions remain active.
-                Influence points, council standing, alliances, and automatic rank promotion are not being awarded yet.
+                Canonical Influence and automatic strategic rank are active. Council standing, votes, alliances, regional authority, and governance permissions remain unwired.
               </p>
             </section>
           </div>
@@ -1925,6 +1924,6 @@
     </aside>
   </div>
 
-<script src="/js/federation.js?v=20260724-phase3e-fe3-council-governance-diplomacy-v1"></script>
+<script src="/js/federation.js?v=20260728-fed-i1c-influence-live-v1"></script>
 </body>
 </html>

@@ -54,42 +54,55 @@ function isEmptyPrimaryResult(name, result) {
 
 function wrapFunction(name) {
     return async function wrappedAcademyRepoFunction(...args) {
+        const primaryEnabled =
+            isEnabled();
+
+        const hasPrimary =
+            typeof primary[name] ===
+            'function';
+
+        const hasLegacy =
+            typeof legacy[name] ===
+            'function';
+
         if (
-            isEnabled() &&
-            typeof primary[name] === 'function'
+            primaryEnabled &&
+            hasPrimary
         ) {
             try {
                 const primaryResult =
-                    await primary[name](...args);
+                    await primary[name](
+                        ...args
+                    );
 
                 const shouldTryLegacy =
                     isEmptyPrimaryResult(
                         name,
                         primaryResult
                     ) &&
-                    typeof legacy[name] === 'function';
+                    hasLegacy;
 
                 if (!shouldTryLegacy) {
                     return primaryResult;
                 }
 
                 const legacyResult =
-                    await legacy[name](...args);
+                    await legacy[name](
+                        ...args
+                    );
 
-                /*
-                 * Return legacy data only when it actually contains
-                 * something. Otherwise preserve the primary empty result.
-                 */
                 if (
                     legacyResult !== null &&
                     legacyResult !== undefined &&
                     (
-                        !Array.isArray(legacyResult) ||
+                        !Array.isArray(
+                            legacyResult
+                        ) ||
                         legacyResult.length > 0
                     )
                 ) {
                     console.info(
-                        'Academy repository used legacy read fallback:',
+                        'Academy repository used controlled legacy migration read:',
                         name
                     );
 
@@ -104,13 +117,6 @@ function wrapFunction(name) {
                         error?.status
                     );
 
-                /*
-                 * Validation, authorization, conflict, and not-found
-                 * responses are valid primary repository results.
-                 *
-                 * Do not hide them by falling through to the legacy repo,
-                 * because the legacy repo may not implement the new feature.
-                 */
                 if (
                     Number.isFinite(
                         statusCode
@@ -121,17 +127,59 @@ function wrapFunction(name) {
                     throw error;
                 }
 
-                console.error(
-                    'Academy Supabase primary failed:',
+                /*
+                 * Supabase is authoritative. Only the
+                 * explicitly allowlisted migration reads
+                 * may fall back after a primary failure.
+                 * Writes and all Lead Missions operations
+                 * must never switch to Firestore silently.
+                 */
+                if (
+                    !FALLBACK_ON_EMPTY_READS.has(
+                        name
+                    ) ||
+                    !hasLegacy
+                ) {
+                    console.error(
+                        'Academy Supabase primary failed without legacy fallback:',
+                        name,
+                        error?.message ||
+                        error
+                    );
+
+                    throw error;
+                }
+
+                console.warn(
+                    'Academy Supabase migration read failed; using controlled legacy read:',
                     name,
                     error?.message ||
                     error
                 );
+
+                return legacy[name](
+                    ...args
+                );
             }
         }
 
-        if (typeof legacy[name] === 'function') {
-            return legacy[name](...args);
+        if (
+            !primaryEnabled &&
+            hasLegacy
+        ) {
+            return legacy[name](
+                ...args
+            );
+        }
+
+        if (
+            primaryEnabled &&
+            !hasPrimary &&
+            hasLegacy
+        ) {
+            return legacy[name](
+                ...args
+            );
         }
 
         throw new Error(

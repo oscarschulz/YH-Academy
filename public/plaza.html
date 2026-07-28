@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="/css/plaza.css?v=20260723-phase3d-fe3-explorer-progression-v1" />
 <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260714-plaza-academy-parity-v217" />
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/plaza.js?v=20260723-phase3d-fe3-explorer-progression-v1" defer></script>
+<script src="/js/plaza.js?v=20260728-pl-g1a3-reputation-read-v1" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page yh-plaza-access-booting" data-yh-view="plaza" data-yh-page="plaza">
 
@@ -205,7 +205,7 @@
                         <span>Explorer Profile</span>
                         <strong id="plazaExplorerRank">Newcomer</strong>
                       </div>
-                      <span class="yh-plaza-open-world-preview-badge-v1">Frontend Preview</span>
+                      <span class="yh-plaza-open-world-preview-badge-v1" id="plazaExplorerProfileBadge">Syncing Ledger</span>
                     </div>
 
                     <div class="yh-plaza-explorer-profile-stats-v2">
@@ -223,12 +223,12 @@
                       </span>
                       <span>
                         <small>Plaza Reputation</small>
-                        <b>Wiring pending</b>
+                        <b id="plazaExplorerReputationTotal">0</b>
                       </span>
                     </div>
 
                     <small id="plazaExplorerProfileNote">
-                      Current Plaza data is visible. Reputation, verified quest completion, and rank unlocks remain unwired.
+                      Syncing the canonical Plaza Reputation ledger...
                     </small>
                   </div>
                 </header>
@@ -293,7 +293,7 @@
                         <span>Explorer Progression</span>
                         <h3>Rank Path</h3>
                       </div>
-                      <span class="yh-plaza-open-world-preview-badge-v1">Frontend Preview</span>
+                      <span class="yh-plaza-open-world-preview-badge-v1" id="plazaExplorerRankBadge">Syncing Ledger</span>
                     </div>
 
                     <div class="yh-plaza-explorer-rank-path-v2" id="plazaExplorerRankPath">
@@ -335,7 +335,7 @@
                     </div>
 
                     <p class="yh-plaza-open-world-disclaimer-v1">
-                      Newcomer is the current frontend state for an approved Plaza member. Higher ranks remain locked until verified reputation events are wired.
+                      Explorer rank is now derived from immutable, admin-verified Plaza Reputation events.
                     </p>
                   </section>
 
@@ -345,7 +345,7 @@
                         <span>Reputation Framework</span>
                         <h3>Operator Signals</h3>
                       </div>
-                      <span class="yh-plaza-open-world-preview-badge-v1">Locked</span>
+                      <span class="yh-plaza-open-world-preview-badge-v1" id="plazaExplorerReputationBadge">Syncing Ledger</span>
                     </div>
 
                     <div class="yh-plaza-explorer-reputation-grid-v2" id="plazaExplorerReputationGrid"></div>
@@ -365,7 +365,7 @@
                     <div class="yh-plaza-explorer-activity-log-v2" id="plazaExplorerActivityLog"></div>
 
                     <p class="yh-plaza-open-world-disclaimer-v1">
-                      Visible activity is not the same as verified completion. Reputation will only move after the later backend event-ledger pass.
+                      Visible activity remains informational. Only immutable, server-verified ledger events can change Plaza Reputation.
                     </p>
                   </section>
 
@@ -563,9 +563,8 @@
               </div>
 
               <div class="yh-plaza-quest-wiring-note-v1">
-                <strong>Frontend quest presentation only.</strong>
-                Current opportunity, request, conversation, payment-ledger, and settlement actions remain active.
-                Plaza Reputation and quest-completion rewards are not being awarded yet.
+                <strong>Verified Opportunity publishing is now connected.</strong>
+                Admin-approved Opportunities award canonical issuer Reputation. Quest completion, settlement, and other workflow rewards remain unwired.
               </div>
 
               <form class="yh-plaza-feed-composer yh-plaza-quest-composer-v1" id="plazaOpportunityComposerForm">

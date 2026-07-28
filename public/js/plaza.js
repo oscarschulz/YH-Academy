@@ -305,6 +305,272 @@ let plazaServerRequestsLoaded = false;
 let plazaServerRequests = [];
 let plazaRequestsLoading = false;
 
+const plazaCursorPaginationStateV1 = {
+  feed: {
+    nextCursor: "",
+    hasMore: false,
+    hydrating: false,
+    generation: 0
+  },
+  opportunities: {
+    nextCursor: "",
+    hasMore: false,
+    hydrating: false,
+    generation: 0
+  },
+  directory: {
+    nextCursor: "",
+    hasMore: false,
+    hydrating: false,
+    generation: 0
+  },
+  regions: {
+    nextCursor: "",
+    hasMore: false,
+    hydrating: false,
+    generation: 0
+  },
+  bridge: {
+    nextCursor: "",
+    hasMore: false,
+    hydrating: false,
+    generation: 0
+  },
+  requests: {
+    nextCursor: "",
+    hasMore: false,
+    hydrating: false,
+    generation: 0
+  }
+};
+
+function resetPlazaCursorPaginationV1(
+  key = "",
+  result = {}
+) {
+  const state =
+    plazaCursorPaginationStateV1[key];
+
+  if (!state) return;
+
+  state.generation += 1;
+  state.hydrating = false;
+  state.nextCursor = String(
+    result.nextCursor || ""
+  ).trim();
+
+  state.hasMore =
+    result.hasMore === true &&
+    Boolean(state.nextCursor);
+}
+
+function mergePlazaCursorItemsV1(
+  currentItems = [],
+  nextItems = []
+) {
+  const merged = [];
+  const positions = new Map();
+
+  [
+    ...(Array.isArray(currentItems)
+      ? currentItems
+      : []),
+    ...(Array.isArray(nextItems)
+      ? nextItems
+      : [])
+  ].forEach((item, index) => {
+    const id = String(
+      item?.id ||
+      `plaza-cursor-item-${index}`
+    ).trim();
+
+    if (!positions.has(id)) {
+      positions.set(
+        id,
+        merged.length
+      );
+
+      merged.push(item);
+      return;
+    }
+
+    const position =
+      positions.get(id);
+
+    merged[position] = {
+      ...merged[position],
+      ...item
+    };
+  });
+
+  return merged;
+}
+
+function buildPlazaCursorPageUrlV1(
+  path = "",
+  limit = 40,
+  cursor = ""
+) {
+  const params =
+    new URLSearchParams();
+
+  params.set(
+    "limit",
+    String(
+      Math.max(
+        1,
+        Number(limit || 40)
+      )
+    )
+  );
+
+  const cleanCursor =
+    String(cursor || "").trim();
+
+  if (cleanCursor) {
+    params.set(
+      "cursor",
+      cleanCursor
+    );
+  }
+
+  return `${path}?${params.toString()}`;
+}
+
+async function hydrateRemainingPlazaCursorPagesV1(
+  config = {}
+) {
+  const key = String(
+    config.key || ""
+  ).trim();
+
+  const state =
+    plazaCursorPaginationStateV1[key];
+
+  if (
+    !state ||
+    state.hydrating ||
+    !state.hasMore ||
+    !state.nextCursor
+  ) {
+    return;
+  }
+
+  state.hydrating = true;
+
+  const generation =
+    state.generation;
+
+  const usedCursors =
+    new Set();
+
+  try {
+    while (
+      state.generation === generation &&
+      state.hasMore &&
+      state.nextCursor
+    ) {
+      const cursor =
+        state.nextCursor;
+
+      if (usedCursors.has(cursor)) {
+        throw new Error(
+          `Repeated Plaza pagination cursor for ${key}.`
+        );
+      }
+
+      usedCursors.add(cursor);
+
+      const result =
+        await plazaApiFetch(
+          buildPlazaCursorPageUrlV1(
+            config.path,
+            config.limit,
+            cursor
+          )
+        );
+
+      if (
+        state.generation !==
+        generation
+      ) {
+        return;
+      }
+
+      const rawItems =
+        Array.isArray(
+          result?.[
+            config.responseKey
+          ]
+        )
+          ? result[
+              config.responseKey
+            ]
+          : [];
+
+      const currentItems =
+        typeof config.getItems ===
+        "function"
+          ? config.getItems()
+          : [];
+
+      const normalizedItems =
+        rawItems.map(
+          (item, index) =>
+            config.normalize(
+              item,
+              currentItems.length +
+                index
+            )
+        );
+
+      const mergedItems =
+        mergePlazaCursorItemsV1(
+          currentItems,
+          normalizedItems
+        );
+
+      if (
+        typeof config.setItems ===
+        "function"
+      ) {
+        config.setItems(
+          mergedItems
+        );
+      }
+
+      state.nextCursor = String(
+        result.nextCursor || ""
+      ).trim();
+
+      state.hasMore =
+        result.hasMore === true &&
+        Boolean(
+          state.nextCursor
+        );
+
+      if (
+        typeof config.render ===
+        "function"
+      ) {
+        config.render();
+      }
+    }
+  } catch (error) {
+    console.error(
+      `hydrateRemainingPlazaCursorPagesV1 ${key} error:`,
+      error
+    );
+  } finally {
+    if (
+      state.generation ===
+      generation
+    ) {
+      state.hydrating = false;
+    }
+  }
+}
+
 const PLAZA_REQUEST_AUTOSAVE_DELAY_MS = 1800;
 const plazaRequestAutosaveState = {
   timer: null,
@@ -312,6 +578,183 @@ const plazaRequestAutosaveState = {
   lastSignature: "",
   lastSavedRequestId: ""
 };
+
+const plazaPendingRecordCreateIdsV1 = new Map();
+
+function createPlazaClientCreateIdV1() {
+  try {
+    if (typeof crypto?.randomUUID === "function") {
+      return `plaza-create-${crypto.randomUUID()}`;
+    }
+  } catch (_) {}
+
+  return `plaza-create-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function buildPlazaRecordCreateFingerprintV1(
+  recordType = "",
+  payload = {}
+) {
+  const entries = Object.keys(
+    payload && typeof payload === "object"
+      ? payload
+      : {}
+  )
+    .sort()
+    .map((key) => {
+      const value = payload[key];
+
+      return [
+        key,
+        Array.isArray(value)
+          ? value.map((item) =>
+              String(item || "").trim()
+            )
+          : String(value ?? "").trim()
+      ];
+    });
+
+  return JSON.stringify({
+    recordType:
+      String(recordType || "").trim(),
+    entries
+  });
+}
+
+function resolvePlazaRecordClientCreateIdV1(
+  recordType = "",
+  payload = {}
+) {
+  const explicitId = String(
+    payload.clientCreateId || ""
+  ).trim();
+
+  if (explicitId) {
+    return {
+      clientCreateId: explicitId,
+      fingerprint: ""
+    };
+  }
+
+  const fingerprint =
+    buildPlazaRecordCreateFingerprintV1(
+      recordType,
+      payload
+    );
+
+  const existingId =
+    plazaPendingRecordCreateIdsV1.get(
+      fingerprint
+    );
+
+  if (existingId) {
+    return {
+      clientCreateId: existingId,
+      fingerprint
+    };
+  }
+
+  const clientCreateId =
+    createPlazaClientCreateIdV1();
+
+  plazaPendingRecordCreateIdsV1.set(
+    fingerprint,
+    clientCreateId
+  );
+
+  return {
+    clientCreateId,
+    fingerprint
+  };
+}
+
+const plazaPendingRequestCreateIdsV1 = new Map();
+
+function createPlazaClientRequestIdV1() {
+  try {
+    if (typeof crypto?.randomUUID === "function") {
+      return `plaza-request-${crypto.randomUUID()}`;
+    }
+  } catch (_) {}
+
+  return `plaza-request-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function buildPlazaRequestCreateFingerprintV1(payload = {}) {
+  return JSON.stringify({
+    sourceType: String(payload.sourceType || "general"),
+    targetId: String(payload.targetId || ""),
+    targetLabel: String(payload.targetLabel || ""),
+    objective: String(payload.objective || "Connection request"),
+    message: String(payload.message || ""),
+    providerId: String(payload.providerId || ""),
+    headline: String(payload.headline || "")
+  });
+}
+
+function resolvePlazaClientRequestIdV1(payload = {}) {
+  const explicitId = String(
+    payload.clientRequestId || ""
+  ).trim();
+
+  if (explicitId) {
+    return {
+      clientRequestId: explicitId,
+      fingerprint: ""
+    };
+  }
+
+  const fingerprint =
+    buildPlazaRequestCreateFingerprintV1(
+      payload
+    );
+
+  const existingId =
+    plazaPendingRequestCreateIdsV1.get(
+      fingerprint
+    );
+
+  if (existingId) {
+    return {
+      clientRequestId: existingId,
+      fingerprint
+    };
+  }
+
+  const clientRequestId =
+    createPlazaClientRequestIdV1();
+
+  plazaPendingRequestCreateIdsV1.set(
+    fingerprint,
+    clientRequestId
+  );
+
+  return {
+    clientRequestId,
+    fingerprint
+  };
+}
+
+function getCachedPlazaRequestVersionV1(requestId = "") {
+  const cleanId = String(
+    requestId || ""
+  ).trim();
+
+  if (!cleanId) return "";
+
+  const request =
+    plazaServerRequests.find(
+      (item) =>
+        String(item?.id || "").trim() ===
+        cleanId
+    );
+
+  return String(
+    request?.updatedAt ||
+    request?.createdAt ||
+    ""
+  ).trim();
+}
 
 let plazaServerMessagesLoaded = false;
 let plazaServerMessages = [];
@@ -1186,62 +1629,185 @@ function normalizeServerFeedItem(item, index = 0) {
 }
 
 async function loadPlazaFeedFromServer(options = {}) {
-  if (plazaFeedLoading) return plazaServerFeedItems;
+  if (plazaFeedLoading) {
+    return plazaServerFeedItems;
+  }
 
   plazaFeedLoading = true;
 
-  if (plazaFeedGrid && options.silent !== true) {
-    plazaFeedGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plaza feed...</div>`;
+  if (
+    plazaFeedGrid &&
+    options.silent !== true
+  ) {
+    plazaFeedGrid.innerHTML =
+      `<div class="yh-plaza-empty">Loading Plaza feed...</div>`;
   }
 
   try {
-    const result = await plazaApiFetch("/api/plaza/feed?limit=60");
-    const feed = Array.isArray(result.feed) ? result.feed : [];
+    const result =
+      await plazaApiFetch(
+        buildPlazaCursorPageUrlV1(
+          "/api/plaza/feed",
+          60
+        )
+      );
 
-    plazaServerFeedItems = feed.map(normalizeServerFeedItem);
+    const feed =
+      Array.isArray(result.feed)
+        ? result.feed
+        : [];
+
+    plazaServerFeedItems =
+      feed.map(
+        normalizeServerFeedItem
+      );
+
     plazaServerFeedLoaded = true;
 
-    renderFeed(plazaRuntime.feedFilter || "all");
+    resetPlazaCursorPaginationV1(
+      "feed",
+      result
+    );
+
+    renderFeed(
+      plazaRuntime.feedFilter ||
+      "all"
+    );
+
+    void hydrateRemainingPlazaCursorPagesV1({
+      key: "feed",
+      path: "/api/plaza/feed",
+      limit: 60,
+      responseKey: "feed",
+      normalize:
+        normalizeServerFeedItem,
+      getItems: () =>
+        plazaServerFeedItems,
+      setItems: (items) => {
+        plazaServerFeedItems =
+          items;
+      },
+      render: () =>
+        renderFeed(
+          plazaRuntime.feedFilter ||
+          "all"
+        )
+    });
+
     return plazaServerFeedItems;
   } catch (error) {
-    if (!isExpectedPlazaInlineFetchFailure(error)) {
-      console.error("loadPlazaFeedFromServer error:", error);
+    if (
+      !isExpectedPlazaInlineFetchFailure(
+        error
+      )
+    ) {
+      console.error(
+        "loadPlazaFeedFromServer error:",
+        error
+      );
     }
 
-    if (isExpectedPlazaInlineFetchFailure(error)) {
-      plazaServerFeedItems = [];
-      plazaServerFeedLoaded = true;
-      renderFeed(plazaRuntime.feedFilter || "all");
-      return [];
+    if (
+      isExpectedPlazaInlineFetchFailure(
+        error
+      )
+    ) {
+      if (plazaServerFeedLoaded) {
+        renderFeed(
+          plazaRuntime.feedFilter ||
+          "all"
+        );
+      } else if (plazaFeedGrid) {
+        plazaFeedGrid.innerHTML =
+          `<div class="yh-plaza-empty">Plaza feed is reconnecting. Please retry.</div>`;
+      }
+
+      return plazaServerFeedItems;
     }
 
     if (plazaFeedGrid) {
-      plazaFeedGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza feed. Please refresh.</div>`;
+      plazaFeedGrid.innerHTML =
+        `<div class="yh-plaza-empty">Could not load Plaza feed. Please refresh.</div>`;
     }
 
-    return [];
+    return plazaServerFeedItems;
   } finally {
     plazaFeedLoading = false;
   }
 }
 
 async function createPlazaFeedPost(payload = {}) {
-  const result = await plazaApiFetch("/api/plaza/feed/posts", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
+  const {
+    clientCreateId,
+    fingerprint
+  } = resolvePlazaRecordClientCreateIdV1(
+    "feed_post",
+    payload
+  );
 
-  const post = result.post ? normalizeServerFeedItem(result.post) : null;
+  try {
+    const result = await plazaApiFetch(
+      "/api/plaza/feed/posts",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ...payload,
+          clientCreateId
+        })
+      }
+    );
 
-  if (post) {
-    plazaServerFeedItems = [
+    const post = result.post
+      ? normalizeServerFeedItem(
+          result.post
+        )
+      : null;
+
+    if (!post) {
+      throw new Error(
+        "Plaza feed response was incomplete. Retry the same submission."
+      );
+    }
+
+    const published =
+      result.published === true;
+
+    if (published) {
+      plazaServerFeedItems = [
+        post,
+        ...plazaServerFeedItems.filter(
+          (item) =>
+            item.id !== post.id
+        )
+      ];
+
+      plazaServerFeedLoaded = true;
+    }
+
+    if (fingerprint) {
+      plazaPendingRecordCreateIdsV1.delete(
+        fingerprint
+      );
+    }
+
+    return {
       post,
-      ...plazaServerFeedItems.filter((item) => item.id !== post.id)
-    ];
-    plazaServerFeedLoaded = true;
-  }
+      published,
+      pendingReview:
+        result.pendingReview === true,
+      duplicate:
+        result.duplicate === true
+    };
+  } catch (error) {
+    if (fingerprint) {
+      plazaPendingRecordCreateIdsV1.set(
+        fingerprint,
+        clientCreateId
+      );
+    }
 
-  return post;
+    throw error;
+  }
 }
 function normalizeServerOpportunityItem(item, index = 0) {
   return normalizeOpportunityItem({
@@ -1300,64 +1866,186 @@ function normalizeServerOpportunityItem(item, index = 0) {
 }
 
 async function loadPlazaOpportunitiesFromServer(options = {}) {
-  if (plazaOpportunitiesLoading) return plazaServerOpportunities;
+  if (plazaOpportunitiesLoading) {
+    return plazaServerOpportunities;
+  }
 
   plazaOpportunitiesLoading = true;
 
-  if (plazaOpportunityGrid && options.silent !== true) {
-    plazaOpportunityGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plaza opportunities...</div>`;
+  if (
+    plazaOpportunityGrid &&
+    options.silent !== true
+  ) {
+    plazaOpportunityGrid.innerHTML =
+      `<div class="yh-plaza-empty">Loading Plaza opportunities...</div>`;
   }
 
   try {
-    const result = await plazaApiFetch("/api/plaza/opportunities?limit=80");
-    const items = Array.isArray(result.opportunities) ? result.opportunities : [];
+    const result =
+      await plazaApiFetch(
+        buildPlazaCursorPageUrlV1(
+          "/api/plaza/opportunities",
+          80
+        )
+      );
 
-    plazaServerOpportunities = items.map(normalizeServerOpportunityItem);
-    plazaServerOpportunitiesLoaded = true;
+    const items =
+      Array.isArray(
+        result.opportunities
+      )
+        ? result.opportunities
+        : [];
+
+    plazaServerOpportunities =
+      items.map(
+        normalizeServerOpportunityItem
+      );
+
+    plazaServerOpportunitiesLoaded =
+      true;
+
+    resetPlazaCursorPaginationV1(
+      "opportunities",
+      result
+    );
 
     renderOpportunities();
+
+    void hydrateRemainingPlazaCursorPagesV1({
+      key: "opportunities",
+      path:
+        "/api/plaza/opportunities",
+      limit: 80,
+      responseKey:
+        "opportunities",
+      normalize:
+        normalizeServerOpportunityItem,
+      getItems: () =>
+        plazaServerOpportunities,
+      setItems: (nextItems) => {
+        plazaServerOpportunities =
+          nextItems;
+      },
+      render:
+        renderOpportunities
+    });
+
     return plazaServerOpportunities;
   } catch (error) {
-    if (!isExpectedPlazaInlineFetchFailure(error)) {
-      console.error("loadPlazaOpportunitiesFromServer error:", error);
+    if (
+      !isExpectedPlazaInlineFetchFailure(
+        error
+      )
+    ) {
+      console.error(
+        "loadPlazaOpportunitiesFromServer error:",
+        error
+      );
     }
 
-    if (isExpectedPlazaInlineFetchFailure(error)) {
-      plazaServerOpportunities = [];
-      plazaServerOpportunitiesLoaded = true;
-      renderOpportunities();
-      return [];
+    if (
+      isExpectedPlazaInlineFetchFailure(
+        error
+      )
+    ) {
+      if (
+        plazaServerOpportunitiesLoaded
+      ) {
+        renderOpportunities();
+      } else if (
+        plazaOpportunityGrid
+      ) {
+        plazaOpportunityGrid.innerHTML =
+          `<div class="yh-plaza-empty">Plaza opportunities are reconnecting. Please retry.</div>`;
+      }
+
+      return plazaServerOpportunities;
     }
 
     if (plazaOpportunityGrid) {
-      plazaOpportunityGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza opportunities. Please refresh.</div>`;
+      plazaOpportunityGrid.innerHTML =
+        `<div class="yh-plaza-empty">Could not load Plaza opportunities. Please refresh.</div>`;
     }
 
-    return [];
+    return plazaServerOpportunities;
   } finally {
-    plazaOpportunitiesLoading = false;
+    plazaOpportunitiesLoading =
+      false;
   }
 }
 
 async function createPlazaOpportunity(payload = {}) {
-  const result = await plazaApiFetch("/api/plaza/opportunities", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
+  const {
+    clientCreateId,
+    fingerprint
+  } = resolvePlazaRecordClientCreateIdV1(
+    "opportunity",
+    payload
+  );
 
-  const opportunity = result.opportunity
-    ? normalizeServerOpportunityItem(result.opportunity)
-    : null;
+  try {
+    const result = await plazaApiFetch(
+      "/api/plaza/opportunities",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ...payload,
+          clientCreateId
+        })
+      }
+    );
 
-  if (opportunity) {
-    plazaServerOpportunities = [
+    const opportunity = result.opportunity
+      ? normalizeServerOpportunityItem(
+          result.opportunity
+        )
+      : null;
+
+    if (!opportunity) {
+      throw new Error(
+        "Plaza opportunity response was incomplete. Retry the same submission."
+      );
+    }
+
+    const published =
+      result.published === true;
+
+    if (published) {
+      plazaServerOpportunities = [
+        opportunity,
+        ...plazaServerOpportunities.filter(
+          (item) =>
+            item.id !== opportunity.id
+        )
+      ];
+
+      plazaServerOpportunitiesLoaded = true;
+    }
+
+    if (fingerprint) {
+      plazaPendingRecordCreateIdsV1.delete(
+        fingerprint
+      );
+    }
+
+    return {
       opportunity,
-      ...plazaServerOpportunities.filter((item) => item.id !== opportunity.id)
-    ];
-    plazaServerOpportunitiesLoaded = true;
-  }
+      published,
+      pendingReview:
+        result.pendingReview === true,
+      duplicate:
+        result.duplicate === true
+    };
+  } catch (error) {
+    if (fingerprint) {
+      plazaPendingRecordCreateIdsV1.set(
+        fingerprint,
+        clientCreateId
+      );
+    }
 
-  return opportunity;
+    throw error;
+  }
 }
 
 function getPlazaOpportunityById(id = "") {
@@ -1728,49 +2416,142 @@ function normalizeServerDirectoryItem(item, index = 0) {
     canOffer: item?.canOffer || item?.can_offer || [],
     availability: item?.availability || "",
     workMode: item?.workMode || item?.work_mode || "",
-    marketplaceMode: item?.marketplaceMode || item?.marketplace_mode || "no"
+    marketplaceMode: item?.marketplaceMode || item?.marketplace_mode || "no",
+    status: item?.status || "active",
+    reviewStatus: item?.reviewStatus || item?.status || "active",
+    createdAt: item?.createdAt || "",
+    updatedAt: item?.updatedAt || item?.createdAt || ""
   }, index);
 }
 
 async function loadPlazaDirectoryFromServer(options = {}) {
-  if (plazaDirectoryLoading) return plazaServerDirectory;
+  if (plazaDirectoryLoading) {
+    return plazaServerDirectory;
+  }
 
   plazaDirectoryLoading = true;
 
-  if (plazaDirectoryGrid && options.silent !== true) {
-    plazaDirectoryGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plaza directory...</div>`;
+  if (
+    plazaDirectoryGrid &&
+    options.silent !== true
+  ) {
+    plazaDirectoryGrid.innerHTML =
+      `<div class="yh-plaza-empty">Loading Plaza directory...</div>`;
   }
 
   try {
-    const result = await plazaApiFetch("/api/plaza/directory?limit=160");
-    const items = Array.isArray(result.directory) ? result.directory : [];
+    const result =
+      await plazaApiFetch(
+        buildPlazaCursorPageUrlV1(
+          "/api/plaza/directory",
+          80
+        )
+      );
 
-    plazaServerDirectory = items.map(normalizeServerDirectoryItem);
-    plazaServerDirectoryLoaded = true;
+    const items =
+      Array.isArray(
+        result.directory
+      )
+        ? result.directory
+        : [];
+
+    plazaServerDirectory =
+      items.map(
+        normalizeServerDirectoryItem
+      );
+
+    plazaServerDirectoryLoaded =
+      true;
+
+    resetPlazaCursorPaginationV1(
+      "directory",
+      result
+    );
 
     populateRegionFilter();
     renderDirectory();
+
+    void hydrateRemainingPlazaCursorPagesV1({
+      key: "directory",
+      path:
+        "/api/plaza/directory",
+      limit: 80,
+      responseKey:
+        "directory",
+      normalize:
+        normalizeServerDirectoryItem,
+      getItems: () =>
+        plazaServerDirectory,
+      setItems: (nextItems) => {
+        plazaServerDirectory =
+          nextItems;
+      },
+      render: () => {
+        populateRegionFilter();
+        renderDirectory();
+      }
+    });
+
     return plazaServerDirectory;
   } catch (error) {
-    console.error("loadPlazaDirectoryFromServer error:", error);
+    console.error(
+      "loadPlazaDirectoryFromServer error:",
+      error
+    );
 
     if (plazaDirectoryGrid) {
-      plazaDirectoryGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza directory. Please refresh.</div>`;
+      plazaDirectoryGrid.innerHTML =
+        `<div class="yh-plaza-empty">Could not load Plaza directory. Please refresh.</div>`;
     }
 
-    return [];
+    return plazaServerDirectory;
   } finally {
     plazaDirectoryLoading = false;
   }
 }
 
 async function savePlazaDirectoryProfile(payload = {}) {
-  const result = await plazaApiFetch("/api/plaza/directory/profile", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
+  const currentUserId =
+    getPlazaCurrentUserIdV1();
 
-  const profile = result.profile ? normalizeServerDirectoryItem(result.profile) : null;
+  const currentProfile =
+    currentUserId
+      ? plazaServerDirectory.find(
+          (item) =>
+            [
+              item?.id,
+              item?.userId,
+              item?.authorId
+            ].some(
+              (value) =>
+                String(value || "").trim() ===
+                currentUserId
+            )
+        ) || null
+      : null;
+
+  const expectedUpdatedAt = String(
+    payload.expectedUpdatedAt ||
+    currentProfile?.updatedAt ||
+    ""
+  ).trim();
+
+  const result = await plazaApiFetch(
+    "/api/plaza/directory/profile",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ...payload,
+        expectedUpdatedAt
+      })
+    }
+  );
+
+  const profile = result.profile
+    ? normalizeServerDirectoryItem(
+        result.profile
+      )
+    : null;
 
   if (profile) {
     plazaServerDirectory = [
@@ -1812,91 +2593,191 @@ function getPlazaRegionById(id = "") {
 function normalizeServerRegionItem(item, index = 0) {
   return normalizeRegionItem({
     id: item?.id || `server-region-${index + 1}`,
+    clientCreateId: item?.clientCreateId || "",
     region: item?.region || item?.name || "Global",
-    count: Number(item?.count || 0),
-    label: item?.label || "Region Hub",
-    text: item?.text || item?.description || "",
+    count: Number(item?.count || item?.memberCount || 0),
+    label: item?.label || item?.title || item?.name || "Region Hub",
+    text: item?.text || item?.description || item?.summary || "",
     continent: item?.continent || "",
     network: item?.network || "",
-    plazaNumber: item?.plazaNumber || item?.plaza_number || "",
+    plazaNumber: item?.plazaNumber || "",
     countries: Array.isArray(item?.countries) ? item.countries : [],
-    sourceUrl: item?.sourceUrl || item?.source_url || "",
-    patronName: item?.patronName || item?.leaderName || "",
-    patronRole: item?.patronRole || item?.leaderRole || "",
-    patronUserId: item?.patronUserId || item?.leaderUserId || "",
-    patronStatus: item?.patronStatus || item?.leaderStatus || "",
-    patronContactHint: item?.patronContactHint || item?.leaderContactHint || "",
-    patronBenefits: Array.isArray(item?.patronBenefits) ? item.patronBenefits : [],
-    patronPrivileges: Array.isArray(item?.patronPrivileges) ? item.patronPrivileges : [],
-    patronCommissionPolicy:
-      item?.patronCommissionPolicy && typeof item.patronCommissionPolicy === "object"
-        ? item.patronCommissionPolicy
-        : null,
-    patronAuthority:
-      item?.patronAuthority && typeof item.patronAuthority === "object"
-        ? item.patronAuthority
-        : null
+    sourceUrl: item?.sourceUrl || ""
   }, index);
 }
 
 async function loadPlazaRegionsFromServer(options = {}) {
-  if (plazaRegionsLoading) return plazaServerRegions;
+  if (plazaRegionsLoading) {
+    return plazaServerRegions;
+  }
 
   plazaRegionsLoading = true;
 
-  if (plazaRegionGrid && options.silent !== true) {
-    plazaRegionGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plazas regions...</div>`;
+  if (
+    plazaRegionGrid &&
+    options.silent !== true
+  ) {
+    plazaRegionGrid.innerHTML =
+      `<div class="yh-plaza-empty">Loading Plazas regions...</div>`;
   }
 
-  try {
-    const result = await plazaApiFetch("/api/plaza/regions?limit=120");
-    const items = Array.isArray(result.regions) ? result.regions : [];
-
-    plazaServerRegions = items.map(normalizeServerRegionItem);
-    plazaServerRegionsLoaded = true;
-
+  const renderRegionDependents = () => {
     renderRegions();
     renderAtlasScreen();
+    renderPlazaExplorerScreenV1();
     populateMeetupRegionSelect();
     populatePatronRegionSelect();
+  };
+
+  try {
+    const result =
+      await plazaApiFetch(
+        buildPlazaCursorPageUrlV1(
+          "/api/plaza/regions",
+          80
+        )
+      );
+
+    const items =
+      Array.isArray(
+        result.regions
+      )
+        ? result.regions
+        : [];
+
+    plazaServerRegions =
+      items.map(
+        normalizeServerRegionItem
+      );
+
+    plazaServerRegionsLoaded =
+      true;
+
+    resetPlazaCursorPaginationV1(
+      "regions",
+      result
+    );
+
+    renderRegionDependents();
+
+    void hydrateRemainingPlazaCursorPagesV1({
+      key: "regions",
+      path:
+        "/api/plaza/regions",
+      limit: 80,
+      responseKey:
+        "regions",
+      normalize:
+        normalizeServerRegionItem,
+      getItems: () =>
+        plazaServerRegions,
+      setItems: (nextItems) => {
+        plazaServerRegions =
+          nextItems;
+      },
+      render:
+        renderRegionDependents
+    });
+
     return plazaServerRegions;
   } catch (error) {
-    console.error("loadPlazaRegionsFromServer error:", error);
+    console.error(
+      "loadPlazaRegionsFromServer error:",
+      error
+    );
 
     if (plazaRegionGrid) {
-      plazaRegionGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plazas regions. Please refresh.</div>`;
+      plazaRegionGrid.innerHTML =
+        `<div class="yh-plaza-empty">Could not load Plazas regions. Please refresh.</div>`;
     }
 
-    return [];
+    return plazaServerRegions;
   } finally {
     plazaRegionsLoading = false;
   }
 }
 
 async function createPlazaRegion(payload = {}) {
-  const result = await plazaApiFetch("/api/plaza/regions", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
+  const {
+    clientCreateId,
+    fingerprint
+  } = resolvePlazaRecordClientCreateIdV1(
+    "region",
+    payload
+  );
 
-  const region = result.region ? normalizeServerRegionItem(result.region) : null;
+  try {
+    const result = await plazaApiFetch(
+      "/api/plaza/regions",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ...payload,
+          clientCreateId
+        })
+      }
+    );
 
-  if (region) {
-    plazaServerRegions = [
+    const region = result.region
+      ? normalizeServerRegionItem(
+          result.region
+        )
+      : null;
+
+    if (!region) {
+      throw new Error(
+        "Plaza region response was incomplete. Retry the same submission."
+      );
+    }
+
+    const published =
+      result.published === true;
+
+    if (published) {
+      plazaServerRegions = [
+        region,
+        ...plazaServerRegions.filter(
+          (item) =>
+            item.id !== region.id
+        )
+      ];
+
+      plazaServerRegionsLoaded = true;
+    }
+
+    if (fingerprint) {
+      plazaPendingRecordCreateIdsV1.delete(
+        fingerprint
+      );
+    }
+
+    return {
       region,
-      ...plazaServerRegions.filter((item) => item.id !== region.id)
-    ];
-    plazaServerRegionsLoaded = true;
-  }
+      published,
+      pendingReview:
+        result.pendingReview === true,
+      duplicate:
+        result.duplicate === true
+    };
+  } catch (error) {
+    if (fingerprint) {
+      plazaPendingRecordCreateIdsV1.set(
+        fingerprint,
+        clientCreateId
+      );
+    }
 
-  return region;
+    throw error;
+  }
 }
+
 function normalizeServerBridgeItem(item, index = 0) {
   return normalizeBridgeItem({
     id: item?.id || `server-bridge-${index + 1}`,
+    clientCreateId: item?.clientCreateId || "",
     stage: item?.stage || "Bridge Path",
-    left: item?.left || "academy",
-    right: item?.right || "federation",
+    left: item?.left || item?.origin || "academy",
+    right: item?.right || item?.destination || "federation",
     region: item?.region || "Global",
     title: item?.title || "Bridge signal",
     text: item?.text || item?.description || "",
@@ -1906,57 +2787,169 @@ function normalizeServerBridgeItem(item, index = 0) {
 }
 
 async function loadPlazaBridgeFromServer(options = {}) {
-  if (plazaBridgeLoading) return plazaServerBridge;
+  if (plazaBridgeLoading) {
+    return plazaServerBridge;
+  }
 
   plazaBridgeLoading = true;
 
-  if (plazaBridgeGrid && options.silent !== true) {
-    plazaBridgeGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plazas bridge paths...</div>`;
+  if (
+    plazaBridgeGrid &&
+    options.silent !== true
+  ) {
+    plazaBridgeGrid.innerHTML =
+      `<div class="yh-plaza-empty">Loading Plazas bridge paths...</div>`;
   }
 
   try {
-    const result = await plazaApiFetch("/api/plaza/bridge?limit=120");
-    const items = Array.isArray(result.bridge) ? result.bridge : [];
+    const result =
+      await plazaApiFetch(
+        buildPlazaCursorPageUrlV1(
+          "/api/plaza/bridge",
+          80
+        )
+      );
 
-    plazaServerBridge = items.map(normalizeServerBridgeItem);
-    plazaServerBridgeLoaded = true;
+    const items =
+      Array.isArray(result.bridge)
+        ? result.bridge
+        : [];
+
+    plazaServerBridge =
+      items.map(
+        normalizeServerBridgeItem
+      );
+
+    plazaServerBridgeLoaded =
+      true;
+
+    resetPlazaCursorPaginationV1(
+      "bridge",
+      result
+    );
 
     renderBridge();
+
+    void hydrateRemainingPlazaCursorPagesV1({
+      key: "bridge",
+      path:
+        "/api/plaza/bridge",
+      limit: 80,
+      responseKey:
+        "bridge",
+      normalize:
+        normalizeServerBridgeItem,
+      getItems: () =>
+        plazaServerBridge,
+      setItems: (nextItems) => {
+        plazaServerBridge =
+          nextItems;
+      },
+      render:
+        renderBridge
+    });
+
     return plazaServerBridge;
   } catch (error) {
-    console.error("loadPlazaBridgeFromServer error:", error);
+    console.error(
+      "loadPlazaBridgeFromServer error:",
+      error
+    );
 
     if (plazaBridgeGrid) {
-      plazaBridgeGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plazas bridge paths. Please refresh.</div>`;
+      plazaBridgeGrid.innerHTML =
+        `<div class="yh-plaza-empty">Could not load Plazas bridge paths. Please refresh.</div>`;
     }
 
-    return [];
+    return plazaServerBridge;
   } finally {
     plazaBridgeLoading = false;
   }
 }
 
 async function createPlazaBridge(payload = {}) {
-  const result = await plazaApiFetch("/api/plaza/bridge", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
+  const {
+    clientCreateId,
+    fingerprint
+  } = resolvePlazaRecordClientCreateIdV1(
+    "bridge_path",
+    payload
+  );
 
-  const bridgePath = result.bridgePath ? normalizeServerBridgeItem(result.bridgePath) : null;
+  try {
+    const result = await plazaApiFetch(
+      "/api/plaza/bridge",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ...payload,
+          clientCreateId
+        })
+      }
+    );
 
-  if (bridgePath) {
-    plazaServerBridge = [
+    const rawBridge =
+      result.bridge ||
+      result.bridgePath ||
+      null;
+
+    const bridgePath = rawBridge
+      ? normalizeServerBridgeItem(
+          rawBridge
+        )
+      : null;
+
+    if (!bridgePath) {
+      throw new Error(
+        "Plaza bridge response was incomplete. Retry the same submission."
+      );
+    }
+
+    const published =
+      result.published === true;
+
+    if (published) {
+      plazaServerBridge = [
+        bridgePath,
+        ...plazaServerBridge.filter(
+          (item) =>
+            item.id !== bridgePath.id
+        )
+      ];
+
+      plazaServerBridgeLoaded = true;
+    }
+
+    if (fingerprint) {
+      plazaPendingRecordCreateIdsV1.delete(
+        fingerprint
+      );
+    }
+
+    return {
       bridgePath,
-      ...plazaServerBridge.filter((item) => item.id !== bridgePath.id)
-    ];
-    plazaServerBridgeLoaded = true;
-  }
+      published,
+      pendingReview:
+        result.pendingReview === true,
+      duplicate:
+        result.duplicate === true
+    };
+  } catch (error) {
+    if (fingerprint) {
+      plazaPendingRecordCreateIdsV1.set(
+        fingerprint,
+        clientCreateId
+      );
+    }
 
-  return bridgePath;
+    throw error;
+  }
 }
+
 function normalizeServerRequestItem(item, index = 0) {
   return normalizeRequestItem({
     id: item?.id || `server-request-${index + 1}`,
+    clientRequestId: item?.clientRequestId || "",
     createdAt: item?.createdAt || new Date().toISOString(),
     updatedAt: item?.updatedAt || item?.createdAt || new Date().toISOString(),
     resolvedAt: item?.resolvedAt || "",
@@ -2008,56 +3001,208 @@ function normalizeServerRequestItem(item, index = 0) {
 }
 
 async function loadPlazaRequestsFromServer(options = {}) {
-  if (plazaRequestsLoading) return plazaServerRequests;
+  if (plazaRequestsLoading) {
+    return plazaServerRequests;
+  }
 
   plazaRequestsLoading = true;
 
-  if (plazaRequestsScreenList && options.silent !== true) {
-    plazaRequestsScreenList.innerHTML = `<div class="yh-plaza-empty">Loading Plaza requests...</div>`;
+  if (
+    plazaRequestsScreenList &&
+    options.silent !== true
+  ) {
+    plazaRequestsScreenList.innerHTML =
+      `<div class="yh-plaza-empty">Loading Plaza requests...</div>`;
   }
 
+  const renderRequestDependents =
+    () => {
+      renderRequestsPreview();
+      renderRequestsScreen();
+    };
+
   try {
-    const result = await plazaApiFetch("/api/plaza/requests?limit=160");
-    const items = Array.isArray(result.requests) ? result.requests : [];
+    const result =
+      await plazaApiFetch(
+        buildPlazaCursorPageUrlV1(
+          "/api/plaza/requests",
+          80
+        )
+      );
 
-    plazaServerRequests = items.map(normalizeServerRequestItem);
-    plazaServerRequestsLoaded = true;
+    const items =
+      Array.isArray(
+        result.requests
+      )
+        ? result.requests
+        : [];
 
-    renderRequestsPreview();
-    renderRequestsScreen();
+    plazaServerRequests =
+      items.map(
+        normalizeServerRequestItem
+      );
+
+    plazaServerRequestsLoaded =
+      true;
+
+    resetPlazaCursorPaginationV1(
+      "requests",
+      result
+    );
+
+    renderRequestDependents();
+
+    void hydrateRemainingPlazaCursorPagesV1({
+      key: "requests",
+      path:
+        "/api/plaza/requests",
+      limit: 80,
+      responseKey:
+        "requests",
+      normalize:
+        normalizeServerRequestItem,
+      getItems: () =>
+        plazaServerRequests,
+      setItems: (nextItems) => {
+        plazaServerRequests =
+          nextItems;
+      },
+      render:
+        renderRequestDependents
+    });
+
     return plazaServerRequests;
   } catch (error) {
-    console.error("loadPlazaRequestsFromServer error:", error);
+    console.error(
+      "loadPlazaRequestsFromServer error:",
+      error
+    );
 
     if (plazaRequestsScreenList) {
-      plazaRequestsScreenList.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza requests. Please refresh.</div>`;
+      plazaRequestsScreenList.innerHTML =
+        `<div class="yh-plaza-empty">Could not load Plaza requests. Please refresh.</div>`;
     }
 
-    return [];
+    return plazaServerRequests;
   } finally {
     plazaRequestsLoading = false;
   }
 }
 
-async function updatePlazaRequestOnServer(requestId = "", payload = {}) {
-  const cleanId = String(requestId || "").trim();
+async function createPlazaRequest(payload = {}) {
+  const {
+    clientRequestId,
+    fingerprint
+  } = resolvePlazaClientRequestIdV1(
+    payload
+  );
+
+  try {
+    const result = await plazaApiFetch(
+      "/api/plaza/requests",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ...payload,
+          clientRequestId
+        })
+      }
+    );
+
+    const request = result.request
+      ? normalizeServerRequestItem(
+          result.request
+        )
+      : null;
+
+    if (!request) {
+      throw new Error(
+        "Plaza request response was incomplete. Retry with the same request."
+      );
+    }
+
+    plazaServerRequests = [
+      request,
+      ...plazaServerRequests.filter(
+        (item) =>
+          item.id !== request.id
+      )
+    ];
+
+    plazaServerRequestsLoaded = true;
+
+    if (fingerprint) {
+      plazaPendingRequestCreateIdsV1.delete(
+        fingerprint
+      );
+    }
+
+    return request;
+  } catch (error) {
+    if (fingerprint) {
+      plazaPendingRequestCreateIdsV1.set(
+        fingerprint,
+        clientRequestId
+      );
+    }
+
+    throw error;
+  }
+}
+
+async function updatePlazaRequestOnServer(
+  requestId = "",
+  payload = {}
+) {
+  const cleanId = String(
+    requestId || ""
+  ).trim();
 
   if (!cleanId) {
-    throw new Error("Missing Plaza request id.");
+    throw new Error(
+      "Missing Plaza request id."
+    );
   }
 
-  const result = await plazaApiFetch(`/api/plaza/requests/${encodeURIComponent(cleanId)}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload)
-  });
+  const expectedUpdatedAt = String(
+    payload.expectedUpdatedAt ||
+    getCachedPlazaRequestVersionV1(
+      cleanId
+    )
+  ).trim();
 
-  const request = result.request ? normalizeServerRequestItem(result.request) : null;
+  if (!expectedUpdatedAt) {
+    throw new Error(
+      "Request version is missing. Reload My Requests and retry."
+    );
+  }
+
+  const result = await plazaApiFetch(
+    `/api/plaza/requests/${encodeURIComponent(cleanId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        ...payload,
+        expectedUpdatedAt
+      })
+    }
+  );
+
+  const request = result.request
+    ? normalizeServerRequestItem(
+        result.request
+      )
+    : null;
 
   if (request) {
     plazaServerRequests = [
       request,
-      ...plazaServerRequests.filter((item) => item.id !== request.id)
+      ...plazaServerRequests.filter(
+        (item) =>
+          item.id !== request.id
+      )
     ];
+
     plazaServerRequestsLoaded = true;
   }
 
@@ -2092,6 +3237,8 @@ function getPlazaRequestFormPayload(form) {
   const isApplication = form.id === "plazaApplicationForm";
 
   const basePayload = {
+    clientRequestId: String(data.get("clientRequestId") || ""),
+    expectedUpdatedAt: String(data.get("expectedUpdatedAt") || ""),
     sourceType: String(data.get("sourceType") || (isApplication ? "opportunity" : "general")),
     targetId: String(data.get("targetId") || ""),
     targetLabel: String(data.get("targetLabel") || (isApplication ? "Hiring lane" : "General Plaza request")),
@@ -2200,7 +3347,38 @@ async function autosavePlazaRequestDraft(form) {
       plazaRequestAutosaveState.lastSavedRequestId = savedRequest.id;
     }
 
-    plazaRequestAutosaveState.lastSignature = getPlazaRequestAutosaveSignature(form);
+    const clientRequestIdField =
+      form.querySelector(
+        'input[name="clientRequestId"]'
+      );
+
+    if (
+      savedRequest?.clientRequestId &&
+      clientRequestIdField instanceof
+        HTMLInputElement
+    ) {
+      clientRequestIdField.value =
+        savedRequest.clientRequestId;
+    }
+
+    const expectedUpdatedAtField =
+      form.querySelector(
+        'input[name="expectedUpdatedAt"]'
+      );
+
+    if (
+      savedRequest?.updatedAt &&
+      expectedUpdatedAtField instanceof
+        HTMLInputElement
+    ) {
+      expectedUpdatedAtField.value =
+        savedRequest.updatedAt;
+    }
+
+    plazaRequestAutosaveState.lastSignature =
+      getPlazaRequestAutosaveSignature(
+        form
+      );
 
     if (savedRequest?.id) {
       plazaOpsAdapter.removeIncomingByRequestId(savedRequest.id);
@@ -2257,20 +3435,48 @@ function installPlazaRequestDraftAutosave(formId = "") {
 }
 
 async function advancePlazaRequestStatus(requestId = "") {
-  const cleanId = String(requestId || "").trim();
+  const cleanId = String(
+    requestId || ""
+  ).trim();
+
   if (!cleanId) return null;
 
-  const result = await plazaApiFetch(`/api/plaza/requests/${encodeURIComponent(cleanId)}/status`, {
-    method: "PATCH",
-    body: JSON.stringify({})
-  });
+  const expectedUpdatedAt =
+    getCachedPlazaRequestVersionV1(
+      cleanId
+    );
 
-  const request = result.request ? normalizeServerRequestItem(result.request) : null;
+  if (!expectedUpdatedAt) {
+    throw new Error(
+      "Request version is missing. Reload My Requests and retry."
+    );
+  }
+
+  const result = await plazaApiFetch(
+    `/api/plaza/requests/${encodeURIComponent(cleanId)}/status`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        expectedUpdatedAt
+      })
+    }
+  );
+
+  const request = result.request
+    ? normalizeServerRequestItem(
+        result.request
+      )
+    : null;
 
   if (request) {
-    plazaServerRequests = plazaServerRequests.map((item) => (
-      item.id === request.id ? request : item
-    ));
+    plazaServerRequests =
+      plazaServerRequests.map(
+        (item) =>
+          item.id === request.id
+            ? request
+            : item
+      );
+
     plazaServerRequestsLoaded = true;
   }
 
@@ -2278,14 +3484,41 @@ async function advancePlazaRequestStatus(requestId = "") {
 }
 
 async function deletePlazaRequestFromServer(requestId = "") {
-  const cleanId = String(requestId || "").trim();
+  const cleanId = String(
+    requestId || ""
+  ).trim();
+
   if (!cleanId) return false;
 
-  await plazaApiFetch(`/api/plaza/requests/${encodeURIComponent(cleanId)}`, {
-    method: "DELETE"
-  });
+  const expectedUpdatedAt =
+    getCachedPlazaRequestVersionV1(
+      cleanId
+    );
 
-  plazaServerRequests = plazaServerRequests.filter((item) => item.id !== cleanId);
+  if (!expectedUpdatedAt) {
+    throw new Error(
+      "Request version is missing. Reload My Requests and retry."
+    );
+  }
+
+  await plazaApiFetch(
+    `/api/plaza/requests/${encodeURIComponent(cleanId)}`,
+    {
+      method: "DELETE",
+      body: JSON.stringify({
+        expectedUpdatedAt,
+        reason:
+          "Deleted from My Requests."
+      })
+    }
+  );
+
+  plazaServerRequests =
+    plazaServerRequests.filter(
+      (item) =>
+        item.id !== cleanId
+    );
+
   plazaServerRequestsLoaded = true;
 
   return true;
@@ -2696,6 +3929,11 @@ function normalizeFeedItem(item, index) {
 
   return {
     id: item?.id || `feed-${index + 1}`,
+    clientCreateId:
+      String(
+        item?.clientCreateId ||
+        ""
+      ),
     type,
     userId: String(item?.userId || item?.authorId || item?.authorUid || item?.createdByUserId || "").trim(),
     authorId: String(item?.authorId || item?.userId || item?.authorUid || item?.createdByUserId || "").trim(),
@@ -2712,21 +3950,24 @@ function normalizeFeedItem(item, index) {
   };
 }
 
+function normalizeSignalList(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => String(entry || "").trim())
+      .filter(Boolean)
+      .slice(0, 8);
+  }
+
+  return String(value || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
 function normalizeDirectoryItem(item, index) {
   const division = normalizeDivision(item?.division);
   const source = normalizeSource(item?.source, division);
-
-  const normalizeSignalList = (value) => {
-    if (Array.isArray(value)) {
-      return value.map((entry) => String(entry || "").trim()).filter(Boolean).slice(0, 8);
-    }
-
-    return String(value || "")
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-      .slice(0, 8);
-  };
 
   return {
     id: item?.id || `member-${index + 1}`,
@@ -2745,13 +3986,22 @@ function normalizeDirectoryItem(item, index) {
     canOffer: normalizeSignalList(item?.canOffer || item?.can_offer),
     availability: String(item?.availability || ""),
     workMode: String(item?.workMode || item?.work_mode || ""),
-    marketplaceMode: String(item?.marketplaceMode || item?.marketplace_mode || "no").toLowerCase() === "yes" ? "yes" : "no"
+    marketplaceMode: String(item?.marketplaceMode || item?.marketplace_mode || "no").toLowerCase() === "yes" ? "yes" : "no",
+    status: String(item?.status || "active"),
+    reviewStatus: String(item?.reviewStatus || item?.status || "active"),
+    createdAt: String(item?.createdAt || ""),
+    updatedAt: String(item?.updatedAt || item?.createdAt || "")
   };
 }
 
 function normalizeOpportunityItem(item, index) {
   return {
     id: item?.id || `opp-${index + 1}`,
+    clientCreateId:
+      String(
+        item?.clientCreateId ||
+        ""
+      ),
     type: String(item?.type || "Opportunity"),
     region: String(item?.region || "Unknown region"),
     title: String(item?.title || "New opportunity"),
@@ -2817,6 +4067,7 @@ function normalizeRegionItem(item, index) {
 
   return {
     id: item?.id || `region-${index + 1}`,
+    clientCreateId: String(item?.clientCreateId || ""),
     region: String(item?.region || "Unknown region"),
     count: Number(item?.count || 0),
     label: String(item?.label || "Region Hub"),
@@ -2848,9 +4099,10 @@ function normalizeRegionItem(item, index) {
 function normalizeBridgeItem(item, index) {
   return {
     id: item?.id || `bridge-${index + 1}`,
+    clientCreateId: String(item?.clientCreateId || ""),
     stage: String(item?.stage || "Bridge Path"),
-    left: normalizeBridgeLane(item?.left),
-    right: normalizeBridgeLane(item?.right),
+    left: normalizeBridgeLane(item?.left || item?.origin),
+    right: normalizeBridgeLane(item?.right || item?.destination),
     region: String(item?.region || "Unknown region"),
     title: String(item?.title || "Bridge signal"),
     text: String(item?.text || "No bridge details yet."),
@@ -2872,6 +4124,7 @@ function normalizeRequestItem(item, index) {
 
   return {
     id: item?.id || `req-${index + 1}`,
+    clientRequestId: String(item?.clientRequestId || ""),
     createdAt: item?.createdAt || new Date().toISOString(),
     updatedAt: item?.updatedAt || item?.createdAt || new Date().toISOString(),
     resolvedAt: item?.resolvedAt || "",
@@ -6053,8 +7306,73 @@ function updateWorkspaceChrome(screenName) {
   }
 }
 
+function delegatePlazaPrimaryScreenToDashboardV27(
+  screenName = "feed",
+  options = {}
+) {
+  const cleanScreen = String(
+    screenName || "feed"
+  ).trim().toLowerCase() || "feed";
+
+  if (
+    options?.deferDashboardReady === true ||
+    !PRIMARY_SCREENS.has(cleanScreen) ||
+    window.parent === window
+  ) {
+    return false;
+  }
+
+  try {
+    const parentWindow = window.parent;
+    const workspaceKey =
+      normalizePlazaDashboardWorkspaceKey(
+        cleanScreen
+      );
+
+    const parentWorkspaceKey = String(
+      parentWindow.document?.body
+        ?.getAttribute(
+          "data-yh-unified-workspace"
+        ) ||
+      ""
+    ).trim().toLowerCase();
+
+    if (
+      !workspaceKey ||
+      parentWorkspaceKey === workspaceKey ||
+      typeof parentWindow
+        .activateDashboardUnifiedWorkspace !==
+        "function"
+    ) {
+      return false;
+    }
+
+    parentWindow.activateDashboardUnifiedWorkspace(
+      workspaceKey,
+      {
+        animate: false,
+        scroll: false
+      }
+    );
+
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function openScreen(screenName, options = {}) {
   const nextScreenName = String(screenName || "feed").trim() || "feed";
+
+  if (
+    delegatePlazaPrimaryScreenToDashboardV27(
+      nextScreenName,
+      options
+    )
+  ) {
+    return false;
+  }
+
   const current = plazaRuntime.currentScreen;
   const shouldShowLoader =
     options.showLoader !== false &&
@@ -7066,22 +8384,136 @@ function getYHCanonicalPlazaRegions() {
   });
 }
 
+function normalizePlazaTopologyMergeKeyV3(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
 function getPlazaRegionsForRender() {
-  const serverItems = plazaServerRegionsLoaded ? safeArray(plazaServerRegions) : [];
+  const canonicalItems =
+    getYHCanonicalPlazaRegions();
+
+  const serverItems =
+    plazaServerRegionsLoaded
+      ? safeArray(plazaServerRegions)
+      : [];
 
   if (serverItems.length) {
-    return serverItems;
+    const canonicalByKey =
+      new Map();
+
+    canonicalItems.forEach((item) => {
+      [
+        item.id,
+        item.region,
+        item.label
+      ].forEach((value) => {
+        const key =
+          normalizePlazaTopologyMergeKeyV3(
+            value
+          );
+
+        if (key) {
+          canonicalByKey.set(
+            key,
+            item
+          );
+        }
+      });
+    });
+
+    return serverItems.map((item, index) => {
+      const canonical =
+        [
+          item.id,
+          item.region,
+          item.label
+        ]
+          .map(
+            normalizePlazaTopologyMergeKeyV3
+          )
+          .map((key) =>
+            key
+              ? canonicalByKey.get(key)
+              : null
+          )
+          .find(Boolean) ||
+        null;
+
+      if (!canonical) {
+        return item;
+      }
+
+      const serverCountries =
+        safeArray(item.countries)
+          .map((country) =>
+            String(country || "").trim()
+          )
+          .filter(Boolean);
+
+      const rawLabel =
+        String(item.label || "").trim();
+
+      return normalizeRegionItem(
+        {
+          ...canonical,
+          ...item,
+
+          label:
+            rawLabel &&
+            rawLabel.toLowerCase() !==
+              "region hub"
+              ? rawLabel
+              : canonical.label,
+
+          network:
+            item.network ||
+            canonical.network,
+
+          continent:
+            item.continent ||
+            canonical.continent,
+
+          plazaNumber:
+            item.plazaNumber ||
+            canonical.plazaNumber,
+
+          countries:
+            serverCountries.length
+              ? serverCountries
+              : canonical.countries,
+
+          sourceUrl:
+            item.sourceUrl ||
+            canonical.sourceUrl,
+
+          text:
+            item.text &&
+            item.text !==
+              "No region details yet."
+              ? item.text
+              : canonical.text
+        },
+        index
+      );
+    });
   }
 
-  const adapterItems = !plazaServerRegionsLoaded
-    ? safeArray(plazaAdapter.getRegions())
-    : [];
+  const adapterItems =
+    !plazaServerRegionsLoaded
+      ? safeArray(
+          plazaAdapter.getRegions()
+        )
+      : [];
 
   if (adapterItems.length) {
     return adapterItems;
   }
 
-  return getYHCanonicalPlazaRegions();
+  return canonicalItems;
 }
 
 function renderPlazaRegionCountryList(item = {}) {
@@ -7244,6 +8676,416 @@ function renderPatronBenefitsPreview(item = {}) {
 
 /* PATCH: Phase 3D-FE-3 — Plaza Reputation and Explorer progression v2 */
 const PLAZA_EXPLORER_PREVIEW_KEY_V2 = "yhPlazaExplorerPreviewV2";
+const PLAZA_REPUTATION_CACHE_KEY_V1 = "yh_plaza_reputation_v1";
+
+let plazaReputationSnapshotV1 = null;
+let plazaReputationLoadPromiseV1 = null;
+let plazaReputationLoadedV1 = false;
+
+function normalizePlazaReputationCountV1(value = 0) {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed)
+    ? Math.max(0, Math.round(parsed))
+    : 0;
+}
+
+function normalizePlazaReputationSnapshotV1(payload = {}) {
+  const profile =
+    payload?.profile &&
+    typeof payload.profile === "object"
+      ? payload.profile
+      : payload?.reputation &&
+          typeof payload.reputation === "object"
+        ? payload.reputation
+        : {};
+
+  const events = safeArray(payload?.events).map((event = {}) => ({
+    id: String(event.id || "").trim(),
+    eventKey: String(event.eventKey || "").trim(),
+    eventType: String(event.eventType || "")
+      .trim()
+      .toLowerCase(),
+    sourceType: String(event.sourceType || "")
+      .trim()
+      .toLowerCase(),
+    sourceId: String(event.sourceId || "").trim(),
+    beneficiaryRole: String(
+      event.beneficiaryRole ||
+      "member"
+    )
+      .trim()
+      .toLowerCase(),
+    reputationPoints: Number.isFinite(
+      Number(event.reputationPoints)
+    )
+      ? Math.round(
+          Number(event.reputationPoints)
+        )
+      : 0,
+    region:
+      String(
+        event.region ||
+        "Global"
+      ).trim() ||
+      "Global",
+    occurredAt: String(
+      event.occurredAt ||
+      event.createdAt ||
+      ""
+    ).trim(),
+    metadata:
+      event.metadata &&
+      typeof event.metadata === "object"
+        ? event.metadata
+        : {}
+  }));
+
+  return {
+    loaded:
+      payload?.loaded !== false,
+
+    profile: {
+      userId:
+        String(
+          profile.userId ||
+          ""
+        ).trim(),
+
+      division:
+        "plaza",
+
+      totalReputation:
+        normalizePlazaReputationCountV1(
+          profile.totalReputation
+        ),
+
+      weeklyReputation:
+        normalizePlazaReputationCountV1(
+          profile.weeklyReputation
+        ),
+
+      eventCount:
+        normalizePlazaReputationCountV1(
+          profile.eventCount ??
+          payload?.eventCount ??
+          events.length
+        ),
+
+      weekStartAt:
+        String(
+          profile.weekStartAt ||
+          ""
+        ).trim(),
+
+      lastEventAt:
+        String(
+          profile.lastEventAt ||
+          ""
+        ).trim(),
+
+      lastEventType:
+        String(
+          profile.lastEventType ||
+          ""
+        )
+          .trim()
+          .toLowerCase(),
+
+      source:
+        String(
+          profile.source ||
+          "plaza_event_ledger_v1"
+        ).trim(),
+
+      updatedAt:
+        String(
+          profile.updatedAt ||
+          ""
+        ).trim()
+    },
+
+    events,
+
+    fetchedAt:
+      String(
+        payload?.fetchedAt ||
+        new Date().toISOString()
+      ).trim()
+  };
+}
+
+function readPlazaReputationCacheV1() {
+  if (plazaReputationSnapshotV1) {
+    return plazaReputationSnapshotV1;
+  }
+
+  try {
+    const parsed = JSON.parse(
+      sessionStorage.getItem(
+        PLAZA_REPUTATION_CACHE_KEY_V1
+      ) || "null"
+    );
+
+    if (
+      parsed &&
+      typeof parsed === "object"
+    ) {
+      plazaReputationSnapshotV1 =
+        normalizePlazaReputationSnapshotV1(
+          parsed
+        );
+
+      return plazaReputationSnapshotV1;
+    }
+  } catch (_) {}
+
+  return normalizePlazaReputationSnapshotV1({
+    loaded: false,
+    profile: {},
+    events: []
+  });
+}
+
+function writePlazaReputationCacheV1(payload = {}) {
+  const snapshot =
+    normalizePlazaReputationSnapshotV1(
+      payload
+    );
+
+  plazaReputationSnapshotV1 =
+    snapshot;
+
+  try {
+    sessionStorage.setItem(
+      PLAZA_REPUTATION_CACHE_KEY_V1,
+      JSON.stringify(snapshot)
+    );
+  } catch (_) {}
+
+  try {
+    window.dispatchEvent(
+      new CustomEvent(
+        "yhu:plaza-reputation-updated",
+        {
+          detail: snapshot
+        }
+      )
+    );
+  } catch (_) {}
+
+  try {
+    if (
+      window.parent &&
+      window.parent !== window
+    ) {
+      window.parent.dispatchEvent(
+        new CustomEvent(
+          "yhu:plaza-reputation-updated",
+          {
+            detail: snapshot
+          }
+        )
+      );
+
+      window.parent.postMessage(
+        {
+          type:
+            "yhu:plaza-reputation-updated",
+
+          detail:
+            snapshot
+        },
+        window.location.origin
+      );
+    }
+  } catch (_) {}
+
+  return snapshot;
+}
+
+function resolvePlazaExplorerRankV1(
+  totalReputation = 0
+) {
+  const total =
+    normalizePlazaReputationCountV1(
+      totalReputation
+    );
+
+  if (total >= 100) {
+    return {
+      key: "world-builder",
+      label: "World Builder",
+      nextLabel: "Max Rank",
+      nextAt: 100
+    };
+  }
+
+  if (total >= 50) {
+    return {
+      key: "regional-operator",
+      label: "Regional Operator",
+      nextLabel: "World Builder",
+      nextAt: 100
+    };
+  }
+
+  if (total >= 20) {
+    return {
+      key: "connector",
+      label: "Connector",
+      nextLabel: "Regional Operator",
+      nextAt: 50
+    };
+  }
+
+  if (total >= 5) {
+    return {
+      key: "explorer",
+      label: "Explorer",
+      nextLabel: "Connector",
+      nextAt: 20
+    };
+  }
+
+  return {
+    key: "newcomer",
+    label: "Newcomer",
+    nextLabel: "Explorer",
+    nextAt: 5
+  };
+}
+
+function getPlazaReputationCategoryV1(
+  eventType = ""
+) {
+  const clean =
+    String(
+      eventType ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    /opportunity|quest|contract/.test(
+      clean
+    )
+  ) {
+    return "opportunity";
+  }
+
+  if (
+    /connect|intro|bridge|handoff/.test(
+      clean
+    )
+  ) {
+    return "connector";
+  }
+
+  if (
+    /region|meetup|event/.test(
+      clean
+    )
+  ) {
+    return "regional";
+  }
+
+  if (
+    /collaborat|conversation|deal/.test(
+      clean
+    )
+  ) {
+    return "collaboration";
+  }
+
+  if (
+    /community|support|help/.test(
+      clean
+    )
+  ) {
+    return "community";
+  }
+
+  return "reliability";
+}
+
+function formatPlazaReputationEventLabelV1(
+  eventType = ""
+) {
+  const clean =
+    String(
+      eventType ||
+      ""
+    )
+      .trim()
+      .replace(
+        /[_-]+/g,
+        " "
+      )
+      .replace(
+        /\s+/g,
+        " "
+      );
+
+  return clean
+    ? clean.replace(
+        /\b\w/g,
+        (character) =>
+          character.toUpperCase()
+      )
+    : "Verified Reputation Event";
+}
+
+async function loadPlazaReputationFromServerV1(
+  options = {}
+) {
+  if (plazaReputationLoadPromiseV1) {
+    return plazaReputationLoadPromiseV1;
+  }
+
+  if (
+    plazaReputationLoadedV1 &&
+    options.force !== true
+  ) {
+    return readPlazaReputationCacheV1();
+  }
+
+  plazaReputationLoadPromiseV1 =
+    plazaApiFetch(
+      "/api/plaza/reputation?limit=50",
+      {
+        method: "GET"
+      }
+    )
+      .then((result) => {
+        plazaReputationLoadedV1 =
+          true;
+
+        const snapshot =
+          writePlazaReputationCacheV1(
+            result || {}
+          );
+
+        renderPlazaExplorerScreenV1();
+
+        return snapshot;
+      })
+      .catch((error) => {
+        console.error(
+          "loadPlazaReputationFromServerV1 error:",
+          error
+        );
+
+        return readPlazaReputationCacheV1();
+      })
+      .finally(() => {
+        plazaReputationLoadPromiseV1 =
+          null;
+      });
+
+  return plazaReputationLoadPromiseV1;
+}
 
 function normalizePlazaExplorerTextV2(value = "") {
   return String(value || "")
@@ -7405,7 +9247,11 @@ function renderPlazaExplorerScreenV1() {
   const homeZoneNode = document.getElementById("plazaExplorerHomeZone");
   const availableQuestNode = document.getElementById("plazaExplorerAvailableQuests");
   const visibleRegionsNode = document.getElementById("plazaExplorerVisibleRegions");
+  const reputationTotalNode = document.getElementById("plazaExplorerReputationTotal");
   const profileNoteNode = document.getElementById("plazaExplorerProfileNote");
+  const profileBadgeNode = document.getElementById("plazaExplorerProfileBadge");
+  const rankBadgeNode = document.getElementById("plazaExplorerRankBadge");
+  const reputationBadgeNode = document.getElementById("plazaExplorerReputationBadge");
 
   if (
     !metricsNode &&
@@ -7446,21 +9292,118 @@ function renderPlazaExplorerScreenV1() {
     );
   });
 
-  const activeQuest = availableQuests[0] || null;
-  const homeZone = resolvePlazaExplorerHomeZoneV2(regions);
+  const activeQuest =
+    availableQuests[0] ||
+    null;
 
-  if (rankNode) rankNode.textContent = "Newcomer";
-  if (homeZoneNode) homeZoneNode.textContent = homeZone.label;
+  const homeZone =
+    resolvePlazaExplorerHomeZoneV2(
+      regions
+    );
+
+  const reputationSnapshot =
+    readPlazaReputationCacheV1();
+
+  const reputationProfile =
+    reputationSnapshot.profile ||
+    {};
+
+  const reputationEvents =
+    safeArray(
+      reputationSnapshot.events
+    );
+
+  const reputationLoaded =
+    reputationSnapshot.loaded === true;
+
+  const totalReputation =
+    normalizePlazaReputationCountV1(
+      reputationProfile.totalReputation
+    );
+
+  const weeklyReputation =
+    normalizePlazaReputationCountV1(
+      reputationProfile.weeklyReputation
+    );
+
+  const reputationEventCount =
+    normalizePlazaReputationCountV1(
+      reputationProfile.eventCount ??
+      reputationEvents.length
+    );
+
+  const explorerRank =
+    resolvePlazaExplorerRankV1(
+      totalReputation
+    );
+
+  if (rankNode) {
+    rankNode.textContent =
+      explorerRank.label;
+  }
+
+  if (homeZoneNode) {
+    homeZoneNode.textContent =
+      homeZone.label;
+  }
   if (availableQuestNode) {
     availableQuestNode.textContent = Number(availableQuests.length).toLocaleString();
   }
   if (visibleRegionsNode) {
-    visibleRegionsNode.textContent = Number(regions.length).toLocaleString();
+    visibleRegionsNode.textContent =
+      Number(
+        regions.length
+      ).toLocaleString();
   }
+
+  if (reputationTotalNode) {
+    reputationTotalNode.textContent =
+      reputationLoaded
+        ? totalReputation.toLocaleString()
+        : "Syncing";
+  }
+
+  if (profileBadgeNode) {
+    profileBadgeNode.textContent =
+      reputationLoaded
+        ? "Live Ledger"
+        : "Syncing Ledger";
+  }
+
+  if (rankBadgeNode) {
+    rankBadgeNode.textContent =
+      reputationLoaded
+        ? "Live Ledger"
+        : "Syncing Ledger";
+  }
+
+  if (reputationBadgeNode) {
+    reputationBadgeNode.textContent =
+      reputationLoaded
+        ? `${reputationEventCount.toLocaleString()} Verified Events`
+        : "Syncing Ledger";
+  }
+
+  document
+    .querySelectorAll(
+      "[data-plaza-explorer-rank]"
+    )
+    .forEach((item) => {
+      item.classList.toggle(
+        "is-current",
+        item.getAttribute(
+          "data-plaza-explorer-rank"
+        ) === explorerRank.key
+      );
+    });
+
   if (profileNoteNode) {
-    profileNoteNode.textContent = homeZone.established
-      ? `${homeZone.label} is derived from the saved profile country. Reputation and higher rank unlocks remain unwired.`
-      : "Home zone is not established because no saved profile country matched the current Plaza topology.";
+    profileNoteNode.textContent =
+      reputationLoaded
+        ? `${explorerRank.label} • ${totalReputation.toLocaleString()} total Reputation • ${weeklyReputation.toLocaleString()} this week • ${reputationEventCount.toLocaleString()} verified events.`
+        : homeZone.established
+          ? `${homeZone.label} is derived from the saved profile country. Syncing the canonical Reputation ledger.`
+          : "Home zone is not established. Syncing the canonical Reputation ledger.";
   }
 
   if (metricsNode) {
@@ -7647,28 +9590,106 @@ function renderPlazaExplorerScreenV1() {
   }
 
   if (reputationNode) {
+    const categoryPoints =
+      reputationEvents.reduce(
+        (totals, event) => {
+          const category =
+            getPlazaReputationCategoryV1(
+              event.eventType
+            );
+
+          totals[category] =
+            (
+              totals[category] ||
+              0
+            ) +
+            Number(
+              event.reputationPoints ||
+              0
+            );
+
+          return totals;
+        },
+        {}
+      );
+
     const categories = [
-      ["Reliability", "Verified delivery and settlement outcomes"],
-      ["Collaboration", "Completed work with other Plaza members"],
-      ["Regional Activity", "Meaningful participation in a Plaza zone"],
-      ["Opportunity Execution", "Verified quest outcomes"],
-      ["Community Contribution", "Useful signals, meetups, and support"],
-      ["Connector Trust", "Successful introductions and handoffs"]
+      [
+        "reliability",
+        "Reliability",
+        "Verified delivery and settlement outcomes"
+      ],
+      [
+        "collaboration",
+        "Collaboration",
+        "Completed work with other Plaza members"
+      ],
+      [
+        "regional",
+        "Regional Activity",
+        "Meaningful participation in a Plaza zone"
+      ],
+      [
+        "opportunity",
+        "Opportunity Execution",
+        "Admin-verified Opportunity and quest outcomes"
+      ],
+      [
+        "community",
+        "Community Contribution",
+        "Useful signals, meetups, and support"
+      ],
+      [
+        "connector",
+        "Connector Trust",
+        "Successful introductions and handoffs"
+      ]
     ];
 
-    reputationNode.innerHTML = categories.map(([label, description]) => `
-      <article>
-        <div>
-          <strong>${escapeHtml(label)}</strong>
-          <small>${escapeHtml(description)}</small>
-        </div>
-        <span>Wiring pending</span>
-      </article>
-    `).join("");
+    reputationNode.innerHTML =
+      categories
+        .map(
+          ([
+            key,
+            label,
+            description
+          ]) => `
+            <article>
+              <div>
+                <strong>${escapeHtml(label)}</strong>
+                <small>${escapeHtml(description)}</small>
+              </div>
+
+              <span>
+                ${Number(
+                  categoryPoints[key] ||
+                  0
+                ).toLocaleString()} pts
+              </span>
+            </article>
+          `
+        )
+        .join("");
   }
 
   if (activityNode) {
     const activity = [
+      {
+        label:
+          "Verified Reputation Events",
+
+        value:
+          reputationEventCount,
+
+        state:
+          reputationProfile.lastEventType
+            ? formatPlazaReputationEventLabelV1(
+                reputationProfile.lastEventType
+              )
+            : reputationLoaded
+              ? "No verified event yet"
+              : "Syncing ledger"
+      },
       {
         label: "Opportunity Quests",
         value: availableQuests.length,
@@ -7737,14 +9758,46 @@ function renderPlazaExplorerScreenV1() {
   }
 
   savePlazaExplorerPreviewV2({
-    version: "plaza-explorer-preview-v2",
-    rank: "Newcomer",
-    reputationStatus: "Wiring pending",
-    homeZone: homeZone.label,
-    homeZoneEstablished: homeZone.established,
-    availableQuests: availableQuests.length,
-    visibleRegions: regions.length,
-    visibleMembers: directory.length,
+    version:
+      "plaza-explorer-preview-v3",
+
+    rank:
+      explorerRank.label,
+
+    rankKey:
+      explorerRank.key,
+
+    nextRank:
+      explorerRank.nextLabel,
+
+    nextRankAt:
+      explorerRank.nextAt,
+
+    reputationLoaded,
+
+    reputationStatus:
+      reputationLoaded
+        ? `${totalReputation.toLocaleString()} total • ${weeklyReputation.toLocaleString()} weekly`
+        : "Syncing ledger",
+
+    totalReputation,
+    weeklyReputation,
+    reputationEventCount,
+
+    homeZone:
+      homeZone.label,
+
+    homeZoneEstablished:
+      homeZone.established,
+
+    availableQuests:
+      availableQuests.length,
+
+    visibleRegions:
+      regions.length,
+
+    visibleMembers:
+      directory.length,
     activeQuest: activeQuest
       ? {
           id: String(activeQuest.id || "").trim(),
@@ -9354,7 +11407,17 @@ function buildRequestDrawer(config = {}) {
   const message = config.message || "";
   const name = config.name || "";
   const requestId = config.requestId || "";
-  const requestStatus = normalizeRequestStatus(config.status || "Submitted");
+  const clientRequestId =
+    config.clientRequestId ||
+    createPlazaClientRequestIdV1();
+  const expectedUpdatedAt =
+    config.updatedAt ||
+    "";
+  const requestStatus =
+    normalizeRequestStatus(
+      config.status ||
+      "Submitted"
+    );
   const isEditing = !!requestId;
 
   const providerId = config.providerId || "";
@@ -9420,8 +11483,10 @@ function buildRequestDrawer(config = {}) {
       ` : ""}
 
       <form class="yh-plaza-modal-form" id="plazaStructuredRequestForm">
-        <input type="hidden" name="requestId" value="${escapeHtml(requestId)}" />
-        <input type="hidden" name="sourceType" value="${escapeHtml(sourceType)}" />
+    <input type="hidden" name="requestId" value="${escapeHtml(requestId)}" />
+    <input type="hidden" name="clientRequestId" value="${escapeHtml(clientRequestId)}" />
+    <input type="hidden" name="expectedUpdatedAt" value="${escapeHtml(expectedUpdatedAt)}" />
+    <input type="hidden" name="sourceType" value="${escapeHtml(sourceType)}" />
         <input type="hidden" name="targetId" value="${escapeHtml(targetId)}" />
         <input type="hidden" name="targetLabel" value="${escapeHtml(targetLabel)}" />
         <input type="hidden" name="context" value="${escapeHtml(context)}" />
@@ -9493,7 +11558,17 @@ function buildApplicationDrawer(config = {}) {
   const targetId = config.targetId || "";
   const targetLabel = config.targetLabel || "";
   const requestId = config.requestId || "";
-  const requestStatus = normalizeRequestStatus(config.status || "Submitted");
+  const clientRequestId =
+    config.clientRequestId ||
+    createPlazaClientRequestIdV1();
+  const expectedUpdatedAt =
+    config.updatedAt ||
+    "";
+  const requestStatus =
+    normalizeRequestStatus(
+      config.status ||
+      "Submitted"
+    );
   const isEditing = !!requestId;
   const primaryLabel =
     config.submitLabel ||
@@ -9536,8 +11611,10 @@ function buildApplicationDrawer(config = {}) {
       ` : ""}
 
       <form class="yh-plaza-modal-form" id="plazaApplicationForm">
-        <input type="hidden" name="requestId" value="${escapeHtml(requestId)}" />
-        <input type="hidden" name="sourceType" value="${escapeHtml(sourceType)}" />
+    <input type="hidden" name="requestId" value="${escapeHtml(requestId)}" />
+    <input type="hidden" name="clientRequestId" value="${escapeHtml(clientRequestId)}" />
+    <input type="hidden" name="expectedUpdatedAt" value="${escapeHtml(expectedUpdatedAt)}" />
+    <input type="hidden" name="sourceType" value="${escapeHtml(sourceType)}" />
         <input type="hidden" name="targetId" value="${escapeHtml(targetId)}" />
         <input type="hidden" name="targetLabel" value="${escapeHtml(targetLabel)}" />
         <input type="hidden" name="context" value="${escapeHtml(context)}" />
@@ -9618,6 +11695,12 @@ function openRequestEditDrawer(requestId) {
   if (normalizeObjective(request.objective) === "Hiring") {
     buildApplicationDrawer({
       requestId: request.id,
+          clientRequestId:
+      request.clientRequestId || "",
+    updatedAt:
+      request.updatedAt ||
+      request.createdAt ||
+      "",
       kicker: request.status === "Closed" ? "Reopen Application" : "Edit Application",
       title: request.targetLabel || "Edit Plaza Application",
       sourceType: request.sourceType || "opportunity",
@@ -9639,6 +11722,12 @@ function openRequestEditDrawer(requestId) {
 
   buildRequestDrawer({
     requestId: request.id,
+        clientRequestId:
+      request.clientRequestId || "",
+    updatedAt:
+      request.updatedAt ||
+      request.createdAt ||
+      "",
     kicker: request.status === "Closed" ? "Reopen Request" : "Edit Request",
     title: request.targetLabel || "Edit Plaza Request",
     sourceType: request.sourceType || "general",
@@ -9663,7 +11752,7 @@ function openRequestDeleteModal(requestId) {
     title: "Remove this Plaza request?",
     bodyHtml: `
       <div class="yh-plaza-modal-copy">
-        This will permanently remove <strong>${escapeHtml(request.targetLabel || "this request")}</strong> from My Requests.
+        This will remove <strong>${escapeHtml(request.targetLabel || "this request")}</strong> from My Requests while preserving its audit record.
       </div>
 
       <div class="yh-plaza-request-summary">
@@ -10896,13 +12985,10 @@ if (confirmRequestDeleteBtn instanceof HTMLButtonElement) {
     confirmRequestDeleteBtn,
     "Deleting.",
     async () => {
-      let deleted = false;
-
-      if (plazaServerRequestsLoaded) {
-        deleted = await deletePlazaRequestFromServer(requestId);
-      } else {
-        deleted = plazaAdapter.deleteRequest(requestId);
-      }
+      const deleted =
+        await deletePlazaRequestFromServer(
+          requestId
+        );
 
       if (deleted) {
         plazaOpsAdapter.removeIncomingByRequestId(requestId);
@@ -10927,9 +13013,10 @@ if (requestAdvanceBtn instanceof HTMLButtonElement) {
     requestAdvanceBtn,
     "Processing.",
     async () => {
-      const updatedRequest = plazaServerRequestsLoaded
-        ? await advancePlazaRequestStatus(requestId)
-        : plazaAdapter.advanceRequestStatus(requestId);
+      const updatedRequest =
+        await advancePlazaRequestStatus(
+          requestId
+        );
 
       if (updatedRequest) {
         plazaOpsAdapter.syncIncomingStatusFromRequest(updatedRequest);
@@ -11105,6 +13192,16 @@ if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
         const submitMode = String(submitButton?.dataset.requestSubmitMode || "send");
 
         const payload = {
+          clientRequestId:
+            String(
+              data.get("clientRequestId") ||
+              ""
+            ),
+          expectedUpdatedAt:
+            String(
+              data.get("expectedUpdatedAt") ||
+              ""
+            ),
           sourceType: String(data.get("sourceType") || "general"),
           targetId: String(data.get("targetId") || ""),
           targetLabel: String(data.get("targetLabel") || "General Plaza request"),
@@ -11139,38 +13236,39 @@ if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
 
         let savedRequest = null;
 
-        if (requestId && plazaServerRequestsLoaded && typeof updatePlazaRequestOnServer === "function") {
-          try {
-            savedRequest = await updatePlazaRequestOnServer(requestId, {
-              ...payload,
-              status: targetStatus
-            });
-          } catch (error) {
-            console.error("update structured Plaza request on server failed:", error);
-          }
-        }
-
-        if (!savedRequest) {
-          try {
-            savedRequest = await createPlazaRequest({
-              ...payload,
-              status: targetStatus
-            });
-          } catch (error) {
-            console.error("create structured Plaza request on server failed:", error);
-          }
-        }
-
-        if (!savedRequest) {
-          savedRequest = existingRequest
-            ? plazaAdapter.updateRequest(requestId, {
-                ...payload,
-                status: targetStatus
-              })
-            : plazaAdapter.createRequest({
+        try {
+          savedRequest = requestId
+            ? await updatePlazaRequestOnServer(
+                requestId,
+                {
+                  ...payload,
+                  status: targetStatus
+                }
+              )
+            : await createPlazaRequest({
                 ...payload,
                 status: targetStatus
               });
+        } catch (error) {
+          console.error(
+            "save structured Plaza request failed:",
+            error
+          );
+
+          showToast(
+            error?.message ||
+              "Plaza request was not saved. Reload and retry.",
+            "error"
+          );
+          return;
+        }
+
+        if (!savedRequest) {
+          showToast(
+            "Plaza request was not saved. Reload and retry.",
+            "error"
+          );
+          return;
         }
 
         if (targetStatus === "Draft") {
@@ -11236,6 +13334,16 @@ if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
         }
 
         const payload = {
+          clientRequestId:
+            String(
+              data.get("clientRequestId") ||
+              ""
+            ),
+          expectedUpdatedAt:
+            String(
+              data.get("expectedUpdatedAt") ||
+              ""
+            ),
           sourceType: String(data.get("sourceType") || "opportunity"),
           targetId: String(data.get("targetId") || ""),
           targetLabel: String(data.get("targetLabel") || "Hiring lane"),
@@ -11259,38 +13367,39 @@ if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
 
         let savedRequest = null;
 
-        if (requestId && plazaServerRequestsLoaded && typeof updatePlazaRequestOnServer === "function") {
-          try {
-            savedRequest = await updatePlazaRequestOnServer(requestId, {
-              ...payload,
-              status: targetStatus
-            });
-          } catch (error) {
-            console.error("update Plaza application request on server failed:", error);
-          }
-        }
-
-        if (!savedRequest) {
-          try {
-            savedRequest = await createPlazaRequest({
-              ...payload,
-              status: targetStatus
-            });
-          } catch (error) {
-            console.error("create Plaza application request on server failed:", error);
-          }
-        }
-
-        if (!savedRequest) {
-          savedRequest = existingRequest
-            ? plazaAdapter.updateRequest(requestId, {
-                ...payload,
-                status: targetStatus
-              })
-            : plazaAdapter.createRequest({
+        try {
+          savedRequest = requestId
+            ? await updatePlazaRequestOnServer(
+                requestId,
+                {
+                  ...payload,
+                  status: targetStatus
+                }
+              )
+            : await createPlazaRequest({
                 ...payload,
                 status: targetStatus
               });
+        } catch (error) {
+          console.error(
+            "save Plaza application request failed:",
+            error
+          );
+
+          showToast(
+            error?.message ||
+              "Plaza application was not saved. Reload and retry.",
+            "error"
+          );
+          return;
+        }
+
+        if (!savedRequest) {
+          showToast(
+            "Plaza application was not saved. Reload and retry.",
+            "error"
+          );
+          return;
         }
 
         if (targetStatus === "Draft") {
@@ -11478,19 +13587,33 @@ async function submitPlazaFeedComposer(event) {
   setButtonBusy(submitButton, "Posting...");
 
   try {
-    await createPlazaFeedPost(payload);
+    const result =
+      await createPlazaFeedPost(
+        payload
+      );
 
     plazaFeedComposerForm.reset();
-    plazaRuntime.feedFilter = "all";
 
-    plazaFeedFilters.forEach((item) => {
-      item.classList.toggle("is-active", item.dataset.feedFilter === "all");
-    });
+    if (result.published) {
+      plazaRuntime.feedFilter = "all";
 
-    renderFeed("all");
+      plazaFeedFilters.forEach((item) => {
+        item.classList.toggle(
+          "is-active",
+          item.dataset.feedFilter === "all"
+        );
+      });
+
+      renderFeed("all");
+    }
 
     if (typeof showToast === "function") {
-      showToast("Plaza signal posted.", "success");
+      showToast(
+        result.published
+          ? "Plaza signal posted."
+          : "Plaza signal submitted for admin review.",
+        "success"
+      );
     }
   } catch (error) {
     console.error("submitPlazaFeedComposer error:", error);
@@ -11555,13 +13678,24 @@ async function submitPlazaOpportunityComposer(event) {
   setButtonBusy(submitButton, "Posting...");
 
   try {
-    await createPlazaOpportunity(payload);
+    const result =
+      await createPlazaOpportunity(
+        payload
+      );
 
     plazaOpportunityComposerForm.reset();
-    renderOpportunities();
+
+    if (result.published) {
+      renderOpportunities();
+    }
 
     if (typeof showToast === "function") {
-      showToast("Plaza opportunity submitted for admin review.", "success");
+      showToast(
+        result.published
+          ? "Plaza opportunity published."
+          : "Plaza opportunity submitted for admin review.",
+        "success"
+      );
     }
   } catch (error) {
     console.error("submitPlazaOpportunityComposer error:", error);
@@ -11670,13 +13804,24 @@ async function submitPlazaRegionComposer(event) {
   setButtonBusy(submitButton, "Creating...");
 
   try {
-    await createPlazaRegion(payload);
+    const result =
+      await createPlazaRegion(
+        payload
+      );
 
     plazaRegionComposerForm.reset();
-    renderRegions();
+
+    if (result.published) {
+      renderRegions();
+    }
 
     if (typeof showToast === "function") {
-      showToast("Region hub created.", "success");
+      showToast(
+        result.published
+          ? "Region hub created."
+          : "Region hub submitted for review.",
+        "success"
+      );
     }
   } catch (error) {
     console.error("submitPlazaRegionComposer error:", error);
@@ -11840,13 +13985,24 @@ async function submitPlazaBridgeComposer(event) {
   setButtonBusy(submitButton, "Creating...");
 
   try {
-    await createPlazaBridge(payload);
+    const result =
+      await createPlazaBridge(
+        payload
+      );
 
     plazaBridgeComposerForm.reset();
-    renderBridge();
+
+    if (result.published) {
+      renderBridge();
+    }
 
     if (typeof showToast === "function") {
-      showToast("Bridge path created.", "success");
+      showToast(
+        result.published
+          ? "Bridge path created."
+          : "Bridge path submitted for review.",
+        "success"
+      );
     }
   } catch (error) {
     console.error("submitPlazaBridgeComposer error:", error);
@@ -13379,6 +15535,14 @@ if (plazaRequestComposerForm) {
   };
 
   const plazaHydrationLoaders = {
+    reputation: () =>
+      loadPlazaReputationFromServerV1({
+        silent:
+          shouldLoadSilently(
+            "explorer"
+          )
+      }),
+
     feed: () =>
       loadPlazaFeedFromServer({
         silent: shouldLoadSilently("feed")
@@ -13428,7 +15592,7 @@ if (plazaRequestComposerForm) {
   };
 
   const criticalHydrationKeysByScreen = {
-    explorer: ["feed", "opportunities", "directory", "regions"],
+    explorer: ["reputation", "feed", "opportunities", "directory", "regions"],
     feed: ["feed"],
     inbox: ["requests", "messages"],
     messages: ["messages"],
@@ -13615,6 +15779,7 @@ initPlaza();
         if (clean === 'conversations') return 'messages';
 
         const allowed = new Set([
+            'explorer',
             'feed',
             'inbox',
             'messages',

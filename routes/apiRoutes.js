@@ -12,6 +12,7 @@ const plazaBridgeRequestsSupabaseLiteControllers = require('../controllers/plaza
 const plazaMeetupsSupabaseLiteControllers = require('../controllers/plazaMeetupsSupabaseLiteControllers');
 const plazaBusinessMessagesSupabaseLiteControllers = require('../controllers/plazaBusinessMessagesSupabaseLiteControllers');
 const plazaPatronSupabaseLiteControllers = require('../controllers/plazaPatronSupabaseLiteControllers');
+const federationInfluenceControllers = require('../controllers/federationInfluenceControllers');
 const aiNurtureControllers = require('../controllers/aiNurtureControllers');
 const publicLandingController = require('../controllers/publicLandingController');
 const paymentControllers = require('../controllers/paymentControllers');
@@ -73,6 +74,12 @@ router.get('/academy/membership-status', auth, academyControllers.getMembershipS
 router.post('/academy/roadmap-apply', auth, academyControllers.submitRoadmapApplication);
 router.get('/academy/home', auth, academyControllers.getAcademyHome);
 router.get('/academy/champions', auth, academyControllers.getAcademyChampions);
+
+router.post(
+    '/academy/quests/:questId/claim',
+    auth,
+    academyControllers.claimAcademyQuestReward
+);
 
 router.get(
     '/academy/progression',
@@ -300,6 +307,13 @@ router.post('/plaza/feed/posts', auth, plazaSupabaseLiteControllers.createFeedPo
 router.get('/plaza/opportunities', auth, plazaSupabaseLiteControllers.getOpportunities);
 router.post('/plaza/opportunities', auth, plazaSupabaseLiteControllers.createOpportunity);
 
+router.get(
+    '/plaza/reputation',
+    auth,
+    plazaSupabaseLiteControllers
+        .getMyReputationLedger
+);
+
 router.get('/plaza/directory', auth, plazaDirectoryRegionsSupabaseLiteControllers.getDirectory);
 router.post('/plaza/directory/profile', auth, plazaDirectoryRegionsSupabaseLiteControllers.upsertDirectoryProfile);
 
@@ -340,6 +354,16 @@ router.post('/plaza/messages/:id/block', auth, plazaBusinessMessagesSupabaseLite
 router.get('/plaza/meetups', auth, plazaMeetupsSupabaseLiteControllers.getMeetups);
 router.post('/plaza/meetups', auth, plazaMeetupsSupabaseLiteControllers.createMeetup);
 router.patch('/plaza/meetups/:id/patron-status', auth, plazaMeetupsSupabaseLiteControllers.updatePatronMeetupStatus);
+
+// ==========================================
+// 🏛️ YH FEDERATION INFLUENCE ROUTES
+// ==========================================
+router.get(
+    '/federation/influence',
+    auth,
+    federationInfluenceControllers
+        .getMyInfluenceLedger
+);
 
 // ==========================================
 // 💳 YH PROVIDER-NEUTRAL PAYMENT LEDGER ROUTES

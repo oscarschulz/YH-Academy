@@ -12,7 +12,12 @@
     let academyProgressionLoadPromise = null;
     let academyProgressionLoaded = false;
     let academySoloModeStateV1 = null;
+    let academyQuestAchievementStateV1 = null;
     let plazaExplorerPreviewStateV2 = null;
+    let plazaReputationLoadPromiseV1 = null;
+    let plazaReputationLoadedV1 = false;
+    let federationInfluenceLoadPromiseV1 = null;
+    let federationInfluenceLoadedV1 = false;
     let federationStrategicPreviewStateV1 = null;
 
     /* PATCH: Live Squad UI state v1 */
@@ -172,6 +177,119 @@
         }
 
         return payload;
+    }
+
+    async function loadPlazaReputationOnceV1({
+        force = false
+    } = {}) {
+        if (plazaReputationLoadPromiseV1) {
+            return plazaReputationLoadPromiseV1;
+        }
+
+        if (
+            plazaReputationLoadedV1 &&
+            !force
+        ) {
+            return true;
+        }
+
+        plazaReputationLoadPromiseV1 =
+            fetchAcademyGameJson(
+                '/api/plaza/reputation?limit=50',
+                {
+                    method:
+                        'GET'
+                }
+            )
+                .then((payload) => {
+                    plazaReputationLoadedV1 =
+                        true;
+
+                    window.YHUGameCore
+                        ?.setPlazaReputationCache?.(
+                            payload || {}
+                        );
+
+                    renderDashboardGameFoundation();
+
+                    return true;
+                })
+                .catch((error) => {
+                    console.error(
+                        'loadPlazaReputationOnceV1 error:',
+                        error
+                    );
+
+                    return false;
+                })
+                .finally(() => {
+                    plazaReputationLoadPromiseV1 =
+                        null;
+                });
+
+        return plazaReputationLoadPromiseV1;
+    }
+
+    async function loadFederationInfluenceOnceV1({
+        force = false
+    } = {}) {
+        if (federationInfluenceLoadPromiseV1) {
+            return federationInfluenceLoadPromiseV1;
+        }
+
+        if (
+            federationInfluenceLoadedV1 &&
+            !force
+        ) {
+            return true;
+        }
+
+        federationInfluenceLoadPromiseV1 =
+            fetchAcademyGameJson(
+                '/api/federation/influence?limit=50',
+                {
+                    method:
+                        'GET'
+                }
+            )
+                .then((payload) => {
+                    federationInfluenceLoadedV1 =
+                        true;
+
+                    window.YHUGameCore
+                        ?.setFederationInfluenceCache?.(
+                            payload || {}
+                        );
+
+                    renderDashboardGameFoundation();
+
+                    return true;
+                })
+                .catch((error) => {
+                    const status =
+                        Number(
+                            error?.status ||
+                            0
+                        );
+
+                    if (
+                        status !== 401 &&
+                        status !== 403
+                    ) {
+                        console.error(
+                            'loadFederationInfluenceOnceV1 error:',
+                            error
+                        );
+                    }
+
+                    return false;
+                })
+                .finally(() => {
+                    federationInfluenceLoadPromiseV1 =
+                        null;
+                });
+
+        return federationInfluenceLoadPromiseV1;
     }
 
 
@@ -553,6 +671,320 @@
         `;
     }
 
+    /* PATCH: Academy Quest and Achievement Dashboard preview v1 */
+
+    function extractAcademyQuestAchievementStateV1(
+        payload = {}
+    ) {
+        if (
+            payload?.questAchievementState &&
+            typeof payload.questAchievementState ===
+                'object'
+        ) {
+            return payload.questAchievementState;
+        }
+
+        if (
+            payload?.quests &&
+            typeof payload.quests === 'object' &&
+            payload?.achievements &&
+            typeof payload.achievements === 'object'
+        ) {
+            return {
+                version:
+                    payload?.questPersistence?.version ||
+                    'academy-quest-achievement-v1',
+
+                serverBacked:
+                    payload?.questPersistence?.serverBacked ===
+                    true,
+
+                persistent:
+                    payload?.questPersistence?.persistent ===
+                    true,
+
+                quests:
+                    payload.quests,
+
+                achievements:
+                    payload.achievements
+            };
+        }
+
+        return null;
+    }
+
+    function syncAcademyQuestAchievementStateV1(
+        payload = {}
+    ) {
+        const state =
+            extractAcademyQuestAchievementStateV1(
+                payload
+            );
+
+        if (!state) {
+            return null;
+        }
+
+        academyQuestAchievementStateV1 = {
+            ...state,
+
+            quests:
+                state?.quests &&
+                typeof state.quests ===
+                    'object'
+                    ? {
+                        ...state.quests,
+
+                        daily:
+                            Array.isArray(
+                                state.quests.daily
+                            )
+                                ? state.quests.daily.map(
+                                    (quest) => ({
+                                        ...quest
+                                    })
+                                )
+                                : [],
+
+                        weekly:
+                            Array.isArray(
+                                state.quests.weekly
+                            )
+                                ? state.quests.weekly.map(
+                                    (quest) => ({
+                                        ...quest
+                                    })
+                                )
+                                : []
+                    }
+                    : {},
+
+            achievements:
+                state?.achievements &&
+                typeof state.achievements ===
+                    'object'
+                    ? {
+                        ...state.achievements,
+
+                        unlocked:
+                            Array.isArray(
+                                state.achievements
+                                    .unlocked
+                            )
+                                ? state.achievements
+                                    .unlocked
+                                    .map(
+                                        (achievement) => ({
+                                            ...achievement
+                                        })
+                                    )
+                                : [],
+
+                        primary:
+                            state.achievements
+                                .primary &&
+                            typeof state.achievements
+                                .primary ===
+                                'object'
+                                ? {
+                                    ...state.achievements
+                                        .primary
+                                }
+                                : null
+                    }
+                    : {}
+        };
+
+        return academyQuestAchievementStateV1;
+    }
+
+    function buildAcademyQuestAchievementPreviewV1() {
+        const state =
+            academyQuestAchievementStateV1;
+
+        if (!state) {
+            return `
+                <div class="yh-game-solo-preview-v1 is-loading">
+                    <small>Quest Ledger</small>
+
+                    <strong>
+                        Syncing server-backed quests...
+                    </strong>
+                </div>
+            `;
+        }
+
+        const quests =
+            state?.quests &&
+            typeof state.quests ===
+                'object'
+                ? state.quests
+                : {};
+
+        const achievements =
+            state?.achievements &&
+            typeof state.achievements ===
+                'object'
+                ? state.achievements
+                : {};
+
+        const completedUnclaimed =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        quests.completedUnclaimed ||
+                        0
+                    )
+                )
+            );
+
+        const claimed =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        quests.claimed ||
+                        0
+                    )
+                )
+            );
+
+        const unlockedCount =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        achievements.unlockedCount ||
+                        0
+                    )
+                )
+            );
+
+        const totalAvailable =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        achievements.totalAvailable ||
+                        0
+                    )
+                )
+            );
+
+        const primary =
+            achievements.primary &&
+            typeof achievements.primary ===
+                'object'
+                ? achievements.primary
+                : null;
+
+        const primaryLabel =
+            String(
+                primary?.label ||
+                'No achievement unlocked'
+            ).trim();
+
+        const rarity =
+            String(
+                primary.rarity ||
+                'Locked'
+            ).trim();
+
+        const helperScore =
+            achievements.helperScore &&
+            typeof achievements.helperScore ===
+                'object'
+                ? achievements.helperScore
+                : {};
+
+        const helperScoreValue =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        helperScore.value ||
+                        0
+                    )
+                )
+            );
+
+        const helperWeeklyValue =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        helperScore.weeklyValue ||
+                        0
+                    )
+                )
+            );
+
+        const persistenceLabel =
+            state.serverBacked === true &&
+            state.persistent === true
+                ? 'Persistent'
+                : 'Server state pending';
+
+        return `
+            <div class="yh-game-solo-preview-v1">
+                <div class="yh-game-solo-preview-head-v1">
+                    <div>
+                        <small>
+                            Quest Ledger
+                        </small>
+
+                        <strong>
+                            ${escapeHtml(
+                                persistenceLabel
+                            )}
+                        </strong>
+                    </div>
+
+                    <span>
+                        ${completedUnclaimed}
+                    </span>
+                </div>
+
+                <div class="yh-game-solo-preview-stats-v1">
+                    <span>
+                        <b>${completedUnclaimed}</b>
+                        Ready
+                    </span>
+
+                    <span>
+                        <b>${claimed}</b>
+                        Claimed
+                    </span>
+
+                    <span>
+                        <b>${unlockedCount}/${totalAvailable}</b>
+                        Achievements
+                    </span>
+                </div>
+
+                <div class="yh-game-solo-preview-strongest-v1">
+                    <small>
+                        Primary Achievement • Helper Score
+                    </small>
+
+                    <strong>
+                        ${escapeHtml(primaryLabel)}
+
+                        <span>
+                            ${escapeHtml(rarity)} •
+                            ${helperScoreValue.toLocaleString()} total •
+                            ${helperWeeklyValue.toLocaleString()} weekly
+                        </span>
+                    </strong>
+                </div>
+            </div>
+        `;
+    }
+
+    /* END PATCH: Academy Quest and Achievement Dashboard preview v1 */
+
     /* END PATCH: Phase 3C.7B — Dashboard Solo Mode preview v1 */
 
     async function loadAcademyProgressionOnce({
@@ -577,6 +1009,10 @@
                     );
 
                 syncAcademySoloModeStateV1(
+                    progressionPayload
+                );
+
+                syncAcademyQuestAchievementStateV1(
                     progressionPayload
                 );
 
@@ -4836,8 +5272,19 @@ function openSquadDetailsModalV1(
         const preview =
             readPlazaExplorerPreviewV2();
 
+        const canonical =
+            window.YHUGameCore
+                ?.getPlazaSnapshot?.() ||
+            {};
+
+        const reputationLoaded =
+            canonical
+                .hasPersistentReputation ===
+            true;
+
         const rank =
             String(
+                canonical.rank ||
                 preview?.rank ||
                 'Newcomer'
             ).trim();
@@ -4870,11 +5317,38 @@ function openSquadDetailsModalV1(
                 )
             );
 
-        const reputationStatus =
-            String(
-                preview?.reputationStatus ||
-                'Wiring pending'
-            ).trim();
+        const totalReputation =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        canonical.totalReputation ||
+                        0
+                    )
+                )
+            );
+
+        const weeklyReputation =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        canonical.weeklyReputation ||
+                        0
+                    )
+                )
+            );
+
+        const eventCount =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        canonical.eventCount ||
+                        0
+                    )
+                )
+            );
 
         const activeQuestTitle =
             String(
@@ -4891,7 +5365,11 @@ function openSquadDetailsModalV1(
                     </div>
 
                     <span>
-                        Frontend Preview
+                        ${
+                            reputationLoaded
+                                ? 'Live Ledger'
+                                : 'Syncing Ledger'
+                        }
                     </span>
                 </div>
 
@@ -4912,8 +5390,8 @@ function openSquadDetailsModalV1(
                     </span>
 
                     <span>
-                        <small>Reputation</small>
-                        <b>${escapeHtml(reputationStatus)}</b>
+                        <small>Total Reputation</small>
+                        <b>${totalReputation.toLocaleString()}</b>
                     </span>
                 </div>
 
@@ -4925,15 +5403,20 @@ function openSquadDetailsModalV1(
                                 ? escapeHtml(
                                     activeQuestTitle
                                 )
-                                : 'Open Explorer Mode'
+                                : escapeHtml(
+                                    canonical.nextObjective ||
+                                    'Open Explorer Mode'
+                                )
                         }
                     </strong>
                 </div>
 
                 <p>
-                    Current Plaza signals can populate this preview.
-                    Verified reputation, quest completion, and higher
-                    Explorer ranks remain unwired until the backend pass.
+                    ${
+                        reputationLoaded
+                            ? `${weeklyReputation.toLocaleString()} Reputation this week across ${eventCount.toLocaleString()} immutable verified events.`
+                            : 'Syncing the canonical Plaza Reputation ledger. No Academy-readiness fallback is used.'
+                    }
                 </p>
             </div>
         `;
@@ -5000,55 +5483,147 @@ function openSquadDetailsModalV1(
     }
 
     function buildFederationStrategicPreviewV1() {
-        const preview = readFederationStrategicPreviewV1();
+        const preview =
+            readFederationStrategicPreviewV1();
 
-        const rank = String(preview?.rank || 'Observer').trim();
-        const homeRegion = String(preview?.homeRegion || 'Not established').trim();
-        const activeOperations = Math.max(
-            0,
-            Math.round(Number(preview?.activeOperations || 0))
-        );
-        const strategicAlerts = Math.max(
-            0,
-            Math.round(Number(preview?.strategicAlerts || 0))
-        );
-        const influenceStatus = String(
-            preview?.influenceStatus || 'Wiring pending'
-        ).trim();
-        const operationTitle = String(
-            preview?.activeOperation?.title || ''
-        ).trim();
-        const operationPhase = String(
-            preview?.activeOperation?.phase || 'No active phase'
-        ).trim();
-        const operationRisk = String(
-            preview?.activeOperation?.risk || 'Not assessed'
-        ).trim();
-        const influenceWired = Math.max(
-            0,
-            Math.round(Number(preview?.influenceFramework?.wired || 0))
-        );
-        const influenceTotal = Math.max(
-            0,
-            Math.round(Number(preview?.influenceFramework?.total || 6))
-        );
-        const councilStatus = String(
-            preview?.governance?.councilStatus || 'Wiring pending'
-        ).trim();
-        const activeProposals = Math.max(
-            0,
-            Math.round(Number(preview?.governance?.activeProposals || 0))
-        );
-        const diplomaticSignals = Math.max(
-            0,
-            Math.round(Number(preview?.diplomacy?.totalSignals || 0))
-        );
-        const regionalStrategyState = String(
-            preview?.regionalStrategy?.status || 'No regional signal'
-        ).trim();
-        const governanceAuthority = String(
-            preview?.governance?.governanceAuthority || 'Wiring pending'
-        ).trim();
+        const canonical =
+            window.YHUGameCore
+                ?.getFederationSnapshot?.() ||
+            {};
+
+        const influenceLoaded =
+            canonical
+                .hasPersistentInfluence ===
+            true;
+
+        const rank =
+            String(
+                canonical.rank ||
+                preview?.rank ||
+                'Observer'
+            ).trim();
+
+        const homeRegion =
+            String(
+                preview?.homeRegion ||
+                'Not established'
+            ).trim();
+
+        const activeOperations =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        preview?.activeOperations ||
+                        0
+                    )
+                )
+            );
+
+        const strategicAlerts =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        preview?.strategicAlerts ||
+                        0
+                    )
+                )
+            );
+
+        const totalInfluence =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        canonical.totalInfluence ||
+                        0
+                    )
+                )
+            );
+
+        const weeklyInfluence =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        canonical.weeklyInfluence ||
+                        0
+                    )
+                )
+            );
+
+        const influenceEventCount =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        canonical.eventCount ||
+                        0
+                    )
+                )
+            );
+
+        const operationTitle =
+            String(
+                preview?.activeOperation?.title ||
+                ''
+            ).trim();
+
+        const operationPhase =
+            String(
+                preview?.activeOperation?.phase ||
+                'No active phase'
+            ).trim();
+
+        const operationRisk =
+            String(
+                preview?.activeOperation?.risk ||
+                'Not assessed'
+            ).trim();
+
+        const councilStatus =
+            String(
+                preview?.governance?.councilStatus ||
+                'Wiring pending'
+            ).trim();
+
+        const activeProposals =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        preview?.governance
+                            ?.activeProposals ||
+                        0
+                    )
+                )
+            );
+
+        const diplomaticSignals =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        preview?.diplomacy
+                            ?.totalSignals ||
+                        0
+                    )
+                )
+            );
+
+        const regionalStrategyState =
+            String(
+                preview?.regionalStrategy?.status ||
+                'No regional signal'
+            ).trim();
+
+        const governanceAuthority =
+            String(
+                preview?.governance
+                    ?.governanceAuthority ||
+                'Wiring pending'
+            ).trim();
 
         return `
             <div class="yh-game-federation-strategic-preview-v1">
@@ -5057,7 +5632,14 @@ function openSquadDetailsModalV1(
                         <small>Strategic Profile</small>
                         <strong>${escapeHtml(rank)}</strong>
                     </div>
-                    <span>Frontend Preview</span>
+
+                    <span>
+                        ${
+                            influenceLoaded
+                                ? 'Live Ledger'
+                                : 'Syncing Ledger'
+                        }
+                    </span>
                 </div>
 
                 <div class="yh-game-federation-strategic-stats-v1">
@@ -5065,24 +5647,36 @@ function openSquadDetailsModalV1(
                         <small>Home Region</small>
                         <b>${escapeHtml(homeRegion)}</b>
                     </span>
+
                     <span>
                         <small>Active Operations</small>
                         <b>${activeOperations}</b>
                     </span>
+
                     <span>
                         <small>Strategic Alerts</small>
                         <b>${strategicAlerts}</b>
                     </span>
+
                     <span>
-                        <small>Influence</small>
-                        <b>${escapeHtml(influenceStatus)}</b>
+                        <small>Total Influence</small>
+                        <b>${totalInfluence.toLocaleString()}</b>
                     </span>
                 </div>
 
                 <div class="yh-game-federation-strategic-next-v1">
                     <small>Current Next Move</small>
                     <strong>
-                        ${operationTitle ? escapeHtml(operationTitle) : 'Open Strategic Command'}
+                        ${
+                            operationTitle
+                                ? escapeHtml(
+                                    operationTitle
+                                )
+                                : escapeHtml(
+                                    canonical.nextObjective ||
+                                    'Open Strategic Command'
+                                )
+                        }
                     </strong>
                 </div>
 
@@ -5091,13 +5685,15 @@ function openSquadDetailsModalV1(
                         <small>Operation Phase</small>
                         <b>${escapeHtml(operationPhase)}</b>
                     </span>
+
                     <span>
                         <small>Risk Context</small>
                         <b>${escapeHtml(operationRisk)}</b>
                     </span>
+
                     <span>
-                        <small>Influence Layers</small>
-                        <b>${influenceWired}/${influenceTotal} wired</b>
+                        <small>Verified Events</small>
+                        <b>${influenceEventCount.toLocaleString()}</b>
                     </span>
                 </div>
 
@@ -5106,14 +5702,17 @@ function openSquadDetailsModalV1(
                         <small>Council Status</small>
                         <b>${escapeHtml(councilStatus)}</b>
                     </span>
+
                     <span>
                         <small>Active Proposals</small>
                         <b>${activeProposals}</b>
                     </span>
+
                     <span>
                         <small>Diplomatic Signals</small>
                         <b>${diplomaticSignals}</b>
                     </span>
+
                     <span>
                         <small>Regional Strategy State</small>
                         <b>${escapeHtml(regionalStrategyState)}</b>
@@ -5126,13 +5725,18 @@ function openSquadDetailsModalV1(
                 </div>
 
                 <p>
-                    Council, governance, diplomacy, and regional strategy now use
-                    current Federation source signals. Votes, seats, alliances,
-                    rewards, promotions, and authority remain disabled until backend wiring.
+                    ${
+                        influenceLoaded
+                            ? `${weeklyInfluence.toLocaleString()} Influence this week across ${influenceEventCount.toLocaleString()} immutable verified events.`
+                            : 'Syncing the canonical Federation Influence ledger. No Academy or Plaza fallback is used.'
+                    }
+                    Council seats, votes, alliances, and governance authority remain disabled.
                 </p>
             </div>
         `;
     }
+
+
 
     /* END PATCH: Phase 3E-FE-1 — Dashboard Federation Strategic preview v1 */
 
@@ -5144,6 +5748,14 @@ function openSquadDetailsModalV1(
         const isPersistentAcademy =
             division === 'academy' &&
             snapshot.hasPersistentProgression === true;
+
+        const isPersistentPlaza =
+            division === 'plaza' &&
+            snapshot.hasPersistentReputation === true;
+
+        const isPersistentFederation =
+            division === 'federation' &&
+            snapshot.hasPersistentInfluence === true;
 
         const title =
             division === 'academy'
@@ -5201,15 +5813,40 @@ function openSquadDetailsModalV1(
                             ${
                                 isPersistentAcademy
                                     ? 'Rank Progress'
-                                    : isPreview
-                                        ? 'Readiness Preview'
-                                        : 'Readiness Signal'
+                                    : isPersistentPlaza
+                                        ? 'Total Reputation'
+                                        : isPersistentFederation
+                                            ? 'Total Influence'
+                                            : isPreview
+                                                ? 'Readiness Preview'
+                                                : 'Readiness Signal'
                             }
                         </small>
 
                         <div>
-                            <strong>${score}</strong>
-                            <span>/100</span>
+                            <strong>
+                                ${
+                                    isPersistentPlaza
+                                        ? Number(
+                                            snapshot.totalReputation ||
+                                            0
+                                        ).toLocaleString()
+                                        : isPersistentFederation
+                                            ? Number(
+                                                snapshot.totalInfluence ||
+                                                0
+                                            ).toLocaleString()
+                                            : score
+                                }
+                            </strong>
+                            <span>
+                                ${
+                                    isPersistentPlaza ||
+                                    isPersistentFederation
+                                        ? 'pts'
+                                        : '/100'
+                                }
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -5238,7 +5875,10 @@ function openSquadDetailsModalV1(
 
                 ${
                     division === 'academy'
-                        ? buildAcademySoloModePreviewV1()
+                        ? (
+                            buildAcademySoloModePreviewV1() +
+                            buildAcademyQuestAchievementPreviewV1()
+                        )
                         : division === 'plaza'
                             ? buildPlazaOpenWorldPreviewV1()
                             : division === 'federation'
@@ -5655,6 +6295,28 @@ function resolveAcademyLeaderboardNameV1(
             ? academyLeaderboard.leaderboard
             : [];
 
+        const leaderboardFreshnessStatus =
+            String(
+                academyLeaderboard
+                    ?.freshness
+                    ?.status ||
+                ''
+            )
+                .trim()
+                .toLowerCase();
+
+        const leaderboardFreshnessLabel =
+            leaderboardFreshnessStatus ===
+            'fresh'
+                ? 'Fresh'
+                : leaderboardFreshnessStatus ===
+                    'mixed_aging'
+                    ? 'Some aging'
+                    : leaderboardFreshnessStatus ===
+                        'mixed_stale'
+                        ? 'Some stale'
+                        : 'Server ranked';
+
         if (leaderboard.length) {
             return `
                 <article class="yh-game-side-card yh-game-leaderboard-card">
@@ -5667,8 +6329,8 @@ function resolveAcademyLeaderboardNameV1(
                         <span class="yh-game-preview-badge">
                             ${
                                 academyLeaderboard.playerPosition
-                                    ? `You: #${academyLeaderboard.playerPosition}`
-                                    : 'Weekly'
+                                    ? `You: #${academyLeaderboard.playerPosition} · ${leaderboardFreshnessLabel}`
+                                    : `Weekly · ${leaderboardFreshnessLabel}`
                             }
                         </span>
                     </div>
@@ -5694,6 +6356,11 @@ function resolveAcademyLeaderboardNameV1(
                                         <small>
                                             ${escapeHtml(entry.rank || 'Initiate')}
                                             • Level ${Number(entry.level || 1)}
+                                            ${
+                                                entry.stale
+                                                    ? ' • Stale'
+                                                    : ''
+                                            }
                                         </small>
                                     </div>
 
@@ -6913,7 +7580,9 @@ function resolveAcademyLeaderboardNameV1(
             Promise.allSettled([
                 loadAcademyProgressionOnce(),
                 loadAcademySquadV1(),
-                loadAcademySquadMissionsV1()
+                loadAcademySquadMissionsV1(),
+                loadPlazaReputationOnceV1(),
+                loadFederationInfluenceOnceV1()
             ])
                 .then(() => {
                     academyGameLastRefreshAtV1 =
@@ -6981,6 +7650,12 @@ function resolveAcademyLeaderboardNameV1(
                     }),
                     loadAcademySquadMissionsV1({
                         force: true
+                    }),
+                    loadPlazaReputationOnceV1({
+                        force: true
+                    }),
+                    loadFederationInfluenceOnceV1({
+                        force: true
                     })
                 ]).then(() => {
                     academyGameLastRefreshAtV1 =
@@ -7009,7 +7684,9 @@ function resolveAcademyLeaderboardNameV1(
             Promise.allSettled([
                 loadAcademyProgressionOnce({ force: true }),
                 loadAcademySquadV1({ force: true }),
-                loadAcademySquadMissionsV1({ force: true })
+                loadAcademySquadMissionsV1({ force: true }),
+                loadPlazaReputationOnceV1({ force: true }),
+                loadFederationInfluenceOnceV1({ force: true })
             ]).then(() => {
                 academyGameLastRefreshAtV1 = Date.now();
                 renderDashboardGameFoundation();
@@ -7021,6 +7698,17 @@ function resolveAcademyLeaderboardNameV1(
         'yhu:academy-progression-updated',
         (event) => {
             syncAcademySoloModeStateV1(
+                event?.detail || {}
+            );
+
+            renderDashboardGameFoundation();
+        }
+    );
+
+    window.addEventListener(
+        'yhu:academy-quest-state-updated',
+        (event) => {
+            syncAcademyQuestAchievementStateV1(
                 event?.detail || {}
             );
 
@@ -7100,6 +7788,58 @@ window.addEventListener(
 
         if (
             data.type ===
+            'yhu:academy-quest-state-updated'
+        ) {
+            syncAcademyQuestAchievementStateV1(
+                data.questAchievementState ||
+                data.detail ||
+                {}
+            );
+
+            renderDashboardGameFoundation();
+            return;
+        }
+
+        if (
+            data.type ===
+            'yhu:plaza-reputation-updated'
+        ) {
+            const saved =
+                window.YHUGameCore
+                    ?.setPlazaReputationCache?.(
+                        data.detail ||
+                        data.reputation ||
+                        {}
+                    );
+
+            if (saved !== true) {
+                renderDashboardGameFoundation();
+            }
+
+            return;
+        }
+
+        if (
+            data.type ===
+            'yhu:federation-influence-updated'
+        ) {
+            const saved =
+                window.YHUGameCore
+                    ?.setFederationInfluenceCache?.(
+                        data.detail ||
+                        data.influence ||
+                        {}
+                    );
+
+            if (saved !== true) {
+                renderDashboardGameFoundation();
+            }
+
+            return;
+        }
+
+        if (
+            data.type ===
             'yhu:federation-strategic-preview-updated'
         ) {
             syncFederationStrategicPreviewV1(
@@ -7129,11 +7869,31 @@ window.addEventListener(
 
 /* END PATCH: Receive Academy iframe live updates v2 */
     window.addEventListener(
+        'yhu:federation-influence-updated',
+        () => {
+            federationInfluenceLoadedV1 =
+                true;
+
+            renderDashboardGameFoundation();
+        }
+    );
+
+    window.addEventListener(
         'yhu:federation-strategic-preview-updated',
         (event) => {
             syncFederationStrategicPreviewV1(
                 event?.detail || {}
             );
+
+            renderDashboardGameFoundation();
+        }
+    );
+
+    window.addEventListener(
+        'yhu:plaza-reputation-updated',
+        () => {
+            plazaReputationLoadedV1 =
+                true;
 
             renderDashboardGameFoundation();
         }

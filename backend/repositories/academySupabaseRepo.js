@@ -157,6 +157,14 @@ function collectionPathFor(recordType = '', uid = '') {
         return `${userRoot}/academySoloEvents`;
     }
 
+    if (recordType === 'academyQuestPeriods') {
+        return `${userRoot}/academyQuestPeriods`;
+    }
+
+    if (recordType === 'academyAchievements') {
+        return `${userRoot}/academyAchievements`;
+    }
+
     return `${userRoot}/academy`;
 }
 
@@ -556,6 +564,24 @@ function mapMissionData(data = {}, id = '') {
     };
 }
 
+/* PATCH: Canonical verified Academy mission predicate v1 */
+function isAcademyMissionVerifiedCompletedV1(mission = {}) {
+    const status = sanitizeString(
+        mission.status
+    ).toLowerCase();
+
+    const verificationDecision = sanitizeString(
+        mission.verificationDecision ||
+        mission.verificationStatus
+    ).toLowerCase();
+
+    return (
+        status === 'completed' &&
+        verificationDecision === 'approved'
+    );
+}
+/* END PATCH: Canonical verified Academy mission predicate v1 */
+
 function mapCheckinData(data = {}, id = '') {
     return {
         id: sanitizeString(data.id || id),
@@ -598,56 +624,608 @@ function mapCoachMessageData(data = {}, id = '') {
 }
 
 function mapLeadMissionLeadData(data = {}, id = '') {
+    const pipelineStage =
+        sanitizeString(
+            data.pipelineStage ||
+            data.pipeline_stage ||
+            data.stage
+        );
+
+    const callOutcome =
+        sanitizeString(
+            data.callOutcome ||
+            data.call_outcome ||
+            data.outcome
+        );
+
     return {
-        id: sanitizeString(data.id || id),
-        companyName: sanitizeString(data.companyName || data.company_name),
-        contactName: sanitizeString(data.contactName || data.contact_name),
-        contactRole: sanitizeString(data.contactRole || data.contact_role),
-        email: sanitizeString(data.email).toLowerCase(),
-        phone: sanitizeString(data.phone),
-        website: sanitizeString(data.website),
-        country: sanitizeString(data.country),
-        city: sanitizeString(data.city),
-        industry: sanitizeString(data.industry),
-        tier: sanitizeString(data.tier || 'T1'),
-        status: sanitizeString(data.status || 'active'),
-        taskStatus: sanitizeString(data.taskStatus || data.task_status || 'Waiting'),
-        nextAction: sanitizeString(data.nextAction || data.next_action),
-        stage: sanitizeString(data.stage || data.pipelineStage || data.pipeline_stage),
-        outcome: sanitizeString(data.outcome || data.callOutcome || data.call_outcome),
-        followUpDueDate: sanitizeString(data.followUpDueDate || data.follow_up_due_date),
-        notes: sanitizeString(data.notes),
-        sourceMethod: sanitizeString(data.sourceMethod),
-        routedFromAdmin: data.routedFromAdmin === true,
-        assignmentStatus: sanitizeString(data.assignmentStatus),
-        callType: sanitizeString(data.callType),
-        createdAt: data.createdAt || null,
-        updatedAt: data.updatedAt || null,
+        id:
+            sanitizeString(
+                data.id ||
+                id
+            ),
+
+        ownerUid:
+            sanitizeString(
+                data.ownerUid ||
+                data.ownerUserId ||
+                data.userId
+            ),
+
+        companyName:
+            sanitizeString(
+                data.companyName ||
+                data.company_name
+            ),
+
+        companyWebsite:
+            sanitizeString(
+                data.companyWebsite ||
+                data.website
+            ),
+
+        website:
+            sanitizeString(
+                data.website ||
+                data.companyWebsite
+            ),
+
+        contactName:
+            sanitizeString(
+                data.contactName ||
+                data.contact_name
+            ),
+
+        contactRole:
+            sanitizeString(
+                data.contactRole ||
+                data.contact_role
+            ),
+
+        contactType:
+            sanitizeString(
+                data.contactType ||
+                data.contact_type ||
+                'unknown'
+            ),
+
+        email:
+            sanitizeString(
+                data.email
+            ).toLowerCase(),
+
+        phone:
+            sanitizeString(
+                data.phone
+            ),
+
+        country:
+            sanitizeString(
+                data.country
+            ),
+
+        city:
+            sanitizeString(
+                data.city
+            ),
+
+        industry:
+            sanitizeString(
+                data.industry
+            ),
+
+        tier:
+            sanitizeString(
+                data.tier ||
+                'T1'
+            ),
+
+        status:
+            sanitizeString(
+                data.status ||
+                'active'
+            ),
+
+        taskStatus:
+            sanitizeString(
+                data.taskStatus ||
+                data.task_status ||
+                'Waiting'
+            ),
+
+        nextAction:
+            sanitizeString(
+                data.nextAction ||
+                data.next_action
+            ),
+
+        stage:
+            pipelineStage,
+
+        pipelineStage,
+
+        outcome:
+            callOutcome,
+
+        callOutcome,
+
+        followUpDueDate:
+            sanitizeString(
+                data.followUpDueDate ||
+                data.follow_up_due_date
+            ),
+
+        notes:
+            sanitizeString(
+                data.notes
+            ),
+
+        sourceMethod:
+            sanitizeString(
+                data.sourceMethod
+            ),
+
+        channel:
+            sanitizeString(
+                data.channel
+            ),
+
+        priority:
+            sanitizeString(
+                data.priority
+            ),
+
+        objection:
+            sanitizeString(
+                data.objection
+            ),
+
+        interestLevel:
+            sanitizeString(
+                data.interestLevel
+            ),
+
+        rapportLevel:
+            sanitizeString(
+                data.rapportLevel
+            ),
+
+        routedFromAdmin:
+            data.routedFromAdmin ===
+            true,
+
+        assignmentStatus:
+            sanitizeString(
+                data.assignmentStatus
+            ),
+
+        reviewStatus:
+            sanitizeString(
+                data.reviewStatus
+            ),
+
+        completionProof:
+            sanitizeString(
+                data.completionProof
+            ),
+
+        submittedAt:
+            data.submittedAt ||
+            null,
+
+        submittedByUid:
+            sanitizeString(
+                data.submittedByUid
+            ),
+
+        submittedByName:
+            sanitizeString(
+                data.submittedByName
+            ),
+
+        callType:
+            sanitizeString(
+                data.callType
+            ),
+
+        sourceDivision:
+            sanitizeString(
+                data.sourceDivision
+            ),
+
+        sourceFeature:
+            sanitizeString(
+                data.sourceFeature
+            ),
+
+        sourceRecordId:
+            sanitizeString(
+                data.sourceRecordId
+            ),
+
+        routedSourceTitle:
+            sanitizeString(
+                data.routedSourceTitle
+            ),
+
+        missionBrief:
+            sanitizeString(
+                data.missionBrief
+            ),
+
+        missionType:
+            sanitizeString(
+                data.missionType ||
+                data.sourceMissionType
+            ),
+
+        academyMissionNeed:
+            sanitizeString(
+                data.academyMissionNeed
+            ),
+
+        assignedByAdmin:
+            sanitizeString(
+                data.assignedByAdmin
+            ),
+
+        assignedAt:
+            data.assignedAt ||
+            null,
+
+        missionPlaybookKey:
+            sanitizeString(
+                data.missionPlaybookKey
+            ),
+
+        sourceMissionTitle:
+            sanitizeString(
+                data.sourceMissionTitle
+            ),
+
+        sourceMissionType:
+            sanitizeString(
+                data.sourceMissionType
+            ),
+
+        currency:
+            sanitizeString(
+                data.currency ||
+                'USD'
+            ).toUpperCase(),
+
+        opportunityValueAmount:
+            toNumber(
+                data.opportunityValueAmount,
+                0
+            ),
+
+        buyerPriceAmount:
+            toNumber(
+                data.buyerPriceAmount,
+                0
+            ),
+
+        sellerPriceAmount:
+            toNumber(
+                data.sellerPriceAmount,
+                0
+            ),
+
+        universeCommissionRate:
+            toNumber(
+                data.universeCommissionRate,
+                0
+            ),
+
+        universeCommissionAmount:
+            toNumber(
+                data.universeCommissionAmount,
+                0
+            ),
+
+        operatorPayoutAmount:
+            toNumber(
+                data.operatorPayoutAmount,
+                0
+            ),
+
+        saleEnabled:
+            data.saleEnabled ===
+            true,
+
+        federationReady:
+            data.federationReady ===
+            true,
+
+        duplicateCreate:
+            data.duplicateCreate ===
+            true,
+
+        duplicateSubmission:
+            data.duplicateSubmission ===
+            true,
+
+        clientRequestId:
+            sanitizeString(
+                data.clientRequestId
+            ),
+
+        createdAt:
+            data.createdAt ||
+            null,
+
+        updatedAt:
+            data.updatedAt ||
+            null,
+
         data
     };
 }
 
 function mapPayoutData(data = {}, id = '') {
     return {
-        id: sanitizeString(data.id || id),
-        status: sanitizeString(data.status),
-        amount: toNumber(data.amount, 0),
-        currency: sanitizeString(data.currency || 'USD').toUpperCase(),
-        createdAt: data.createdAt || null,
-        updatedAt: data.updatedAt || null,
+        id:
+            sanitizeString(
+                data.id ||
+                id
+            ),
+
+        leadId:
+            sanitizeString(
+                data.leadId
+            ),
+
+        federationRequestId:
+            sanitizeString(
+                data.federationRequestId
+            ),
+
+        title:
+            sanitizeString(
+                data.title ||
+                data.payoutTitle ||
+                data.opportunityTitle ||
+                'Academy mission earning'
+            ),
+
+        basisType:
+            sanitizeString(
+                data.basisType ||
+                data.sourceFeature ||
+                'routed_mission'
+            ),
+
+        status:
+            sanitizeString(
+                data.status ||
+                data.payoutStatus ||
+                'pending_review'
+            ),
+
+        payoutStatus:
+            sanitizeString(
+                data.payoutStatus ||
+                data.status ||
+                'pending_review'
+            ),
+
+        paymentStatus:
+            sanitizeString(
+                data.paymentStatus ||
+                'not_started'
+            ),
+
+        commissionStatus:
+            sanitizeString(
+                data.commissionStatus ||
+                'not_started'
+            ),
+
+        amount:
+            toNumber(
+                data.amount ||
+                data.payoutAmount ||
+                data.operatorPayoutAmount,
+                0
+            ),
+
+        dealGrossValue:
+            toNumber(
+                data.dealGrossValue ||
+                data.grossValue,
+                0
+            ),
+
+        platformCommissionRate:
+            toNumber(
+                data.platformCommissionRate,
+                0
+            ),
+
+        platformCommissionAmount:
+            toNumber(
+                data.platformCommissionAmount,
+                0
+            ),
+
+        currency:
+            sanitizeString(
+                data.currency ||
+                'USD'
+            ).toUpperCase(),
+
+        sourceDivision:
+            sanitizeString(
+                data.sourceDivision ||
+                'academy'
+            ),
+
+        sourceFeature:
+            sanitizeString(
+                data.sourceFeature
+            ),
+
+        sourceRecordId:
+            sanitizeString(
+                data.sourceRecordId ||
+                data.federationRequestId
+            ),
+
+        adminNote:
+            sanitizeString(
+                data.adminNote
+            ),
+
+        approvedBy:
+            sanitizeString(
+                data.approvedBy
+            ),
+
+        approvedAt:
+            data.approvedAt ||
+            null,
+
+        paidAt:
+            data.paidAt ||
+            null,
+
+        createdAt:
+            data.createdAt ||
+            null,
+
+        updatedAt:
+            data.updatedAt ||
+            null,
+
         data
     };
 }
 
 function mapDealData(data = {}, id = '') {
     return {
-        id: sanitizeString(data.id || id),
-        status: sanitizeString(data.status),
-        title: sanitizeString(data.title),
-        amount: toNumber(data.amount || data.expectedValueAmount, 0),
-        currency: sanitizeString(data.currency || 'USD').toUpperCase(),
-        createdAt: data.createdAt || null,
-        updatedAt: data.updatedAt || null,
+        id:
+            sanitizeString(
+                data.id ||
+                id
+            ),
+
+        leadId:
+            sanitizeString(
+                data.leadId
+            ),
+
+        federationRequestId:
+            sanitizeString(
+                data.federationRequestId
+            ),
+
+        title:
+            sanitizeString(
+                data.title ||
+                data.dealTitle ||
+                data.opportunityTitle ||
+                'Academy lead deal'
+            ),
+
+        dealType:
+            sanitizeString(
+                data.dealType ||
+                data.type ||
+                'routed_mission'
+            ),
+
+        status:
+            sanitizeString(
+                data.status ||
+                data.dealStatus ||
+                'under_review'
+            ),
+
+        dealStatus:
+            sanitizeString(
+                data.dealStatus ||
+                data.status ||
+                'under_review'
+            ),
+
+        paymentStatus:
+            sanitizeString(
+                data.paymentStatus ||
+                'not_started'
+            ),
+
+        commissionStatus:
+            sanitizeString(
+                data.commissionStatus ||
+                'not_started'
+            ),
+
+        grossValue:
+            toNumber(
+                data.grossValue ||
+                data.amount ||
+                data.expectedValueAmount,
+                0
+            ),
+
+        amount:
+            toNumber(
+                data.amount ||
+                data.grossValue ||
+                data.expectedValueAmount,
+                0
+            ),
+
+        operatorPayoutAmount:
+            toNumber(
+                data.operatorPayoutAmount,
+                0
+            ),
+
+        platformCommissionRate:
+            toNumber(
+                data.platformCommissionRate,
+                0
+            ),
+
+        platformCommissionAmount:
+            toNumber(
+                data.platformCommissionAmount,
+                0
+            ),
+
+        currency:
+            sanitizeString(
+                data.currency ||
+                'USD'
+            ).toUpperCase(),
+
+        sourceDivision:
+            sanitizeString(
+                data.sourceDivision ||
+                'academy'
+            ),
+
+        sourceFeature:
+            sanitizeString(
+                data.sourceFeature
+            ),
+
+        operatorVisibleNote:
+            sanitizeString(
+                data.operatorVisibleNote ||
+                data.adminNote
+            ),
+
+        createdAt:
+            data.createdAt ||
+            null,
+
+        updatedAt:
+            data.updatedAt ||
+            null,
+
         data
     };
 }
@@ -1006,20 +1584,50 @@ async function completeMissionAfterVerificationV1(
     payload = {}
 ) {
     const ts = nowIso();
+
+    const requestedVerificationDecision =
+        sanitizeString(
+            payload.verificationDecision ||
+            payload.verificationStatus
+        ).toLowerCase();
+
+    if (
+        requestedVerificationDecision !==
+        'approved'
+    ) {
+        const error = new Error(
+            'Mission completion requires an approved verification decision.'
+        );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
     let transitioned = false;
+    let verificationTransitioned = false;
 
     const result = await mutateMissionWithVersionRetryV1(
         uid,
         missionId,
         (currentData) => {
             if (
-                sanitizeString(currentData.status).toLowerCase() ===
-                'completed'
+                isAcademyMissionVerifiedCompletedV1(
+                    currentData
+                )
             ) {
                 return null;
             }
 
-            transitioned = true;
+            const currentStatus =
+                sanitizeString(
+                    currentData.status
+                ).toLowerCase();
+
+            transitioned =
+                currentStatus !==
+                'completed';
+
+            verificationTransitioned = true;
 
             return {
                 workingNote: sanitizeString(
@@ -1040,14 +1648,8 @@ async function completeMissionAfterVerificationV1(
                     currentData.completionNote
                 ),
                 noteUpdatedAt: ts,
-                verificationStatus: sanitizeString(
-                    payload.verificationStatus ||
-                    'approved'
-                ),
-                verificationDecision: sanitizeString(
-                    payload.verificationDecision ||
-                    'approved'
-                ),
+                verificationStatus: 'approved',
+                verificationDecision: 'approved',
                 verificationConfidence: Math.max(
                     0,
                     Math.min(
@@ -1092,7 +1694,9 @@ async function completeMissionAfterVerificationV1(
                     0
                 ),
                 status: 'completed',
-                completedAt: ts,
+                completedAt:
+                    currentData.completedAt ||
+                    ts,
                 updatedAt: ts
             };
         }
@@ -1100,8 +1704,13 @@ async function completeMissionAfterVerificationV1(
 
     return {
         mission: result?.mission || null,
+
         transitioned:
             transitioned &&
+            result?.skipped !== true,
+
+        verificationTransitioned:
+            verificationTransitioned &&
             result?.skipped !== true
     };
 }
@@ -1125,7 +1734,10 @@ async function updateMissionOutcomeMetrics(uid, missionId, metrics = {}) {
 async function getMissionProgress(uid, roadmapId) {
     const missions = await listAllMissionsByRoadmap(uid, roadmapId);
     const total = missions.length;
-    const completed = missions.filter((item) => item.status === 'completed').length;
+    const completed =
+        missions.filter(
+            isAcademyMissionVerifiedCompletedV1
+        ).length;
     const pending = missions.filter((item) => item.status === 'pending').length;
     const skipped = missions.filter((item) => item.status === 'skipped').length;
     const stuck = missions.filter((item) => item.status === 'stuck').length;
@@ -1269,7 +1881,10 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
     const effectiveAllMissions = allMissions.length ? allMissions : fallbackRoadmapSteps;
     const effectiveRecentMissions = missions.length ? missions : fallbackRoadmapSteps.slice(0, 5);
 
-    const completedCount = effectiveAllMissions.filter((item) => item.status === 'completed').length;
+    const completedCount =
+        effectiveAllMissions.filter(
+            isAcademyMissionVerifiedCompletedV1
+        ).length;
     const totalCount = effectiveAllMissions.length;
     const plazaReadiness = buildAcademyPlazaReadinessPayload(profileDoc || {}, roadmap || {}, effectiveAllMissions);
 
@@ -1341,6 +1956,22 @@ async function createCoachMessage(uid, payload = {}) {
     return mapCoachMessageData(rowData(saved), id);
 }
 
+function academyLeadHttpErrorV1(
+    message = 'Academy Lead Missions request failed.',
+    statusCode = 400
+) {
+    const error = new Error(
+        sanitizeString(message) ||
+        'Academy Lead Missions request failed.'
+    );
+
+    error.statusCode =
+        Number(statusCode) ||
+        400;
+
+    return error;
+}
+
 async function listLeadMissionLeads(uid) {
     const rows = await getRows('academyLeadMissions', uid, { limit: 500 });
 
@@ -1355,58 +1986,601 @@ async function getLeadMissionLeadById(uid, leadId) {
     return mapLeadMissionLeadData(rowData(row), row.source_document_id);
 }
 
+function buildDeterministicLeadMissionIdV2(
+    uid = '',
+    clientRequestId = ''
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    const cleanRequestId =
+        sanitizeString(clientRequestId)
+            .replace(
+                /[^a-zA-Z0-9_-]+/g,
+                '_'
+            )
+            .slice(0, 160);
+
+    if (
+        !cleanUid ||
+        !cleanRequestId
+    ) {
+        return '';
+    }
+
+    return (
+        'lead_' +
+        crypto
+            .createHash('sha256')
+            .update(
+                `${cleanUid}|${cleanRequestId}`
+            )
+            .digest('hex')
+            .slice(0, 40)
+    );
+}
+
 async function createLeadMissionLead(uid, payload = {}) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    if (!cleanUid) {
+        throw academyLeadHttpErrorV1(
+            'Missing Academy lead owner.',
+            400
+        );
+    }
+
     const now = nowIso();
-    const id = sanitizeString(payload.id || payload.sourceDocumentId || `lead_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`);
+
+    const clientRequestId =
+        sanitizeString(
+            payload.clientRequestId ||
+            payload.client_request_id
+        )
+            .replace(
+                /[^a-zA-Z0-9_-]+/g,
+                '_'
+            )
+            .slice(0, 160);
+
+    const deterministicId =
+        buildDeterministicLeadMissionIdV2(
+            cleanUid,
+            clientRequestId
+        );
+
+    const id =
+        sanitizeString(
+            payload.id ||
+            payload.sourceDocumentId ||
+            deterministicId ||
+            `lead_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`
+        );
+
     const data = {
         ...payload,
+
         id,
-        status: sanitizeString(payload.status || 'active'),
-        taskStatus: sanitizeString(payload.taskStatus || 'Waiting'),
-        createdAt: payload.createdAt || now,
-        updatedAt: now
+
+        ownerUid:
+            cleanUid,
+
+        clientRequestId,
+
+        status:
+            sanitizeString(
+                payload.status ||
+                'active'
+            ),
+
+        taskStatus:
+            sanitizeString(
+                payload.taskStatus ||
+                'Waiting'
+            ),
+
+        createdAt:
+            payload.createdAt ||
+            now,
+
+        updatedAt:
+            now
     };
 
-    const saved = await upsertRecord('academyLeadMissions', uid, id, data, {
-        status: data.status
-    });
-
-    if (sanitizeString(data.contactName || data.email || data.phone || data.contactRole)) {
-        await upsertRecord('academyLeadContacts', uid, id, {
+    const saved =
+        await upsertRecord(
+            'academyLeadMissions',
+            cleanUid,
             id,
-            leadId: id,
-            companyName: sanitizeString(data.companyName),
-            contactName: sanitizeString(data.contactName),
-            contactRole: sanitizeString(data.contactRole),
-            email: sanitizeString(data.email).toLowerCase(),
-            phone: sanitizeString(data.phone),
-            createdAt: data.createdAt,
-            updatedAt: data.updatedAt
-        }).catch((error) => {
-            console.warn('academy lead contact mirror skipped:', error?.message || error);
+            data,
+            {
+                status:
+                    data.status,
+
+                insertOnly:
+                    true
+            }
+        );
+
+    const persisted =
+        saved ||
+        await getOne(
+            'academyLeadMissions',
+            cleanUid,
+            id
+        );
+
+    if (!persisted) {
+        throw new Error(
+            'Academy lead create returned no record.'
+        );
+    }
+
+    const duplicateCreate =
+        !saved;
+
+    if (
+        saved &&
+        sanitizeString(
+            data.contactName ||
+            data.email ||
+            data.phone ||
+            data.contactRole
+        )
+    ) {
+        await upsertRecord(
+            'academyLeadContacts',
+            cleanUid,
+            id,
+            {
+                id,
+
+                leadId:
+                    id,
+
+                companyName:
+                    sanitizeString(
+                        data.companyName
+                    ),
+
+                contactName:
+                    sanitizeString(
+                        data.contactName
+                    ),
+
+                contactRole:
+                    sanitizeString(
+                        data.contactRole
+                    ),
+
+                email:
+                    sanitizeString(
+                        data.email
+                    ).toLowerCase(),
+
+                phone:
+                    sanitizeString(
+                        data.phone
+                    ),
+
+                createdAt:
+                    data.createdAt,
+
+                updatedAt:
+                    data.updatedAt
+            },
+            {
+                insertOnly:
+                    true
+            }
+        ).catch((error) => {
+            console.warn(
+                'academy lead contact mirror skipped:',
+                error?.message ||
+                error
+            );
         });
     }
 
-    return mapLeadMissionLeadData(rowData(saved), id);
+    return {
+        ...mapLeadMissionLeadData(
+            rowData(persisted),
+            id
+        ),
+
+        ownerUid:
+            cleanUid,
+
+        duplicateCreate
+    };
 }
 
-async function updateLeadMissionLead(uid, leadId, patch = {}) {
-    const current = await getLeadMissionLeadById(uid, leadId);
-    if (!current) return null;
+async function mutateLeadMissionLeadV1(
+    uid,
+    leadId,
+    mutator,
+    {
+        expectedUpdatedAt = '',
+        maxAttempts = 5
+    } = {}
+) {
+    const cleanUid =
+        sanitizeString(uid);
 
-    const now = nowIso();
-    const data = {
-        ...(current.data && typeof current.data === 'object' ? current.data : current),
-        ...patch,
-        id: leadId,
-        updatedAt: now
+    const cleanLeadId =
+        sanitizeString(leadId);
+
+    if (
+        !cleanUid ||
+        !cleanLeadId ||
+        typeof mutator !==
+            'function'
+    ) {
+        throw academyLeadHttpErrorV1(
+            'Valid Academy lead mutation is required.',
+            400
+        );
+    }
+
+    const cleanExpectedUpdatedAt =
+        toIso(
+            expectedUpdatedAt
+        );
+
+    const safeAttempts =
+        Math.max(
+            1,
+            Math.min(
+                10,
+                Number(maxAttempts) ||
+                5
+            )
+        );
+
+    for (
+        let attempt = 0;
+        attempt < safeAttempts;
+        attempt += 1
+    ) {
+        const currentRow =
+            await getOne(
+                'academyLeadMissions',
+                cleanUid,
+                cleanLeadId
+            );
+
+        if (!currentRow) {
+            return null;
+        }
+
+        const currentData =
+            rowData(currentRow);
+
+        const currentUpdatedAt =
+            toIso(
+                currentData.updatedAt ||
+                currentRow.updated_at_source ||
+                currentRow.updated_at
+            );
+
+        if (
+            attempt === 0 &&
+            cleanExpectedUpdatedAt &&
+            currentUpdatedAt &&
+            cleanExpectedUpdatedAt !==
+                currentUpdatedAt
+        ) {
+            throw academyLeadHttpErrorV1(
+                'This lead changed after you opened it. Refresh and review the latest version before saving.',
+                409
+            );
+        }
+
+        const patch =
+            await mutator(
+                {
+                    ...currentData
+                },
+                currentRow
+            );
+
+        if (
+            !patch ||
+            typeof patch !==
+                'object' ||
+            Array.isArray(patch)
+        ) {
+            throw academyLeadHttpErrorV1(
+                'Invalid Academy lead update.',
+                500
+            );
+        }
+
+        if (
+            patch.__skipMutation ===
+            true
+        ) {
+            return {
+                ...mapLeadMissionLeadData(
+                    currentData,
+                    cleanLeadId
+                ),
+
+                ownerUid:
+                    cleanUid
+            };
+        }
+
+        const safePatch = {
+            ...patch
+        };
+
+        delete safePatch
+            .__skipMutation;
+
+        const nextData = {
+            ...currentData,
+            ...safePatch,
+
+            id:
+                cleanLeadId,
+
+            ownerUid:
+                cleanUid,
+
+            createdAt:
+                currentData.createdAt ||
+                currentRow.created_at_source ||
+                nowIso(),
+
+            updatedAt:
+                nowIso()
+        };
+
+        const saved =
+            await updateRecordDataWithVersionV1(
+                'academyLeadMissions',
+                cleanUid,
+                cleanLeadId,
+                currentRow,
+                nextData
+            );
+
+        if (saved) {
+            return {
+                ...mapLeadMissionLeadData(
+                    rowData(saved),
+                    cleanLeadId
+                ),
+
+                ownerUid:
+                    cleanUid
+            };
+        }
+    }
+
+    throw academyLeadHttpErrorV1(
+        'This lead changed during the request. Refresh and retry.',
+        409
+    );
+}
+
+async function updateLeadMissionLead(
+    uid,
+    leadId,
+    patch = {},
+    options = {}
+) {
+    return mutateLeadMissionLeadV1(
+        uid,
+        leadId,
+        () => ({
+            ...patch
+        }),
+        options
+    );
+}
+
+async function submitRoutedLeadMissionV1(
+    uid,
+    leadId,
+    {
+        completionProof = '',
+        submittedByUid = '',
+        submittedByName = '',
+        expectedUpdatedAt = ''
+    } = {}
+) {
+    const cleanProof =
+        sanitizeString(
+            completionProof
+        ).slice(0, 2500);
+
+    if (!cleanProof) {
+        throw academyLeadHttpErrorV1(
+            'Completion proof is required.',
+            400
+        );
+    }
+
+    const cleanSubmitterUid =
+        sanitizeString(
+            submittedByUid ||
+            uid
+        );
+
+    const cleanSubmitterName =
+        sanitizeString(
+            submittedByName ||
+            'Operator'
+        );
+
+    let duplicateSubmission =
+        false;
+
+    const lead =
+        await mutateLeadMissionLeadV1(
+            uid,
+            leadId,
+            (currentData) => {
+                const isRoutedMission =
+                    currentData.routedFromAdmin ===
+                        true ||
+                    sanitizeString(
+                        currentData.sourceMethod
+                    )
+                        .toLowerCase()
+                        .startsWith(
+                            'admin_routed_'
+                        ) ||
+                    sanitizeString(
+                        currentData.callType
+                    ).toLowerCase() ===
+                        'opportunity_mission' ||
+                    Boolean(
+                        sanitizeString(
+                            currentData.assignmentStatus
+                        )
+                    );
+
+                if (!isRoutedMission) {
+                    throw academyLeadHttpErrorV1(
+                        'Only admin-routed Academy missions can be submitted here.',
+                        400
+                    );
+                }
+
+                const assignmentStatus =
+                    sanitizeString(
+                        currentData.assignmentStatus ||
+                        currentData.taskStatus ||
+                        currentData.pipelineStage
+                    ).toLowerCase();
+
+                const reviewStatus =
+                    sanitizeString(
+                        currentData.reviewStatus
+                    ).toLowerCase();
+
+                const existingProof =
+                    sanitizeString(
+                        currentData.completionProof
+                    );
+
+                const alreadySubmitted =
+                    [
+                        'submitted',
+                        'pending_review',
+                        'approved',
+                        'completed'
+                    ].includes(
+                        assignmentStatus
+                    ) ||
+                    [
+                        'pending_review',
+                        'approved',
+                        'completed'
+                    ].includes(
+                        reviewStatus
+                    );
+
+                if (alreadySubmitted) {
+                    if (
+                        existingProof &&
+                        existingProof ===
+                            cleanProof
+                    ) {
+                        duplicateSubmission =
+                            true;
+
+                        return {
+                            __skipMutation:
+                                true
+                        };
+                    }
+
+                    throw academyLeadHttpErrorV1(
+                        'This assigned mission has already been submitted for review.',
+                        409
+                    );
+                }
+
+                if (
+                    assignmentStatus ===
+                        'rejected' ||
+                    reviewStatus ===
+                        'rejected'
+                ) {
+                    throw academyLeadHttpErrorV1(
+                        'This assigned mission cannot be submitted in its current state.',
+                        409
+                    );
+                }
+
+                const submittedAt =
+                    nowIso();
+
+                const currentNotes =
+                    sanitizeString(
+                        currentData.notes
+                    );
+
+                const proofEntry =
+                    `Submission proof (${submittedAt}):\n${cleanProof}`;
+
+                return {
+                    taskStatus:
+                        'submitted',
+
+                    pipelineStage:
+                        'submitted',
+
+                    callOutcome:
+                        'Submitted for admin review',
+
+                    nextAction:
+                        'Waiting for admin review',
+
+                    notes:
+                        [
+                            currentNotes,
+                            proofEntry
+                        ]
+                            .filter(Boolean)
+                            .join('\n\n'),
+
+                    status:
+                        'active',
+
+                    assignmentStatus:
+                        'submitted',
+
+                    reviewStatus:
+                        'pending_review',
+
+                    completionProof:
+                        cleanProof,
+
+                    submittedAt,
+
+                    submittedByUid:
+                        cleanSubmitterUid,
+
+                    submittedByName:
+                        cleanSubmitterName
+                };
+            },
+            {
+                expectedUpdatedAt
+            }
+        );
+
+    return {
+        lead,
+        duplicate:
+            duplicateSubmission
     };
-
-    const saved = await upsertRecord('academyLeadMissions', uid, leadId, data, {
-        status: data.status || 'active'
-    });
-
-    return mapLeadMissionLeadData(rowData(saved), leadId);
 }
 
 async function deleteLeadMissionLead(uid, leadId) {
@@ -1490,14 +2664,216 @@ async function listLeadMissionFollowUps(uid) {
     });
 }
 
+async function upsertLeadMissionPayoutV2(
+    uid,
+    payoutId,
+    payload = {}
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    const cleanPayoutId =
+        sanitizeString(payoutId);
+
+    if (
+        !cleanUid ||
+        !cleanPayoutId
+    ) {
+        throw academyLeadHttpErrorV1(
+            'Valid Academy payout identity is required.',
+            400
+        );
+    }
+
+    const existing =
+        await getOne(
+            'academyLeadPayouts',
+            cleanUid,
+            cleanPayoutId
+        );
+
+    const existingData =
+        rowData(existing);
+
+    const now = nowIso();
+
+    const nextData = {
+        ...existingData,
+        ...payload,
+
+        id:
+            cleanPayoutId,
+
+        ownerUid:
+            cleanUid,
+
+        createdAt:
+            existingData.createdAt ||
+            existing?.created_at_source ||
+            payload.createdAt ||
+            now,
+
+        updatedAt:
+            payload.updatedAt ||
+            now
+    };
+
+    const saved =
+        await upsertRecord(
+            'academyLeadPayouts',
+            cleanUid,
+            cleanPayoutId,
+            nextData,
+            {
+                status:
+                    nextData.status ||
+                    nextData.payoutStatus ||
+                    'pending_review'
+            }
+        );
+
+    return mapPayoutData(
+        rowData(saved),
+        cleanPayoutId
+    );
+}
+
+async function upsertLeadMissionDealV2(
+    uid,
+    dealId,
+    payload = {}
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    const cleanDealId =
+        sanitizeString(dealId);
+
+    if (
+        !cleanUid ||
+        !cleanDealId
+    ) {
+        throw academyLeadHttpErrorV1(
+            'Valid Academy deal identity is required.',
+            400
+        );
+    }
+
+    const existing =
+        await getOne(
+            'academyLeadDeals',
+            cleanUid,
+            cleanDealId
+        );
+
+    const existingData =
+        rowData(existing);
+
+    const now = nowIso();
+
+    const nextData = {
+        ...existingData,
+        ...payload,
+
+        id:
+            cleanDealId,
+
+        ownerUid:
+            cleanUid,
+
+        createdAt:
+            existingData.createdAt ||
+            existing?.created_at_source ||
+            payload.createdAt ||
+            now,
+
+        updatedAt:
+            payload.updatedAt ||
+            now
+    };
+
+    const saved =
+        await upsertRecord(
+            'academyLeadDeals',
+            cleanUid,
+            cleanDealId,
+            nextData,
+            {
+                status:
+                    nextData.status ||
+                    nextData.dealStatus ||
+                    'under_review'
+            }
+        );
+
+    return mapDealData(
+        rowData(saved),
+        cleanDealId
+    );
+}
+
 async function listLeadMissionPayouts(uid) {
-    const rows = await getRows('academyLeadPayouts', uid, { limit: 300 }).catch(() => []);
-    return rows.map((row) => mapPayoutData(rowData(row), row.source_document_id));
+    const rows =
+        await getRows(
+            'academyLeadPayouts',
+            uid,
+            {
+                limit: 300
+            }
+        );
+
+    return rows
+        .map((row) =>
+            mapPayoutData(
+                rowData(row),
+                row.source_document_id
+            )
+        )
+        .sort((a, b) =>
+            String(
+                b.updatedAt ||
+                b.createdAt ||
+                ''
+            ).localeCompare(
+                String(
+                    a.updatedAt ||
+                    a.createdAt ||
+                    ''
+                )
+            )
+        );
 }
 
 async function listLeadMissionDeals(uid) {
-    const rows = await getRows('academyLeadDeals', uid, { limit: 300 }).catch(() => []);
-    return rows.map((row) => mapDealData(rowData(row), row.source_document_id));
+    const rows =
+        await getRows(
+            'academyLeadDeals',
+            uid,
+            {
+                limit: 300
+            }
+        );
+
+    return rows
+        .map((row) =>
+            mapDealData(
+                rowData(row),
+                row.source_document_id
+            )
+        )
+        .sort((a, b) =>
+            String(
+                b.updatedAt ||
+                b.createdAt ||
+                ''
+            ).localeCompare(
+                String(
+                    a.updatedAt ||
+                    a.createdAt ||
+                    ''
+                )
+            )
+        );
 }
 
 async function getLeadMissionScripts(uid) {
@@ -2194,6 +3570,8 @@ async function persistRoadmapBundle(uid, profile = {}, plan = {}) {
 const ACADEMY_PROGRESSION_RECORD_TYPE = 'academy:progression';
 const ACADEMY_XP_EVENT_RECORD_TYPE = 'academyXpEvents';
 const ACADEMY_SOLO_EVENT_RECORD_TYPE = 'academySoloEvents';
+const ACADEMY_QUEST_RECORD_TYPE = 'academyQuestPeriods';
+const ACADEMY_ACHIEVEMENT_RECORD_TYPE = 'academyAchievements';
 const ACADEMY_PROGRESSION_DOC_ID = 'progression';
 
 const ACADEMY_SOLO_ATTRIBUTE_KEYS_V1 = Object.freeze([
@@ -2997,11 +4375,6 @@ async function recordAcademySoloMissionCompletionV1(
 ) {
     const cleanUid = sanitizeString(uid);
     const missionId = sanitizeString(mission.id);
-    const status = sanitizeString(mission.status).toLowerCase();
-    const verificationDecision = sanitizeString(
-        mission.verificationDecision ||
-        mission.verificationStatus
-    ).toLowerCase();
 
     if (!cleanUid || !missionId) {
         return {
@@ -3013,14 +4386,16 @@ async function recordAcademySoloMissionCompletionV1(
     }
 
     if (
-        status !== 'completed' ||
-        verificationDecision !== 'approved'
+        !isAcademyMissionVerifiedCompletedV1(
+            mission
+        )
     ) {
         return {
             ok: true,
             created: false,
             skipped: true,
-            reason: 'mission_not_ai_verified'
+            reason:
+                'mission_not_verified_approved'
         };
     }
 
@@ -3565,6 +4940,33 @@ async function upsertAcademyXpEventV1(uid = '', event = {}) {
         };
     }
 
+    if (
+        eventType.toLowerCase() ===
+        'mission_completed'
+    ) {
+        const sourceMission =
+            await getMissionById(
+                cleanUid,
+                sourceId
+            ).catch(() => null);
+
+        if (
+            !sourceMission ||
+            !isAcademyMissionVerifiedCompletedV1(
+                sourceMission
+            )
+        ) {
+            return {
+                ok: true,
+                created: false,
+                skipped: true,
+                reason:
+                    'mission_not_verified_approved',
+                event: null
+            };
+        }
+    }
+
     const eventId = academyProgressionSafeEventIdV1(
         `${eventType}:${sourceId}`
     );
@@ -3629,6 +5031,1188 @@ async function listAcademyXpEventsV1(uid = '', limit = 500) {
     }));
 }
 
+/* PATCH: Persistent Academy Quest and Achievement ledger v1 */
+
+const ACADEMY_QUEST_DEFINITIONS_V1 = Object.freeze([
+    {
+        key: 'daily_verified_mission',
+        cadence: 'daily',
+        title: 'Complete one verified roadmap mission',
+        description:
+            'Complete one Academy roadmap mission and receive an approved verification decision.',
+        metric: 'verified_missions',
+        target: 1,
+        rewardXp: 50
+    },
+    {
+        key: 'daily_checkin',
+        cadence: 'daily',
+        title: 'Submit today’s check-in',
+        description:
+            'Submit one Academy check-in during the current UTC day.',
+        metric: 'checkins',
+        target: 1,
+        rewardXp: 20
+    },
+    {
+        key: 'weekly_seven_checkins',
+        cadence: 'weekly',
+        title: 'Complete seven daily check-ins',
+        description:
+            'Submit seven distinct Academy check-ins during the current UTC week.',
+        metric: 'checkins',
+        target: 7,
+        rewardXp: 100
+    }
+]);
+
+const ACADEMY_ACHIEVEMENT_DEFINITIONS_V1 = Object.freeze([
+    {
+        key: 'first_verified_mission',
+        label: 'First Verified Win',
+        description:
+            'Complete your first verified Academy mission.',
+        rarity: 'common',
+        metric: 'verifiedMissions',
+        target: 1
+    },
+    {
+        key: 'three_day_streak',
+        label: 'Consistency Builder',
+        description:
+            'Reach a three-day Academy check-in streak.',
+        rarity: 'common',
+        metric: 'streakDays',
+        target: 3
+    },
+    {
+        key: 'mission_finisher_10',
+        label: 'Mission Finisher',
+        description:
+            'Complete ten verified Academy missions.',
+        rarity: 'uncommon',
+        metric: 'verifiedMissions',
+        target: 10
+    },
+    {
+        key: 'seven_day_streak',
+        label: 'Seven-Day Operator',
+        description:
+            'Reach a seven-day Academy check-in streak.',
+        rarity: 'uncommon',
+        metric: 'streakDays',
+        target: 7
+    },
+    {
+        key: 'roadmap_forty',
+        label: 'Roadmap Builder',
+        description:
+            'Reach forty percent roadmap completion.',
+        rarity: 'rare',
+        metric: 'completionRate',
+        target: 40
+    },
+    {
+        key: 'roadmap_seventy',
+        label: 'Roadmap Strategist',
+        description:
+            'Reach seventy percent roadmap completion.',
+        rarity: 'epic',
+        metric: 'completionRate',
+        target: 70
+    },
+    {
+        key: 'roadmap_complete',
+        label: 'Roadmap Conqueror',
+        description:
+            'Complete the active Academy roadmap.',
+        rarity: 'legendary',
+        metric: 'completionRate',
+        target: 100
+    }
+]);
+
+function academyQuestDateMsV1(value = '') {
+    if (!value) return NaN;
+
+    if (value instanceof Date) {
+        return value.getTime();
+    }
+
+    const text =
+        sanitizeString(value);
+
+    if (!text) return NaN;
+
+    const normalized =
+        /^\d{4}-\d{2}-\d{2}$/.test(text)
+            ? `${text}T00:00:00.000Z`
+            : text;
+
+    return new Date(normalized).getTime();
+}
+
+function academyQuestPeriodWindowV1(
+    cadence = 'daily',
+    value = new Date()
+) {
+    const date =
+        value instanceof Date
+            ? new Date(value.getTime())
+            : new Date(value);
+
+    const safeDate =
+        Number.isNaN(date.getTime())
+            ? new Date()
+            : date;
+
+    const start =
+        new Date(safeDate.getTime());
+
+    start.setUTCHours(0, 0, 0, 0);
+
+    if (cadence === 'weekly') {
+        start.setUTCDate(
+            start.getUTCDate() -
+            start.getUTCDay()
+        );
+    }
+
+    const end =
+        new Date(start.getTime());
+
+    end.setUTCDate(
+        end.getUTCDate() +
+        (
+            cadence === 'weekly'
+                ? 7
+                : 1
+        )
+    );
+
+    return {
+        cadence:
+            cadence === 'weekly'
+                ? 'weekly'
+                : 'daily',
+
+        key:
+            start
+                .toISOString()
+                .slice(0, 10),
+
+        startAt:
+            start.toISOString(),
+
+        endAt:
+            end.toISOString()
+    };
+}
+
+function academyQuestIsWithinWindowV1(
+    value = '',
+    window = {}
+) {
+    const valueMs =
+        academyQuestDateMsV1(value);
+
+    const startMs =
+        academyQuestDateMsV1(
+            window.startAt
+        );
+
+    const endMs =
+        academyQuestDateMsV1(
+            window.endAt
+        );
+
+    return (
+        Number.isFinite(valueMs) &&
+        Number.isFinite(startMs) &&
+        Number.isFinite(endMs) &&
+        valueMs >= startMs &&
+        valueMs < endMs
+    );
+}
+
+function academyQuestRecordIdV1(
+    questKey = '',
+    periodKey = ''
+) {
+    return academyProgressionSafeEventIdV1(
+        `${questKey}:${periodKey}`
+    );
+}
+
+async function listAcademyQuestRecordsV1(
+    uid = '',
+    limit = 100
+) {
+    const rows =
+        await getRows(
+            ACADEMY_QUEST_RECORD_TYPE,
+            uid,
+            {
+                limit:
+                    Math.max(
+                        1,
+                        Math.min(
+                            500,
+                            Number(limit) || 100
+                        )
+                    )
+            }
+        );
+
+    return rows.map((row) => ({
+        ...rowData(row),
+
+        id:
+            rowData(row).id ||
+            row.source_document_id ||
+            ''
+    }));
+}
+
+async function listAcademyAchievementRecordsV1(
+    uid = '',
+    limit = 100
+) {
+    const rows =
+        await getRows(
+            ACADEMY_ACHIEVEMENT_RECORD_TYPE,
+            uid,
+            {
+                limit:
+                    Math.max(
+                        1,
+                        Math.min(
+                            500,
+                            Number(limit) || 100
+                        )
+                    )
+            }
+        );
+
+    return rows.map((row) => ({
+        ...rowData(row),
+
+        id:
+            rowData(row).id ||
+            row.source_document_id ||
+            ''
+    }));
+}
+
+function academyQuestBuildProgressV1(
+    definition = {},
+    context = {}
+) {
+    const window =
+        academyQuestPeriodWindowV1(
+            definition.cadence,
+            context.now || new Date()
+        );
+
+    const verifiedMissions =
+        Array.isArray(
+            context.verifiedMissions
+        )
+            ? context.verifiedMissions
+            : [];
+
+    const checkins =
+        Array.isArray(
+            context.checkins
+        )
+            ? context.checkins
+            : [];
+
+    let progress = 0;
+
+    if (
+        definition.metric ===
+        'verified_missions'
+    ) {
+        progress =
+            verifiedMissions.filter(
+                (mission) =>
+                    academyQuestIsWithinWindowV1(
+                        mission.completedAt ||
+                        mission.verificationCompletedAt ||
+                        mission.updatedAt ||
+                        mission.createdAt,
+                        window
+                    )
+            ).length;
+    }
+
+    if (
+        definition.metric ===
+        'checkins'
+    ) {
+        const distinctDates =
+            new Set();
+
+        checkins.forEach((checkin) => {
+            const eventDate =
+                checkin.checkinDate ||
+                checkin.createdAt ||
+                checkin.updatedAt;
+
+            if (
+                !academyQuestIsWithinWindowV1(
+                    eventDate,
+                    window
+                )
+            ) {
+                return;
+            }
+
+            const identity =
+                sanitizeString(
+                    checkin.checkinDate ||
+                    checkin.id ||
+                    eventDate
+                );
+
+            if (identity) {
+                distinctDates.add(identity);
+            }
+        });
+
+        progress =
+            distinctDates.size;
+    }
+
+    const target =
+        Math.max(
+            1,
+            Math.round(
+                toNumber(
+                    definition.target,
+                    1
+                )
+            )
+        );
+
+    return {
+        window,
+
+        progress:
+            Math.max(
+                0,
+                Math.min(
+                    target,
+                    Math.round(
+                        toNumber(
+                            progress,
+                            0
+                        )
+                    )
+                )
+            ),
+
+        target
+    };
+}
+
+async function syncAcademyQuestLedgerV1(
+    uid = '',
+    context = {}
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    if (!cleanUid) {
+        throw new Error(
+            'Missing Academy quest user id.'
+        );
+    }
+
+    const now =
+        context.now instanceof Date
+            ? context.now
+            : new Date();
+
+    const currentTime =
+        now.toISOString();
+
+    /*
+     * Expire unfinished records from earlier daily
+     * and weekly periods.
+     */
+    const previousQuests =
+        await listAcademyQuestRecordsV1(
+            cleanUid,
+            500
+        ).catch(() => []);
+
+    for (
+        const previousQuest
+        of previousQuests
+    ) {
+        if (
+            sanitizeString(
+                previousQuest.status
+            ) !== 'in_progress' ||
+            !previousQuest.periodEndAt ||
+            academyQuestDateMsV1(
+                previousQuest.periodEndAt
+            ) > now.getTime()
+        ) {
+            continue;
+        }
+
+        await upsertRecord(
+            ACADEMY_QUEST_RECORD_TYPE,
+            cleanUid,
+            previousQuest.id,
+            {
+                ...previousQuest,
+                status: 'expired',
+                updatedAt: currentTime
+            }
+        );
+    }
+
+    const quests = [];
+
+    for (
+        const definition
+        of ACADEMY_QUEST_DEFINITIONS_V1
+    ) {
+        const progressState =
+            academyQuestBuildProgressV1(
+                definition,
+                {
+                    ...context,
+                    now
+                }
+            );
+
+        const questId =
+            academyQuestRecordIdV1(
+                definition.key,
+                progressState.window.key
+            );
+
+        const existingRow =
+            await getOne(
+                ACADEMY_QUEST_RECORD_TYPE,
+                cleanUid,
+                questId
+            ).catch(() => null);
+
+        const existing =
+            rowData(existingRow);
+
+        const completed =
+            progressState.progress >=
+            progressState.target;
+
+        const claimedAt =
+            sanitizeString(
+                existing.claimedAt
+            );
+
+        const expired =
+            !completed &&
+            academyQuestDateMsV1(
+                progressState.window.endAt
+            ) <= now.getTime();
+
+        const status =
+            claimedAt
+                ? 'claimed'
+                : completed
+                    ? 'completed_unclaimed'
+                    : expired
+                        ? 'expired'
+                        : 'in_progress';
+
+        const payload = {
+            ...existing,
+
+            id: questId,
+            questId,
+
+            questKey:
+                definition.key,
+
+            cadence:
+                definition.cadence,
+
+            title:
+                definition.title,
+
+            description:
+                definition.description,
+
+            metric:
+                definition.metric,
+
+            periodKey:
+                progressState.window.key,
+
+            periodStartAt:
+                progressState.window.startAt,
+
+            periodEndAt:
+                progressState.window.endAt,
+
+            progress:
+                progressState.progress,
+
+            target:
+                progressState.target,
+
+            rewardXp:
+                Math.max(
+                    0,
+                    Math.round(
+                        toNumber(
+                            definition.rewardXp,
+                            0
+                        )
+                    )
+                ),
+
+            completed,
+            status,
+
+            completedAt:
+                existing.completedAt ||
+                (
+                    completed
+                        ? currentTime
+                        : ''
+                ),
+
+            claimedAt,
+
+            rewardEventId:
+                sanitizeString(
+                    existing.rewardEventId
+                ),
+
+            createdAt:
+                existing.createdAt ||
+                currentTime,
+
+            updatedAt:
+                currentTime
+        };
+
+        const saved =
+            await upsertRecord(
+                ACADEMY_QUEST_RECORD_TYPE,
+                cleanUid,
+                questId,
+                payload
+            );
+
+        quests.push({
+            ...rowData(saved),
+            id: questId,
+            xp: payload.rewardXp
+        });
+    }
+
+    return {
+        daily:
+            quests.filter(
+                (quest) =>
+                    quest.cadence ===
+                    'daily'
+            ),
+
+        weekly:
+            quests.filter(
+                (quest) =>
+                    quest.cadence ===
+                    'weekly'
+            ),
+
+        all:
+            quests,
+
+        completedUnclaimed:
+            quests.filter(
+                (quest) =>
+                    quest.status ===
+                    'completed_unclaimed'
+            ).length,
+
+        claimed:
+            quests.filter(
+                (quest) =>
+                    quest.status ===
+                    'claimed'
+            ).length
+    };
+}
+
+async function syncAcademyAchievementsV1(
+    uid = '',
+    context = {}
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    if (!cleanUid) {
+        throw new Error(
+            'Missing Academy achievement user id.'
+        );
+    }
+
+    const verifiedMissions =
+        Array.isArray(
+            context.verifiedMissions
+        )
+            ? context.verifiedMissions
+            : [];
+
+    const progression =
+        context.progression &&
+        typeof context.progression ===
+            'object'
+            ? context.progression
+            : {};
+
+    const metrics = {
+        verifiedMissions:
+            verifiedMissions.length,
+
+        streakDays:
+            Math.max(
+                0,
+                Math.round(
+                    toNumber(
+                        progression.streakDays,
+                        0
+                    )
+                )
+            ),
+
+        completionRate:
+            Math.max(
+                0,
+                Math.min(
+                    100,
+                    Math.round(
+                        toNumber(
+                            progression.completionRate,
+                            0
+                        )
+                    )
+                )
+            )
+    };
+
+    const now =
+        nowIso();
+
+    for (
+        const definition
+        of ACADEMY_ACHIEVEMENT_DEFINITIONS_V1
+    ) {
+        const currentValue =
+            Math.max(
+                0,
+                toNumber(
+                    metrics[
+                        definition.metric
+                    ],
+                    0
+                )
+            );
+
+        if (
+            currentValue <
+            definition.target
+        ) {
+            continue;
+        }
+
+        const existingRow =
+            await getOne(
+                ACADEMY_ACHIEVEMENT_RECORD_TYPE,
+                cleanUid,
+                definition.key
+            ).catch(() => null);
+
+        const existing =
+            rowData(existingRow);
+
+        await upsertRecord(
+            ACADEMY_ACHIEVEMENT_RECORD_TYPE,
+            cleanUid,
+            definition.key,
+            {
+                ...existing,
+
+                id:
+                    definition.key,
+
+                achievementKey:
+                    definition.key,
+
+                label:
+                    definition.label,
+
+                description:
+                    definition.description,
+
+                rarity:
+                    definition.rarity,
+
+                metric:
+                    definition.metric,
+
+                target:
+                    definition.target,
+
+                unlockedValue:
+                    currentValue,
+
+                status:
+                    'unlocked',
+
+                unlockedAt:
+                    existing.unlockedAt ||
+                    now,
+
+                createdAt:
+                    existing.createdAt ||
+                    now,
+
+                updatedAt:
+                    now
+            }
+        );
+    }
+
+    const achievements =
+        await listAcademyAchievementRecordsV1(
+            cleanUid,
+            100
+        );
+
+    const rarityWeight = {
+        common: 1,
+        uncommon: 2,
+        rare: 3,
+        epic: 4,
+        legendary: 5
+    };
+
+    achievements.sort((a, b) => {
+        const rarityDelta =
+            toNumber(
+                rarityWeight[
+                    sanitizeString(
+                        b.rarity
+                    ).toLowerCase()
+                ],
+                0
+            ) -
+            toNumber(
+                rarityWeight[
+                    sanitizeString(
+                        a.rarity
+                    ).toLowerCase()
+                ],
+                0
+            );
+
+        if (rarityDelta !== 0) {
+            return rarityDelta;
+        }
+
+        return (
+            toNumber(
+                academyQuestDateMsV1(
+                    b.unlockedAt
+                ),
+                0
+            ) -
+            toNumber(
+                academyQuestDateMsV1(
+                    a.unlockedAt
+                ),
+                0
+            )
+        );
+    });
+
+    return {
+        unlocked:
+            achievements,
+
+        unlockedCount:
+            achievements.length,
+
+        totalAvailable:
+            ACADEMY_ACHIEVEMENT_DEFINITIONS_V1
+                .length,
+
+        primary:
+            achievements[0] ||
+            null,
+
+        helperScore:
+            await getAcademyHelperLeaderboardSnapshotV1(
+                cleanUid,
+                3
+            )
+                .then((snapshot) => ({
+                    wired: true,
+
+                    value:
+                        Math.max(
+                            0,
+                            Number(
+                                snapshot?.playerEntry
+                                    ?.totalHelperScore ||
+                                0
+                            )
+                        ),
+
+                    weeklyValue:
+                        Math.max(
+                            0,
+                            Number(
+                                snapshot?.playerEntry
+                                    ?.weeklyHelperScore ||
+                                0
+                            )
+                        ),
+
+                    contributionCount:
+                        Math.max(
+                            0,
+                            Number(
+                                snapshot?.playerEntry
+                                    ?.contributionCount ||
+                                0
+                            )
+                        ),
+
+                    completedSquadMissions:
+                        Math.max(
+                            0,
+                            Number(
+                                snapshot?.playerEntry
+                                    ?.completedSquadMissions ||
+                                0
+                            )
+                        ),
+
+                    status:
+                        'active',
+
+                    source:
+                        snapshot.source,
+
+                    rule:
+                        snapshot.rule,
+
+                    lastHelpAt:
+                        sanitizeString(
+                            snapshot?.playerEntry
+                                ?.lastHelpAt
+                        )
+                }))
+                .catch((error) => {
+                    console.warn(
+                        'Academy Helper Score sync unavailable:',
+                        error?.message ||
+                        error
+                    );
+
+                    return {
+                        wired: true,
+                        value: 0,
+                        weeklyValue: 0,
+                        contributionCount: 0,
+                        completedSquadMissions: 0,
+
+                        status:
+                            'temporarily_unavailable',
+
+                        source:
+                            'completed_squad_mission_contributions_v1',
+
+                        rule:
+                            'one_point_per_unique_contribution_to_completed_squad_mission',
+
+                        lastHelpAt: ''
+                    };
+                })
+    };
+}
+
+async function syncAcademyQuestAchievementStateV1(
+    uid = '',
+    progression = {}
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    if (!cleanUid) {
+        throw new Error(
+            'Missing Academy quest state user id.'
+        );
+    }
+
+    const activeRoadmap =
+        await getActiveRoadmap(
+            cleanUid
+        ).catch(() => null);
+
+    const missions =
+        activeRoadmap
+            ? await listAllMissionsByRoadmap(
+                cleanUid,
+                activeRoadmap.id
+            ).catch(() => [])
+            : [];
+
+    const checkins =
+        await getRows(
+            'academyCheckins',
+            cleanUid,
+            {
+                limit: 500
+            }
+        )
+            .then((rows) => (
+                rows.map((row) =>
+                    mapCheckinData(
+                        rowData(row),
+                        row.source_document_id
+                    )
+                )
+            ))
+            .catch(() => []);
+
+    const verifiedMissions =
+        missions.filter(
+            isAcademyMissionVerifiedCompletedV1
+        );
+
+    const quests =
+        await syncAcademyQuestLedgerV1(
+            cleanUid,
+            {
+                activeRoadmap,
+                missions,
+                verifiedMissions,
+                checkins
+            }
+        );
+
+    const achievements =
+        await syncAcademyAchievementsV1(
+            cleanUid,
+            {
+                activeRoadmap,
+                missions,
+                verifiedMissions,
+                checkins,
+                progression
+            }
+        );
+
+    return {
+        version:
+            'academy-quest-achievement-v1',
+
+        serverBacked: true,
+        persistent: true,
+
+        generatedAt:
+            nowIso(),
+
+        quests,
+        achievements
+    };
+}
+
+async function claimAcademyQuestRewardV1(
+    uid = '',
+    questId = ''
+) {
+    const cleanUid =
+        sanitizeString(uid);
+
+    const cleanQuestId =
+        sanitizeString(questId);
+
+    if (
+        !cleanUid ||
+        !cleanQuestId
+    ) {
+        const error =
+            new Error(
+                'Quest reward identity is required.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const row =
+        await getOne(
+            ACADEMY_QUEST_RECORD_TYPE,
+            cleanUid,
+            cleanQuestId
+        );
+
+    if (!row) {
+        const error =
+            new Error(
+                'Academy quest was not found.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const quest =
+        rowData(row);
+
+    if (
+        quest.completed !== true &&
+        sanitizeString(
+            quest.status
+        ) !== 'completed_unclaimed' &&
+        sanitizeString(
+            quest.status
+        ) !== 'claimed'
+    ) {
+        const error =
+            new Error(
+                'Complete the quest before claiming its reward.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    const rewardXp =
+        Math.max(
+            0,
+            Math.round(
+                toNumber(
+                    quest.rewardXp,
+                    0
+                )
+            )
+        );
+
+    /*
+     * upsertAcademyXpEventV1 uses a deterministic
+     * eventType + sourceId identity, so repeated claim
+     * requests cannot create duplicate XP records.
+     */
+    const rewardEvent =
+        await upsertAcademyXpEventV1(
+            cleanUid,
+            {
+                eventType:
+                    'quest_reward',
+
+                sourceId:
+                    cleanQuestId,
+
+                sourceType:
+                    'academyQuest',
+
+                xp:
+                    rewardXp,
+
+                eventAt:
+                    quest.claimedAt ||
+                    nowIso(),
+
+                metadata: {
+                    questKey:
+                        quest.questKey ||
+                        '',
+
+                    cadence:
+                        quest.cadence ||
+                        '',
+
+                    periodKey:
+                        quest.periodKey ||
+                        '',
+
+                    title:
+                        quest.title ||
+                        ''
+                }
+            }
+        );
+
+    const claimedAt =
+        sanitizeString(
+            quest.claimedAt
+        ) ||
+        nowIso();
+
+    const saved =
+        await upsertRecord(
+            ACADEMY_QUEST_RECORD_TYPE,
+            cleanUid,
+            cleanQuestId,
+            {
+                ...quest,
+
+                status:
+                    'claimed',
+
+                claimedAt,
+
+                rewardEventId:
+                    rewardEvent?.event
+                        ?.eventId ||
+                    rewardEvent?.event
+                        ?.id ||
+                    quest.rewardEventId ||
+                    '',
+
+                updatedAt:
+                    nowIso()
+            }
+        );
+
+    return {
+        quest: {
+            ...rowData(saved),
+            id: cleanQuestId,
+            xp: rewardXp
+        },
+
+        alreadyClaimed:
+            Boolean(
+                quest.claimedAt
+            ),
+
+        xpAwarded:
+            rewardEvent?.created === true
+                ? rewardXp
+                : 0,
+
+        rewardEventCreated:
+            rewardEvent?.created === true
+    };
+}
+
+/* END PATCH: Persistent Academy Quest and Achievement ledger v1 */
+
 async function getAcademyProgressionV1(uid = '') {
     const row = await getOne(
         ACADEMY_PROGRESSION_RECORD_TYPE,
@@ -3656,12 +6240,36 @@ async function syncAcademyProgressionFromCurrentStateV1(
 
     const activeRoadmap = await getActiveRoadmap(cleanUid).catch(() => null);
 
-    const missions = activeRoadmap
-        ? await listAllMissionsByRoadmap(
+    const allKnownMissions =
+        await getRows(
+            'academyMissions',
             cleanUid,
-            activeRoadmap.id
-        ).catch(() => [])
-        : [];
+            {
+                limit: 500
+            }
+        )
+            .then((rows) => (
+                rows.map((row) =>
+                    mapMissionData(
+                        rowData(row),
+                        row.source_document_id
+                    )
+                )
+            ))
+            .catch(() => []);
+
+    const missions =
+        activeRoadmap
+            ? allKnownMissions.filter(
+                (mission) =>
+                    sanitizeString(
+                        mission.roadmapId
+                    ) ===
+                    sanitizeString(
+                        activeRoadmap.id
+                    )
+            )
+            : [];
 
     const checkins = await getRows(
         'academyCheckins',
@@ -3676,20 +6284,12 @@ async function syncAcademyProgressionFromCurrentStateV1(
         )
     )).catch(() => []);
 
-    const completedMissions = missions.filter((mission) => {
-        return sanitizeString(mission.status).toLowerCase() === 'completed';
-    });
+    const completedMissions =
+        missions.filter(
+            isAcademyMissionVerifiedCompletedV1
+        );
 
-    const verifiedCompletedMissions = completedMissions.filter(
-        (mission) => {
-            return sanitizeString(
-                mission.verificationDecision ||
-                mission.verificationStatus
-            ).toLowerCase() === 'approved';
-        }
-    );
-
-    for (const mission of verifiedCompletedMissions) {
+    for (const mission of completedMissions) {
         await recordAcademySoloMissionCompletionV1(
             cleanUid,
             mission
@@ -3715,7 +6315,14 @@ async function syncAcademyProgressionFromCurrentStateV1(
             metadata: {
                 title: mission.title || '',
                 missionType: mission.missionType || '',
-                difficultyLevel: mission.difficultyLevel || ''
+                difficultyLevel: mission.difficultyLevel || '',
+                verificationDecision: 'approved',
+                verificationStatus:
+                    mission.verificationStatus ||
+                    'approved',
+                verificationProvider:
+                    mission.verificationProvider ||
+                    ''
             }
         });
     }
@@ -3825,21 +6432,146 @@ async function syncAcademyProgressionFromCurrentStateV1(
         500
     );
 
-    const totalXp = events.reduce((sum, event) => {
-        return sum + Math.max(0, toNumber(event.xp, 0));
-    }, 0);
+    const knownMissionById =
+        new Map(
+            allKnownMissions
+                .map((mission) => [
+                    sanitizeString(
+                        mission.id
+                    ),
+                    mission
+                ])
+                .filter(
+                    ([missionId]) =>
+                        Boolean(missionId)
+                )
+        );
+
+    /*
+     * Non-destructive historical integrity rule:
+     * - Do not delete or rewrite existing XP rows.
+     * - Preserve mission XP when the source mission is no
+     *   longer present in the current mission inventory.
+     * - Exclude a mission_completed XP event only when its
+     *   source mission is known and is not completed with an
+     *   approved verification decision.
+     */
+    const isCountableAcademyXpEventV1 =
+        (event = {}) => {
+            const eventType =
+                sanitizeString(
+                    event.eventType ||
+                    event.type
+                ).toLowerCase();
+
+            if (
+                eventType !==
+                'mission_completed'
+            ) {
+                return true;
+            }
+
+            const sourceId =
+                sanitizeString(
+                    event.sourceId ||
+                    event.source_id
+                );
+
+            const sourceMission =
+                knownMissionById.get(
+                    sourceId
+                );
+
+            if (!sourceMission) {
+                return true;
+            }
+
+            return (
+                isAcademyMissionVerifiedCompletedV1(
+                    sourceMission
+                )
+            );
+        };
+
+    const excludedUnverifiedMissionEvents =
+        events.filter(
+            (event) =>
+                !isCountableAcademyXpEventV1(
+                    event
+                )
+        );
+
+    const countableEvents =
+        events.filter(
+            isCountableAcademyXpEventV1
+        );
+
+    const totalXp =
+        countableEvents.reduce(
+            (sum, event) => {
+                return (
+                    sum +
+                    Math.max(
+                        0,
+                        toNumber(
+                            event.xp,
+                            0
+                        )
+                    )
+                );
+            },
+            0
+        );
 
     const weekStartIso = academyProgressionWeekStartIsoV1(
         new Date()
     );
 
-    const weeklyXp = events.reduce((sum, event) => {
-        const eventAt = academyProgressionEventDateV1(event);
+    const weeklyXp =
+        countableEvents.reduce(
+            (sum, event) => {
+                const eventAt =
+                    academyProgressionEventDateV1(
+                        event
+                    );
 
-        if (eventAt < weekStartIso) return sum;
+                if (
+                    eventAt <
+                    weekStartIso
+                ) {
+                    return sum;
+                }
 
-        return sum + Math.max(0, toNumber(event.xp, 0));
-    }, 0);
+                return (
+                    sum +
+                    Math.max(
+                        0,
+                        toNumber(
+                            event.xp,
+                            0
+                        )
+                    )
+                );
+            },
+            0
+        );
+
+    const excludedUnverifiedMissionXp =
+        excludedUnverifiedMissionEvents.reduce(
+            (sum, event) => {
+                return (
+                    sum +
+                    Math.max(
+                        0,
+                        toNumber(
+                            event.xp,
+                            0
+                        )
+                    )
+                );
+            },
+            0
+        );
 
     const rank = academyProgressionRankFromXpV1(totalXp);
     const level = academyProgressionLevelFromXpV1(totalXp);
@@ -3925,6 +6657,8 @@ async function syncAcademyProgressionFromCurrentStateV1(
         cleanUid
     ).catch(() => null);
 
+    const reconciledAt = nowIso();
+
     const summary = {
         ...existing,
         id: ACADEMY_PROGRESSION_DOC_ID,
@@ -3938,6 +6672,23 @@ async function syncAcademyProgressionFromCurrentStateV1(
         totalXp,
         weeklyXp,
         level,
+
+        xpIntegrity: {
+            policy:
+                'mission_xp_requires_verified_approved',
+
+            countableEventCount:
+                countableEvents.length,
+
+            excludedEventCount:
+                excludedUnverifiedMissionEvents.length,
+
+            excludedXp:
+                excludedUnverifiedMissionXp,
+
+            historicalRowsDeleted:
+                false
+        },
 
         rank: rank.label,
         rankKey: rank.key,
@@ -3958,8 +6709,11 @@ async function syncAcademyProgressionFromCurrentStateV1(
         weekStartAt: weekStartIso,
         source: 'academy_progression_reconciliation_v1',
 
-        createdAt: existing?.createdAt || nowIso(),
-        updatedAt: nowIso()
+        lastReconciledAt: reconciledAt,
+        freshnessStatus: 'fresh',
+
+        createdAt: existing?.createdAt || reconciledAt,
+        updatedAt: reconciledAt
     };
 
     await upsertRecord(
@@ -4199,9 +6953,16 @@ async function resolveAcademyLeaderboardIdentityV1(
 }
 
 /* END PATCH: Academy leaderboard canonical member identity v1 */
-async function listAcademyProgressionLeaderboardV1(
+const ACADEMY_LEADERBOARD_FRESH_MS_V2 =
+    6 * 60 * 60 * 1000;
+
+const ACADEMY_LEADERBOARD_STALE_MS_V2 =
+    24 * 60 * 60 * 1000;
+
+async function getAcademyProgressionLeaderboardSnapshotV2(
     period = 'weekly',
-    limit = 50
+    limit = 50,
+    playerUserId = ''
 ) {
     const cleanPeriod =
         sanitizeString(period).toLowerCase() ===
@@ -4218,40 +6979,154 @@ async function listAcademyProgressionLeaderboardV1(
             )
         );
 
-    const { data, error } =
-        await yhuSupabaseAdmin
-            .from(TABLE)
-            .select('*')
-            .eq(
-                'record_type',
-                ACADEMY_PROGRESSION_RECORD_TYPE
-            )
-            .limit(500);
+    const cleanPlayerUserId =
+        sanitizeString(playerUserId);
 
-    if (error) {
-        throw new Error(
-            `Academy leaderboard failed: ${error.message}`
+    const generatedAt =
+        nowIso();
+
+    const generatedAtMs =
+        new Date(generatedAt).getTime();
+
+    const currentWeekStartAt =
+        academyProgressionWeekStartIsoV1(
+            generatedAt
         );
+
+    const rows = [];
+    const pageSize = 500;
+    let offset = 0;
+
+    while (true) {
+        const { data, error } =
+            await yhuSupabaseAdmin
+                .from(TABLE)
+                .select('*')
+                .eq(
+                    'record_type',
+                    ACADEMY_PROGRESSION_RECORD_TYPE
+                )
+                .order(
+                    'id',
+                    {
+                        ascending: true
+                    }
+                )
+                .range(
+                    offset,
+                    offset + pageSize - 1
+                );
+
+        if (error) {
+            throw new Error(
+                `Academy leaderboard failed: ${error.message}`
+            );
+        }
+
+        const batch =
+            Array.isArray(data)
+                ? data
+                : [];
+
+        rows.push(...batch);
+
+        if (batch.length < pageSize) {
+            break;
+        }
+
+        offset += pageSize;
     }
 
-    const field =
-        cleanPeriod === 'all_time'
-            ? 'totalXp'
-            : 'weeklyXp';
-
-    const rawEntries =
-        (Array.isArray(data) ? data : [])
+    const rankedEntries =
+        rows
             .map((row) => {
                 const progression =
                     rowData(row);
 
+                const userId =
+                    sanitizeString(
+                        progression.userId ||
+                        row.user_id ||
+                        ''
+                    );
+
+                if (!userId) {
+                    return null;
+                }
+
+                const recordedWeekStartAt =
+                    sanitizeString(
+                        progression.weekStartAt
+                    );
+
+                /*
+                 * A member does not need to be fully
+                 * reconciled just to clear XP from an
+                 * expired weekly period.
+                 */
+                const weeklyResetApplied =
+                    recordedWeekStartAt !==
+                    currentWeekStartAt;
+
+                const weeklyXp =
+                    weeklyResetApplied
+                        ? 0
+                        : Math.max(
+                            0,
+                            toNumber(
+                                progression.weeklyXp,
+                                0
+                            )
+                        );
+
+                const totalXp =
+                    Math.max(
+                        0,
+                        toNumber(
+                            progression.totalXp,
+                            0
+                        )
+                    );
+
+                const lastReconciledAt =
+                    toIso(
+                        progression.lastReconciledAt ||
+                        progression.updatedAt ||
+                        row.updated_at_source ||
+                        row.updated_at
+                    );
+
+                const lastReconciledAtMs =
+                    new Date(
+                        lastReconciledAt || 0
+                    ).getTime();
+
+                const ageMs =
+                    Number.isFinite(
+                        lastReconciledAtMs
+                    )
+                        ? Math.max(
+                            0,
+                            generatedAtMs -
+                            lastReconciledAtMs
+                        )
+                        : Number.POSITIVE_INFINITY;
+
+                const stale =
+                    !Number.isFinite(ageMs) ||
+                    ageMs >
+                    ACADEMY_LEADERBOARD_STALE_MS_V2;
+
+                const freshnessStatus =
+                    stale
+                        ? 'stale'
+                        : ageMs >
+                            ACADEMY_LEADERBOARD_FRESH_MS_V2
+                            ? 'aging'
+                            : 'fresh';
+
                 return {
-                    userId:
-                        sanitizeString(
-                            progression.userId ||
-                            row.user_id ||
-                            ''
-                        ),
+                    userId,
 
                     displayName:
                         sanitizeString(
@@ -4273,31 +7148,13 @@ async function listAcademyProgressionLeaderboardV1(
                         ),
 
                     xp:
-                        Math.max(
-                            0,
-                            toNumber(
-                                progression[field],
-                                0
-                            )
-                        ),
+                        cleanPeriod ===
+                        'all_time'
+                            ? totalXp
+                            : weeklyXp,
 
-                    totalXp:
-                        Math.max(
-                            0,
-                            toNumber(
-                                progression.totalXp,
-                                0
-                            )
-                        ),
-
-                    weeklyXp:
-                        Math.max(
-                            0,
-                            toNumber(
-                                progression.weeklyXp,
-                                0
-                            )
-                        ),
+                    totalXp,
+                    weeklyXp,
 
                     level:
                         Math.max(
@@ -4335,68 +7192,310 @@ async function listAcademyProgressionLeaderboardV1(
                             )
                         ),
 
+                    period:
+                        cleanPeriod,
+
+                    weekStartAt:
+                        currentWeekStartAt,
+
+                    recordedWeekStartAt,
+                    weeklyResetApplied,
+                    lastReconciledAt,
+
+                    freshnessAgeHours:
+                        Number.isFinite(ageMs)
+                            ? Math.round(
+                                (
+                                    ageMs /
+                                    (
+                                        60 *
+                                        60 *
+                                        1000
+                                    )
+                                ) * 10
+                            ) / 10
+                            : null,
+
+                    stale,
+                    freshnessStatus,
                     progression
                 };
-            });
-
-    const enrichedEntries =
-        await Promise.all(
-            rawEntries.map(
-                async (entry) => {
-                    const identity =
-                        await resolveAcademyLeaderboardIdentityV1(
-                            entry.userId,
-                            entry.progression
-                        );
-
-                    return {
-                        ...entry,
-                        displayName:
-                            identity.displayName,
-
-                        username:
-                            identity.username,
-
-                        avatar:
-                            identity.avatar
-                    };
+            })
+            .filter(Boolean)
+            .sort((a, b) => {
+                if (b.xp !== a.xp) {
+                    return b.xp - a.xp;
                 }
+
+                if (
+                    cleanPeriod === 'weekly' &&
+                    b.totalXp !== a.totalXp
+                ) {
+                    return (
+                        b.totalXp -
+                        a.totalXp
+                    );
+                }
+
+                if (
+                    cleanPeriod === 'all_time' &&
+                    b.weeklyXp !== a.weeklyXp
+                ) {
+                    return (
+                        b.weeklyXp -
+                        a.weeklyXp
+                    );
+                }
+
+                if (
+                    b.completedMissions !==
+                    a.completedMissions
+                ) {
+                    return (
+                        b.completedMissions -
+                        a.completedMissions
+                    );
+                }
+
+                return String(
+                    a.userId
+                ).localeCompare(
+                    String(
+                        b.userId
+                    )
+                );
+            })
+            .map((entry, index) => ({
+                ...entry,
+                position:
+                    index + 1
+            }));
+
+    /*
+     * Position is resolved from the full ranking,
+     * not only from the limited visible results.
+     */
+    const rawPlayerEntry =
+        cleanPlayerUserId
+            ? rankedEntries.find(
+                (entry) =>
+                    entry.userId ===
+                    cleanPlayerUserId
+            ) || null
+            : null;
+
+    const visibleEntries =
+        rankedEntries.slice(
+            0,
+            safeLimit
+        );
+
+    /*
+     * Avoid three profile lookups for every ranked
+     * member. Resolve identity only for visible rows
+     * and the requesting player.
+     */
+    const identityTargets =
+        new Map(
+            visibleEntries.map(
+                (entry) => [
+                    entry.userId,
+                    entry
+                ]
             )
         );
 
-    return enrichedEntries
-        .map(({ progression, ...entry }) => entry)
-        .sort((a, b) => {
-            if (b.xp !== a.xp) {
-                return b.xp - a.xp;
+    if (rawPlayerEntry) {
+        identityTargets.set(
+            rawPlayerEntry.userId,
+            rawPlayerEntry
+        );
+    }
+
+    const identityMap =
+        new Map(
+            await Promise.all(
+                [...identityTargets.values()]
+                    .map(async (entry) => [
+                        entry.userId,
+                        await resolveAcademyLeaderboardIdentityV1(
+                            entry.userId,
+                            entry.progression
+                        )
+                    ])
+            )
+        );
+
+    const enrich =
+        (entry = null) => {
+            if (!entry) {
+                return null;
             }
 
-            if (
-                b.totalXp !==
-                a.totalXp
-            ) {
-                return (
-                    b.totalXp -
-                    a.totalXp
-                );
-            }
+            const identity =
+                identityMap.get(
+                    entry.userId
+                ) || {};
 
-            return String(
-                a.displayName
-            ).localeCompare(
-                String(
-                    b.displayName
-                )
-            );
-        })
-        .slice(0, safeLimit)
-        .map((entry, index) => ({
-            ...entry,
-            position:
-                index + 1,
-            period:
-                cleanPeriod
-        }));
+            const {
+                progression,
+                ...safeEntry
+            } = entry;
+
+            return {
+                ...safeEntry,
+
+                displayName:
+                    identity.displayName ||
+                    safeEntry.displayName ||
+                    safeEntry.username ||
+                    'YH Member',
+
+                username:
+                    identity.username ||
+                    safeEntry.username ||
+                    '',
+
+                avatar:
+                    identity.avatar ||
+                    safeEntry.avatar ||
+                    ''
+            };
+        };
+
+    const leaderboard =
+        visibleEntries.map(
+            enrich
+        );
+
+    const playerEntry =
+        enrich(
+            rawPlayerEntry
+        );
+
+    const freshnessCounts =
+        rankedEntries.reduce(
+            (result, entry) => {
+                result[
+                    entry.freshnessStatus
+                ] += 1;
+
+                if (
+                    entry.weeklyResetApplied
+                ) {
+                    result.weeklyReset += 1;
+                }
+
+                return result;
+            },
+            {
+                fresh: 0,
+                aging: 0,
+                stale: 0,
+                weeklyReset: 0
+            }
+        );
+
+    return {
+        version:
+            'academy-leaderboard-v2',
+
+        generatedAt,
+        period:
+            cleanPeriod,
+        limit:
+            safeLimit,
+        leaderboard,
+
+        playerPosition:
+            playerEntry?.position ||
+            null,
+
+        playerEntry,
+
+        exactPosition:
+            cleanPlayerUserId
+                ? Boolean(playerEntry)
+                : null,
+
+        totalRanked:
+            rankedEntries.length,
+
+        freshness: {
+            status:
+                freshnessCounts.stale > 0
+                    ? 'mixed_stale'
+                    : freshnessCounts.aging > 0
+                        ? 'mixed_aging'
+                        : 'fresh',
+
+            freshHours: 6,
+            staleHours: 24,
+
+            freshCount:
+                freshnessCounts.fresh,
+
+            agingCount:
+                freshnessCounts.aging,
+
+            staleCount:
+                freshnessCounts.stale,
+
+            weeklyResetCount:
+                freshnessCounts.weeklyReset,
+
+            requestingPlayerStatus:
+                playerEntry
+                    ?.freshnessStatus ||
+                null
+        },
+
+        rankingPolicy: {
+            primary:
+                cleanPeriod ===
+                'all_time'
+                    ? 'total_xp_desc'
+                    : 'weekly_xp_desc',
+
+            secondary:
+                cleanPeriod ===
+                'all_time'
+                    ? 'weekly_xp_desc'
+                    : 'total_xp_desc',
+
+            tertiary:
+                'completed_missions_desc',
+
+            finalTieBreaker:
+                'user_id_ascending',
+
+            staleRowsRecomputed:
+                false,
+
+            staleRowsMarked:
+                true,
+
+            oldWeeklyXpResetToZero:
+                true
+        }
+    };
+}
+
+/*
+ * Compatibility function for existing internal
+ * callers that still expect a plain array.
+ */
+async function listAcademyProgressionLeaderboardV1(
+    period = 'weekly',
+    limit = 50
+) {
+    const snapshot =
+        await getAcademyProgressionLeaderboardSnapshotV2(
+            period,
+            limit
+        );
+
+    return snapshot.leaderboard;
 }
 /* END PATCH: Persistent Academy progression core v1 */
 
@@ -8063,6 +11162,578 @@ async function listAcademySquadMissionContributionsV1(
         });
 }
 
+/* PATCH: Canonical Academy Helper Score and Top Helpers v1 */
+
+async function listAcademyHelperRowsPagedV1(
+    recordType = '',
+    maxRows = 10000
+) {
+    const cleanRecordType =
+        sanitizeString(
+            recordType
+        );
+
+    if (!cleanRecordType) {
+        return [];
+    }
+
+    const pageSize = 1000;
+
+    const safeMaxRows =
+        Math.max(
+            pageSize,
+            Math.min(
+                20000,
+                Number(maxRows) || 10000
+            )
+        );
+
+    const rows = [];
+
+    for (
+        let offset = 0;
+        offset < safeMaxRows;
+        offset += pageSize
+    ) {
+        const {
+            data,
+            error
+        } = await yhuSupabaseAdmin
+            .from(TABLE)
+            .select(
+                'user_id,source_document_id,data,created_at_source,updated_at_source'
+            )
+            .eq(
+                'record_type',
+                cleanRecordType
+            )
+            .order(
+                'updated_at_source',
+                {
+                    ascending: false,
+                    nullsFirst: false
+                }
+            )
+            .range(
+                offset,
+                Math.min(
+                    offset + pageSize - 1,
+                    safeMaxRows - 1
+                )
+            );
+
+        if (error) {
+            throw new Error(
+                `Academy Helper Score list failed (${cleanRecordType}): ${error.message}`
+            );
+        }
+
+        const page =
+            Array.isArray(data)
+                ? data
+                : [];
+
+        rows.push(...page);
+
+        if (page.length < pageSize) {
+            break;
+        }
+    }
+
+    return rows.slice(
+        0,
+        safeMaxRows
+    );
+}
+
+function academyHelperMissionKeyV1(
+    squadId = '',
+    missionId = ''
+) {
+    const cleanSquadId =
+        sanitizeString(
+            squadId
+        );
+
+    const cleanMissionId =
+        sanitizeString(
+            missionId
+        );
+
+    if (
+        !cleanSquadId ||
+        !cleanMissionId
+    ) {
+        return '';
+    }
+
+    return `${cleanSquadId}|${cleanMissionId}`;
+}
+
+async function getAcademyHelperLeaderboardSnapshotV1(
+    playerUserId = '',
+    limit = 50
+) {
+    const cleanPlayerUserId =
+        sanitizeString(
+            playerUserId
+        );
+
+    const safeLimit =
+        Math.max(
+            1,
+            Math.min(
+                100,
+                Number(limit) || 50
+            )
+        );
+
+    const [
+        missionRows,
+        contributionRows
+    ] = await Promise.all([
+        listAcademyHelperRowsPagedV1(
+            ACADEMY_SQUAD_MISSION_RECORD_TYPE,
+            10000
+        ),
+
+        listAcademyHelperRowsPagedV1(
+            ACADEMY_SQUAD_MISSION_CONTRIBUTION_RECORD_TYPE,
+            20000
+        )
+    ]);
+
+    const completedMissionKeys =
+        new Set();
+
+    missionRows.forEach((row) => {
+        const mission =
+            normalizeAcademySquadMissionV1(
+                rowData(row)
+            );
+
+        const progress =
+            Math.max(
+                0,
+                Math.floor(
+                    toNumber(
+                        mission.progress,
+                        0
+                    )
+                )
+            );
+
+        const target =
+            Math.max(
+                1,
+                Math.floor(
+                    toNumber(
+                        mission.target,
+                        1
+                    )
+                )
+            );
+
+        if (
+            mission.status !== 'completed' ||
+            progress < target
+        ) {
+            return;
+        }
+
+        const missionKey =
+            academyHelperMissionKeyV1(
+                mission.squadId,
+                mission.id ||
+                row.source_document_id
+            );
+
+        if (missionKey) {
+            completedMissionKeys.add(
+                missionKey
+            );
+        }
+    });
+
+    const weekStartAt =
+        academyProgressionWeekStartIsoV1(
+            new Date()
+        );
+
+    const helperByUser =
+        new Map();
+
+    contributionRows.forEach((row) => {
+        const contribution =
+            rowData(row);
+
+        const missionKey =
+            academyHelperMissionKeyV1(
+                contribution.squadId,
+                contribution.missionId
+            );
+
+        if (
+            !missionKey ||
+            !completedMissionKeys.has(
+                missionKey
+            )
+        ) {
+            return;
+        }
+
+        const contributorUserId =
+            sanitizeString(
+                contribution.contributorUserId
+            );
+
+        if (!contributorUserId) {
+            return;
+        }
+
+        const eventAt =
+            toIso(
+                contribution.eventAt ||
+                contribution.createdAt ||
+                row.created_at_source
+            );
+
+        const current =
+            helperByUser.get(
+                contributorUserId
+            ) || {
+                userId:
+                    contributorUserId,
+
+                displayName:
+                    sanitizeString(
+                        contribution.contributorName ||
+                        'Academy Member'
+                    ),
+
+                weeklyHelperScore: 0,
+                totalHelperScore: 0,
+                contributionCount: 0,
+
+                completedMissionKeys:
+                    new Set(),
+
+                lastHelpAt: ''
+            };
+
+        /*
+         * One deterministic contribution row equals one
+         * Helper point only after its Squad mission is
+         * server-reconciled as completed.
+         */
+        current.totalHelperScore += 1;
+        current.contributionCount += 1;
+
+        current.completedMissionKeys.add(
+            missionKey
+        );
+
+        if (
+            eventAt &&
+            eventAt >= weekStartAt
+        ) {
+            current.weeklyHelperScore += 1;
+        }
+
+        if (
+            eventAt &&
+            (
+                !current.lastHelpAt ||
+                eventAt > current.lastHelpAt
+            )
+        ) {
+            current.lastHelpAt =
+                eventAt;
+        }
+
+        helperByUser.set(
+            contributorUserId,
+            current
+        );
+    });
+
+    const rankedEntries =
+        [...helperByUser.values()]
+            .map((entry) => ({
+                ...entry,
+
+                completedSquadMissions:
+                    entry.completedMissionKeys.size
+            }))
+            .sort((a, b) => {
+                if (
+                    b.weeklyHelperScore !==
+                    a.weeklyHelperScore
+                ) {
+                    return (
+                        b.weeklyHelperScore -
+                        a.weeklyHelperScore
+                    );
+                }
+
+                if (
+                    b.totalHelperScore !==
+                    a.totalHelperScore
+                ) {
+                    return (
+                        b.totalHelperScore -
+                        a.totalHelperScore
+                    );
+                }
+
+                if (
+                    b.completedSquadMissions !==
+                    a.completedSquadMissions
+                ) {
+                    return (
+                        b.completedSquadMissions -
+                        a.completedSquadMissions
+                    );
+                }
+
+                return a.userId.localeCompare(
+                    b.userId
+                );
+            })
+            .map((entry, index) => ({
+                ...entry,
+                position:
+                    index + 1
+            }));
+
+    const visibleEntries =
+        rankedEntries.slice(
+            0,
+            safeLimit
+        );
+
+    const rawPlayerEntry =
+        rankedEntries.find(
+            (entry) =>
+                entry.userId ===
+                cleanPlayerUserId
+        ) || (
+            cleanPlayerUserId
+                ? {
+                    userId:
+                        cleanPlayerUserId,
+
+                    displayName:
+                        'Academy Member',
+
+                    weeklyHelperScore: 0,
+                    totalHelperScore: 0,
+                    contributionCount: 0,
+                    completedSquadMissions: 0,
+                    lastHelpAt: '',
+                    position: null
+                }
+                : null
+        );
+
+    const identityTargets =
+        new Map();
+
+    [
+        ...visibleEntries,
+        rawPlayerEntry
+    ]
+        .filter(Boolean)
+        .forEach((entry) => {
+            identityTargets.set(
+                entry.userId,
+                entry
+            );
+        });
+
+    const identityMap =
+        new Map(
+            await Promise.all(
+                [...identityTargets.values()]
+                    .map(async (entry) => [
+                        entry.userId,
+
+                        await resolveAcademyLeaderboardIdentityV1(
+                            entry.userId,
+                            {
+                                displayName:
+                                    entry.displayName
+                            }
+                        )
+                    ])
+            )
+        );
+
+    const enrich =
+        (entry = null) => {
+            if (!entry) {
+                return null;
+            }
+
+            const identity =
+                identityMap.get(
+                    entry.userId
+                ) || {};
+
+            return {
+                id:
+                    entry.userId,
+
+                userId:
+                    entry.userId,
+
+                name:
+                    identity.displayName ||
+                    entry.displayName ||
+                    identity.username ||
+                    'Academy Member',
+
+                displayName:
+                    identity.displayName ||
+                    entry.displayName ||
+                    identity.username ||
+                    'Academy Member',
+
+                username:
+                    identity.username ||
+                    '',
+
+                avatar:
+                    identity.avatar ||
+                    '',
+
+                position:
+                    entry.position ||
+                    null,
+
+                helperScore:
+                    Math.max(
+                        0,
+                        Number(
+                            entry.totalHelperScore ||
+                            0
+                        )
+                    ),
+
+                totalHelperScore:
+                    Math.max(
+                        0,
+                        Number(
+                            entry.totalHelperScore ||
+                            0
+                        )
+                    ),
+
+                weeklyHelperScore:
+                    Math.max(
+                        0,
+                        Number(
+                            entry.weeklyHelperScore ||
+                            0
+                        )
+                    ),
+
+                contributionCount:
+                    Math.max(
+                        0,
+                        Number(
+                            entry.contributionCount ||
+                            0
+                        )
+                    ),
+
+                completedSquadMissions:
+                    Math.max(
+                        0,
+                        Number(
+                            entry.completedSquadMissions ||
+                            0
+                        )
+                    ),
+
+                lastHelpAt:
+                    sanitizeString(
+                        entry.lastHelpAt
+                    ),
+
+                label:
+                    `${Math.max(
+                        0,
+                        Number(
+                            entry.weeklyHelperScore ||
+                            0
+                        )
+                    ).toLocaleString()} weekly Helper points`
+            };
+        };
+
+    const leaderboard =
+        visibleEntries.map(
+            enrich
+        );
+
+    const playerEntry =
+        enrich(
+            rawPlayerEntry
+        );
+
+    return {
+        version:
+            'academy-helper-leaderboard-v1',
+
+        generatedAt:
+            nowIso(),
+
+        period:
+            'weekly',
+
+        wired:
+            true,
+
+        source:
+            'completed_squad_mission_contributions_v1',
+
+        rule:
+            'one_point_per_unique_contribution_to_completed_squad_mission',
+
+        leaderboard,
+
+        topHelpers:
+            leaderboard,
+
+        playerEntry,
+
+        playerPosition:
+            playerEntry?.position ||
+            null,
+
+        exactPosition:
+            cleanPlayerUserId
+                ? Boolean(
+                    playerEntry?.position
+                )
+                : null,
+
+        totalRanked:
+            rankedEntries.length,
+
+        completedMissionCount:
+            completedMissionKeys.size,
+
+        contributionCount:
+            contributionRows.length,
+
+        weekStartAt
+    };
+}
+
+/* END PATCH: Canonical Academy Helper Score and Top Helpers v1 */
+
 /*
  * Public member-safe Squad Mission contribution history.
  * Membership and mission ownership are verified server-side.
@@ -9301,9 +12972,16 @@ module.exports = {
 
     getAcademyProgressionV1,
     syncAcademyProgressionFromCurrentStateV1,
+    getAcademyProgressionLeaderboardSnapshotV2,
     listAcademyProgressionLeaderboardV1,
+    getAcademyHelperLeaderboardSnapshotV1,
     listAcademyXpEventsV1,
     upsertAcademyXpEventV1,
+
+    listAcademyQuestRecordsV1,
+    listAcademyAchievementRecordsV1,
+    syncAcademyQuestAchievementStateV1,
+    claimAcademyQuestRewardV1,
 
     listAcademySoloEventsV1,
     recordAcademySoloMissionCompletionV1,
@@ -9360,8 +13038,11 @@ module.exports = {
     listLeadMissionLeads,
     getLeadMissionLeadById,
     updateLeadMissionLead,
+    submitRoutedLeadMissionV1,
     deleteLeadMissionLead,
     listLeadMissionFollowUps,
+    upsertLeadMissionPayoutV2,
+    upsertLeadMissionDealV2,
     listLeadMissionPayouts,
     listLeadMissionDeals,
     getLeadMissionScripts
