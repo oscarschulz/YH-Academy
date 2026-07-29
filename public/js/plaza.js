@@ -6140,30 +6140,45 @@ function showPlazaTabLoader(screenNameOrLabel = "Loading Plazas...") {
   const raw = String(screenNameOrLabel || "").trim();
   const label = raw.startsWith("Loading ") ? raw : getPlazaScreenLoaderLabel(raw);
 
-  /* PATCH: YHU balanced 0.5s Plaza embedded tab loader v3 */
+  /* PATCH: Dashboard owns embedded Plaza loading overlay v4 */
   if (isPlazaDashboardEmbeddedNavigationV1()) {
     markPlazaDashboardNonBlockingSyncV1(label);
 
-    window.__yhPlazaBalancedTabLoaderVisibleUntilV2 = Date.now() + 500;
+    window.clearTimeout(
+      window.__yhPlazaBalancedTabLoaderHideDelayV2
+    );
+
+    window.__yhPlazaBalancedTabLoaderVisibleUntilV2 = 0;
 
     if (text) {
-      text.textContent = label || "Loading Plaza.";
+      text.textContent =
+        label ||
+        "Loading Plaza.";
     }
 
     if (loader) {
-      loader.hidden = false;
-      loader.classList.remove("hidden-step");
-      loader.setAttribute("aria-hidden", "false");
-      loader.style.pointerEvents = "auto";
+      loader.classList.remove(
+        "is-active"
+      );
 
-      window.requestAnimationFrame(() => {
-        loader.classList.add("is-active");
-      });
+      loader.classList.add(
+        "hidden-step"
+      );
+
+      loader.hidden = true;
+
+      loader.setAttribute(
+        "aria-hidden",
+        "true"
+      );
+
+      loader.style.pointerEvents =
+        "none";
     }
 
     return;
   }
-  /* END PATCH: YHU balanced 0.5s Plaza embedded tab loader v3 */
+  /* END PATCH: Dashboard owns embedded Plaza loading overlay v4 */
 
   if (text) {
     text.textContent = label || "Loading Plaza...";
@@ -16033,6 +16048,42 @@ initPlaza();
 (function installPlazaStartupLoaderVisibilityBridgeV123() {
   if (window.__plazaStartupLoaderVisibilityBridgeV123Installed) return;
   window.__plazaStartupLoaderVisibilityBridgeV123Installed = true;
+
+  /*
+   * The parent Dashboard already owns the first
+   * iframe loading state. Do not install a second
+   * child overlay inside the embedded Plaza.
+   */
+  if (
+    isPlazaDashboardEmbeddedNavigationV1()
+  ) {
+    const loader =
+      document.getElementById(
+        "yh-tab-loader"
+      );
+
+    if (loader) {
+      loader.classList.remove(
+        "is-active"
+      );
+
+      loader.classList.add(
+        "hidden-step"
+      );
+
+      loader.hidden = true;
+
+      loader.setAttribute(
+        "aria-hidden",
+        "true"
+      );
+
+      loader.style.pointerEvents =
+        "none";
+    }
+
+    return;
+  }
 
   let bridgeOwnsStartupLoader = false;
 

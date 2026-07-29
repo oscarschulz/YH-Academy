@@ -40955,27 +40955,16 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
     }
 
     function ensureAccessRow() {
-        let row = document.getElementById(ROW_ID);
-        if (row) return row;
+        const existingRow =
+            document.getElementById(
+                ROW_ID
+            );
 
-        row = document.createElement('section');
-        row.id = ROW_ID;
-        row.className = 'yh-dashboard-overview-access-row-v1';
-        row.setAttribute('aria-label', 'Division access shortcuts');
-
-        const header = document.querySelector('.yh-command-dashboard-head');
-        const overviewGrid = document.getElementById('yh-command-overview-grid');
-        const hubShell = document.querySelector('.yh-universe-carousel-shell') || document.getElementById('universe-hub-view') || document.body;
-
-        if (header?.parentElement) {
-            header.insertAdjacentElement('afterend', row);
-        } else if (overviewGrid?.parentElement) {
-            overviewGrid.insertAdjacentElement('beforebegin', row);
-        } else {
-            hubShell?.prepend(row);
+        if (existingRow) {
+            existingRow.remove();
         }
 
-        return row;
+        return null;
     }
 
     function renderAccessRow() {
