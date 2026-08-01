@@ -1739,48 +1739,10 @@ window.addEventListener('load', () => {
     };
 
     syncLandingMobileGlobePlacement();
+    initLandingMapShell();
 
-    const isMobileLanding = window
-        .matchMedia('(max-width: 768px)')
-        .matches;
-
-    if (isMobileLanding) {
-        /*
-         * Keep mobile immediately scrollable.
-         * The lightweight visual fallback preserves the globe area
-         * without loading Three.js, OrbitControls, textures, shaders,
-         * and a permanent WebGL animation loop.
-         */
-        renderLandingMapFallback();
-    } else {
-        const startLandingDesktopGlobe = () => {
-            void initLandingMapShell();
-        };
-
-        if (typeof window.requestIdleCallback === 'function') {
-            window.requestIdleCallback(
-                startLandingDesktopGlobe,
-                { timeout: 1200 }
-            );
-        } else {
-            window.setTimeout(
-                startLandingDesktopGlobe,
-                120
-            );
-        }
-    }
-
-    window.addEventListener(
-        'resize',
-        syncLandingMobileGlobePlacement,
-        { passive: true }
-    );
-
-    window.addEventListener(
-        'orientationchange',
-        syncLandingMobileGlobePlacement,
-        { passive: true }
-    );
+    window.addEventListener('resize', syncLandingMobileGlobePlacement, { passive: true });
+    window.addEventListener('orientationchange', syncLandingMobileGlobePlacement, { passive: true });
 
     // --- CARD FLIP / REGISTER MODAL LOGIC ---
     const flipper = document.getElementById('auth-flipper');
