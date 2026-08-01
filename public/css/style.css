@@ -28767,9 +28767,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-live-metrics {
         overflow-x: hidden;
         overflow-y: auto;
         overscroll-behavior-y: auto;
-        touch-action-x: hidden;
-        overflow-y: auto;
-        overscroll-behavior: pan-y;
+        touch-action: pan-y;
     }
 
     body[data-yh-page="apply"] {
