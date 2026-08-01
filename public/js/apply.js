@@ -1765,6 +1765,7 @@ window.addEventListener('load', () => {
 
         if (registerModalFace.dataset.yhModalMounted === 'true') return;
 
+        
         registerModalFace.classList.add('yh-register-modal-panel', 'hidden-step');
         registerModalFace.setAttribute('role', 'dialog');
         registerModalFace.setAttribute('aria-modal', 'true');
