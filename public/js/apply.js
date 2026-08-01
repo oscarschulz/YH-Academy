@@ -1692,6 +1692,475 @@ async function initLandingMapShell() {
 }
 
 
+function initLandingDivisionCarousel() {
+    const carousel = document.querySelector(
+        '[data-yh-landing-division-carousel]'
+    );
+
+    const track = carousel?.querySelector(
+        '[data-yh-landing-division-track]'
+    );
+
+    const cards = Array.from(
+        track?.querySelectorAll(
+            '.yh-landing-division-card'
+        ) || []
+    );
+
+    const indicators = Array.from(
+        carousel?.querySelectorAll(
+            '[data-yh-landing-division-indicator]'
+        ) || []
+    );
+
+    if (
+        !carousel ||
+        !track ||
+        cards.length !== 3 ||
+        indicators.length !== cards.length
+    ) {
+        return false;
+    }
+
+    if (
+        carousel.dataset
+            .yhLandingDivisionCarouselReady ===
+        'true'
+    ) {
+        return true;
+    }
+
+    carousel.dataset
+        .yhLandingDivisionCarouselReady =
+        'true';
+
+    const mobileQuery = window.matchMedia(
+        '(max-width: 820px)'
+    );
+
+    let activeIndex = 0;
+    let scrollFrame = 0;
+    let resizeFrame = 0;
+
+    let dragPointerId = null;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragStartScrollLeft = 0;
+    let dragAxis = '';
+    let dragMoved = false;
+
+    const normalizeIndex = (value) => {
+        const parsed = Number(value);
+
+        if (!Number.isFinite(parsed)) {
+            return 0;
+        }
+
+        return Math.max(
+            0,
+            Math.min(
+                cards.length - 1,
+                Math.round(parsed)
+            )
+        );
+    };
+
+    const updateIndicators = (nextIndex) => {
+        activeIndex = normalizeIndex(
+            nextIndex
+        );
+
+        indicators.forEach(
+            (indicator, index) => {
+                const isActive =
+                    index === activeIndex;
+
+                indicator.classList.toggle(
+                    'is-active',
+                    isActive
+                );
+
+                if (isActive) {
+                    indicator.setAttribute(
+                        'aria-current',
+                        'true'
+                    );
+                } else {
+                    indicator.removeAttribute(
+                        'aria-current'
+                    );
+                }
+            }
+        );
+    };
+
+    const getNearestCardIndex = () => {
+        const currentLeft =
+            track.scrollLeft;
+
+        let nearestIndex = 0;
+        let nearestDistance =
+            Number.POSITIVE_INFINITY;
+
+        cards.forEach((card, index) => {
+            const distance = Math.abs(
+                card.offsetLeft -
+                currentLeft
+            );
+
+            if (
+                distance <
+                nearestDistance
+            ) {
+                nearestDistance =
+                    distance;
+
+                nearestIndex = index;
+            }
+        });
+
+        return nearestIndex;
+    };
+
+    const scrollToCard = (
+        nextIndex,
+        behavior = 'smooth'
+    ) => {
+        const normalizedIndex =
+            normalizeIndex(nextIndex);
+
+        updateIndicators(
+            normalizedIndex
+        );
+
+        if (!mobileQuery.matches) {
+            return;
+        }
+
+        const targetCard =
+            cards[normalizedIndex];
+
+        if (!targetCard) {
+            return;
+        }
+
+        const targetLeft =
+            targetCard.offsetLeft;
+
+        if (
+            typeof track.scrollTo ===
+            'function'
+        ) {
+            track.scrollTo({
+                left: targetLeft,
+                top: 0,
+                behavior
+            });
+        } else {
+            track.scrollLeft =
+                targetLeft;
+        }
+    };
+
+    const syncIndicatorFromScroll = () => {
+        window.cancelAnimationFrame(
+            scrollFrame
+        );
+
+        scrollFrame =
+            window.requestAnimationFrame(
+                () => {
+                    updateIndicators(
+                        getNearestCardIndex()
+                    );
+                }
+            );
+    };
+
+    indicators.forEach(
+        (indicator, index) => {
+            indicator.addEventListener(
+                'click',
+                () => {
+                    scrollToCard(
+                        index,
+                        'smooth'
+                    );
+                }
+            );
+        }
+    );
+
+    track.addEventListener(
+        'scroll',
+        syncIndicatorFromScroll,
+        {
+            passive: true
+        }
+    );
+
+    const beginPointerDrag = (event) => {
+        if (!mobileQuery.matches) {
+            return;
+        }
+
+        if (
+            event.pointerType === 'mouse' &&
+            event.button !== 0
+        ) {
+            return;
+        }
+
+        dragPointerId = event.pointerId;
+        dragStartX = event.clientX;
+        dragStartY = event.clientY;
+        dragStartScrollLeft = track.scrollLeft;
+        dragAxis = '';
+        dragMoved = false;
+    };
+
+    const movePointerDrag = (event) => {
+        if (
+            dragPointerId === null ||
+            event.pointerId !== dragPointerId ||
+            !mobileQuery.matches
+        ) {
+            return;
+        }
+
+        const deltaX =
+            event.clientX - dragStartX;
+
+        const deltaY =
+            event.clientY - dragStartY;
+
+        const absoluteX =
+            Math.abs(deltaX);
+
+        const absoluteY =
+            Math.abs(deltaY);
+
+        if (!dragAxis) {
+            if (
+                Math.max(
+                    absoluteX,
+                    absoluteY
+                ) < 6
+            ) {
+                return;
+            }
+
+            dragAxis =
+                absoluteX > absoluteY
+                    ? 'x'
+                    : 'y';
+
+            if (
+                dragAxis === 'x' &&
+                typeof track.setPointerCapture ===
+                    'function'
+            ) {
+                try {
+                    track.setPointerCapture(
+                        event.pointerId
+                    );
+                } catch (_) {}
+            }
+        }
+
+        if (dragAxis !== 'x') {
+            return;
+        }
+
+        event.preventDefault();
+
+        dragMoved = true;
+
+        track.classList.add(
+            'is-dragging'
+        );
+
+        track.scrollLeft =
+            dragStartScrollLeft -
+            deltaX;
+
+        syncIndicatorFromScroll();
+    };
+
+    const finishPointerDrag = (event) => {
+        if (dragPointerId === null) {
+            return;
+        }
+
+        if (
+            event &&
+            Number.isFinite(event.pointerId) &&
+            event.pointerId !== dragPointerId
+        ) {
+            return;
+        }
+
+        const pointerToRelease =
+            dragPointerId;
+
+        const shouldSnap =
+            mobileQuery.matches &&
+            dragAxis === 'x' &&
+            dragMoved;
+
+        dragPointerId = null;
+        dragAxis = '';
+        dragMoved = false;
+
+        track.classList.remove(
+            'is-dragging'
+        );
+
+        if (
+            typeof track.hasPointerCapture ===
+                'function' &&
+            typeof track.releasePointerCapture ===
+                'function'
+        ) {
+            try {
+                if (
+                    track.hasPointerCapture(
+                        pointerToRelease
+                    )
+                ) {
+                    track.releasePointerCapture(
+                        pointerToRelease
+                    );
+                }
+            } catch (_) {}
+        }
+
+        if (shouldSnap) {
+            window.requestAnimationFrame(
+                () => {
+                    scrollToCard(
+                        getNearestCardIndex(),
+                        'smooth'
+                    );
+                }
+            );
+        }
+    };
+
+    track.addEventListener(
+        'pointerdown',
+        beginPointerDrag
+    );
+
+    track.addEventListener(
+        'pointermove',
+        movePointerDrag,
+        {
+            passive: false
+        }
+    );
+
+    track.addEventListener(
+        'pointerup',
+        finishPointerDrag
+    );
+
+    track.addEventListener(
+        'pointercancel',
+        finishPointerDrag
+    );
+
+    track.addEventListener(
+        'lostpointercapture',
+        finishPointerDrag
+    );
+
+    window.addEventListener(
+        'pointerup',
+        finishPointerDrag,
+        {
+            passive: true
+        }
+    );
+
+    window.addEventListener(
+        'pointercancel',
+        finishPointerDrag,
+        {
+            passive: true
+        }
+    );
+
+    const syncCarouselLayout = () => {
+        window.cancelAnimationFrame(
+            resizeFrame
+        );
+
+        resizeFrame =
+            window.requestAnimationFrame(
+                () => {
+                    if (
+                        !mobileQuery.matches
+                    ) {
+                        track.scrollLeft = 0;
+                        updateIndicators(0);
+                        return;
+                    }
+
+                    scrollToCard(
+                        activeIndex,
+                        'auto'
+                    );
+                }
+            );
+    };
+
+    if (
+        typeof mobileQuery
+            .addEventListener ===
+        'function'
+    ) {
+        mobileQuery.addEventListener(
+            'change',
+            syncCarouselLayout
+        );
+    } else if (
+        typeof mobileQuery.addListener ===
+        'function'
+    ) {
+        mobileQuery.addListener(
+            syncCarouselLayout
+        );
+    }
+
+    window.addEventListener(
+        'resize',
+        syncCarouselLayout,
+        {
+            passive: true
+        }
+    );
+
+    window.addEventListener(
+        'orientationchange',
+        () => {
+            window.setTimeout(
+                syncCarouselLayout,
+                120
+            );
+        },
+        {
+            passive: true
+        }
+    );
+
+    updateIndicators(0);
+    syncCarouselLayout();
+
+    return true;
+}
+
+
 window.addEventListener('load', () => {
     captureYHUniverseReferralFromUrl();
 
@@ -1739,6 +2208,7 @@ window.addEventListener('load', () => {
     };
 
     syncLandingMobileGlobePlacement();
+    initLandingDivisionCarousel();
     initLandingMapShell();
 
     window.addEventListener('resize', syncLandingMobileGlobePlacement, { passive: true });
@@ -1765,7 +2235,6 @@ window.addEventListener('load', () => {
 
         if (registerModalFace.dataset.yhModalMounted === 'true') return;
 
-        
         registerModalFace.classList.add('yh-register-modal-panel', 'hidden-step');
         registerModalFace.setAttribute('role', 'dialog');
         registerModalFace.setAttribute('aria-modal', 'true');

@@ -6,7 +6,7 @@
     <title> Young Hustlers Universe</title>
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
-<link rel="stylesheet" href="/css/responsive-apply.css?v=20260630-yh-cropper-center-v10">
+<link rel="stylesheet" href="/css/responsive-apply.css?v=20260801-yhu-landing-division-drag-v3">
 <link rel="stylesheet" href="/css/style.css?v=20260801-yhu-landing-ios-scroll-v1">
 <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260708-yhu-globe-edge-fix-v1">
 </head>
@@ -98,54 +98,108 @@
 
             <section id="yh-divisions-section" class="yh-landing-section">
 
-                <div class="yh-landing-division-grid">
-                    <article class="yh-landing-division-card is-live yh-landing-future-card-skin yh-landing-future-card-academy-skin">
+                <div
+                    class="yh-landing-division-carousel"
+                    data-yh-landing-division-carousel
+                    aria-label="Young Hustlers Universe divisions"
+                >
+                    <div
+                        class="yh-landing-division-grid"
+                        data-yh-landing-division-track
+                    >
+                        <article
+                            class="yh-landing-division-card is-live yh-landing-future-card-skin yh-landing-future-card-academy-skin"
+                        >
+                            <div class="yh-landing-division-top">
+                                <img
+                                    src="/images/academy%20icon.png?v=20260626-footer-icons-clean-v3"
+                                    alt="Academy icon"
+                                    class="yh-landing-icon yh-landing-future-icon-skin"
+                                    loading="lazy"
+                                >
+                            </div>
 
-                        <div class="yh-landing-division-top">
-                            <img
-                                src="/images/academy%20icon.png?v=20260626-footer-icons-clean-v3"
-                                alt="Academy icon"
-                                class="yh-landing-icon yh-landing-future-icon-skin"
-                                loading="lazy"
-                            >
-                        </div>
+                            <h3>The Academy</h3>
 
-                        <h3>The Academy</h3>
-                        <p>Find jobs and opportunities, build your roadmap through AI-guided missions, enter a like-minded community, track execution, and step into live sessions.</p>
+                            <p>
+                                Find jobs and opportunities, build your roadmap
+                                through AI-guided missions, enter a like-minded
+                                community, track execution, and step into live
+                                sessions.
+                            </p>
+                        </article>
 
-                    </article>
+                        <article
+                            class="yh-landing-division-card is-live yh-landing-future-card-skin yh-landing-future-card-plaza-skin"
+                        >
+                            <div class="yh-landing-division-top">
+                                <img
+                                    src="/images/plaza%20icon.png?v=20260626-footer-icons-clean-v3"
+                                    alt="Plazas icon"
+                                    class="yh-landing-icon yh-landing-future-icon-skin"
+                                    loading="lazy"
+                                >
+                            </div>
 
-                    <article class="yh-landing-division-card is-live yh-landing-future-card-skin yh-landing-future-card-plaza-skin">
+                            <h3>The Plazas</h3>
 
-                        <div class="yh-landing-division-top">
-                            <img
-                                src="/images/plaza%20icon.png?v=20260626-footer-icons-clean-v3"
-                                alt="Plazas icon"
-                                class="yh-landing-icon yh-landing-future-icon-skin"
-                                loading="lazy"
-                            >
-                        </div>
+                            <p>
+                                The marketplace layer of Young Hustlers. Skills,
+                                services, offers, talent, and monetization
+                                pathways already connect through the dashboard.
+                            </p>
+                        </article>
 
-                        <h3>The Plazas</h3>
-                        <p>The marketplace layer of Young Hustlers. Skills, services, offers, talent, and monetization pathways already connect through the dashboard.</p>
-                    </article>
+                        <article
+                            class="yh-landing-division-card is-live yh-landing-future-card-skin yh-landing-future-card-federation-skin"
+                        >
+                            <div class="yh-landing-division-top">
+                                <img
+                                    src="/images/federation%20icon.png?v=20260626-footer-icons-clean-v3"
+                                    alt="Federation icon"
+                                    class="yh-landing-icon yh-landing-future-icon-skin"
+                                    loading="lazy"
+                                >
+                            </div>
 
-                    <article class="yh-landing-division-card is-live yh-landing-future-card-skin yh-landing-future-card-federation-skin">
+                            <h3>The Federation</h3>
 
-                        <div class="yh-landing-division-top">
-                            <img
-                                src="/images/federation%20icon.png?v=20260626-footer-icons-clean-v3"
-                                alt="Federation icon"
-                                class="yh-landing-icon yh-landing-future-icon-skin"
-                                loading="lazy"
-                            >
-                        </div>
+                            <p>
+                                The strategic network layer for high-value
+                                contacts, leverage, and long-term relationship
+                                capital is now available through the dashboard.
+                            </p>
+                        </article>
+                    </div>
 
-                        <h3>The Federation</h3>
-                        <p>The strategic network layer for high-value contacts, leverage, and long-term relationship capital is now available through the dashboard.</p>
+                    <div
+                        class="yh-landing-division-indicators"
+                        data-yh-landing-division-indicators
+                        role="group"
+                        aria-label="Choose a division card"
+                    >
+                        <button
+                            type="button"
+                            class="is-active"
+                            data-yh-landing-division-indicator="0"
+                            aria-label="Show The Academy"
+                            aria-current="true"
+                        ></button>
 
-                    </article>
+                        <button
+                            type="button"
+                            data-yh-landing-division-indicator="1"
+                            aria-label="Show The Plazas"
+                        ></button>
+
+                        <button
+                            type="button"
+                            data-yh-landing-division-indicator="2"
+                            aria-label="Show The Federation"
+                        ></button>
+                    </div>
                 </div>
+
             </section>
 
             <section id="yh-auth-section" class="yh-landing-auth-wrap">
@@ -494,6 +548,6 @@
     </div>
 
 <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
-<script src="/js/apply.js?v=20260707-yhu-zoom-revert-v1"></script>
+<script src="/js/apply.js?v=20260801-yhu-landing-division-drag-v3"></script>
 </body>
 </html>

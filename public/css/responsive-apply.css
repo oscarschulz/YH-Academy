@@ -45,6 +45,10 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     text-rendering: geometricPrecision;
 }
 
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-indicators {
+    display: none;
+}
+
 /* =========================================================
    1440 x 900 down
    ========================================================= */
@@ -725,11 +729,186 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
         gap: 0.34rem;
     }
 
-    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-grid,
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-testimonials-grid,
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-dashboard-preview-grid,
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-activity-stream {
         grid-template-columns: 1fr;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        .yh-landing-division-carousel {
+        width: 100%;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        [data-yh-landing-division-track].yh-landing-division-grid {
+        display: flex;
+        flex-wrap: nowrap;
+        width: 100%;
+        min-width: 0;
+        gap: 14px;
+        padding: 0 16px 0 0;
+        grid-template-columns: none;
+        align-items: stretch;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        scroll-behavior: smooth;
+        scroll-padding-inline: 0 16px;
+        overscroll-behavior-x: contain;
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        cursor: grab;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        [data-yh-landing-division-track].yh-landing-division-grid.is-dragging {
+        scroll-snap-type: none;
+        scroll-behavior: auto;
+        cursor: grabbing;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        [data-yh-landing-division-track].yh-landing-division-grid::-webkit-scrollbar {
+        display: none;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        [data-yh-landing-division-track].yh-landing-division-grid
+        .yh-landing-division-card {
+        flex: 0 0 calc(100% - 34px);
+        width: calc(100% - 34px);
+        min-width: calc(100% - 34px);
+        max-width: calc(100% - 34px);
+        min-height: 238px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 30px 22px 30px 116px;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        [data-yh-landing-division-track].yh-landing-division-grid
+        .yh-landing-division-card
+        .yh-landing-icon {
+        left: 22px;
+        top: 50%;
+        width: 82px;
+        height: 82px;
+        transform: translateY(-50%);
+        pointer-events: none;
+        -webkit-user-drag: none;
+        user-select: none;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        [data-yh-landing-division-track].yh-landing-division-grid
+        .yh-landing-division-card
+        h3 {
+        margin: 0 0 10px;
+        font-size: clamp(
+            1.12rem,
+            4.7vw,
+            1.24rem
+        );
+        line-height: 1.08;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        [data-yh-landing-division-track].yh-landing-division-grid
+        .yh-landing-division-card
+        p {
+        width: 100%;
+        max-width: none;
+        font-size: clamp(
+            0.97rem,
+            3.8vw,
+            1.04rem
+        );
+        line-height: 1.46;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        .yh-landing-division-indicators {
+        width: 100%;
+        min-height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        margin: 12px 0 0;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        .yh-landing-division-indicators
+        button {
+        appearance: none;
+        width: 18px;
+        height: 6px;
+        min-width: 18px;
+        padding: 0;
+        border: 1px solid rgba(103, 232, 249, 0.38);
+        border-radius: 999px;
+        background: rgba(30, 64, 175, 0.28);
+        box-shadow: none;
+        cursor: pointer;
+        transition:
+            width 180ms ease,
+            border-color 180ms ease,
+            background 180ms ease,
+            box-shadow 180ms ease;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        .yh-landing-division-indicators
+        button.is-active {
+        width: 36px;
+        min-width: 36px;
+        border-color: rgba(103, 232, 249, 0.9);
+        background: linear-gradient(
+            90deg,
+            rgba(34, 211, 238, 0.92),
+            rgba(59, 130, 246, 0.92)
+        );
+        box-shadow: 0 0 12px rgba(34, 211, 238, 0.46);
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        .yh-landing-division-indicators
+        button:focus-visible {
+        outline: 2px solid rgba(125, 211, 252, 0.95);
+        outline-offset: 3px;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-visual {
