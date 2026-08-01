@@ -3355,6 +3355,44 @@ border-radius: 14px;
    PLAZA PATRON DESK UI
    ========================================================= */
 
+#plazaScreenPatronDesk #plazaPatronDeskStatusCard {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 10px;
+  margin: 0;
+  padding: 18px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+#plazaScreenPatronDesk #plazaPatronDeskStatusCard strong,
+#plazaScreenPatronDesk #plazaPatronDeskStatusCard p {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+#plazaScreenPatronDesk #plazaPatronDeskStatusCard strong {
+  color: var(--yh-text);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+#plazaScreenPatronDesk #plazaPatronDeskStatusCard p {
+  color: var(--yh-text-soft);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
 .yh-plaza-patron-desk-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3408,14 +3446,29 @@ border-radius: 14px;
 }
 
 @media (max-width: 640px) {
+  #plazaScreenPatronDesk #plazaPatronDeskStatusCard {
+    gap: 8px;
+    padding: 16px;
+  }
+
+  #plazaScreenPatronDesk #plazaPatronDeskStatusCard strong {
+    font-size: 0.96rem;
+    line-height: 1.4;
+  }
+
+  #plazaScreenPatronDesk #plazaPatronDeskStatusCard p {
+    font-size: 0.94rem;
+    line-height: 1.55;
+  }
+
   .yh-plaza-patron-desk-grid {
     grid-template-columns: 1fr;
   }
 
   .yh-plaza-patron-desk-section {
-  padding: 14px;
-  border-radius: 20px;
-}
+    padding: 14px;
+    border-radius: 20px;
+  }
 }
 
 /* Cross-division Plaza business messaging */

@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/css/style.css?v=20260720-dashboard-stable-refresh-shell-v1">
 <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260729-ui-plazas-child-tabs-v2">
 <link rel="stylesheet" href="/css/yhu-game-system.css?v=20260724-phase3e-fe3-council-governance-diplomacy-v1">
-<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260710-dashboard-v2-stable-shell-owner-v1">
+<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260731-mob-federation-full-height-v1">
 
 <!-- PATCH: Dashboard state owner early paint v3 -->
 <style id="yh-dashboard-state-owner-early-paint-v3">
@@ -55,6 +55,19 @@
     visibility: visible;
     opacity: 1;
     pointer-events: auto;
+  }
+
+  /*
+   * Universe Profile is an explicit overlay.
+   * It remains hidden until the Profile open
+   * controller adds yh-universe-profile-open.
+   */
+  body[data-yh-view="hub"][data-yh-page="dashboard"]:not(.yh-universe-profile-open) #academy-profile-view,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view[aria-hidden="true"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
   }
 </style>
 <!-- END PATCH: Dashboard state owner early paint v3 -->
@@ -190,10 +203,6 @@
 
     <div class="yh-mobile-app-shell" id="yh-mobile-app-shell" aria-label="YH Universe mobile app navigation">
         <header class="yh-mobile-app-header">
-            <button type="button" class="yh-mobile-app-back" id="yh-mobile-app-back" aria-label="Go back">
-                ‹
-            </button>
-
             <div class="yh-mobile-app-brand">
                 <img src="/images/logo.avif" alt="" class="yh-mobile-app-logo" aria-hidden="true">
                 <div class="yh-mobile-app-title-wrap">
@@ -226,7 +235,6 @@
                     <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="academy-community">Community Feed</button>
                     <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="academy-messages">Messages</button>
                     <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="academy-voice">Live Voice</button>
-                    <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="academy-profile">Profile</button>
 
                     <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-explorer">Explorer</button>
                     <button type="button" role="menuitem" data-yh-mobile-subtab-menu-option="plazas-feed">Feed</button>
@@ -264,7 +272,6 @@
                 <button type="button" data-yh-mobile-subtab="academy-community">Community</button>
                 <button type="button" data-yh-mobile-subtab="academy-messages">Messages</button>
                 <button type="button" data-yh-mobile-subtab="academy-voice">Voice</button>
-                <button type="button" data-yh-mobile-subtab="academy-profile">Profile</button>
             </div>
 
             <div class="yh-mobile-subnav-group" data-yh-mobile-subnav-group="plazas">
@@ -321,7 +328,7 @@
             </button>
         </nav>
 
-        <div class="yh-mobile-command-sheet" id="yh-mobile-command-sheet" aria-hidden="true">
+        <div class="yh-mobile-command-sheet" id="yh-mobile-command-sheet" aria-hidden="true" inert>
             <button type="button" class="yh-mobile-command-backdrop" data-yh-mobile-command-close aria-label="Close command"></button>
 
             <section class="yh-mobile-command-panel" role="dialog" aria-modal="true" aria-label="Command menu">
@@ -2301,29 +2308,20 @@
     id="academy-profile-view"
     data-profile-layout="self"
     aria-hidden="true"
+    inert
 >
-    <header class="chat-header yh-dashboard-universe-profile-header">
-        <div class="header-left">
-        <span class="hash-big hash-big--profile-image" aria-hidden="true">
-            <img
-                src="/images/profile%20icon.png"
-                alt=""
-                class="hash-big-profile-img"
-                loading="eager"
-                decoding="async"
-            >
-        </span>
-<h3 id="academy-profile-header-title">Young Hustlers Universe Profile</h3>
-        </div>
-
-        <div class="header-right academy-profile-header-right">
+    <header
+        class="yh-dashboard-universe-profile-header"
+        aria-label="Profile actions"
+    >
+        <div class="academy-profile-header-right">
             <button
                 type="button"
                 class="btn-secondary yh-dashboard-profile-close"
                 id="academy-profile-dashboard-close"
                 aria-label="Close YH Universe profile"
             >
-                ← Back to Universe
+                ✕
             </button>
         </div>
     </header>
@@ -3800,19 +3798,24 @@
 </script>
 
 <script>
-  /* PATCH: Dashboard persisted child workspace first paint v1 */
+  /* PATCH: Dashboard persisted child workspace first paint v2 */
   (function () {
     try {
       var raw = localStorage.getItem(
         'yh_dashboard_persistent_ui_state_v1'
       );
 
-      var state = raw ? JSON.parse(raw) : {};
+      var state = raw
+        ? JSON.parse(raw)
+        : {};
+
       var workspaceKey = String(
         state.workspaceKey ||
         state.workspace ||
         ''
-      ).trim().toLowerCase();
+      )
+        .trim()
+        .toLowerCase();
 
       var match = workspaceKey.match(
         /^(academy|plazas|federation)-/
@@ -3821,25 +3824,21 @@
       if (!match) return;
 
       var division = match[1];
-      var shell = document.getElementById(
-        'yh-universe-workspace-frame-shell'
-      );
 
-      var loader = document.getElementById(
-        'yh-universe-child-workspace-loader'
-      );
+      var shell =
+        document.getElementById(
+          'yh-universe-workspace-frame-shell'
+        );
 
-      var title = document.getElementById(
-        'yh-universe-child-workspace-loader-title'
-      );
+      var loader =
+        document.getElementById(
+          'yh-universe-child-workspace-loader'
+        );
 
-      var copy = document.getElementById(
-        'yh-universe-child-workspace-loader-copy'
-      );
-
-      var frame = document.getElementById(
-        'yh-universe-workspace-inline-frame'
-      );
+      var frame =
+        document.getElementById(
+          'yh-universe-workspace-inline-frame'
+        );
 
       document.body.setAttribute(
         'data-yh-view',
@@ -3862,58 +3861,72 @@
       );
 
       if (shell) {
-        shell.classList.remove('hidden-step');
-        shell.classList.add(
+        shell.classList.remove(
+          'hidden-step'
+        );
+
+        shell.classList.remove(
           'is-switching',
           'has-child-workspace-loader'
         );
-        shell.setAttribute('aria-hidden', 'false');
+
+        shell.setAttribute(
+          'aria-hidden',
+          'false'
+        );
       }
 
       if (loader) {
-        loader.classList.remove('hidden-step');
-        loader.classList.add('is-active');
-        loader.setAttribute('aria-hidden', 'false');
+        loader.classList.add(
+          'hidden-step'
+        );
+
+        loader.classList.remove(
+          'is-active'
+        );
+
+        loader.setAttribute(
+          'aria-hidden',
+          'true'
+        );
+
+        loader.style.pointerEvents =
+          'none';
       }
 
-      if (title) {
-        title.textContent =
-          'Restoring ' +
-          workspaceKey
-            .replace(/^(academy|plazas|federation)-/, '')
-            .replace(/-/g, ' ')
-            .split(' ')
-            .filter(Boolean)
-            .map(function (word) {
-              return word.charAt(0).toUpperCase() + word.slice(1);
-            })
-            .join(' ');
-      }
-
-      if (copy) {
-        copy.textContent =
-          'Loading your saved workspace inside the Dashboard.';
-      }
-
+      /*
+       * The normal Dashboard readiness controller
+       * reveals the frame when its restored content
+       * is stable. No branded restoration loader.
+       */
       if (frame) {
-        frame.style.visibility = 'hidden';
-        frame.style.opacity = '0';
-        frame.style.pointerEvents = 'none';
-        frame.setAttribute('aria-hidden', 'true');
+        frame.style.visibility =
+          'hidden';
+
+        frame.style.opacity =
+          '0';
+
+        frame.style.pointerEvents =
+          'none';
+
+        frame.setAttribute(
+          'aria-hidden',
+          'true'
+        );
       }
     } catch (_) {}
   })();
-  /* END PATCH: Dashboard persisted child workspace first paint v1 */
+  /* END PATCH: Dashboard persisted child workspace first paint v2 */
 </script>
 
 <script src="/js/yh-shared-core.js?v=20260627-yh-live-cache-v4"></script>
 <script src="/js/yh-shared-runtime.js?v=20260721-phase3c5a-lifecycle-v1"></script>
 
 
-<script src="/js/dashboard.js?v=20260729-ui-overview-cleanup-v1"></script>
+<script src="/js/dashboard.js?v=20260801-mob-federation-content-to-bottom-v2"></script>
 
 <script src="/js/yhu-game-core.js?v=20260728-fed-i1c-influence-core-v1"></script>
-<script src="/js/yhu-game-dashboard.js?v=20260728-fed-i1c-influence-dashboard-v1"></script>
+<script src="/js/yhu-game-dashboard.js?v=20260730-mob-carousel-swipe-only-v1"></script>
 
 <script src="/js/dashboard-mobile-fix.js?v=20260627-yh-live-cache-v4"></script>
 </body>

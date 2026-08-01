@@ -20,6 +20,8 @@
     let federationInfluenceLoadedV1 = false;
     let federationStrategicPreviewStateV1 = null;
 
+    let dashboardDivisionCarouselIndexV1 = 0;
+
     /* PATCH: Live Squad UI state v1 */
     let academySquadLoadPromise = null;
     let academySquadLoaded = false;
@@ -888,7 +890,7 @@
 
         const rarity =
             String(
-                primary.rarity ||
+                primary?.rarity ||
                 'Locked'
             ).trim();
 
@@ -5210,6 +5212,327 @@ function openSquadDetailsModalV1(
     }
 
 
+    function formatDashboardCommandMetricV1(value = 0) {
+        const numericValue = Number(value);
+
+        if (!Number.isFinite(numericValue)) {
+            return '0';
+        }
+
+        return Math.max(
+            0,
+            Math.round(numericValue)
+        ).toLocaleString();
+    }
+
+    function buildMobileDivisionMetricV1(
+        label = '',
+        value = '',
+        meta = ''
+    ) {
+        return `
+            <span class="yh-game-mobile-command-metric">
+                <small>${escapeHtml(label)}</small>
+
+                <strong>
+                    ${escapeHtml(value)}
+                </strong>
+
+                ${
+                    meta
+                        ? `<em>${escapeHtml(meta)}</em>`
+                        : ''
+                }
+            </span>
+        `;
+    }
+
+    function buildMobileDivisionCommandDeckV1(
+        snapshot = {},
+        action = {}
+    ) {
+        const division =
+            String(
+                snapshot.division || ''
+            ).trim();
+
+        const score =
+            Math.max(
+                0,
+                Math.min(
+                    100,
+                    Math.round(
+                        Number(
+                            snapshot.score || 0
+                        )
+                    )
+                )
+            );
+
+        const approved =
+            snapshot.approved === true;
+
+        let totalLabel =
+            'Readiness';
+
+        let totalValue =
+            String(score);
+
+        let totalUnit =
+            '%';
+
+        let metrics = [];
+
+        if (
+            division === 'academy' &&
+            snapshot.hasPersistentProgression === true
+        ) {
+            totalLabel =
+                'Total XP';
+
+            totalValue =
+                formatDashboardCommandMetricV1(
+                    snapshot.totalXp
+                );
+
+            totalUnit =
+                'XP';
+
+            metrics = [
+                [
+                    'Progress',
+                    `${score}%`,
+                    'Rank path'
+                ],
+                [
+                    'This Week',
+                    formatDashboardCommandMetricV1(
+                        snapshot.weeklyXp
+                    ),
+                    'XP earned'
+                ],
+                [
+                    'Missions',
+                    `${formatDashboardCommandMetricV1(
+                        snapshot.completedCount
+                    )}/${formatDashboardCommandMetricV1(
+                        snapshot.totalCount
+                    )}`,
+                    'Completed'
+                ],
+                [
+                    'Access',
+                    approved
+                        ? 'Active'
+                        : 'Building',
+                    `Level ${formatDashboardCommandMetricV1(
+                        snapshot.level || 1
+                    )}`
+                ]
+            ];
+        } else if (
+            division === 'plaza' &&
+            snapshot.hasPersistentReputation === true
+        ) {
+            totalLabel =
+                'Total Reputation';
+
+            totalValue =
+                formatDashboardCommandMetricV1(
+                    snapshot.totalReputation
+                );
+
+            totalUnit =
+                'pts';
+
+            metrics = [
+                [
+                    'Progress',
+                    `${score}%`,
+                    'Rank path'
+                ],
+                [
+                    'This Week',
+                    formatDashboardCommandMetricV1(
+                        snapshot.weeklyReputation
+                    ),
+                    'Reputation'
+                ],
+                [
+                    'Events',
+                    formatDashboardCommandMetricV1(
+                        snapshot.eventCount
+                    ),
+                    'Verified'
+                ],
+                [
+                    'Access',
+                    approved
+                        ? 'Active'
+                        : 'Building',
+                    'Open World'
+                ]
+            ];
+        } else if (
+            division === 'federation' &&
+            snapshot.hasPersistentInfluence === true
+        ) {
+            totalLabel =
+                'Total Influence';
+
+            totalValue =
+                formatDashboardCommandMetricV1(
+                    snapshot.totalInfluence
+                );
+
+            totalUnit =
+                'pts';
+
+            metrics = [
+                [
+                    'Progress',
+                    `${score}%`,
+                    'Rank path'
+                ],
+                [
+                    'This Week',
+                    formatDashboardCommandMetricV1(
+                        snapshot.weeklyInfluence
+                    ),
+                    'Influence'
+                ],
+                [
+                    'Events',
+                    formatDashboardCommandMetricV1(
+                        snapshot.eventCount
+                    ),
+                    'Verified'
+                ],
+                [
+                    'Access',
+                    approved
+                        ? 'Active'
+                        : 'Building',
+                    'Strategic'
+                ]
+            ];
+        } else {
+            metrics = [
+                [
+                    'Progress',
+                    `${score}%`,
+                    'Readiness'
+                ],
+                [
+                    'Signal',
+                    snapshot.isPreview === true
+                        ? 'Preview'
+                        : 'Live',
+                    'Current state'
+                ],
+                [
+                    'Mode',
+                    snapshot.mode || 'Division',
+                    'Progression'
+                ],
+                [
+                    'Access',
+                    approved
+                        ? 'Active'
+                        : 'Building',
+                    approved
+                        ? 'Available'
+                        : 'In progress'
+                ]
+            ];
+        }
+
+        return `
+            <div class="yh-game-mobile-command-deck">
+                <div class="yh-game-mobile-command-rank-row">
+                    <div>
+                        <small>
+                            Current Rank
+                        </small>
+
+                        <strong>
+                            ${escapeHtml(
+                                snapshot.rank ||
+                                'Awaiting Signal'
+                            )}
+                        </strong>
+                    </div>
+
+                    <div class="yh-game-mobile-command-total">
+                        <small>
+                            ${escapeHtml(totalLabel)}
+                        </small>
+
+                        <strong>
+                            ${escapeHtml(totalValue)}
+
+                            <span>
+                                ${escapeHtml(totalUnit)}
+                            </span>
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="yh-game-mobile-command-progress">
+                    <div>
+                        <span>
+                            Rank Progress
+                        </span>
+
+                        <strong>
+                            ${score}%
+                        </strong>
+                    </div>
+
+                    ${buildProgressBar(score)}
+                </div>
+
+                <div class="yh-game-mobile-command-metrics">
+                    ${metrics.map(
+                        ([label, value, meta]) =>
+                            buildMobileDivisionMetricV1(
+                                label,
+                                value,
+                                meta
+                            )
+                    ).join('')}
+                </div>
+
+                <div class="yh-game-mobile-command-next">
+                    <small>
+                        Current Next Move
+                    </small>
+
+                    <strong>
+                        ${escapeHtml(
+                            snapshot.nextObjective ||
+                            'Continue building division progress'
+                        )}
+                    </strong>
+                </div>
+
+                <button
+                    type="button"
+                    class="yh-game-mobile-command-action"
+                    data-yh-game-open-selector="${escapeHtml(
+                        action.selector || ''
+                    )}"
+                >
+                    ${escapeHtml(
+                        action.label ||
+                        'Open Division'
+                    )}
+                </button>
+            </div>
+        `;
+    }
+
+
     /* PATCH: Phase 3D-FE-3 — Dashboard Explorer profile preview v2 */
 
     function readPlazaExplorerPreviewV2() {
@@ -5801,6 +6124,11 @@ function openSquadDetailsModalV1(
                         ${snapshot.approved ? 'Active' : 'Building'}
                     </span>
                 </div>
+
+                ${buildMobileDivisionCommandDeckV1(
+                    snapshot,
+                    action
+                )}
 
                 <div class="yh-game-rank-row">
                     <div>
@@ -6504,10 +6832,53 @@ function resolveAcademyLeaderboardNameV1(
                     </div>
                 </header>
 
-                <div class="yh-game-division-grid">
-                    ${buildDivisionCard(divisions.academy || {})}
-                    ${buildDivisionCard(divisions.plaza || {})}
-                    ${buildDivisionCard(divisions.federation || {})}
+                <div
+                    class="yh-game-division-carousel"
+                    data-yh-game-division-carousel
+                    aria-label="Division progression carousel"
+                >
+                    <div
+                        class="yh-game-division-grid"
+                        data-yh-game-division-track
+                    >
+                        ${buildDivisionCard(divisions.academy || {})}
+                        ${buildDivisionCard(divisions.plaza || {})}
+                        ${buildDivisionCard(divisions.federation || {})}
+                    </div>
+
+                    <div
+                        class="yh-game-division-indicators"
+                        role="group"
+                        aria-label="Division carousel position"
+                    >
+                        <button
+                            type="button"
+                            class="is-active"
+                            data-yh-game-carousel-indicator="0"
+                            aria-label="Show Academy card"
+                            aria-current="true"
+                        ></button>
+
+                        <button
+                            type="button"
+                            data-yh-game-carousel-indicator="1"
+                            aria-label="Show Plazas card"
+                        ></button>
+
+                        <button
+                            type="button"
+                            data-yh-game-carousel-indicator="2"
+                            aria-label="Show Federation card"
+                        ></button>
+
+                        <span
+                            class="yh-game-division-position"
+                            data-yh-game-carousel-position
+                            aria-live="polite"
+                        >
+                            Academy • 1 / 3
+                        </span>
+                    </div>
                 </div>
 
                 <div class="yh-game-meta-grid">
@@ -6527,6 +6898,246 @@ function resolveAcademyLeaderboardNameV1(
         );
     }
 
+    function bindDivisionCarouselV1(root) {
+        if (!(root instanceof HTMLElement)) {
+            return;
+        }
+
+        const carousel =
+            root.querySelector(
+                '[data-yh-game-division-carousel]'
+            );
+
+        const track =
+            carousel?.querySelector(
+                '[data-yh-game-division-track]'
+            );
+
+        const cards =
+            track instanceof HTMLElement
+                ? Array.from(
+                    track.querySelectorAll(
+                        '.yh-game-division-card'
+                    )
+                )
+                : [];
+
+        if (
+            !(carousel instanceof HTMLElement) ||
+            !(track instanceof HTMLElement) ||
+            cards.length !== 3
+        ) {
+            return;
+        }
+
+        const indicators =
+            Array.from(
+                carousel.querySelectorAll(
+                    '[data-yh-game-carousel-indicator]'
+                )
+            );
+
+        const positionLabel =
+            carousel.querySelector(
+                '[data-yh-game-carousel-position]'
+            );
+
+        let scrollSyncTimer = null;
+
+        function normalizeCarouselIndex(index = 0) {
+            const numericIndex =
+                Math.trunc(
+                    Number(index) || 0
+                );
+
+            return (
+                (
+                    numericIndex %
+                    cards.length
+                ) +
+                cards.length
+            ) % cards.length;
+        }
+
+        function syncCarouselIndicators(index = 0) {
+            const activeIndex =
+                normalizeCarouselIndex(index);
+
+            indicators.forEach(
+                (indicator, indicatorIndex) => {
+                    const isActive =
+                        indicatorIndex ===
+                        activeIndex;
+
+                    indicator.classList.toggle(
+                        'is-active',
+                        isActive
+                    );
+
+                    if (isActive) {
+                        indicator.setAttribute(
+                            'aria-current',
+                            'true'
+                        );
+                    } else {
+                        indicator.removeAttribute(
+                            'aria-current'
+                        );
+                    }
+                }
+            );
+
+            if (
+                positionLabel instanceof HTMLElement
+            ) {
+                const divisionLabels = [
+                    'Academy',
+                    'Plazas',
+                    'Federation'
+                ];
+
+                positionLabel.textContent =
+                    `${divisionLabels[activeIndex]} • ` +
+                    `${activeIndex + 1} / ${cards.length}`;
+            }
+        }
+
+        function showDivisionCard(
+            index = 0,
+            behavior = 'smooth'
+        ) {
+            const activeIndex =
+                normalizeCarouselIndex(index);
+
+            const card =
+                cards[activeIndex];
+
+            if (!(card instanceof HTMLElement)) {
+                return;
+            }
+
+            dashboardDivisionCarouselIndexV1 =
+                activeIndex;
+
+            const trackRect =
+                track.getBoundingClientRect();
+
+            const cardRect =
+                card.getBoundingClientRect();
+
+            const targetLeft =
+                cardRect.left -
+                trackRect.left +
+                track.scrollLeft;
+
+            if (
+                typeof track.scrollTo ===
+                'function'
+            ) {
+                track.scrollTo({
+                    left: targetLeft,
+                    top: 0,
+                    behavior
+                });
+            } else {
+                track.scrollLeft =
+                    targetLeft;
+            }
+
+            syncCarouselIndicators(
+                activeIndex
+            );
+        }
+
+        indicators.forEach(
+            (indicator) => {
+                indicator.addEventListener(
+                    'click',
+                    (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+
+                        const index =
+                            Number(
+                                indicator.getAttribute(
+                                    'data-yh-game-carousel-indicator'
+                                )
+                            );
+
+                        showDivisionCard(
+                            index
+                        );
+                    }
+                );
+            }
+        );
+
+        track.addEventListener(
+            'scroll',
+            () => {
+                window.clearTimeout(
+                    scrollSyncTimer
+                );
+
+                scrollSyncTimer =
+                    window.setTimeout(
+                        () => {
+                            const trackRect =
+                                track.getBoundingClientRect();
+
+                            let nearestIndex = 0;
+                            let nearestDistance =
+                                Number.POSITIVE_INFINITY;
+
+                            cards.forEach(
+                                (card, index) => {
+                                    const cardRect =
+                                        card.getBoundingClientRect();
+
+                                    const distance =
+                                        Math.abs(
+                                            cardRect.left -
+                                            trackRect.left
+                                        );
+
+                                    if (
+                                        distance <
+                                        nearestDistance
+                                    ) {
+                                        nearestDistance =
+                                            distance;
+
+                                        nearestIndex =
+                                            index;
+                                    }
+                                }
+                            );
+
+                            dashboardDivisionCarouselIndexV1 =
+                                nearestIndex;
+
+                            syncCarouselIndicators(
+                                nearestIndex
+                            );
+                        },
+                        90
+                    );
+            },
+            {
+                passive: true
+            }
+        );
+
+        window.requestAnimationFrame(
+            () => {
+                showDivisionCard(
+                    dashboardDivisionCarouselIndexV1,
+                    'auto'
+                );
+            }
+        );
+    }
+
     function bindActions(root) {
         if (
             !root ||
@@ -6538,6 +7149,8 @@ function resolveAcademyLeaderboardNameV1(
 
         root.dataset.yhGameActionsBound =
             'true';
+
+        bindDivisionCarouselV1(root);
 
         root.addEventListener(
             'click',

@@ -13423,43 +13423,160 @@ function persistDashboardWalletTab(tabKey = 'overview') {
 }
 
 function restoreDashboardPersistentUiState() {
-    const state = readDashboardPersistentUiState();
+    const state =
+        readDashboardPersistentUiState();
+
     const savedWorkspace =
-        getDashboardPersistentWorkspaceKey(state.workspaceKey) ||
-        getDashboardPersistentWorkspaceKey(state.workspace) ||
+        getDashboardPersistentWorkspaceKey(
+            state.workspaceKey
+        ) ||
+        getDashboardPersistentWorkspaceKey(
+            state.workspace
+        ) ||
         '';
 
-    const profileMode = String(state.profileMode || '').trim().toLowerCase();
-    const profileMemberId = normalizeAcademyFeedId(state.profileMemberId || '');
+    const profileMode =
+        String(
+            state.profileMode || ''
+        )
+            .trim()
+            .toLowerCase();
 
-    if (profileMode === 'self' || (profileMode === 'visited' && profileMemberId)) {
-        const baseWorkspace = savedWorkspace || 'overview';
+    const profileMemberId =
+        normalizeAcademyFeedId(
+            state.profileMemberId || ''
+        );
 
-        activateDashboardUnifiedWorkspace(baseWorkspace, {
-            scroll: false,
-            animate: false,
-            persist: false,
-            restore: true
+    /*
+     * Dashboard profiles are transient overlays.
+     * They must never reopen automatically after
+     * refresh, reload, or restored workspace state.
+     */
+    const profileView =
+        document.getElementById(
+            'academy-profile-view'
+        );
+
+    if (profileView) {
+        profileView.classList.add(
+            'hidden-step'
+        );
+
+        profileView.classList.remove(
+            'fade-in'
+        );
+
+        profileView.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+    }
+
+    document.body?.classList.remove(
+        'yh-universe-profile-open'
+    );
+
+    /*
+     * Remove a stale profile history layer.
+     * Otherwise, opening the profile again and
+     * pressing X could navigate away from Dashboard.
+     */
+    try {
+        const currentHistoryState =
+            window.history?.state &&
+            typeof window.history.state ===
+                'object'
+                ? {
+                    ...window.history.state
+                }
+                : {};
+
+        if (
+            currentHistoryState
+                .yhDashboardLayer ===
+            'yh-dashboard-profile-layer'
+        ) {
+            delete currentHistoryState
+                .yhDashboardLayer;
+
+            delete currentHistoryState
+                .yhDashboardProfileWorkspace;
+
+            delete currentHistoryState
+                .yhDashboardProfileDivision;
+
+            window.history.replaceState(
+                currentHistoryState,
+                '',
+                window.location.href
+            );
+        }
+    } catch (_) {}
+
+    const hadPersistedProfile =
+        String(
+            state.type || ''
+        )
+            .trim()
+            .toLowerCase() ===
+            'profile' ||
+        Boolean(profileMode) ||
+        Boolean(profileMemberId);
+
+    /*
+     * Normalize old saved profile states so users
+     * who already opened Profile before this patch
+     * return to their underlying workspace.
+     */
+    if (hadPersistedProfile) {
+        const baseWorkspace =
+            savedWorkspace ||
+            'overview';
+
+        const workspaceCopy =
+            getDashboardUnifiedWorkspaceCopy(
+                baseWorkspace
+            );
+
+        writeDashboardPersistentUiState({
+            type:
+                'workspace',
+
+            workspaceKey:
+                workspaceCopy.key,
+
+            division:
+                workspaceCopy.division,
+
+            profileMode:
+                '',
+
+            profileMemberId:
+                '',
+
+            walletTab:
+                state.walletTab ||
+                ''
         });
-
-        window.setTimeout(() => {
-            if (profileMode === 'visited') {
-                openAcademyMemberProfileView(profileMemberId);
-            } else {
-                openAcademyProfileView();
-            }
-        }, 120);
-
-        return true;
     }
 
     if (savedWorkspace) {
-        activateDashboardUnifiedWorkspace(savedWorkspace, {
-            scroll: false,
-            animate: false,
-            persist: false,
-            restore: true
-        });
+        activateDashboardUnifiedWorkspace(
+            savedWorkspace,
+            {
+                scroll:
+                    false,
+
+                animate:
+                    false,
+
+                persist:
+                    false,
+
+                restore:
+                    true
+            }
+        );
 
         return true;
     }
@@ -14338,7 +14455,55 @@ function beginDashboardInlineFrameNavigation(frame, workspaceKey = '', inlineUrl
     frame.dataset.yhDashboardChildWorkspaceReady = 'false';
     frame.removeAttribute('data-yh-dashboard-federation-sync-locked-after-ready');
 
-    setDashboardInlineFrameRevealState(frame, false, 'navigation-start');
+    const currentLoadedUrl =
+        getDashboardInlineFrameLoadedUrl(
+            frame
+        );
+
+    const canPreserveCurrentContent =
+        Boolean(
+            currentLoadedUrl &&
+            currentLoadedUrl !==
+                'about:blank' &&
+            frame.dataset
+                .yhDashboardRevealState ===
+                'ready'
+        );
+
+    if (canPreserveCurrentContent) {
+        /*
+         * Keep the previous rendered child visible
+         * until the newly selected child completes
+         * its readiness handshake.
+         */
+        frame.dataset
+            .yhDashboardRevealState =
+            'pending';
+
+        frame.dataset
+            .yhDashboardRevealReason =
+            'navigation-start-preserve-current';
+
+        frame.style.visibility =
+            'visible';
+
+        frame.style.opacity =
+            '1';
+
+        frame.style.pointerEvents =
+            'none';
+
+        frame.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+    } else {
+        setDashboardInlineFrameRevealState(
+            frame,
+            false,
+            'navigation-start'
+        );
+    }
 
     window.clearTimeout(window.__yhDashboardChildWorkspaceReadyPollTimer);
     window.clearTimeout(frame.__yhDashboardRoadmapSafeRevealTimer);
@@ -14379,6 +14544,24 @@ function invalidateDashboardInlineFrameNavigation(frame, reason = 'workspace-exi
     window.clearTimeout(frame.__yhDashboardPlazaIconObserverTimer);
     window.clearTimeout(frame.__yhDashboardPlazaTitleIconRetry1);
     window.clearTimeout(frame.__yhDashboardPlazaTitleIconRetry2);
+
+    try {
+        frame
+            .__yhDashboardAcademyScrollAbortControllerV1
+            ?.abort();
+    } catch (_) {}
+
+    frame
+        .__yhDashboardAcademyScrollAbortControllerV1 =
+        null;
+
+    frame
+        .__yhDashboardAcademyScrollDocumentV1 =
+        null;
+
+    frame
+        .__yhDashboardAcademyScrollWorkspaceKeyV1 =
+        '';
 
     if (typeof clearDashboardInlineAcademyApplyTimers === 'function') {
         clearDashboardInlineAcademyApplyTimers(frame);
@@ -14615,119 +14798,93 @@ function markDashboardUnifiedChildWorkspaceNonBlockingSyncV1(key = '', meta = {}
 }
 /* END PATCH: YHU instant dashboard child workspace loader bypass v1 */
 
-function showDashboardUnifiedChildWorkspaceLoader(key = 'overview', meta = {}, navigationToken = '') {
-    const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
-    const loader = document.getElementById('yh-universe-child-workspace-loader');
-    const icon = document.getElementById('yh-universe-child-workspace-loader-icon');
-    const kicker = document.getElementById('yh-universe-child-workspace-loader-kicker');
-    const title = document.getElementById('yh-universe-child-workspace-loader-title');
-    const copy = document.getElementById('yh-universe-child-workspace-loader-copy');
-    const roadmapHeader = document.getElementById('yh-universe-roadmap-loader-header');
-    const cleanLoaderKey = String(key || '').trim().toLowerCase();
-    const isRoadmapLoader = cleanLoaderKey === 'academy-roadmap';
-
-    if (loader) {
-        loader.setAttribute(
-            'data-yh-child-loader-mode',
-            isRoadmapLoader ? 'roadmap' : 'default'
+function showDashboardUnifiedChildWorkspaceLoader(
+    key = 'overview',
+    meta = {},
+    navigationToken = ''
+) {
+    const frameShell =
+        document.getElementById(
+            'yh-universe-workspace-frame-shell'
         );
-    }
+
+    const loader =
+        document.getElementById(
+            'yh-universe-child-workspace-loader'
+        );
+
+    const roadmapHeader =
+        document.getElementById(
+            'yh-universe-roadmap-loader-header'
+        );
+
+    /*
+     * Child workspace navigation is now non-visual.
+     * Readiness checks remain active, but the branded
+     * loading card is never shown.
+     */
+    markDashboardUnifiedChildWorkspaceNonBlockingSyncV1(
+        key,
+        meta
+    );
+
+    window.clearTimeout(
+        window.__yhDashboardChildWorkspaceLoaderFallback
+    );
+
+    window.clearTimeout(
+        window.__yhDashboardChildWorkspaceLoaderMinTimer
+    );
+
+    window.__yhDashboardBalancedChildWorkspaceLoaderVisibleUntilV2 =
+        0;
 
     if (roadmapHeader) {
-        roadmapHeader.classList.toggle(
-            'hidden-step',
-            !isRoadmapLoader
+        roadmapHeader.classList.add(
+            'hidden-step'
         );
 
         roadmapHeader.setAttribute(
             'aria-hidden',
-            isRoadmapLoader ? 'false' : 'true'
+            'true'
         );
     }
 
-    window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderMinTimer);
+    if (loader) {
+        loader.classList.add(
+            'hidden-step'
+        );
 
-    /* PATCH: YHU balanced 0.5s child workspace loader v3 */
-    if (shouldBypassDashboardUnifiedChildWorkspaceLoaderV1(key, meta)) {
-        markDashboardUnifiedChildWorkspaceNonBlockingSyncV1(key, meta);
+        loader.classList.remove(
+            'is-active'
+        );
 
-        if (!frameShell || !loader) return false;
+        loader.setAttribute(
+            'aria-hidden',
+            'true'
+        );
 
-        const loaderMeta = getDashboardUnifiedChildWorkspaceLoaderMeta(key, meta);
+        loader.style.pointerEvents =
+            'none';
 
-        if (icon) icon.src = loaderMeta.icon || '/images/logo.avif';
-        if (kicker) kicker.textContent = loaderMeta.kicker || 'Workspace Sync';
-        if (title) title.textContent = loaderMeta.title || 'Preparing workspace';
-        if (copy) copy.textContent = loaderMeta.copy || 'Loading this section inside your Universe Dashboard.';
-
-        frameShell.classList.add('is-switching', 'has-child-workspace-loader');
-        frameShell.dataset.childLoaderKey = String(key || '').trim().toLowerCase();
-        frameShell.dataset.childLoaderStartedAt = String(Date.now());
-
-        loader.classList.remove('hidden-step');
-        loader.classList.add('is-active');
-        loader.setAttribute('aria-hidden', 'false');
-        loader.style.pointerEvents = 'auto';
-
-        const cleanLoaderKey = String(key || '').trim().toLowerCase();
-        const isMobileWorkspaceBoot = isDashboardMobileWorkspaceBootViewportV1();
-        const isPlazaWorkspaceLoader =
-            cleanLoaderKey.startsWith('plazas-');
-        const mobileFallbackMs = cleanLoaderKey.startsWith('federation-') ? 2400 : 1800;
-
-        window.__yhDashboardBalancedChildWorkspaceLoaderVisibleUntilV2 =
-            Date.now() +
-            (
-                isMobileWorkspaceBoot ||
-                isPlazaWorkspaceLoader
-                    ? 900
-                    : 500
-            );
-
-        window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderFallback);
-
-        if (isRoadmapLoader) {
-            return true;
-        }
-
-        window.__yhDashboardChildWorkspaceLoaderFallback = window.setTimeout(() => {
-            hideDashboardUnifiedChildWorkspaceLoader(
-                isMobileWorkspaceBoot ? 'mobile-balanced-timeout' : 'balanced-1s-timeout',
-                navigationToken
-            );
-        }, isMobileWorkspaceBoot ? mobileFallbackMs : 650);
-
-        return true;
+        loader.removeAttribute(
+            'data-yh-child-loader-mode'
+        );
     }
-    /* END PATCH: YHU balanced 0.5s child workspace loader v3 */
 
-    if (!frameShell || !loader) return false;
+    if (frameShell) {
+        frameShell.classList.remove(
+            'has-child-workspace-loader'
+        );
 
-    const loaderMeta = getDashboardUnifiedChildWorkspaceLoaderMeta(key, meta);
+        delete frameShell.dataset
+            .childLoaderKey;
 
-    if (icon) icon.src = loaderMeta.icon || '/images/logo.avif';
-    if (kicker) kicker.textContent = loaderMeta.kicker || 'Workspace Sync';
-    if (title) title.textContent = loaderMeta.title || 'Preparing workspace';
-    if (copy) copy.textContent = loaderMeta.copy || 'Loading this section inside your Universe Dashboard.';
+        delete frameShell.dataset
+            .childLoaderStartedAt;
+    }
 
-    frameShell.classList.add('is-switching', 'has-child-workspace-loader');
-    frameShell.dataset.childLoaderKey = String(key || '').trim().toLowerCase();
-    frameShell.dataset.childLoaderStartedAt = String(Date.now());
-
-    loader.classList.remove('hidden-step');
-    loader.classList.add('is-active');
-    loader.setAttribute('aria-hidden', 'false');
-
-    const loaderHardTimeoutMs = String(key || '').trim().toLowerCase().startsWith('federation-')
-        ? 2800
-        : 4500;
-
-    window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderFallback);
-    window.__yhDashboardChildWorkspaceLoaderFallback = window.setTimeout(() => {
-        hideDashboardUnifiedChildWorkspaceLoader('hard-timeout', navigationToken);
-    }, loaderHardTimeoutMs);
-
-    return true;
+    return false;
 }
 
 function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready', navigationToken = '') {
@@ -15894,6 +16051,25 @@ function enforceDashboardInlineFederationScroll(frame, doc = null) {
     const frameShell = frame.closest('#yh-universe-workspace-frame-shell');
     const parentHub = document.getElementById('universe-hub-view');
 
+    const isMobileFederationEmbed = (() => {
+        try {
+            return Boolean(
+                frameDoc.defaultView
+                    ?.matchMedia?.(
+                        '(max-width: 768px)'
+                    )
+                    .matches ||
+                window
+                    .matchMedia(
+                        '(max-width: 768px)'
+                    )
+                    .matches
+            );
+        } catch (_) {
+            return window.innerWidth <= 768;
+        }
+    })();
+
     frameDoc.documentElement.style.setProperty('height', '100%', 'important');
     frameDoc.documentElement.style.setProperty('min-height', '100%', 'important');
     frameDoc.documentElement.style.setProperty('overflow', 'hidden', 'important');
@@ -15914,7 +16090,13 @@ function enforceDashboardInlineFederationScroll(frame, doc = null) {
         shell.style.setProperty('display', 'grid', 'important');
         shell.style.setProperty('grid-template-rows', 'minmax(0, 1fr)', 'important');
         shell.style.setProperty('gap', 'clamp(12px, 1.1vw, 18px)', 'important');
-        shell.style.setProperty('padding', 'clamp(10px, 1vw, 16px)', 'important');
+        shell.style.setProperty(
+            'padding',
+            isMobileFederationEmbed
+                ? 'clamp(10px, 1vw, 16px) clamp(10px, 1vw, 16px) 0'
+                : 'clamp(10px, 1vw, 16px)',
+            'important'
+        );
         shell.style.setProperty('overflow', 'hidden', 'important');
         shell.style.setProperty('overscroll-behavior', 'none', 'important');
         shell.style.setProperty('overflow-anchor', 'none', 'important');
@@ -15933,7 +16115,21 @@ function enforceDashboardInlineFederationScroll(frame, doc = null) {
         main.style.setProperty('touch-action', 'pan-y', 'important');
         main.style.setProperty('scroll-behavior', 'auto', 'important');
         main.style.setProperty('overflow-anchor', 'none', 'important');
-        main.style.setProperty('padding-bottom', 'clamp(110px, 11vh, 150px)', 'important');
+        main.style.setProperty(
+            'padding-bottom',
+            isMobileFederationEmbed
+                ? '0'
+                : 'clamp(110px, 11vh, 150px)',
+            'important'
+        );
+
+        main.style.setProperty(
+            'scroll-padding-bottom',
+            isMobileFederationEmbed
+                ? '0'
+                : 'clamp(110px, 11vh, 150px)',
+            'important'
+        );
     }
 
 
@@ -15959,13 +16155,53 @@ function enforceDashboardInlineFederationScroll(frame, doc = null) {
     }
     /* END PATCH: Dashboard Federation embedded content column v132 */
     if (frameShell instanceof HTMLElement) {
-        frameShell.style.setProperty('height', 'clamp(650px, calc(100dvh - 132px), 960px)', 'important');
-        frameShell.style.setProperty('min-height', '650px', 'important');
-        frameShell.style.setProperty('max-height', '960px', 'important');
-        frameShell.style.setProperty('overflow', 'hidden', 'important');
-        frameShell.style.setProperty('overscroll-behavior', 'none', 'important');
-        frameShell.style.setProperty('overflow-anchor', 'none', 'important');
-        frameShell.style.setProperty('position', 'relative', 'important');
+        frameShell.style.setProperty(
+            'height',
+            isMobileFederationEmbed
+                ? '100%'
+                : 'clamp(650px, calc(100dvh - 132px), 960px)',
+            'important'
+        );
+
+        frameShell.style.setProperty(
+            'min-height',
+            isMobileFederationEmbed
+                ? '0'
+                : '650px',
+            'important'
+        );
+
+        frameShell.style.setProperty(
+            'max-height',
+            isMobileFederationEmbed
+                ? '100%'
+                : '960px',
+            'important'
+        );
+
+        frameShell.style.setProperty(
+            'overflow',
+            'hidden',
+            'important'
+        );
+
+        frameShell.style.setProperty(
+            'overscroll-behavior',
+            'none',
+            'important'
+        );
+
+        frameShell.style.setProperty(
+            'overflow-anchor',
+            'none',
+            'important'
+        );
+
+        frameShell.style.setProperty(
+            'position',
+            'relative',
+            'important'
+        );
     }
 
     frame.style.setProperty('width', '100%', 'important');
@@ -16381,6 +16617,1313 @@ function findDashboardInlineChromeNode(doc, keywords = []) {
     return candidates[0] || null;
 }
 
+function isDashboardMobileViewportV2() {
+    try {
+        return window.matchMedia(
+            '(max-width: 768px)'
+        ).matches;
+    } catch (_) {
+        return window.innerWidth <= 768;
+    }
+}
+
+function syncDashboardEmbeddedAcademyMobileChromeV2(
+    frame,
+    docOverride = null
+) {
+    if (!frame) return false;
+
+    const doc =
+        docOverride ||
+        getDashboardInlineFrameDocument(
+            frame
+        );
+
+    if (
+        !doc?.documentElement ||
+        !doc?.body
+    ) {
+        return false;
+    }
+
+    const workspaceKey =
+        String(
+            getDashboardInlineWorkspaceKeyFromFrame(
+                frame
+            ) || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    const shouldHide =
+        isDashboardMobileViewportV2() &&
+        workspaceKey.startsWith(
+            'academy-'
+        );
+
+    doc.documentElement.classList.toggle(
+        'yh-dashboard-mobile-inline-embed-root',
+        shouldHide
+    );
+
+    doc.body.classList.toggle(
+        'yh-dashboard-mobile-inline-embed-body',
+        shouldHide
+    );
+
+    const marker =
+        'data-yh-dashboard-mobile-chrome-hidden';
+
+    const isAcademyMessagesWorkspace =
+        workspaceKey ===
+        'academy-messages';
+
+    const isAcademyVoiceWorkspace =
+        workspaceKey ===
+        'academy-voice';
+
+    doc.body.classList.toggle(
+        'yh-dashboard-mobile-academy-messages-actions-only',
+        shouldHide &&
+        isAcademyMessagesWorkspace
+    );
+
+    doc.body.classList.toggle(
+        'yh-dashboard-mobile-academy-voice-actions-only',
+        shouldHide &&
+        isAcademyVoiceWorkspace
+    );
+
+    const restoreChromeNode = (node) => {
+        if (!node) return;
+
+        node.removeAttribute(
+            marker
+        );
+
+        node.removeAttribute(
+            'hidden'
+        );
+
+        node.removeAttribute(
+            'aria-hidden'
+        );
+
+        [
+            'display',
+            'visibility',
+            'opacity',
+            'pointer-events'
+        ].forEach((property) => {
+            node.style.removeProperty(
+                property
+            );
+        });
+    };
+
+    if (!shouldHide) {
+        doc
+            .querySelectorAll(
+                `[${marker}="true"]`
+            )
+            .forEach(
+                restoreChromeNode
+            );
+
+        return false;
+    }
+
+    const chromeSelectors = [
+        '#academy-lead-missions-view > .chat-header',
+        '#academy-feed-view > .chat-header',
+        '#academy-mobile-bottom-nav',
+        '.academy-mobile-bottom-nav',
+        'nav[aria-label="Academy mobile navigation"]'
+    ];
+
+    if (isAcademyMessagesWorkspace) {
+        /*
+         * Keep the Messages action row and hide only
+         * the duplicate icon/title/description block.
+         */
+        chromeSelectors.push(
+            '#academy-chat > .chat-header .academy-header-left'
+        );
+    } else if (isAcademyVoiceWorkspace) {
+        /*
+         * Keep Start a Lounge visible and remove only
+         * the duplicate Voice-Lounge title/topic copy.
+         */
+        chromeSelectors.push(
+            '#voice-lobby-view > .chat-header .header-left'
+        );
+    } else {
+        chromeSelectors.unshift(
+            '#academy-chat > .chat-header'
+        );
+    }
+
+    const nodes =
+        Array.from(
+            doc.querySelectorAll(
+                chromeSelectors.join(', ')
+            )
+        );
+
+    const activeHiddenNodes =
+        new Set(nodes);
+
+    /*
+     * Restore stale nodes hidden by the previous
+     * Academy child workspace.
+     */
+    doc
+        .querySelectorAll(
+            `[${marker}="true"]`
+        )
+        .forEach((node) => {
+            if (
+                activeHiddenNodes.has(
+                    node
+                )
+            ) {
+                return;
+            }
+
+            restoreChromeNode(
+                node
+            );
+        });
+
+    const hiddenProperties = {
+        display: 'none',
+        visibility: 'hidden',
+        opacity: '0',
+        'pointer-events': 'none'
+    };
+
+    nodes.forEach((node) => {
+        if (
+            node.getAttribute(
+                marker
+            ) !== 'true'
+        ) {
+            node.setAttribute(
+                marker,
+                'true'
+            );
+        }
+
+        if (!node.hidden) {
+            node.hidden = true;
+        }
+
+        if (
+            node.getAttribute(
+                'aria-hidden'
+            ) !== 'true'
+        ) {
+            node.setAttribute(
+                'aria-hidden',
+                'true'
+            );
+        }
+
+        Object.entries(
+            hiddenProperties
+        ).forEach(
+            ([property, value]) => {
+                const alreadyHidden =
+                    node.style.getPropertyValue(
+                        property
+                    ) === value &&
+                    node.style.getPropertyPriority(
+                        property
+                    ) === 'important';
+
+                if (alreadyHidden) {
+                    return;
+                }
+
+                node.style.setProperty(
+                    property,
+                    value,
+                    'important'
+                );
+            }
+        );
+    });
+
+    if (
+        frame
+            .__yhDashboardAcademyMobileChromeObserverDocV2 !==
+        doc
+    ) {
+        try {
+            frame
+                .__yhDashboardAcademyMobileChromeObserverV2
+                ?.disconnect?.();
+        } catch (_) {}
+
+        frame
+            .__yhDashboardAcademyMobileChromeObserverV2 =
+            null;
+
+        frame
+            .__yhDashboardAcademyMobileChromeObserverDocV2 =
+            doc;
+    }
+
+    if (
+        !frame
+            .__yhDashboardAcademyMobileChromeObserverV2
+    ) {
+        const ObserverCtor =
+            doc.defaultView
+                ?.MutationObserver ||
+            window.MutationObserver;
+
+        if (
+            typeof ObserverCtor ===
+            'function'
+        ) {
+            const observer =
+                new ObserverCtor(() => {
+                    window.clearTimeout(
+                        frame
+                            .__yhDashboardAcademyMobileChromeObserverTimerV2
+                    );
+
+                    frame
+                        .__yhDashboardAcademyMobileChromeObserverTimerV2 =
+                        window.setTimeout(
+                            () => {
+                                syncDashboardEmbeddedAcademyMobileChromeV2(
+                                    frame,
+                                    doc
+                                );
+
+                                syncDashboardEmbeddedAcademyMissionCarouselV1(
+                                    frame,
+                                    doc
+                                );
+
+                                syncDashboardEmbeddedAcademyMissionDetailActionsV1(
+                                    frame,
+                                    doc
+                                );
+
+                                syncDashboardEmbeddedAcademyCommunityFeedV1(
+                                    frame,
+                                    doc
+                                );
+                            },
+                            32
+                        );
+                });
+
+            observer.observe(
+                doc.body,
+                {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    attributeFilter: [
+                        'class',
+                        'style',
+                        'hidden',
+                        'aria-hidden'
+                    ]
+                }
+            );
+
+            frame
+                .__yhDashboardAcademyMobileChromeObserverV2 =
+                observer;
+        }
+    }
+
+    return nodes.length > 0;
+}
+
+function syncDashboardEmbeddedAcademyMissionCarouselV1(
+    frame,
+    docOverride = null
+) {
+    if (!frame) return false;
+
+    const doc =
+        docOverride ||
+        getDashboardInlineFrameDocument(
+            frame
+        );
+
+    if (
+        !doc?.documentElement ||
+        !doc?.body
+    ) {
+        return false;
+    }
+
+    const workspaceKey =
+        String(
+            getDashboardInlineWorkspaceKeyFromFrame(
+                frame
+            ) || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    if (
+        !isDashboardMobileViewportV2() ||
+        workspaceKey !==
+            'academy-missions'
+    ) {
+        return false;
+    }
+
+    const grid =
+        doc.querySelector(
+            '#academy-lead-missions-view .academy-mission-playbook-grid'
+        );
+
+    if (
+        !grid ||
+        grid.nodeType !== 1
+    ) {
+        return false;
+    }
+
+    const cards =
+        Array.from(
+            grid.children
+        ).filter((node) => (
+            node?.nodeType === 1 &&
+            node.classList.contains(
+                'academy-mission-playbook-card'
+            )
+        ));
+
+    if (cards.length < 2) {
+        return false;
+    }
+
+    const setAttributeIfChanged = (
+        node,
+        name,
+        value
+    ) => {
+        const nextValue =
+            String(value);
+
+        if (
+            node.getAttribute(name) ===
+            nextValue
+        ) {
+            return;
+        }
+
+        node.setAttribute(
+            name,
+            nextValue
+        );
+    };
+
+    setAttributeIfChanged(
+        grid,
+        'data-yh-dashboard-mission-carousel',
+        'true'
+    );
+
+    setAttributeIfChanged(
+        grid,
+        'role',
+        'region'
+    );
+
+    setAttributeIfChanged(
+        grid,
+        'aria-label',
+        'Academy mission playbooks'
+    );
+
+    cards.forEach((card, index) => {
+        setAttributeIfChanged(
+            card,
+            'data-yh-dashboard-mission-slide',
+            index
+        );
+
+        setAttributeIfChanged(
+            card,
+            'aria-roledescription',
+            'slide'
+        );
+
+        setAttributeIfChanged(
+            card,
+            'aria-posinset',
+            index + 1
+        );
+
+        setAttributeIfChanged(
+            card,
+            'aria-setsize',
+            cards.length
+        );
+    });
+
+    let indicators =
+        grid.nextElementSibling;
+
+    if (
+        !indicators ||
+        indicators.nodeType !== 1 ||
+        !indicators.matches(
+            '[data-yh-dashboard-mission-carousel-indicators]'
+        )
+    ) {
+        indicators =
+            doc.createElement(
+                'div'
+            );
+
+        indicators.className =
+            'yh-dashboard-mission-carousel-indicators-v1';
+
+        indicators.setAttribute(
+            'data-yh-dashboard-mission-carousel-indicators',
+            'true'
+        );
+
+        indicators.setAttribute(
+            'aria-label',
+            'Choose mission card'
+        );
+
+        grid.insertAdjacentElement(
+            'afterend',
+            indicators
+        );
+    }
+
+    let dots =
+        Array.from(
+            indicators.querySelectorAll(
+                '[data-yh-dashboard-mission-carousel-dot]'
+            )
+        );
+
+    if (
+        dots.length !==
+        cards.length
+    ) {
+        indicators.replaceChildren(
+            ...cards.map((_, index) => {
+                const button =
+                    doc.createElement(
+                        'button'
+                    );
+
+                button.type =
+                    'button';
+
+                button.setAttribute(
+                    'data-yh-dashboard-mission-carousel-dot',
+                    String(index)
+                );
+
+                button.setAttribute(
+                    'aria-label',
+                    `Show mission ${index + 1}`
+                );
+
+                return button;
+            })
+        );
+
+        dots =
+            Array.from(
+                indicators.querySelectorAll(
+                    '[data-yh-dashboard-mission-carousel-dot]'
+                )
+            );
+    }
+
+    let state =
+        grid
+            .__yhDashboardMissionCarouselStateV1;
+
+    const shouldRestorePosition =
+        !state ||
+        state.cards?.length !==
+            cards.length;
+
+    if (!state) {
+        state = {
+            cards: [],
+            dots: [],
+            activeIndex: 0,
+            animationFrame: 0
+        };
+
+        state.paintActive = (
+            nextIndex = 0
+        ) => {
+            const safeIndex =
+                Math.max(
+                    0,
+                    Math.min(
+                        state.cards.length -
+                            1,
+                        Number(nextIndex) || 0
+                    )
+                );
+
+            state.activeIndex =
+                safeIndex;
+
+            setAttributeIfChanged(
+                grid,
+                'data-yh-dashboard-mission-carousel-index',
+                safeIndex
+            );
+
+            state.dots.forEach(
+                (dot, index) => {
+                    setAttributeIfChanged(
+                        dot,
+                        'aria-current',
+                        index === safeIndex
+                            ? 'true'
+                            : 'false'
+                    );
+                }
+            );
+        };
+
+        state.syncActive = () => {
+            if (
+                !state.cards.length ||
+                !grid.isConnected
+            ) {
+                return;
+            }
+
+            const gridRect =
+                grid.getBoundingClientRect();
+
+            const center =
+                gridRect.left +
+                (
+                    gridRect.width /
+                    2
+                );
+
+            let nextIndex = 0;
+            let nextDistance =
+                Number.POSITIVE_INFINITY;
+
+            state.cards.forEach(
+                (card, index) => {
+                    const cardRect =
+                        card.getBoundingClientRect();
+
+                    const cardCenter =
+                        cardRect.left +
+                        (
+                            cardRect.width /
+                            2
+                        );
+
+                    const distance =
+                        Math.abs(
+                            cardCenter -
+                            center
+                        );
+
+                    if (
+                        distance <
+                        nextDistance
+                    ) {
+                        nextDistance =
+                            distance;
+
+                        nextIndex =
+                            index;
+                    }
+                }
+            );
+
+            state.paintActive(
+                nextIndex
+            );
+        };
+
+        state.goTo = (
+            index = 0,
+            behavior = 'smooth'
+        ) => {
+            const safeIndex =
+                Math.max(
+                    0,
+                    Math.min(
+                        state.cards.length -
+                            1,
+                        Number(index) || 0
+                    )
+                );
+
+            const card =
+                state.cards[
+                    safeIndex
+                ];
+
+            if (!card) return;
+
+            const gridRect =
+                grid.getBoundingClientRect();
+
+            const cardRect =
+                card.getBoundingClientRect();
+
+            const targetLeft =
+                Math.max(
+                    0,
+                    grid.scrollLeft +
+                    (
+                        cardRect.left -
+                        gridRect.left
+                    ) -
+                    (
+                        (
+                            grid.clientWidth -
+                            cardRect.width
+                        ) /
+                        2
+                    )
+                );
+
+            try {
+                grid.scrollTo({
+                    left:
+                        targetLeft,
+
+                    behavior
+                });
+            } catch (_) {
+                grid.scrollLeft =
+                    targetLeft;
+            }
+
+            state.paintActive(
+                safeIndex
+            );
+        };
+
+        state.onScroll = () => {
+            const ownerWindow =
+                doc.defaultView ||
+                window;
+
+            ownerWindow.cancelAnimationFrame(
+                state.animationFrame
+            );
+
+            state.animationFrame =
+                ownerWindow.requestAnimationFrame(
+                    state.syncActive
+                );
+        };
+
+        grid.addEventListener(
+            'scroll',
+            state.onScroll,
+            {
+                passive: true
+            }
+        );
+
+        grid
+            .__yhDashboardMissionCarouselStateV1 =
+            state;
+    }
+
+    state.cards =
+        cards;
+
+    state.dots =
+        dots;
+
+    dots.forEach((dot, index) => {
+        if (
+            dot.getAttribute(
+                'data-yh-dashboard-mission-carousel-bound'
+            ) === 'true'
+        ) {
+            return;
+        }
+
+        dot.setAttribute(
+            'data-yh-dashboard-mission-carousel-bound',
+            'true'
+        );
+
+        dot.addEventListener(
+            'click',
+            (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                state.goTo(
+                    index,
+                    'smooth'
+                );
+            }
+        );
+    });
+
+    if (shouldRestorePosition) {
+        const savedIndex =
+            Math.max(
+                0,
+                Math.min(
+                    cards.length - 1,
+                    Number(
+                        grid.getAttribute(
+                            'data-yh-dashboard-mission-carousel-index'
+                        ) || 0
+                    ) || 0
+                )
+            );
+
+        const ownerWindow =
+            doc.defaultView ||
+            window;
+
+        ownerWindow.requestAnimationFrame(
+            () => {
+                state.goTo(
+                    savedIndex,
+                    'auto'
+                );
+
+                state.syncActive();
+            }
+        );
+    } else {
+        state.syncActive();
+    }
+
+    return true;
+}
+
+function syncDashboardEmbeddedAcademyMissionDetailActionsV1(
+    frame,
+    docOverride = null
+) {
+    if (!frame) return false;
+
+    const doc =
+        docOverride ||
+        getDashboardInlineFrameDocument(
+            frame
+        );
+
+    if (
+        !doc?.documentElement ||
+        !doc?.body
+    ) {
+        return false;
+    }
+
+    const workspaceKey =
+        String(
+            getDashboardInlineWorkspaceKeyFromFrame(
+                frame
+            ) || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    const sourceActions =
+        doc.querySelector(
+            '#academy-mission-playbook-panel .academy-mission-playbook-detail-head'
+        );
+
+    const removeEmbeddedActions = () => {
+        doc
+            .querySelectorAll(
+                '[data-yh-dashboard-mission-detail-actions="true"]'
+            )
+            .forEach((node) => {
+                node.remove();
+            });
+
+        sourceActions?.removeAttribute(
+            'data-yh-dashboard-mission-detail-actions-source'
+        );
+    };
+
+    if (
+        !isDashboardMobileViewportV2() ||
+        workspaceKey !==
+            'academy-missions'
+    ) {
+        removeEmbeddedActions();
+
+        return false;
+    }
+
+    const backButton =
+        doc.getElementById(
+            'btn-back-to-missions-playbook-hub'
+        );
+
+    const startButton =
+        doc.getElementById(
+            'btn-start-current-playbook-mission'
+        );
+
+    const detailCard =
+        doc.querySelector(
+            '#academy-mission-playbook-detail .academy-mission-playbook-detail-card'
+        );
+
+    if (
+        !sourceActions ||
+        !backButton ||
+        !startButton ||
+        !detailCard
+    ) {
+        removeEmbeddedActions();
+
+        return false;
+    }
+
+    const paymentSection =
+        Array.from(
+            detailCard.querySelectorAll(
+                '.academy-mission-playbook-section'
+            )
+        ).find((section) => {
+            const title =
+                String(
+                    section
+                        .querySelector('h4')
+                        ?.textContent || ''
+                )
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .toLowerCase();
+
+            return title ===
+                'payments & bonus';
+        });
+
+    if (!paymentSection) {
+        removeEmbeddedActions();
+
+        return false;
+    }
+
+    let embeddedActions =
+        paymentSection.querySelector(
+            ':scope > [data-yh-dashboard-mission-detail-actions="true"]'
+        );
+
+    if (!embeddedActions) {
+        embeddedActions =
+            doc.createElement(
+                'div'
+            );
+
+        embeddedActions.className =
+            'yh-dashboard-mission-detail-actions-v1';
+
+        embeddedActions.setAttribute(
+            'data-yh-dashboard-mission-detail-actions',
+            'true'
+        );
+
+        embeddedActions.setAttribute(
+            'aria-label',
+            'Mission actions'
+        );
+
+        const createProxyButton = (
+            role,
+            sourceButton
+        ) => {
+            const button =
+                doc.createElement(
+                    'button'
+                );
+
+            button.type =
+                'button';
+
+            button.className =
+                `yh-dashboard-mission-detail-action-v1 is-${role}`;
+
+            button.setAttribute(
+                'data-yh-dashboard-mission-detail-action',
+                role
+            );
+
+            button.addEventListener(
+                'click',
+                (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    if (
+                        sourceButton.disabled ||
+                        sourceButton.hidden
+                    ) {
+                        return;
+                    }
+
+                    sourceButton.click();
+                }
+            );
+
+            return button;
+        };
+
+        embeddedActions.append(
+            createProxyButton(
+                'back',
+                backButton
+            ),
+            createProxyButton(
+                'start',
+                startButton
+            )
+        );
+
+        paymentSection.appendChild(
+            embeddedActions
+        );
+    }
+
+    const syncProxyButton = (
+        role,
+        sourceButton
+    ) => {
+        const proxyButton =
+            embeddedActions.querySelector(
+                `[data-yh-dashboard-mission-detail-action="${role}"]`
+            );
+
+        if (!proxyButton) return;
+
+        const label =
+            String(
+                sourceButton.textContent || ''
+            )
+                .replace(/\s+/g, ' ')
+                .trim();
+
+        if (
+            proxyButton.textContent !==
+            label
+        ) {
+            proxyButton.textContent =
+                label;
+        }
+
+        if (
+            proxyButton.disabled !==
+            Boolean(
+                sourceButton.disabled
+            )
+        ) {
+            proxyButton.disabled =
+                Boolean(
+                    sourceButton.disabled
+                );
+        }
+
+        if (
+            proxyButton.hidden !==
+            Boolean(
+                sourceButton.hidden
+            )
+        ) {
+            proxyButton.hidden =
+                Boolean(
+                    sourceButton.hidden
+                );
+        }
+
+        const ariaDisabled =
+            sourceButton.disabled
+                ? 'true'
+                : 'false';
+
+        if (
+            proxyButton.getAttribute(
+                'aria-disabled'
+            ) !== ariaDisabled
+        ) {
+            proxyButton.setAttribute(
+                'aria-disabled',
+                ariaDisabled
+            );
+        }
+    };
+
+    syncProxyButton(
+        'back',
+        backButton
+    );
+
+    syncProxyButton(
+        'start',
+        startButton
+    );
+
+    sourceActions.setAttribute(
+        'data-yh-dashboard-mission-detail-actions-source',
+        'true'
+    );
+
+    return true;
+}
+
+function syncDashboardEmbeddedAcademyCommunityFeedV1(
+    frame,
+    docOverride = null
+) {
+    if (!frame) return false;
+
+    const doc =
+        docOverride ||
+        getDashboardInlineFrameDocument(
+            frame
+        );
+
+    if (
+        !doc?.documentElement ||
+        !doc?.body
+    ) {
+        return false;
+    }
+
+    const workspaceKey =
+        String(
+            getDashboardInlineWorkspaceKeyFromFrame(
+                frame
+            ) || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    if (
+        !isDashboardMobileViewportV2() ||
+        workspaceKey !==
+            'academy-community'
+    ) {
+        return false;
+    }
+
+    const feedView =
+        doc.getElementById(
+            'academy-feed-view'
+        );
+
+    const feedScroller =
+        feedView?.querySelector(
+            ':scope > .chat-messages'
+        ) ||
+        feedView?.querySelector(
+            '.chat-messages'
+        );
+
+    const feedShell =
+        feedView?.querySelector(
+            '.academy-feed-shell'
+        );
+
+    const feedList =
+        doc.getElementById(
+            'academy-feed-list'
+        );
+
+    if (
+        !feedView ||
+        !feedScroller ||
+        !feedShell ||
+        !feedList
+    ) {
+        return false;
+    }
+
+    feedView.setAttribute(
+        'data-yh-dashboard-community-feed-stable',
+        'true'
+    );
+
+    let state =
+        frame
+            .__yhDashboardCommunityFeedStateV1;
+
+    if (
+        !state ||
+        state.doc !== doc
+    ) {
+        state = {
+            doc,
+            scroller: null,
+            userInteracted: false,
+            initialTopStabilized: false,
+            resetTimers: []
+        };
+
+        frame
+            .__yhDashboardCommunityFeedStateV1 =
+            state;
+    }
+
+    if (
+        state.scroller !==
+        feedScroller
+    ) {
+        state.scroller =
+            feedScroller;
+
+        [
+            'pointerdown',
+            'touchstart',
+            'wheel'
+        ].forEach((eventName) => {
+            feedScroller.addEventListener(
+                eventName,
+                () => {
+                    state.userInteracted =
+                        true;
+                },
+                {
+                    passive: true
+                }
+            );
+        });
+    }
+
+    const feedText =
+        String(
+            feedList.textContent || ''
+        )
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+
+    const feedResolved =
+        Boolean(
+            feedList.querySelector(
+                '.academy-feed-card'
+            ) ||
+            (
+                feedText &&
+                !feedText.includes(
+                    'loading yha feed'
+                ) &&
+                !feedText.includes(
+                    'refreshing feed'
+                )
+            )
+        );
+
+    if (
+        !feedResolved ||
+        state.initialTopStabilized
+    ) {
+        return true;
+    }
+
+    state.initialTopStabilized =
+        true;
+
+    const resetCommunityFeedToTop = () => {
+        if (
+            state.userInteracted ||
+            getDashboardInlineWorkspaceKeyFromFrame(
+                frame
+            ) !==
+                'academy-community'
+        ) {
+            return;
+        }
+
+        [
+            doc.scrollingElement,
+            doc.documentElement,
+            doc.body,
+            feedView,
+            feedScroller,
+            feedShell
+        ]
+            .filter(Boolean)
+            .forEach((node) => {
+                try {
+                    if (
+                        typeof node.scrollTo ===
+                        'function'
+                    ) {
+                        node.scrollTo({
+                            top: 0,
+                            left: 0,
+                            behavior: 'auto'
+                        });
+                    }
+                } catch (_) {}
+
+                try {
+                    node.scrollTop = 0;
+                    node.scrollLeft = 0;
+                } catch (_) {}
+            });
+    };
+
+    state.resetTimers.forEach(
+        (timer) => {
+            window.clearTimeout(
+                timer
+            );
+        }
+    );
+
+    state.resetTimers = [];
+
+    const ownerWindow =
+        doc.defaultView ||
+        window;
+
+    ownerWindow.requestAnimationFrame(
+        () => {
+            ownerWindow.requestAnimationFrame(
+                resetCommunityFeedToTop
+            );
+        }
+    );
+
+    [
+        90,
+        260,
+        620
+    ].forEach((delay) => {
+        state.resetTimers.push(
+            window.setTimeout(
+                resetCommunityFeedToTop,
+                delay
+            )
+        );
+    });
+
+    return true;
+}
+
 function forceDashboardInlineFrameContentOnly(frame) {
     if (!frame) return false;
 
@@ -16468,6 +18011,8 @@ function forceDashboardInlineFrameContentOnly(frame) {
         body.yh-dashboard-inline-embed-body .academy-right-rail,
         body.yh-dashboard-inline-embed-body .yh-right-sidebar,
         body.yh-dashboard-inline-embed-body .academy-mobile-bottom-nav,
+        body.yh-dashboard-inline-embed-body #academy-mobile-bottom-nav,
+        body.yh-dashboard-inline-embed-body nav[aria-label="Academy mobile navigation"],
         body.yh-dashboard-inline-embed-body .academy-universe-return-actions,
         body.yh-dashboard-inline-embed-body .academy-top-universe-btn,
         body.yh-dashboard-inline-embed-body .academy-back-universe-btn,
@@ -16484,6 +18029,937 @@ function forceDashboardInlineFrameContentOnly(frame) {
         body.yh-dashboard-inline-embed-body [target="_top"][href="/dashboard"],
         body.yh-dashboard-inline-embed-body [aria-label="Go back to Universe dashboard"] {
             display: none !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body:not(.yh-dashboard-mobile-academy-messages-actions-only)
+            #academy-chat > .chat-header,
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-lead-missions-view > .chat-header,
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view > .chat-header,
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-mobile-bottom-nav,
+        body.yh-dashboard-mobile-inline-embed-body
+            .academy-mobile-bottom-nav,
+        body.yh-dashboard-mobile-inline-embed-body
+            nav[aria-label="Academy mobile navigation"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.yh-dashboard-mobile-academy-messages-actions-only
+            #academy-chat > .chat-header {
+            width: 100% !important;
+            min-width: 0 !important;
+            height: auto !important;
+            min-height: 62px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 8px 10px !important;
+            gap: 0 !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.yh-dashboard-mobile-academy-messages-actions-only
+            #academy-chat > .chat-header
+            .academy-header-left {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.yh-dashboard-mobile-academy-messages-actions-only
+            #academy-chat > .chat-header
+            .academy-chat-header-actions {
+            width: 100% !important;
+            min-width: 0 !important;
+            display: grid !important;
+            grid-template-columns:
+                repeat(
+                    2,
+                    minmax(0, 1fr)
+                ) !important;
+            align-items: center !important;
+            gap: 8px !important;
+            margin: 0 !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.yh-dashboard-mobile-academy-messages-actions-only
+            #academy-chat > .chat-header
+            #btn-open-dm-modal,
+        body.yh-dashboard-mobile-inline-embed-body.yh-dashboard-mobile-academy-messages-actions-only
+            #academy-chat > .chat-header
+            #btn-open-group-modal {
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 42px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin: 0 !important;
+            padding: 10px 8px !important;
+            white-space: nowrap !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.yh-dashboard-mobile-academy-messages-actions-only
+            #academy-chat > .chat-header
+            .btn-focus-mode {
+            display: none !important;
+        }
+
+        /*
+         * Mobile Voice Lounge keeps only the primary
+         * Start a Lounge action in the duplicate header.
+         */
+        body.yh-dashboard-mobile-inline-embed-body.yh-dashboard-mobile-academy-voice-actions-only
+            #voice-lobby-view > .chat-header {
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 58px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: stretch !important;
+            padding: 8px 10px !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.yh-dashboard-mobile-academy-voice-actions-only
+            #voice-lobby-view > .chat-header
+            .header-left {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.yh-dashboard-mobile-academy-voice-actions-only
+            #voice-lobby-view > .chat-header
+            .header-right {
+            width: 100% !important;
+            min-width: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: stretch !important;
+            margin: 0 !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.yh-dashboard-mobile-academy-voice-actions-only
+            #voice-lobby-view > .chat-header
+            #btn-start-lounge {
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 42px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin: 0 !important;
+            padding: 10px 12px !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body #academy-wrapper,
+        body.yh-dashboard-mobile-inline-embed-body .academy-layout,
+        body.yh-dashboard-mobile-inline-embed-body .academy-shell,
+        body.yh-dashboard-mobile-inline-embed-body .yh-academy-shell,
+        body.yh-dashboard-mobile-inline-embed-body .academy-app-shell,
+        body.yh-dashboard-mobile-inline-embed-body .academy-main-grid,
+        body.yh-dashboard-mobile-inline-embed-body .academy-content-grid,
+        body.yh-dashboard-mobile-inline-embed-body .yh-main-chat,
+        body.yh-dashboard-mobile-inline-embed-body #academy-chat {
+            border: 0 !important;
+            outline: 0 !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+        }
+
+        /*
+         * Embedded mobile Academy uses the full iframe
+         * viewport. The parent Dashboard navigation
+         * overlays the lower content instead of reducing
+         * the child document's usable height.
+         */
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+            #academy-chat[data-chat-mode="home"],
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+            #academy-chat[data-chat-mode="home"] {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            max-height: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+            #academy-chat[data-chat-mode="home"]
+            #chat-messages,
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+            #academy-chat[data-chat-mode="home"]
+            #chat-messages {
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            max-height: 100% !important;
+            margin: 0 !important;
+            padding:
+                10px
+                12px
+                calc(
+                    18px +
+                    env(
+                        safe-area-inset-bottom,
+                        0px
+                    )
+                ) !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+            overscroll-behavior: contain !important;
+            -webkit-overflow-scrolling: touch !important;
+            touch-action: pan-y !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+            #academy-chat[data-chat-mode="home"]
+            .academy-messages-thread-shell,
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+            #academy-chat[data-chat-mode="home"]
+            .academy-messages-thread-shell,
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+            #academy-chat[data-chat-mode="home"]
+            #dynamic-chat-history,
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+            #academy-chat[data-chat-mode="home"]
+            #dynamic-chat-history,
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+            #academy-chat[data-chat-mode="home"]
+            .academy-home-stack,
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+            #academy-chat[data-chat-mode="home"]
+            .academy-home-stack {
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 100% !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+        }
+
+        /*
+         * Remove the standalone Academy mobile height
+         * deduction and 118px internal-nav padding from
+         * the embedded Missions workspace.
+         */
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+            #academy-lead-missions-view:not(.hidden-step),
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+            #academy-lead-missions-view:not(.hidden-step) {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            max-height: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+            #academy-lead-missions-view
+            .academy-lead-missions-scroll,
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+            #academy-lead-missions-view
+            .academy-lead-missions-scroll {
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            max-height: 100% !important;
+            margin: 0 !important;
+            padding:
+                8px
+                10px
+                calc(
+                    18px +
+                    env(
+                        safe-area-inset-bottom,
+                        0px
+                    )
+                ) !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+            overscroll-behavior: contain !important;
+            -webkit-overflow-scrolling: touch !important;
+            touch-action: pan-y !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+            #academy-lead-missions-view
+            .academy-lead-missions-shell,
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+            #academy-lead-missions-view
+            .academy-lead-missions-shell,
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+            #academy-lead-missions-view
+            .academy-lead-missions-workspace,
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+            #academy-lead-missions-view
+            .academy-lead-missions-workspace {
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 100% !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+        }
+
+        /*
+         * Embedded mobile Community Feed stability.
+         * Keep the layer controls, composer, and hydrated
+         * post list in one full-width vertical scroll flow.
+         */
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"] {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            max-height: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            > .chat-messages {
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            max-height: 100% !important;
+            margin: 0 !important;
+            padding:
+                10px
+                12px
+                calc(
+                    104px +
+                    env(
+                        safe-area-inset-bottom,
+                        0px
+                    )
+                ) !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+            overscroll-behavior: contain !important;
+            -webkit-overflow-scrolling: touch !important;
+            touch-action: pan-y !important;
+            box-sizing: border-box !important;
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            > .chat-messages::-webkit-scrollbar {
+            width: 0 !important;
+            height: 0 !important;
+            display: none !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-feed-shell {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            min-height: 0 !important;
+            display: grid !important;
+            grid-template-columns:
+                minmax(0, 1fr) !important;
+            grid-auto-rows: max-content !important;
+            align-content: start !important;
+            gap: 14px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-community-layer-panel,
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-feed-composer-card,
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            #academy-feed-list,
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-feed-card {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-community-layer-panel {
+            flex: 0 0 auto !important;
+            min-height: 0 !important;
+            height: auto !important;
+            max-height: none !important;
+            display: grid !important;
+            grid-template-columns:
+                minmax(0, 1fr) !important;
+            grid-auto-rows: max-content !important;
+            align-content: start !important;
+            gap: 14px !important;
+            overflow: visible !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-community-layer-head,
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-community-layer-head
+            > div {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            display: block !important;
+            overflow: visible !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-community-layer-tabs {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            display: grid !important;
+            grid-template-columns:
+                minmax(0, 1fr) !important;
+            gap: 8px !important;
+            overflow: visible !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-community-layer-tab {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-circle-subtabs,
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-niche-dashboard,
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-feed-target-pill {
+            min-width: 0 !important;
+            max-width: calc(100% - 28px) !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            #academy-feed-list {
+            display: grid !important;
+            grid-template-columns:
+                minmax(0, 1fr) !important;
+            align-content: start !important;
+            gap: 12px !important;
+            overflow: visible !important;
+            overflow-anchor: none !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-feed-card {
+            overflow-x: hidden !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-feed-card
+            > div,
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-feed-card
+            > div
+            > div {
+            min-width: 0 !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-feed-post-actions-grid {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            grid-template-columns:
+                repeat(
+                    3,
+                    minmax(0, 1fr)
+                ) !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
+            .academy-feed-post-actions-grid
+            > button {
+            min-width: 0 !important;
+            max-width: 100% !important;
+            padding-left: 5px !important;
+            padding-right: 5px !important;
+            font-size: 0.72rem !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+
+        /*
+         * Embedded mobile Missions carousel.
+         * One mission card is shown per swipe, with
+         * compact position indicators below.
+         */
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+            #academy-lead-missions-view
+            .academy-mission-playbook-grid[data-yh-dashboard-mission-carousel="true"],
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+            #academy-lead-missions-view
+            .academy-mission-playbook-grid[data-yh-dashboard-mission-carousel="true"] {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            display: flex !important;
+            grid-template-columns: none !important;
+            align-items: stretch !important;
+            gap: 12px !important;
+            margin: 0 !important;
+            padding: 4px 8px 10px !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            scroll-snap-type: x mandatory !important;
+            scroll-padding-inline: 8px !important;
+            scroll-behavior: smooth !important;
+            overscroll-behavior-inline: contain !important;
+            -webkit-overflow-scrolling: touch !important;
+            touch-action: pan-x pan-y !important;
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+            #academy-lead-missions-view
+            .academy-mission-playbook-grid[data-yh-dashboard-mission-carousel="true"]::-webkit-scrollbar,
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+            #academy-lead-missions-view
+            .academy-mission-playbook-grid[data-yh-dashboard-mission-carousel="true"]::-webkit-scrollbar {
+            width: 0 !important;
+            height: 0 !important;
+            display: none !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+            #academy-lead-missions-view
+            .academy-mission-playbook-grid[data-yh-dashboard-mission-carousel="true"]
+            > .academy-mission-playbook-card,
+        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+            #academy-lead-missions-view
+            .academy-mission-playbook-grid[data-yh-dashboard-mission-carousel="true"]
+            > .academy-mission-playbook-card {
+            flex: 0 0 calc(100% - 20px) !important;
+            width: calc(100% - 20px) !important;
+            min-width: calc(100% - 20px) !important;
+            max-width: calc(100% - 20px) !important;
+            height: auto !important;
+            margin: 0 !important;
+            scroll-snap-align: center !important;
+            scroll-snap-stop: always !important;
+            align-self: stretch !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            .yh-dashboard-mission-carousel-indicators-v1 {
+            width: 100% !important;
+            min-height: 28px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 7px !important;
+            margin: 2px 0 0 !important;
+            padding: 6px 0 2px !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            .yh-dashboard-mission-carousel-indicators-v1
+            > button {
+            width: 8px !important;
+            min-width: 8px !important;
+            height: 8px !important;
+            min-height: 8px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 1px solid rgba(103, 232, 249, 0.36) !important;
+            border-radius: 999px !important;
+            background: rgba(56, 189, 248, 0.18) !important;
+            box-shadow: none !important;
+            opacity: 0.72 !important;
+            transition:
+                width 160ms ease,
+                background 160ms ease,
+                opacity 160ms ease !important;
+            cursor: pointer !important;
+            touch-action: manipulation !important;
+            -webkit-tap-highlight-color: transparent !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            .yh-dashboard-mission-carousel-indicators-v1
+            > button[aria-current="true"] {
+            width: 26px !important;
+            min-width: 26px !important;
+            background:
+                linear-gradient(
+                    90deg,
+                    #38bdf8,
+                    #67e8f9
+                ) !important;
+            opacity: 1 !important;
+            box-shadow:
+                0 0 14px rgba(56, 189, 248, 0.42) !important;
+        }
+
+        /*
+         * Embedded mobile mission-detail actions.
+         * The source action row remains in the Academy
+         * document for its existing listeners, while
+         * these proxy controls sit at the bottom of the
+         * dynamically rendered Payments & Bonus card.
+         */
+        body.yh-dashboard-mobile-inline-embed-body
+            .academy-mission-playbook-detail-head[data-yh-dashboard-mission-detail-actions-source="true"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            .academy-mission-playbook-section
+            > .yh-dashboard-mission-detail-actions-v1 {
+            width: 100% !important;
+            min-width: 0 !important;
+            display: grid !important;
+            grid-template-columns:
+                minmax(0, 1fr) !important;
+            gap: 9px !important;
+            margin: 16px 0 0 !important;
+            padding: 14px 0 0 !important;
+            border-top:
+                1px solid
+                rgba(
+                    103,
+                    232,
+                    249,
+                    0.18
+                ) !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            .yh-dashboard-mission-detail-action-v1 {
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 46px !important;
+            margin: 0 !important;
+            padding: 10px 14px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 10px !important;
+            font-family:
+                "Rajdhani",
+                sans-serif !important;
+            font-size: 0.9rem !important;
+            font-weight: 800 !important;
+            line-height: 1.1 !important;
+            text-align: center !important;
+            cursor: pointer !important;
+            touch-action: manipulation !important;
+            -webkit-tap-highlight-color:
+                transparent !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            .yh-dashboard-mission-detail-action-v1.is-back {
+            color: #d7f5ff !important;
+            border:
+                1px solid
+                rgba(
+                    103,
+                    232,
+                    249,
+                    0.32
+                ) !important;
+            background:
+                rgba(
+                    7,
+                    18,
+                    38,
+                    0.78
+                ) !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            .yh-dashboard-mission-detail-action-v1.is-start {
+            color: #f8fdff !important;
+            border:
+                1px solid
+                rgba(
+                    103,
+                    232,
+                    249,
+                    0.48
+                ) !important;
+            background:
+                linear-gradient(
+                    180deg,
+                    rgba(
+                        14,
+                        165,
+                        233,
+                        0.72
+                    ),
+                    rgba(
+                        3,
+                        72,
+                        118,
+                        0.92
+                    )
+                ) !important;
+            box-shadow:
+                0 10px 24px
+                    rgba(
+                        2,
+                        132,
+                        199,
+                        0.2
+                    ),
+                inset 0 1px 0
+                    rgba(
+                        255,
+                        255,
+                        255,
+                        0.1
+                    ) !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            .yh-dashboard-mission-detail-action-v1:disabled {
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
+        }
+
+        /*
+         * Keep the Academy AI Coach composer immediately
+         * visible above the Dashboard bottom navigation.
+         * The conversation history owns its own scrolling;
+         * composer visibility does not depend on nav auto-hide.
+         */
+        body.yh-dashboard-mobile-inline-embed-body.academy-coach-active
+            #academy-chat[data-chat-mode="coach"] {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            max-height: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.academy-coach-active
+            #academy-chat[data-chat-mode="coach"]
+            #chat-messages {
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            margin: 0 !important;
+            padding:
+                10px
+                12px
+                calc(
+                    170px +
+                    env(
+                        safe-area-inset-bottom,
+                        0px
+                    )
+                ) !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.academy-coach-active
+            #academy-chat[data-chat-mode="coach"]
+            #dynamic-chat-history {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+            overscroll-behavior: contain !important;
+            -webkit-overflow-scrolling: touch !important;
+            touch-action: pan-y !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.academy-coach-active
+            #academy-chat[data-chat-mode="coach"]
+            #chat-input-area {
+            position: fixed !important;
+            left: 12px !important;
+            right: 12px !important;
+            bottom:
+                calc(
+                    94px +
+                    env(
+                        safe-area-inset-bottom,
+                        0px
+                    )
+                ) !important;
+            z-index: 120 !important;
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            min-height: 58px !important;
+            margin: 0 !important;
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            box-sizing: border-box !important;
+            transition:
+                bottom 180ms ease !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.academy-coach-active
+            #academy-chat[data-chat-mode="coach"]
+            #chat-input-area
+            .chat-input-wrapper,
+        body.yh-dashboard-mobile-inline-embed-body.academy-coach-active
+            #academy-chat[data-chat-mode="coach"]
+            #chat-input-area
+            .chat-input-container {
+            width: 100% !important;
+            min-width: 0 !important;
+            box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.academy-coach-active
+            #academy-chat[data-chat-mode="coach"]
+            #chat-input-area
+            #chat-input {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.academy-coach-active.yh-dashboard-parent-bottom-nav-hidden
+            #academy-chat[data-chat-mode="coach"]
+            #chat-input-area {
+            bottom:
+                calc(
+                    16px +
+                    env(
+                        safe-area-inset-bottom,
+                        0px
+                    )
+                ) !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.academy-coach-active.yh-dashboard-parent-bottom-nav-hidden
+            #academy-chat[data-chat-mode="coach"]
+            #chat-messages {
+            padding-bottom:
+                calc(
+                    92px +
+                    env(
+                        safe-area-inset-bottom,
+                        0px
+                    )
+                ) !important;
+        }
+
+        /*
+         * Keep the AI coach above the Dashboard navbar.
+         * Once the navbar auto-hides, the coach may move
+         * closer to the real viewport bottom.
+         */
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-ai-coach-inline-tab-launcher {
+            right: 14px !important;
+            bottom:
+                calc(
+                    92px +
+                    env(
+                        safe-area-inset-bottom,
+                        0px
+                    )
+                ) !important;
+            transition:
+                bottom 180ms ease,
+                opacity 180ms ease,
+                visibility 180ms ease !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body.yh-dashboard-parent-bottom-nav-hidden
+            #academy-ai-coach-inline-tab-launcher {
+            bottom:
+                calc(
+                    18px +
+                    env(
+                        safe-area-inset-bottom,
+                        0px
+                    )
+                ) !important;
         }
 
         body.yh-dashboard-inline-embed-body #academy-ai-coach-inline-tab-launcher > .academy-ai-coach-inline-tab-avatar ~ .academy-ai-coach-inline-tab-avatar,
@@ -16531,7 +19007,10 @@ function forceDashboardInlineFrameContentOnly(frame) {
             grid-template-columns: minmax(0, 1fr) !important;
             grid-template-rows: minmax(0, 1fr) !important;
             gap: clamp(12px, 1.1vw, 18px) !important;
-            padding: clamp(10px, 1vw, 16px) !important;
+            padding:
+                clamp(10px, 1vw, 16px)
+                clamp(10px, 1vw, 16px)
+                0 !important;
             overflow: hidden !important;
             overscroll-behavior: contain !important;
             background: transparent !important;
@@ -16553,7 +19032,8 @@ function forceDashboardInlineFrameContentOnly(frame) {
             overscroll-behavior: contain !important;
             touch-action: pan-y !important;
             scroll-behavior: auto !important;
-            padding-bottom: clamp(110px, 11vh, 150px) !important;
+            padding-bottom: 0 !important;
+            scroll-padding-bottom: 0 !important;
             scrollbar-width: thin !important;
             scrollbar-color: rgba(56, 189, 248, 0.42) rgba(2, 6, 23, 0.18) !important;
         }
@@ -16588,6 +19068,8 @@ function forceDashboardInlineFrameContentOnly(frame) {
         body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-section.is-active-panel {
             display: block !important;
             min-height: auto !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
             overflow: visible !important;
         }
 
@@ -16602,19 +19084,28 @@ function forceDashboardInlineFrameContentOnly(frame) {
             overflow: hidden !important;
         }
 
+        /*
+         * Plazas uses one mobile scroll owner. The app grid
+         * fills the iframe, while child workspace containers
+         * grow naturally instead of creating nested 100%-height
+         * scrollers that can clip the final section.
+         */
         body.yh-dashboard-inline-embed-body .yh-plaza-app-grid {
             width: 100% !important;
             height: 100% !important;
-            min-height: 0 !important;
+            min-height: 100% !important;
             display: grid !important;
             grid-template-columns: minmax(0, 1fr) !important;
-            grid-template-rows: minmax(0, 1fr) !important;
+            grid-template-rows: auto !important;
+            align-content: start !important;
             gap: 0 !important;
-            padding: 0 !important;
+            padding: 0 0 env(safe-area-inset-bottom, 0px) !important;
+            box-sizing: border-box !important;
             overflow-y: auto !important;
             overflow-x: hidden !important;
             -webkit-overflow-scrolling: touch !important;
             overscroll-behavior: contain !important;
+            scroll-padding-bottom: env(safe-area-inset-bottom, 0px) !important;
         }
 
         body.yh-dashboard-inline-embed-body .yh-plaza-workspace,
@@ -16623,11 +19114,11 @@ function forceDashboardInlineFrameContentOnly(frame) {
         body.yh-dashboard-inline-embed-body .yh-plaza-main-stage {
             grid-column: 1 / -1 !important;
             width: 100% !important;
-            height: 100% !important;
-            min-height: 0 !important;
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-            -webkit-overflow-scrolling: touch !important;
+            height: auto !important;
+            min-height: 100% !important;
+            max-height: none !important;
+            overflow: visible !important;
+            box-sizing: border-box !important;
         }
 
         body.yh-dashboard-inline-embed-body .yh-plaza-workspace-card,
@@ -16968,41 +19459,47 @@ function forceDashboardInlineFrameContentOnly(frame) {
         }
         /* END PATCH: Business Chats dashboard iframe shell support only v136 */
 
-        body.yh-dashboard-inline-embed-body #academy-lead-missions-view {
-            position: relative !important;
-        }
+        /*
+         * Desktop-only mission action placement.
+         * Mobile uses the Payments & Bonus proxy controls.
+         */
+        @media (min-width: 769px) {
+            body.yh-dashboard-inline-embed-body #academy-lead-missions-view {
+                position: relative !important;
+            }
 
-        body.yh-dashboard-inline-embed-body #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .chat-header {
-            padding-right: 430px !important;
-        }
+            body.yh-dashboard-inline-embed-body #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .chat-header {
+                padding-right: 430px !important;
+            }
 
-        body.yh-dashboard-inline-embed-body #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-detail-head {
-            position: absolute !important;
-            top: 10px !important;
-            right: 24px !important;
-            z-index: 60 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: flex-end !important;
-            gap: 18px !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
+            body.yh-dashboard-inline-embed-body #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-detail-head {
+                position: absolute !important;
+                top: 10px !important;
+                right: 24px !important;
+                z-index: 60 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: flex-end !important;
+                gap: 18px !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
 
-        body.yh-dashboard-inline-embed-body #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-back,
-        body.yh-dashboard-inline-embed-body #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-start {
-            width: auto !important;
-            min-width: 178px !important;
-            min-height: 42px !important;
-            padding: 10px 14px !important;
-            border-radius: 10px !important;
-            font-size: 0.78rem !important;
-            line-height: 1 !important;
-            white-space: nowrap !important;
-        }
+            body.yh-dashboard-inline-embed-body #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-back,
+            body.yh-dashboard-inline-embed-body #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-start {
+                width: auto !important;
+                min-width: 178px !important;
+                min-height: 42px !important;
+                padding: 10px 14px !important;
+                border-radius: 10px !important;
+                font-size: 0.78rem !important;
+                line-height: 1 !important;
+                white-space: nowrap !important;
+            }
 
-        body.yh-dashboard-inline-embed-body #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-detail-shell {
-            gap: 0 !important;
+            body.yh-dashboard-inline-embed-body #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-detail-shell {
+                gap: 0 !important;
+            }
         }
 
         body.yh-dashboard-inline-embed-body .academy-messages-inbox-card.has-visible-pinned-marker-v2,
@@ -17078,6 +19575,540 @@ function forceDashboardInlineFrameContentOnly(frame) {
             safety += 1;
         }
     });
+
+    syncDashboardEmbeddedAcademyMobileChromeV2(
+        frame,
+        doc
+    );
+
+    syncDashboardEmbeddedAcademyMissionCarouselV1(
+        frame,
+        doc
+    );
+
+    syncDashboardEmbeddedAcademyMissionDetailActionsV1(
+        frame,
+        doc
+    );
+
+    syncDashboardEmbeddedAcademyCommunityFeedV1(
+        frame,
+        doc
+    );
+
+    bindDashboardInlineAcademyScrollNavigationV1(
+        frame
+    );
+
+    return true;
+}
+
+function setDashboardMobileBottomNavScrollStateV1(
+    hidden = false,
+    reason = 'scroll'
+) {
+    const body =
+        document.body;
+
+    const nav =
+        document.querySelector(
+            '#yh-mobile-app-shell .yh-mobile-bottom-nav'
+        );
+
+    if (!(nav instanceof HTMLElement)) {
+        body?.classList.remove(
+            'yh-mobile-bottom-nav-hidden'
+        );
+
+        body?.removeAttribute(
+            'data-yh-mobile-bottom-nav-state'
+        );
+
+        return false;
+    }
+
+    const workspaceKey =
+        String(
+            body?.getAttribute(
+                'data-yh-unified-workspace'
+            ) || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    let isMobile = false;
+
+    try {
+        isMobile =
+            window.matchMedia(
+                '(max-width: 768px)'
+            ).matches;
+    } catch (_) {
+        isMobile =
+            window.innerWidth <= 768;
+    }
+
+    const supportsScrollHide =
+        workspaceKey.startsWith(
+            'academy-'
+        ) ||
+        workspaceKey.startsWith(
+            'plazas-'
+        ) ||
+        workspaceKey.startsWith(
+            'federation-'
+        );
+
+    const shouldHide =
+        hidden === true &&
+        isMobile &&
+        supportsScrollHide;
+
+    nav.classList.toggle(
+        'is-scroll-hidden',
+        shouldHide
+    );
+
+    nav.setAttribute(
+        'data-yh-scroll-state',
+        shouldHide
+            ? 'hidden'
+            : 'visible'
+    );
+
+    nav.setAttribute(
+        'data-yh-scroll-reason',
+        String(reason || 'scroll')
+    );
+
+    body?.classList.toggle(
+        'yh-mobile-bottom-nav-hidden',
+        shouldHide
+    );
+
+    body?.setAttribute(
+        'data-yh-mobile-bottom-nav-state',
+        shouldHide
+            ? 'hidden'
+            : 'visible'
+    );
+
+    /*
+     * Mirror the parent navigation state into
+     * the same-origin Academy iframe so floating
+     * controls can move without resizing content.
+     */
+    const workspaceFrame =
+        document.getElementById(
+            'yh-universe-workspace-inline-frame'
+        );
+
+    const workspaceDocument =
+        getDashboardInlineFrameDocument(
+            workspaceFrame
+        );
+
+    workspaceDocument
+        ?.body
+        ?.classList
+        ?.toggle(
+            'yh-dashboard-parent-bottom-nav-hidden',
+            shouldHide
+        );
+
+    return shouldHide;
+}
+
+function bindDashboardInlineAcademyScrollNavigationV1(
+    frame
+) {
+    if (!frame) return false;
+
+    const workspaceKey =
+        String(
+            getDashboardInlineWorkspaceKeyFromFrame(
+                frame
+            ) || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    const doc =
+        getDashboardInlineFrameDocument(
+            frame
+        );
+
+    const isAcademyWorkspace =
+        workspaceKey.startsWith(
+            'academy-'
+        );
+
+    const isPlazaWorkspace =
+        workspaceKey.startsWith(
+            'plazas-'
+        );
+
+    const isFederationWorkspace =
+        workspaceKey.startsWith(
+            'federation-'
+        );
+
+    if (
+        (
+            !isAcademyWorkspace &&
+            !isPlazaWorkspace &&
+            !isFederationWorkspace
+        ) ||
+        !doc
+    ) {
+        setDashboardMobileBottomNavScrollStateV1(
+            false,
+            'division-child-inactive'
+        );
+
+        return false;
+    }
+
+    if (
+        frame
+            .__yhDashboardAcademyScrollDocumentV1 ===
+            doc &&
+        frame
+            .__yhDashboardAcademyScrollWorkspaceKeyV1 ===
+            workspaceKey
+    ) {
+        return true;
+    }
+
+    /*
+     * Plazas and Federation reuse the same iframe
+     * document while changing child screens. Abort
+     * the previous workspace listeners before binding
+     * the current one.
+     */
+    try {
+        frame
+            .__yhDashboardAcademyScrollAbortControllerV1
+            ?.abort();
+    } catch (_) {}
+
+    const DashboardScrollAbortControllerV1 =
+        doc.defaultView?.AbortController ||
+        window.AbortController;
+
+    const dashboardScrollAbortControllerV1 =
+        new DashboardScrollAbortControllerV1();
+
+    frame
+        .__yhDashboardAcademyScrollDocumentV1 =
+        doc;
+
+    frame
+        .__yhDashboardAcademyScrollWorkspaceKeyV1 =
+        workspaceKey;
+
+    frame
+        .__yhDashboardAcademyScrollAbortControllerV1 =
+        dashboardScrollAbortControllerV1;
+
+    const isMissionsWorkspace =
+        workspaceKey ===
+        'academy-missions';
+
+    const usesImmediateScrollIntent =
+        isMissionsWorkspace ||
+        isPlazaWorkspace ||
+        isFederationWorkspace;
+
+    const scrollReasonPrefix =
+        isPlazaWorkspace
+            ? 'plazas'
+            : isFederationWorkspace
+                ? 'federation'
+                : 'academy';
+
+    const positions =
+        new WeakMap();
+
+    const isCurrentWorkspace = () => {
+        return (
+            getDashboardInlineWorkspaceKeyFromFrame(
+                frame
+            ) === workspaceKey
+        );
+    };
+
+    const syncFromScrollTarget = (
+        target,
+        reason = scrollReasonPrefix + '-scroll'
+    ) => {
+        if (!isCurrentWorkspace()) {
+            setDashboardMobileBottomNavScrollStateV1(
+                false,
+                scrollReasonPrefix + '-workspace-changed'
+            );
+
+            return;
+        }
+
+        if (
+            !target ||
+            typeof target !== 'object'
+        ) {
+            return;
+        }
+
+        const currentTop =
+            Math.max(
+                0,
+                Number(
+                    target.scrollTop || 0
+                )
+            );
+
+        const previousTop =
+            Number(
+                positions.get(target) ||
+                0
+            );
+
+        positions.set(
+            target,
+            currentTop
+        );
+
+        const delta =
+            currentTop -
+            previousTop;
+
+        const topRevealThreshold =
+            usesImmediateScrollIntent
+                ? 0.25
+                : 12;
+
+        const downwardThreshold =
+            usesImmediateScrollIntent
+                ? 0.25
+                : 4;
+
+        const upwardThreshold =
+            usesImmediateScrollIntent
+                ? -1
+                : -4;
+
+        if (
+            currentTop <=
+                topRevealThreshold ||
+            delta <
+                upwardThreshold
+        ) {
+            setDashboardMobileBottomNavScrollStateV1(
+                false,
+                reason + '-up'
+            );
+        } else if (
+            delta >
+            downwardThreshold
+        ) {
+            setDashboardMobileBottomNavScrollStateV1(
+                true,
+                reason + '-down'
+            );
+        }
+
+        /*
+         * Keep the bottom navigation hidden after
+         * downward scrolling. It returns only when
+         * the user scrolls upward or reaches the top,
+         * so the lower Academy content stays visible.
+         */
+        window.clearTimeout(
+            frame
+                .__yhDashboardAcademyScrollIdleTimerV1
+        );
+
+        frame
+            .__yhDashboardAcademyScrollIdleTimerV1 =
+            null;
+    };
+
+    doc.addEventListener(
+        'scroll',
+        (event) => {
+            const target =
+                event.target === doc
+                    ? (
+                        doc.scrollingElement ||
+                        doc.documentElement
+                    )
+                    : event.target;
+
+            syncFromScrollTarget(
+                target,
+                scrollReasonPrefix + '-scroll'
+            );
+        },
+        {
+            capture: true,
+            signal:
+                dashboardScrollAbortControllerV1
+                    .signal
+        }
+    );
+
+    /*
+     * Missions can have only a few pixels of
+     * available scroll because its final payment
+     * card sits behind the parent bottom navbar.
+     * Read the user's scroll intent as well as the
+     * resulting scrollTop so the navbar hides even
+     * when the browser cannot move a full 4px.
+     */
+    if (usesImmediateScrollIntent) {
+        doc.addEventListener(
+            'wheel',
+            (event) => {
+                if (!isCurrentWorkspace()) {
+                    return;
+                }
+
+                const deltaY =
+                    Number(
+                        event.deltaY || 0
+                    );
+
+                if (deltaY > 0.5) {
+                    setDashboardMobileBottomNavScrollStateV1(
+                        true,
+                        scrollReasonPrefix + '-wheel-down'
+                    );
+                } else if (deltaY < -2) {
+                    setDashboardMobileBottomNavScrollStateV1(
+                        false,
+                        scrollReasonPrefix + '-wheel-up'
+                    );
+                }
+            },
+            {
+                passive: true,
+                capture: true,
+                signal:
+                    dashboardScrollAbortControllerV1
+                        .signal
+            }
+        );
+
+        let lastTouchY = null;
+
+        doc.addEventListener(
+            'touchstart',
+            (event) => {
+                lastTouchY =
+                    Number(
+                        event.touches?.[0]?.clientY
+                    );
+
+                if (
+                    !Number.isFinite(
+                        lastTouchY
+                    )
+                ) {
+                    lastTouchY = null;
+                }
+            },
+            {
+                passive: true,
+                capture: true,
+                signal:
+                    dashboardScrollAbortControllerV1
+                        .signal
+            }
+        );
+
+        doc.addEventListener(
+            'touchmove',
+            (event) => {
+                if (
+                    !isCurrentWorkspace() ||
+                    lastTouchY === null
+                ) {
+                    return;
+                }
+
+                const currentTouchY =
+                    Number(
+                        event.touches?.[0]?.clientY
+                    );
+
+                if (
+                    !Number.isFinite(
+                        currentTouchY
+                    )
+                ) {
+                    return;
+                }
+
+                const gestureDelta =
+                    lastTouchY -
+                    currentTouchY;
+
+                lastTouchY =
+                    currentTouchY;
+
+                if (gestureDelta > 2) {
+                    setDashboardMobileBottomNavScrollStateV1(
+                        true,
+                        scrollReasonPrefix + '-touch-down'
+                    );
+                } else if (gestureDelta < -4) {
+                    setDashboardMobileBottomNavScrollStateV1(
+                        false,
+                        scrollReasonPrefix + '-touch-up'
+                    );
+                }
+            },
+            {
+                passive: true,
+                capture: true,
+                signal:
+                    dashboardScrollAbortControllerV1
+                        .signal
+            }
+        );
+
+        const clearTouchPosition = () => {
+            lastTouchY = null;
+        };
+
+        doc.addEventListener(
+            'touchend',
+            clearTouchPosition,
+            {
+                passive: true,
+                capture: true,
+                signal:
+                    dashboardScrollAbortControllerV1
+                        .signal
+            }
+        );
+
+        doc.addEventListener(
+            'touchcancel',
+            clearTouchPosition,
+            {
+                passive: true,
+                capture: true,
+                signal:
+                    dashboardScrollAbortControllerV1
+                        .signal
+            }
+        );
+    }
+
+    setDashboardMobileBottomNavScrollStateV1(
+        false,
+        scrollReasonPrefix + '-scroll-bind'
+    );
 
     return true;
 }
@@ -18244,6 +21275,8 @@ function syncDashboardUnifiedWorkspaceDerivedSurfaces(key = 'overview', reason =
 }
 
 
+let dashboardProfileEditorHydrationInFlight = null;
+
 function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
     ensureDashboardStableShellFirstPaintV1(
         options?.restore === true
@@ -18698,23 +21731,100 @@ function installDashboardMobileAppShellV1() {
     function closeCommandSheet() {
         if (!sheet) return;
 
-        sheet.classList.remove('is-open');
-        sheet.setAttribute('aria-hidden', 'true');
+        const commandButton =
+            document.querySelector(
+                '[data-yh-mobile-nav="command"]'
+            );
 
-        document
-            .querySelector('[data-yh-mobile-nav="command"]')
-            ?.classList.remove('is-active');
+        const focusedElement =
+            document.activeElement;
+
+        if (
+            focusedElement instanceof HTMLElement &&
+            sheet.contains(focusedElement)
+        ) {
+            if (commandButton instanceof HTMLElement) {
+                try {
+                    commandButton.focus({
+                        preventScroll: true
+                    });
+                } catch (_) {
+                    commandButton.focus();
+                }
+            } else {
+                focusedElement.blur();
+            }
+        }
+
+        sheet.setAttribute(
+            'inert',
+            ''
+        );
+
+        try {
+            sheet.inert = true;
+        } catch (_) {}
+
+        sheet.classList.remove(
+            'is-open'
+        );
+
+        sheet.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+
+        commandButton?.classList.remove(
+            'is-active'
+        );
     }
 
     function openCommandSheet() {
         if (!sheet) return;
 
-        sheet.classList.add('is-open');
-        sheet.setAttribute('aria-hidden', 'false');
+        sheet.removeAttribute(
+            'inert'
+        );
+
+        try {
+            sheet.inert = false;
+        } catch (_) {}
+
+        sheet.classList.add(
+            'is-open'
+        );
+
+        sheet.setAttribute(
+            'aria-hidden',
+            'false'
+        );
 
         document
-            .querySelector('[data-yh-mobile-nav="command"]')
-            ?.classList.add('is-active');
+            .querySelector(
+                '[data-yh-mobile-nav="command"]'
+            )
+            ?.classList.add(
+                'is-active'
+            );
+
+        window.requestAnimationFrame(() => {
+            const firstAction =
+                sheet.querySelector(
+                    '[data-yh-mobile-command-target]'
+                );
+
+            if (!(firstAction instanceof HTMLElement)) {
+                return;
+            }
+
+            try {
+                firstAction.focus({
+                    preventScroll: true
+                });
+            } catch (_) {
+                firstAction.focus();
+            }
+        });
     }
 
     function syncProfileInitial() {
@@ -18788,11 +21898,28 @@ function installDashboardMobileAppShellV1() {
             return;
         }
 
-        const fallbackKey = cleanKey.startsWith(`${config.prefix}-`) ? cleanKey : config.defaultKey;
-        const resolved = titleMap[fallbackKey] || titleMap[config.defaultKey];
+        const isParentOverview =
+            cleanKey ===
+            config.prefix;
+
+        const fallbackKey =
+            cleanKey.startsWith(
+                `${config.prefix}-`
+            )
+                ? cleanKey
+                : '';
+
+        const resolved =
+            fallbackKey
+                ? titleMap[fallbackKey]
+                : null;
 
         if (subtabMenuLabel) {
-            subtabMenuLabel.textContent = resolved?.[1] || config.defaultLabel;
+            subtabMenuLabel.textContent =
+                isParentOverview
+                    ? 'Sections'
+                    : resolved?.[1] ||
+                      config.defaultLabel;
         }
 
         subtabMenuButton?.setAttribute('aria-label', `Open ${config.ariaLabel || 'section'} section menu`);
@@ -18800,8 +21927,15 @@ function installDashboardMobileAppShellV1() {
 
         subtabMenu.querySelectorAll('[data-yh-mobile-subtab-menu-option]').forEach((button) => {
             const key = String(button.getAttribute('data-yh-mobile-subtab-menu-option') || '').trim().toLowerCase();
-            const belongsToActiveMenu = key.startsWith(`${config.prefix}-`);
-            const isActive = belongsToActiveMenu && key === fallbackKey;
+            const belongsToActiveMenu =
+                key.startsWith(
+                    `${config.prefix}-`
+                );
+
+            const isActive =
+                !isParentOverview &&
+                belongsToActiveMenu &&
+                key === fallbackKey;
 
             button.hidden = !belongsToActiveMenu;
             button.setAttribute('aria-hidden', belongsToActiveMenu ? 'false' : 'true');
@@ -18858,6 +21992,11 @@ function installDashboardMobileAppShellV1() {
         const currentKey = getCurrentWorkspaceKey();
 
         closeCommandSheet();
+
+        setDashboardMobileBottomNavScrollStateV1(
+            false,
+            'workspace-navigation'
+        );
 
         if (shouldPush && currentKey && currentKey !== cleanKey) {
             appBackStack.push(currentKey);
@@ -20375,7 +23514,39 @@ async function openAcademyCoachView(forceRefresh = true) {
         if (chatHeaderTopic) chatHeaderTopic.innerText = meta.topic || 'Ask about today’s focus, blocked missions, roadmap execution, or low-energy adaptation.';
         if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
         academyRenderCoachPinnedPrompts(chatPinnedMessage, meta);
-        if (chatInputArea) chatInputArea.style.display = 'flex';
+
+        if (chatInputArea) {
+            chatInputArea.classList.remove('hidden-step');
+            chatInputArea.hidden = false;
+            chatInputArea.setAttribute(
+                'aria-hidden',
+                'false'
+            );
+
+            chatInputArea.style.setProperty(
+                'display',
+                'flex',
+                'important'
+            );
+
+            chatInputArea.style.setProperty(
+                'visibility',
+                'visible',
+                'important'
+            );
+
+            chatInputArea.style.setProperty(
+                'opacity',
+                '1',
+                'important'
+            );
+
+            chatInputArea.style.setProperty(
+                'pointer-events',
+                'auto',
+                'important'
+            );
+        }
 
         academyCoachModeActive = true;
         academySetChatInputPlaceholder(meta.placeholder || 'Ask your AI Coach about your roadmap, missions, or check-ins.');
@@ -28041,8 +31212,6 @@ function getDashboardUniverseProfileDraft() {
             String(profile.marketplace_ready || profile.marketplaceReady || readCache.marketplace_ready || '').trim().toLowerCase() === 'yes'
     };
 }
-let dashboardProfileEditorHydrationInFlight = null;
-
 async function hydrateDashboardProfileEditorBeforeOpen() {
     if (dashboardProfileEditorHydrationInFlight) {
         return dashboardProfileEditorHydrationInFlight;
@@ -30091,14 +33260,71 @@ function dashboardPushProfileHistoryState() {
 }
 
 function dashboardCloseProfileWithoutHistoryMutation() {
-    const profileView = document.getElementById('academy-profile-view');
+    const profileView =
+        document.getElementById(
+            'academy-profile-view'
+        );
+
     if (!profileView) return;
 
-    profileView.classList.add('hidden-step');
-    profileView.classList.remove('fade-in');
-    profileView.setAttribute('aria-hidden', 'true');
+    const focusedElement =
+        document.activeElement;
 
-    document.body?.classList.remove('yh-universe-profile-open');
+    if (
+        focusedElement instanceof HTMLElement &&
+        profileView.contains(focusedElement)
+    ) {
+        const returnTarget = [
+            document.getElementById(
+                'yh-mobile-app-profile'
+            ),
+            document.getElementById(
+                'yh-command-top-profile'
+            )
+        ].find((node) => (
+            node instanceof HTMLElement &&
+            !node.hidden &&
+            node.getClientRects().length > 0
+        ));
+
+        if (returnTarget instanceof HTMLElement) {
+            try {
+                returnTarget.focus({
+                    preventScroll: true
+                });
+            } catch (_) {
+                returnTarget.focus();
+            }
+        } else {
+            focusedElement.blur();
+        }
+    }
+
+    profileView.setAttribute(
+        'inert',
+        ''
+    );
+
+    try {
+        profileView.inert = true;
+    } catch (_) {}
+
+    profileView.classList.add(
+        'hidden-step'
+    );
+
+    profileView.classList.remove(
+        'fade-in'
+    );
+
+    profileView.setAttribute(
+        'aria-hidden',
+        'true'
+    );
+
+    document.body?.classList.remove(
+        'yh-universe-profile-open'
+    );
 
     clearDashboardPersistentProfileState();
 }
@@ -30146,15 +33372,31 @@ function revealAcademyProfileView() {
         dashboardPushProfileHistoryState();
     }
 
-    document.body?.classList.add('yh-universe-profile-open');
+    document.body?.classList.add(
+        'yh-universe-profile-open'
+    );
 
     const shouldPreserveVisibleProfile =
         academyShouldKeepProfileVisibleDuringFollow() &&
         !profileView.classList.contains('hidden-step') &&
         profileView.getAttribute('aria-hidden') !== 'true';
 
-    profileView.classList.remove('hidden-step');
-    profileView.setAttribute('aria-hidden', 'false');
+    profileView.removeAttribute(
+        'inert'
+    );
+
+    try {
+        profileView.inert = false;
+    } catch (_) {}
+
+    profileView.classList.remove(
+        'hidden-step'
+    );
+
+    profileView.setAttribute(
+        'aria-hidden',
+        'false'
+    );
 
     if (shouldPreserveVisibleProfile) {
         return;
@@ -30164,6 +33406,25 @@ function revealAcademyProfileView() {
 
     void profileView.offsetWidth;
     profileView.classList.add('fade-in');
+
+    window.requestAnimationFrame(() => {
+        const closeButton =
+            document.getElementById(
+                'academy-profile-dashboard-close'
+            );
+
+        if (!(closeButton instanceof HTMLElement)) {
+            return;
+        }
+
+        try {
+            closeButton.focus({
+                preventScroll: true
+            });
+        } catch (_) {
+            closeButton.focus();
+        }
+    });
 }
 
 if (!window.__yhDashboardProfileHistoryBackV1Installed) {

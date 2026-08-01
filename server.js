@@ -3920,7 +3920,10 @@ io.on('connection', async (socket) => {
 
                         allowUnregisteredRoom:
                             !registeredRoom &&
-                            allowed
+                            allowed,
+
+                        fallbackIdentity:
+                            socket.user
                     });
 
             const {
@@ -4500,13 +4503,86 @@ io.on('connection', async (socket) => {
     });
 
 
-    function getSocketVoiceDisplayName() {
-        return sanitizeText(
-            socket.user?.name ||
-            socket.user?.fullName ||
-            socket.user?.username ||
-            'Hustler'
+    function isGenericSocketVoiceDisplayNameV3(
+        value = ''
+    ) {
+        const clean =
+            sanitizeText(value)
+                .toLowerCase();
+
+        return (
+            !clean ||
+            [
+                'hustler',
+                'host',
+                'member',
+                'yh member',
+                'academy member'
+            ].includes(clean)
         );
+    }
+
+    function getSocketVoiceDisplayName() {
+        const candidates = [
+            socket.data
+                ?.academyVoiceDisplayNameV3,
+            socket.user?.fullName,
+            socket.user?.displayName,
+            socket.user?.name,
+            socket.user?.username
+        ]
+            .map(sanitizeText)
+            .filter(Boolean);
+
+        return (
+            candidates.find(
+                (value) =>
+                    !isGenericSocketVoiceDisplayNameV3(
+                        value
+                    )
+            ) ||
+            candidates[0] ||
+            'YH Member'
+        );
+    }
+
+    async function hydrateSocketVoiceDisplayNameV3() {
+        const summary =
+            typeof realtimeSupabaseRepo
+                ?.getUserSummary ===
+                'function'
+                ? await realtimeSupabaseRepo
+                    .getUserSummary(
+                        socket.user?.id
+                    )
+                    .catch(() => null)
+                : null;
+
+        const candidates = [
+            summary?.display_name,
+            summary?.fullName,
+            summary?.username,
+            socket.user?.fullName,
+            socket.user?.displayName,
+            socket.user?.name,
+            socket.user?.username
+        ]
+            .map(sanitizeText)
+            .filter(Boolean);
+
+        const displayName =
+            candidates.find(
+                (value) =>
+                    !isGenericSocketVoiceDisplayNameV3(
+                        value
+                    )
+            ) ||
+            'YH Member';
+
+        socket.data.academyVoiceDisplayNameV3 =
+            displayName;
+
+        return displayName;
     }
 
     function leaveAcademyVoiceSignalingRoom(reason = 'left') {
@@ -4600,6 +4676,8 @@ io.on('connection', async (socket) => {
                 return;
             }
 
+            await hydrateSocketVoiceDisplayNameV3();
+
             const previousRoomId = sanitizeText(socket.data?.academyVoiceRoomId || '');
 
             if (previousRoomId && previousRoomId !== roomId) {
@@ -4618,10 +4696,13 @@ io.on('connection', async (socket) => {
                         socketId,
                         userId: sanitizeText(peerSocket?.user?.id),
                         displayName: sanitizeText(
-                            peerSocket?.user?.name ||
+                            peerSocket?.data
+                                ?.academyVoiceDisplayNameV3 ||
                             peerSocket?.user?.fullName ||
+                            peerSocket?.user?.displayName ||
+                            peerSocket?.user?.name ||
                             peerSocket?.user?.username ||
-                            'Hustler'
+                            'YH Member'
                         )
                     };
                 })

@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css?v=20260723-phase3c7c-solo-streaks-v1">
 <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260712-community-niche-picker-full-v213">
-<link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260627-yh-live-cache-v4">
+<link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260731-ac-live-stage-mobile-stack-v1">
 </head>
 <body data-yh-view="academy" data-yh-page="academy" class="academy-startup-booting academy-standalone-shell-pending">
 
@@ -2791,11 +2791,165 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   };
+
+  (function primeAcademyMessagesFirstPaintV1() {
+    try {
+      var section = String(
+        new URL(window.location.href)
+          .searchParams
+          .get('section') || ''
+      )
+        .trim()
+        .toLowerCase();
+
+      if (section !== 'messages') return;
+
+      var academyChat =
+        document.getElementById(
+          'academy-chat'
+        );
+
+      var chatHeader =
+        academyChat
+          ? academyChat.querySelector(
+              ':scope > .chat-header'
+            )
+          : null;
+
+      var chatHeaderLeft =
+        chatHeader
+          ? chatHeader.querySelector(
+              '.academy-header-left'
+            )
+          : null;
+
+      var chatHeaderActions =
+        chatHeader
+          ? chatHeader.querySelector(
+              '.academy-chat-header-actions'
+            )
+          : null;
+
+      var openDmButton =
+        document.getElementById(
+          'btn-open-dm-modal'
+        );
+
+      var openGroupButton =
+        document.getElementById(
+          'btn-open-group-modal'
+        );
+
+      var inboxSidebar =
+        document.getElementById(
+          'academy-messages-inbox-sidebar'
+        );
+
+      var welcomeBox =
+        document.getElementById(
+          'chat-welcome-box'
+        );
+
+      var pinnedMessage =
+        document.getElementById(
+          'chat-pinned-message'
+        );
+
+      var isMobile =
+        window.matchMedia
+          ? window
+              .matchMedia(
+                '(max-width: 768px)'
+              )
+              .matches
+          : window.innerWidth <= 768;
+
+      if (academyChat) {
+        academyChat.setAttribute(
+          'data-chat-mode',
+          'messages'
+        );
+
+        academyChat.classList.remove(
+          'hidden-step'
+        );
+      }
+
+      [
+        chatHeader,
+        chatHeaderActions,
+        openDmButton,
+        openGroupButton,
+        inboxSidebar
+      ]
+        .filter(Boolean)
+        .forEach(function (node) {
+          node.classList.remove(
+            'hidden-step'
+          );
+
+          node.hidden = false;
+
+          node.setAttribute(
+            'aria-hidden',
+            'false'
+          );
+
+          node.style.removeProperty(
+            'display'
+          );
+
+          node.style.removeProperty(
+            'visibility'
+          );
+
+          node.style.removeProperty(
+            'opacity'
+          );
+
+          node.style.removeProperty(
+            'pointer-events'
+          );
+        });
+
+      if (
+        chatHeaderLeft &&
+        isMobile
+      ) {
+        chatHeaderLeft.classList.add(
+          'hidden-step'
+        );
+
+        chatHeaderLeft.hidden = true;
+
+        chatHeaderLeft.setAttribute(
+          'aria-hidden',
+          'true'
+        );
+
+        chatHeaderLeft.style.setProperty(
+          'display',
+          'none',
+          'important'
+        );
+      }
+
+      if (welcomeBox) {
+        welcomeBox.style.display =
+          'none';
+      }
+
+      if (pinnedMessage) {
+        pinnedMessage.style.display =
+          'none';
+      }
+    } catch (_) {}
+  })();
 </script>
 
 <script src="/js/yh-shared-core.js?v=20260627-yh-live-cache-v4"></script>
 <script src="/js/yh-shared-runtime.js?v=20260721-phase3c5a-lifecycle-v1"></script>
-<script src="/js/academy.js?v=20260728-ac-h1-helper-score-v1"></script>
+<script src="/js/academy.js?v=20260731-ac-canonical-realtime-identity-v4-tdzfix-v1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"

@@ -28759,9 +28759,23 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-live-metrics {
 }
 
 @media (max-width: 1100px) {
+    html:has(body[data-yh-page="apply"]),
     body[data-yh-page="apply"] {
+        width: 100%;
         height: auto;
+        min-height: 100%;
+        overflow-x: hidden;
         overflow-y: auto;
+        overscroll-behavior-y: auto;
+        touch-action-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: pan-y;
+    }
+
+    body[data-yh-page="apply"] {
+        min-height: 100vh;
+        min-height: 100dvh;
+        -webkit-overflow-scrolling: touch;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step {

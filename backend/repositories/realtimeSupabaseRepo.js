@@ -91,6 +91,252 @@ function realtimeHttpErrorV1(
     return error;
 }
 
+function isGenericRealtimeIdentityNameV3(
+    value = '',
+    userId = ''
+) {
+    const clean =
+        sanitizeText(value)
+            .replace(/\s+/g, ' ');
+
+    const lower =
+        clean.toLowerCase();
+
+    const cleanUserId =
+        normalizeUserId(userId)
+            .toLowerCase();
+
+    if (!clean) return true;
+
+    if (
+        cleanUserId &&
+        lower === cleanUserId
+    ) {
+        return true;
+    }
+
+    if (
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+            clean
+        )
+    ) {
+        return true;
+    }
+
+    return new Set([
+        'hustler',
+        'host',
+        'member',
+        'user',
+        'yh member',
+        'yhu member',
+        'academy member',
+        'young hustler',
+        'young hustlers member'
+    ]).has(lower);
+}
+
+function collectRealtimeIdentitySourcesV3(
+    input = {}
+) {
+    const root =
+        input &&
+        typeof input === 'object'
+            ? input
+            : {};
+
+    const rawData =
+        root.raw_data &&
+        typeof root.raw_data === 'object'
+            ? root.raw_data
+            : {};
+
+    const data =
+        root.data &&
+        typeof root.data === 'object'
+            ? root.data
+            : {};
+
+    const publicMeta =
+        root.public_meta &&
+        typeof root.public_meta === 'object'
+            ? root.public_meta
+            : {};
+
+    const bases = [
+        root,
+        publicMeta,
+        data,
+        rawData
+    ];
+
+    const nested = [];
+
+    bases.forEach((source) => {
+        [
+            'universeProfile',
+            'universe_profile',
+            'academyProfile',
+            'academy_profile',
+            'profile',
+            'userProfile',
+            'user_profile'
+        ].forEach((key) => {
+            const value =
+                source?.[key];
+
+            if (
+                value &&
+                typeof value === 'object' &&
+                !Array.isArray(value)
+            ) {
+                nested.push(value);
+            }
+        });
+    });
+
+    return [
+        ...bases,
+        ...nested
+    ];
+}
+
+function resolveRealtimeUserIdentityV3(
+    input = {},
+    fallback = {}
+) {
+    const sources = [
+        ...collectRealtimeIdentitySourcesV3(
+            input
+        ),
+        ...collectRealtimeIdentitySourcesV3(
+            fallback
+        )
+    ];
+
+    const userId =
+        normalizeUserId(
+            sources
+                .map((source) => (
+                    source?.user_id ||
+                    source?.firebase_uid ||
+                    source?.firebaseUid ||
+                    source?.uid ||
+                    source?.userId ||
+                    source?.id ||
+                    source?.source_document_id
+                ))
+                .find(Boolean)
+        );
+
+    const joinedNames =
+        sources.map((source) => {
+            const firstName =
+                sanitizeText(
+                    source?.first_name ||
+                    source?.firstName ||
+                    source?.firstname
+                );
+
+            const lastName =
+                sanitizeText(
+                    source?.surname ||
+                    source?.last_name ||
+                    source?.lastName ||
+                    source?.lastname
+                );
+
+            return [
+                firstName,
+                lastName
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .trim();
+        });
+
+    const nameCandidates = [
+        ...joinedNames,
+        ...sources.flatMap((source) => [
+            source?.full_name,
+            source?.fullName,
+            source?.display_name,
+            source?.displayName,
+            source?.name,
+            source?.user_name,
+            source?.userName,
+            source?.username,
+            source?.handle
+        ])
+    ]
+        .map((value) =>
+            sanitizeText(value)
+                .replace(/\s+/g, ' ')
+                .replace(/^@+/, '')
+        )
+        .filter(Boolean);
+
+    const displayName =
+        nameCandidates.find(
+            (value) =>
+                !isGenericRealtimeIdentityNameV3(
+                    value,
+                    userId
+                )
+        ) ||
+        '';
+
+    const username =
+        sources
+            .flatMap((source) => [
+                source?.username,
+                source?.handle,
+                source?.user_name,
+                source?.userName
+            ])
+            .map((value) =>
+                sanitizeText(value)
+                    .replace(/^@+/, '')
+            )
+            .find((value) =>
+                value &&
+                !isGenericRealtimeIdentityNameV3(
+                    value,
+                    userId
+                )
+            ) ||
+        '';
+
+    const avatar =
+        sources
+            .flatMap((source) => [
+                source?.avatar,
+                source?.avatar_url,
+                source?.avatarUrl,
+                source?.profile_photo,
+                source?.profilePhoto,
+                source?.photo_url,
+                source?.photoURL
+            ])
+            .map(sanitizeText)
+            .find(Boolean) ||
+        '';
+
+    const safeDisplayName =
+        displayName ||
+        username ||
+        'YH Member';
+
+    return {
+        userId,
+        fullName: safeDisplayName,
+        name: safeDisplayName,
+        displayName: safeDisplayName,
+        username,
+        avatar
+    };
+}
+
 function mapCanonicalYhuUserToRealtimeUserV1(
     row = {}
 ) {
@@ -119,15 +365,13 @@ function mapCanonicalYhuUserToRealtimeUserV1(
         ...row
     };
 
-    const userId =
-        normalizeUserId(
-            source.user_id ||
-            source.firebase_uid ||
-            source.firebaseUid ||
-            source.uid ||
-            source.userId ||
-            source.id
+    const identity =
+        resolveRealtimeUserIdentityV3(
+            row
         );
+
+    const userId =
+        identity.userId;
 
     if (!userId) {
         return null;
@@ -142,74 +386,25 @@ function mapCanonicalYhuUserToRealtimeUserV1(
         firebaseUid: userId,
 
         fullName:
-            sanitizeText(
-                source.full_name ||
-                source.fullName ||
-                source.name ||
-                source.display_name ||
-                source.displayName ||
-                source.username ||
-                userId
-            ),
+            identity.fullName,
 
         name:
-            sanitizeText(
-                source.name ||
-                source.full_name ||
-                source.fullName ||
-                source.display_name ||
-                source.displayName ||
-                source.username ||
-                userId
-            ),
+            identity.name,
 
         displayName:
-            sanitizeText(
-                source.display_name ||
-                source.displayName ||
-                source.full_name ||
-                source.fullName ||
-                source.name ||
-                source.username ||
-                userId
-            ),
+            identity.displayName,
 
         username:
-            sanitizeText(
-                source.username ||
-                source.handle ||
-                ''
-            ).replace(/^@+/, ''),
+            identity.username,
 
         avatar:
-            sanitizeText(
-                source.avatar ||
-                source.profile_photo ||
-                source.profilePhoto ||
-                source.photo_url ||
-                source.photoURL ||
-                ''
-            ),
+            identity.avatar,
 
         profilePhoto:
-            sanitizeText(
-                source.profile_photo ||
-                source.profilePhoto ||
-                source.photo_url ||
-                source.photoURL ||
-                source.avatar ||
-                ''
-            ),
+            identity.avatar,
 
         photoURL:
-            sanitizeText(
-                source.photo_url ||
-                source.photoURL ||
-                source.avatar ||
-                source.profile_photo ||
-                source.profilePhoto ||
-                ''
-            ),
+            identity.avatar,
 
         roleLabel:
             sanitizeText(
@@ -437,7 +632,13 @@ async function getUserDoc(userId) {
             )
             : null;
 
-    if (canonicalUser) {
+    if (
+        canonicalUser &&
+        !isGenericRealtimeIdentityNameV3(
+            canonicalUser.displayName,
+            normalizedUserId
+        )
+    ) {
         return canonicalUser;
     }
 
@@ -448,29 +649,103 @@ async function getUserDoc(userId) {
         );
 
     if (!compatibilityRow) {
-        return null;
+        return canonicalUser;
     }
 
-    return {
-        id:
+    const compatibilityData =
+        rowData(
             compatibilityRow
-                .source_document_id,
+        );
 
-        ...rowData(
-            compatibilityRow
-        )
+    const compatibilityUser =
+        mapCanonicalYhuUserToRealtimeUserV1({
+            ...compatibilityData,
+            user_id:
+                normalizedUserId,
+            source_document_id:
+                normalizedUserId,
+            raw_data:
+                compatibilityData,
+            data:
+                compatibilityData,
+            public_meta:
+                compatibilityData
+        });
+
+    if (!canonicalUser) {
+        return compatibilityUser;
+    }
+
+    const mergedIdentity =
+        resolveRealtimeUserIdentityV3(
+            compatibilityUser || {},
+            canonicalUser
+        );
+
+    return {
+        ...canonicalUser,
+        ...(compatibilityUser || {}),
+        id:
+            normalizedUserId,
+        uid:
+            normalizedUserId,
+        userId:
+            normalizedUserId,
+        firebaseUid:
+            normalizedUserId,
+        fullName:
+            mergedIdentity.fullName,
+        name:
+            mergedIdentity.name,
+        displayName:
+            mergedIdentity.displayName,
+        username:
+            mergedIdentity.username ||
+            canonicalUser.username ||
+            compatibilityUser?.username ||
+            '',
+        avatar:
+            mergedIdentity.avatar ||
+            canonicalUser.avatar ||
+            compatibilityUser?.avatar ||
+            '',
+        profilePhoto:
+            mergedIdentity.avatar ||
+            canonicalUser.profilePhoto ||
+            compatibilityUser?.profilePhoto ||
+            '',
+        photoURL:
+            mergedIdentity.avatar ||
+            canonicalUser.photoURL ||
+            compatibilityUser?.photoURL ||
+            ''
     };
 }
 
 function buildUserSummary(userDoc = {}) {
     const stats = userDoc.stats && typeof userDoc.stats === 'object' ? userDoc.stats : {};
 
+    const identity =
+        resolveRealtimeUserIdentityV3(
+            userDoc
+        );
+
     return {
-        id: sanitizeText(userDoc.id || userDoc.uid || userDoc.userId),
-        fullName: sanitizeText(userDoc.fullName || userDoc.name),
-        username: sanitizeText(userDoc.username),
-        display_name: sanitizeText(userDoc.displayName || userDoc.display_name || userDoc.fullName || userDoc.name),
-        avatar: sanitizeText(userDoc.avatar || userDoc.profilePhoto || userDoc.photoURL),
+        id:
+            identity.userId ||
+            sanitizeText(
+                userDoc.id ||
+                userDoc.uid ||
+                userDoc.userId
+            ),
+        fullName:
+            identity.fullName,
+        username:
+            identity.username,
+        display_name:
+            identity.displayName,
+        avatar:
+            identity.avatar,
         bio: sanitizeText(userDoc.bio),
         role_label: sanitizeText(userDoc.roleLabel || userDoc.role_label || userDoc.role || 'Member'),
         rep_points: toInt(stats.repPoints || stats.rep_points || userDoc.rep_points, 0),
@@ -484,6 +759,161 @@ async function getUserSummary(userId) {
     const userDoc = await getUserDoc(userId);
     if (!userDoc) return null;
     return buildUserSummary(userDoc);
+}
+
+function getResolvedRealtimeDisplayNameV3(
+    identity = {},
+    userId = ''
+) {
+    const resolved =
+        resolveRealtimeUserIdentityV3(
+            identity,
+            {
+                userId
+            }
+        );
+
+    const name =
+        sanitizeText(
+            resolved.displayName ||
+            resolved.fullName ||
+            resolved.username
+        );
+
+    return isGenericRealtimeIdentityNameV3(
+        name,
+        userId
+    )
+        ? ''
+        : name;
+}
+
+async function enrichChatMessageAuthorsV3(
+    messages = []
+) {
+    const list =
+        Array.isArray(messages)
+            ? messages
+            : [];
+
+    const authorIds =
+        Array.from(
+            new Set(
+                list
+                    .filter((message) =>
+                        message?.authorId &&
+                        isGenericRealtimeIdentityNameV3(
+                            message?.author,
+                            message?.authorId
+                        )
+                    )
+                    .map((message) =>
+                        normalizeUserId(
+                            message.authorId
+                        )
+                    )
+                    .filter(Boolean)
+            )
+        );
+
+    if (!authorIds.length) {
+        return list;
+    }
+
+    const summaries =
+        await Promise.all(
+            authorIds.map(async (userId) => [
+                userId,
+                await getUserSummary(userId)
+                    .catch(() => null)
+            ])
+        );
+
+    const identityByUserId =
+        new Map(
+            summaries
+        );
+
+    return list.map((message) => {
+        const authorId =
+            normalizeUserId(
+                message?.authorId
+            );
+
+        const summary =
+            identityByUserId.get(
+                authorId
+            );
+
+        const author =
+            getResolvedRealtimeDisplayNameV3(
+                summary || {},
+                authorId
+            );
+
+        if (!author) {
+            return message;
+        }
+
+        return {
+            ...message,
+            author,
+            initial:
+                author
+                    .charAt(0)
+                    .toUpperCase(),
+            avatar:
+                sanitizeText(
+                    summary?.avatar ||
+                    message?.avatar
+                )
+        };
+    });
+}
+
+async function enrichLiveRoomHostIdentityV3(
+    room = {}
+) {
+    const hostUserId =
+        normalizeUserId(
+            room?.host_user_id ||
+            room?.hostUserId
+        );
+
+    const storedName =
+        sanitizeText(
+            room?.host_user_name ||
+            room?.hostUserName
+        );
+
+    if (
+        !hostUserId ||
+        !isGenericRealtimeIdentityNameV3(
+            storedName,
+            hostUserId
+        )
+    ) {
+        return room;
+    }
+
+    const summary =
+        await getUserSummary(
+            hostUserId
+        ).catch(() => null);
+
+    const hostName =
+        getResolvedRealtimeDisplayNameV3(
+            summary || {},
+            hostUserId
+        );
+
+    return {
+        ...room,
+        host_user_name:
+            hostName ||
+            storedName ||
+            'YH Member'
+    };
 }
 
 function normalizeMemberIds(data = {}) {
@@ -3481,12 +3911,17 @@ async function getChatMessageById(
         cleanMessageId
     );
 
-    return row
-        ? mapChatMessageRow(
-            row,
-            viewerId
-        )
-        : null;
+    if (!row) return null;
+
+    const enriched =
+        await enrichChatMessageAuthorsV3([
+            mapChatMessageRow(
+                row,
+                viewerId
+            )
+        ]);
+
+    return enriched[0] || null;
 }
 
 async function listChatMessages(
@@ -3524,39 +3959,44 @@ async function listChatMessages(
         )
     );
 
-    return rows
-        .map((row) =>
-            mapChatMessageRow(
-                row,
-                cleanViewerId
+    const messages =
+        rows
+            .map((row) =>
+                mapChatMessageRow(
+                    row,
+                    cleanViewerId
+                )
             )
-        )
-        .filter((message) =>
-            !cleanViewerId ||
-            !message.hidden_for_user_ids.includes(
-                cleanViewerId
+            .filter((message) =>
+                !cleanViewerId ||
+                !message.hidden_for_user_ids.includes(
+                    cleanViewerId
+                )
             )
-        )
-        .sort((a, b) => {
-            const aTime =
-                Date.parse(a.time || '') ||
-                0;
+            .sort((a, b) => {
+                const aTime =
+                    Date.parse(a.time || '') ||
+                    0;
 
-            const bTime =
-                Date.parse(b.time || '') ||
-                0;
+                const bTime =
+                    Date.parse(b.time || '') ||
+                    0;
 
-            if (aTime !== bTime) {
-                return aTime - bTime;
-            }
+                if (aTime !== bTime) {
+                    return aTime - bTime;
+                }
 
-            return String(
-                a.id || ''
-            ).localeCompare(
-                String(b.id || '')
-            );
-        })
-        .slice(-safeLimit);
+                return String(
+                    a.id || ''
+                ).localeCompare(
+                    String(b.id || '')
+                );
+            })
+            .slice(-safeLimit);
+
+    return enrichChatMessageAuthorsV3(
+        messages
+    );
 }
 
 async function importLegacyChatMessageV2({
@@ -3751,7 +4191,8 @@ async function createChatMessage({
     text = '',
     attachment = null,
     clientMessageId = '',
-    allowUnregisteredRoom = false
+    allowUnregisteredRoom = false,
+    fallbackIdentity = null
 } = {}) {
     const cleanRoomId = sanitizeText(roomId);
     const cleanUserId = normalizeUserId(userId);
@@ -3796,7 +4237,10 @@ async function createChatMessage({
         cleanUserId
     );
 
-    if (!user) {
+    if (
+        !user &&
+        !fallbackIdentity
+    ) {
         throw realtimeHttpErrorV1(
             'Message sender not found.',
             404
@@ -3804,16 +4248,25 @@ async function createChatMessage({
     }
 
     const userSummary =
-        buildUserSummary(user);
+        buildUserSummary({
+            id:
+                cleanUserId,
+            ...(fallbackIdentity &&
+            typeof fallbackIdentity === 'object'
+                ? fallbackIdentity
+                : {}),
+            ...(user &&
+            typeof user === 'object'
+                ? user
+                : {})
+        });
 
     const author =
-        sanitizeText(
-            userSummary.display_name ||
-            userSummary.fullName ||
-            userSummary.username ||
-            'Hustler'
+        getResolvedRealtimeDisplayNameV3(
+            userSummary,
+            cleanUserId
         ) ||
-        'Hustler';
+        'YH Member';
 
     const messageId =
         buildChatMessageDocumentIdV2(
@@ -4454,7 +4907,15 @@ async function createVaultFile({ userId, parentId = '', name = '', filePath = ''
 
 async function getLiveRooms() {
     const rows = await listRecords('live_room', 300);
-    const mappedRooms = rows.map(mapLiveRoomRow);
+
+    const mappedRooms =
+        await Promise.all(
+            rows.map((row) =>
+                enrichLiveRoomHostIdentityV3(
+                    mapLiveRoomRow(row)
+                )
+            )
+        );
 
     const expiredRows = rows.filter((row) => {
         const room = mapLiveRoomRow(row);
@@ -4473,13 +4934,44 @@ async function getLiveRooms() {
         });
 }
 
-async function createLiveRoom({ userId, roomType = 'voice', title = '', topic = '' } = {}) {
+async function createLiveRoom({
+    userId,
+    roomType = 'voice',
+    title = '',
+    topic = '',
+    fallbackIdentity = null
+} = {}) {
     const normalizedUserId = normalizeUserId(userId);
     if (!normalizedUserId) throw new Error('Missing user id.');
 
     const docId = makeRecordId('live');
     const now = nowIso();
-    const user = await getUserSummary(normalizedUserId).catch(() => null);
+
+    const canonicalUser =
+        await getUserSummary(
+            normalizedUserId
+        ).catch(() => null);
+
+    const hostIdentity =
+        buildUserSummary({
+            id:
+                normalizedUserId,
+            ...(fallbackIdentity &&
+            typeof fallbackIdentity === 'object'
+                ? fallbackIdentity
+                : {}),
+            ...(canonicalUser &&
+            typeof canonicalUser === 'object'
+                ? canonicalUser
+                : {})
+        });
+
+    const hostName =
+        getResolvedRealtimeDisplayNameV3(
+            hostIdentity,
+            normalizedUserId
+        ) ||
+        'YH Member';
 
     const row = await upsertRecord({
         recordType: 'live_room',
@@ -4492,7 +4984,7 @@ async function createLiveRoom({ userId, roomType = 'voice', title = '', topic = 
             title: sanitizeText(title) || 'Live Room',
             topic: sanitizeText(topic),
             host_user_id: normalizedUserId,
-            host_user_name: sanitizeText(user?.display_name || user?.fullName || user?.username || 'Hustler'),
+            host_user_name: hostName,
             status: 'live',
             created_at: now,
             updated_at: now,
@@ -4501,7 +4993,9 @@ async function createLiveRoom({ userId, roomType = 'voice', title = '', topic = 
         }
     });
 
-    return mapLiveRoomRow(row);
+    return enrichLiveRoomHostIdentityV3(
+        mapLiveRoomRow(row)
+    );
 }
 
 async function joinLiveRoom({ userId, roomId } = {}) {
@@ -4538,7 +5032,9 @@ async function joinLiveRoom({ userId, roomId } = {}) {
         }
     });
 
-    return mapLiveRoomRow(saved);
+    return enrichLiveRoomHostIdentityV3(
+        mapLiveRoomRow(saved)
+    );
 }
 
 async function leaveLiveRoom({ userId, roomId } = {}) {
@@ -4562,7 +5058,9 @@ async function leaveLiveRoom({ userId, roomId } = {}) {
         }
     });
 
-    return mapLiveRoomRow(saved);
+    return enrichLiveRoomHostIdentityV3(
+        mapLiveRoomRow(saved)
+    );
 }
 
 async function endLiveRoom({ userId, roomId } = {}) {
@@ -4591,7 +5089,9 @@ async function endLiveRoom({ userId, roomId } = {}) {
         }
     });
 
-    return mapLiveRoomRow(saved);
+    return enrichLiveRoomHostIdentityV3(
+        mapLiveRoomRow(saved)
+    );
 }
 
 /* PATCH: Phase 3C.4B — persistent Squad achievement and notifications v1 */
@@ -5032,6 +5532,7 @@ async function toggleFollow({ followerId, followingId, actorName = '' } = {}) {
 
 module.exports = {
     getBootstrap,
+    getUserSummary,
     getRooms,
     getChatRoomForSocket,
     getChatRoomActionContextV1,

@@ -1044,9 +1044,32 @@
   }
 
   body[data-yh-view="academy"] #voice-lobby-view .lounge-container,
-  body[data-yh-view="academy"] #video-lobby-view .lounge-container,
-  body[data-yh-view="academy"] #center-stage-view .stage-layout-wrapper {
+  body[data-yh-view="academy"] #video-lobby-view .lounge-container {
     padding: 14px 14px calc(118px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .stage-layout-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    align-items: stretch !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 14px !important;
+    padding: 14px 14px calc(22px + env(safe-area-inset-bottom, 0px)) !important;
+    scroll-padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   body[data-yh-view="academy"] .academy-feed-shell,
@@ -1061,22 +1084,65 @@
   body[data-yh-view="academy"] .academy-profile-content-grid,
   body[data-yh-view="academy"] .academy-profile-action-row,
   body[data-yh-view="academy"] .academy-feed-composer-top,
-  body[data-yh-view="academy"] .academy-feed-composer-bottom,
-  body[data-yh-view="academy"] .stage-layout-wrapper {
+  body[data-yh-view="academy"] .academy-feed-composer-bottom {
     gap: 12px !important;
   }
 
   body[data-yh-view="academy"] .academy-home-stat-grid,
   body[data-yh-view="academy"] .academy-profile-content-grid,
   body[data-yh-view="academy"] .lounge-grid,
-  body[data-yh-view="academy"] .vault-grid,
-  body[data-yh-view="academy"] .speakers-grid {
+  body[data-yh-view="academy"] .vault-grid {
     grid-template-columns: 1fr !important;
   }
 
-  body[data-yh-view="academy"] .stage-container,
-  body[data-yh-view="academy"] .stage-chat-panel {
+  body[data-yh-view="academy"] #center-stage-view .stage-container {
     width: 100% !important;
+    flex: 0 0 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 16px !important;
+    overflow: visible !important;
+    border-radius: 16px !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .speakers-grid {
+    width: 100% !important;
+    max-width: none !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: stretch !important;
+    justify-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .speaker-card {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: clamp(230px, 54vw, 340px) !important;
+    aspect-ratio: 16 / 9 !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .stage-chat-panel {
+    width: 100% !important;
+    flex: 0 0 auto !important;
+    min-height: 360px !important;
+    height: clamp(360px, 52dvh, 460px) !important;
+    max-height: none !important;
+    overflow: hidden !important;
+    border-radius: 16px !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .stage-chat-history {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .stage-chat-input-wrapper {
+    flex: 0 0 auto !important;
   }
 
   body[data-yh-view="academy"] .academy-feed-composer-card,
@@ -1928,12 +1994,46 @@
 
   body[data-yh-view="academy"] .chat-header {
     padding: 12px !important;
-  }body[data-yh-view="academy"] #academy-chat .chat-messages,
+  }
+
+  body[data-yh-view="academy"] #academy-chat .chat-messages,
   body[data-yh-view="academy"] #academy-profile-view .chat-messages,
   body[data-yh-view="academy"] #voice-lobby-view .lounge-container,
-  body[data-yh-view="academy"] #video-lobby-view .lounge-container,
-  body[data-yh-view="academy"] #center-stage-view .stage-layout-wrapper {
+  body[data-yh-view="academy"] #video-lobby-view .lounge-container {
     padding: 10px 10px calc(116px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .stage-layout-wrapper {
+    gap: 12px !important;
+    padding: 10px 10px calc(18px + env(safe-area-inset-bottom, 0px)) !important;
+    scroll-padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .stage-container {
+    padding: 12px !important;
+    border-radius: 14px !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .speaker-card {
+    min-height: clamp(220px, 58vw, 290px) !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .stage-chat-panel {
+    min-height: 350px !important;
+    height: clamp(350px, 54dvh, 430px) !important;
+    border-radius: 14px !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .stage-chat-header {
+    padding: 12px !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .stage-chat-history {
+    padding: 12px !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .stage-chat-input-wrapper {
+    padding: 9px !important;
   }
 
   body[data-yh-view="academy"] #academy-feed-view .chat-messages {

@@ -281,7 +281,7 @@ const socket = io({
     auth: getStoredAuthToken() ? { token: getStoredAuthToken() } : {}
 });
 
-const myName = getStoredUserValue('yh_user_name', "Hustler");
+let myName = getStoredUserValue('yh_user_name', "Hustler");
 
 function academyIsProbablyTruncatedName(value = '') {
     const clean = String(value || '').trim();
@@ -1634,6 +1634,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentProfileBg = null;
     let pendingGroupMembers = [];
     let hasLoadedVaultOnce = false;
+    let academyCanonicalIdentityHydrationPromiseV4 = null;
     const defaultAcademyWelcomeHtml = document.getElementById('chat-welcome-box')?.innerHTML || '';
 
     const academyStartupFromDashboard = (() => {
@@ -1645,6 +1646,8 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
 
     const academyStartupInitialSection = resolveAcademyStartupBootSection();
+
+    void academyHydrateCanonicalIdentityV4();
 
     if (!isAcademyDashboardEmbedContext()) {
         showAcademyStartupBootOverlay(
@@ -4960,51 +4963,236 @@ function renderStageChatHistory(messages = []) {
     stageChatHistory.scrollTop = stageChatHistory.scrollHeight;
 }
 
-function appendStageChatMessage(msg = {}) {
-    if (!stageChatHistory) return;
+let academyStageChatPendingCountV3 = 0;
+
+function academyGetStageChatClientIdV3(message = {}) {
+    return String(
+        message?.clientMessageId ||
+        message?.client_message_id ||
+        ''
+    ).trim();
+}
+
+function academyFindStageChatMessageNodeV3(message = {}) {
+    if (!stageChatHistory) return null;
 
     const messageId =
         normalizeAcademyFeedId(
-            msg?.id ||
-            msg?.messageId ||
+            message?.id ||
+            message?.messageId ||
             ''
         );
 
-    if (
-        messageId &&
-        stageChatHistory.querySelector(
-            `[data-stage-message-id="${CSS.escape(messageId)}"]`
+    const clientId =
+        academyGetStageChatClientIdV3(
+            message
+        );
+
+    if (messageId) {
+        const byMessageId =
+            stageChatHistory.querySelector(
+                `[data-stage-message-id="${CSS.escape(messageId)}"]`
+            );
+
+        if (byMessageId) return byMessageId;
+    }
+
+    return clientId
+        ? stageChatHistory.querySelector(
+            `[data-stage-client-message-id="${CSS.escape(clientId)}"]`
         )
+        : null;
+}
+
+function academySyncStageChatSendStateV3(delta = 0) {
+    academyStageChatPendingCountV3 =
+        Math.max(
+            0,
+            academyStageChatPendingCountV3 +
+            Number(delta || 0)
+        );
+
+    if (!stageChatSendBtn) return;
+
+    const sending =
+        academyStageChatPendingCountV3 > 0;
+
+    stageChatSendBtn.classList.toggle(
+        'is-sending',
+        sending
+    );
+
+    stageChatSendBtn.setAttribute(
+        'aria-busy',
+        sending ? 'true' : 'false'
+    );
+}
+
+function appendStageChatMessage(
+    message = {},
+    options = {}
+) {
+    if (!stageChatHistory) return null;
+
+    const messageId =
+        normalizeAcademyFeedId(
+            message?.id ||
+            message?.messageId ||
+            ''
+        );
+
+    const clientId =
+        academyGetStageChatClientIdV3(
+            message
+        );
+
+    const rawAuthor =
+        String(
+            message?.author ||
+            ''
+        ).trim();
+
+    const authorId =
+        normalizeAcademyFeedId(
+            message?.authorId ||
+            message?.author_id ||
+            message?.createdByUserId ||
+            message?.created_by_user_id ||
+            ''
+        );
+
+    const currentUserId =
+        academyGetCurrentUserIdForRoomModeration();
+
+    let resolvedAuthor =
+        rawAuthor;
+
+    if (
+        academyIsGenericVoiceHostNameV2(
+            resolvedAuthor
+        ) &&
+        authorId &&
+        currentUserId &&
+        authorId === currentUserId
     ) {
-        return;
+        resolvedAuthor =
+            academyGetVoiceDisplayName();
+    }
+
+    if (
+        academyIsGenericVoiceHostNameV2(
+            resolvedAuthor
+        ) &&
+        authorId &&
+        typeof sharedReadKnownUsersCache ===
+            'function'
+    ) {
+        let knownUser = null;
+
+        try {
+            const knownUsers =
+                sharedReadKnownUsersCache();
+
+            knownUser =
+                knownUsers &&
+                typeof knownUsers === 'object'
+                    ? knownUsers[authorId]
+                    : null;
+        } catch (_) {
+            knownUser = null;
+        }
+
+        resolvedAuthor =
+            String(
+                knownUser?.displayName ||
+                knownUser?.fullName ||
+                knownUser?.name ||
+                knownUser?.username ||
+                resolvedAuthor ||
+                ''
+            ).trim();
     }
 
     const author =
         academyFeedEscapeHtml(
-            msg?.author ||
-            'Hustler'
+            academyIsGenericVoiceHostNameV2(
+                resolvedAuthor
+            )
+                ? 'YH Member'
+                : resolvedAuthor
         );
 
     const text =
         academyFeedEscapeHtml(
-            msg?.text ||
+            message?.text ||
             ''
         );
 
-    const welcome =
-        stageChatHistory.querySelector(
+    const delivery =
+        options.delivery === 'sending' ||
+        options.delivery === 'failed'
+            ? options.delivery
+            : 'sent';
+
+    const status =
+        delivery === 'sending'
+            ? 'Sending…'
+            : delivery === 'failed'
+                ? 'Failed'
+                : '';
+
+    stageChatHistory
+        .querySelector(
             '.stage-chat-welcome'
+        )
+        ?.remove();
+
+    const existing =
+        academyFindStageChatMessageNodeV3(
+            message
         );
-    if (welcome) {
-        welcome.remove();
+
+    const markup = `
+        <div
+            class="stage-chat-msg fade-in"
+            data-stage-message-id="${academyFeedEscapeHtml(messageId)}"
+            data-stage-client-message-id="${academyFeedEscapeHtml(clientId)}"
+            data-stage-delivery="${academyFeedEscapeHtml(delivery)}"
+        >
+            <strong>${author}:</strong>
+            ${text}
+            <span
+                aria-live="polite"
+                style="
+                    margin-left:6px;
+                    font-size:0.68rem;
+                    color:${delivery === 'failed' ? '#fb7185' : 'rgba(186,230,253,.66)'};
+                    opacity:${status ? '1' : '0'};
+                "
+            >${academyFeedEscapeHtml(status)}</span>
+        </div>
+    `;
+
+    if (existing) {
+        existing.outerHTML = markup;
+    } else {
+        stageChatHistory.insertAdjacentHTML(
+            'beforeend',
+            markup
+        );
     }
 
-    stageChatHistory.insertAdjacentHTML(
-        'beforeend',
-        `<div class="stage-chat-msg fade-in" data-stage-message-id="${academyFeedEscapeHtml(messageId)}"><strong>${author}:</strong> ${text}</div>`
-    );
+    const rendered =
+        academyFindStageChatMessageNodeV3(
+            message
+        );
 
-    stageChatHistory.scrollTop = stageChatHistory.scrollHeight;
+    window.requestAnimationFrame(() => {
+        stageChatHistory.scrollTop =
+            stageChatHistory.scrollHeight;
+    });
+
+    return rendered;
 }
 
 async function sendStageChat() {
@@ -5040,77 +5228,197 @@ async function sendStageChat() {
 
     if (!text) return false;
 
+    const clientMessageId =
+        academyCreateClientMessageIdV2(
+            activeRoomId
+        );
+
+    const optimisticMessage = {
+        id:
+            clientMessageId,
+
+        roomId:
+            activeRoomId,
+
+        room:
+            activeRoomId,
+
+        roomName:
+            getActiveRoomLabel(),
+
+        text,
+
+        type:
+            activeRoomType,
+
+        privacy:
+            'private',
+
+        author:
+            typeof academyGetVoiceDisplayName ===
+                'function'
+                ? academyGetVoiceDisplayName()
+                : (
+                    myName ||
+                    'YH Member'
+                ),
+
+        authorId:
+            academyGetCurrentUserIdForRoomModeration(),
+
+        clientMessageId,
+
+        client_message_id:
+            clientMessageId,
+
+        time:
+            new Date().toISOString()
+    };
+
+    /*
+     * Immediate local echo: clear and render before
+     * waiting for the server acknowledgement.
+     */
+    stageChatInput.value = '';
+
+    appendStageChatMessage(
+        optimisticMessage,
+        {
+            delivery:
+                'sending'
+        }
+    );
+
+    academySyncStageChatSendStateV3(1);
+
     try {
-        await academyEmitMessageWithAckV2({
-            roomId:
-                activeRoomId,
-
-            room:
-                activeRoomId,
-
-            roomName:
-                getActiveRoomLabel(),
-
-            text,
-
-            type:
-                activeRoomType,
-
-            privacy:
-                'private'
+        stageChatInput.focus({
+            preventScroll:
+                true
         });
+    } catch (_) {
+        stageChatInput.focus();
+    }
+
+    try {
+        const ack =
+            await academyEmitMessageWithAckV2({
+                ...optimisticMessage
+            });
+
+        const confirmedMessage =
+            ack?.message &&
+            typeof ack.message ===
+                'object'
+                ? {
+                    ...optimisticMessage,
+                    ...ack.message,
+
+                    clientMessageId:
+                        academyGetStageChatClientIdV3(
+                            ack.message
+                        ) ||
+                        clientMessageId,
+
+                    client_message_id:
+                        academyGetStageChatClientIdV3(
+                            ack.message
+                        ) ||
+                        clientMessageId
+                }
+                : optimisticMessage;
+
+        /*
+         * The socket receive event may arrive before
+         * this ack. Both paths reconcile the same
+         * clientMessageId instead of adding a duplicate.
+         */
+        appendStageChatMessage(
+            confirmedMessage,
+            {
+                delivery:
+                    'sent'
+            }
+        );
+
+        return true;
+    } catch (error) {
+        const failedNode =
+            appendStageChatMessage(
+                optimisticMessage,
+                {
+                    delivery:
+                        'failed'
+                }
+            );
 
         if (
             normalizeRoomKey(
                 getActiveRoomId()
             ) ===
                 activeRoomId &&
-            String(
+            !String(
                 stageChatInput.value ||
                 ''
-            ) ===
-                inputSnapshot
+            ).trim()
         ) {
             stageChatInput.value =
-                '';
+                inputSnapshot;
         }
 
-        return true;
-    } catch (error) {
+        window.setTimeout(() => {
+            if (
+                failedNode?.isConnected &&
+                failedNode.getAttribute(
+                    'data-stage-delivery'
+                ) === 'failed'
+            ) {
+                failedNode.remove();
+            }
+        }, 5000);
+
         showToast(
             error?.message ||
-            'Stage message could not be sent.',
+            'Stage message could not be sent. Your draft was restored.',
             'error'
         );
 
         return false;
+    } finally {
+        academySyncStageChatSendStateV3(-1);
     }
 }
 
 if (stageChatInput && stageChatHistory) {
     stageChatInput.addEventListener(
         'keydown',
-        async (event) => {
+        (event) => {
             if (
-                event.key ===
-                    'Enter' &&
-                !event.shiftKey
+                event.key === 'Enter' &&
+                !event.shiftKey &&
+                !event.isComposing &&
+                !event.repeat
             ) {
                 event.preventDefault();
 
-                await sendStageChat();
+                void sendStageChat();
             }
         }
     );
 }
 
 if (stageChatSendBtn) {
+    stageChatSendBtn.setAttribute(
+        'aria-label',
+        'Send message'
+    );
+
     stageChatSendBtn.addEventListener(
         'click',
-        async (event) => {
+        (event) => {
             event.preventDefault();
 
-            await sendStageChat();
+            void sendStageChat();
         }
     );
 }
@@ -13162,36 +13470,38 @@ function openAcademyMessagesView() {
     if (!academyLockTabSwitchV7('messages')) return;
 
     academyRememberLastNonProfileLocation('messages');
-
     showAcademyTabLoader('Loading Messages...');
 
-    academyAfterPaintV7(() => {
-        try {
-            academyPushFeedFallbackHistory('messages');
-            closeRoadmapIntake();
-            academyResetCoachMode();
-            hideAcademyViewsForFeed();
-            setAcademySidebarActive('nav-messages');
-            saveAcademyViewState('messages');
-            applyAcademyMessengerMode(true);
+    try {
+        academyPushFeedFallbackHistory('messages');
+        closeRoadmapIntake();
+        academyResetCoachMode();
+        hideAcademyViewsForFeed();
+        setAcademySidebarActive('nav-messages');
+        saveAcademyViewState('messages');
+        applyAcademyMessengerMode(true);
 
-            const academyChat = document.getElementById('academy-chat');
-            const chatWelcomeBox = document.getElementById('chat-welcome-box');
-            const chatPinnedMessage = document.getElementById('chat-pinned-message');
+        const academyChat = document.getElementById('academy-chat');
+        const chatWelcomeBox = document.getElementById('chat-welcome-box');
+        const chatPinnedMessage = document.getElementById('chat-pinned-message');
 
-            if (academyChat) {
-                academyChat.classList.remove('hidden-step');
-                academyChat.classList.add('fade-in');
-            }
+        if (academyChat) {
+            academyChat.classList.remove('hidden-step');
+            academyChat.classList.add('fade-in');
+        }
 
-            academyRestoreMessagesInboxHeader();
+        /*
+         * Establish the correct Messages state before
+         * waiting for conversation hydration.
+         */
+        academyResetMessagesThreadState();
+        academySetMessagesChatMode('messages');
+        academyRestoreMessagesInboxHeader();
 
-            if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
-            if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
+        if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
+        if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
 
-            academyResetMessagesThreadState();
-            academySetMessagesChatMode('messages');
-
+        academyAfterPaintV7(() => {
             Promise.resolve(
                 academyRenderMessagesShellNowV12({
                     forceFresh: !academyMessagesInboxState.hydratedOnce
@@ -13199,13 +13509,13 @@ function openAcademyMessagesView() {
             ).finally(() => {
                 academyUnlockTabSwitchSoonV7('messages');
             });
-        } catch (error) {
-            console.error('openAcademyMessagesView error:', error);
-            showToast(error?.message || 'Failed to open Messages.', 'error');
-            academyForceReleaseTabLoaderV12('messages-open-error');
-            academyUnlockTabSwitchSoonV7('messages');
-        }
-    });
+        });
+    } catch (error) {
+        console.error('openAcademyMessagesView error:', error);
+        showToast(error?.message || 'Failed to open Messages.', 'error');
+        academyForceReleaseTabLoaderV12('messages-open-error');
+        academyUnlockTabSwitchSoonV7('messages');
+    }
 }
 function openAcademyRoadmapView(forceFresh = false) {
     academyRememberLastNonProfileLocation('roadmap');
@@ -13632,11 +13942,32 @@ function syncAcademyProfileLocalMirrors(profile = null) {
             getStoredUserValue('yh_user_uid', '')
         ) || '';
 
+    myName =
+        fullName ||
+        displayName ||
+        myName ||
+        'YH Member';
+
     localStorage.setItem('yh_user_name', fullName);
     localStorage.setItem('yh_user_full_name', fullName);
     localStorage.setItem('yh_user_display_name', displayName);
     localStorage.setItem('yh_user_username', username);
     localStorage.setItem('yh_user_profile_bio', bio);
+
+    if (userId) {
+        localStorage.setItem(
+            'yh_user_id',
+            userId
+        );
+        localStorage.setItem(
+            'yh_user_uid',
+            userId
+        );
+        localStorage.setItem(
+            'yh_user_firebase_uid',
+            userId
+        );
+    }
 
     if (avatar) {
         localStorage.setItem('yh_user_avatar', avatar);
@@ -13717,6 +14048,39 @@ async function fetchCurrentAcademyProfile(options = {}) {
         }
         throw error;
     }
+}
+
+function academyHydrateCanonicalIdentityV4(
+    options = {}
+) {
+    const force =
+        options.force === true;
+
+    if (
+        academyCanonicalIdentityHydrationPromiseV4 &&
+        !force
+    ) {
+        return academyCanonicalIdentityHydrationPromiseV4;
+    }
+
+    academyCanonicalIdentityHydrationPromiseV4 =
+        fetchCurrentAcademyProfile({
+            allowCachedFallback: true
+        })
+            .catch((error) => {
+                console.warn(
+                    'Academy identity hydration skipped:',
+                    error?.message || error
+                );
+
+                return readAcademyProfileCache();
+            })
+            .finally(() => {
+                academyCanonicalIdentityHydrationPromiseV4 =
+                    null;
+            });
+
+    return academyCanonicalIdentityHydrationPromiseV4;
 }
 
 function readAcademyProfileTags() {
@@ -20558,25 +20922,179 @@ function academySetMessagesChatMode(mode = 'home') {
 }
 
 function academyRestoreMessagesInboxHeader() {
-    const chatHeaderIcon = document.getElementById('chat-header-icon');
-    const chatHeaderTitle = document.getElementById('chat-header-title');
-    const chatHeaderTopic = document.getElementById('chat-header-topic');
+    const academyChat = document.getElementById('academy-chat');
 
-    const isMobile = academyIsMobileMessagesViewport();
+    const chatHeader =
+        academyChat?.querySelector(
+            ':scope > .chat-header'
+        ) || null;
+
+    const chatHeaderLeft =
+        chatHeader?.querySelector(
+            '.academy-header-left'
+        ) || null;
+
+    const chatHeaderActions =
+        chatHeader?.querySelector(
+            '.academy-chat-header-actions'
+        ) || null;
+
+    const chatHeaderIcon =
+        document.getElementById(
+            'chat-header-icon'
+        );
+
+    const chatHeaderTitle =
+        document.getElementById(
+            'chat-header-title'
+        );
+
+    const chatHeaderTopic =
+        document.getElementById(
+            'chat-header-topic'
+        );
+
+    const openDmButton =
+        document.getElementById(
+            'btn-open-dm-modal'
+        );
+
+    const openGroupButton =
+        document.getElementById(
+            'btn-open-group-modal'
+        );
+
+    const currentMode =
+        String(
+            academyChat?.getAttribute(
+                'data-chat-mode'
+            ) || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    if (
+        academyChat &&
+        currentMode !== 'messages' &&
+        currentMode !== 'thread'
+    ) {
+        academyChat.setAttribute(
+            'data-chat-mode',
+            'messages'
+        );
+    }
+
+    /*
+     * Remove any stale hidden state left by a prior
+     * Academy view or Dashboard embed transition.
+     */
+    [
+        chatHeader,
+        chatHeaderActions,
+        openDmButton,
+        openGroupButton
+    ]
+        .filter(Boolean)
+        .forEach((node) => {
+            node.classList.remove(
+                'hidden-step'
+            );
+
+            node.hidden = false;
+
+            node.setAttribute(
+                'aria-hidden',
+                'false'
+            );
+
+            [
+                'display',
+                'visibility',
+                'opacity',
+                'pointer-events'
+            ].forEach((property) => {
+                node.style.removeProperty(
+                    property
+                );
+            });
+        });
+
+    const isMobile =
+        academyIsMobileMessagesViewport();
+
+    /*
+     * Mobile Messages keeps only the two creation
+     * actions. Desktop retains the full header copy.
+     */
+    if (chatHeaderLeft) {
+        chatHeaderLeft.classList.toggle(
+            'hidden-step',
+            isMobile
+        );
+
+        chatHeaderLeft.hidden =
+            isMobile;
+
+        chatHeaderLeft.setAttribute(
+            'aria-hidden',
+            isMobile
+                ? 'true'
+                : 'false'
+        );
+
+        if (isMobile) {
+            chatHeaderLeft.style.setProperty(
+                'display',
+                'none',
+                'important'
+            );
+        } else {
+            chatHeaderLeft.style.removeProperty(
+                'display'
+            );
+
+            chatHeaderLeft.style.removeProperty(
+                'visibility'
+            );
+
+            chatHeaderLeft.style.removeProperty(
+                'opacity'
+            );
+
+            chatHeaderLeft.style.removeProperty(
+                'pointer-events'
+            );
+        }
+    }
 
     if (chatHeaderIcon) {
-        chatHeaderIcon.style.removeProperty('display');
-        chatHeaderIcon.innerHTML = academyBuildHeaderIconHtml('messages');
+        chatHeaderIcon.style.removeProperty(
+            'display'
+        );
+
+        chatHeaderIcon.innerHTML =
+            academyBuildHeaderIconHtml(
+                'messages'
+            );
     }
 
     if (chatHeaderTitle) {
-        chatHeaderTitle.innerText = isMobile ? 'Academy Inbox' : 'Messages';
+        chatHeaderTitle.innerText =
+            isMobile
+                ? 'Academy Inbox'
+                : 'Messages';
     }
 
     if (chatHeaderTopic) {
-        chatHeaderTopic.style.removeProperty('display');
-        chatHeaderTopic.innerText = 'Open direct messages, continue group chats, and keep each conversation in its own inbox thread.';
+        chatHeaderTopic.style.removeProperty(
+            'display'
+        );
+
+        chatHeaderTopic.innerText =
+            'Open direct messages, continue group chats, and keep each conversation in its own inbox thread.';
     }
+
+    academySyncMobileMessagesSingleActionMode();
 }
 
 function academyGetMessagesInboxDefaultEmptyMessage() {
@@ -22165,7 +22683,7 @@ window.addEventListener('resize', () => {
     const { academyChat } = academyGetMessagesInboxElements();
     const mode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
 
-    if (mode === 'thread' && academyIsMobileMessagesViewport()) {
+    if (mode === 'messages' || mode === 'thread') {
         academyRestoreMessagesInboxHeader();
     }
 });
@@ -22176,7 +22694,7 @@ window.visualViewport?.addEventListener?.('resize', () => {
     const { academyChat } = academyGetMessagesInboxElements();
     const mode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
 
-    if (mode === 'thread' && academyIsMobileMessagesViewport()) {
+    if (mode === 'messages' || mode === 'thread') {
         academyRestoreMessagesInboxHeader();
     }
 });
@@ -23831,35 +24349,951 @@ function getAcademyLivePermissionToast(error, roomType = 'video') {
     return message || `Failed to request ${kindLabel} permission.`;
 }
 
-async function ensureAcademyLiveMediaPermissions(roomType = 'video') {
-    const normalized = String(roomType || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video';
-    const constraints = normalized === 'voice'
-        ? { audio: true, video: false }
-        : { audio: true, video: true };
+let academyMicrophonePermissionRetryActionV1 = null;
+let academyMicrophonePermissionRequestInFlightV1 = false;
 
-    if (!navigator?.mediaDevices?.getUserMedia) {
-        showToast('Your browser does not support camera/microphone access.', 'error');
+async function academyReadMicrophonePermissionStateV2() {
+    try {
+        if (
+            !navigator?.permissions ||
+            typeof navigator.permissions.query !== 'function'
+        ) {
+            return 'unknown';
+        }
+
+        const status =
+            await navigator.permissions.query({
+                name: 'microphone'
+            });
+
+        const state =
+            String(status?.state || '')
+                .trim()
+                .toLowerCase();
+
+        return (
+            state === 'granted' ||
+            state === 'prompt' ||
+            state === 'denied'
+        )
+            ? state
+            : 'unknown';
+    } catch (_) {
+        return 'unknown';
+    }
+}
+
+function academyUpdateMicrophonePermissionPromptV2({
+    message = '',
+    buttonLabel = 'Ask Again',
+    settingsRequired = false
+} = {}) {
+    const prompt =
+        document.getElementById(
+            'academy-microphone-permission-prompt-v1'
+        );
+
+    if (!prompt) return;
+
+    const messageNode =
+        prompt.querySelector(
+            '[data-academy-mic-permission-message]'
+        );
+
+    const allowButton =
+        prompt.querySelector(
+            '[data-academy-mic-action="allow"]'
+        );
+
+    if (messageNode && message) {
+        messageNode.textContent =
+            String(message);
+    }
+
+    if (allowButton) {
+        allowButton.textContent =
+            String(buttonLabel || 'Ask Again');
+    }
+
+    prompt.classList.toggle(
+        'is-settings-required',
+        settingsRequired === true
+    );
+}
+
+function installAcademyMicrophonePermissionPromptStyleV1() {
+    if (
+        document.getElementById(
+            'academy-microphone-permission-style-v1'
+        )
+    ) {
+        return;
+    }
+
+    const style =
+        document.createElement(
+            'style'
+        );
+
+    style.id =
+        'academy-microphone-permission-style-v1';
+
+    style.textContent = `
+        #academy-microphone-permission-prompt-v1 {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            z-index: 10050;
+            width: min(420px, calc(100vw - 32px));
+            padding: 16px;
+            display: grid;
+            grid-template-columns: 48px minmax(0, 1fr);
+            gap: 12px;
+            border: 1px solid rgba(103, 232, 249, 0.52);
+            border-radius: 18px;
+            color: #f8fdff;
+            background:
+                radial-gradient(
+                    circle at 8% 0%,
+                    rgba(34, 211, 238, 0.34),
+                    transparent 38%
+                ),
+                radial-gradient(
+                    circle at 92% 100%,
+                    rgba(168, 85, 247, 0.32),
+                    transparent 42%
+                ),
+                linear-gradient(
+                    145deg,
+                    rgba(7, 20, 45, 0.98),
+                    rgba(25, 10, 55, 0.98)
+                );
+            box-shadow:
+                0 22px 55px rgba(0, 0, 0, 0.48),
+                0 0 34px rgba(56, 189, 248, 0.2);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            transform:
+                translate3d(0, 18px, 0)
+                scale(0.97);
+            opacity: 0;
+            pointer-events: none;
+            transition:
+                opacity 180ms ease,
+                transform 180ms ease;
+            box-sizing: border-box;
+        }
+
+        #academy-microphone-permission-prompt-v1.is-visible {
+            transform:
+                translate3d(0, 0, 0)
+                scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #academy-microphone-permission-prompt-v1
+            .academy-mic-permission-icon-v1 {
+            width: 48px;
+            height: 48px;
+            display: grid;
+            place-items: center;
+            border-radius: 15px;
+            font-size: 1.45rem;
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(34, 211, 238, 0.32),
+                    rgba(168, 85, 247, 0.38)
+                );
+            border:
+                1px solid
+                rgba(255, 255, 255, 0.14);
+            box-shadow:
+                inset 0 1px 0
+                rgba(255, 255, 255, 0.12);
+        }
+
+        #academy-microphone-permission-prompt-v1
+            .academy-mic-permission-copy-v1 {
+            min-width: 0;
+            display: grid;
+            gap: 5px;
+        }
+
+        #academy-microphone-permission-prompt-v1 strong {
+            font-family:
+                "Rajdhani",
+                sans-serif;
+            font-size: 1.06rem;
+            line-height: 1.1;
+            letter-spacing: 0.02em;
+        }
+
+        #academy-microphone-permission-prompt-v1 p {
+            margin: 0;
+            color:
+                rgba(
+                    226,
+                    242,
+                    255,
+                    0.84
+                );
+            font-size: 0.82rem;
+            line-height: 1.45;
+        }
+
+        #academy-microphone-permission-prompt-v1 small {
+            color: #facc15;
+            font-size: 0.72rem;
+            line-height: 1.35;
+        }
+
+        #academy-microphone-permission-prompt-v1
+            .academy-mic-permission-actions-v1 {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns:
+                minmax(0, 1fr)
+                auto;
+            gap: 9px;
+            margin-top: 3px;
+        }
+
+        #academy-microphone-permission-prompt-v1 button {
+            min-height: 42px;
+            padding: 9px 13px;
+            border-radius: 11px;
+            font-family:
+                "Rajdhani",
+                sans-serif;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        #academy-microphone-permission-prompt-v1
+            [data-academy-mic-action="allow"] {
+            color: #f8fdff;
+            border:
+                1px solid
+                rgba(
+                    103,
+                    232,
+                    249,
+                    0.5
+                );
+            background:
+                linear-gradient(
+                    135deg,
+                    #0284c7,
+                    #7c3aed
+                );
+            box-shadow:
+                0 10px 22px
+                rgba(
+                    14,
+                    165,
+                    233,
+                    0.24
+                );
+        }
+
+        #academy-microphone-permission-prompt-v1
+            [data-academy-mic-action="close"] {
+            color: #dbeafe;
+            border:
+                1px solid
+                rgba(
+                    148,
+                    163,
+                    184,
+                    0.28
+                );
+            background:
+                rgba(
+                    8,
+                    18,
+                    38,
+                    0.78
+                );
+        }
+
+        #academy-microphone-permission-prompt-v1
+            button:disabled {
+            opacity: 0.62;
+            cursor: wait;
+        }
+
+        @media (max-width: 768px) {
+            #academy-microphone-permission-prompt-v1 {
+                top: 72px;
+                right: 12px;
+                bottom: auto;
+                left: 12px;
+                width: auto;
+                max-width: none;
+                padding: 14px;
+                border-radius: 16px;
+            }
+        }
+    `;
+
+    document.head.appendChild(
+        style
+    );
+}
+
+function getAcademyMicrophonePermissionPromptV1() {
+    installAcademyMicrophonePermissionPromptStyleV1();
+
+    let prompt =
+        document.getElementById(
+            'academy-microphone-permission-prompt-v1'
+        );
+
+    if (prompt) return prompt;
+
+    prompt =
+        document.createElement(
+            'section'
+        );
+
+    prompt.id =
+        'academy-microphone-permission-prompt-v1';
+
+    prompt.setAttribute(
+        'role',
+        'alertdialog'
+    );
+
+    prompt.setAttribute(
+        'aria-live',
+        'assertive'
+    );
+
+    prompt.setAttribute(
+        'aria-label',
+        'Microphone permission required'
+    );
+
+    prompt.innerHTML = `
+        <div
+            class="academy-mic-permission-icon-v1"
+            aria-hidden="true"
+        >🎙️</div>
+
+        <div class="academy-mic-permission-copy-v1">
+            <strong>
+                Allow microphone access
+            </strong>
+
+            <p data-academy-mic-permission-message>
+                Voice Lounge needs your microphone before
+                it can start or join a live room.
+            </p>
+
+            <small>
+                If access was blocked permanently, use the
+                browser lock/site-settings icon and set
+                Microphone to Allow.
+            </small>
+        </div>
+
+        <div class="academy-mic-permission-actions-v1">
+            <button
+                type="button"
+                data-academy-mic-action="allow"
+            >
+                Ask Again
+            </button>
+
+            <button
+                type="button"
+                data-academy-mic-action="close"
+            >
+                Not now
+            </button>
+        </div>
+    `;
+
+    prompt
+        .querySelector(
+            '[data-academy-mic-action="close"]'
+        )
+        ?.addEventListener(
+            'click',
+            () => {
+                hideAcademyMicrophonePermissionPromptV1({
+                    clearRetryAction:
+                        true
+                });
+            }
+        );
+
+    prompt
+        .querySelector(
+            '[data-academy-mic-action="allow"]'
+        )
+        ?.addEventListener(
+            'click',
+            async (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (
+                    academyMicrophonePermissionRequestInFlightV1
+                ) {
+                    return;
+                }
+
+                const allowButton =
+                    prompt.querySelector(
+                        '[data-academy-mic-action="allow"]'
+                    );
+
+                const retryAction =
+                    academyMicrophonePermissionRetryActionV1;
+
+                academyMicrophonePermissionRequestInFlightV1 =
+                    true;
+
+                if (allowButton) {
+                    allowButton.disabled =
+                        true;
+
+                    allowButton.textContent =
+                        'Checking...';
+                }
+
+                try {
+                    const permissionState =
+                        await academyReadMicrophonePermissionStateV2();
+
+                    /*
+                     * Once the browser permission is permanently
+                     * blocked, getUserMedia cannot display another
+                     * native prompt until site permission is changed.
+                     */
+                    if (
+                        permissionState ===
+                        'denied'
+                    ) {
+                        academyUpdateMicrophonePermissionPromptV2({
+                            message:
+                                'Microphone access is blocked in this browser. Use the lock/site-permissions icon, set Microphone to Allow, then press Check Again.',
+
+                            buttonLabel:
+                                'Check Again',
+
+                            settingsRequired:
+                                true
+                        });
+
+                        showToast(
+                            'Microphone is blocked in browser site settings. Set it to Allow, then press Check Again.',
+                            'error'
+                        );
+
+                        return;
+                    }
+
+                    academyUpdateMicrophonePermissionPromptV2({
+                        message:
+                            'Requesting microphone access from your browser...',
+
+                        buttonLabel:
+                            'Requesting...',
+
+                        settingsRequired:
+                            false
+                    });
+
+                    const stream =
+                        await ensureAcademyLiveMediaPermissions(
+                            'voice',
+                            {
+                                fromPermissionPrompt:
+                                    true,
+
+                                retryAction
+                            }
+                        );
+
+                    if (!stream) {
+                        const nextState =
+                            await academyReadMicrophonePermissionStateV2();
+
+                        academyUpdateMicrophonePermissionPromptV2({
+                            message:
+                                nextState === 'denied'
+                                    ? 'Microphone access is still blocked. Change the browser site permission to Allow, then press Check Again.'
+                                    : 'Microphone access was not granted. Press Ask Again to retry.',
+
+                            buttonLabel:
+                                nextState === 'denied'
+                                    ? 'Check Again'
+                                    : 'Ask Again',
+
+                            settingsRequired:
+                                nextState === 'denied'
+                        });
+
+                        return;
+                    }
+
+                    hideAcademyMicrophonePermissionPromptV1({
+                        clearRetryAction:
+                            true
+                    });
+
+                    showToast(
+                        'Microphone access enabled.',
+                        'success'
+                    );
+
+                    if (
+                        typeof retryAction ===
+                        'function'
+                    ) {
+                        await retryAction();
+                    }
+                } catch (error) {
+                    showAcademyMicrophonePermissionPromptV1(
+                        error,
+                        {
+                            retryAction
+                        }
+                    );
+                } finally {
+                    academyMicrophonePermissionRequestInFlightV1 =
+                        false;
+
+                    if (allowButton) {
+                        allowButton.disabled =
+                            false;
+
+                        const finalState =
+                            await academyReadMicrophonePermissionStateV2();
+
+                        allowButton.textContent =
+                            finalState === 'denied'
+                                ? 'Check Again'
+                                : 'Ask Again';
+                    }
+                }
+            }
+        );
+
+    document.body.appendChild(
+        prompt
+    );
+
+    return prompt;
+}
+
+function hideAcademyMicrophonePermissionPromptV1(
+    options = {}
+) {
+    const prompt =
+        document.getElementById(
+            'academy-microphone-permission-prompt-v1'
+        );
+
+    prompt?.classList.remove(
+        'is-visible'
+    );
+
+    prompt?.setAttribute(
+        'aria-hidden',
+        'true'
+    );
+
+    if (
+        options.clearRetryAction ===
+        true
+    ) {
+        academyMicrophonePermissionRetryActionV1 =
+            null;
+    }
+}
+
+function showAcademyMicrophonePermissionPromptV1(
+    error = null,
+    options = {}
+) {
+    const prompt =
+        getAcademyMicrophonePermissionPromptV1();
+
+    const message =
+        prompt.querySelector(
+            '[data-academy-mic-permission-message]'
+        );
+
+    if (
+        typeof options.retryAction ===
+        'function'
+    ) {
+        academyMicrophonePermissionRetryActionV1 =
+            options.retryAction;
+    }
+
+    if (message) {
+        message.textContent =
+            getAcademyLivePermissionToast(
+                error,
+                'voice'
+            );
+    }
+
+    prompt.setAttribute(
+        'aria-hidden',
+        'false'
+    );
+
+    window.requestAnimationFrame(
+        () => {
+            prompt.classList.add(
+                'is-visible'
+            );
+        }
+    );
+
+    return prompt;
+}
+
+async function ensureAcademyLiveMediaPermissions(
+    roomType = 'video',
+    options = {}
+) {
+    const normalized =
+        String(roomType || '')
+            .trim()
+            .toLowerCase() === 'voice'
+            ? 'voice'
+            : 'video';
+
+    const constraints =
+        normalized === 'voice'
+            ? {
+                audio: true,
+                video: false
+            }
+            : {
+                audio: true,
+                video: true
+            };
+
+    if (
+        !navigator
+            ?.mediaDevices
+            ?.getUserMedia
+    ) {
+        const unsupportedError =
+            new Error(
+                'Your browser does not support camera/microphone access.'
+            );
+
+        if (normalized === 'voice') {
+            showAcademyMicrophonePermissionPromptV1(
+                unsupportedError,
+                options
+            );
+        } else {
+            showToast(
+                unsupportedError.message,
+                'error'
+            );
+        }
+
         return null;
+    }
+
+    const existingStream =
+        academyActiveMediaStream;
+
+    const existingTracks =
+        normalized === 'voice'
+            ? (
+                existingStream
+                    ?.getAudioTracks
+                    ?.() || []
+            )
+            : (
+                existingStream
+                    ?.getTracks
+                    ?.() || []
+            );
+
+    if (
+        existingStream &&
+        existingTracks.some(
+            (track) => (
+                track.readyState ===
+                'live'
+            )
+        )
+    ) {
+        return existingStream;
     }
 
     try {
         stopAcademyLiveMediaStream();
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        academyActiveMediaStream = stream;
+
+        const stream =
+            await navigator
+                .mediaDevices
+                .getUserMedia(
+                    constraints
+                );
+
+        academyActiveMediaStream =
+            stream;
+
+        if (normalized === 'voice') {
+            hideAcademyMicrophonePermissionPromptV1({
+                clearRetryAction:
+                    false
+            });
+        }
+
         return stream;
     } catch (error) {
-        console.warn('ensureAcademyLiveMediaPermissions error:', error);
-        showToast(getAcademyLivePermissionToast(error, normalized), 'error');
+        const isExpectedPermissionBlock =
+            /NotAllowedError|PermissionDeniedError|SecurityError/i.test(
+                String(
+                    error?.name || ''
+                )
+            );
+
+        if (normalized === 'voice') {
+            showAcademyMicrophonePermissionPromptV1(
+                error,
+                options
+            );
+
+            if (!isExpectedPermissionBlock) {
+                showToast(
+                    getAcademyLivePermissionToast(
+                        error,
+                        normalized
+                    ),
+                    'error'
+                );
+            }
+        } else {
+            showToast(
+                getAcademyLivePermissionToast(
+                    error,
+                    normalized
+                ),
+                'error'
+            );
+        }
+
         return null;
     }
 }
+function academyIsGenericVoiceHostNameV2(value = '') {
+    const clean =
+        String(value || '')
+            .trim()
+            .toLowerCase();
+
+    return (
+        !clean ||
+        clean === 'hustler' ||
+        clean === 'host' ||
+        clean === 'member' ||
+        clean === 'yh member' ||
+        clean === 'academy member'
+    );
+}
+
+function academyReadAuthTokenDisplayNameV4() {
+    try {
+        const token =
+            typeof getStoredAuthToken ===
+                'function'
+                ? getStoredAuthToken()
+                : '';
+
+        const encoded =
+            String(token || '')
+                .split('.')[1] ||
+            '';
+
+        if (!encoded) return '';
+
+        const normalized =
+            encoded
+                .replace(/-/g, '+')
+                .replace(/_/g, '/');
+
+        const payload =
+            JSON.parse(
+                atob(
+                    normalized.padEnd(
+                        normalized.length +
+                        (
+                            (
+                                4 -
+                                normalized.length % 4
+                            ) % 4
+                        ),
+                        '='
+                    )
+                )
+            );
+
+        const user =
+            payload?.user &&
+            typeof payload.user === 'object'
+                ? payload.user
+                : {};
+
+        return String(
+            payload?.fullName ||
+            payload?.displayName ||
+            payload?.name ||
+            user?.fullName ||
+            user?.displayName ||
+            user?.name ||
+            payload?.username ||
+            user?.username ||
+            ''
+        )
+            .replace(/\s+/g, ' ')
+            .trim();
+    } catch (_) {
+        return '';
+    }
+}
+
 function academyGetVoiceDisplayName() {
-    return String(
-        myName ||
-        getStoredUserValue('yh_user_name', '') ||
-        localStorage.getItem('yh_user_name') ||
-        'Hustler'
-    ).trim() || 'Hustler';
+    const candidates = [
+        academyReadAuthTokenDisplayNameV4(),
+        typeof academyResolveStoredFullTopNavName ===
+            'function'
+            ? academyResolveStoredFullTopNavName()
+            : '',
+
+        document.getElementById(
+            'academy-profile-name'
+        )?.textContent,
+
+        getStoredUserValue(
+            'yh_user_full_name',
+            ''
+        ),
+
+        getStoredUserValue(
+            'yh_user_display_name',
+            ''
+        ),
+
+        getStoredUserValue(
+            'yh_user_name',
+            ''
+        ),
+
+        typeof academyGetLocalStorageValueSafe ===
+            'function'
+            ? academyGetLocalStorageValueSafe(
+                'yh_user_full_name'
+            )
+            : '',
+
+        typeof academyGetLocalStorageValueSafe ===
+            'function'
+            ? academyGetLocalStorageValueSafe(
+                'yh_user_display_name'
+            )
+            : '',
+
+        typeof academyGetLocalStorageValueSafe ===
+            'function'
+            ? academyGetLocalStorageValueSafe(
+                'yh_user_name'
+            )
+            : '',
+
+        myName
+    ]
+        .map((value) => (
+            String(value || '')
+                .replace(/\s+/g, ' ')
+                .trim()
+        ))
+        .filter(Boolean);
+
+    return (
+        candidates.find(
+            (value) => (
+                !academyIsGenericVoiceHostNameV2(
+                    value
+                )
+            )
+        ) ||
+        candidates[0] ||
+        'YH Member'
+    );
+}
+
+function academyResolveLiveRoomHostNameV2(
+    room = {}
+) {
+    const storedHostName =
+        String(
+            room?.host_user_name ||
+            room?.hostUserName ||
+            room?.host_name ||
+            room?.hostName ||
+            ''
+        )
+            .replace(/\s+/g, ' ')
+            .trim();
+
+    const hostUserId =
+        normalizeAcademyFeedId(
+            room?.host_user_id ||
+            room?.hostUserId ||
+            room?.host_id ||
+            room?.hostId ||
+            ''
+        );
+
+    const currentUserId =
+        academyGetCurrentUserIdForRoomModeration();
+
+    const currentUserOwnsRoom =
+        Boolean(
+            hostUserId &&
+            currentUserId &&
+            hostUserId === currentUserId
+        );
+
+    /*
+     * Correct old/current room records that were saved
+     * with a generic host name, but only when the room
+     * is confirmed to belong to the logged-in user.
+     */
+    if (
+        currentUserOwnsRoom &&
+        academyIsGenericVoiceHostNameV2(
+            storedHostName
+        )
+    ) {
+        return academyGetVoiceDisplayName();
+    }
+
+    return (
+        storedHostName ||
+        (
+            currentUserOwnsRoom
+                ? academyGetVoiceDisplayName()
+                : 'YH Member'
+        )
+    );
 }
 
 function academyGetActiveVoiceRoomId() {
@@ -24472,7 +25906,10 @@ function renderAcademyStageFromRoom(room = {}, options = {}) {
 
     const roomTitle = String(room.title || defaultTitle).trim() || defaultTitle;
     const roomTopic = String(room.topic || defaultTopic).trim() || defaultTopic;
-    const hostName = String(room.host_user_name || myName || 'Host').trim() || 'Host';
+    const hostName =
+        academyResolveLiveRoomHostNameV2(
+            room
+        );
 
     const stageTitle = document.getElementById('stage-title');
     const hostNameEl = document.getElementById('host-name');
@@ -24511,11 +25948,52 @@ function renderAcademyStageFromRoom(room = {}, options = {}) {
     syncAcademyStageActionButtons(room);
 }
 
-async function openAcademyStageFromRoom(room = {}) {
-    const roomId = normalizeAcademyLiveRoomId(room?.id || room?.roomId || room?.room_id);
-    const roomType = getAcademyLiveRoomType(room);
+async function openAcademyStageFromRoom(
+    room = {},
+    options = {}
+) {
+    const roomId =
+        normalizeAcademyLiveRoomId(
+            room?.id ||
+            room?.roomId ||
+            room?.room_id
+        );
 
-    renderAcademyStageFromRoom(room);
+    const roomType =
+        getAcademyLiveRoomType(
+            room
+        );
+
+    if (
+        roomType === 'voice' &&
+        options.permissionReady !== true
+    ) {
+        const stream =
+            await ensureAcademyLiveMediaPermissions(
+                'voice',
+                {
+                    retryAction: () => {
+                        return openAcademyStageFromRoom(
+                            room,
+                            {
+                                ...options,
+
+                                permissionReady:
+                                    true
+                            }
+                        );
+                    }
+                }
+            );
+
+        if (!stream) {
+            return null;
+        }
+    }
+
+    renderAcademyStageFromRoom(
+        room
+    );
 
     if (!roomId) {
         academyActiveLiveRoom = room;
@@ -24655,7 +26133,10 @@ function renderAcademyVoiceRooms(rooms = []) {
         const roomId = String(room.id || '').trim();
         const title = String(room.title || 'Live Voice Lounge').trim();
         const topic = String(room.topic || 'Live Academy networking').trim();
-        const hostName = String(room.host_user_name || 'Host').trim();
+        const hostName =
+            academyResolveLiveRoomHostNameV2(
+                room
+            );
         const participantCount = Number(room.participant_count || 0);
         const autoEndText = getAcademyLiveRoomAutoEndText(room);
 
@@ -24697,25 +26178,230 @@ function renderAcademyVoiceRooms(rooms = []) {
     }).join('');
 }
 
-async function loadAcademyVoiceRooms(forceFresh = false) {
-    const grid = document.getElementById('lounge-grid');
-    if (!grid) return [];
+let academyVoiceRoomsLoadInFlightV1 =
+    null;
 
-    if (!forceFresh && Array.isArray(academyVoiceRoomsCache) && academyVoiceRoomsCache.length) {
-        renderAcademyVoiceRooms(academyVoiceRoomsCache);
-    } else if (forceFresh) {
-        grid.innerHTML = `<div class="academy-member-browser-empty" style="padding: 20px 0;">Loading live lounges...</div>`;
+let academyVoiceRoomsNetworkNoticeAtV1 =
+    0;
+
+function isAcademyVoiceRoomsNetworkFailureV1(
+    error = null
+) {
+    return (
+        error instanceof TypeError &&
+        /failed to fetch|networkerror|load failed|network request failed/i.test(
+            String(
+                error?.message || ''
+            )
+        )
+    );
+}
+
+async function requestAcademyVoiceRoomsV1() {
+    let lastError = null;
+
+    for (
+        let attempt = 0;
+        attempt < 2;
+        attempt += 1
+    ) {
+        try {
+            return await academyAuthedFetch(
+                '/api/realtime/live-rooms',
+                {
+                    method:
+                        'GET',
+
+                    cache:
+                        'no-store'
+                }
+            );
+        } catch (error) {
+            lastError = error;
+
+            if (
+                !isAcademyVoiceRoomsNetworkFailureV1(
+                    error
+                ) ||
+                attempt >= 1
+            ) {
+                throw error;
+            }
+
+            await new Promise(
+                (resolve) => {
+                    window.setTimeout(
+                        resolve,
+                        420
+                    );
+                }
+            );
+        }
     }
 
-const result = await academyAuthedFetch('/api/realtime/live-rooms', { method: 'GET' });
-    const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : [];
-    const rooms = roomsRaw.filter((room) => {
-        return getAcademyLiveRoomType(room) === 'voice' && academyIsLiveRoomJoinable(room);
-    });
+    throw (
+        lastError ||
+        new Error(
+            'Failed to load live voice rooms.'
+        )
+    );
+}
 
-    academyVoiceRoomsCache = rooms;
-    renderAcademyVoiceRooms(rooms);
-    return rooms;
+async function loadAcademyVoiceRooms(
+    forceFresh = false
+) {
+    const grid =
+        document.getElementById(
+            'lounge-grid'
+        );
+
+    if (!grid) return [];
+
+    const cachedRooms =
+        Array.isArray(
+            academyVoiceRoomsCache
+        )
+            ? academyVoiceRoomsCache
+            : [];
+
+    if (
+        !forceFresh &&
+        cachedRooms.length
+    ) {
+        renderAcademyVoiceRooms(
+            cachedRooms
+        );
+    } else if (
+        forceFresh &&
+        !cachedRooms.length
+    ) {
+        grid.innerHTML = `
+            <div
+                class="academy-member-browser-empty"
+                style="padding:20px 0;"
+            >
+                Loading live lounges...
+            </div>
+        `;
+    }
+
+    if (
+        academyVoiceRoomsLoadInFlightV1
+    ) {
+        return academyVoiceRoomsLoadInFlightV1;
+    }
+
+    academyVoiceRoomsLoadInFlightV1 =
+        (async () => {
+            try {
+                const result =
+                    await requestAcademyVoiceRoomsV1();
+
+                const roomsRaw =
+                    Array.isArray(
+                        result?.rooms
+                    )
+                        ? result.rooms
+                        : [];
+
+                const rooms =
+                    roomsRaw.filter(
+                        (room) => {
+                            return (
+                                getAcademyLiveRoomType(
+                                    room
+                                ) === 'voice' &&
+                                academyIsLiveRoomJoinable(
+                                    room
+                                )
+                            );
+                        }
+                    );
+
+                academyVoiceRoomsCache =
+                    rooms;
+
+                renderAcademyVoiceRooms(
+                    rooms
+                );
+
+                return rooms;
+            } catch (error) {
+                if (
+                    !isAcademyVoiceRoomsNetworkFailureV1(
+                        error
+                    )
+                ) {
+                    throw error;
+                }
+
+                const fallbackRooms =
+                    Array.isArray(
+                        academyVoiceRoomsCache
+                    )
+                        ? academyVoiceRoomsCache
+                        : [];
+
+                if (fallbackRooms.length) {
+                    renderAcademyVoiceRooms(
+                        fallbackRooms
+                    );
+                } else {
+                    grid.innerHTML = `
+                        <div
+                            class="academy-member-browser-empty"
+                            style="
+                                padding:20px 14px;
+                                display:grid;
+                                gap:7px;
+                                text-align:center;
+                            "
+                        >
+                            <strong
+                                style="color:#e0f2fe;"
+                            >
+                                Voice Lounge could not refresh.
+                            </strong>
+
+                            <span
+                                style="
+                                    color:var(--text-muted);
+                                    font-size:0.82rem;
+                                    line-height:1.45;
+                                "
+                            >
+                                Check the connection, then reopen
+                                this tab to retry.
+                            </span>
+                        </div>
+                    `;
+                }
+
+                const now =
+                    Date.now();
+
+                if (
+                    now -
+                        academyVoiceRoomsNetworkNoticeAtV1 >
+                    10000
+                ) {
+                    academyVoiceRoomsNetworkNoticeAtV1 =
+                        now;
+
+                    showToast(
+                        'Voice Lounge could not reach the live-room service. Please retry shortly.',
+                        'error'
+                    );
+                }
+
+                return fallbackRooms;
+            } finally {
+                academyVoiceRoomsLoadInFlightV1 =
+                    null;
+            }
+        })();
+
+    return academyVoiceRoomsLoadInFlightV1;
 }
 
 function renderAcademyVideoRooms(rooms = []) {
@@ -24910,34 +26596,110 @@ function bindAcademyVoiceRoomJoinButtons() {
 
 bindAcademyVoiceRoomJoinButtons();
 // (Removed duplicate VIDEO LOUNGE SYSTEM block – using the event-delegation implementation above.)
-async function createAcademyVoiceRoom(title = '', topic = '') {
-    const cleanTitle = String(title || '').trim();
+async function createAcademyVoiceRoom(
+    title = '',
+    topic = '',
+    options = {}
+) {
+    const cleanTitle =
+        String(title || '')
+            .trim();
+
     if (!cleanTitle) {
-        throw new Error('Room title is required.');
+        throw new Error(
+            'Room title is required.'
+        );
     }
 
-    const cleanTopic = String(topic || '').trim();
+    const cleanTopic =
+        String(topic || '')
+            .trim();
 
-    const result = await academyAuthedFetch('/api/realtime/live-rooms', {
-        method: 'POST',
-        body: JSON.stringify({
-            roomType: 'voice',
-            title: cleanTitle,
-            topic: cleanTopic
-        })
-    });
+    if (
+        options.permissionReady !==
+        true
+    ) {
+        const stream =
+            await ensureAcademyLiveMediaPermissions(
+                'voice',
+                {
+                    retryAction:
+                        typeof options.retryAction ===
+                        'function'
+                            ? options.retryAction
+                            : null
+                }
+            );
 
-    const room = result?.room && typeof result.room === 'object'
-        ? result.room
-        : {
-            title: cleanTitle,
-            topic: cleanTopic,
-            host_user_name: myName
-        };
+        if (!stream) {
+            return null;
+        }
+    }
 
-    showToast('Live voice lounge started.', 'success');
-    await loadAcademyVoiceRooms(true);
-    await openAcademyStageFromRoom(room);
+    const result =
+        await academyAuthedFetch(
+            '/api/realtime/live-rooms',
+            {
+                method:
+                    'POST',
+
+                body:
+                    JSON.stringify({
+                        roomType:
+                            'voice',
+
+                        title:
+                            cleanTitle,
+
+                        topic:
+                            cleanTopic
+                    })
+            }
+        );
+
+    const room =
+        result?.room &&
+        typeof result.room === 'object'
+            ? {
+                ...result.room,
+
+                host_user_name:
+                    academyResolveLiveRoomHostNameV2(
+                        result.room
+                    )
+            }
+            : {
+                title:
+                    cleanTitle,
+
+                topic:
+                    cleanTopic,
+
+                host_user_id:
+                    academyGetCurrentUserIdForRoomModeration(),
+
+                host_user_name:
+                    academyGetVoiceDisplayName()
+            };
+
+    showToast(
+        'Live voice lounge started.',
+        'success'
+    );
+
+    await loadAcademyVoiceRooms(
+        true
+    );
+
+    await openAcademyStageFromRoom(
+        room,
+        {
+            permissionReady:
+                true
+        }
+    );
+
+    return room;
 }
 
 function openAcademyLoungeCreateModal(roomType = 'voice') {
@@ -24971,11 +26733,25 @@ function openAcademyLoungeCreateModal(roomType = 'voice') {
 }
 
 function closeAcademyLoungeCreateModal() {
-    const modal = document.getElementById('lounge-modal');
+    const modal =
+        document.getElementById(
+            'lounge-modal'
+        );
+
     if (modal) {
-        modal.classList.add('hidden-step');
-        modal.removeAttribute('data-room-type');
+        modal.classList.add(
+            'hidden-step'
+        );
+
+        modal.removeAttribute(
+            'data-room-type'
+        );
     }
+
+    hideAcademyMicrophonePermissionPromptV1({
+        clearRetryAction:
+            true
+    });
 }
 
 function syncAcademyLoungeCreateModalState() {
@@ -24989,42 +26765,129 @@ function syncAcademyLoungeCreateModalState() {
     submitBtn.classList.toggle('btn-disabled', !hasTitle);
 }
 
-async function submitAcademyLoungeCreateModal() {
-    const modal = document.getElementById('lounge-modal');
-    const submitBtn = document.getElementById('btn-create-lounge');
-    const titleInput = document.getElementById('lounge-title-input');
-    const topicInput = document.getElementById('lounge-topic-input');
+async function submitAcademyLoungeCreateModal(
+    options = {}
+) {
+    const modal =
+        document.getElementById(
+            'lounge-modal'
+        );
 
-    const roomType = String(modal?.getAttribute('data-room-type') || 'voice').trim().toLowerCase() === 'video'
-        ? 'video'
-        : 'voice';
+    const submitBtn =
+        document.getElementById(
+            'btn-create-lounge'
+        );
 
-    const title = String(titleInput?.value || '').trim();
-    const topic = String(topicInput?.value || '').trim();
+    const titleInput =
+        document.getElementById(
+            'lounge-title-input'
+        );
+
+    const topicInput =
+        document.getElementById(
+            'lounge-topic-input'
+        );
+
+    const roomType =
+        String(
+            modal?.getAttribute(
+                'data-room-type'
+            ) || 'voice'
+        )
+            .trim()
+            .toLowerCase() ===
+        'video'
+            ? 'video'
+            : 'voice';
+
+    const title =
+        String(
+            titleInput?.value || ''
+        ).trim();
+
+    const topic =
+        String(
+            topicInput?.value || ''
+        ).trim();
 
     if (!title) {
-        showToast('Room title is required.', 'error');
+        showToast(
+            'Room title is required.',
+            'error'
+        );
+
         syncAcademyLoungeCreateModalState();
-        return;
+
+        return false;
     }
 
     if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.classList.add('btn-disabled');
-        submitBtn.textContent = 'Starting...';
+        submitBtn.disabled =
+            true;
+
+        submitBtn.classList.add(
+            'btn-disabled'
+        );
+
+        submitBtn.textContent =
+            'Starting...';
     }
 
     try {
+        let createdRoom = null;
+
         if (roomType === 'video') {
-            await createAcademyVideoRoom(title, topic);
+            createdRoom =
+                await createAcademyVideoRoom(
+                    title,
+                    topic
+                );
         } else {
-            await createAcademyVoiceRoom(title, topic);
+            createdRoom =
+                await createAcademyVoiceRoom(
+                    title,
+                    topic,
+                    {
+                        permissionReady:
+                            options.permissionReady ===
+                            true,
+
+                        retryAction: () => {
+                            return submitAcademyLoungeCreateModal({
+                                permissionReady:
+                                    true
+                            });
+                        }
+                    }
+                );
         }
+
+        if (
+            roomType === 'voice' &&
+            !createdRoom
+        ) {
+            return false;
+        }
+
         closeAcademyLoungeCreateModal();
+
+        return true;
     } catch (error) {
-        showToast(error.message || 'Failed to start live lounge.', 'error');
+        showToast(
+            error.message ||
+            'Failed to start live lounge.',
+            'error'
+        );
+
+        return false;
     } finally {
-        if (submitBtn) submitBtn.textContent = roomType === 'video' ? 'Start Video Call' : 'Start Lounge';
+        if (submitBtn) {
+            submitBtn.textContent =
+                roomType === 'video'
+                    ? 'Start Video Call'
+                    : 'Start Lounge';
+        }
+
         syncAcademyLoungeCreateModalState();
     }
 }
@@ -26548,24 +28411,243 @@ async function academyOpenNiche(nicheKey = '') {
     await loadAcademyFeed(true);
 }
 
+const academyNicheJoinInFlightV1 = new Set();
+
 async function academyJoinNiche(nicheKey = '', makeDefault = false) {
     const cleanKey = academyNormalizeNicheKey(nicheKey);
-    if (!cleanKey) return;
+    if (!cleanKey) return false;
 
-    const result = await academyAuthedFetch(`/api/academy/community/niches/${encodeURIComponent(cleanKey)}/join`, {
-        method: 'POST',
-        body: JSON.stringify({ makeDefault })
-    });
+    if (academyNicheJoinInFlightV1.has(cleanKey)) {
+        return false;
+    }
 
-    academyFeedLayerState.joinedNiches = Array.isArray(result?.joinedNiches) ? result.joinedNiches : academyFeedLayerState.joinedNiches;
-    academyFeedLayerState.defaultNicheKey = academyNormalizeNicheKey(result?.defaultNicheKey || academyFeedLayerState.defaultNicheKey);
-    academyFeedLayerState.activeNicheKey = cleanKey;
-    academyFeedLayerState.layer = 'niches';
-    academyFeedLayerState.nicheMenuOpen = false;
+    const currentState =
+        academyReadFeedLayerState();
+
+    const previousState = {
+        ...currentState,
+
+        joinedNiches:
+            Array.isArray(
+                currentState.joinedNiches
+            )
+                ? currentState.joinedNiches.map(
+                    (item) => ({
+                        ...item
+                    })
+                )
+                : [],
+
+        niches:
+            Array.isArray(
+                currentState.niches
+            )
+                ? currentState.niches.map(
+                    (item) => ({
+                        ...item
+                    })
+                )
+                : []
+    };
+
+    const nicheMeta =
+        academyGetNicheMeta(
+            cleanKey
+        ) ||
+        {
+            key:
+                cleanKey,
+
+            label:
+                cleanKey.replace(
+                    /_/g,
+                    ' '
+                ),
+
+            description:
+                'Join this niche to personalize your Academy feed.'
+        };
+
+    const alreadyJoined =
+        previousState.joinedNiches.some(
+            (item) => {
+                return (
+                    academyNormalizeNicheKey(
+                        item?.key
+                    ) === cleanKey
+                );
+            }
+        );
+
+    academyNicheJoinInFlightV1.add(
+        cleanKey
+    );
+
+    /*
+     * Optimistic join: update the local shell and toast
+     * immediately, then reconcile with the server result.
+     * A failed request restores the exact previous state.
+     */
+    academyFeedLayerState = {
+        ...academyFeedLayerState,
+
+        joinedNiches:
+            alreadyJoined
+                ? previousState.joinedNiches
+                : [
+                    ...previousState.joinedNiches,
+                    nicheMeta
+                ],
+
+        defaultNicheKey:
+            academyNormalizeNicheKey(
+                makeDefault ||
+                !previousState.defaultNicheKey
+                    ? cleanKey
+                    : previousState.defaultNicheKey
+            ),
+
+        activeNicheKey:
+            cleanKey,
+
+        layer:
+            'niches',
+
+        nicheMenuOpen:
+            false,
+
+        niches:
+            academyMergeCommunityNicheCatalog(
+                previousState.niches,
+                [
+                    nicheMeta
+                ]
+            )
+    };
+
     academyWriteFeedLayerState();
     academySyncFeedLayerShell();
-    showToast('Niche joined.', 'success');
-    await loadAcademyFeed(true);
+
+    showToast(
+        'Niche joined.',
+        'success'
+    );
+
+    try {
+        const result =
+            await academyAuthedFetch(
+                `/api/academy/community/niches/${encodeURIComponent(cleanKey)}/join`,
+                {
+                    method:
+                        'POST',
+
+                    body:
+                        JSON.stringify({
+                            makeDefault
+                        })
+                }
+            );
+
+        const confirmedJoinedNiches =
+            Array.isArray(
+                result?.joinedNiches
+            )
+                ? result.joinedNiches
+                : academyFeedLayerState
+                    .joinedNiches;
+
+        academyFeedLayerState = {
+            ...academyFeedLayerState,
+
+            joinedNiches:
+                confirmedJoinedNiches,
+
+            defaultNicheKey:
+                academyNormalizeNicheKey(
+                    result?.defaultNicheKey ||
+                    academyFeedLayerState
+                        .defaultNicheKey ||
+                    cleanKey
+                ),
+
+            activeNicheKey:
+                cleanKey,
+
+            layer:
+                'niches',
+
+            nicheMenuOpen:
+                false,
+
+            niches:
+                academyMergeCommunityNicheCatalog(
+                    academyFeedLayerState
+                        .niches,
+
+                    confirmedJoinedNiches
+                )
+        };
+
+        academyWriteFeedLayerState();
+        academySyncFeedLayerShell();
+
+        /*
+         * Refresh the selected niche feed without
+         * keeping the original click handler locked.
+         */
+        window.setTimeout(
+            () => {
+                Promise.resolve(
+                    loadAcademyFeed(
+                        true
+                    )
+                ).catch(
+                    (error) => {
+                        console.error(
+                            'Joined niche feed refresh failed:',
+                            error
+                        );
+                    }
+                );
+            },
+            0
+        );
+
+        return true;
+    } catch (error) {
+        /*
+         * Server remains authoritative. Roll back the
+         * optimistic state if persistence fails.
+         */
+        academyFeedLayerState = {
+            ...previousState,
+
+            joinedNiches:
+                previousState
+                    .joinedNiches,
+
+            niches:
+                academyMergeCommunityNicheCatalog(
+                    previousState.niches,
+                    previousState.joinedNiches
+                )
+        };
+
+        academyWriteFeedLayerState();
+        academySyncFeedLayerShell();
+
+        showToast(
+            error.message ||
+            'Failed to join niche. Your previous niche state was restored.',
+            'error'
+        );
+
+        return false;
+    } finally {
+        academyNicheJoinInFlightV1.delete(
+            cleanKey
+        );
+    }
 }
 
 async function academySetDefaultNiche(nicheKey = '') {
@@ -28785,9 +30867,28 @@ document.getElementById('academy-niche-dashboard')?.addEventListener('click', as
     }
 
     if (joinBtn) {
-        const key = joinBtn.getAttribute('data-join-niche') || '';
-        const hasDefault = Boolean(academyReadFeedLayerState().defaultNicheKey);
-        await academyJoinNiche(key, !hasDefault);
+        const key =
+            joinBtn.getAttribute(
+                'data-join-niche'
+            ) || '';
+
+        const hasDefault =
+            Boolean(
+                academyReadFeedLayerState()
+                    .defaultNicheKey
+            );
+
+        await runDashboardButtonAction(
+            joinBtn,
+            'Joining...',
+            async () => {
+                await academyJoinNiche(
+                    key,
+                    !hasDefault
+                );
+            }
+        );
+
         return;
     }
 

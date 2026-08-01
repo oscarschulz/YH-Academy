@@ -354,7 +354,9 @@ exports.createLiveRoom = async (req, res) => {
             userId: viewer.id,
             roomType,
             title,
-            topic
+            topic,
+            fallbackIdentity:
+                viewer
         });
 
         return res.status(201).json({ success: true, room });
