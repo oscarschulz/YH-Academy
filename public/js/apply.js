@@ -1738,15 +1738,21 @@ function initLandingDivisionCarousel() {
         '(max-width: 820px)'
     );
 
+    const reducedMotionQuery =
+        window.matchMedia(
+            '(prefers-reduced-motion: reduce)'
+        );
+
     let activeIndex = 0;
     let scrollFrame = 0;
     let resizeFrame = 0;
+    let animationFrame = 0;
 
     let dragPointerId = null;
     let dragStartX = 0;
     let dragStartY = 0;
     let dragStartScrollLeft = 0;
-    let dragAxis = '';
+    let dragAxis = 'pending';
     let dragMoved = false;
 
     const normalizeIndex = (value) => {
@@ -1794,6 +1800,29 @@ function initLandingDivisionCarousel() {
         );
     };
 
+    /*
+     * Return the card position relative to the scrollable
+     * track—not relative to the document or outer section.
+     */
+    const getCardScrollLeft = (card) => {
+        if (!card) {
+            return 0;
+        }
+
+        const trackRect =
+            track.getBoundingClientRect();
+
+        const cardRect =
+            card.getBoundingClientRect();
+
+        return Math.max(
+            0,
+            track.scrollLeft +
+                cardRect.left -
+                trackRect.left
+        );
+    };
+
     const getNearestCardIndex = () => {
         const currentLeft =
             track.scrollLeft;
@@ -1803,9 +1832,11 @@ function initLandingDivisionCarousel() {
             Number.POSITIVE_INFINITY;
 
         cards.forEach((card, index) => {
+            const cardLeft =
+                getCardScrollLeft(card);
+
             const distance = Math.abs(
-                card.offsetLeft -
-                currentLeft
+                cardLeft - currentLeft
             );
 
             if (
@@ -1822,47 +1853,148 @@ function initLandingDivisionCarousel() {
         return nearestIndex;
     };
 
-    const scrollToCard = (
+    const cancelProgrammaticAnimation = () => {
+        if (animationFrame) {
+            window.cancelAnimationFrame(
+                animationFrame
+            );
+
+            animationFrame = 0;
+        }
+
+        track.classList.remove(
+            'is-programmatic'
+        );
+    };
+
+    const moveToCard = (
         nextIndex,
-        behavior = 'smooth'
+        immediate = false
     ) => {
         const normalizedIndex =
             normalizeIndex(nextIndex);
+
+        const targetCard =
+            cards[normalizedIndex];
+
+        if (
+            !targetCard ||
+            !mobileQuery.matches
+        ) {
+            updateIndicators(
+                normalizedIndex
+            );
+
+            return;
+        }
+
+        cancelProgrammaticAnimation();
+
+        const targetLeft =
+            getCardScrollLeft(targetCard);
+
+        const startLeft =
+            track.scrollLeft;
+
+        const distance =
+            targetLeft - startLeft;
 
         updateIndicators(
             normalizedIndex
         );
 
-        if (!mobileQuery.matches) {
-            return;
-        }
-
-        const targetCard =
-            cards[normalizedIndex];
-
-        if (!targetCard) {
-            return;
-        }
-
-        const targetLeft =
-            targetCard.offsetLeft;
-
         if (
-            typeof track.scrollTo ===
-            'function'
+            immediate ||
+            reducedMotionQuery.matches ||
+            Math.abs(distance) < 1
         ) {
-            track.scrollTo({
-                left: targetLeft,
-                top: 0,
-                behavior
-            });
-        } else {
             track.scrollLeft =
                 targetLeft;
+
+            return;
         }
+
+        const duration = Math.min(
+            420,
+            Math.max(
+                260,
+                Math.abs(distance) * 0.55
+            )
+        );
+
+        const startTime =
+            window.performance.now();
+
+        track.classList.add(
+            'is-programmatic'
+        );
+
+        const animate = (currentTime) => {
+            const elapsed =
+                currentTime - startTime;
+
+            const progress = Math.min(
+                1,
+                elapsed / duration
+            );
+
+            /*
+             * Smooth quartic ease-out.
+             * One animation owner only.
+             */
+            const eased =
+                1 -
+                Math.pow(
+                    1 - progress,
+                    4
+                );
+
+            track.scrollLeft =
+                startLeft +
+                distance * eased;
+
+            if (progress < 1) {
+                animationFrame =
+                    window.requestAnimationFrame(
+                        animate
+                    );
+
+                return;
+            }
+
+            animationFrame = 0;
+
+            track.scrollLeft =
+                targetLeft;
+
+            track.classList.remove(
+                'is-programmatic'
+            );
+
+            updateIndicators(
+                normalizedIndex
+            );
+        };
+
+        animationFrame =
+            window.requestAnimationFrame(
+                animate
+            );
     };
 
     const syncIndicatorFromScroll = () => {
+        /*
+         * Do not let the scroll event change pills while
+         * the controlled pill animation is still running.
+         */
+        if (
+            track.classList.contains(
+                'is-programmatic'
+            )
+        ) {
+            return;
+        }
+
         window.cancelAnimationFrame(
             scrollFrame
         );
@@ -1882,15 +2014,20 @@ function initLandingDivisionCarousel() {
             indicator.addEventListener(
                 'click',
                 () => {
-                    scrollToCard(
+                    moveToCard(
                         index,
-                        'smooth'
+                        false
                     );
                 }
             );
         }
     );
 
+    /*
+     * Touch and pen movement are browser-native.
+     * This preserves iPhone momentum scrolling and
+     * removes the unreliable custom touch interception.
+     */
     track.addEventListener(
         'scroll',
         syncIndicatorFromScroll,
@@ -1899,48 +2036,73 @@ function initLandingDivisionCarousel() {
         }
     );
 
-    const beginPointerDrag = (event) => {
-        if (!mobileQuery.matches) {
-            return;
-        }
+    /*
+     * Unified Pointer Events drag controller.
+     * It supports a real mouse, Chrome device emulation,
+     * pen input, and touch without blocking vertical page scroll.
+     */
+    const resetPointerDrag = () => {
+        dragPointerId = null;
+        dragAxis = 'pending';
+        dragMoved = false;
 
+        track.classList.remove(
+            'is-dragging'
+        );
+    };
+
+    const beginPointerDrag = (event) => {
         if (
-            event.pointerType === 'mouse' &&
-            event.button !== 0
+            !mobileQuery.matches ||
+            !event.isPrimary ||
+            (
+                event.pointerType === 'mouse' &&
+                event.button !== 0
+            )
         ) {
             return;
         }
 
-        dragPointerId = event.pointerId;
-        dragStartX = event.clientX;
-        dragStartY = event.clientY;
-        dragStartScrollLeft = track.scrollLeft;
-        dragAxis = '';
+        dragPointerId =
+            event.pointerId;
+
+        dragStartX =
+            event.clientX;
+
+        dragStartY =
+            event.clientY;
+
+        dragStartScrollLeft =
+            track.scrollLeft;
+
+        dragAxis = 'pending';
         dragMoved = false;
     };
 
     const movePointerDrag = (event) => {
         if (
             dragPointerId === null ||
-            event.pointerId !== dragPointerId ||
-            !mobileQuery.matches
+            event.pointerId !==
+                dragPointerId
         ) {
             return;
         }
 
         const deltaX =
-            event.clientX - dragStartX;
+            event.clientX -
+            dragStartX;
 
         const deltaY =
-            event.clientY - dragStartY;
+            event.clientY -
+            dragStartY;
 
-        const absoluteX =
-            Math.abs(deltaX);
+        if (dragAxis === 'pending') {
+            const absoluteX =
+                Math.abs(deltaX);
 
-        const absoluteY =
-            Math.abs(deltaY);
+            const absoluteY =
+                Math.abs(deltaY);
 
-        if (!dragAxis) {
             if (
                 Math.max(
                     absoluteX,
@@ -1950,35 +2112,39 @@ function initLandingDivisionCarousel() {
                 return;
             }
 
-            dragAxis =
-                absoluteX > absoluteY
-                    ? 'x'
-                    : 'y';
-
-            if (
-                dragAxis === 'x' &&
-                typeof track.setPointerCapture ===
-                    'function'
-            ) {
-                try {
-                    track.setPointerCapture(
-                        event.pointerId
-                    );
-                } catch (_) {}
+            /*
+             * Vertical movement belongs to the page.
+             * Release the carousel without blocking scrolling.
+             */
+            if (absoluteY > absoluteX) {
+                resetPointerDrag();
+                return;
             }
+
+            dragAxis = 'horizontal';
+
+            cancelProgrammaticAnimation();
+
+            track.classList.add(
+                'is-dragging'
+            );
+
+            try {
+                track.setPointerCapture(
+                    event.pointerId
+                );
+            } catch (_) {}
         }
 
-        if (dragAxis !== 'x') {
+        if (dragAxis !== 'horizontal') {
             return;
         }
 
+        if (Math.abs(deltaX) > 2) {
+            dragMoved = true;
+        }
+
         event.preventDefault();
-
-        dragMoved = true;
-
-        track.classList.add(
-            'is-dragging'
-        );
 
         track.scrollLeft =
             dragStartScrollLeft -
@@ -1993,9 +2159,9 @@ function initLandingDivisionCarousel() {
         }
 
         if (
-            event &&
-            Number.isFinite(event.pointerId) &&
-            event.pointerId !== dragPointerId
+            event?.pointerId != null &&
+            event.pointerId !==
+                dragPointerId
         ) {
             return;
         }
@@ -2004,45 +2170,27 @@ function initLandingDivisionCarousel() {
             dragPointerId;
 
         const shouldSnap =
-            mobileQuery.matches &&
-            dragAxis === 'x' &&
+            dragAxis === 'horizontal' &&
             dragMoved;
 
-        dragPointerId = null;
-        dragAxis = '';
-        dragMoved = false;
+        resetPointerDrag();
 
-        track.classList.remove(
-            'is-dragging'
-        );
-
-        if (
-            typeof track.hasPointerCapture ===
-                'function' &&
-            typeof track.releasePointerCapture ===
-                'function'
-        ) {
-            try {
-                if (
-                    track.hasPointerCapture(
-                        pointerToRelease
-                    )
-                ) {
-                    track.releasePointerCapture(
-                        pointerToRelease
-                    );
-                }
-            } catch (_) {}
-        }
+        try {
+            if (
+                track.hasPointerCapture(
+                    pointerToRelease
+                )
+            ) {
+                track.releasePointerCapture(
+                    pointerToRelease
+                );
+            }
+        } catch (_) {}
 
         if (shouldSnap) {
-            window.requestAnimationFrame(
-                () => {
-                    scrollToCard(
-                        getNearestCardIndex(),
-                        'smooth'
-                    );
-                }
+            moveToCard(
+                getNearestCardIndex(),
+                false
             );
         }
     };
@@ -2075,22 +2223,6 @@ function initLandingDivisionCarousel() {
         finishPointerDrag
     );
 
-    window.addEventListener(
-        'pointerup',
-        finishPointerDrag,
-        {
-            passive: true
-        }
-    );
-
-    window.addEventListener(
-        'pointercancel',
-        finishPointerDrag,
-        {
-            passive: true
-        }
-    );
-
     const syncCarouselLayout = () => {
         window.cancelAnimationFrame(
             resizeFrame
@@ -2099,6 +2231,8 @@ function initLandingDivisionCarousel() {
         resizeFrame =
             window.requestAnimationFrame(
                 () => {
+                    cancelProgrammaticAnimation();
+
                     if (
                         !mobileQuery.matches
                     ) {
@@ -2107,9 +2241,9 @@ function initLandingDivisionCarousel() {
                         return;
                     }
 
-                    scrollToCard(
+                    moveToCard(
                         activeIndex,
-                        'auto'
+                        true
                     );
                 }
             );
