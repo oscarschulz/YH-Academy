@@ -739,9 +739,9 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-indicato
         #step-1.yh-landing-step
         #yh-divisions-section
         .yh-landing-division-carousel {
-        --yh-division-gap: clamp(10px, 2.8vw, 14px);
-        --yh-division-peek: clamp(24px, 8vw, 42px);
-        --yh-division-card-height: clamp(234px, 58vw, 286px);
+        --yh-division-gap: clamp(8px, 2.4vw, 12px);
+        --yh-division-peek: 0px;
+        --yh-division-card-height: clamp(250px, 64vw, 320px);
 
         width: 100%;
         min-width: 0;
@@ -809,56 +809,46 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-indicato
         #yh-divisions-section
         [data-yh-landing-division-track].yh-landing-division-grid
         .yh-landing-division-card {
-        flex:
-            0 0
-            calc(
-                100% -
-                var(--yh-division-peek)
-            );
+        flex: 0 0 100%;
 
-        width:
-            calc(
-                100% -
-                var(--yh-division-peek)
-            );
-
-        min-width:
-            calc(
-                100% -
-                var(--yh-division-peek)
-            );
-
-        max-width:
-            calc(
-                100% -
-                var(--yh-division-peek)
-            );
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
 
         min-height: var(--yh-division-card-height);
 
         display: grid;
 
         grid-template-columns:
-            clamp(58px, 18vw, 88px)
+            clamp(54px, 16vw, 72px)
             minmax(0, 1fr);
 
         grid-template-rows:
             auto
             auto;
 
-        column-gap: clamp(12px, 4vw, 22px);
+        column-gap: clamp(10px, 3vw, 16px);
 
         align-content: center;
         align-items: center;
 
         padding:
-            clamp(18px, 5vw, 28px)
-            clamp(15px, 4vw, 24px);
+            clamp(16px, 4.5vw, 22px)
+            clamp(14px, 4vw, 20px);
 
         border-radius: 18px;
 
         scroll-snap-align: start;
         scroll-snap-stop: normal;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        [data-yh-landing-division-track].yh-landing-division-grid
+        .yh-landing-division-card::before {
+        content: none;
+        display: none;
     }
 
     body[data-yh-page="apply"]
@@ -886,8 +876,8 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-indicato
         left: auto;
         top: auto;
 
-        width: clamp(58px, 18vw, 88px);
-        height: clamp(58px, 18vw, 88px);
+        width: clamp(54px, 16vw, 72px);
+        height: clamp(54px, 16vw, 72px);
 
         max-width: 100%;
         object-fit: contain;
@@ -908,18 +898,23 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-indicato
         grid-column: 2;
         grid-row: 1;
 
+        width: 100%;
         min-width: 0;
         margin: 0 0 8px;
 
         font-size: clamp(
-            0.98rem,
-            4.4vw,
+            1.02rem,
+            4.6vw,
             1.24rem
         );
 
         line-height: 1.08;
+        letter-spacing: clamp(0.06em, 0.9vw, 0.1em);
         text-align: left;
-        overflow-wrap: break-word;
+
+        white-space: nowrap;
+        word-break: keep-all;
+        overflow-wrap: normal;
     }
 
     body[data-yh-page="apply"]
@@ -970,13 +965,14 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-indicato
         margin: 0;
 
         font-size: clamp(
-            0.84rem,
-            3.55vw,
+            0.88rem,
+            3.6vw,
             1rem
         );
 
-        line-height: 1.42;
+        line-height: 1.46;
         text-align: left;
+        word-break: normal;
         overflow-wrap: break-word;
     }
 
