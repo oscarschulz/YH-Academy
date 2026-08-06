@@ -6432,6 +6432,50 @@ app.use('/uploads/academy-profile', express.static(ACADEMY_PROFILE_UPLOAD_DIR, {
     }
 }));
 
+/*
+ * Old profile records can outlive their local upload file.
+ * Existing files are still served by express.static above;
+ * only a missing image reaches this safe visual fallback.
+ */
+app.get(
+    [
+        '/uploads/academy/profile/:fileName',
+        '/uploads/academy-profile/:fileName'
+    ],
+    (req, res, next) => {
+        const fileName = sanitizeText(
+            req.params?.fileName || ''
+        );
+
+        if (
+            !/\.(jpg|jpeg|png|webp|gif|avif)$/i.test(
+                fileName
+            )
+        ) {
+            return next();
+        }
+
+        res.setHeader(
+            'Cache-Control',
+            'no-store'
+        );
+
+        res.setHeader(
+            'X-YH-Profile-Asset-Fallback',
+            'true'
+        );
+
+        return res.sendFile(
+            path.join(
+                __dirname,
+                'public',
+                'images',
+                'logo.avif'
+            )
+        );
+    }
+);
+
 app.use('/uploads', express.static(ACADEMY_UPLOADS_ROOT, {
     etag: true,
     lastModified: true,
@@ -6794,6 +6838,12 @@ const apiLimiter = rateLimit({
             if (path === '/academy/community/members') return true;
             if (path === '/academy/community/niches') return true;
             if (path === '/academy/feed' || path.startsWith('/academy/feed/')) return true;
+
+            // Realtime inbox/bootstrap reads are normal authenticated UI hydration.
+            // They can run during iframe boot and tab restoration, so they must not
+            // consume the generic public API limiter bucket.
+            if (path === '/realtime/bootstrap') return true;
+            if (path === '/realtime/rooms') return true;
 
             // Wallet, payment, payout, subscription, and Academy Learn From reads are normal dashboard state reads.
             // They can fire during dashboard boot, Wallet open, Settings open, Academy boot, and iframe sync.

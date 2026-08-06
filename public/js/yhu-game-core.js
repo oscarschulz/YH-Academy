@@ -1324,6 +1324,18 @@
             loaded: true,
             joined,
 
+            accessLocked:
+                payload?.accessLocked ===
+                    true,
+
+            accessStatus:
+                String(
+                    payload?.accessStatus ||
+                    ''
+                )
+                    .trim()
+                    .toLowerCase(),
+
             id:
                 String(
                     squad.id ||
@@ -1546,6 +1558,8 @@
             {
                 loaded: false,
                 joined: false,
+                accessLocked: false,
+                accessStatus: '',
                 id: '',
                 name: '',
                 description: '',

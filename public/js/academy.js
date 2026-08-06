@@ -1,64 +1,354 @@
 
 
-/* PATCH: YHU Solo toast placement runtime v104 */
-(function installYHSoloToastPlacementV104() {
-    if (window.__yhSoloToastPlacementV104Installed) return;
-    window.__yhSoloToastPlacementV104Installed = true;
-
-    function applyToastPlacement(node) {
-        if (!node || !(node instanceof HTMLElement)) return;
-
-        node.setAttribute('data-yh-toast-placement', 'below-right');
-        node.classList.add('yh-solo-toast-below-right-v104');
-
-        node.style.setProperty('position', 'fixed', 'important');
-        node.style.setProperty('top', 'auto', 'important');
-        node.style.setProperty('left', 'auto', 'important');
-        node.style.setProperty('right', 'clamp(18px, 2vw, 30px)', 'important');
-        node.style.setProperty('bottom', 'clamp(18px, 2vw, 30px)', 'important');
-        node.style.setProperty('margin', '0', 'important');
-        node.style.setProperty('border-radius', '0', 'important');
-        node.style.setProperty('transform', node.classList.contains('show') ? 'translate3d(0, 0, 0) scale(1)' : 'translate3d(12px, 10px, 0) scale(0.96)', 'important');
+/* PATCH: YHU mobile-safe toast placement runtime v105 */
+(function installYHMobileSafeToastPlacementV105() {
+    if (
+        window
+            .__yhMobileSafeToastPlacementV105Installed
+    ) {
+        return;
     }
 
-    function syncToastPlacement() {
-        applyToastPlacement(document.getElementById('toast-notification'));
-        document.querySelectorAll('.toast-notification, [data-yh-toast], [data-toast]').forEach(applyToastPlacement);
+    window
+        .__yhMobileSafeToastPlacementV105Installed =
+        true;
 
-        const academyStateBadge = document.getElementById('academy-entry-state-badge');
-        if (academyStateBadge) {
-            academyStateBadge.setAttribute('data-yh-academy-state-toast', 'below-right');
-            academyStateBadge.classList.add('yh-solo-toast-below-right-v104');
+    function isYHToastMobileViewportV105() {
+        try {
+            return window
+                .matchMedia(
+                    '(max-width: 768px)'
+                )
+                .matches;
+        } catch (_) {
+            return window.innerWidth <= 768;
         }
     }
 
-    window.yhSyncSoloToastPlacementV104 = syncToastPlacement;
+    function isYHToastNavVisibleV105(
+        node,
+        hiddenClass = ''
+    ) {
+        if (!node) {
+            return false;
+        }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', syncToastPlacement);
-    } else {
-        syncToastPlacement();
+        if (
+            hiddenClass &&
+            node.classList.contains(
+                hiddenClass
+            )
+        ) {
+            return false;
+        }
+
+        try {
+            const ownerWindow =
+                node.ownerDocument
+                    ?.defaultView ||
+                window;
+
+            const styles =
+                ownerWindow
+                    .getComputedStyle(
+                        node
+                    );
+
+            return (
+                styles.display !==
+                    'none' &&
+                styles.visibility !==
+                    'hidden' &&
+                Number.parseFloat(
+                    styles.opacity || '1'
+                ) > 0.05
+            );
+        } catch (_) {
+            return true;
+        }
     }
 
-    [40, 120, 300, 700, 1400, 2400].forEach((delay) => window.setTimeout(syncToastPlacement, delay));
+    function getYHToastBottomOffsetV105() {
+        if (
+            !isYHToastMobileViewportV105()
+        ) {
+            return 'clamp(18px, 2vw, 30px)';
+        }
+
+        let dashboardBottomNav =
+            null;
+
+        try {
+            if (
+                window.parent &&
+                window.parent !== window
+            ) {
+                dashboardBottomNav =
+                    window.parent.document
+                        .querySelector(
+                            '.yh-mobile-bottom-nav'
+                        );
+            }
+        } catch (_) {
+            dashboardBottomNav =
+                null;
+        }
+
+        const academyBottomNav =
+            document.getElementById(
+                'academy-mobile-bottom-nav'
+            );
+
+        const dashboardNavVisible =
+            isYHToastNavVisibleV105(
+                dashboardBottomNav,
+                'is-scroll-hidden'
+            );
+
+        const academyNavVisible =
+            isYHToastNavVisibleV105(
+                academyBottomNav,
+                'academy-mobile-bottom-nav-hidden'
+            );
+
+        /*
+         * Dashboard navbar:
+         * 66px height + 10px bottom +
+         * raised Command orb + clear gap.
+         */
+        if (
+            dashboardNavVisible ||
+            academyNavVisible
+        ) {
+            return (
+                'calc(' +
+                '108px + ' +
+                'env(' +
+                'safe-area-inset-bottom, ' +
+                '0px' +
+                ')' +
+                ')'
+            );
+        }
+
+        return (
+            'calc(' +
+            '18px + ' +
+            'env(' +
+            'safe-area-inset-bottom, ' +
+            '0px' +
+            ')' +
+            ')'
+        );
+    }
+
+    function applyToastPlacementV105(
+        node
+    ) {
+        if (
+            !node ||
+            !(
+                node instanceof
+                HTMLElement
+            )
+        ) {
+            return;
+        }
+
+        node.setAttribute(
+            'data-yh-toast-placement',
+            'mobile-safe-bottom'
+        );
+
+        node.classList.add(
+            'yh-mobile-safe-toast-v105'
+        );
+
+        node.style.setProperty(
+            'position',
+            'fixed',
+            'important'
+        );
+
+        node.style.setProperty(
+            'top',
+            'auto',
+            'important'
+        );
+
+        node.style.setProperty(
+            'left',
+            'auto',
+            'important'
+        );
+
+        node.style.setProperty(
+            'right',
+            'clamp(18px, 2vw, 30px)',
+            'important'
+        );
+
+        node.style.setProperty(
+            'bottom',
+            getYHToastBottomOffsetV105(),
+            'important'
+        );
+
+        node.style.setProperty(
+            'margin',
+            '0',
+            'important'
+        );
+
+        node.style.setProperty(
+            'border-radius',
+            '0',
+            'important'
+        );
+
+        node.style.setProperty(
+            'z-index',
+            '12000',
+            'important'
+        );
+
+        node.style.setProperty(
+            'transform',
+            node.classList.contains(
+                'show'
+            )
+                ? (
+                    'translate3d(' +
+                    '0, 0, 0' +
+                    ') scale(1)'
+                )
+                : (
+                    'translate3d(' +
+                    '12px, 10px, 0' +
+                    ') scale(0.96)'
+                ),
+            'important'
+        );
+    }
+
+    function syncToastPlacementV105() {
+        applyToastPlacementV105(
+            document.getElementById(
+                'toast-notification'
+            )
+        );
+
+        document
+            .querySelectorAll(
+                [
+                    '.toast-notification',
+                    '[data-yh-toast]',
+                    '[data-toast]'
+                ].join(',')
+            )
+            .forEach(
+                applyToastPlacementV105
+            );
+
+        const academyStateBadge =
+            document.getElementById(
+                'academy-entry-state-badge'
+            );
+
+        if (academyStateBadge) {
+            academyStateBadge
+                .setAttribute(
+                    'data-yh-academy-state-toast',
+                    'mobile-safe-bottom'
+                );
+
+            academyStateBadge
+                .classList.add(
+                    'yh-mobile-safe-toast-v105'
+                );
+        }
+    }
+
+    window.yhSyncMobileSafeToastPlacementV105 =
+        syncToastPlacementV105;
+
+    if (
+        document.readyState ===
+        'loading'
+    ) {
+        document.addEventListener(
+            'DOMContentLoaded',
+            syncToastPlacementV105
+        );
+    } else {
+        syncToastPlacementV105();
+    }
+
+    [
+        40,
+        120,
+        300,
+        700,
+        1400,
+        2400
+    ].forEach((delay) => {
+        window.setTimeout(
+            syncToastPlacementV105,
+            delay
+        );
+    });
+
+    window.addEventListener(
+        'resize',
+        syncToastPlacementV105,
+        {
+            passive: true
+        }
+    );
+
+    window.addEventListener(
+        'orientationchange',
+        syncToastPlacementV105,
+        {
+            passive: true
+        }
+    );
 
     try {
-        const observer = new MutationObserver(() => {
-            window.clearTimeout(window.__yhSoloToastPlacementV104Timer);
-            window.__yhSoloToastPlacementV104Timer = window.setTimeout(syncToastPlacement, 20);
-        });
+        const observer =
+            new MutationObserver(() => {
+                window.clearTimeout(
+                    window
+                        .__yhMobileSafeToastPlacementV105Timer
+                );
 
-        observer.observe(document.documentElement, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['class', 'style']
-        });
+                window
+                    .__yhMobileSafeToastPlacementV105Timer =
+                    window.setTimeout(
+                        syncToastPlacementV105,
+                        20
+                    );
+            });
 
-        window.__yhSoloToastPlacementV104Observer = observer;
+        observer.observe(
+            document.documentElement,
+            {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: [
+                    'class',
+                    'style'
+                ]
+            }
+        );
+
+        window
+            .__yhMobileSafeToastPlacementV105Observer =
+            observer;
     } catch (_) {}
 })();
-/* END PATCH: YHU Solo toast placement runtime v104 */
+/* END PATCH: YHU mobile-safe toast placement runtime v105 */
 // public/js/dashboard.js
 
 // ==========================================
@@ -4481,112 +4771,304 @@ return true;
     }
 
     // --- LEAVE / END CALL LOGIC ---
-const btnLeaveStage = document.getElementById('btn-leave-stage');
-    const btnEndLiveStage = document.getElementById('btn-end-live-stage');
+    const btnLeaveStage =
+        document.getElementById(
+            'btn-leave-stage'
+        );
+
+    const btnEndLiveStage =
+        document.getElementById(
+            'btn-end-live-stage'
+        );
 
     if (btnLeaveStage) {
-        btnLeaveStage.addEventListener('click', async () => {
-            const activeRoom = academyActiveLiveRoom || {};
-            const roomId = normalizeAcademyLiveRoomId(activeRoom?.id || activeRoom?.roomId || activeRoom?.room_id);
-            const roomType = getAcademyLiveRoomType(activeRoom);
-            const navId = getAcademyLiveLobbyNavId(roomType);
-            const isHost = isAcademyLiveRoomHost(activeRoom);
+        btnLeaveStage.addEventListener(
+            'click',
+            async () => {
+                const activeRoom =
+                    academyActiveLiveRoom ||
+                    {};
 
-            if (!roomId) {
-                academyStopVoiceRtcSession({ notifyServer: true });
-                document.getElementById(navId)?.click();
-                showToast(isHost ? 'Returned to the live lounge.' : 'You left the stage.', 'success');
-                return;
-            }
+                const roomId =
+                    normalizeAcademyLiveRoomId(
+                        activeRoom?.id ||
+                        activeRoom?.roomId ||
+                        activeRoom?.room_id
+                    );
 
-            if (isHost) {
-                academyStopVoiceRtcSession({ notifyServer: true });
-                document.getElementById(navId)?.click();
-                showToast('Returned to the live lounge. Your live room is still active.', 'success');
-                return;
-            }
+                const roomType =
+                    getAcademyLiveRoomType(
+                        activeRoom
+                    );
 
-            const confirmed = await openYHConfirmModal({
-                title: `Leave Live ${roomType.toUpperCase()}`,
-                message: `Leave this live ${roomType} session?`,
-                okText: 'Leave',
-                cancelText: 'Stay',
-                tone: 'danger'
-            });
+                const isHost =
+                    isAcademyLiveRoomHost(
+                        activeRoom
+                    );
 
-            if (!confirmed) return;
+                if (!roomId) {
+                    academyStopVoiceRtcSession({
+                        notifyServer: true
+                    });
 
-            try {
-                await academyAuthedFetch(`/api/realtime/live-rooms/${encodeURIComponent(roomId)}/leave`, {
-                    method: 'POST'
-                });
+                    academyActiveLiveRoom =
+                        null;
 
-                academyStopVoiceRtcSession({ notifyServer: true });
-                academyActiveLiveRoom = null;
+                    academyRenderLiveLobbyImmediatelyV1(
+                        roomType
+                    );
 
-                if (roomType === 'video') {
-                    await loadAcademyVideoRooms(true);
-                } else {
-                    await loadAcademyVoiceRooms(true);
+                    showToast(
+                        isHost
+                            ? 'Returned to the live lounge.'
+                            : 'You left the stage.',
+                        'success'
+                    );
+
+                    return;
                 }
 
-                document.getElementById(navId)?.click();
-                showToast('You left the stage.', 'success');
-            } catch (error) {
-                console.error('leave live room error:', error);
-                showToast(error?.message || 'Failed to leave the live room.', 'error');
+                /*
+                 * Host Back to Lounge is local navigation.
+                 * Do not wait for a room-list fetch.
+                 */
+                if (isHost) {
+                    academyStopVoiceRtcSession({
+                        notifyServer: true
+                    });
+
+                    academyRenderLiveLobbyImmediatelyV1(
+                        roomType
+                    );
+
+                    academyRefreshLiveLobbyInBackgroundV1(
+                        roomType
+                    );
+
+                    showToast(
+                        'Returned to the live lounge. Your live room is still active.',
+                        'success'
+                    );
+
+                    return;
+                }
+
+                const confirmed =
+                    await openYHConfirmModal({
+                        title:
+                            `Leave Live ${roomType.toUpperCase()}`,
+
+                        message:
+                            `Leave this live ${roomType} session?`,
+
+                        okText:
+                            'Leave',
+
+                        cancelText:
+                            'Stay',
+
+                        tone:
+                            'danger'
+                    });
+
+                if (!confirmed) {
+                    return;
+                }
+
+                /*
+                 * Move to the lounge immediately after
+                 * confirmation. Keep RTC alive until the
+                 * server confirms, allowing safe rollback.
+                 */
+                academyRenderLiveLobbyImmediatelyV1(
+                    roomType
+                );
+
+                try {
+                    await academyAuthedFetch(
+                        `/api/realtime/live-rooms/${encodeURIComponent(roomId)}/leave`,
+                        {
+                            method: 'POST'
+                        }
+                    );
+
+                    academyStopVoiceRtcSession({
+                        notifyServer: true
+                    });
+
+                    academyActiveLiveRoom =
+                        null;
+
+                    academyRefreshLiveLobbyInBackgroundV1(
+                        roomType
+                    );
+
+                    showToast(
+                        'You left the stage.',
+                        'success'
+                    );
+                } catch (error) {
+                    /*
+                     * Request failed: restore the live stage.
+                     */
+                    academyActiveLiveRoom =
+                        activeRoom;
+
+                    renderAcademyStageFromRoom(
+                        activeRoom,
+                        {
+                            animate: false
+                        }
+                    );
+
+                    console.error(
+                        'leave live room error:',
+                        error
+                    );
+
+                    showToast(
+                        error?.message ||
+                        'Failed to leave the live room.',
+                        'error'
+                    );
+                }
             }
-        });
+        );
     }
 
     if (btnEndLiveStage) {
-        btnEndLiveStage.addEventListener('click', async () => {
-            const activeRoom = academyActiveLiveRoom || {};
-            const roomId = normalizeAcademyLiveRoomId(activeRoom?.id || activeRoom?.roomId || activeRoom?.room_id);
-            const roomType = getAcademyLiveRoomType(activeRoom);
-            const navId = getAcademyLiveLobbyNavId(roomType);
+        btnEndLiveStage.addEventListener(
+            'click',
+            async () => {
+                const activeRoom =
+                    academyActiveLiveRoom ||
+                    {};
 
-            if (!roomId) {
-                showToast('No active live room to end.', 'error');
-                return;
-            }
+                const roomId =
+                    normalizeAcademyLiveRoomId(
+                        activeRoom?.id ||
+                        activeRoom?.roomId ||
+                        activeRoom?.room_id
+                    );
 
-            if (!isAcademyLiveRoomHost(activeRoom)) {
-                showToast('Only the live creator can end this session.', 'error');
-                return;
-            }
+                const roomType =
+                    getAcademyLiveRoomType(
+                        activeRoom
+                    );
 
-            const confirmed = await openYHConfirmModal({
-                title: `End Live ${roomType.toUpperCase()}`,
-                message: `End this live ${roomType} session for everyone?`,
-                okText: 'End Live',
-                cancelText: 'Cancel',
-                tone: 'danger'
-            });
+                if (!roomId) {
+                    showToast(
+                        'No active live room to end.',
+                        'error'
+                    );
 
-            if (!confirmed) return;
-
-            try {
-                await academyAuthedFetch(`/api/realtime/live-rooms/${encodeURIComponent(roomId)}/end`, {
-                    method: 'POST'
-                });
-
-                academyStopVoiceRtcSession({ notifyServer: true });
-                academyActiveLiveRoom = null;
-
-                if (roomType === 'video') {
-                    await loadAcademyVideoRooms(true);
-                } else {
-                    await loadAcademyVoiceRooms(true);
+                    return;
                 }
 
-                document.getElementById(navId)?.click();
-                showToast(`Live ${roomType} session ended.`, 'success');
-            } catch (error) {
-                console.error('end live room error:', error);
-                showToast(error?.message || 'Failed to end the live room.', 'error');
+                if (
+                    !isAcademyLiveRoomHost(
+                        activeRoom
+                    )
+                ) {
+                    showToast(
+                        'Only the live creator can end this session.',
+                        'error'
+                    );
+
+                    return;
+                }
+
+                const confirmed =
+                    await openYHConfirmModal({
+                        title:
+                            `End Live ${roomType.toUpperCase()}`,
+
+                        message:
+                            `End this live ${roomType} session for everyone?`,
+
+                        okText:
+                            'End Live',
+
+                        cancelText:
+                            'Cancel',
+
+                        tone:
+                            'danger'
+                    });
+
+                if (!confirmed) {
+                    return;
+                }
+
+                /*
+                 * Optimistically remove the room and show
+                 * the lounge immediately after confirmation.
+                 */
+                academyRemoveLiveRoomFromCacheV1(
+                    roomId,
+                    roomType
+                );
+
+                academyRenderLiveLobbyImmediatelyV1(
+                    roomType
+                );
+
+                try {
+                    await academyAuthedFetch(
+                        `/api/realtime/live-rooms/${encodeURIComponent(roomId)}/end`,
+                        {
+                            method: 'POST'
+                        }
+                    );
+
+                    academyStopVoiceRtcSession({
+                        notifyServer: true
+                    });
+
+                    academyActiveLiveRoom =
+                        null;
+
+                    academyRefreshLiveLobbyInBackgroundV1(
+                        roomType
+                    );
+
+                    showToast(
+                        `Live ${roomType} session ended.`,
+                        'success'
+                    );
+                } catch (error) {
+                    /*
+                     * Server rejected the end action:
+                     * restore both the card and active stage.
+                     */
+                    academyRestoreLiveRoomToCacheV1(
+                        activeRoom,
+                        roomType
+                    );
+
+                    academyActiveLiveRoom =
+                        activeRoom;
+
+                    renderAcademyStageFromRoom(
+                        activeRoom,
+                        {
+                            animate: false
+                        }
+                    );
+
+                    console.error(
+                        'end live room error:',
+                        error
+                    );
+
+                    showToast(
+                        error?.message ||
+                        'Failed to end the live room.',
+                        'error'
+                    );
+                }
             }
-        });
+        );
     }
 
     // --- COMPOSER EXTRAS: GIFT, GIF, EMOJI ---
@@ -20859,6 +21341,27 @@ function academyIsMobileMessagesViewport() {
     return mediaMatches || smallestWidth <= 768;
 }
 
+function academyNotifyParentMessageThreadStateV1(open = false, mode = '') {
+    if (!window.parent || window.parent === window) {
+        return false;
+    }
+
+    try {
+        window.parent.postMessage(
+            {
+                type: 'yh:academy-message-thread-state',
+                open: open === true,
+                mode: String(mode || '').trim().toLowerCase()
+            },
+            window.location.origin
+        );
+
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
 function academySyncMobileMessagesSingleActionMode() {
     const { academyChat } = academyGetMessagesInboxElements();
     const mode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
@@ -20868,12 +21371,24 @@ function academySyncMobileMessagesSingleActionMode() {
         mode === 'thread' &&
         academyIsMobileMessagesViewport();
 
-    document.body?.classList.toggle('academy-mobile-message-thread-single-action', shouldUseSingleAction);
+    document.body?.classList.toggle(
+        'academy-mobile-message-thread-single-action',
+        shouldUseSingleAction
+    );
 
     const bottomNav = document.getElementById('academy-mobile-bottom-nav');
+
     if (bottomNav) {
-        bottomNav.setAttribute('aria-hidden', shouldUseSingleAction ? 'true' : 'false');
+        bottomNav.setAttribute(
+            'aria-hidden',
+            shouldUseSingleAction ? 'true' : 'false'
+        );
     }
+
+    academyNotifyParentMessageThreadStateV1(
+        shouldUseSingleAction,
+        mode
+    );
 }
 
 function academySetMessagesChatMode(mode = 'home') {
@@ -21575,6 +22090,74 @@ function academyRenderMessagesSidebarBadge() {
     badge.textContent = totalUnread > 99 ? '99+' : String(totalUnread);
 }
 
+function academyIsTransientRealtimeRoomsErrorV1(error = null) {
+    const status = Number(
+        error?.status ||
+        error?.statusCode ||
+        0
+    );
+
+    if ([408, 425, 429, 502, 503, 504].includes(status)) {
+        return true;
+    }
+
+    const message = String(
+        error?.message ||
+        error ||
+        ''
+    )
+        .trim()
+        .toLowerCase();
+
+    return (
+        error?.name === 'AbortError' ||
+        message.includes('failed to fetch') ||
+        message.includes('networkerror') ||
+        message.includes('network error') ||
+        message.includes('load failed') ||
+        message.includes('request aborted')
+    );
+}
+
+async function academyFetchRealtimeRoomsFailSoftV1(cachedRooms = []) {
+    const fallback = {
+        success: false,
+        degraded: true,
+        rooms: Array.isArray(cachedRooms)
+            ? cachedRooms
+            : []
+    };
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+            return await academyAuthedFetch(
+                '/api/realtime/rooms',
+                {
+                    method: 'GET',
+                    cache: 'no-store'
+                }
+            );
+        } catch (error) {
+            if (!academyIsTransientRealtimeRoomsErrorV1(error)) {
+                throw error;
+            }
+
+            if (
+                document.hidden ||
+                attempt === 1
+            ) {
+                return fallback;
+            }
+
+            await new Promise((resolve) => {
+                window.setTimeout(resolve, 180);
+            });
+        }
+    }
+
+    return fallback;
+}
+
 async function academyHydrateMessageRooms(forceFresh = false) {
     const now = Date.now();
     const cachedRooms = academyReadMessageRooms();
@@ -21591,7 +22174,10 @@ async function academyHydrateMessageRooms(forceFresh = false) {
         return cachedRooms;
     }
 
-    if (academyMessagesInboxState.loading && academyMessagesInboxState.hydratePromise) {
+    if (
+        academyMessagesInboxState.loading &&
+        academyMessagesInboxState.hydratePromise
+    ) {
         return academyMessagesInboxState.hydratePromise;
     }
 
@@ -21601,33 +22187,59 @@ async function academyHydrateMessageRooms(forceFresh = false) {
         try {
             if (forceFresh) {
                 const { list } = academyGetMessagesInboxElements();
+
                 if (list && !cachedRooms.length) {
                     academyRenderMessagesSidebarLoadingShellV15();
                 }
             }
 
             const result = await academyResolveAfterTimeout(
-                academyAuthedFetch('/api/realtime/rooms', { method: 'GET' }),
+                academyFetchRealtimeRoomsFailSoftV1(cachedRooms),
                 ACADEMY_ASYNC_STEP_TIMEOUT_MS,
-                { success: false, rooms: cachedRooms, timedOut: true }
+                {
+                    success: false,
+                    degraded: true,
+                    rooms: cachedRooms,
+                    timedOut: true
+                }
             );
 
-            const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : cachedRooms;
+            const roomsRaw = Array.isArray(result?.rooms)
+                ? result.rooms
+                : cachedRooms;
+
             const normalizedRooms = roomsRaw
                 .map((room) => academyNormalizeRealtimeRoomEntry(room))
-                .filter((room) => !!normalizeRoomKey(room?.roomId || room?.id));
+                .filter((room) => {
+                    return !!normalizeRoomKey(
+                        room?.roomId ||
+                        room?.id
+                    );
+                });
 
             syncCustomRoomsUI(normalizedRooms);
+
             academyMessagesInboxState.hydratedOnce = true;
             academyMessagesInboxState.lastHydratedAt = Date.now();
-            academyRenderMessagesSidebarBadge();
 
+            academyRenderMessagesSidebarBadge();
             renderAcademyMessagesInboxList();
+
             return normalizedRooms;
         } catch (error) {
-            console.error('academyHydrateMessageRooms error:', error);
+            /*
+             * Non-transient errors remain visible for debugging.
+             * Expected network interruptions are already handled
+             * inside academyFetchRealtimeRoomsFailSoftV1.
+             */
+            console.error(
+                'academyHydrateMessageRooms error:',
+                error
+            );
+
             renderAcademyMessagesInboxList();
             academyRenderMessagesSidebarBadge();
+
             return cachedRooms;
         }
     })();
@@ -25948,6 +26560,249 @@ function renderAcademyStageFromRoom(room = {}, options = {}) {
     syncAcademyStageActionButtons(room);
 }
 
+/*
+ * Live-stage optimistic navigation authority.
+ * UI navigation must not wait for room-list refreshes.
+ */
+function academyNormalizeLiveRoomTypeV1(
+    roomType = 'voice'
+) {
+    return String(
+        roomType || ''
+    )
+        .trim()
+        .toLowerCase() === 'video'
+            ? 'video'
+            : 'voice';
+}
+
+function academyRenderLiveLobbyImmediatelyV1(
+    roomType = 'voice'
+) {
+    const normalizedType =
+        academyNormalizeLiveRoomTypeV1(
+            roomType
+        );
+
+    const navId =
+        getAcademyLiveLobbyNavId(
+            normalizedType
+        );
+
+    const lobbyId =
+        normalizedType === 'video'
+            ? 'video-lobby-view'
+            : 'voice-lobby-view';
+
+    hideAcademyViewsForFeed();
+
+    setAcademySidebarActive(
+        navId
+    );
+
+    const lobby =
+        document.getElementById(
+            lobbyId
+        );
+
+    if (lobby) {
+        lobby.classList.remove(
+            'hidden-step',
+            'fade-in'
+        );
+
+        lobby.setAttribute(
+            'aria-hidden',
+            'false'
+        );
+    }
+
+    /*
+     * Render the last known rooms synchronously.
+     * The network refresh happens separately.
+     */
+    if (normalizedType === 'video') {
+        renderAcademyVideoRooms(
+            Array.isArray(
+                academyVideoRoomsCache
+            )
+                ? academyVideoRoomsCache
+                : []
+        );
+    } else {
+        renderAcademyVoiceRooms(
+            Array.isArray(
+                academyVoiceRoomsCache
+            )
+                ? academyVoiceRoomsCache
+                : []
+        );
+    }
+
+    try {
+        hideAcademyTabLoader({
+            force: true
+        });
+    } catch (_) {}
+
+    academyPushFeedFallbackHistory(
+        normalizedType
+    );
+
+    saveAcademyViewState(
+        normalizedType
+    );
+
+    return lobby;
+}
+
+function academyRefreshLiveLobbyInBackgroundV1(
+    roomType = 'voice'
+) {
+    const normalizedType =
+        academyNormalizeLiveRoomTypeV1(
+            roomType
+        );
+
+    const refreshPromise =
+        normalizedType === 'video'
+            ? loadAcademyVideoRooms(true)
+            : loadAcademyVoiceRooms(true);
+
+    Promise.resolve(
+        refreshPromise
+    ).catch((error) => {
+        console.error(
+            'Background live lounge refresh failed:',
+            error
+        );
+    });
+}
+
+function academyRemoveLiveRoomFromCacheV1(
+    roomId = '',
+    roomType = 'voice'
+) {
+    const normalizedRoomId =
+        normalizeAcademyLiveRoomId(
+            roomId
+        );
+
+    const normalizedType =
+        academyNormalizeLiveRoomTypeV1(
+            roomType
+        );
+
+    if (!normalizedRoomId) {
+        return;
+    }
+
+    if (normalizedType === 'video') {
+        academyVideoRoomsCache =
+            (
+                Array.isArray(
+                    academyVideoRoomsCache
+                )
+                    ? academyVideoRoomsCache
+                    : []
+            ).filter((room) => {
+                return (
+                    normalizeAcademyLiveRoomId(
+                        room?.id ||
+                        room?.roomId ||
+                        room?.room_id
+                    ) !==
+                    normalizedRoomId
+                );
+            });
+
+        return;
+    }
+
+    academyVoiceRoomsCache =
+        (
+            Array.isArray(
+                academyVoiceRoomsCache
+            )
+                ? academyVoiceRoomsCache
+                : []
+        ).filter((room) => {
+            return (
+                normalizeAcademyLiveRoomId(
+                    room?.id ||
+                    room?.roomId ||
+                    room?.room_id
+                ) !==
+                normalizedRoomId
+            );
+        });
+}
+
+function academyRestoreLiveRoomToCacheV1(
+    room = {},
+    roomType = 'voice'
+) {
+    const roomId =
+        normalizeAcademyLiveRoomId(
+            room?.id ||
+            room?.roomId ||
+            room?.room_id
+        );
+
+    const normalizedType =
+        academyNormalizeLiveRoomTypeV1(
+            roomType
+        );
+
+    if (!roomId) {
+        return;
+    }
+
+    if (normalizedType === 'video') {
+        academyVideoRoomsCache = [
+            room,
+
+            ...(
+                Array.isArray(
+                    academyVideoRoomsCache
+                )
+                    ? academyVideoRoomsCache
+                    : []
+            ).filter((item) => {
+                return (
+                    normalizeAcademyLiveRoomId(
+                        item?.id ||
+                        item?.roomId ||
+                        item?.room_id
+                    ) !== roomId
+                );
+            })
+        ];
+
+        return;
+    }
+
+    academyVoiceRoomsCache = [
+        room,
+
+        ...(
+            Array.isArray(
+                academyVoiceRoomsCache
+            )
+                ? academyVoiceRoomsCache
+                : []
+        ).filter((item) => {
+            return (
+                normalizeAcademyLiveRoomId(
+                    item?.id ||
+                    item?.roomId ||
+                    item?.room_id
+                ) !== roomId
+            );
+        })
+    ];
+}
+
 async function openAcademyStageFromRoom(
     room = {},
     options = {}
@@ -25964,81 +26819,190 @@ async function openAcademyStageFromRoom(
             room
         );
 
-    if (
-        roomType === 'voice' &&
-        options.permissionReady !== true
-    ) {
-        const stream =
-            await ensureAcademyLiveMediaPermissions(
-                'voice',
-                {
-                    retryAction: () => {
-                        return openAcademyStageFromRoom(
-                            room,
-                            {
-                                ...options,
+    const previousActiveRoom =
+        academyActiveLiveRoom;
 
-                                permissionReady:
-                                    true
-                            }
-                        );
+    /*
+     * Immediate page response:
+     * show the selected stage before permissions,
+     * API acknowledgement, RTC, or room refresh.
+     */
+    renderAcademyStageFromRoom(
+        room,
+        {
+            animate:
+                options.animate !== false
+        }
+    );
+
+    try {
+        if (
+            roomType === 'voice' &&
+            options.permissionReady !== true
+        ) {
+            const stream =
+                await ensureAcademyLiveMediaPermissions(
+                    'voice',
+                    {
+                        retryAction: () => {
+                            return openAcademyStageFromRoom(
+                                room,
+                                {
+                                    ...options,
+
+                                    permissionReady:
+                                        true,
+
+                                    animate:
+                                        false
+                                }
+                            );
+                        }
                     }
+                );
+
+            if (!stream) {
+                academyActiveLiveRoom =
+                    previousActiveRoom ||
+                    null;
+
+                academyRenderLiveLobbyImmediatelyV1(
+                    roomType
+                );
+
+                return null;
+            }
+        }
+
+        if (!roomId) {
+            academyActiveLiveRoom =
+                room;
+
+            return room;
+        }
+
+        const result =
+            await academyAuthedFetch(
+                `/api/realtime/live-rooms/${encodeURIComponent(roomId)}/join`,
+                {
+                    method: 'POST'
                 }
             );
 
-        if (!stream) {
-            return null;
-        }
-    }
+        const joinedRoom =
+            result?.room &&
+            typeof result.room ===
+                'object'
+                ? result.room
+                : room;
 
-    renderAcademyStageFromRoom(
-        room
-    );
+        const joinedType =
+            getAcademyLiveRoomType(
+                joinedRoom
+            );
 
-    if (!roomId) {
-        academyActiveLiveRoom = room;
-        return room;
-    }
+        academyActiveLiveRoom =
+            joinedRoom;
 
-    try {
-        const result = await academyAuthedFetch(`/api/realtime/live-rooms/${encodeURIComponent(roomId)}/join`, {
-            method: 'POST'
-        });
+        renderAcademyStageFromRoom(
+            joinedRoom,
+            {
+                animate: false
+            }
+        );
 
-        const joinedRoom = result?.room && typeof result.room === 'object'
-            ? result.room
-            : room;
-
-        const joinedType = getAcademyLiveRoomType(joinedRoom);
-
-        academyActiveLiveRoom = joinedRoom;
-        renderAcademyStageFromRoom(joinedRoom, { animate: false });
-
-        socket.emit('joinRoom', currentRoomId);
+        socket.emit(
+            'joinRoom',
+            currentRoomId
+        );
 
         if (joinedType === 'voice') {
-            await academyStartVoiceRtcForRoom(joinedRoom);
-            await loadAcademyVoiceRooms(true);
+            await academyStartVoiceRtcForRoom(
+                joinedRoom
+            );
+
+            academyRefreshLiveLobbyInBackgroundV1(
+                'voice'
+            );
         } else {
-            await ensureAcademyLiveMediaPermissions('video');
-            await loadAcademyVideoRooms(true);
+            await ensureAcademyLiveMediaPermissions(
+                'video'
+            );
+
+            academyRefreshLiveLobbyInBackgroundV1(
+                'video'
+            );
         }
 
         return joinedRoom;
     } catch (error) {
-        const errorMessage = String(error?.message || 'Failed to join live room.').trim();
-        const isLocalDev =
-            ['localhost', '127.0.0.1', '0.0.0.0'].includes(String(window.location.hostname || '').trim());
+        const errorMessage =
+            String(
+                error?.message ||
+                'Failed to join live room.'
+            ).trim();
 
-        if (isLocalDev && /liveRoomsCol is not defined/i.test(errorMessage)) {
-            console.warn('Academy local live room join fallback:', error);
-            academyActiveLiveRoom = room;
-            renderAcademyStageFromRoom(room, { animate: false });
+        const isLocalDev =
+            [
+                'localhost',
+                '127.0.0.1',
+                '0.0.0.0'
+            ].includes(
+                String(
+                    window.location.hostname ||
+                    ''
+                ).trim()
+            );
+
+        if (
+            isLocalDev &&
+            /liveRoomsCol is not defined/i.test(
+                errorMessage
+            )
+        ) {
+            console.warn(
+                'Academy local live room join fallback:',
+                error
+            );
+
+            academyActiveLiveRoom =
+                room;
+
+            renderAcademyStageFromRoom(
+                room,
+                {
+                    animate: false
+                }
+            );
+
             return room;
         }
 
-        console.error('openAcademyStageFromRoom join error:', error);
-        showToast(errorMessage, 'error');
+        academyStopVoiceRtcSession({
+            notifyServer: false
+        });
+
+        academyActiveLiveRoom =
+            previousActiveRoom ||
+            null;
+
+        /*
+         * Roll back immediately when joining fails.
+         */
+        academyRenderLiveLobbyImmediatelyV1(
+            roomType
+        );
+
+        console.error(
+            'openAcademyStageFromRoom join error:',
+            error
+        );
+
+        showToast(
+            errorMessage,
+            'error'
+        );
+
         throw error;
     }
 }
@@ -28399,19 +29363,92 @@ async function academySwitchFeedLayer(layer = 'circle', options = {}) {
     await loadAcademyFeed(true);
 }
 
-async function academyOpenNiche(nicheKey = '') {
-    const cleanKey = academyNormalizeNicheKey(nicheKey);
-    if (!cleanKey) return;
+function academyStartFastNicheFeedLoadV2() {
+    const list =
+        document.getElementById(
+            'academy-feed-list'
+        );
 
-    academyFeedLayerState.layer = 'niches';
-    academyFeedLayerState.activeNicheKey = cleanKey;
-    academyFeedLayerState.nicheMenuOpen = false;
+    let hasCachedFeed = false;
+
+    try {
+        const cacheKey =
+            academyBuildFeedCacheKey();
+
+        hasCachedFeed =
+            Boolean(
+                localStorage.getItem(
+                    cacheKey
+                )
+            );
+    } catch (_) {}
+
+    /*
+     * Kapag may niche-specific cache, loadAcademyFeed(false)
+     * renders it immediately. Kapag wala, malinaw agad ang
+     * loading state habang tumatakbo ang request.
+     */
+    if (
+        list &&
+        !hasCachedFeed
+    ) {
+        list.innerHTML = `
+            <div style="text-align:center;color:var(--text-muted);padding:2rem;">
+                Loading niche feed.
+            </div>
+        `;
+    }
+
+    window.setTimeout(
+        () => {
+            Promise.resolve(
+                loadAcademyFeed(false)
+            ).catch(
+                (error) => {
+                    console.error(
+                        'Fast niche feed load failed:',
+                        error
+                    );
+                }
+            );
+        },
+        0
+    );
+}
+
+function academyOpenNiche(nicheKey = '') {
+    const cleanKey =
+        academyNormalizeNicheKey(
+            nicheKey
+        );
+
+    if (!cleanKey) {
+        return false;
+    }
+
+    /*
+     * Close the picker and switch context synchronously.
+     * The browser can paint this before the network request.
+     */
+    academyFeedLayerState.layer =
+        'niches';
+
+    academyFeedLayerState.activeNicheKey =
+        cleanKey;
+
+    academyFeedLayerState.nicheMenuOpen =
+        false;
+
     academyWriteFeedLayerState();
     academySyncFeedLayerShell();
-    await loadAcademyFeed(true);
+    academyStartFastNicheFeedLoadV2();
+
+    return true;
 }
 
 const academyNicheJoinInFlightV1 = new Set();
+const academyNicheDefaultInFlightV2 = new Set();
+const academyNicheLeaveInFlightV2 = new Set();
 
 async function academyJoinNiche(nicheKey = '', makeDefault = false) {
     const cleanKey = academyNormalizeNicheKey(nicheKey);
@@ -28651,49 +29688,303 @@ async function academyJoinNiche(nicheKey = '', makeDefault = false) {
 }
 
 async function academySetDefaultNiche(nicheKey = '') {
-    const cleanKey = academyNormalizeNicheKey(nicheKey);
-    if (!cleanKey) return;
+    const cleanKey =
+        academyNormalizeNicheKey(
+            nicheKey
+        );
 
-    const result = await academyAuthedFetch(`/api/academy/community/niches/${encodeURIComponent(cleanKey)}/default`, {
-        method: 'POST',
-        body: JSON.stringify({})
-    });
+    if (!cleanKey) {
+        return false;
+    }
 
-    academyFeedLayerState.joinedNiches = Array.isArray(result?.joinedNiches) ? result.joinedNiches : academyFeedLayerState.joinedNiches;
-    academyFeedLayerState.defaultNicheKey = academyNormalizeNicheKey(result?.defaultNicheKey || cleanKey);
-    academyFeedLayerState.activeNicheKey = cleanKey;
-    academyFeedLayerState.layer = 'niches';
-    academyFeedLayerState.nicheMenuOpen = false;
+    const currentState =
+        academyReadFeedLayerState();
+
+    const previousDefaultKey =
+        academyNormalizeNicheKey(
+            currentState.defaultNicheKey
+        );
+
+    /*
+     * Kapag default na ito, ang button ay magsisilbing
+     * instant Open. Walang redundant POST request.
+     */
+    if (
+        previousDefaultKey === cleanKey
+    ) {
+        return academyOpenNiche(
+            cleanKey
+        );
+    }
+
+    if (
+        academyNicheDefaultInFlightV2.has(
+            cleanKey
+        )
+    ) {
+        return false;
+    }
+
+    academyNicheDefaultInFlightV2.add(
+        cleanKey
+    );
+
+    /*
+     * Optimistic state: magbago agad ang button/card,
+     * magsara agad ang picker, at mag-open agad ang feed.
+     */
+    academyFeedLayerState.defaultNicheKey =
+        cleanKey;
+
+    academyFeedLayerState.activeNicheKey =
+        cleanKey;
+
+    academyFeedLayerState.layer =
+        'niches';
+
+    academyFeedLayerState.nicheMenuOpen =
+        false;
+
     academyWriteFeedLayerState();
     academySyncFeedLayerShell();
-    showToast('Default niche updated.', 'success');
-    await loadAcademyFeed(true);
+
+    showToast(
+        'Default niche updated.',
+        'success'
+    );
+
+    academyStartFastNicheFeedLoadV2();
+
+    try {
+        const result =
+            await academyAuthedFetch(
+                `/api/academy/community/niches/${encodeURIComponent(cleanKey)}/default`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({})
+                }
+            );
+
+        /*
+         * Reconcile only the server-owned membership/default
+         * fields. Huwag ibalik ang user sa lumang screen kung
+         * nag-navigate na siya habang tumatakbo ang request.
+         */
+        academyFeedLayerState.joinedNiches =
+            Array.isArray(
+                result?.joinedNiches
+            )
+                ? result.joinedNiches
+                : academyFeedLayerState
+                    .joinedNiches;
+
+        academyFeedLayerState.defaultNicheKey =
+            academyNormalizeNicheKey(
+                result?.defaultNicheKey ||
+                cleanKey
+            );
+
+        academyWriteFeedLayerState();
+
+        return true;
+    } catch (error) {
+        /*
+         * Default status lang ang i-roll back.
+         * Mananatiling bukas ang selected niche feed.
+         */
+        academyFeedLayerState.defaultNicheKey =
+            previousDefaultKey;
+
+        academyWriteFeedLayerState();
+        academySyncFeedLayerShell();
+
+        showToast(
+            error?.message ||
+            'Failed to update the default niche.',
+            'error'
+        );
+
+        return false;
+    } finally {
+        academyNicheDefaultInFlightV2.delete(
+            cleanKey
+        );
+    }
 }
 
 async function academyLeaveNiche(nicheKey = '') {
-    const cleanKey = academyNormalizeNicheKey(nicheKey);
-    if (!cleanKey) return;
+    const cleanKey =
+        academyNormalizeNicheKey(
+            nicheKey
+        );
 
-    const result = await academyAuthedFetch(`/api/academy/community/niches/${encodeURIComponent(cleanKey)}`, {
-        method: 'DELETE'
-    });
+    if (!cleanKey) {
+        return false;
+    }
 
-    academyFeedLayerState.joinedNiches = Array.isArray(result?.joinedNiches) ? result.joinedNiches : [];
-    academyFeedLayerState.defaultNicheKey = academyNormalizeNicheKey(result?.defaultNicheKey || '');
-    academyFeedLayerState.activeNicheKey = '';
-    academyFeedLayerState.layer = 'niches';
-    academyFeedLayerState.nicheMenuOpen = true;
+    if (
+        academyNicheLeaveInFlightV2.has(
+            cleanKey
+        )
+    ) {
+        return false;
+    }
+
+    const currentState =
+        academyReadFeedLayerState();
+
+    const previousState = {
+        ...currentState,
+
+        joinedNiches:
+            Array.isArray(
+                currentState.joinedNiches
+            )
+                ? currentState.joinedNiches.map(
+                    (item) => ({
+                        ...item
+                    })
+                )
+                : []
+    };
+
+    const nextJoinedNiches =
+        previousState.joinedNiches.filter(
+            (item) => {
+                return (
+                    academyNormalizeNicheKey(
+                        item?.key
+                    ) !== cleanKey
+                );
+            }
+        );
+
+    const previousDefaultKey =
+        academyNormalizeNicheKey(
+            previousState.defaultNicheKey
+        );
+
+    const nextDefaultKey =
+        previousDefaultKey === cleanKey
+            ? academyNormalizeNicheKey(
+                nextJoinedNiches[0]?.key ||
+                ''
+            )
+            : previousDefaultKey;
+
+    academyNicheLeaveInFlightV2.add(
+        cleanKey
+    );
+
+    /*
+     * Optimistic removal: mawala agad ang card at
+     * mag-render agad ang updated niche picker.
+     */
+    academyFeedLayerState.joinedNiches =
+        nextJoinedNiches;
+
+    academyFeedLayerState.defaultNicheKey =
+        nextDefaultKey;
+
+    academyFeedLayerState.activeNicheKey =
+        '';
+
+    academyFeedLayerState.layer =
+        'niches';
+
+    academyFeedLayerState.nicheMenuOpen =
+        true;
+
+    academyFeedLayerState.niches =
+        academyMergeCommunityNicheCatalog(
+            academyFeedLayerState.niches,
+            nextJoinedNiches
+        );
+
     academyWriteFeedLayerState();
     academySyncFeedLayerShell();
-    showToast('Niche removed from your joined list.', 'success');
 
-    const list = document.getElementById('academy-feed-list');
-    if (list) {
-        list.innerHTML = `
-            <div style="text-align:center;color:var(--text-muted);padding:2rem;">
-                Choose another niche above to load its feed.
-            </div>
-        `;
+    showToast(
+        'Niche removed from your joined list.',
+        'success'
+    );
+
+    try {
+        const result =
+            await academyAuthedFetch(
+                `/api/academy/community/niches/${encodeURIComponent(cleanKey)}`,
+                {
+                    method: 'DELETE'
+                }
+            );
+
+        academyFeedLayerState.joinedNiches =
+            Array.isArray(
+                result?.joinedNiches
+            )
+                ? result.joinedNiches
+                : nextJoinedNiches;
+
+        academyFeedLayerState.defaultNicheKey =
+            academyNormalizeNicheKey(
+                result?.defaultNicheKey ||
+                nextDefaultKey
+            );
+
+        academyFeedLayerState.niches =
+            academyMergeCommunityNicheCatalog(
+                academyFeedLayerState.niches,
+                academyFeedLayerState
+                    .joinedNiches
+            );
+
+        academyWriteFeedLayerState();
+        academySyncFeedLayerShell();
+
+        return true;
+    } catch (error) {
+        /*
+         * Server failed: ibalik ang exact previous niche state.
+         */
+        academyFeedLayerState = {
+            ...academyFeedLayerState,
+
+            joinedNiches:
+                previousState.joinedNiches,
+
+            defaultNicheKey:
+                previousState.defaultNicheKey,
+
+            activeNicheKey:
+                previousState.activeNicheKey,
+
+            layer:
+                previousState.layer,
+
+            nicheMenuOpen:
+                previousState.nicheMenuOpen,
+
+            niches:
+                academyMergeCommunityNicheCatalog(
+                    previousState.niches,
+                    previousState.joinedNiches
+                )
+        };
+
+        academyWriteFeedLayerState();
+        academySyncFeedLayerShell();
+
+        showToast(
+            error?.message ||
+            'Failed to leave the niche. Your previous state was restored.',
+            'error'
+        );
+
+        return false;
+    } finally {
+        academyNicheLeaveInFlightV2.delete(
+            cleanKey
+        );
     }
 }
 
@@ -30862,7 +32153,12 @@ document.getElementById('academy-niche-dashboard')?.addEventListener('click', as
     event.stopPropagation();
 
     if (openBtn) {
-        await academyOpenNiche(openBtn.getAttribute('data-open-niche') || '');
+        academyOpenNiche(
+            openBtn.getAttribute(
+                'data-open-niche'
+            ) || ''
+        );
+
         return;
     }
 
@@ -30893,12 +32189,21 @@ document.getElementById('academy-niche-dashboard')?.addEventListener('click', as
     }
 
     if (defaultBtn) {
-        await academySetDefaultNiche(defaultBtn.getAttribute('data-default-niche') || '');
+        academySetDefaultNiche(
+            defaultBtn.getAttribute(
+                'data-default-niche'
+            ) || ''
+        );
+
         return;
     }
 
     if (leaveBtn) {
-        await academyLeaveNiche(leaveBtn.getAttribute('data-leave-niche') || '');
+        academyLeaveNiche(
+            leaveBtn.getAttribute(
+                'data-leave-niche'
+            ) || ''
+        );
     }
 });
 
@@ -42239,9 +43544,6 @@ function lockBotToVisibleBottom() {
         const missionsView = document.getElementById('academy-lead-missions-view');
         const voiceView = document.getElementById('voice-lobby-view');
 
-        const headerTitle = String(
-            document.getElementById('chat-header-title')?.textContent || ''
-        ).trim().toLowerCase();
 
         if (clean === 'community') {
             return (
@@ -42272,20 +43574,53 @@ function lockBotToVisibleBottom() {
             return isVisible(voiceView);
         }
 
-        const questCard = document.getElementById('academy-quest-main-card-v1');
-        const roadmapLoader = document.querySelector('.academy-roadmap-loading-shell');
-        const questCardReady = Boolean(
-            questCard &&
-            isVisible(questCard) &&
-            questCard.getClientRects().length > 0
-        );
+        const questCard =
+            document.getElementById(
+                'academy-quest-main-card-v1'
+            );
+
+        const roadmapShell =
+            document.querySelector(
+                '[data-academy-roadmap-tabs-shell]'
+            );
+
+        const roadmapLoader =
+            document.querySelector(
+                '.academy-roadmap-loading-shell'
+            );
+
+        const questCardReady =
+            Boolean(
+                questCard &&
+                isVisible(questCard) &&
+                questCard
+                    .getClientRects()
+                    .length > 0
+            );
+
+        const roadmapShellReady =
+            Boolean(
+                roadmapShell &&
+                isVisible(roadmapShell) &&
+                roadmapShell
+                    .getClientRects()
+                    .length > 0 &&
+                String(
+                    roadmapShell.textContent || ''
+                )
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .length > 18
+            );
 
         return (
             isVisible(academyChat) &&
             !isVisible(feedView) &&
             !roadmapLoader &&
-            questCardReady &&
-            headerTitle.startsWith('roadmap')
+            (
+                roadmapShellReady ||
+                questCardReady
+            )
         );
     }
 

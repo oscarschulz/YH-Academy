@@ -556,10 +556,34 @@ function syncDashboardTopProfileIdentity(profile = {}) {
 
     updateUserProfile(displayName, avatar || '');
 
-    const profileMini = document.querySelector('.desktop-user-strip .profile-mini');
+    const profileMini =
+        document.querySelector(
+            '.desktop-user-strip .profile-mini'
+        );
+
     if (profileMini) {
-        profileMini.setAttribute('data-user', displayName || 'Me');
-        profileMini.setAttribute('title', displayName || 'Me');
+        profileMini.setAttribute(
+            'data-user',
+            displayName || 'Me'
+        );
+
+        profileMini.setAttribute(
+            'title',
+            displayName || 'Me'
+        );
+    }
+
+    /*
+     * Keep the mobile top-right profile icon synced
+     * whenever profile data is saved or hydrated.
+     */
+    if (
+        typeof window
+            .syncDashboardMobileAppProfileAvatarV1 ===
+        'function'
+    ) {
+        window
+            .syncDashboardMobileAppProfileAvatarV1();
     }
 
     return {
@@ -2462,31 +2486,63 @@ function getDashboardPlazaForcedMembershipType() {
 }
 
 function syncDashboardPlazaMembershipTypeControl() {
-    const field = document.getElementById('plazaAppMembershipType');
+    const field =
+        document.getElementById(
+            'plazaAppMembershipType'
+        );
+
     if (!field) return;
 
-    const forcedMembershipType = getDashboardPlazaForcedMembershipType();
+    const recommendedMembershipType =
+        getDashboardPlazaForcedMembershipType();
 
-    if (forcedMembershipType) {
-        field.value = forcedMembershipType;
-        field.disabled = true;
-        field.dataset.lockedMembershipType = 'true';
-        field.setAttribute('aria-disabled', 'true');
-
-        field.title =
-            forcedMembershipType === 'academy'
-                ? 'Your Plaza application is locked to Academy Progression because your Academy access is already approved.'
-                : forcedMembershipType === 'federation'
-                    ? 'Your Plaza application is locked to Federation because your Federation access is already approved.'
-                    : 'Your Plaza application is locked to Direct Strategic Review because you are not moving through Academy progression yet.';
-
-        return;
+    /*
+     * Use the detected account route only as the
+     * initial recommendation. The membership question
+     * must remain a real interactive select.
+     */
+    if (
+        !String(
+            field.value || ''
+        ).trim() &&
+        recommendedMembershipType
+    ) {
+        field.value =
+            recommendedMembershipType;
     }
 
-    field.disabled = false;
-    field.dataset.lockedMembershipType = 'false';
-    field.setAttribute('aria-disabled', 'false');
-    field.removeAttribute('title');
+    field.disabled =
+        false;
+
+    field.dataset.lockedMembershipType =
+        'false';
+
+    field.setAttribute(
+        'aria-disabled',
+        'false'
+    );
+
+    if (recommendedMembershipType) {
+        field.dataset.recommendedMembershipType =
+            recommendedMembershipType;
+
+        field.title =
+            recommendedMembershipType ===
+                'academy'
+                ? 'Academy is selected based on your approved account access. You may change the answer.'
+                : recommendedMembershipType ===
+                    'federation'
+                    ? 'Federation is selected based on your approved account access. You may change the answer.'
+                    : 'Direct Strategic Review is currently recommended. You may change the answer.';
+    } else {
+        field.removeAttribute(
+            'data-recommended-membership-type'
+        );
+
+        field.removeAttribute(
+            'title'
+        );
+    }
 }
 
 function prefillDashboardPlazaApplicationFromAcademy() {
@@ -2495,10 +2551,20 @@ function prefillDashboardPlazaApplicationFromAcademy() {
     const forcedMembershipType = getDashboardPlazaForcedMembershipType();
     const membershipField = document.getElementById('plazaAppMembershipType');
 
-    if (membershipField && forcedMembershipType) {
-        membershipField.value = forcedMembershipType;
+    if (
+        membershipField &&
+        forcedMembershipType &&
+        !String(
+            membershipField.value || ''
+        ).trim()
+    ) {
+        membershipField.value =
+            forcedMembershipType;
     } else {
-        setDashboardPlazaValueIfBlank('plazaAppMembershipType', seed.membershipType);
+        setDashboardPlazaValueIfBlank(
+            'plazaAppMembershipType',
+            seed.membershipType
+        );
     }
 
     syncDashboardPlazaMembershipTypeControl();
@@ -10624,25 +10690,99 @@ function getPlazaAccessSnapshot() {
     }
 }
 
-function writePlazaAccessStatusCache(snapshot = {}) {
+function notifyDashboardDivisionTutorialAccessUpdated(
+    division = '',
+    snapshot = {}
+) {
     try {
-        const application =
-            snapshot?.application && typeof snapshot.application === 'object'
-                ? snapshot.application
-                : null;
+        window.dispatchEvent(
+            new CustomEvent(
+                'yh:division-access-status-updated',
+                {
+                    detail: {
+                        division:
+                            String(
+                                division || ''
+                            )
+                                .trim()
+                                .toLowerCase(),
 
-        localStorage.setItem(YH_PLAZA_ACCESS_STATUS_CACHE_KEY, JSON.stringify({
-            hasApplication: snapshot?.hasApplication === true,
-            canEnterPlaza: snapshot?.canEnterPlaza === true,
-            applicationStatus: normalizePlazaStatus(snapshot?.applicationStatus || ''),
-            application,
-            divisionOverride: snapshot?.divisionOverride || application?.divisionOverride || null,
-            member: snapshot?.member || null,
-            cachedAt: new Date().toISOString()
-        }));
+                        snapshot:
+                            snapshot &&
+                            typeof snapshot ===
+                                'object'
+                                ? snapshot
+                                : {}
+                    }
+                }
+            )
+        );
+    } catch (_) {}
+}
+
+function writePlazaAccessStatusCache(
+    snapshot = {}
+) {
+    const application =
+        snapshot?.application &&
+        typeof snapshot.application ===
+            'object'
+            ? snapshot.application
+            : null;
+
+    const cachedSnapshot = {
+        hasApplication:
+            snapshot?.hasApplication ===
+                true,
+
+        canEnterPlaza:
+            snapshot?.canEnterPlaza ===
+                true,
+
+        applicationStatus:
+            normalizePlazaStatus(
+                snapshot
+                    ?.applicationStatus ||
+                ''
+            ),
+
+        application,
+
+        divisionOverride:
+            snapshot?.divisionOverride ||
+            application
+                ?.divisionOverride ||
+            null,
+
+        member:
+            snapshot?.member || null,
+
+        cachedAt:
+            new Date()
+                .toISOString()
+    };
+
+    try {
+        localStorage.setItem(
+            YH_PLAZA_ACCESS_STATUS_CACHE_KEY,
+            JSON.stringify(
+                cachedSnapshot
+            )
+        );
     } catch (_) {}
 
-    window.renderYHEconomicSnapshot?.();
+    window
+        .renderYHEconomicSnapshot
+        ?.();
+
+    window
+        .YHURenderDashboardGameFoundation
+        ?.();
+
+    notifyDashboardDivisionTutorialAccessUpdated(
+        'plazas',
+        cachedSnapshot
+    );
 }
 
 function getPlazaButtonCopy(snapshot = null) {
@@ -12323,9 +12463,14 @@ function buildDashboardPlazaApplicationPayload() {
     const forcedMembershipType = getDashboardPlazaForcedMembershipType();
 
     const membershipType =
-        forcedMembershipType ||
         rawMembershipType ||
-        (progressionGate.track === 'direct_strategic' ? 'direct_strategic' : rawMembershipType);
+        forcedMembershipType ||
+        (
+            progressionGate.track ===
+                'direct_strategic'
+                ? 'direct_strategic'
+                : ''
+        );
 
     return {
         schemaVersion: DASHBOARD_PLAZA_APPLICATION_SCHEMA_VERSION,
@@ -12407,8 +12552,10 @@ async function submitDashboardPlazaApplication(event) {
     syncDashboardPlazaMembershipTypeControl();
 
     const membershipType =
-        getDashboardPlazaForcedMembershipType() ||
-        getDashboardPlazaInputValue('plazaAppMembershipType');
+        getDashboardPlazaInputValue(
+            'plazaAppMembershipType'
+        ) ||
+        getDashboardPlazaForcedMembershipType();
 
     const progressionGate = getDashboardDivisionProgressionGate('plaza', getPlazaAccessSnapshot());
 
@@ -15251,20 +15398,82 @@ function isDashboardInlineAcademyReady(frame, doc) {
     const text = String(targetView.textContent || '').replace(/\s+/g, ' ').trim();
 
     if (target === 'roadmap') {
-        const communityView = doc.getElementById('academy-feed-view');
-        const roadmapHistory = doc.getElementById('dynamic-chat-history');
-        const roadmapLoader = doc.querySelector('.academy-roadmap-loading-shell');
-        const roadmapText = String(
-            roadmapHistory?.textContent || targetView.textContent || ''
-        ).replace(/\s+/g, ' ').trim();
+        const communityView =
+            doc.getElementById(
+                'academy-feed-view'
+            );
 
-        const questCard = doc.getElementById('academy-quest-main-card-v1');
+        const roadmapHistory =
+            doc.getElementById(
+                'dynamic-chat-history'
+            );
 
-        if (communityView && isDashboardInlineElementVisible(communityView)) return false;
-        if (roadmapLoader && isDashboardInlineElementVisible(roadmapLoader)) return false;
-        if (!questCard || !isDashboardInlineElementVisible(questCard)) return false;
+        const roadmapShell =
+            doc.querySelector(
+                '[data-academy-roadmap-tabs-shell]'
+            );
 
-        return roadmapText.length > 18;
+        const roadmapLoader =
+            doc.querySelector(
+                '.academy-roadmap-loading-shell'
+            );
+
+        const questCard =
+            doc.getElementById(
+                'academy-quest-main-card-v1'
+            );
+
+        if (
+            communityView &&
+            isDashboardInlineElementVisible(
+                communityView
+            )
+        ) {
+            return false;
+        }
+
+        if (
+            roadmapLoader &&
+            isDashboardInlineElementVisible(
+                roadmapLoader
+            )
+        ) {
+            return false;
+        }
+
+        const roadmapShellReady =
+            Boolean(
+                roadmapShell &&
+                isDashboardInlineElementVisible(
+                    roadmapShell
+                )
+            );
+
+        const questCardReady =
+            Boolean(
+                questCard &&
+                isDashboardInlineElementVisible(
+                    questCard
+                )
+            );
+
+        const roadmapText =
+            String(
+                roadmapShell?.textContent ||
+                roadmapHistory?.textContent ||
+                targetView.textContent ||
+                ''
+            )
+                .replace(/\s+/g, ' ')
+                .trim();
+
+        return (
+            (
+                roadmapShellReady ||
+                questCardReady
+            ) &&
+            roadmapText.length > 18
+        );
     }
 
     return text.length > 12;
@@ -18403,6 +18612,24 @@ function forceDashboardInlineFrameContentOnly(frame) {
         }
 
         body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[
+                data-yh-dashboard-community-feed-stable="true"
+            ][
+                data-academy-niche-picker-open="true"
+            ]
+            .academy-feed-shell {
+            min-height: 0 !important;
+            height: auto !important;
+
+            grid-template-rows: none !important;
+            grid-auto-rows: max-content !important;
+            align-content: start !important;
+
+            row-gap: 14px !important;
+            overflow: visible !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
             #academy-feed-view[data-yh-dashboard-community-feed-stable="true"]
             .academy-community-layer-panel,
         body.yh-dashboard-mobile-inline-embed-body
@@ -18435,6 +18662,47 @@ function forceDashboardInlineFrameContentOnly(frame) {
             grid-auto-rows: max-content !important;
             align-content: start !important;
             gap: 14px !important;
+            overflow: visible !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[
+                data-yh-dashboard-community-feed-stable="true"
+            ][
+                data-academy-niche-picker-open="true"
+            ]
+            .academy-community-layer-panel {
+            flex: 0 0 auto !important;
+
+            /*
+             * Mahabang panel mula sa ilalim ng mobile
+             * Academy header hanggang malapit sa bottom UI.
+             */
+            min-height:
+                max(
+                    560px,
+                    calc(100vh - 140px)
+                ) !important;
+
+            min-height:
+                max(
+                    560px,
+                    calc(100dvh - 140px)
+                ) !important;
+
+            height: auto !important;
+            max-height: none !important;
+
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+
+            gap: 14px !important;
+
+            /*
+             * Huwag i-clip ang niche content.
+             * Ang outer .chat-messages ang vertical scroll owner.
+             */
             overflow: visible !important;
         }
 
@@ -18488,6 +18756,70 @@ function forceDashboardInlineFrameContentOnly(frame) {
             min-width: 0 !important;
             max-width: calc(100% - 28px) !important;
             box-sizing: border-box !important;
+        }
+
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[
+                data-yh-dashboard-community-feed-stable="true"
+            ][
+                data-academy-niche-picker-open="true"
+            ]
+            #academy-niche-dashboard {
+            /*
+             * Content-sized panel. Hindi na ito sariling
+             * nested scroll container sa mobile.
+             */
+            flex: 0 0 auto !important;
+
+            width: calc(100% - 28px) !important;
+            min-width: 0 !important;
+            max-width: calc(100% - 28px) !important;
+
+            min-height: 420px !important;
+            height: auto !important;
+            max-height: none !important;
+
+            align-self: center !important;
+
+            margin-top: 0 !important;
+            margin-right: auto !important;
+            margin-bottom: 0 !important;
+            margin-left: auto !important;
+
+            /*
+             * Ilabas ang buong niche content para ang
+             * existing outer mobile workspace ang mag-scroll.
+             */
+            overflow: visible !important;
+            overscroll-behavior: auto !important;
+            -webkit-overflow-scrolling: auto !important;
+            touch-action: pan-y !important;
+
+            box-sizing: border-box !important;
+        }
+
+                body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[
+                data-yh-dashboard-community-feed-stable="true"
+            ][
+                data-academy-niche-picker-open="true"
+            ]
+            #academy-feed-list,
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[
+                data-yh-dashboard-community-feed-stable="true"
+            ][
+                data-academy-niche-picker-open="true"
+            ]
+            .academy-feed-composer-card,
+        body.yh-dashboard-mobile-inline-embed-body
+            #academy-feed-view[
+                data-yh-dashboard-community-feed-stable="true"
+            ][
+                data-academy-niche-picker-open="true"
+            ]
+            #academy-feed-target-pill {
+            display: none !important;
         }
 
         body.yh-dashboard-mobile-inline-embed-body
@@ -19636,6 +19968,26 @@ function setDashboardMobileBottomNavScrollStateV1(
             .trim()
             .toLowerCase();
 
+    /*
+     * A message-thread lock belongs only to the
+     * Academy Messages workspace.
+     */
+    if (
+        workspaceKey !==
+        'academy-messages'
+    ) {
+        body?.removeAttribute(
+            'data-yh-academy-message-thread-open'
+        );
+    }
+
+    const messageThreadLock =
+        workspaceKey ===
+            'academy-messages' &&
+        body?.getAttribute(
+            'data-yh-academy-message-thread-open'
+        ) === 'true';
+
     let isMobile = false;
 
     try {
@@ -19660,9 +20012,12 @@ function setDashboardMobileBottomNavScrollStateV1(
         );
 
     const shouldHide =
-        hidden === true &&
         isMobile &&
-        supportsScrollHide;
+        supportsScrollHide &&
+        (
+            messageThreadLock ||
+            hidden === true
+        );
 
     nav.classList.toggle(
         'is-scroll-hidden',
@@ -19717,6 +20072,73 @@ function setDashboardMobileBottomNavScrollStateV1(
         );
 
     return shouldHide;
+}
+
+if (!window.__yhAcademyMessageThreadNavSyncV1Bound) {
+    window.__yhAcademyMessageThreadNavSyncV1Bound = true;
+
+    window.addEventListener('message', (event) => {
+        if (event.origin !== window.location.origin) {
+            return;
+        }
+
+        const data = event.data || {};
+
+        if (
+            data.type !==
+            'yh:academy-message-thread-state'
+        ) {
+            return;
+        }
+
+        const frame = document.getElementById(
+            'yh-universe-workspace-inline-frame'
+        );
+
+        if (
+            !frame ||
+            event.source !== frame.contentWindow
+        ) {
+            return;
+        }
+
+        const workspaceKey = String(
+            getDashboardInlineWorkspaceKeyFromFrame(
+                frame
+            ) || ''
+        )
+            .trim()
+            .toLowerCase();
+
+        if (
+            workspaceKey !==
+            'academy-messages'
+        ) {
+            return;
+        }
+
+        const threadOpen =
+            data.open === true;
+
+        document.body?.toggleAttribute(
+            'data-yh-academy-message-thread-open',
+            threadOpen
+        );
+
+        if (threadOpen) {
+            document.body?.setAttribute(
+                'data-yh-academy-message-thread-open',
+                'true'
+            );
+        }
+
+        setDashboardMobileBottomNavScrollStateV1(
+            threadOpen,
+            threadOpen
+                ? 'academy-message-thread-open'
+                : 'academy-message-thread-closed'
+        );
+    });
 }
 
 function bindDashboardInlineAcademyScrollNavigationV1(
@@ -21829,16 +22251,158 @@ function installDashboardMobileAppShellV1() {
 
     function syncProfileInitial() {
         const source =
-            document.getElementById('top-nav-name')?.textContent ||
-            localStorage.getItem('yh_user_name') ||
-            localStorage.getItem('yh_user_full_name') ||
+            document.getElementById(
+                'top-nav-name'
+            )?.textContent ||
+            localStorage.getItem(
+                'yh_user_name'
+            ) ||
+            localStorage.getItem(
+                'yh_user_full_name'
+            ) ||
             'Y';
 
-        const clean = String(source || 'Y').trim();
-        if (profileInitial) {
-            profileInitial.textContent = clean ? clean.charAt(0).toUpperCase() : 'Y';
+        const clean =
+            String(
+                source || 'Y'
+            ).trim();
+
+        let selfProfile = {};
+        let topProfile = {};
+
+        try {
+            selfProfile =
+                typeof dashboardGetSelfProfileCache ===
+                'function'
+                    ? (
+                        dashboardGetSelfProfileCache() ||
+                        {}
+                    )
+                    : {};
+        } catch (_) {
+            selfProfile = {};
+        }
+
+        try {
+            topProfile =
+                typeof dashboardGetTopProfileCache ===
+                'function'
+                    ? (
+                        dashboardGetTopProfileCache() ||
+                        {}
+                    )
+                    : {};
+        } catch (_) {
+            topProfile = {};
+        }
+
+        const avatar =
+            normalizeDashboardProfileAssetUrl(
+                selfProfile.avatar ||
+                selfProfile.avatar_url ||
+                selfProfile.avatarUrl ||
+                selfProfile.profile_photo ||
+                selfProfile.profilePhoto ||
+                selfProfile.photo_url ||
+                selfProfile.photoURL ||
+
+                topProfile.avatar ||
+                topProfile.avatar_url ||
+                topProfile.avatarUrl ||
+                topProfile.profile_photo ||
+                topProfile.profilePhoto ||
+                topProfile.photo_url ||
+                topProfile.photoURL ||
+
+                localStorage.getItem(
+                    'yh_user_avatar'
+                ) ||
+
+                getStoredUserValue(
+                    'yh_user_avatar',
+                    ''
+                ) ||
+
+                ''
+            );
+
+        if (!profileInitial) {
+            return;
+        }
+
+        if (avatar) {
+            profileInitial.textContent = '';
+
+            profileInitial.style.backgroundImage =
+                `url(${JSON.stringify(avatar)})`;
+
+            profileInitial.style.backgroundSize =
+                'cover';
+
+            profileInitial.style.backgroundPosition =
+                'center';
+
+            profileInitial.style.backgroundRepeat =
+                'no-repeat';
+
+            profileInitial.setAttribute(
+                'data-yh-mobile-profile-image',
+                avatar
+            );
+
+            profileButton?.classList.add(
+                'has-profile-image'
+            );
+        } else {
+            profileInitial.textContent =
+                clean
+                    ? clean
+                        .charAt(0)
+                        .toUpperCase()
+                    : 'Y';
+
+            profileInitial.style.removeProperty(
+                'background-image'
+            );
+
+            profileInitial.style.removeProperty(
+                'background-size'
+            );
+
+            profileInitial.style.removeProperty(
+                'background-position'
+            );
+
+            profileInitial.style.removeProperty(
+                'background-repeat'
+            );
+
+            profileInitial.removeAttribute(
+                'data-yh-mobile-profile-image'
+            );
+
+            profileButton?.classList.remove(
+                'has-profile-image'
+            );
+        }
+
+        if (profileButton) {
+            profileButton.setAttribute(
+                'aria-label',
+                clean
+                    ? `Open ${clean} profile`
+                    : 'Open profile'
+            );
+
+            profileButton.setAttribute(
+                'title',
+                clean || 'Profile'
+            );
         }
     }
+
+    window.syncDashboardMobileAppProfileAvatarV1 =
+        syncProfileInitial;
 
     function closeMobileSubtabMenu() {
         if (!subtabMenu) return;
@@ -28094,13 +28658,26 @@ function dashboardPersistVisitedProfileCache(profile = {}) {
 }
 
 function buildAcademySelfProfilePayload(profile = {}) {
-    const incomingProfile = profile && typeof profile === 'object' ? profile : {};
-    const cachedProfile = dashboardGetSelfProfileCache();
-    const mergedProfile = dashboardMergeProfileKeepingBadges(
-        incomingProfile,
-        cachedProfile,
-        academyProfileViewState?.profile
-    );
+    const incomingProfile =
+        profile &&
+        typeof profile === 'object'
+            ? profile
+            : {};
+
+    const cachedProfile =
+        dashboardGetSelfProfileCache();
+
+    /*
+     * Fallback profiles are merged from left to right.
+     * Put the current cache last so newly saved images
+     * override an older profile modal snapshot.
+     */
+    const mergedProfile =
+        dashboardMergeProfileKeepingBadges(
+            incomingProfile,
+            academyProfileViewState?.profile,
+            cachedProfile
+        );
 
     const cachedHome = readAcademyHomeCache() || {};
 
@@ -28318,6 +28895,89 @@ function getYHUniverseDivisionSnapshotCopy(key = '', state = {}, profile = {}) {
     return state.statusLabel || 'Not applied';
 }
 
+/*
+ * Unified profile media authority.
+ *
+ * Profile and cover uploads are saved through the Academy
+ * profile endpoint, so Academy media must take priority over
+ * an older Universe profile snapshot.
+ */
+function resolveDashboardUnifiedProfileMediaV1(
+    academyProfile = {},
+    universeProfile = {}
+) {
+    const cachedProfile =
+        dashboardGetSelfProfileCache();
+
+    const avatar =
+        normalizeDashboardProfileAssetUrl(
+            academyProfile.avatar ||
+            academyProfile.avatar_url ||
+            academyProfile.avatarUrl ||
+            academyProfile.profile_photo ||
+            academyProfile.profilePhoto ||
+            academyProfile.photo_url ||
+            academyProfile.photoURL ||
+
+            cachedProfile.avatar ||
+            cachedProfile.avatar_url ||
+            cachedProfile.avatarUrl ||
+            cachedProfile.profile_photo ||
+            cachedProfile.profilePhoto ||
+            cachedProfile.photo_url ||
+            cachedProfile.photoURL ||
+
+            localStorage.getItem(
+                'yh_user_avatar'
+            ) ||
+            getStoredUserValue(
+                'yh_user_avatar',
+                ''
+            ) ||
+
+            universeProfile.avatar ||
+            universeProfile.avatar_url ||
+            universeProfile.avatarUrl ||
+            universeProfile.profile_photo ||
+            universeProfile.profilePhoto ||
+            universeProfile.photo_url ||
+            universeProfile.photoURL ||
+            ''
+        );
+
+    const coverPhoto =
+        normalizeDashboardProfileAssetUrl(
+            academyProfile.cover_photo ||
+            academyProfile.coverPhoto ||
+            academyProfile.cover_url ||
+            academyProfile.coverUrl ||
+
+            cachedProfile.cover_photo ||
+            cachedProfile.coverPhoto ||
+            cachedProfile.cover_url ||
+            cachedProfile.coverUrl ||
+
+            localStorage.getItem(
+                'yh_user_cover_photo'
+            ) ||
+            getStoredUserValue(
+                'yh_user_cover_photo',
+                ''
+            ) ||
+
+            universeProfile.cover_photo ||
+            universeProfile.coverPhoto ||
+            universeProfile.cover_url ||
+            universeProfile.coverUrl ||
+            ''
+        );
+
+    return {
+        avatar,
+        coverPhoto
+    };
+}
+
 function mergeYHUniverseProfilePayload(universeProfile = {}, academyProfile = {}) {
     const signals = universeProfile.signals && typeof universeProfile.signals === 'object'
         ? universeProfile.signals
@@ -28328,6 +28988,12 @@ function mergeYHUniverseProfilePayload(universeProfile = {}, academyProfile = {}
         divisions?.academy?.profile && typeof divisions.academy.profile === 'object'
             ? divisions.academy.profile
             : {};
+
+    const unifiedMedia =
+        resolveDashboardUnifiedProfileMediaV1(
+            academyProfile,
+            universeProfile
+        );
 
     const searchTags = pickDashboardProfileTags(
         universeProfile.search_tags,
@@ -28361,11 +29027,35 @@ function mergeYHUniverseProfilePayload(universeProfile = {}, academyProfile = {}
             '',
         username: universeProfile.username || academyProfile.username || '',
         avatar:
-            universeProfile.avatar ||
-            universeProfile.profilePhoto ||
-            universeProfile.photoURL ||
-            academyProfile.avatar ||
-            '',
+            unifiedMedia.avatar,
+
+        avatar_url:
+            unifiedMedia.avatar,
+
+        avatarUrl:
+            unifiedMedia.avatar,
+
+        profile_photo:
+            unifiedMedia.avatar,
+
+        profilePhoto:
+            unifiedMedia.avatar,
+
+        photoURL:
+            unifiedMedia.avatar,
+
+        cover_photo:
+            unifiedMedia.coverPhoto,
+
+        coverPhoto:
+            unifiedMedia.coverPhoto,
+
+        cover_url:
+            unifiedMedia.coverPhoto,
+
+        coverUrl:
+            unifiedMedia.coverPhoto,
+
         role_label:
             universeProfile.trustTier
                 ? `${universeProfile.trustTier} Member`
@@ -30326,8 +31016,29 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
         displayName,
         usernameRaw,
         username: usernameRaw ? `@${usernameRaw}` : '@yh-member',
-        avatar: String(profile?.avatar || profile?.profilePhoto || profile?.photoURL || '').trim(),
-        coverPhoto: String(profile?.cover_photo || profile?.coverPhoto || profile?.coverPhotoUrl || '').trim(),
+        avatar:
+            normalizeDashboardProfileAssetUrl(
+                profile?.avatar ||
+                profile?.avatar_url ||
+                profile?.avatarUrl ||
+                profile?.profile_photo ||
+                profile?.profilePhoto ||
+                profile?.photo_url ||
+                profile?.photoURL ||
+                profile?.profile_picture ||
+                profile?.profilePicture ||
+                ''
+            ),
+
+        coverPhoto:
+            normalizeDashboardProfileAssetUrl(
+                profile?.cover_photo ||
+                profile?.coverPhoto ||
+                profile?.cover_url ||
+                profile?.coverUrl ||
+                profile?.coverPhotoUrl ||
+                ''
+            ),
         roleLabel: String(profile?.role_label || profile?.roleLabel || profile?.trustTier || 'YH Universe Member').trim() || 'YH Universe Member',
         bio:
             String(
@@ -30615,18 +31326,72 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     }
 
     if (profileAvatar) {
-        if (normalized.avatar) {
+        const resolvedAvatar =
+            normalizeDashboardProfileAssetUrl(
+                normalized.avatar || ''
+            );
+
+        if (resolvedAvatar) {
             profileAvatar.innerText = '';
-            profileAvatar.style.backgroundImage = `url(${normalized.avatar})`;
-            profileAvatar.style.backgroundSize = 'cover';
-            profileAvatar.style.backgroundPosition = 'center';
-            profileAvatar.setAttribute('data-profile-image-preview', normalized.avatar);
-            profileAvatar.setAttribute('data-profile-image-preview-type', 'profile photo');
+
+            /*
+             * JSON.stringify safely quotes URLs that contain
+             * spaces, parentheses, or encoded characters.
+             */
+            profileAvatar.style.backgroundImage =
+                `url(${JSON.stringify(resolvedAvatar)})`;
+
+            profileAvatar.style.backgroundSize =
+                'cover';
+
+            profileAvatar.style.backgroundPosition =
+                'center';
+
+            profileAvatar.style.backgroundRepeat =
+                'no-repeat';
+
+            profileAvatar.setAttribute(
+                'data-profile-image-preview',
+                resolvedAvatar
+            );
+
+            profileAvatar.setAttribute(
+                'data-profile-image-preview-type',
+                'profile photo'
+            );
         } else {
-            profileAvatar.innerText = normalized.displayName.charAt(0).toUpperCase();
-            profileAvatar.style.backgroundImage = 'none';
-            profileAvatar.removeAttribute('data-profile-image-preview');
-            profileAvatar.removeAttribute('data-profile-image-preview-type');
+            profileAvatar.innerText =
+                normalized.displayName
+                    .charAt(0)
+                    .toUpperCase();
+
+            /*
+             * Remove the inline image so the default CSS
+             * gradient can become visible again.
+             */
+            profileAvatar.style.removeProperty(
+                'background-image'
+            );
+
+            profileAvatar.style.removeProperty(
+                'background-size'
+            );
+
+            profileAvatar.style.removeProperty(
+                'background-position'
+            );
+
+            profileAvatar.style.removeProperty(
+                'background-repeat'
+            );
+
+            profileAvatar.removeAttribute(
+                'data-profile-image-preview'
+            );
+
+            profileAvatar.removeAttribute(
+                'data-profile-image-preview-type'
+            );
         }
     }
 
@@ -31130,39 +31895,55 @@ function getDashboardUniverseProfileDraft() {
         ''
     ).trim();
 
-    const avatar = String(
-        profile.avatar ||
-        profile.avatar_url ||
-        profile.avatarUrl ||
-        profile.profile_photo ||
-        profile.profilePhoto ||
-        profile.photo_url ||
-        profile.photoURL ||
-        readCache.avatar ||
-        readCache.avatar_url ||
-        readCache.avatarUrl ||
-        readCache.profile_photo ||
-        readCache.profilePhoto ||
-        readCache.photo_url ||
-        readCache.photoURL ||
-        localStorage.getItem('yh_user_avatar') ||
-        getStoredUserValue('yh_user_avatar', '') ||
-        ''
-    ).trim();
+    const avatar =
+        normalizeDashboardProfileAssetUrl(
+            readCache.avatar ||
+            readCache.avatar_url ||
+            readCache.avatarUrl ||
+            readCache.profile_photo ||
+            readCache.profilePhoto ||
+            readCache.photo_url ||
+            readCache.photoURL ||
 
-    const coverPhoto = String(
-        profile.cover_photo ||
-        profile.coverPhoto ||
-        profile.cover_url ||
-        profile.coverUrl ||
-        readCache.cover_photo ||
-        readCache.coverPhoto ||
-        readCache.cover_url ||
-        readCache.coverUrl ||
-        localStorage.getItem('yh_user_cover_photo') ||
-        getStoredUserValue('yh_user_cover_photo', '') ||
-        ''
-    ).trim();
+            localStorage.getItem(
+                'yh_user_avatar'
+            ) ||
+            getStoredUserValue(
+                'yh_user_avatar',
+                ''
+            ) ||
+
+            profile.avatar ||
+            profile.avatar_url ||
+            profile.avatarUrl ||
+            profile.profile_photo ||
+            profile.profilePhoto ||
+            profile.photo_url ||
+            profile.photoURL ||
+            ''
+        );
+
+    const coverPhoto =
+        normalizeDashboardProfileAssetUrl(
+            readCache.cover_photo ||
+            readCache.coverPhoto ||
+            readCache.cover_url ||
+            readCache.coverUrl ||
+
+            localStorage.getItem(
+                'yh_user_cover_photo'
+            ) ||
+            getStoredUserValue(
+                'yh_user_cover_photo',
+                ''
+            ) ||
+
+            profile.cover_photo ||
+            profile.coverPhoto ||
+            profile.cover_url ||
+            profile.coverUrl ||
+            ''
+        );
 
     const tags = pickDashboardProfileTags(
         profile.search_tags,
@@ -33018,11 +33799,39 @@ async function saveDashboardUniverseProfile(button = null) {
             throw new Error(result?.message || 'Profile save succeeded but no profile was returned.');
         }
 
-        const preservedProfile = dashboardMergeProfileKeepingBadges(
-            result.profile,
-            academyProfileViewState?.profile,
-            dashboardGetSelfProfileCache()
-        );
+        const currentCachedProfile =
+            dashboardGetSelfProfileCache();
+
+        const preservedProfile =
+            dashboardMergeProfileKeepingBadges(
+                {
+                    ...result.profile,
+
+                    avatar:
+                        result.profile.avatar ||
+                        result.profile.avatar_url ||
+                        result.profile.avatarUrl ||
+                        result.profile.profile_photo ||
+                        result.profile.profilePhoto ||
+                        result.profile.photoURL ||
+                        payload.avatar ||
+                        currentCachedProfile.avatar ||
+                        '',
+
+                    cover_photo:
+                        result.profile.cover_photo ||
+                        result.profile.coverPhoto ||
+                        result.profile.cover_url ||
+                        result.profile.coverUrl ||
+                        payload.cover_photo ||
+                        currentCachedProfile.cover_photo ||
+                        currentCachedProfile.coverPhoto ||
+                        ''
+                },
+
+                academyProfileViewState?.profile,
+                currentCachedProfile
+            );
 
         try {
             dashboardPersistSelfProfileCache(preservedProfile);
@@ -33864,7 +34673,25 @@ function openAcademyProfileView() {
     currentRoomId = null;
     currentRoomMeta = null;
 
-    renderAcademyProfileView(null, { mode: 'self' });
+    /*
+     * Render the latest saved cache immediately instead
+     * of briefly rendering an old in-memory profile.
+     */
+    const cachedSelfProfile =
+        dashboardGetSelfProfileCache();
+
+    const immediateProfile =
+        buildAcademySelfProfilePayload(
+            cachedSelfProfile
+        );
+
+    renderAcademyProfileView(
+        immediateProfile,
+        {
+            mode: 'self'
+        }
+    );
+
     hydrateDashboardSelfUniverseProfile();
 }
 
@@ -39141,18 +39968,56 @@ function readFederationStatusCache() {
     }
 }
 
-function writeFederationStatusCache(snapshot = null) {
-    try {
-        if (!snapshot || typeof snapshot !== 'object') {
-            localStorage.removeItem(YH_FEDERATION_STATUS_CACHE_KEY);
-            window.renderYHEconomicSnapshot?.();
-            return;
-        }
+function writeFederationStatusCache(
+    snapshot = null
+) {
+    if (
+        !snapshot ||
+        typeof snapshot !== 'object'
+    ) {
+        try {
+            localStorage.removeItem(
+                YH_FEDERATION_STATUS_CACHE_KEY
+            );
+        } catch (_) {}
 
-        localStorage.setItem(YH_FEDERATION_STATUS_CACHE_KEY, JSON.stringify(snapshot));
+        window
+            .renderYHEconomicSnapshot
+            ?.();
+
+        window
+            .YHURenderDashboardGameFoundation
+            ?.();
+
+        notifyDashboardDivisionTutorialAccessUpdated(
+            'federation',
+            {}
+        );
+
+        return;
+    }
+
+    try {
+        localStorage.setItem(
+            YH_FEDERATION_STATUS_CACHE_KEY,
+            JSON.stringify(
+                snapshot
+            )
+        );
     } catch (_) {}
 
-    window.renderYHEconomicSnapshot?.();
+    window
+        .renderYHEconomicSnapshot
+        ?.();
+
+    window
+        .YHURenderDashboardGameFoundation
+        ?.();
+
+    notifyDashboardDivisionTutorialAccessUpdated(
+        'federation',
+        snapshot
+    );
 }
 
 function getCurrentFederationApplicantIdentity() {
@@ -40555,15 +41420,56 @@ function readAcademyMembershipCache() {
     }
 }
 
-function writeAcademyMembershipCache(snapshot = null) {
-    if (!snapshot || typeof snapshot !== 'object') {
-        localStorage.removeItem(YH_ACADEMY_MEMBERSHIP_CACHE_KEY);
-        window.renderYHEconomicSnapshot?.();
+function writeAcademyMembershipCache(
+    snapshot = null
+) {
+    if (
+        !snapshot ||
+        typeof snapshot !== 'object'
+    ) {
+        try {
+            localStorage.removeItem(
+                YH_ACADEMY_MEMBERSHIP_CACHE_KEY
+            );
+        } catch (_) {}
+
+        window
+            .renderYHEconomicSnapshot
+            ?.();
+
+        window
+            .YHURenderDashboardGameFoundation
+            ?.();
+
+        notifyDashboardDivisionTutorialAccessUpdated(
+            'academy',
+            {}
+        );
+
         return;
     }
 
-    localStorage.setItem(YH_ACADEMY_MEMBERSHIP_CACHE_KEY, JSON.stringify(snapshot));
-    window.renderYHEconomicSnapshot?.();
+    try {
+        localStorage.setItem(
+            YH_ACADEMY_MEMBERSHIP_CACHE_KEY,
+            JSON.stringify(
+                snapshot
+            )
+        );
+    } catch (_) {}
+
+    window
+        .renderYHEconomicSnapshot
+        ?.();
+
+    window
+        .YHURenderDashboardGameFoundation
+        ?.();
+
+    notifyDashboardDivisionTutorialAccessUpdated(
+        'academy',
+        snapshot
+    );
 }
 var academyMembershipRefreshPromise = null;
 var academyMembershipRealtimeTimer = null;
@@ -42643,14 +43549,40 @@ body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-avatar,
 body[data-yh-page="academy"] #academy-profile-view .academy-profile-avatar {
     width: 108px !important;
     height: 108px !important;
-    border: 2px solid rgba(125, 211, 252, 0.35) !important;
-    background:
-        radial-gradient(circle at 35% 25%, rgba(56, 189, 248, 0.22), transparent 42%),
-        linear-gradient(180deg, rgba(8, 47, 73, 0.92), rgba(4, 12, 26, 0.92)) !important;
+
+    border:
+        2px solid
+        rgba(125, 211, 252, 0.35) !important;
+
+    /*
+     * Background color remains the permanent fallback.
+     * Background image is intentionally not !important,
+     * so the uploaded inline image can replace it.
+     */
+    background-color:
+        rgba(4, 20, 36, 0.96) !important;
+
+    background-image:
+        radial-gradient(
+            circle at 35% 25%,
+            rgba(56, 189, 248, 0.22),
+            transparent 42%
+        ),
+        linear-gradient(
+            180deg,
+            rgba(8, 47, 73, 0.92),
+            rgba(4, 12, 26, 0.92)
+        );
+
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+
     box-shadow:
         0 18px 46px rgba(0, 0, 0, 0.42),
         0 0 24px rgba(56, 189, 248, 0.18),
         inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+
     font-size: 2.4rem !important;
 }
 

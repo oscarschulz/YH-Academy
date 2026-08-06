@@ -8151,6 +8151,667 @@ async function getUniverseSafeDoc(collectionName = '', docId = '') {
     }
 }
 
+/* PATCH: Universe division tutorial persistence v2 */
+const YH_DIVISION_TUTORIAL_VERSIONS = Object.freeze({
+    academy: 1,
+    plazas: 1,
+    federation: 1
+});
+
+function normalizeYHDivisionTutorialKey(value = '') {
+    const clean = sanitize(value).toLowerCase();
+
+    if (
+        clean === 'plaza' ||
+        clean === 'plazas'
+    ) {
+        return 'plazas';
+    }
+
+    if (
+        clean === 'academy' ||
+        clean === 'federation'
+    ) {
+        return clean;
+    }
+
+    return '';
+}
+
+function normalizeYHDivisionTutorialStatus(
+    value = ''
+) {
+    return sanitize(value)
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function normalizeYHDivisionTutorialEntry(
+    value = {}
+) {
+    const source =
+        value &&
+        typeof value === 'object'
+            ? value
+            : {};
+
+    return {
+        completedVersion:
+            Math.max(
+                0,
+                Number.parseInt(
+                    source.completedVersion ||
+                    source.version ||
+                    0,
+                    10
+                ) || 0
+            ),
+
+        completedAt:
+            sanitize(
+                source.completedAt || ''
+            ),
+
+        completionMethod:
+            sanitize(
+                source.completionMethod ||
+                source.method ||
+                ''
+            ).toLowerCase(),
+
+        approvalToken:
+            sanitize(
+                source.approvalToken ||
+                source.approvalCycle ||
+                ''
+            )
+    };
+}
+
+function getYHDivisionTutorialApprovalSnapshot(
+    userData = {},
+    division = ''
+) {
+    const cleanDivision =
+        normalizeYHDivisionTutorialKey(
+            division
+        );
+
+    if (!cleanDivision) {
+        return {
+            approved: false,
+            status: '',
+            approvedAt: '',
+            approvalToken: '',
+            application: null
+        };
+    }
+
+    const application =
+        cleanDivision === 'academy'
+            ? (
+                userData.academyApplication &&
+                typeof userData
+                    .academyApplication ===
+                    'object'
+                    ? userData.academyApplication
+                    : null
+            )
+            : cleanDivision === 'plazas'
+                ? (
+                    userData.plazaApplication &&
+                    typeof userData
+                        .plazaApplication ===
+                        'object'
+                        ? userData.plazaApplication
+                        : null
+                )
+                : (
+                    userData.federationApplication &&
+                    typeof userData
+                        .federationApplication ===
+                        'object'
+                        ? userData
+                            .federationApplication
+                        : null
+                );
+
+    const statusCandidates =
+        cleanDivision === 'academy'
+            ? [
+                userData.hasAcademyAccess === true
+                    ? 'approved'
+                    : '',
+
+                userData.canEnterAcademy === true
+                    ? 'approved'
+                    : '',
+
+                userData.accessState === 'unlocked'
+                    ? 'approved'
+                    : '',
+
+                application?.status,
+                userData.academyMembershipStatus,
+                userData.academyApplicationStatus
+            ]
+            : cleanDivision === 'plazas'
+                ? [
+                    userData.hasPlazaAccess === true
+                        ? 'approved'
+                        : '',
+
+                    userData.canEnterPlaza === true
+                        ? 'approved'
+                        : '',
+
+                    application?.status,
+                    userData.plazaAccessStatus,
+                    userData.plazaMembershipStatus,
+                    userData.plazaApplicationStatus
+                ]
+                : [
+                    userData.hasFederationAccess === true
+                        ? 'approved'
+                        : '',
+
+                    userData.canEnterFederation === true
+                        ? 'approved'
+                        : '',
+
+                    application?.status,
+                    userData.federationMembershipStatus,
+                    userData.federationApplicationStatus
+                ];
+
+    const status =
+        statusCandidates
+            .map((value) =>
+                normalizeYHDivisionTutorialStatus(
+                    value
+                )
+            )
+            .find(Boolean) || '';
+
+    const approved =
+        [
+            'approved',
+            'active',
+            'member',
+            'unlocked'
+        ].includes(status);
+
+    const approvedAt =
+        sanitize(
+            application?.approvedAt ||
+            application?.approvalAt ||
+            application?.reviewedAt ||
+            (
+                cleanDivision === 'academy'
+                    ? (
+                        userData.academyApprovedAt ||
+                        userData
+                            .academyMembershipApprovedAt
+                    )
+                    : cleanDivision === 'plazas'
+                        ? (
+                            userData.plazaApprovedAt ||
+                            userData
+                                .plazaMembershipApprovedAt
+                        )
+                        : (
+                            userData.federationApprovedAt ||
+                            userData
+                                .federationMembershipApprovedAt
+                        )
+            ) ||
+            ''
+        );
+
+    const applicationIdentity =
+        sanitize(
+            application?.id ||
+            application?.applicationId ||
+            application?.submittedAt ||
+            application?.createdAt ||
+            ''
+        );
+
+    const approvalToken =
+        approved
+            ? [
+                cleanDivision,
+                approvedAt ||
+                applicationIdentity ||
+                'approved'
+            ].join(':')
+            : '';
+
+    return {
+        approved,
+        status,
+        approvedAt,
+        approvalToken,
+        application
+    };
+}
+
+function isYHDivisionTutorialEntryValid(
+    entry = {},
+    approval = {}
+) {
+    const normalizedEntry =
+        normalizeYHDivisionTutorialEntry(
+            entry
+        );
+
+    if (
+        normalizedEntry.completedVersion <= 0
+    ) {
+        return true;
+    }
+
+    if (approval?.approved !== true) {
+        return false;
+    }
+
+    if (normalizedEntry.approvalToken) {
+        return (
+            normalizedEntry.approvalToken ===
+            approval.approvalToken
+        );
+    }
+
+    const completedMs =
+        Date.parse(
+            normalizedEntry.completedAt
+        );
+
+    const approvedMs =
+        Date.parse(
+            approval.approvedAt
+        );
+
+    if (
+        Number.isFinite(completedMs) &&
+        Number.isFinite(approvedMs)
+    ) {
+        return completedMs >= approvedMs;
+    }
+
+    /*
+     * Old completion records without an approval token
+     * or reliable approval date are considered incomplete.
+     *
+     * This repairs tutorials that were accidentally
+     * completed while a division was still pending.
+     */
+    return false;
+}
+
+function buildYHDivisionTutorialState(
+    userData = {}
+) {
+    const source =
+        userData.divisionTutorials &&
+        typeof userData
+            .divisionTutorials ===
+            'object'
+            ? userData.divisionTutorials
+            : {};
+
+    const state = {
+        academy:
+            normalizeYHDivisionTutorialEntry(
+                source.academy
+            ),
+
+        plazas:
+            normalizeYHDivisionTutorialEntry(
+                source.plazas ||
+                source.plaza
+            ),
+
+        federation:
+            normalizeYHDivisionTutorialEntry(
+                source.federation
+            )
+    };
+
+    Object.keys(
+        YH_DIVISION_TUTORIAL_VERSIONS
+    ).forEach((division) => {
+        const approval =
+            getYHDivisionTutorialApprovalSnapshot(
+                userData,
+                division
+            );
+
+        if (
+            !isYHDivisionTutorialEntryValid(
+                state[division],
+                approval
+            )
+        ) {
+            state[division] =
+                normalizeYHDivisionTutorialEntry(
+                    {}
+                );
+
+            return;
+        }
+
+        if (
+            state[division]
+                .completedVersion > 0 &&
+            approval.approvalToken
+        ) {
+            state[division] = {
+                ...state[division],
+
+                approvalToken:
+                    approval.approvalToken
+            };
+        }
+    });
+
+    return state;
+}
+
+async function getYHDivisionTutorialUserSnapshot(
+    uid = ''
+) {
+    const userRef =
+        firestore
+            .collection('users')
+            .doc(uid);
+
+    let userSnapshot =
+        await userRef.get();
+
+    if (!userSnapshot.exists) {
+        userSnapshot =
+            await getAcademyMemberProfileSupabaseSnapshot(
+                uid,
+                userRef
+            );
+    }
+
+    return {
+        userRef,
+        userSnapshot
+    };
+}
+
+exports.getDivisionTutorials =
+async (req, res) => {
+    try {
+        const uid =
+            getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res
+                .status(401)
+                .json({
+                    success: false,
+                    message: 'Unauthorized.'
+                });
+        }
+
+        const {
+            userSnapshot
+        } =
+            await getYHDivisionTutorialUserSnapshot(
+                uid
+            );
+
+        if (!userSnapshot.exists) {
+            return res
+                .status(404)
+                .json({
+                    success: false,
+                    message:
+                        'User account not found.'
+                });
+        }
+
+        const userData =
+            userSnapshot.data() || {};
+
+        return res.json({
+            success: true,
+
+            versions:
+                YH_DIVISION_TUTORIAL_VERSIONS,
+
+            tutorials:
+                buildYHDivisionTutorialState(
+                    userData
+                )
+        });
+    } catch (error) {
+        console.error(
+            'getDivisionTutorials error:',
+            error
+        );
+
+        return res
+            .status(500)
+            .json({
+                success: false,
+
+                message:
+                    error?.message ||
+                    'Failed to load division tutorial state.'
+            });
+    }
+};
+
+exports.updateDivisionTutorial =
+async (req, res) => {
+    try {
+        const uid =
+            getAcademyAuthUid(req);
+
+        const division =
+            normalizeYHDivisionTutorialKey(
+                req.params?.division || ''
+            );
+
+        if (!uid) {
+            return res
+                .status(401)
+                .json({
+                    success: false,
+                    message: 'Unauthorized.'
+                });
+        }
+
+        if (!division) {
+            return res
+                .status(400)
+                .json({
+                    success: false,
+                    message:
+                        'Valid division is required.'
+                });
+        }
+
+        const requiredVersion =
+            YH_DIVISION_TUTORIAL_VERSIONS[
+                division
+            ];
+
+        const requestedVersion =
+            Math.max(
+                1,
+
+                Number.parseInt(
+                    req.body?.completedVersion ||
+                    req.body?.version ||
+                    requiredVersion,
+                    10
+                ) || requiredVersion
+            );
+
+        const completedVersion =
+            Math.min(
+                requestedVersion,
+                requiredVersion
+            );
+
+        const requestedMethod =
+            sanitize(
+                req.body?.completionMethod ||
+                req.body?.method ||
+                'finish'
+            ).toLowerCase();
+
+        const completionMethod =
+            requestedMethod === 'skip'
+                ? 'skip'
+                : 'finish';
+
+        const {
+            userRef,
+            userSnapshot
+        } =
+            await getYHDivisionTutorialUserSnapshot(
+                uid
+            );
+
+        if (!userSnapshot.exists) {
+            return res
+                .status(404)
+                .json({
+                    success: false,
+                    message:
+                        'User account not found.'
+                });
+        }
+
+        const userData =
+            userSnapshot.data() || {};
+
+        const approval =
+            getYHDivisionTutorialApprovalSnapshot(
+                userData,
+                division
+            );
+
+        /*
+         * Tutorial completion cannot be stored while
+         * the corresponding division is still pending,
+         * rejected, or not applied.
+         */
+        if (approval.approved !== true) {
+            return res
+                .status(403)
+                .json({
+                    success: false,
+
+                    message:
+                        'Division approval is required before completing this tutorial.',
+
+                    division,
+
+                    applicationStatus:
+                        approval.status || ''
+                });
+        }
+
+        const currentState =
+            buildYHDivisionTutorialState(
+                userData
+            );
+
+        const currentEntry =
+            currentState[division];
+
+        const nextVersion =
+            Math.max(
+                currentEntry.completedVersion,
+                completedVersion
+            );
+
+        const sameApprovalCycle =
+            Boolean(
+                currentEntry.approvalToken &&
+                currentEntry.approvalToken ===
+                    approval.approvalToken
+            );
+
+        const nextEntry =
+            sameApprovalCycle &&
+            nextVersion ===
+                currentEntry.completedVersion &&
+            currentEntry.completedVersion > 0
+                ? currentEntry
+                : {
+                    completedVersion:
+                        nextVersion,
+
+                    completedAt:
+                        new Date()
+                            .toISOString(),
+
+                    completionMethod,
+
+                    approvalToken:
+                        approval.approvalToken
+                };
+
+        const nextTutorials = {
+            ...currentState,
+            [division]: nextEntry
+        };
+
+        await userRef.set(
+            {
+                divisionTutorials:
+                    nextTutorials,
+
+                divisionTutorialsUpdatedAt:
+                    new Date()
+                        .toISOString()
+            },
+            {
+                merge: true
+            }
+        );
+
+        return res.json({
+            success: true,
+            division,
+
+            versions:
+                YH_DIVISION_TUTORIAL_VERSIONS,
+
+            tutorials:
+                nextTutorials
+        });
+    } catch (error) {
+        console.error(
+            'updateDivisionTutorial error:',
+            error
+        );
+
+        return res
+            .status(500)
+            .json({
+                success: false,
+
+                message:
+                    error?.message ||
+                    'Failed to save division tutorial state.'
+            });
+    }
+};
+/* END PATCH: Universe division tutorial persistence v2 */
+
+
 exports.getUniverseProfile = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);

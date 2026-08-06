@@ -8,8 +8,9 @@
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css?v=20260723-phase3c7c-solo-streaks-v1">
-<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260712-community-niche-picker-full-v213">
-<link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260731-ac-live-stage-mobile-stack-v1">
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260804-ac-inbox-card-clean-corners-v1">
+<link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260804-ac-inbox-menu-inside-card-v1">
+<link rel="stylesheet" href="/css/yh-division-tutorials.css?v=20260804-division-tutorials-v1">
 </head>
 <body data-yh-view="academy" data-yh-page="academy" class="academy-startup-booting academy-standalone-shell-pending">
 
@@ -445,56 +446,6 @@
 
             </nav>
             <main class="yh-main-chat hidden-step fade-in" id="academy-feed-view">
-<header class="chat-header">
-                    <div class="header-left academy-header-left">
-<span class="hash-big academy-hash-image-wrap">
-    <img src="/assets/academy/icons/academy-icon-community-feed-news.png" alt="" class="academy-ui-icon academy-ui-icon-header">
-</span>
-                        <h3>Community Feed</h3>
-                        <div class="header-divider"></div>
-                        <p class="header-topic">Post updates, connect with members, like, comment, share, and build your Academy circle.</p>
-                    </div>
-                    <div class="header-right academy-feed-header-right">
-                        <div class="academy-header-search-wrap academy-feed-search-wrap">
-                            <span class="search-icon-mini academy-header-search-icon">🔍</span>
-<input
-                                type="search"
-                                id="academy-global-search-input"
-                                placeholder="Search posts, captions, tags, or members."
-                                class="academy-header-search-input academy-no-credential-suggestions-field"
-                                autocomplete="new-password"
-                                autocorrect="off"
-                                autocapitalize="none"
-                                spellcheck="false"
-                                inputmode="search"
-                                name="yh_academy_lookup_surface"
-                                data-lpignore="true"
-                                data-1p-ignore="true"
-                                data-bwignore="true"
-                                data-form-type="other"
-                                aria-autocomplete="none">
-
-                            <div id="academy-search-results-panel" class="academy-search-results-panel academy-search-inline-results hidden-step" aria-live="polite">
-                                <div class="academy-search-results-shell">
-                                    <div class="academy-search-results-head">
-                                        <div class="academy-search-results-title">Community search</div>
-                                        <div class="academy-search-results-actions">
-                                            <button type="button" class="academy-search-results-close" id="academy-search-results-close" aria-label="Close search results">
-                                                ✕
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div class="academy-search-results-inner" id="academy-search-results-inner">
-                                        <div class="academy-search-result-empty">Start typing to search users, posts, captions, and tags.</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button class="btn-secondary" id="academy-feed-refresh-btn" type="button">Refresh Feed</button>
-                    </div>
-                </header>
 
                 <div class="chat-messages hide-scrollbar" style="padding: 16px;">
                     <div class="academy-feed-shell">
@@ -504,6 +455,72 @@
                                     <div class="academy-community-layer-kicker">Community Feed</div>
                                     <h3 id="academy-community-layer-title">Circle · Friends</h3>
                                     <p id="academy-community-layer-copy">See posts from your friends, people you follow, or members who follow you.</p>
+                                </div>
+
+                                <div class="academy-feed-header-right">
+                                    <div class="academy-header-search-wrap academy-feed-search-wrap">
+                                        <span class="search-icon-mini academy-header-search-icon">🔍</span>
+
+                                        <input
+                                            type="search"
+                                            id="academy-global-search-input"
+                                            placeholder="Search posts, captions, tags, or members."
+                                            class="academy-header-search-input academy-no-credential-suggestions-field"
+                                            autocomplete="new-password"
+                                            autocorrect="off"
+                                            autocapitalize="none"
+                                            spellcheck="false"
+                                            inputmode="search"
+                                            name="yh_academy_lookup_surface"
+                                            data-lpignore="true"
+                                            data-1p-ignore="true"
+                                            data-bwignore="true"
+                                            data-form-type="other"
+                                            aria-autocomplete="none"
+                                        >
+
+                                        <div
+                                            id="academy-search-results-panel"
+                                            class="academy-search-results-panel academy-search-inline-results hidden-step"
+                                            aria-live="polite"
+                                        >
+                                            <div class="academy-search-results-shell">
+                                                <div class="academy-search-results-head">
+                                                    <div class="academy-search-results-title">
+                                                        Community search
+                                                    </div>
+
+                                                    <div class="academy-search-results-actions">
+                                                        <button
+                                                            type="button"
+                                                            class="academy-search-results-close"
+                                                            id="academy-search-results-close"
+                                                            aria-label="Close search results"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div
+                                                    class="academy-search-results-inner"
+                                                    id="academy-search-results-inner"
+                                                >
+                                                    <div class="academy-search-result-empty">
+                                                        Start typing to search users, posts, captions, and tags.
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        class="btn-secondary"
+                                        id="academy-feed-refresh-btn"
+                                        type="button"
+                                    >
+                                        Refresh Feed
+                                    </button>
                                 </div>
                             </div>
 
@@ -588,30 +605,7 @@
                 </div>
             </main>
             <main class="yh-main-chat hide-scrollbar hidden-step fade-in" id="academy-chat">
-                <header class="chat-header">
-                                    <div class="header-left academy-header-left">
-                                        <span class="hash-big" id="chat-header-icon">🧠</span>
-                                        <h3 id="chat-header-title">Academy Home</h3>
-                                        <div class="header-divider"></div>
-                                        <p class="header-topic" id="chat-header-topic">Roadmap, missions, and AI feedback loop</p>
 
-<div class="academy-chat-header-spacer" aria-hidden="true"></div>
-                                    </div>
-            <div class="header-right academy-chat-header-actions">
-                <button type="button" class="btn-secondary academy-chat-header-btn academy-chat-header-btn-with-icon" id="btn-open-dm-modal" title="Start Direct Message">
-                    <img src="/assets/academy/icons/dms-icon.png" alt="" class="academy-action-icon academy-action-icon-dm" loading="lazy" decoding="async">
-                    <span>Start DM</span>
-                </button>
-                <button type="button" class="btn-secondary academy-chat-header-btn academy-chat-header-btn-with-icon" id="btn-open-group-modal" title="Create Group Chat">
-                    <img src="/assets/academy/icons/groups-icon.png" alt="" class="academy-action-icon academy-action-icon-group" loading="lazy" decoding="async">
-                    <span>Create Group</span>
-                </button>
-                <button type="button" class="btn-focus-mode academy-chat-header-btn-with-icon" title="Focus Mode" aria-pressed="false">
-                    <img src="/assets/academy/icons/focus-mode-icon.png" alt="" class="academy-action-icon academy-action-icon-focus" loading="lazy" decoding="async">
-                    <span>Focus Mode</span>
-                </button>
-            </div>
-                                </header>
 
                 <div class="pinned-message" id="chat-pinned-message" style="display:none;">
                     <div class="pinned-icon">📌</div>
@@ -636,7 +630,62 @@
                                         id="academy-messages-inbox-refresh"
                                         aria-label="Refresh inbox"
                                         title="Refresh inbox"
-                                    >↻</button>
+                                    >
+                                        ↻
+                                    </button>
+                                </div>
+
+                                <div class="academy-chat-header-actions">
+                                    <button
+                                        type="button"
+                                        class="btn-secondary academy-chat-header-btn academy-chat-header-btn-with-icon"
+                                        id="btn-open-dm-modal"
+                                        title="Start Direct Message"
+                                    >
+                                        <img
+                                            src="/assets/academy/icons/dms-icon.png"
+                                            alt=""
+                                            class="academy-action-icon academy-action-icon-dm"
+                                            loading="lazy"
+                                            decoding="async"
+                                        >
+
+                                        <span>Start DM</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="btn-secondary academy-chat-header-btn academy-chat-header-btn-with-icon"
+                                        id="btn-open-group-modal"
+                                        title="Create Group Chat"
+                                    >
+                                        <img
+                                            src="/assets/academy/icons/groups-icon.png"
+                                            alt=""
+                                            class="academy-action-icon academy-action-icon-group"
+                                            loading="lazy"
+                                            decoding="async"
+                                        >
+
+                                        <span>Create Group</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="btn-focus-mode academy-chat-header-btn-with-icon"
+                                        title="Focus Mode"
+                                        aria-pressed="false"
+                                    >
+                                        <img
+                                            src="/assets/academy/icons/focus-mode-icon.png"
+                                            alt=""
+                                            class="academy-action-icon academy-action-icon-focus"
+                                            loading="lazy"
+                                            decoding="async"
+                                        >
+
+                                        <span>Focus Mode</span>
+                                    </button>
                                 </div>
                                 <div class="academy-messages-inbox-tabs" id="academy-messages-inbox-tabs" role="tablist" aria-label="Conversation type">
                                     <button type="button" class="academy-messages-inbox-tab is-active" role="tab" data-academy-message-tab="dm" aria-selected="true" tabindex="0">DMs</button>
@@ -749,29 +798,39 @@
             </main>
 
             <main class="yh-main-chat hide-scrollbar hidden-step fade-in" id="academy-lead-missions-view">
-                <header class="chat-header">
-                    <div class="header-left">
-                    <span class="hash-big academy-hash-image-wrap" id="academy-missions-header-icon">
-                        <img src="/assets/academy/icons/academy-icon-missions.png" alt="" class="academy-ui-icon academy-ui-icon-header">
-                    </span>
-                        <h3 id="academy-missions-header-title">missions</h3>
-                        <div class="header-divider"></div>
-                        <p class="header-topic" id="academy-missions-header-topic">Choose a mission module to enter your workspace.</p>
-                    </div>
 
-                    <div class="header-right academy-lead-header-actions hidden-step" id="academy-lead-missions-actions">
-                        <button type="button" class="btn-secondary academy-lead-profile-btn" id="btn-back-to-missions-hub">
-                            ← Missions
-                        </button>
-                        <button type="button" class="btn-secondary academy-lead-profile-btn" id="btn-edit-lead-operator-profile">
-                            Edit Recruitment Profile
-                        </button>
-                        <button type="button" class="btn-primary" id="btn-open-lead-entry-modal">+ Add Lead</button>
-                    </div>
-                </header>
 
                 <div class="chat-messages hide-scrollbar academy-lead-missions-scroll">
                     <div class="academy-lead-missions-shell">
+                        <div
+                            class="academy-lead-header-actions hidden-step"
+                            id="academy-lead-missions-actions"
+                        >
+                            <button
+                                type="button"
+                                class="btn-secondary academy-lead-profile-btn"
+                                id="btn-back-to-missions-hub"
+                            >
+                                ← Missions
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn-secondary academy-lead-profile-btn"
+                                id="btn-edit-lead-operator-profile"
+                            >
+                                Edit Recruitment Profile
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn-primary"
+                                id="btn-open-lead-entry-modal"
+                            >
+                                + Add Lead
+                            </button>
+                        </div>
+
                         <section class="academy-lead-missions-hero" id="academy-missions-hub-panel">
                             <div>
                                 <div class="academy-profile-card-kicker">Mission Playbooks</div>
@@ -1531,14 +1590,30 @@
             </main>
 
             <main class="yh-main-chat hide-scrollbar hidden-step fade-in lounge-main" id="voice-lobby-view">
-<header class="chat-header"><div class="header-left"><span class="hash-big academy-hash-image-wrap"><img src="/assets/academy/icons/academy-icon-live-voice-lounge.png" alt="" class="academy-ui-icon academy-ui-icon-header"></span><h3>Voice-Lounge</h3><div class="header-divider"></div><p class="header-topic">Live Audio Networking</p></div><div class="header-right"><button class="btn-primary btn-start-lounge-action" id="btn-start-lounge">+ Start a Lounge</button></div></header>
+
                 <div class="lounge-container hide-scrollbar">
                     <div class="academy-live-lounge-head">
                         <div>
                             <h2 class="lounge-title">Active Stages</h2>
-                            <p class="academy-live-expiry-note">This live will automatically end in the next 24 hours if you don't end it manually.</p>
+
+                            <p class="academy-live-expiry-note">
+                                This live will automatically end in the next
+                                24 hours if you don't end it manually.
+                            </p>
                         </div>
-                        <span class="academy-live-expiry-pill">24h auto-end</span>
+
+                        <div class="header-right">
+                            <span class="academy-live-expiry-pill">
+                                24h auto-end
+                            </span>
+
+                            <button
+                                class="btn-primary btn-start-lounge-action"
+                                id="btn-start-lounge"
+                            >
+                                + Start a Lounge
+                            </button>
+                        </div>
                     </div>
                     <div class="lounge-grid" id="lounge-grid"></div>
                 </div>
@@ -2949,7 +3024,8 @@
 
 <script src="/js/yh-shared-core.js?v=20260627-yh-live-cache-v4"></script>
 <script src="/js/yh-shared-runtime.js?v=20260721-phase3c5a-lifecycle-v1"></script>
-<script src="/js/academy.js?v=20260731-ac-canonical-realtime-identity-v4-tdzfix-v1"></script>
+<script src="/js/academy.js?v=20260806-roadmap-embed-readiness-v1"></script>
+<script src="/js/yh-division-tutorials.js?v=20260804-division-tutorials-v1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"

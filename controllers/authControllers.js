@@ -1280,13 +1280,191 @@ await sendOtpMail({
             });
         }
 
-        username = await generateUniqueUsername(fullName, username);
+        username = await generateUniqueUsername(
+            fullName,
+            username
+        );
 
-        const registrationGeo = await geocodingService.resolveLocation({
-            city,
-            country,
-            fallbackToCountryCentroid: true
-        });
+        /*
+         * Registration must not fail when the external
+         * geocoding provider cannot resolve a location.
+         *
+         * The submitted city and country remain valid
+         * registration data, while the local country
+         * index provides a safe coordinate fallback.
+         */
+        let resolvedRegistrationGeo = null;
+
+        try {
+            resolvedRegistrationGeo =
+                await geocodingService.resolveLocation({
+                    city,
+                    country,
+                    fallbackToCountryCentroid: true
+                });
+        } catch (geoError) {
+            console.warn(
+                'Registration geocoding fallback:',
+                geoError?.message || geoError
+            );
+        }
+
+        const fallbackRegistrationGeo =
+            deriveRegistrationGeo({
+                city,
+                country
+            });
+
+        const resolvedGeoIsUsable =
+            resolvedRegistrationGeo &&
+            typeof resolvedRegistrationGeo ===
+                'object';
+
+        const resolvedLat =
+            resolvedGeoIsUsable
+                ? resolvedRegistrationGeo.lat
+                : null;
+
+        const resolvedLng =
+            resolvedGeoIsUsable
+                ? resolvedRegistrationGeo.lng
+                : null;
+
+        const hasResolvedLat =
+            resolvedLat !== null &&
+            resolvedLat !== undefined &&
+            resolvedLat !== '' &&
+            Number.isFinite(
+                Number(resolvedLat)
+            );
+
+        const hasResolvedLng =
+            resolvedLng !== null &&
+            resolvedLng !== undefined &&
+            resolvedLng !== '' &&
+            Number.isFinite(
+                Number(resolvedLng)
+            );
+
+        const registrationGeo = {
+            city:
+                normalizeGeoText(
+                    resolvedRegistrationGeo?.city ||
+                    fallbackRegistrationGeo.city ||
+                    city
+                ),
+
+            cityNormalized:
+                normalizeGeoText(
+                    resolvedRegistrationGeo
+                        ?.cityNormalized ||
+                    fallbackRegistrationGeo
+                        .cityNormalized ||
+                    city
+                ).toLowerCase(),
+
+            country:
+                normalizeGeoText(
+                    resolvedRegistrationGeo
+                        ?.country ||
+                    fallbackRegistrationGeo
+                        .country ||
+                    country
+                ),
+
+            countryNormalized:
+                normalizeGeoText(
+                    resolvedRegistrationGeo
+                        ?.countryNormalized ||
+                    fallbackRegistrationGeo
+                        .countryNormalized ||
+                    country
+                ).toLowerCase(),
+
+            countryCode:
+                String(
+                    resolvedRegistrationGeo
+                        ?.countryCode ||
+                    fallbackRegistrationGeo
+                        .countryCode ||
+                    ''
+                )
+                    .trim()
+                    .toUpperCase(),
+
+            lat:
+                hasResolvedLat
+                    ? Number(resolvedLat)
+                    : fallbackRegistrationGeo.lat,
+
+            lng:
+                hasResolvedLng
+                    ? Number(resolvedLng)
+                    : fallbackRegistrationGeo.lng,
+
+            geoSource:
+                String(
+                    resolvedRegistrationGeo
+                        ?.geoSource ||
+                    fallbackRegistrationGeo
+                        .geoSource ||
+                    'registration_manual_pending'
+                ).trim(),
+
+            geoProvider:
+                String(
+                    resolvedRegistrationGeo
+                        ?.geoProvider ||
+                    ''
+                ).trim(),
+
+            geoPrecision:
+                String(
+                    resolvedRegistrationGeo
+                        ?.geoPrecision ||
+                    (
+                        fallbackRegistrationGeo
+                            .countryCode
+                            ? 'country_centroid'
+                            : 'unresolved'
+                    )
+                ).trim(),
+
+            geoConfidence:
+                Number.isFinite(
+                    Number(
+                        resolvedRegistrationGeo
+                            ?.geoConfidence
+                    )
+                )
+                    ? Number(
+                        resolvedRegistrationGeo
+                            .geoConfidence
+                    )
+                    : null,
+
+            geoDisplayName:
+                String(
+                    resolvedRegistrationGeo
+                        ?.geoDisplayName ||
+                    [
+                        fallbackRegistrationGeo.city,
+                        fallbackRegistrationGeo.country
+                    ]
+                        .filter(Boolean)
+                        .join(', ')
+                ).trim(),
+
+            geoUpdatedAt:
+                String(
+                    resolvedRegistrationGeo
+                        ?.geoUpdatedAt ||
+                    fallbackRegistrationGeo
+                        .geoUpdatedAt ||
+                    nowIso()
+                ).trim()
+        };
+
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         const createdAt = nowIso();

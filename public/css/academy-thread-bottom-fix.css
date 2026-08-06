@@ -1813,6 +1813,139 @@
   body[data-yh-view="academy"] .input-extras {
     display: none !important;
   }
+
+  /*
+   * Mobile Messages inbox card:
+   * one complete card with its options button inside.
+   */
+  body[data-yh-view="academy"]
+    #academy-messages-inbox-list
+    .academy-messages-inbox-card {
+    display: block !important;
+    position: relative !important;
+
+    width: 100% !important;
+    min-width: 0 !important;
+
+    grid-template-columns: none !important;
+    gap: 0 !important;
+
+    border-radius: 16px !important;
+    clip-path: none !important;
+
+    overflow: visible !important;
+    isolation: isolate !important;
+  }
+
+  body[data-yh-view="academy"]
+    #academy-messages-inbox-list
+    .academy-messages-inbox-item {
+    width: 100% !important;
+    min-width: 0 !important;
+
+    /*
+     * Reserve space for the options button so the
+     * conversation name never sits underneath it.
+     */
+    padding:
+      12px
+      54px
+      12px
+      12px !important;
+
+    border-radius: 16px !important;
+    clip-path: none !important;
+  }
+
+  body[data-yh-view="academy"]
+    #academy-messages-inbox-list
+    .academy-messages-inbox-actions {
+    position: absolute !important;
+    top: 10px !important;
+    right: 10px !important;
+
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: flex-end !important;
+
+    overflow: visible !important;
+    z-index: 50 !important;
+  }
+
+  body[data-yh-view="academy"]
+    #academy-messages-inbox-list
+    .academy-messages-inbox-menu-trigger {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    border-radius: 10px !important;
+    border:
+      1px solid
+      rgba(125, 211, 252, 0.18) !important;
+
+    background:
+      rgba(3, 12, 30, 0.78) !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    font-size: 1.05rem !important;
+    line-height: 1 !important;
+
+    z-index: 2 !important;
+  }
+
+  body[data-yh-view="academy"]
+    #academy-messages-inbox-list
+    .academy-messages-inbox-menu {
+    top: calc(100% + 6px) !important;
+    right: 0 !important;
+    bottom: auto !important;
+    left: auto !important;
+
+    min-width: 168px !important;
+    max-width: min(
+      190px,
+      calc(100vw - 48px)
+    ) !important;
+
+    z-index: 10020 !important;
+  }
+
+  /*
+   * A pinned marker and the 3-dots button must occupy
+   * separate positions inside the same card.
+   */
+  body[data-yh-view="academy"]
+    #academy-messages-inbox-list
+    .academy-messages-inbox-card.has-visible-pinned-marker-v2
+    .academy-messages-inbox-item {
+    padding-right: 90px !important;
+  }
+
+  body[data-yh-view="academy"]
+    #academy-messages-inbox-list
+    .academy-messages-inbox-pin-icon-v2 {
+    top: 12px !important;
+    right: 50px !important;
+  }
+
+  body[data-yh-view="academy"]
+    #academy-messages-inbox-list
+    .academy-messages-inbox-row-loader {
+    inset: 8px !important;
+    padding-right: 42px !important;
+  }
     body[data-yh-view="academy"] .academy-profile-action-row > * {
     width: 100% !important;
     flex: 1 1 100% !important;

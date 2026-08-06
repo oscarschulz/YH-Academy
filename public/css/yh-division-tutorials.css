@@ -1,0 +1,531 @@
+/* YH Universe division tutorial system v1 */
+
+html.yh-division-tutorial-open,
+body.yh-division-tutorial-open {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+.yh-division-tutorial-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 24000;
+    display: grid;
+    place-items: center;
+    padding: clamp(16px, 3vw, 36px);
+    font-family: "Poppins", system-ui, sans-serif;
+    color: #f8fbff;
+    isolation: isolate;
+}
+
+.yh-division-tutorial-overlay[hidden] {
+    display: none;
+}
+
+.yh-division-tutorial-backdrop {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 18% 10%, rgba(56, 189, 248, 0.16), transparent 35%),
+        radial-gradient(circle at 82% 8%, rgba(37, 99, 235, 0.18), transparent 34%),
+        rgba(1, 5, 15, 0.86);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+.yh-division-tutorial-card {
+    --yh-tutorial-accent: #67e8f9;
+    --yh-tutorial-accent-rgb: 103, 232, 249;
+    position: relative;
+    z-index: 1;
+    width: min(1040px, 100%);
+    max-height: min(760px, calc(100dvh - 32px));
+    overflow: hidden;
+    border: 1px solid rgba(223, 247, 255, 0.2);
+    border-radius: 28px;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(var(--yh-tutorial-accent-rgb), 0.13), transparent 38%),
+        linear-gradient(180deg, rgba(7, 18, 39, 0.98), rgba(2, 7, 20, 0.98));
+    box-shadow:
+        0 34px 90px rgba(0, 0, 0, 0.58),
+        0 0 52px rgba(var(--yh-tutorial-accent-rgb), 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.yh-division-tutorial-overlay[data-yh-division="plazas"] .yh-division-tutorial-card {
+    --yh-tutorial-accent: #38bdf8;
+    --yh-tutorial-accent-rgb: 56, 189, 248;
+}
+
+.yh-division-tutorial-overlay[data-yh-division="federation"] .yh-division-tutorial-card {
+    --yh-tutorial-accent: #8bb4ff;
+    --yh-tutorial-accent-rgb: 139, 180, 255;
+}
+
+.yh-division-tutorial-skip {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    z-index: 4;
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid rgba(223, 247, 255, 0.16);
+    border-radius: 999px;
+    color: rgba(238, 247, 255, 0.76);
+    background: rgba(3, 10, 24, 0.62);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+.yh-division-tutorial-skip:hover,
+.yh-division-tutorial-skip:focus-visible {
+    color: #ffffff;
+    border-color: rgba(var(--yh-tutorial-accent-rgb), 0.44);
+    background: rgba(var(--yh-tutorial-accent-rgb), 0.1);
+    outline: none;
+}
+
+.yh-division-tutorial-layout {
+    min-height: 590px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+}
+
+.yh-division-tutorial-visual {
+    position: relative;
+    min-width: 0;
+    min-height: 590px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 24px;
+    padding: 64px clamp(28px, 5vw, 64px) 44px;
+    overflow: hidden;
+    touch-action: pan-y;
+    background:
+        linear-gradient(rgba(var(--yh-tutorial-accent-rgb), 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--yh-tutorial-accent-rgb), 0.045) 1px, transparent 1px),
+        radial-gradient(circle at 50% 46%, rgba(var(--yh-tutorial-accent-rgb), 0.17), transparent 34%),
+        linear-gradient(145deg, rgba(6, 30, 64, 0.7), rgba(2, 8, 23, 0.88));
+    background-size: 34px 34px, 34px 34px, auto, auto;
+}
+
+.yh-division-tutorial-visual::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent 78%, rgba(1, 5, 15, 0.38));
+}
+
+.yh-division-tutorial-orbit {
+    position: absolute;
+    width: min(420px, 74%);
+    aspect-ratio: 1;
+    border: 1px solid rgba(var(--yh-tutorial-accent-rgb), 0.18);
+    border-radius: 50%;
+    box-shadow:
+        0 0 0 34px rgba(var(--yh-tutorial-accent-rgb), 0.035),
+        0 0 0 72px rgba(var(--yh-tutorial-accent-rgb), 0.022);
+    animation: yhTutorialOrbit 14s linear infinite;
+}
+
+.yh-division-tutorial-orbit::before,
+.yh-division-tutorial-orbit::after {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--yh-tutorial-accent);
+    box-shadow: 0 0 18px rgba(var(--yh-tutorial-accent-rgb), 0.7);
+}
+
+.yh-division-tutorial-orbit::before {
+    top: 8%;
+    left: 18%;
+}
+
+.yh-division-tutorial-orbit::after {
+    right: 8%;
+    bottom: 23%;
+}
+
+@keyframes yhTutorialOrbit {
+    to { transform: rotate(360deg); }
+}
+
+.yh-division-tutorial-image-shell {
+    position: relative;
+    z-index: 2;
+    width: clamp(132px, 18vw, 190px);
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(var(--yh-tutorial-accent-rgb), 0.34);
+    border-radius: 42px;
+    background:
+        radial-gradient(circle at 34% 22%, rgba(255, 255, 255, 0.16), transparent 38%),
+        linear-gradient(145deg, rgba(var(--yh-tutorial-accent-rgb), 0.22), rgba(4, 15, 35, 0.88));
+    box-shadow:
+        0 28px 64px rgba(0, 0, 0, 0.38),
+        0 0 42px rgba(var(--yh-tutorial-accent-rgb), 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.yh-division-tutorial-image-shell img {
+    width: 62%;
+    height: 62%;
+    object-fit: contain;
+    filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.32));
+}
+
+.yh-division-tutorial-feature-preview {
+    position: relative;
+    z-index: 2;
+    width: min(410px, 100%);
+    display: grid;
+    gap: 9px;
+}
+
+.yh-division-tutorial-feature-preview span {
+    min-width: 0;
+    min-height: 46px;
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px 8px 9px;
+    border: 1px solid rgba(223, 247, 255, 0.12);
+    border-radius: 14px;
+    color: rgba(239, 248, 255, 0.9);
+    background: rgba(2, 8, 23, 0.62);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.yh-division-tutorial-feature-preview b {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    color: var(--yh-tutorial-accent);
+    background: rgba(var(--yh-tutorial-accent-rgb), 0.1);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+}
+
+.yh-division-tutorial-content {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 74px clamp(30px, 4.2vw, 54px) 42px;
+}
+
+.yh-division-tutorial-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 26px;
+    color: rgba(224, 238, 255, 0.58);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.yh-division-tutorial-meta span:first-child {
+    color: var(--yh-tutorial-accent);
+}
+
+.yh-division-tutorial-eyebrow {
+    margin-bottom: 10px;
+    color: var(--yh-tutorial-accent);
+    font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.yh-division-tutorial-content h2 {
+    margin: 0;
+    color: #ffffff;
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+    font-size: clamp(2rem, 4vw, 3.35rem);
+    font-weight: 800;
+    line-height: 0.98;
+    letter-spacing: -0.035em;
+}
+
+.yh-division-tutorial-content > p {
+    margin: 20px 0 0;
+    color: rgba(223, 237, 255, 0.76);
+    font-size: clamp(0.94rem, 1.15vw, 1.04rem);
+    line-height: 1.68;
+}
+
+.yh-division-tutorial-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 22px;
+}
+
+.yh-division-tutorial-features span {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 11px;
+    border: 1px solid rgba(var(--yh-tutorial-accent-rgb), 0.2);
+    border-radius: 999px;
+    color: rgba(240, 249, 255, 0.9);
+    background: rgba(var(--yh-tutorial-accent-rgb), 0.07);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.yh-division-tutorial-dots {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 30px;
+}
+
+.yh-division-tutorial-dots button {
+    width: 9px;
+    height: 9px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(223, 247, 255, 0.2);
+    cursor: pointer;
+    transition: width 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.yh-division-tutorial-dots button.is-active {
+    width: 30px;
+    background: var(--yh-tutorial-accent);
+    box-shadow: 0 0 16px rgba(var(--yh-tutorial-accent-rgb), 0.48);
+}
+
+.yh-division-tutorial-actions {
+    display: grid;
+    grid-template-columns: minmax(110px, 0.72fr) minmax(150px, 1fr);
+    gap: 12px;
+    margin-top: 34px;
+}
+
+.yh-division-tutorial-back,
+.yh-division-tutorial-next {
+    min-height: 48px;
+    padding: 0 18px;
+    border-radius: 14px;
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, opacity 160ms ease;
+}
+
+.yh-division-tutorial-back {
+    border: 1px solid rgba(223, 247, 255, 0.16);
+    color: rgba(238, 247, 255, 0.82);
+    background: rgba(6, 18, 38, 0.68);
+}
+
+.yh-division-tutorial-back:disabled {
+    opacity: 0.34;
+    cursor: default;
+}
+
+.yh-division-tutorial-next {
+    border: 1px solid rgba(223, 247, 255, 0.34);
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--yh-tutorial-accent), #2563eb 74%, #0f2f7a);
+    box-shadow: 0 16px 34px rgba(37, 99, 235, 0.26);
+}
+
+.yh-division-tutorial-back:not(:disabled):hover,
+.yh-division-tutorial-next:hover,
+.yh-division-tutorial-back:not(:disabled):focus-visible,
+.yh-division-tutorial-next:focus-visible {
+    transform: translateY(-1px);
+    outline: none;
+}
+
+.yh-tutorial-replay-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.yh-tutorial-replay-btn {
+    min-height: 46px;
+    padding: 10px 14px;
+    border: 1px solid rgba(103, 232, 249, 0.2);
+    border-radius: 12px;
+    color: #dff7ff;
+    background: rgba(6, 30, 64, 0.46);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .yh-division-tutorial-orbit {
+        animation: none;
+    }
+
+    .yh-division-tutorial-back,
+    .yh-division-tutorial-next,
+    .yh-division-tutorial-dots button {
+        transition: none;
+    }
+}
+
+@media (max-width: 820px) {
+    .yh-division-tutorial-overlay {
+        align-items: end;
+        padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+    }
+
+    .yh-division-tutorial-card {
+        width: 100%;
+        max-height: calc(100dvh - 20px - env(safe-area-inset-bottom));
+        border-radius: 24px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: none;
+    }
+
+    .yh-division-tutorial-card::-webkit-scrollbar {
+        display: none;
+    }
+
+    .yh-division-tutorial-layout {
+        min-height: 0;
+        grid-template-columns: 1fr;
+    }
+
+    .yh-division-tutorial-skip {
+        top: 14px;
+        right: 14px;
+        min-height: 34px;
+        padding-inline: 12px;
+        font-size: 0.74rem;
+    }
+
+    .yh-division-tutorial-visual {
+        min-height: 318px;
+        padding: 54px 22px 26px;
+        gap: 18px;
+        touch-action: pan-y;
+    }
+
+    .yh-division-tutorial-visual::after {
+        background: linear-gradient(180deg, transparent 70%, rgba(1, 5, 15, 0.34));
+    }
+
+    .yh-division-tutorial-orbit {
+        width: 250px;
+    }
+
+    .yh-division-tutorial-image-shell {
+        width: 118px;
+        border-radius: 30px;
+    }
+
+    .yh-division-tutorial-feature-preview {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 7px;
+    }
+
+    .yh-division-tutorial-feature-preview span {
+        min-height: 66px;
+        grid-template-columns: 1fr;
+        justify-items: center;
+        align-content: center;
+        gap: 5px;
+        padding: 7px;
+        text-align: center;
+        font-size: 0.7rem;
+        line-height: 1.2;
+    }
+
+    .yh-division-tutorial-feature-preview b {
+        width: 25px;
+        height: 25px;
+        border-radius: 8px;
+        font-size: 0.6rem;
+    }
+
+    .yh-division-tutorial-content {
+        padding: 26px 22px 24px;
+    }
+
+    .yh-division-tutorial-meta {
+        margin-bottom: 18px;
+        font-size: 0.68rem;
+    }
+
+    .yh-division-tutorial-content h2 {
+        font-size: clamp(1.86rem, 9vw, 2.55rem);
+        line-height: 1;
+    }
+
+    .yh-division-tutorial-content > p {
+        margin-top: 14px;
+        font-size: 0.9rem;
+        line-height: 1.58;
+    }
+
+    .yh-division-tutorial-features {
+        margin-top: 16px;
+    }
+
+    .yh-division-tutorial-dots {
+        margin-top: 22px;
+    }
+
+    .yh-division-tutorial-actions {
+        margin-top: 24px;
+    }
+
+    .yh-tutorial-replay-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 420px) {
+    .yh-division-tutorial-overlay {
+        padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    }
+
+    .yh-division-tutorial-card {
+        border-radius: 20px;
+        max-height: calc(100dvh - 12px - env(safe-area-inset-bottom));
+    }
+
+    .yh-division-tutorial-visual {
+        min-height: 284px;
+        padding-inline: 16px;
+    }
+
+    .yh-division-tutorial-content {
+        padding: 22px 18px 20px;
+    }
+
+    .yh-division-tutorial-actions {
+        grid-template-columns: 0.78fr 1.22fr;
+        gap: 9px;
+    }
+}

@@ -769,7 +769,12 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-indicato
         scroll-padding-inline: 0 var(--yh-division-peek);
 
         overscroll-behavior-x: contain;
-        touch-action: pan-y;
+
+        /*
+         * Touch and pen use the browser's native horizontal
+         * scrolling. Vertical page scrolling remains available.
+         */
+        touch-action: pan-x pan-y;
         -webkit-overflow-scrolling: touch;
 
         scrollbar-width: none;

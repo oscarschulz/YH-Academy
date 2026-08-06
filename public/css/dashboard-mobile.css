@@ -1378,30 +1378,89 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         pointer-events: auto !important;
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-profile {
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-mobile-app-profile {
         width: 42px !important;
         height: 42px !important;
         min-width: 42px !important;
+
         display: inline-grid !important;
         place-items: center !important;
-        border: 1px solid rgba(223, 247, 255, 0.2) !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        border:
+            1px solid
+            rgba(223, 247, 255, 0.2) !important;
+
         border-radius: 999px !important;
+
         background:
-            radial-gradient(circle at 22% 0%, rgba(223, 247, 255, 0.12), transparent 42%),
-            linear-gradient(180deg, rgba(15, 47, 122, 0.58), rgba(2, 8, 23, 0.72)) !important;
+            radial-gradient(
+                circle at 22% 0%,
+                rgba(223, 247, 255, 0.12),
+                transparent 42%
+            ),
+            linear-gradient(
+                180deg,
+                rgba(15, 47, 122, 0.58),
+                rgba(2, 8, 23, 0.72)
+            ) !important;
+
         color: #dff7ff !important;
+
         box-shadow:
-            0 12px 28px rgba(0, 0, 0, 0.26),
-            inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
-        font-family: var(--yh-font-header, "Rajdhani", sans-serif) !important;
+            0 12px 28px
+                rgba(0, 0, 0, 0.26),
+            inset 0 1px 0
+                rgba(255, 255, 255, 0.07) !important;
+
+        font-family:
+            var(
+                --yh-font-header,
+                "Rajdhani",
+                sans-serif
+            ) !important;
+
         font-size: 0.92rem !important;
         font-weight: 800 !important;
         line-height: 1 !important;
+
+        overflow: hidden !important;
+
         appearance: none !important;
         -webkit-appearance: none !important;
+
         cursor: pointer !important;
         pointer-events: auto !important;
-        -webkit-tap-highlight-color: transparent !important;
+
+        -webkit-tap-highlight-color:
+            transparent !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-mobile-app-profile
+        #yh-mobile-app-profile-initial {
+        width: 100% !important;
+        height: 100% !important;
+
+        display: grid !important;
+        place-items: center !important;
+
+        border-radius: inherit !important;
+
+        background-size: cover !important;
+        background-position: center !important;
+        background-repeat: no-repeat !important;
+
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-mobile-app-profile.has-profile-image
+        #yh-mobile-app-profile-initial {
+        color: transparent !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-profile {

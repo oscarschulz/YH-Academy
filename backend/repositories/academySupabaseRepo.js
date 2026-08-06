@@ -10509,10 +10509,41 @@ async function listAcademySquadMissionsV1(
     uid = '',
     options = {}
 ) {
-    const context =
-        await requireAcademySquadMemberV1(
+    /*
+     * Listing Squad missions is a read-only operation.
+     *
+     * A member without an active Squad has a valid
+     * empty mission state. This must not be treated as
+     * an exceptional 404 response.
+     *
+     * Create, update, cancel, contribution, and other
+     * protected operations continue using the strict
+     * requireAcademySquadMemberV1 guard.
+     */
+    const current =
+        await getCurrentAcademySquadV1(
             uid
         );
+
+    if (!current?.squad) {
+        return {
+            squadId: '',
+            role: '',
+            canManage: false,
+            missions: []
+        };
+    }
+
+    const context = {
+        squad:
+            current.squad,
+
+        membership:
+            current.membership ||
+            {
+                role: 'member'
+            }
+    };
 
     const cleanStatus =
         sanitizeString(

@@ -181,9 +181,172 @@
         return payload;
     }
 
+    function normalizeGameDivisionAccessStatusV1(
+        value = ''
+    ) {
+        return String(value || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[_-]+/g, ' ')
+            .replace(/\s+/g, ' ');
+    }
+
+    function getGameDivisionAccessStateV1(
+        division = ''
+    ) {
+        const cleanDivision =
+            String(division || '')
+                .trim()
+                .toLowerCase() === 'plazas'
+                ? 'plaza'
+                : String(division || '')
+                    .trim()
+                    .toLowerCase();
+
+        const core =
+            window.YHUGameCore;
+
+        const storageKey =
+            cleanDivision === 'academy'
+                ? core?.STORAGE_KEYS
+                    ?.academyMembership
+                : cleanDivision === 'plaza'
+                    ? core?.STORAGE_KEYS
+                        ?.plazaAccess
+                    : cleanDivision === 'federation'
+                        ? core?.STORAGE_KEYS
+                            ?.federationAccess
+                        : '';
+
+        const accessSnapshot =
+            storageKey
+                ? (
+                    core?.readJsonStorage?.(
+                        storageKey,
+                        {}
+                    ) || {}
+                )
+                : {};
+
+        const divisionSnapshot =
+            cleanDivision === 'academy'
+                ? (
+                    core?.getAcademySnapshot?.() ||
+                    {}
+                )
+                : cleanDivision === 'plaza'
+                    ? (
+                        core?.getPlazaSnapshot?.() ||
+                        {}
+                    )
+                    : cleanDivision ===
+                        'federation'
+                        ? (
+                            core
+                                ?.getFederationSnapshot
+                                ?.() ||
+                            {}
+                        )
+                        : {};
+
+        const status =
+            normalizeGameDivisionAccessStatusV1(
+                accessSnapshot
+                    ?.applicationStatus ||
+                accessSnapshot
+                    ?.application
+                    ?.status ||
+                accessSnapshot?.status ||
+                divisionSnapshot
+                    ?.applicationStatus ||
+                ''
+            );
+
+        const approved =
+            divisionSnapshot?.approved ===
+                true ||
+            (
+                cleanDivision === 'academy' &&
+                accessSnapshot
+                    ?.canEnterAcademy ===
+                    true
+            ) ||
+            (
+                cleanDivision === 'plaza' &&
+                accessSnapshot
+                    ?.canEnterPlaza ===
+                    true
+            ) ||
+            (
+                cleanDivision ===
+                    'federation' &&
+                accessSnapshot
+                    ?.canEnterFederation ===
+                    true
+            ) ||
+            status === 'approved' ||
+            status === 'active' ||
+            status === 'member';
+
+        return {
+            division:
+                cleanDivision,
+
+            approved,
+
+            status,
+
+            accessSnapshot,
+
+            divisionSnapshot
+        };
+    }
+
+    function setAcademySquadAccessLockedStateV1(
+        status = ''
+    ) {
+        const cleanStatus =
+            normalizeGameDivisionAccessStatusV1(
+                status
+            );
+
+        window.YHUGameCore
+            ?.setAcademySquadCacheV1?.({
+                joined: false,
+                squad: null,
+                membership: null,
+                accessLocked: true,
+                accessStatus:
+                    cleanStatus
+            });
+
+        academySquadLoaded =
+            true;
+
+        academySquadMissionsStateV1 = {
+            ...academySquadMissionsStateV1,
+            loaded: true,
+            loading: false,
+            canManage: false,
+            role: '',
+            missions: []
+        };
+
+        return true;
+    }
+
     async function loadPlazaReputationOnceV1({
         force = false
     } = {}) {
+        const plazaAccess =
+            getGameDivisionAccessStateV1(
+                'plaza'
+            );
+
+        if (!plazaAccess.approved) {
+            return false;
+        }
+
         if (plazaReputationLoadPromiseV1) {
             return plazaReputationLoadPromiseV1;
         }
@@ -217,10 +380,21 @@
                     return true;
                 })
                 .catch((error) => {
-                    console.error(
-                        'loadPlazaReputationOnceV1 error:',
-                        error
-                    );
+                    const status =
+                        Number(
+                            error?.status ||
+                            0
+                        );
+
+                    if (
+                        status !== 401 &&
+                        status !== 403
+                    ) {
+                        console.error(
+                            'loadPlazaReputationOnceV1 error:',
+                            error
+                        );
+                    }
 
                     return false;
                 })
@@ -235,6 +409,15 @@
     async function loadFederationInfluenceOnceV1({
         force = false
     } = {}) {
+        const federationAccess =
+            getGameDivisionAccessStateV1(
+                'federation'
+            );
+
+        if (!federationAccess.approved) {
+            return false;
+        }
+
         if (federationInfluenceLoadPromiseV1) {
             return federationInfluenceLoadPromiseV1;
         }
@@ -992,6 +1175,15 @@
     async function loadAcademyProgressionOnce({
         force = false
     } = {}) {
+        const academyAccess =
+            getGameDivisionAccessStateV1(
+                'academy'
+            );
+
+        if (!academyAccess.approved) {
+            return false;
+        }
+
         if (academyProgressionLoadPromise) {
             return academyProgressionLoadPromise;
         }
@@ -1114,6 +1306,21 @@
     async function loadAcademySquadV1({
         force = false
     } = {}) {
+        const academyAccess =
+            getGameDivisionAccessStateV1(
+                'academy'
+            );
+
+        if (!academyAccess.approved) {
+            setAcademySquadAccessLockedStateV1(
+                academyAccess.status
+            );
+
+            renderDashboardGameFoundation();
+
+            return true;
+        }
+
         if (
             academySquadLoaded &&
             !force
@@ -1282,6 +1489,56 @@ async function loadAcademySquadRankingsV1(
         academySquadMissionsLoadPromise =
             (async () => {
                 try {
+                    /*
+                     * Resolve the current Squad membership
+                     * before requesting Squad missions.
+                     *
+                     * During Dashboard boot, loadSquadV1 and
+                     * loadSquadMissionsV1 are started close
+                     * together. Await the membership request
+                     * first to avoid a guaranteed 404 for
+                     * users without an active Squad.
+                     */
+                    if (academySquadLoadPromise) {
+                        await academySquadLoadPromise;
+                    } else {
+                        const currentSquadSnapshot =
+                            window.YHUGameCore
+                                ?.getAcademySquadSnapshotV1?.() ||
+                            {};
+
+                        if (
+                            force ||
+                            currentSquadSnapshot.loaded !== true
+                        ) {
+                            await loadAcademySquadV1({
+                                force
+                            });
+                        }
+                    }
+
+                    const squadSnapshot =
+                        window.YHUGameCore
+                            ?.getAcademySquadSnapshotV1?.() ||
+                        {};
+
+                    if (
+                        squadSnapshot.loaded === true &&
+                        squadSnapshot.joined !== true
+                    ) {
+                        academySquadMissionsStateV1 = {
+                            ...academySquadMissionsStateV1,
+
+                            loaded: true,
+                            loading: false,
+                            canManage: false,
+                            role: '',
+                            missions: []
+                        };
+
+                        return academySquadMissionsStateV1;
+                    }
+
                     const payload =
                         await fetchAcademyGameJson(
                             '/api/academy/squad/missions?limit=100'
@@ -1312,12 +1569,52 @@ async function loadAcademySquadRankingsV1(
 
                     return academySquadMissionsStateV1;
                 } catch (error) {
+                    const status =
+                        Number(
+                            error?.status ||
+                            0
+                        );
+
+                    const message =
+                        String(
+                            error?.message ||
+                            ''
+                        ).toLowerCase();
+
+                    const noActiveSquad =
+                        status === 404 &&
+                        (
+                            message.includes(
+                                'active squad'
+                            ) ||
+                            message.includes(
+                                'belong to a squad'
+                            ) ||
+                            message.includes(
+                                'belong to an active squad'
+                            )
+                        );
+
                     academySquadMissionsStateV1 = {
                         ...academySquadMissionsStateV1,
+
                         loaded: true,
                         loading: false,
+                        canManage: false,
+                        role: '',
                         missions: []
                     };
+
+                    /*
+                     * Compatibility protection while an
+                     * older backend instance is still active.
+                     *
+                     * No active Squad is a valid empty state,
+                     * not a failed Dashboard boot.
+                     */
+                    if (noActiveSquad) {
+                        return academySquadMissionsStateV1;
+                    }
 
                     throw error;
                 } finally {
@@ -5198,6 +5495,364 @@ function openSquadDetailsModalV1(
         return map[division] || map.academy;
     }
 
+    const YH_GAME_APPROVAL_SEEN_KEY_V1 =
+        'yh_dashboard_division_approval_seen_v1';
+
+    const yhuGameApprovalSessionV1 = new Map();
+
+    function readGameDivisionAccessSnapshotV1(
+        division = ''
+    ) {
+        const cleanDivision =
+            String(division || '')
+                .trim()
+                .toLowerCase();
+
+        try {
+            if (
+                cleanDivision === 'academy' &&
+                typeof window
+                    .readAcademyMembershipCache ===
+                    'function'
+            ) {
+                return (
+                    window
+                        .readAcademyMembershipCache() ||
+                    {}
+                );
+            }
+
+            if (
+                cleanDivision === 'plaza' &&
+                typeof window
+                    .getPlazaAccessSnapshot ===
+                    'function'
+            ) {
+                return (
+                    window
+                        .getPlazaAccessSnapshot() ||
+                    {}
+                );
+            }
+
+            if (
+                cleanDivision === 'federation' &&
+                typeof window
+                    .getFederationAccessSnapshot ===
+                    'function'
+            ) {
+                return (
+                    window
+                        .getFederationAccessSnapshot() ||
+                    {}
+                );
+            }
+        } catch (_) {}
+
+        const storageKey =
+            cleanDivision === 'academy'
+                ? 'yh_academy_membership_status_v1'
+                : cleanDivision === 'plaza'
+                    ? 'yh_plaza_access_status_v1'
+                    : cleanDivision === 'federation'
+                        ? 'yh_federation_access_status_v1'
+                        : '';
+
+        if (!storageKey) {
+            return {};
+        }
+
+        try {
+            return (
+                JSON.parse(
+                    localStorage.getItem(
+                        storageKey
+                    ) || '{}'
+                ) || {}
+            );
+        } catch (_) {
+            return {};
+        }
+    }
+
+    function getMobileDivisionApplicationActionV1(
+        division = '',
+        baseAction = {}
+    ) {
+        let isMobile = false;
+
+        try {
+            isMobile =
+                window
+                    .matchMedia(
+                        '(max-width: 768px)'
+                    )
+                    .matches;
+        } catch (_) {
+            isMobile =
+                window.innerWidth <= 768;
+        }
+
+        /*
+         * Desktop card behavior remains unchanged.
+         */
+        if (!isMobile) {
+            return {
+                ...baseAction,
+                disabled: false,
+                state: 'default',
+                title: ''
+            };
+        }
+
+        const snapshot =
+            readGameDivisionAccessSnapshotV1(
+                division
+            );
+
+        const rawStatus =
+            snapshot?.applicationStatus ||
+            snapshot?.status ||
+            snapshot?.application?.status ||
+            '';
+
+        const status =
+            String(rawStatus)
+                .trim()
+                .toLowerCase()
+                .replace(/[_-]+/g, ' ')
+                .replace(/\s+/g, ' ');
+
+        const approved =
+            status === 'approved' ||
+            status === 'active' ||
+            status === 'member' ||
+            (
+                division === 'academy' &&
+                snapshot?.canEnterAcademy === true
+            ) ||
+            (
+                division === 'plaza' &&
+                snapshot?.canEnterPlaza === true
+            ) ||
+            (
+                division === 'federation' &&
+                snapshot?.canEnterFederation === true
+            );
+
+        const hasApplication =
+            snapshot?.hasApplication === true ||
+            Boolean(snapshot?.application) ||
+            Boolean(
+                status &&
+                status !== 'none'
+            );
+
+        const pending =
+            hasApplication &&
+            !approved &&
+            [
+                'new',
+                'pending',
+                'pending review',
+                'under review',
+                'review',
+                'screening',
+                'in screening',
+                'shortlisted',
+                'waitlisted'
+            ].includes(status);
+
+        if (pending) {
+            return {
+                ...baseAction,
+
+                label:
+                    'Pending Application',
+
+                disabled:
+                    true,
+
+                state:
+                    'pending',
+
+                title:
+                    'Your application is awaiting admin approval.'
+            };
+        }
+
+        if (approved) {
+            const application =
+                snapshot?.application &&
+                typeof snapshot.application ===
+                    'object'
+                    ? snapshot.application
+                    : {};
+
+            /*
+             * Approval timestamp or application identity
+             * distinguishes separate approval cycles.
+             */
+            const approvalToken = [
+                String(division || '')
+                    .trim()
+                    .toLowerCase(),
+
+                String(
+                    application.approvedAt ||
+                    application.approvalAt ||
+                    application.reviewedAt ||
+                    application.updatedAt ||
+                    application.id ||
+                    application.applicationId ||
+                    application.submittedAt ||
+                    application.createdAt ||
+                    'approved'
+                ).trim()
+            ].join(':');
+
+            let ownerKey =
+                'current-user';
+
+            try {
+                ownerKey = [
+                    localStorage.getItem(
+                        'yh_user_id'
+                    ),
+
+                    localStorage.getItem(
+                        'yh_user_email'
+                    ),
+
+                    localStorage.getItem(
+                        'yh_user_username'
+                    ),
+
+                    localStorage.getItem(
+                        'yh_user_name'
+                    ),
+
+                    sessionStorage.getItem(
+                        'yh_user_email'
+                    ),
+
+                    sessionStorage.getItem(
+                        'yh_user_username'
+                    )
+                ]
+                    .map((value) =>
+                        String(value || '')
+                            .trim()
+                            .toLowerCase()
+                    )
+                    .find(Boolean) ||
+                    'current-user';
+            } catch (_) {}
+
+            const seenKey = [
+                YH_GAME_APPROVAL_SEEN_KEY_V1,
+
+                encodeURIComponent(
+                    ownerKey
+                ),
+
+                String(division || '')
+                    .trim()
+                    .toLowerCase()
+            ].join(':');
+
+            /*
+             * Once Approved is activated during this page
+             * session, preserve it through carousel rerenders.
+             */
+            if (
+                yhuGameApprovalSessionV1
+                    .get(division) ===
+                approvalToken
+            ) {
+                return {
+                    ...baseAction,
+
+                    label:
+                        'Approved',
+
+                    disabled:
+                        false,
+
+                    state:
+                        'approved-new',
+
+                    title:
+                        'Your application was approved. You can now enter.'
+                };
+            }
+
+            let alreadySeen =
+                false;
+
+            try {
+                alreadySeen =
+                    localStorage.getItem(
+                        seenKey
+                    ) === approvalToken;
+            } catch (_) {}
+
+            /*
+             * First approved render:
+             * mark the approval as seen persistently,
+             * but keep Approved visible in memory until
+             * the page is refreshed.
+             */
+            if (!alreadySeen) {
+                try {
+                    localStorage.setItem(
+                        seenKey,
+                        approvalToken
+                    );
+                } catch (_) {}
+
+                yhuGameApprovalSessionV1
+                    .set(
+                        division,
+                        approvalToken
+                    );
+
+                return {
+                    ...baseAction,
+
+                    label:
+                        'Approved',
+
+                    disabled:
+                        false,
+
+                    state:
+                        'approved-new',
+
+                    title:
+                        'Your application was approved. You can now enter.'
+                };
+            }
+        }
+
+        /*
+         * Already-approved users return to the original
+         * division action after the next full page refresh.
+         */
+        return {
+            ...baseAction,
+
+            disabled:
+                false,
+
+            state:
+                'default',
+
+            title:
+                ''
+        };
+    }
+
     function buildProgressBar(score = 0) {
         const safeScore = Math.max(0, Math.min(100, Number(score || 0)));
 
@@ -5255,6 +5910,12 @@ function openSquadDetailsModalV1(
             String(
                 snapshot.division || ''
             ).trim();
+
+        const mobileAction =
+            getMobileDivisionApplicationActionV1(
+                division,
+                action
+            );
 
         const score =
             Math.max(
@@ -5520,11 +6181,29 @@ function openSquadDetailsModalV1(
                     type="button"
                     class="yh-game-mobile-command-action"
                     data-yh-game-open-selector="${escapeHtml(
-                        action.selector || ''
+                        mobileAction.disabled
+                            ? ''
+                            : (
+                                mobileAction.selector ||
+                                ''
+                            )
                     )}"
+                    data-yh-game-application-state="${escapeHtml(
+                        mobileAction.state ||
+                        'default'
+                    )}"
+                    title="${escapeHtml(
+                        mobileAction.title ||
+                        ''
+                    )}"
+                    ${
+                        mobileAction.disabled
+                            ? 'disabled aria-disabled="true"'
+                            : 'aria-disabled="false"'
+                    }
                 >
                     ${escapeHtml(
-                        action.label ||
+                        mobileAction.label ||
                         'Open Division'
                     )}
                 </button>
@@ -6352,6 +7031,14 @@ function openSquadDetailsModalV1(
         const joined =
             squad?.joined === true;
 
+        const accessLocked =
+            squad?.accessLocked === true;
+
+        const accessStatus =
+            normalizeGameDivisionAccessStatusV1(
+                squad?.accessStatus || ''
+            );
+
         if (!loaded) {
             return `
                 <article class="yh-game-side-card yh-game-squad-card">
@@ -6374,6 +7061,54 @@ function openSquadDetailsModalV1(
                         <span></span>
                         Loading squad...
                     </div>
+                </article>
+            `;
+        }
+
+        if (accessLocked) {
+            const pending =
+                [
+                    'pending',
+                    'pending review',
+                    'under review',
+                    'review'
+                ].includes(
+                    accessStatus
+                );
+
+            return `
+                <article class="yh-game-side-card yh-game-squad-card">
+                    <div class="yh-game-side-card-head">
+                        <div>
+                            <small>Squad System</small>
+
+                            <h3>
+                                ${
+                                    pending
+                                        ? 'Academy Approval Pending'
+                                        : 'Squad Locked'
+                                }
+                            </h3>
+                        </div>
+
+                        <span class="yh-game-preview-badge">
+                            Locked
+                        </span>
+                    </div>
+
+                    <p>
+                        ${
+                            pending
+                                ? `
+                                    Squad access activates after your
+                                    Academy application is approved.
+                                `
+                                : `
+                                    Approved Academy access is required
+                                    before you can create or join a Squad.
+                                `
+                        }
+                    </p>
                 </article>
             `;
         }
@@ -8215,6 +8950,118 @@ function resolveAcademyLeaderboardNameV1(
         renderDashboardGameFoundation;
 
     window.addEventListener('yhu:game-core-ready', boot);
+
+    window.addEventListener(
+        'yh:division-access-status-updated',
+        (event) => {
+            const division =
+                String(
+                    event?.detail
+                        ?.division ||
+                    ''
+                )
+                    .trim()
+                    .toLowerCase()
+                    .replace(
+                        /^plazas$/,
+                        'plaza'
+                    );
+
+            if (
+                ![
+                    'academy',
+                    'plaza',
+                    'federation'
+                ].includes(division)
+            ) {
+                return;
+            }
+
+            const access =
+                getGameDivisionAccessStateV1(
+                    division
+                );
+
+            if (
+                division === 'academy'
+            ) {
+                if (!access.approved) {
+                    setAcademySquadAccessLockedStateV1(
+                        access.status
+                    );
+
+                    renderDashboardGameFoundation();
+                    return;
+                }
+
+                academyProgressionLoaded =
+                    false;
+
+                academySquadLoaded =
+                    false;
+
+                academySquadMissionsStateV1 = {
+                    ...academySquadMissionsStateV1,
+                    loaded: false,
+                    loading: false
+                };
+
+                Promise.allSettled([
+                    loadAcademyProgressionOnce({
+                        force: true
+                    }),
+
+                    loadAcademySquadV1({
+                        force: true
+                    }),
+
+                    loadAcademySquadMissionsV1({
+                        force: true
+                    })
+                ]).then(() => {
+                    academyGameLastRefreshAtV1 =
+                        Date.now();
+
+                    renderDashboardGameFoundation();
+                });
+
+                return;
+            }
+
+            if (!access.approved) {
+                renderDashboardGameFoundation();
+                return;
+            }
+
+            if (division === 'plaza') {
+                plazaReputationLoadedV1 =
+                    false;
+
+                loadPlazaReputationOnceV1({
+                    force: true
+                }).then(() => {
+                    academyGameLastRefreshAtV1 =
+                        Date.now();
+
+                    renderDashboardGameFoundation();
+                });
+
+                return;
+            }
+
+            federationInfluenceLoadedV1 =
+                false;
+
+            loadFederationInfluenceOnceV1({
+                force: true
+            }).then(() => {
+                academyGameLastRefreshAtV1 =
+                    Date.now();
+
+                renderDashboardGameFoundation();
+            });
+        }
+    );
 
     window.addEventListener('storage', (event) => {
         const watchedKeys = Object.values(

@@ -53,6 +53,18 @@ router.get('/universe/profile', auth, academyControllers.getUniverseProfile);
 router.get('/universe/profile/:targetUserId', auth, academyControllers.getUniverseMemberProfile);
 router.get('/universe/referrals/me', auth, authController.getMyUniverseReferrals);
 
+router.get(
+    '/universe/tutorials',
+    auth,
+    academyControllers.getDivisionTutorials
+);
+
+router.patch(
+    '/universe/tutorials/:division',
+    auth,
+    academyControllers.updateDivisionTutorial
+);
+
 // ==========================================
 // 🗂️ YH UNIVERSE COLLECTIONS / RESOURCES ROUTES
 // ==========================================
