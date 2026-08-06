@@ -23214,41 +23214,38 @@ bootDashboardUnifiedSidebarWorkspace();
 installDashboardMobileAppShellV1();
 
 function openDivisionPreview(targetDivision = 'plazas', options = {}) {
-    const division = normalizeUniverseDivision(targetDivision);
-    const shouldPersist = options.persist !== false;
+    const division =
+        normalizeUniverseDivision(
+            targetDivision
+        );
 
-    if (division === 'academy') {
-        activateDashboardUnifiedWorkspace('academy', {
+    const shouldPersist =
+        options.persist !== false;
+
+    const parentWorkspace =
+        [
+            'academy',
+            'plazas',
+            'federation'
+        ].includes(division)
+            ? division
+            : 'overview';
+
+    /*
+     * Parent navigation must remain on the
+     * division introduction page.
+     *
+     * Child workspaces open only after the user
+     * selects a child tab or introduction CTA.
+     */
+    activateDashboardUnifiedWorkspace(
+        parentWorkspace,
+        {
             animate: false,
             scroll: true,
             persist: shouldPersist
-        });
-        return;
-    }
-
-    if (division === 'plazas') {
-        activateDashboardUnifiedWorkspace('plazas-feed', {
-            animate: false,
-            scroll: true,
-            persist: shouldPersist
-        });
-        return;
-    }
-
-    if (division === 'federation') {
-        activateDashboardUnifiedWorkspace('federation-command', {
-            animate: false,
-            scroll: true,
-            persist: shouldPersist
-        });
-        return;
-    }
-
-    activateDashboardUnifiedWorkspace('academy', {
-        animate: false,
-        scroll: true,
-        persist: shouldPersist
-    });
+        }
+    );
 }
 
 function switchServer(targetDivision) {

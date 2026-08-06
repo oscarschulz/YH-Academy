@@ -928,6 +928,147 @@ async function federationConnectFetch(url, options = {}) {
 }
 const FEDERATION_SERVER_STATE_REFRESH_GAP_MS = 12000;
 
+function waitForFederationServerRequestTurn(
+  delayMs = 0
+) {
+  return new Promise((resolve) => {
+    window.setTimeout(
+      resolve,
+      Math.max(
+        0,
+        Number(delayMs) || 0
+      )
+    );
+  });
+}
+
+async function settleFederationServerRequest(
+  url = '',
+  options = {}
+) {
+  const allowRetry =
+    options.retry !== false;
+
+  try {
+    return {
+      status: 'fulfilled',
+
+      value:
+        await federationConnectFetch(
+          url
+        )
+    };
+  } catch (firstError) {
+    const shouldRetry =
+      allowRetry &&
+      isDashboardInlineFederationEmbed() &&
+      isExpectedFederationInlineFetchFailure(
+        firstError
+      );
+
+    if (!shouldRetry) {
+      return {
+        status: 'rejected',
+        reason: firstError
+      };
+    }
+
+    /*
+     * One bounded retry for temporary production
+     * transport or rate-limit failures.
+     */
+    await waitForFederationServerRequestTurn(
+      260
+    );
+
+    try {
+      return {
+        status: 'fulfilled',
+
+        value:
+          await federationConnectFetch(
+            url
+          )
+      };
+    } catch (retryError) {
+      return {
+        status: 'rejected',
+        reason: retryError
+      };
+    }
+  }
+}
+
+async function loadFederationApprovedRequestsSettled() {
+  const requestUrls = [
+    '/api/federation/directory',
+    '/api/federation/command',
+    '/api/federation/referrals',
+    '/api/federation/deal-rooms',
+    '/api/federation/influence?limit=50'
+  ];
+
+  /*
+   * Standalone Federation keeps the existing
+   * parallel loading behavior.
+   */
+  if (!isDashboardInlineFederationEmbed()) {
+    return Promise.allSettled(
+      requestUrls.map((url) =>
+        federationConnectFetch(url)
+      )
+    );
+  }
+
+  const results = [];
+
+  /*
+   * The Dashboard iframe previously fired all
+   * protected requests at exactly the same time.
+   *
+   * Embedded mode now uses a bounded sequence,
+   * preventing one connection burst from causing
+   * all Federation sections to fail together.
+   */
+  for (const url of requestUrls) {
+    results.push(
+      await settleFederationServerRequest(
+        url
+      )
+    );
+
+    await waitForFederationServerRequestTurn(
+      70
+    );
+  }
+
+  return results;
+}
+
+function logFederationServerSectionError(
+  label = 'section',
+  error = null
+) {
+  /*
+   * Temporary inline network failures already
+   * use cached/local Federation fallback data.
+   * Do not flood the console with five duplicate
+   * TypeError: Failed to fetch messages.
+   */
+  if (
+    isExpectedFederationInlineFetchFailure(
+      error || {}
+    )
+  ) {
+    return;
+  }
+
+  console.error(
+    `Federation ${label} load error:`,
+    error
+  );
+}
+
 const federationServerState = {
   loading: false,
   loaded: false,
@@ -1069,13 +1210,8 @@ async function loadFederationServerState(options = {}) {
         referralSettled,
         dealRoomsSettled,
         influenceSettled
-      ] = await Promise.allSettled([
-        federationConnectFetch("/api/federation/directory"),
-        federationConnectFetch("/api/federation/command"),
-        federationConnectFetch("/api/federation/referrals"),
-        federationConnectFetch("/api/federation/deal-rooms"),
-        federationConnectFetch("/api/federation/influence?limit=50")
-      ]);
+      ] =
+        await loadFederationApprovedRequestsSettled();
 
       if (directorySettled.status === "fulfilled") {
         const directoryResult = directorySettled.value || {};
@@ -1083,7 +1219,10 @@ async function loadFederationServerState(options = {}) {
           ? directoryResult.members.map(normalizeFederationMember)
           : [];
       } else {
-        console.error("Federation directory load error:", directorySettled.reason);
+        logFederationServerSectionError(
+          "directory",
+          directorySettled.reason
+        );
         federationServerState.members = federationServerState.member ? [federationServerState.member] : [];
       }
 
@@ -1094,7 +1233,10 @@ async function loadFederationServerState(options = {}) {
             ? commandResult.command
             : null;
       } else {
-        console.error("Federation command load error:", commandSettled.reason);
+        logFederationServerSectionError(
+          "command",
+          commandSettled.reason
+        );
         federationServerState.command = {
           member: federationServerState.member,
           stats: {
@@ -1116,7 +1258,10 @@ async function loadFederationServerState(options = {}) {
             ? referralResult.referrals
             : federationServerState.referrals;
       } else {
-        console.error("Federation referrals load error:", referralSettled.reason);
+        logFederationServerSectionError(
+          "referrals",
+          referralSettled.reason
+        );
       }
 
       if (dealRoomsSettled.status === "fulfilled") {
@@ -1125,7 +1270,10 @@ async function loadFederationServerState(options = {}) {
           ? dealRoomsResult.rooms.map(normalizeFederationDealRoom)
           : [];
       } else {
-        console.error("Federation deal rooms load error:", dealRoomsSettled.reason);
+        logFederationServerSectionError(
+          "deal rooms",
+          dealRoomsSettled.reason
+        );
         federationServerState.dealRooms = [];
       }
 
@@ -1135,8 +1283,8 @@ async function loadFederationServerState(options = {}) {
             influenceSettled.value || {}
           );
       } else {
-        console.error(
-          "Federation Influence load error:",
+        logFederationServerSectionError(
+          "Influence",
           influenceSettled.reason
         );
 
