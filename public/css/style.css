@@ -5910,16 +5910,72 @@ width: auto;
         width: 100%;
     }
 
-    #academy-lead-missions-view .academy-lead-header-actions {
+    #academy-lead-missions-view
+    .academy-lead-header-actions {
+        width: 100%;
+        min-width: 0;
+
         display: grid;
-        grid-template-columns: 1fr;
+        grid-template-columns:
+            minmax(0, 1.35fr)
+            minmax(112px, 0.85fr);
+
+        align-items: stretch;
         gap: 10px;
     }
 
-    #academy-lead-missions-view #btn-open-lead-entry-modal,
-    #academy-lead-missions-view #btn-edit-lead-operator-profile {
+    #academy-lead-missions-view
+    #btn-edit-lead-operator-profile {
+        grid-column: 1;
+
         width: 100%;
         min-width: 0;
+        min-height: 44px;
+        height: 100%;
+
+        margin: 0;
+        padding-left: 12px;
+        padding-right: 12px;
+
+        line-height: 1.15;
+        white-space: normal;
+    }
+
+    #academy-lead-missions-view
+    #btn-open-lead-entry-modal {
+        grid-column: 2;
+
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+        height: 100%;
+
+        margin: 0;
+        padding-left: 10px;
+        padding-right: 10px;
+
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+
+        line-height: 1.15;
+        white-space: nowrap;
+    }
+
+    /*
+     * Kapag nasa individual mission workspace,
+     * puwedeng lumabas ang Back to Missions button.
+     * Mananatili itong full-width sa sariling row,
+     * habang magkatapat pa rin ang Edit at Add Lead.
+     */
+    #academy-lead-missions-view
+    #btn-back-to-missions-hub {
+        grid-column: 1 / -1;
+
+        width: auto;
+        min-width: 0;
+        justify-self: start;
+        margin: 0;
     }
 
     .academy-lead-missions-scroll {
@@ -14090,6 +14146,41 @@ body > #academy-search-results-panel:not(.hidden-step),
     cursor: zoom-in;
 }
 
+/*
+ * Desktop Dashboard profile:
+ * preserve the full cover-photo area and keep
+ * only a shallow overlap for the avatar and identity.
+ */
+@media (min-width: 769px) {
+    body[data-yh-page="dashboard"]
+    #academy-profile-view
+    .academy-profile-cover-band {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 8 / 3;
+        min-height: 0;
+    }
+
+    body[data-yh-page="dashboard"]
+    #academy-profile-view
+    .academy-profile-cover-body {
+        /*
+         * The original -42px pulled the identity too
+         * far into the cover. -24px keeps the connected
+         * profile-card look without covering the photo.
+         */
+        margin-top: -24px;
+        padding: 0 22px 22px;
+    }
+
+    body[data-yh-page="dashboard"]
+    #academy-profile-view
+    .academy-profile-cover-left {
+        align-items: flex-end;
+    }
+}
+
 #academy-profile-view .academy-profile-cover-band[data-profile-image-preview]:focus-visible,
 #academy-profile-view .academy-profile-avatar[data-profile-image-preview]:focus-visible {
     outline: 2px solid rgba(14, 165, 233, 0.9);
@@ -20217,9 +20308,60 @@ body[data-yh-page="dashboard"] .yh-dashboard-universe-profile-scroll {
 }
 
 body[data-yh-page="dashboard"] .yh-dashboard-profile-close {
-    width: auto;
-    min-width: 160px;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+
+    margin-left: auto;
+    padding: 0;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 12px;
     white-space: nowrap;
+    line-height: 1;
+}
+
+@media (min-width: 769px) {
+    body[data-yh-page="dashboard"]
+    .yh-dashboard-universe-profile-header {
+        min-height: 44px;
+        margin-bottom: 8px;
+        padding: 0;
+
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+
+        pointer-events: none;
+    }
+
+    body[data-yh-page="dashboard"]
+    .yh-dashboard-universe-profile-header
+    .academy-profile-header-right {
+        width: auto;
+        margin-left: auto;
+
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+
+        pointer-events: none;
+    }
+
+    body[data-yh-page="dashboard"]
+    .yh-dashboard-profile-close {
+        margin-left: auto;
+        pointer-events: auto;
+    }
 }
 
 body[data-yh-page="dashboard"] #academy-profile-view[data-profile-layout="visited"] .yh-dashboard-profile-search,

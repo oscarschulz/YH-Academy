@@ -21699,6 +21699,212 @@ function syncDashboardUnifiedWorkspaceDerivedSurfaces(key = 'overview', reason =
 
 let dashboardProfileEditorHydrationInFlight = null;
 
+/* PATCH: Mobile approved-only division navigation v1 */
+function isDashboardMobileDivisionViewportV1() {
+    try {
+        return window
+            .matchMedia(
+                '(max-width: 768px)'
+            )
+            .matches;
+    } catch (_) {
+        return window.innerWidth <= 768;
+    }
+}
+
+function getDashboardMobileDivisionFromWorkspaceV1(
+    key = ''
+) {
+    const cleanKey =
+        String(key || '')
+            .trim()
+            .toLowerCase();
+
+    if (
+        cleanKey === 'academy' ||
+        cleanKey.startsWith(
+            'academy-'
+        )
+    ) {
+        return 'academy';
+    }
+
+    if (
+        cleanKey === 'plazas' ||
+        cleanKey.startsWith(
+            'plazas-'
+        )
+    ) {
+        return 'plazas';
+    }
+
+    if (
+        cleanKey === 'federation' ||
+        cleanKey.startsWith(
+            'federation-'
+        )
+    ) {
+        return 'federation';
+    }
+
+    return '';
+}
+
+function getDashboardMobileDivisionAccessStateV1(
+    key = ''
+) {
+    const division =
+        getDashboardMobileDivisionFromWorkspaceV1(
+            key
+        );
+
+    if (
+        !division ||
+        !isDashboardMobileDivisionViewportV1()
+    ) {
+        return {
+            isMobileDivision:
+                false,
+
+            division,
+
+            approved:
+                true,
+
+            pending:
+                false,
+
+            hasApplication:
+                false,
+
+            rejected:
+                false,
+
+            status:
+                ''
+        };
+    }
+
+    const state =
+        getDashboardInlineDivisionState(
+            division
+        );
+
+    return {
+        isMobileDivision:
+            true,
+
+        division,
+
+        approved:
+            state?.approved ===
+                true,
+
+        pending:
+            state?.pending ===
+                true,
+
+        hasApplication:
+            state?.hasApplication ===
+                true,
+
+        rejected:
+            state?.rejected ===
+                true,
+
+        status:
+            String(
+                state?.status || ''
+            )
+                .trim()
+                .toLowerCase(),
+
+        snapshot:
+            state?.snapshot || null
+    };
+}
+
+function handleDashboardMobileDivisionAccessIntentV1(
+    access = {},
+    requestedKey = ''
+) {
+    const division =
+        String(
+            access?.division || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    if (!division) {
+        return false;
+    }
+
+    if (access?.pending === true) {
+        const label =
+            division === 'academy'
+                ? 'Academy'
+                : division === 'plazas'
+                    ? 'Plazas'
+                    : 'Federation';
+
+        showToast(
+            `${label} access is pending admin approval.`,
+            'error'
+        );
+
+        return true;
+    }
+
+    /*
+     * Not-applied and rejected users remain inside
+     * the existing application-access flows.
+     */
+    if (
+        division === 'academy' &&
+        typeof handleDashboardAcademyAccessIntent ===
+            'function'
+    ) {
+        void handleDashboardAcademyAccessIntent(
+            null,
+            requestedKey ||
+                'academy'
+        );
+
+        return true;
+    }
+
+    if (
+        division === 'plazas' &&
+        typeof handleDashboardPlazaAccessIntent ===
+            'function'
+    ) {
+        void handleDashboardPlazaAccessIntent(
+            null,
+            requestedKey ||
+                'plazas'
+        );
+
+        return true;
+    }
+
+    if (
+        division === 'federation' &&
+        typeof handleDashboardFederationAccessIntent ===
+            'function'
+    ) {
+        void handleDashboardFederationAccessIntent(
+            null,
+            requestedKey ||
+                'federation'
+        );
+
+        return true;
+    }
+
+    return false;
+}
+/* END PATCH: Mobile approved-only division navigation v1 */
+
 function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
     ensureDashboardStableShellFirstPaintV1(
         options?.restore === true
@@ -21708,6 +21914,80 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
 
     const effectiveKey = getDashboardEffectiveUnifiedWorkspaceKey(key);
     const copy = getDashboardUnifiedWorkspaceCopy(effectiveKey);
+
+    const mobileDivisionAccess =
+        getDashboardMobileDivisionAccessStateV1(
+            copy.key
+        );
+
+    /*
+     * Mobile division workspaces are fail-closed.
+     *
+     * This covers both parent screens:
+     * academy / plazas / federation
+     *
+     * And all child screens:
+     * academy-*
+     * plazas-*
+     * federation-*
+     */
+    if (
+        mobileDivisionAccess
+            .isMobileDivision ===
+            true &&
+        mobileDivisionAccess
+            .approved !==
+            true
+    ) {
+        /*
+         * Never restore a saved pending or
+         * unapproved division after refresh.
+         */
+        if (options.restore === true) {
+            writeDashboardPersistentUiState({
+                type:
+                    'workspace',
+
+                workspaceKey:
+                    'overview',
+
+                division:
+                    'overview',
+
+                profileMode:
+                    '',
+
+                profileMemberId:
+                    ''
+            });
+
+            return activateDashboardUnifiedWorkspace(
+                'overview',
+                {
+                    animate:
+                        false,
+
+                    scroll:
+                        false,
+
+                    persist:
+                        false
+                }
+            );
+        }
+
+        handleDashboardMobileDivisionAccessIntentV1(
+            mobileDivisionAccess,
+            copy.key
+        );
+
+        return getDashboardUnifiedWorkspaceCopy(
+            document.body?.getAttribute(
+                'data-yh-unified-workspace'
+            ) ||
+            'overview'
+        );
+    }
 
     if (
         isDashboardFederationWorkspaceKey(copy.key) &&
@@ -22519,14 +22799,105 @@ function installDashboardMobileAppShellV1() {
         document.querySelectorAll('[data-yh-mobile-nav]').forEach((button) => {
             const key = String(button.getAttribute('data-yh-mobile-nav') || '').trim().toLowerCase();
 
+            const divisionAccess =
+                getDashboardMobileDivisionAccessStateV1(
+                    key
+                );
+
+            const pendingLocked =
+                divisionAccess
+                    .isMobileDivision ===
+                    true &&
+                divisionAccess
+                    .approved !==
+                    true &&
+                divisionAccess
+                    .pending ===
+                    true;
+
             const isActive =
-                key === activeKey ||
-                (key === 'academy' && activeDivision === 'academy') ||
-                (key === 'plazas' && activeDivision === 'plazas') ||
-                (key === 'federation' && activeDivision === 'federation');
+                (
+                    key === activeKey ||
+                    (
+                        key === 'academy' &&
+                        activeDivision === 'academy'
+                    ) ||
+                    (
+                        key === 'plazas' &&
+                        activeDivision === 'plazas'
+                    ) ||
+                    (
+                        key === 'federation' &&
+                        activeDivision === 'federation'
+                    )
+                ) &&
+                !pendingLocked;
+
+            if (
+                divisionAccess
+                    .isMobileDivision ===
+                true
+            ) {
+                button.disabled =
+                    pendingLocked;
+
+                button.setAttribute(
+                    'aria-disabled',
+                    pendingLocked
+                        ? 'true'
+                        : 'false'
+                );
+
+                button.setAttribute(
+                    'data-yh-mobile-division-state',
+                    divisionAccess
+                        .approved ===
+                        true
+                            ? 'approved'
+                            : pendingLocked
+                                ? 'pending'
+                                : divisionAccess
+                                    .hasApplication ===
+                                    true
+                                    ? (
+                                        divisionAccess
+                                            .status ||
+                                        'application'
+                                    )
+                                    : 'apply'
+                );
+
+                if (pendingLocked) {
+                    button.setAttribute(
+                        'tabindex',
+                        '-1'
+                    );
+
+                    button.setAttribute(
+                        'title',
+                        'Application pending admin approval.'
+                    );
+                } else {
+                    button.removeAttribute(
+                        'tabindex'
+                    );
+
+                    button.removeAttribute(
+                        'title'
+                    );
+                }
+            }
 
             if (key !== 'command') {
-                button.classList.toggle('is-active', isActive);
+                button.classList.toggle(
+                    'is-active',
+                    isActive
+                );
+
+                button.classList.toggle(
+                    'is-division-pending-locked',
+                    pendingLocked
+                );
             }
         });
 
@@ -22639,6 +23010,16 @@ function installDashboardMobileAppShellV1() {
             event.preventDefault();
             closeMobileSubtabMenu();
 
+            if (
+                navButton.disabled ===
+                    true ||
+                navButton.getAttribute(
+                    'aria-disabled'
+                ) === 'true'
+            ) {
+                return;
+            }
+
             const key = String(navButton.getAttribute('data-yh-mobile-nav') || '').trim().toLowerCase();
 
             if (key === 'command') {
@@ -22706,6 +23087,21 @@ function installDashboardMobileAppShellV1() {
             closeMobileSubtabMenu();
         }
     });
+
+    window.addEventListener(
+        'yh:division-access-status-updated',
+        () => {
+            window.setTimeout(
+                syncMobileAppState,
+                0
+            );
+
+            window.setTimeout(
+                syncMobileAppState,
+                180
+            );
+        }
+    );
 
     try {
         const observer = new MutationObserver(function () {

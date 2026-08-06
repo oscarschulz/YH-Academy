@@ -8,6 +8,158 @@
    - Academy mobile thread mode
 */
 
+/* ========================================================= */
+/* LIVE VOICE LOUNGE COMPONENT LAYOUT                        */
+/* ========================================================= */
+
+body[data-yh-view="academy"]
+#voice-lobby-view
+.academy-live-lounge-copy {
+    min-width: 0;
+}
+
+body[data-yh-view="academy"]
+#voice-lobby-view
+.academy-live-lounge-actions {
+    flex: 0 0 auto;
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+
+    gap: 10px;
+}
+
+@media (max-width: 768px) {
+    body[data-yh-view="academy"]
+    #voice-lobby-view {
+        width: 100%;
+        min-width: 0;
+        overflow-x: hidden;
+    }
+
+    body[data-yh-view="academy"]
+    #voice-lobby-view
+    .lounge-container {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+
+        box-sizing: border-box;
+        overflow-x: hidden;
+    }
+
+    body[data-yh-view="academy"]
+    #voice-lobby-view
+    .academy-live-lounge-head {
+        width: 100%;
+        min-width: 0;
+
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+
+        align-items: start;
+        gap: 12px;
+
+        margin-bottom: 18px;
+    }
+
+    body[data-yh-view="academy"]
+    #voice-lobby-view
+    .academy-live-lounge-copy {
+        width: 100%;
+        min-width: 0;
+    }
+
+    body[data-yh-view="academy"]
+    #voice-lobby-view
+    .academy-live-expiry-note {
+        width: 100%;
+        max-width: none;
+
+        margin: 0;
+        overflow-wrap: anywhere;
+    }
+
+    body[data-yh-view="academy"]
+    #voice-lobby-view
+    .academy-live-lounge-actions {
+        width: 100%;
+        min-width: 0;
+
+        display: grid;
+        grid-template-columns:
+            max-content
+            minmax(0, 1fr);
+
+        align-items: center;
+        justify-content: stretch;
+
+        gap: 8px;
+        margin: 0;
+    }
+
+    body[data-yh-view="academy"]
+    #voice-lobby-view
+    .academy-live-expiry-pill {
+        min-width: 0;
+        max-width: 100%;
+        min-height: 42px;
+
+        padding: 8px 12px;
+
+        font-size: 0.82rem;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    body[data-yh-view="academy"]
+    #voice-lobby-view
+    #btn-start-lounge {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        min-height: 42px;
+
+        margin: 0;
+        padding: 10px 12px;
+
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+
+        line-height: 1.1;
+        white-space: nowrap;
+    }
+
+    body[data-yh-view="academy"]
+    #voice-lobby-view
+    #lounge-grid {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 390px) {
+    body[data-yh-view="academy"]
+    #voice-lobby-view
+    .academy-live-lounge-actions {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    body[data-yh-view="academy"]
+    #voice-lobby-view
+    .academy-live-expiry-pill,
+    body[data-yh-view="academy"]
+    #voice-lobby-view
+    #btn-start-lounge {
+        width: 100%;
+    }
+}
+
 @media (min-width: 1025px) {
   body[data-yh-view="academy"] .academy-mobile-nav-drawer-top,
   body[data-yh-view="academy"] .academy-mobile-bottom-nav {
