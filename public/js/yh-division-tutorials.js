@@ -1221,6 +1221,72 @@
             }
         });
 
+        if (isEmbeddedChildPage() && document.body) {
+            let embeddedReadyLast =
+                isStandalonePageReady(
+                    getCurrentDivision()
+                );
+
+            const embeddedObserver =
+                new MutationObserver(() => {
+                    const division =
+                        getCurrentDivision();
+
+                    const ready =
+                        Boolean(
+                            division &&
+                            DIVISION_CONFIG[
+                                division
+                            ] &&
+                            isStandalonePageReady(
+                                division
+                            )
+                        );
+
+                    /*
+                     * The child may initially boot while
+                     * its access gate or workspace shell
+                     * is still resolving.
+                     *
+                     * Trigger the tutorial request exactly
+                     * when that child changes from not-ready
+                     * to ready.
+                     */
+                    if (
+                        ready &&
+                        !embeddedReadyLast
+                    ) {
+                        standaloneRetryCount =
+                            0;
+
+                        scheduleCurrentEntry(
+                            60
+                        );
+                    }
+
+                    embeddedReadyLast =
+                        ready;
+                });
+
+            embeddedObserver.observe(
+                document.body,
+                {
+                    attributes: true,
+                    subtree: true,
+                    attributeFilter: [
+                        'class',
+                        'hidden',
+                        'data-yh-dashboard-child-ready',
+                        'data-yh-dashboard-active-screen'
+                    ]
+                }
+            );
+
+            window
+                .__yhDivisionTutorialEmbeddedReadyObserverV1 =
+                embeddedObserver;
+        }
+
         if (isDashboardPage() && document.body) {
             const observer = new MutationObserver((mutations) => {
                 if (mutations.some((mutation) => (

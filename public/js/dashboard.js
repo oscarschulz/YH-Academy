@@ -16151,6 +16151,11 @@ if (!window.__yhDashboardChildWorkspaceReadyMessageBoundV11) {
                     ? 70
                     : 80
         });
+
+        scheduleDashboardApprovedDivisionTutorialCheckV1(
+            workspaceKey,
+            `child-ready-${data.reason || 'message'}`
+        );
     });
 }
 
@@ -21903,6 +21908,86 @@ function handleDashboardMobileDivisionAccessIntentV1(
 
     return false;
 }
+
+function scheduleDashboardApprovedDivisionTutorialCheckV1(
+    workspaceKey = '',
+    reason = 'workspace'
+) {
+    if (
+        !isDashboardMobileDivisionViewportV1()
+    ) {
+        return false;
+    }
+
+    const access =
+        getDashboardMobileDivisionAccessStateV1(
+            workspaceKey
+        );
+
+    /*
+     * Pending, rejected, and not-applied users
+     * must never receive the division tutorial.
+     */
+    if (
+        access?.isMobileDivision !== true ||
+        access?.approved !== true
+    ) {
+        return false;
+    }
+
+    const expectedDivision =
+        String(
+            access.division || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    /*
+     * Use the tutorial controller's existing
+     * completion and approval checks.
+     *
+     * Several timings cover:
+     * - immediate workspace activation
+     * - tutorial script initialization
+     * - embedded child readiness
+     * - slower production navigation
+     */
+    [80, 320, 900, 1600].forEach(
+        (delay) => {
+            window.setTimeout(() => {
+                const currentDivision =
+                    getDashboardMobileDivisionFromWorkspaceV1(
+                        document.body?.getAttribute(
+                            'data-yh-unified-workspace'
+                        ) ||
+                        document.body?.getAttribute(
+                            'data-yh-unified-division'
+                        ) ||
+                        ''
+                    );
+
+                if (
+                    !expectedDivision ||
+                    currentDivision !==
+                        expectedDivision
+                ) {
+                    return;
+                }
+
+                window
+                    .YHDivisionTutorials
+                    ?.checkCurrent?.();
+            }, delay);
+        }
+    );
+
+    document.body?.setAttribute(
+        'data-yh-division-tutorial-check-reason',
+        String(reason || 'workspace')
+    );
+
+    return true;
+}
 /* END PATCH: Mobile approved-only division navigation v1 */
 
 function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
@@ -22155,6 +22240,10 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
         });
     }
 
+    scheduleDashboardApprovedDivisionTutorialCheckV1(
+        copy.key,
+        'workspace-activated'
+    );
 
     return copy;
 }
