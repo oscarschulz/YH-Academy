@@ -45,7 +45,8 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     text-rendering: geometricPrecision;
 }
 
-body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-indicators {
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-indicators,
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-controls {
     display: none;
 }
 
@@ -743,17 +744,57 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-indicato
         --yh-division-peek: 0px;
         --yh-division-card-height: clamp(250px, 64vw, 320px);
 
-        width: 100%;
+        /*
+         * Use almost the full mobile viewport so the
+         * navigation gutters do not steal card width.
+         */
+        width: min(
+            calc(100vw - 16px),
+            460px
+        );
+
         min-width: 0;
-        overflow: hidden;
+
+        position: relative;
+        left: 50%;
+        transform: translateX(-50%);
+
+        margin-left: 0;
+        margin-right: 0;
+
+        display: grid;
+
+        /*
+         * Dedicated compact navigation gutters.
+         * Card keeps the entire remaining center width.
+         */
+        grid-template-columns:
+            34px
+            minmax(0, 1fr)
+            34px;
+
+        grid-template-rows:
+            auto
+            auto;
+
+        align-items: center;
+
+        column-gap: 8px;
+        row-gap: 10px;
+
+        overflow: visible;
     }
 
     body[data-yh-page="apply"]
         #step-1.yh-landing-step
         #yh-divisions-section
         [data-yh-landing-division-track].yh-landing-division-grid {
+        grid-column: 2;
+        grid-row: 1;
+
         display: flex;
         flex-wrap: nowrap;
+
         width: 100%;
         min-width: 0;
         gap: var(--yh-division-gap);
@@ -1043,6 +1084,147 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-indicato
         button:focus-visible {
         outline: 2px solid rgba(125, 211, 252, 0.95);
         outline-offset: 3px;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        .yh-landing-division-controls {
+        display: contents;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        .yh-landing-division-controls
+        .yh-landing-division-indicators {
+        grid-column: 2;
+        grid-row: 2;
+
+        width: 100%;
+        min-width: 0;
+        min-height: 24px;
+
+        margin: 0;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        .yh-landing-division-arrow {
+        appearance: none;
+        -webkit-appearance: none;
+
+        width: 34px;
+        min-width: 34px;
+
+        height: 42px;
+        min-height: 42px;
+
+        margin: 0;
+        padding: 0;
+
+        display: inline-grid;
+        place-items: center;
+
+        align-self: center;
+        justify-self: center;
+
+        border: 1px solid rgba(103, 232, 249, 0.52);
+        border-radius: 14px;
+
+        background:
+            linear-gradient(
+                180deg,
+                rgba(19, 48, 120, 0.92) 0%,
+                rgba(9, 20, 56, 0.96) 100%
+            );
+
+        color: #ecfeff;
+
+        font-family:
+            "Rajdhani",
+            "Poppins",
+            system-ui,
+            sans-serif;
+
+        font-size: 1.18rem;
+        font-weight: 900;
+        line-height: 1;
+
+        box-shadow:
+            0 10px 22px rgba(0, 0, 0, 0.24),
+            0 0 16px rgba(34, 211, 238, 0.16),
+            inset 0 1px 0 rgba(255, 255, 255, 0.14),
+            inset 0 -1px 0 rgba(34, 211, 238, 0.1);
+
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+
+        text-shadow: 0 0 8px rgba(255, 255, 255, 0.18);
+
+        cursor: pointer;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+
+        transition:
+            transform 160ms ease,
+            box-shadow 160ms ease,
+            border-color 160ms ease,
+            background 160ms ease;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        .yh-landing-division-arrow-prev {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        .yh-landing-division-arrow-next {
+        grid-column: 3;
+        grid-row: 1;
+    }
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        .yh-landing-division-arrow:hover {
+        border-color: rgba(125, 211, 252, 0.72);
+        box-shadow:
+            0 12px 24px rgba(0, 0, 0, 0.26),
+            0 0 20px rgba(34, 211, 238, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    }
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        .yh-landing-division-arrow:active {
+        transform: scale(0.95);
+        box-shadow:
+            0 6px 14px rgba(0, 0, 0, 0.2),
+            0 0 10px rgba(34, 211, 238, 0.14),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    body[data-yh-page="apply"]
+        #step-1.yh-landing-step
+        #yh-divisions-section
+        .yh-landing-division-arrow:focus-visible {
+        outline: 2px solid rgba(125, 211, 252, 0.95);
+        outline-offset: 3px;
+        box-shadow:
+            0 0 0 4px rgba(34, 211, 238, 0.12),
+            0 10px 22px rgba(0, 0, 0, 0.24),
+            0 0 18px rgba(34, 211, 238, 0.18);
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-visual {

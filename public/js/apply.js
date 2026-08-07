@@ -1551,11 +1551,23 @@ function initLandingDivisionCarousel() {
         ) || []
     );
 
+    const previousButton =
+        carousel?.querySelector(
+            '[data-yh-landing-division-prev]'
+        );
+
+    const nextButton =
+        carousel?.querySelector(
+            '[data-yh-landing-division-next]'
+        );
+
     if (
         !carousel ||
         !track ||
         cards.length !== 3 ||
-        indicators.length !== cards.length
+        indicators.length !== cards.length ||
+        !previousButton ||
+        !nextButton
     ) {
         return false;
     }
@@ -1868,6 +1880,30 @@ function initLandingDivisionCarousel() {
                         false
                     );
                 }
+            );
+        }
+    );
+
+    previousButton.addEventListener(
+        'click',
+        () => {
+            cancelProgrammaticAnimation();
+
+            moveToCard(
+                activeIndex - 1,
+                false
+            );
+        }
+    );
+
+    nextButton.addEventListener(
+        'click',
+        () => {
+            cancelProgrammaticAnimation();
+
+            moveToCard(
+                activeIndex + 1,
+                false
             );
         }
     );
