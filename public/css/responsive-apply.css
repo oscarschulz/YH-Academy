@@ -771,10 +771,12 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-indicato
         overscroll-behavior-x: contain;
 
         /*
-         * Touch and pen use the browser's native horizontal
-         * scrolling. Vertical page scrolling remains available.
+         * Vertical movement remains native page scrolling.
+         * Horizontal movement is owned by the unified pointer
+         * controller in apply.js so iPhone Safari does not
+         * lose the gesture to the page.
          */
-        touch-action: pan-x pan-y;
+        touch-action: pan-y;
         -webkit-overflow-scrolling: touch;
 
         scrollbar-width: none;
@@ -842,6 +844,8 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-indicato
             clamp(14px, 4vw, 20px);
 
         border-radius: 18px;
+
+        touch-action: pan-y;
 
         scroll-snap-align: start;
         scroll-snap-stop: normal;

@@ -2037,11 +2037,11 @@ function initLandingDivisionCarousel() {
     );
 
     /*
-     * Mouse-only drag controller.
+     * Unified pointer drag controller.
      *
-     * Touch and pen remain browser-native so iPhone Safari,
-     * Android browsers, and mobile device emulation can use
-     * reliable momentum scrolling and CSS scroll snapping.
+     * Mouse, touch, and pen use the same axis-lock logic.
+     * Horizontal movement belongs to the carousel, while
+     * vertical movement remains available to the page.
      */
     const resetPointerDrag = () => {
         dragPointerId = null;
@@ -2054,15 +2054,25 @@ function initLandingDivisionCarousel() {
     };
 
     const beginPointerDrag = (event) => {
-        /*
-         * Do not intercept touch or pen input.
-         * Their horizontal swipe is handled natively by
-         * the scrollable track.
-         */
+        const pointerType =
+            String(
+                event.pointerType ||
+                'mouse'
+            ).toLowerCase();
+
+        const isMousePointer =
+            pointerType === 'mouse';
+
         if (
             !mobileQuery.matches ||
-            event.pointerType !== 'mouse' ||
-            event.button !== 0
+            (
+                isMousePointer &&
+                event.button !== 0
+            ) ||
+            (
+                !isMousePointer &&
+                event.isPrimary === false
+            )
         ) {
             return;
         }
