@@ -499,6 +499,142 @@ let yhLandingResizeBound = false;
 let yhLandingLastFocusPointKey = '';
 let yhLandingLiveFeedState = YH_LANDING_FEED_DEFAULTS.map((item) => ({ ...item }));
 
+let yhLandingGlobeViewportVisibleV1 = true;
+let yhLandingGlobeInteractionPausedV1 = false;
+let yhLandingGlobeInteractionResumeTimerV1 = 0;
+let yhLandingGlobeViewportObserverV1 = null;
+let yhLandingMapInitScheduledV1 = false;
+
+function isLandingMobilePerformanceModeV1() {
+    return window.matchMedia(
+        '(max-width: 820px)'
+    ).matches;
+}
+
+function setLandingGlobeInteractionPausedV1(
+    paused = false
+) {
+    window.clearTimeout(
+        yhLandingGlobeInteractionResumeTimerV1
+    );
+
+    if (paused) {
+        yhLandingGlobeInteractionPausedV1 =
+            true;
+
+        return;
+    }
+
+    yhLandingGlobeInteractionResumeTimerV1 =
+        window.setTimeout(() => {
+            yhLandingGlobeInteractionPausedV1 =
+                false;
+        }, 160);
+}
+
+function bindLandingGlobeViewportPauseV1() {
+    if (yhLandingGlobeViewportObserverV1) {
+        return true;
+    }
+
+    const target =
+        document.querySelector(
+            '.yh-landing-hero-visual'
+        );
+
+    if (
+        !target ||
+        typeof window.IntersectionObserver !==
+            'function'
+    ) {
+        yhLandingGlobeViewportVisibleV1 =
+            true;
+
+        return false;
+    }
+
+    yhLandingGlobeViewportObserverV1 =
+        new IntersectionObserver(
+            (entries) => {
+                const entry =
+                    entries[0];
+
+                yhLandingGlobeViewportVisibleV1 =
+                    Boolean(
+                        entry &&
+                        entry.isIntersecting &&
+                        entry.intersectionRatio > 0
+                    );
+            },
+            {
+                root: null,
+                rootMargin: '120px 0px',
+                threshold: [
+                    0,
+                    0.01
+                ]
+            }
+        );
+
+    yhLandingGlobeViewportObserverV1.observe(
+        target
+    );
+
+    return true;
+}
+
+function scheduleLandingMapShellInitV1() {
+    if (
+        yhLandingMapInstance ||
+        yhLandingMapInitScheduledV1
+    ) {
+        return;
+    }
+
+    yhLandingMapInitScheduledV1 =
+        true;
+
+    const launch = () => {
+        yhLandingMapInitScheduledV1 =
+            false;
+
+        if (yhLandingMapInstance) {
+            return;
+        }
+
+        initLandingMapShell()
+            .catch((error) => {
+                console.warn(
+                    'Deferred landing globe bootstrap failed:',
+                    error?.message ||
+                    error
+                );
+            });
+    };
+
+    if (
+        isLandingMobilePerformanceModeV1() &&
+        typeof window.requestIdleCallback ===
+            'function'
+    ) {
+        window.requestIdleCallback(
+            launch,
+            {
+                timeout: 900
+            }
+        );
+
+        return;
+    }
+
+    window.setTimeout(
+        launch,
+        isLandingMobilePerformanceModeV1()
+            ? 420
+            : 0
+    );
+}
+
 let yhLandingGlobeData = {
     points: [...YH_LANDING_MAP_POINTS],
     arcs: [...YH_LANDING_MAP_ARCS]
@@ -1460,14 +1596,40 @@ async function initLandingMapShell() {
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
     camera.position.set(0, 0, 3.08);
 
-    const renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: true,
-        powerPreference: 'high-performance'
-    });
+    const mobilePerformanceMode =
+        isLandingMobilePerformanceModeV1();
 
-    renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const globeSphereSegments =
+        mobilePerformanceMode
+            ? 48
+            : 96;
+
+    const globeSatelliteCount =
+        mobilePerformanceMode
+            ? 3
+            : 7;
+
+    const renderer =
+        new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true,
+            powerPreference:
+                'high-performance'
+        });
+
+    renderer.setClearColor(
+        0x000000,
+        0
+    );
+
+    renderer.setPixelRatio(
+        Math.min(
+            window.devicePixelRatio || 1,
+            mobilePerformanceMode
+                ? 1.25
+                : 2
+        )
+    );
     renderer.domElement.setAttribute('aria-hidden', 'true');
     renderer.domElement.style.display = 'block';
     renderer.domElement.style.background = 'transparent';
@@ -1491,7 +1653,12 @@ async function initLandingMapShell() {
     const earthBumpTexture = textureLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_bump_2048.jpg');
     const earthSpecularTexture = textureLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_specular_2048.jpg');
 
-    const earthGeometry = new THREE.SphereGeometry(1, 96, 96);
+const earthGeometry =
+    new THREE.SphereGeometry(
+        1,
+        globeSphereSegments,
+        globeSphereSegments
+    );
     const earthMaterial = new THREE.MeshPhongMaterial({
         map: earthTexture,
         bumpMap: earthBumpTexture,
@@ -1506,7 +1673,11 @@ async function initLandingMapShell() {
 
     const cloudsTexture = textureLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_clouds_1024.png');
     const clouds = new THREE.Mesh(
-        new THREE.SphereGeometry(1.014, 96, 96),
+        new THREE.SphereGeometry(
+    1.014,
+    globeSphereSegments,
+    globeSphereSegments
+),
         new THREE.MeshPhongMaterial({
             map: cloudsTexture,
             transparent: true,
@@ -1517,7 +1688,11 @@ async function initLandingMapShell() {
     globeGroup.add(clouds);
 
     const atmosphere = new THREE.Mesh(
-        new THREE.SphereGeometry(1.035, 96, 96),
+        new THREE.SphereGeometry(
+    1.035,
+    globeSphereSegments,
+    globeSphereSegments
+),
         new THREE.MeshBasicMaterial({
             color: 0x7dd3fc,
             transparent: true,
@@ -1533,7 +1708,12 @@ async function initLandingMapShell() {
         color: 0xdff7ff
     });
 
-    const satellites = Array.from({ length: 7 }, (_, index) => {
+    const satellites = Array.from(
+    {
+        length:
+            globeSatelliteCount
+    },
+    (_, index) => {
         const satellite = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
         satellite.userData = {
             phase: index * 0.9,
@@ -1661,34 +1841,134 @@ async function initLandingMapShell() {
     syncLandingGlobeSize();
     bindLandingGlobeResize();
 
+    let lastRenderedAt = 0;
+
     const animate = (now = 0) => {
-        if (state.destroyed || yhLandingMapInstance !== api) return;
-
-        const isPaused = document.hidden || document.body?.classList.contains('yh-landing-is-scrolling');
-
-        if (!isPaused) {
-            earth.rotation.y += 0.001;
-            clouds.rotation.y += 0.00125;
-            atmosphere.rotation.y += 0.0008;
-
-            satellites.forEach((satellite, index) => {
-                const meta = satellite.userData || {};
-                const t = (now * (meta.speed || 0.00034)) + (meta.phase || 0);
-                const x = Math.sin(t) * (meta.orbitX || 1.32);
-                const z = Math.cos(t) * (meta.orbitZ || 1.8);
-                const y = Math.sin(t + (meta.orbitTilt || 0)) * 0.34;
-
-                satellite.position.set(x, y, z);
-                satellite.rotation.y += 0.003 + (index * 0.0003);
-            });
+        if (
+            state.destroyed ||
+            yhLandingMapInstance !== api
+        ) {
+            return;
         }
 
-        controls.update();
-        renderer.render(scene, camera);
-        yhLandingMapSpinRaf = requestAnimationFrame(animate);
+        const isPaused =
+            document.hidden ||
+            !yhLandingGlobeViewportVisibleV1 ||
+            yhLandingGlobeInteractionPausedV1 ||
+            document.body?.classList.contains(
+                'yh-landing-is-scrolling'
+            );
+
+        const minimumFrameGap =
+            mobilePerformanceMode
+                ? (1000 / 30)
+                : 0;
+
+        const shouldRenderThisFrame =
+            !isPaused &&
+            (
+                !minimumFrameGap ||
+                now - lastRenderedAt >=
+                    minimumFrameGap
+            );
+
+        if (shouldRenderThisFrame) {
+            lastRenderedAt = now;
+
+            earth.rotation.y +=
+                0.001;
+
+            clouds.rotation.y +=
+                0.00125;
+
+            atmosphere.rotation.y +=
+                0.0008;
+
+            satellites.forEach(
+                (
+                    satellite,
+                    index
+                ) => {
+                    const meta =
+                        satellite.userData ||
+                        {};
+
+                    const t =
+                        (
+                            now *
+                            (
+                                meta.speed ||
+                                0.00034
+                            )
+                        ) +
+                        (
+                            meta.phase ||
+                            0
+                        );
+
+                    const x =
+                        Math.sin(t) *
+                        (
+                            meta.orbitX ||
+                            1.32
+                        );
+
+                    const z =
+                        Math.cos(t) *
+                        (
+                            meta.orbitZ ||
+                            1.8
+                        );
+
+                    const y =
+                        Math.sin(
+                            t +
+                            (
+                                meta.orbitTilt ||
+                                0
+                            )
+                        ) *
+                        0.34;
+
+                    satellite.position.set(
+                        x,
+                        y,
+                        z
+                    );
+
+                    satellite.rotation.y +=
+                        0.003 +
+                        (
+                            index *
+                            0.0003
+                        );
+                }
+            );
+
+            controls.update();
+
+            renderer.render(
+                scene,
+                camera
+            );
+        }
+
+        yhLandingMapSpinRaf =
+            requestAnimationFrame(
+                animate
+            );
     };
 
-    yhLandingMapSpinRaf = requestAnimationFrame(animate);
+    yhLandingMapSpinRaf =
+        requestAnimationFrame(
+            animate
+        );
+
+    window.setTimeout(() => {
+        window
+            .yhNormalizeLandingGlobeBrightnessV2
+            ?.();
+    }, 120);
 }
 
 
@@ -2059,6 +2339,10 @@ function initLandingDivisionCarousel() {
         track.classList.remove(
             'is-dragging'
         );
+
+        setLandingGlobeInteractionPausedV1(
+            false
+        );
     };
 
     const beginPointerDrag = (event) => {
@@ -2084,6 +2368,10 @@ function initLandingDivisionCarousel() {
         ) {
             return;
         }
+
+        setLandingGlobeInteractionPausedV1(
+            true
+        );
 
         /*
          * A new gesture must immediately take ownership
@@ -2375,6 +2663,22 @@ function initLandingDivisionCarousel() {
     return true;
 }
 
+function bootLandingCriticalInteractionsV1() {
+    initLandingDivisionCarousel();
+    bindLandingGlobeViewportPauseV1();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener(
+        'DOMContentLoaded',
+        bootLandingCriticalInteractionsV1,
+        {
+            once: true
+        }
+    );
+} else {
+    bootLandingCriticalInteractionsV1();
+}
 
 window.addEventListener('load', () => {
     captureYHUniverseReferralFromUrl();
@@ -2423,8 +2727,10 @@ window.addEventListener('load', () => {
     };
 
     syncLandingMobileGlobePlacement();
-    initLandingDivisionCarousel();
-    initLandingMapShell();
+
+    bindLandingGlobeViewportPauseV1();
+
+    scheduleLandingMapShellInitV1();
 
     window.addEventListener('resize', syncLandingMobileGlobePlacement, { passive: true });
     window.addEventListener('orientationchange', syncLandingMobileGlobePlacement, { passive: true });
@@ -4706,25 +5012,13 @@ if (formRegisterSimple) {
         return touched;
     }
 
-    function schedule() {
-        window.clearTimeout(window.__yhLandingGlobeBrightnessNormalizationTimerV2);
-        window.__yhLandingGlobeBrightnessNormalizationTimerV2 = window.setTimeout(runNormalization, 40);
-    }
-
-    window.yhNormalizeLandingGlobeBrightnessV2 = runNormalization;
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', schedule);
-    } else {
-        schedule();
-    }
-
-    window.addEventListener('load', schedule, { passive: true });
-    window.addEventListener('resize', schedule, { passive: true });
-
-    [80, 220, 500, 1000, 1800, 3200].forEach((delay) => {
-        window.setTimeout(runNormalization, delay);
-    });
+    /*
+     * Run normalization only when the deferred globe has
+     * actually been created. initLandingMapShell() calls
+     * this once after the renderer is ready.
+     */
+    window.yhNormalizeLandingGlobeBrightnessV2 =
+        runNormalization;
 })();
 /* END PATCH: Landing globe brightness normalization runtime v2 */
 
