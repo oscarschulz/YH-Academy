@@ -1752,23 +1752,31 @@ function initLandingDivisionCarousel() {
     let dragStartX = 0;
     let dragStartY = 0;
     let dragStartScrollLeft = 0;
+    let dragStartIndex = 0;
+    let dragLastDeltaX = 0;
     let dragAxis = 'pending';
     let dragMoved = false;
 
     const normalizeIndex = (value) => {
         const parsed = Number(value);
 
-        if (!Number.isFinite(parsed)) {
+        if (
+            !Number.isFinite(parsed) ||
+            !cards.length
+        ) {
             return 0;
         }
 
-        return Math.max(
-            0,
-            Math.min(
-                cards.length - 1,
-                Math.round(parsed)
-            )
-        );
+        const rounded =
+            Math.round(parsed);
+
+        return (
+            (
+                rounded %
+                cards.length
+            ) +
+            cards.length
+        ) % cards.length;
     };
 
     const updateIndicators = (nextIndex) => {
@@ -2077,6 +2085,12 @@ function initLandingDivisionCarousel() {
             return;
         }
 
+        /*
+         * A new gesture must immediately take ownership
+         * from any snap animation left by the previous swipe.
+         */
+        cancelProgrammaticAnimation();
+
         dragPointerId =
             event.pointerId;
 
@@ -2088,6 +2102,15 @@ function initLandingDivisionCarousel() {
 
         dragStartScrollLeft =
             track.scrollLeft;
+
+        dragStartIndex =
+            getNearestCardIndex();
+
+        dragLastDeltaX = 0;
+
+        updateIndicators(
+            dragStartIndex
+        );
 
         dragAxis = 'pending';
         dragMoved = false;
@@ -2109,6 +2132,9 @@ function initLandingDivisionCarousel() {
         const deltaY =
             event.clientY -
             dragStartY;
+
+        dragLastDeltaX =
+            deltaX;
 
         if (dragAxis === 'pending') {
             const absoluteX =
@@ -2183,9 +2209,24 @@ function initLandingDivisionCarousel() {
         const pointerToRelease =
             dragPointerId;
 
+        const startIndex =
+            dragStartIndex;
+
+        const horizontalDistance =
+            dragLastDeltaX;
+
         const shouldSnap =
             dragAxis === 'horizontal' &&
             dragMoved;
+
+        const swipeThreshold =
+            Math.min(
+                72,
+                Math.max(
+                    28,
+                    track.clientWidth * 0.08
+                )
+            );
 
         resetPointerDrag();
 
@@ -2201,12 +2242,38 @@ function initLandingDivisionCarousel() {
             }
         } catch (_) {}
 
-        if (shouldSnap) {
+        if (!shouldSnap) {
+            return;
+        }
+
+        /*
+         * One committed horizontal swipe always advances
+         * exactly one card. normalizeIndex() wraps the
+         * result, so the carousel remains reusable after
+         * reaching either physical edge.
+         *
+         * Finger left  -> next card
+         * Finger right -> previous card
+         */
+        if (
+            Math.abs(
+                horizontalDistance
+            ) >= swipeThreshold
+        ) {
             moveToCard(
-                getNearestCardIndex(),
+                horizontalDistance < 0
+                    ? startIndex + 1
+                    : startIndex - 1,
                 false
             );
+
+            return;
         }
+
+        moveToCard(
+            getNearestCardIndex(),
+            false
+        );
     };
 
     track.addEventListener(
