@@ -380,124 +380,15 @@ function persistClientSession(user, token) {
     });
 }
 
-const YH_LANDING_FEED_DEFAULTS = [
-    {
-        id: 'academy_live_placeholder_1',
-        pointId: '',
-        label: 'Universe Feed',
-        feedText: 'Live sync active.',
-        locationText: 'Global',
-        createdAt: ''
-    },
-    {
-        id: 'academy_live_placeholder_2',
-        pointId: '',
-        label: 'Growth Signal',
-        feedText: 'New activity ready.',
-        locationText: 'Network',
-        createdAt: ''
-    },
-    {
-        id: 'academy_live_placeholder_3',
-        pointId: '',
-        label: 'Map Sync',
-        feedText: 'Signals online.',
-        locationText: 'World',
-        createdAt: ''
-    }
-];
-
-const YH_LANDING_CITY_LIGHT_POINTS = [
-    { id: 'city_london', label: 'London Network Light', lat: 51.5072, lng: -0.1276 },
-    { id: 'city_paris', label: 'Paris Network Light', lat: 48.8566, lng: 2.3522 },
-    { id: 'city_madrid', label: 'Madrid Network Light', lat: 40.4168, lng: -3.7038 },
-    { id: 'city_berlin', label: 'Berlin Network Light', lat: 52.52, lng: 13.405 },
-    { id: 'city_rome', label: 'Rome Network Light', lat: 41.9028, lng: 12.4964 },
-    { id: 'city_amsterdam', label: 'Amsterdam Network Light', lat: 52.3676, lng: 4.9041 },
-    { id: 'city_istanbul', label: 'Istanbul Network Light', lat: 41.0082, lng: 28.9784 },
-    { id: 'city_cairo', label: 'Cairo Network Light', lat: 30.0444, lng: 31.2357 },
-    { id: 'city_lagos', label: 'Lagos Network Light', lat: 6.5244, lng: 3.3792 },
-    { id: 'city_accra', label: 'Accra Network Light', lat: 5.6037, lng: -0.187 },
-    { id: 'city_nairobi', label: 'Nairobi Network Light', lat: -1.2921, lng: 36.8219 },
-    { id: 'city_johannesburg', label: 'Johannesburg Network Light', lat: -26.2041, lng: 28.0473 },
-    { id: 'city_dubai', label: 'Dubai Network Light', lat: 25.2048, lng: 55.2708 },
-    { id: 'city_doha', label: 'Doha Network Light', lat: 25.2854, lng: 51.531 },
-    { id: 'city_riyadh', label: 'Riyadh Network Light', lat: 24.7136, lng: 46.6753 },
-    { id: 'city_delhi', label: 'Delhi Network Light', lat: 28.6139, lng: 77.209 },
-    { id: 'city_mumbai', label: 'Mumbai Network Light', lat: 19.076, lng: 72.8777 },
-    { id: 'city_bangkok', label: 'Bangkok Network Light', lat: 13.7563, lng: 100.5018 },
-    { id: 'city_singapore', label: 'Singapore Network Light', lat: 1.3521, lng: 103.8198 },
-    { id: 'city_jakarta', label: 'Jakarta Network Light', lat: -6.2088, lng: 106.8456 },
-    { id: 'city_manila', label: 'Manila Network Light', lat: 14.5995, lng: 120.9842 },
-    { id: 'city_hong_kong', label: 'Hong Kong Network Light', lat: 22.3193, lng: 114.1694 },
-    { id: 'city_shanghai', label: 'Shanghai Network Light', lat: 31.2304, lng: 121.4737 },
-    { id: 'city_beijing', label: 'Beijing Network Light', lat: 39.9042, lng: 116.4074 },
-    { id: 'city_seoul', label: 'Seoul Network Light', lat: 37.5665, lng: 126.978 },
-    { id: 'city_tokyo', label: 'Tokyo Network Light', lat: 35.6762, lng: 139.6503 },
-    { id: 'city_sydney', label: 'Sydney Network Light', lat: -33.8688, lng: 151.2093 },
-    { id: 'city_new_york', label: 'New York Network Light', lat: 40.7128, lng: -74.006 },
-    { id: 'city_toronto', label: 'Toronto Network Light', lat: 43.6532, lng: -79.3832 },
-    { id: 'city_miami', label: 'Miami Network Light', lat: 25.7617, lng: -80.1918 },
-    { id: 'city_mexico_city', label: 'Mexico City Network Light', lat: 19.4326, lng: -99.1332 },
-    { id: 'city_los_angeles', label: 'Los Angeles Network Light', lat: 34.0522, lng: -118.2437 },
-    { id: 'city_san_francisco', label: 'San Francisco Network Light', lat: 37.7749, lng: -122.4194 },
-    { id: 'city_sao_paulo', label: 'São Paulo Network Light', lat: -23.5558, lng: -46.6396 },
-    { id: 'city_buenos_aires', label: 'Buenos Aires Network Light', lat: -34.6037, lng: -58.3816 }
-].map((point, index) => ({
-    ...point,
-    kind: 'city-light',
-    coreColor: index % 3 === 0 ? 'rgba(255, 255, 228, 1)' : 'rgba(255, 246, 72, 1)',
-    coreAltitude: 0.019,
-    coreRadius: index % 3 === 0 ? 0.44 : 0.3,
-    ringAltitude: 0.0046,
-    ringColor: [
-        'rgba(255, 255, 228, 1)',
-        'rgba(255, 248, 96, 0.86)',
-        'rgba(255, 242, 48, 0.18)',
-        'rgba(255, 242, 48, 0)'
-    ],
-    ringMaxRadius: index % 3 === 0 ? 3.72 : 2.52,
-    ringPropagationSpeed: index % 3 === 0 ? 0.36 : 0.3,
-    ringRepeatPeriod: index % 3 === 0 ? 3600 : 4300
-}));
-const YH_LANDING_NETWORK_ARCS = [
-    { id: 'arc_london_dubai', startLat: 51.5072, startLng: -0.1276, endLat: 25.2048, endLng: 55.2708 },
-    { id: 'arc_dubai_mumbai', startLat: 25.2048, startLng: 55.2708, endLat: 19.076, endLng: 72.8777 },
-    { id: 'arc_mumbai_singapore', startLat: 19.076, startLng: 72.8777, endLat: 1.3521, endLng: 103.8198 },
-    { id: 'arc_singapore_manila', startLat: 1.3521, startLng: 103.8198, endLat: 14.5995, endLng: 120.9842 },
-    { id: 'arc_manila_tokyo', startLat: 14.5995, startLng: 120.9842, endLat: 35.6762, endLng: 139.6503 },
-    { id: 'arc_tokyo_los_angeles', startLat: 35.6762, startLng: 139.6503, endLat: 34.0522, endLng: -118.2437 },
-    { id: 'arc_los_angeles_new_york', startLat: 34.0522, startLng: -118.2437, endLat: 40.7128, endLng: -74.006 },
-    { id: 'arc_new_york_london', startLat: 40.7128, startLng: -74.006, endLat: 51.5072, endLng: -0.1276 },
-    { id: 'arc_lagos_london', startLat: 6.5244, startLng: 3.3792, endLat: 51.5072, endLng: -0.1276 },
-    { id: 'arc_lagos_dubai', startLat: 6.5244, startLng: 3.3792, endLat: 25.2048, endLng: 55.2708 },
-    { id: 'arc_cairo_istanbul', startLat: 30.0444, startLng: 31.2357, endLat: 41.0082, endLng: 28.9784 },
-    { id: 'arc_sao_paulo_miami', startLat: -23.5558, startLng: -46.6396, endLat: 25.7617, endLng: -80.1918 },
-    { id: 'arc_sydney_singapore', startLat: -33.8688, startLng: 151.2093, endLat: 1.3521, endLng: 103.8198 }
-].map((arc, index) => ({
-    ...arc,
-    color: [
-        index % 3 === 0 ? 'rgba(255, 255, 218, 0.58)' : 'rgba(255, 248, 120, 0.46)',
-        index % 3 === 0 ? 'rgba(255, 246, 72, 0.28)' : 'rgba(255, 242, 48, 0.22)',
-        'rgba(255, 242, 48, 0)'
-    ],
-    stroke: index % 3 === 0 ? 0.16 : 0.13,
-    altitude: index % 3 === 0 ? 0.17 : 0.13,
-    dashLength: index % 3 === 0 ? 0.2 : 0.16,
-    dashGap: index % 3 === 0 ? 0.34 : 0.38,
-    dashAnimateTime: index % 3 === 0 ? 4800 : 5600
-}));
-
-const YH_LANDING_MAP_POINTS = [];
-const YH_LANDING_MAP_ARCS = [];
 
 let yhLandingPublicFeedTimer = null;
 let yhLandingMapInstance = null;
 let yhLandingMapSpinRaf = null;
-let yhLandingCloudsMesh = null;
+let yhLandingMapSleepTimerV2 = 0;
 let yhLandingResizeBound = false;
 let yhLandingLastFocusPointKey = '';
-let yhLandingLiveFeedState = YH_LANDING_FEED_DEFAULTS.map((item) => ({ ...item }));
+let yhLandingFeedStartScheduledV2 = false;
+let yhLandingFeedStartedV2 = false;
 
 let yhLandingGlobeViewportVisibleV1 = true;
 let yhLandingGlobeInteractionPausedV1 = false;
@@ -636,199 +527,30 @@ function scheduleLandingMapShellInitV1() {
 }
 
 let yhLandingGlobeData = {
-    points: [...YH_LANDING_MAP_POINTS],
-    arcs: [...YH_LANDING_MAP_ARCS]
+    points: [],
+    arcs: []
 };
-
-function animateLandingStat(el, target, duration = 1200) {
-    if (!el) return;
-    const start = 0;
-    const startTime = performance.now();
-
-    const tick = (now) => {
-        const progress = Math.min((now - startTime) / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        const value = Math.round(start + ((target - start) * eased));
-        el.textContent = value.toLocaleString();
-
-        if (progress < 1) {
-            requestAnimationFrame(tick);
-        }
-    };
-
-    requestAnimationFrame(tick);
-}
-
-function escapeLandingHtml(value = '') {
-    return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-function formatLandingEventMeta(event = {}) {
-    const location = String(
-        event.locationText ||
-        [event.city, event.country].filter(Boolean).join(', ')
-    ).trim();
-
-    const rawDate = String(event.createdAt || '').trim();
-    let timeText = '';
-
-    if (rawDate) {
-        const parsed = new Date(rawDate);
-        if (!Number.isNaN(parsed.getTime())) {
-            timeText = parsed.toLocaleTimeString([], {
-                hour: 'numeric',
-                minute: '2-digit'
-            });
-        }
-    }
-
-    return [location, timeText].filter(Boolean).join(' • ') || 'Academy live sync';
-}
-
-function focusLandingFeedEvent(pointId = '') {
-    const normalizedId = String(pointId || '').trim();
-    if (!normalizedId) return;
-
-    const point = Array.isArray(yhLandingGlobeData.points)
-        ? yhLandingGlobeData.points.find((item) => String(item.id || '').trim() === normalizedId)
-        : null;
-
-    if (point) {
-        focusLandingGlobePoint(point);
-    }
-}
-
-function renderLandingFeedSections() {
-    const streamEl = document.getElementById('yh-landing-activity-stream');
-    if (!streamEl) return;
-
-    const items =
-        Array.isArray(yhLandingLiveFeedState) && yhLandingLiveFeedState.length
-            ? yhLandingLiveFeedState
-            : YH_LANDING_FEED_DEFAULTS;
-
-    streamEl.innerHTML = items.map((item, index) => {
-        const pointId = String(item.pointId || item.id || '').trim();
-        const label = escapeLandingHtml(item.label || 'Academy Activity');
-        const feedText = escapeLandingHtml(item.feedText || 'Academy activity.');
-        const meta = escapeLandingHtml(formatLandingEventMeta(item));
-
-        return `
-            <button
-                type="button"
-                class="yh-landing-activity-event${index === 0 ? ' is-active' : ''}"
-                data-point-id="${escapeLandingHtml(pointId)}"
-            >
-                <span class="yh-landing-activity-label">${label}</span>
-                <strong>${feedText}</strong>
-                <span class="yh-landing-activity-meta">${meta}</span>
-            </button>
-        `;
-    }).join('');
-
-    streamEl.querySelectorAll('.yh-landing-activity-event').forEach((button) => {
-        button.addEventListener('click', () => {
-            focusLandingFeedEvent(button.dataset.pointId || '');
-        });
-    });
-}
-
-function applyLandingFeedSnapshot(events = []) {
-    const normalized = (Array.isArray(events) ? events : [])
-        .map((item, index) => ({
-            id: String(item.id || `academy_live_event_${index + 1}`).trim(),
-            pointId: String(item.pointId || item.id || '').trim(),
-            label: String(item.label || 'Academy Activity').trim(),
-            feedText: String(item.feedText || item.message || 'Academy activity.').trim(),
-            locationText: String(item.locationText || '').trim(),
-            city: String(item.city || '').trim(),
-            country: String(item.country || '').trim(),
-            createdAt: String(item.createdAt || '').trim()
-        }))
-        .filter((item) => item.feedText)
-        .slice(0, 6);
-
-    yhLandingLiveFeedState = normalized.length
-        ? normalized
-        : YH_LANDING_FEED_DEFAULTS.map((item) => ({ ...item }));
-
-    renderLandingFeedSections();
-}
-
-function focusLandingGlobePoint(point = null) {
-    if (!point || !yhLandingMapInstance || typeof yhLandingMapInstance.pointOfView !== 'function') {
-        return;
-    }
-
-    const lat = Number(point.lat);
-    const lng = Number(point.lng);
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        return;
-    }
-
-    const focusKey =
-        String(point.id || '').trim() ||
-        `${lat}:${lng}:${String(point.label || '').trim()}`;
-
-    if (focusKey && focusKey === yhLandingLastFocusPointKey) {
-        return;
-    }
-
-    yhLandingLastFocusPointKey = focusKey;
-
-    yhLandingMapInstance.pointOfView(
-        {
-            lat,
-            lng,
-            altitude: 3.05
-        },
-        1600
-    );
-}
-
-function applyLandingServerSnapshot(result = {}) {
-    applyLandingFeedSnapshot(
-        Array.isArray(result.liveEvents)
-            ? result.liveEvents
-            : Array.isArray(result.academyEvents)
-                ? result.academyEvents
-                : []
-    );
-
-    window.yhSetLandingGlobeData({
-        points: Array.isArray(result.points) ? result.points : [],
-        arcs: Array.isArray(result.arcs) ? result.arcs : [],
-        focusPoint: result.focusPoint || null,
-        stats: result.stats && typeof result.stats === 'object' ? result.stats : null
-    });
-}
 
 let yhLandingRealtimeSocket = null;
 let yhLandingRealtimeConnected = false;
 let yhLandingSocketScriptPromise = null;
 
 function applyLandingServerSnapshot(result = {}) {
-    applyLandingFeedSnapshot(
-        Array.isArray(result.liveEvents)
-            ? result.liveEvents
-            : Array.isArray(result.academyEvents)
-                ? result.academyEvents
-                : []
-    );
-
     window.yhSetLandingGlobeData({
-        points: Array.isArray(result.points) ? result.points : [],
-        arcs: Array.isArray(result.arcs) ? result.arcs : [],
-        focusPoint: result.focusPoint || null,
-        stats: result.stats && typeof result.stats === 'object' ? result.stats : null
+        points: Array.isArray(result.points)
+            ? result.points
+            : [],
+
+        arcs: Array.isArray(result.arcs)
+            ? result.arcs
+            : [],
+
+        focusPoint:
+            result.focusPoint ||
+            null
     });
 }
+
 
 function ensureLandingSocketClient() {
     if (typeof window.io === 'function') {
@@ -914,23 +636,78 @@ async function fetchLandingPublicFeed() {
 }
 
 function startLandingFeedRotation() {
-    renderLandingFeedSections();
+    if (yhLandingFeedStartedV2) {
+        return;
+    }
+
+    yhLandingFeedStartedV2 = true;
 
     if (yhLandingPublicFeedTimer) {
-        clearInterval(yhLandingPublicFeedTimer);
+        clearInterval(
+            yhLandingPublicFeedTimer
+        );
     }
 
     fetchLandingPublicFeed();
 
-    connectLandingRealtimeFeed().catch((error) => {
-        console.warn('connectLandingRealtimeFeed error:', error?.message || error);
-    });
+    connectLandingRealtimeFeed()
+        .catch((error) => {
+            console.warn(
+                'connectLandingRealtimeFeed error:',
+                error?.message ||
+                error
+            );
+        });
 
-    yhLandingPublicFeedTimer = setInterval(() => {
-        if (!yhLandingRealtimeConnected) {
-            fetchLandingPublicFeed();
-        }
-    }, 8000);
+    yhLandingPublicFeedTimer =
+        setInterval(() => {
+            if (
+                !yhLandingRealtimeConnected
+            ) {
+                fetchLandingPublicFeed();
+            }
+        }, 8000);
+}
+
+function scheduleLandingFeedStartV2() {
+    if (
+        yhLandingFeedStartedV2 ||
+        yhLandingFeedStartScheduledV2
+    ) {
+        return;
+    }
+
+    yhLandingFeedStartScheduledV2 =
+        true;
+
+    const start = () => {
+        yhLandingFeedStartScheduledV2 =
+            false;
+
+        startLandingFeedRotation();
+    };
+
+    if (
+        isLandingMobilePerformanceModeV1() &&
+        typeof window.requestIdleCallback ===
+            'function'
+    ) {
+        window.requestIdleCallback(
+            start,
+            {
+                timeout: 2600
+            }
+        );
+
+        return;
+    }
+
+    window.setTimeout(
+        start,
+        isLandingMobilePerformanceModeV1()
+            ? 1800
+            : 250
+    );
 }
 
 function renderLandingMapFallback() {
@@ -969,11 +746,6 @@ let yhLandingThreeModulePromise = null;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function hasLandingScript(src) {
-    return Array.from(document.querySelectorAll('script[src]')).some(
-        (node) => String(node.src || '').trim() === src
-    );
-}
 
 function loadLandingExternalScript(src) {
     return new Promise((resolve, reject) => {
@@ -1167,369 +939,134 @@ function bindLandingGlobeResize() {
     yhLandingResizeBound = true;
 
     const schedule = () => {
-        if (window.__yhLandingResizeRaf) cancelAnimationFrame(window.__yhLandingResizeRaf);
-        window.__yhLandingResizeRaf = requestAnimationFrame(() => syncLandingGlobeSize());
+        if (
+            window.__yhLandingResizeRaf
+        ) {
+            cancelAnimationFrame(
+                window.__yhLandingResizeRaf
+            );
+        }
+
+        window.__yhLandingResizeRaf =
+            requestAnimationFrame(() => {
+                syncLandingGlobeSize();
+            });
     };
 
-    window.addEventListener('resize', schedule, { passive: true });
-    window.addEventListener('orientationchange', schedule, { passive: true });
-
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', schedule, { passive: true });
-    }
-}
-
-function startLandingCloudSpin() {
-    if (yhLandingMapSpinRaf) {
-        cancelAnimationFrame(yhLandingMapSpinRaf);
-    }
-
-    const CLOUDS_ROTATION_SPEED = -0.006; // deg/frame, aligned with repo example motion
-
-        const tick = () => {
-            if (
-                yhLandingCloudsMesh &&
-                !document.hidden &&
-                !document.body?.classList.contains('yh-landing-is-scrolling')
-            ) {
-                yhLandingCloudsMesh.rotation.y += (CLOUDS_ROTATION_SPEED * Math.PI) / 180;
-            }
-
-            yhLandingMapSpinRaf = requestAnimationFrame(tick);
-        };
-
-    yhLandingMapSpinRaf = requestAnimationFrame(tick);
-}
-
-function addLandingGlobeClouds(world) {
-    if (
-        !world ||
-        !window.THREE ||
-        typeof world.scene !== 'function' ||
-        typeof world.getGlobeRadius !== 'function'
-    ) {
-        return;
-    }
-
-    const CLOUDS_IMG_URL = '/images/clouds.png?v=20260531-globe-lights-01';
-    const CLOUDS_ALT = 0.004;
-    const CLOUDS_ROTATION_SPEED = -0.006;
-
-    if (yhLandingMapSpinRaf) {
-        cancelAnimationFrame(yhLandingMapSpinRaf);
-        yhLandingMapSpinRaf = null;
-    }
-
-    if (yhLandingCloudsMesh) {
-        const existingScene = world.scene();
-        if (existingScene && typeof existingScene.remove === 'function') {
-            existingScene.remove(yhLandingCloudsMesh);
+    window.addEventListener(
+        'resize',
+        schedule,
+        {
+            passive: true
         }
-        yhLandingCloudsMesh = null;
-    }
+    );
 
-    const textureLoader = new window.THREE.TextureLoader();
-    if (typeof textureLoader.setCrossOrigin === 'function') {
-        textureLoader.setCrossOrigin('anonymous');
-    }
-
-    textureLoader.load(
-        CLOUDS_IMG_URL,
-        (cloudsTexture) => {
-            if (!yhLandingMapInstance) return;
-
-            const clouds = new window.THREE.Mesh(
-                new window.THREE.SphereGeometry(
-                    world.getGlobeRadius() * (1 + CLOUDS_ALT),
-                    75,
-                    75
-                ),
-                new window.THREE.MeshPhongMaterial({
-                    map: cloudsTexture,
-                    transparent: true,
-                    opacity: 0.014,
-                    depthWrite: false,
-                    color: 0xe6f2ff
-                })
-            );
-
-            yhLandingCloudsMesh = clouds;
-            world.scene().add(clouds);
-
-            const rotateClouds = () => {
-                if (
-                    yhLandingCloudsMesh &&
-                    !document.hidden &&
-                    !document.body?.classList.contains('yh-landing-is-scrolling')
-                ) {
-                    yhLandingCloudsMesh.rotation.y += (CLOUDS_ROTATION_SPEED * Math.PI) / 180;
-                }
-
-                yhLandingMapSpinRaf = requestAnimationFrame(rotateClouds);
-            };
-
-            yhLandingMapSpinRaf = requestAnimationFrame(rotateClouds);
-        },
-        undefined,
-        (error) => {
-            console.warn('Landing clouds texture failed to load:', error);
+    window.addEventListener(
+        'orientationchange',
+        schedule,
+        {
+            passive: true
         }
     );
 }
 
-function buildLandingGlowEvents(points = []) {
-    return (Array.isArray(points) ? points : [])
-        .map((point, index) => {
-            const lat = Number(point?.lat);
-            const lng = Number(point?.lng);
+function focusLandingServerPointV2(
+    point = null
+) {
+    if (
+        !point ||
+        !yhLandingMapInstance ||
+        typeof yhLandingMapInstance
+            .pointOfView !== 'function'
+    ) {
+        return;
+    }
 
-            if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-                return null;
-            }
+    const lat =
+        Number(point.lat);
 
-            const isCityLight = String(point.kind || '').trim() === 'city-light';
-            const fallbackColor = isCityLight
-                ? 'rgba(251, 191, 36, 0.94)'
-                : 'rgba(191, 219, 254, 0.96)';
+    const lng =
+        Number(point.lng);
 
-            return {
-                ...point,
-                id: point.id || `yh_glow_${index}_${lat}_${lng}`,
-                lat,
-                lng,
-                coreColor: point.coreColor || point.color || fallbackColor,
-                coreAltitude: Number.isFinite(Number(point.coreAltitude))
-                    ? Number(point.coreAltitude)
-                    : (isCityLight ? 0.006 : 0.012),
-                coreRadius: Number.isFinite(Number(point.coreRadius))
-                    ? Number(point.coreRadius)
-                    : (isCityLight ? 0.075 : 0.16),
-                ringAltitude: Number.isFinite(Number(point.ringAltitude))
-                    ? Number(point.ringAltitude)
-                    : (isCityLight ? 0.0024 : 0.0032),
-                ringColor: Array.isArray(point.ringColor) && point.ringColor.length
-                    ? point.ringColor
-                    : (isCityLight
-                        ? [
-                            'rgba(255, 237, 213, 0.82)',
-                            'rgba(251, 191, 36, 0.28)',
-                            'rgba(251, 191, 36, 0)'
-                        ]
-                        : [
-                            'rgba(191, 219, 254, 0.96)',
-                            'rgba(56, 189, 248, 0.42)',
-                            'rgba(56, 189, 248, 0)'
-                        ]),
-                ringMaxRadius: Number.isFinite(Number(point.ringMaxRadius))
-                    ? Number(point.ringMaxRadius)
-                    : (isCityLight ? 1.45 : 4.8),
-                ringPropagationSpeed: Number.isFinite(Number(point.ringPropagationSpeed))
-                    ? Number(point.ringPropagationSpeed)
-                    : (isCityLight ? 0.52 : 1.65),
-                ringRepeatPeriod: Number.isFinite(Number(point.ringRepeatPeriod))
-                    ? Number(point.ringRepeatPeriod)
-                    : (isCityLight ? 3600 : 680)
-            };
-        })
-        .filter(Boolean);
-}
-
-function focusLandingGlowPoint(point = null) {
-    if (!point || !yhLandingMapInstance || typeof yhLandingMapInstance.pointOfView !== 'function') return;
-
-    const lat = Number(point.lat);
-    const lng = Number(point.lng);
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng)
+    ) {
+        return;
+    }
 
     const focusKey =
-        String(point.id || '').trim() ||
-        `${lat}:${lng}:${String(point.label || '').trim()}`;
+        String(
+            point.id || ''
+        ).trim() ||
+        `${lat}:${lng}:${String(
+            point.label || ''
+        ).trim()}`;
 
-    if (focusKey && focusKey === yhLandingLastFocusPointKey) return;
-    yhLandingLastFocusPointKey = focusKey;
+    if (
+        focusKey &&
+        focusKey ===
+            yhLandingLastFocusPointKey
+    ) {
+        return;
+    }
+
+    yhLandingLastFocusPointKey =
+        focusKey;
 
     yhLandingMapInstance.pointOfView(
-        { lat, lng, altitude: 2.72 },
+        {
+            lat,
+            lng,
+            altitude: 2.72
+        },
         1600
     );
 }
 
-
-function applyLandingGlobeData() {
-    if (!yhLandingMapInstance || typeof yhLandingMapInstance.pointsData !== 'function') return;
-
-    const livePoints = buildLandingGlowEvents(yhLandingGlobeData.points);
-    const cityLights = buildLandingGlowEvents(YH_LANDING_CITY_LIGHT_POINTS);
-    const glowPoints = [...cityLights, ...livePoints];
-
-    const liveArcs = Array.isArray(yhLandingGlobeData.arcs) ? yhLandingGlobeData.arcs : [];
-    const globeArcs = [...YH_LANDING_NETWORK_ARCS, ...liveArcs];
-
-    yhLandingMapInstance
-        .pointsData(glowPoints)
-        .pointLat('lat')
-        .pointLng('lng')
-        .pointColor((point) => point.coreColor || point.color || 'rgba(251, 191, 36, 0.94)')
-        .pointAltitude((point) => point.coreAltitude ?? 0.012)
-        .pointRadius((point) => point.coreRadius ?? 0.16)
-        .pointLabel((point) => point.label || point.message || 'Universe network light')
-        .ringsData(glowPoints)
-        .ringLat('lat')
-        .ringLng('lng')
-        .ringAltitude((point) => point.ringAltitude ?? 0.0032)
-        .ringColor((point) => point.ringColor || [
-            'rgba(255, 237, 213, 0.82)',
-            'rgba(251, 191, 36, 0.28)',
-            'rgba(251, 191, 36, 0)'
-        ])
-        .ringResolution(64)
-        .ringMaxRadius((point) => point.ringMaxRadius ?? 4.8)
-        .ringPropagationSpeed((point) => point.ringPropagationSpeed ?? 1.65)
-        .ringRepeatPeriod((point) => point.ringRepeatPeriod ?? 680)
-        .arcsData(globeArcs)
-        .arcStartLat('startLat')
-        .arcStartLng('startLng')
-        .arcEndLat('endLat')
-        .arcEndLng('endLng')
-        .arcColor((arc) => arc.color || [
-            'rgba(255, 237, 213, 0.95)',
-            'rgba(251, 191, 36, 0.58)',
-            'rgba(251, 191, 36, 0.08)'
-        ])
-        .arcStroke((arc) => arc.stroke ?? 0.44)
-        .arcAltitude((arc) => arc.altitude ?? 0.22)
-        .arcDashLength((arc) => arc.dashLength ?? 0.34)
-        .arcDashGap((arc) => arc.dashGap ?? 0.16)
-        .arcDashAnimateTime((arc) => arc.dashAnimateTime ?? 2600);
-}
-
-
-window.yhSetLandingGlobeData = function yhSetLandingGlobeData(next = {}) {
-    if (Array.isArray(next.points)) {
-        yhLandingGlobeData.points = next.points;
-    }
-
-    if (Array.isArray(next.arcs)) {
-        yhLandingGlobeData.arcs = next.arcs;
-    } else {
-        yhLandingGlobeData.arcs = [];
-    }
-
-    if (next.stats && typeof next.stats === 'object') {
-        const membersEl = document.getElementById('yh-stat-members');
-        const reachEl = document.getElementById('yh-stat-reach');
-        const impressionsEl = document.getElementById('yh-stat-impressions');
-
-        if (Number.isFinite(next.stats.members)) {
-            animateLandingStat(membersEl, next.stats.members, 1200);
-        }
-
-        if (Number.isFinite(next.stats.reach)) {
-            animateLandingStat(reachEl, next.stats.reach, 1000);
-        }
-
-        if (Number.isFinite(next.stats.impressions)) {
-            animateLandingStat(impressionsEl, next.stats.impressions, 1350);
-        }
-    }
-
-    applyLandingGlobeData();
-
-    const focusPoint =
-        next.focusPoint ||
-        (Array.isArray(next.points) && next.points.length ? next.points[0] : null);
-
-    if (focusPoint) {
-        focusLandingGlowPoint(focusPoint);
-    }
-};
-
-function applyLandingReferenceGlobeLighting(world) {
-    if (
-        !world ||
-        !window.THREE ||
-        typeof world.scene !== 'function'
+window.yhSetLandingGlobeData =
+    function yhSetLandingGlobeData(
+        next = {}
     ) {
-        return;
-    }
-
-    const THREE = window.THREE;
-    const scene = world.scene();
-
-    if (!scene || scene.__yhCinematicLandingLightsV83) {
-        return;
-    }
-
-    scene.__yhCinematicLandingLightsV83 = true;
-    scene.background = null;
-
-    if (typeof world.renderer === 'function') {
-        const renderer = world.renderer();
-
-        if (renderer) {
-            if (typeof renderer.setPixelRatio === 'function') {
-                renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-            }
-
-            if ('outputColorSpace' in renderer && THREE.SRGBColorSpace) {
-                renderer.outputColorSpace = THREE.SRGBColorSpace;
-            }
-
-            if ('toneMapping' in renderer && THREE.ACESFilmicToneMapping) {
-                renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            }
-
-            if ('toneMappingExposure' in renderer) {
-                renderer.toneMappingExposure = 0.98;
-            }
-
-            if ('physicallyCorrectLights' in renderer) {
-                renderer.physicallyCorrectLights = true;
-            }
+        if (
+            Array.isArray(
+                next.points
+            )
+        ) {
+            yhLandingGlobeData.points =
+                next.points;
         }
-    }
 
-    const ambient = new THREE.AmbientLight(0xe3edf8, 0.42);
-    scene.add(ambient);
-
-    const softFill = new THREE.HemisphereLight(0x8aa9c2, 0x01040a, 0.24);
-    scene.add(softFill);
-
-    const keyLight = new THREE.DirectionalLight(0xf2f8ff, 0.12);
-    keyLight.position.set(2.2, 1.4, 5.8);
-    scene.add(keyLight);
-
-    const rimLight = new THREE.DirectionalLight(0xdff7ff, 0.74);
-    rimLight.position.set(9.4, 2.2, 4.8);
-    scene.add(rimLight);
-
-    const upperEdgeLight = new THREE.DirectionalLight(0xffffff, 0.18);
-    upperEdgeLight.position.set(-1.8, 5.2, 6.8);
-    scene.add(upperEdgeLight);
-
-    const warmCityFill = new THREE.DirectionalLight(0xffff8a, 0.26);
-    warmCityFill.position.set(-3.2, -1.4, 4.6);
-    scene.add(warmCityFill);
-
-    const horizonGlow = new THREE.PointLight(0xfff36a, 0.18, 760);
-    horizonGlow.position.set(190, -6, 260);
-    scene.add(horizonGlow);
-
-    if (typeof world.globeMaterial === 'function') {
-        const material = world.globeMaterial();
-
-        if (material) {
-            if ('color' in material) material.color = new THREE.Color(0xffffff);
-            if ('emissive' in material) material.emissive = new THREE.Color(0x151900);
-            if ('emissiveIntensity' in material) material.emissiveIntensity = 0.085;
-            if ('shininess' in material) material.shininess = 7;
-            if ('specular' in material) material.specular = new THREE.Color(0x3f4212);
-            if ('bumpScale' in material) material.bumpScale = 0.72;
-            material.needsUpdate = true;
+        if (
+            Array.isArray(
+                next.arcs
+            )
+        ) {
+            yhLandingGlobeData.arcs =
+                next.arcs;
+        } else {
+            yhLandingGlobeData.arcs =
+                [];
         }
-    }
-}
+
+        const focusPoint =
+            next.focusPoint ||
+            (
+                Array.isArray(
+                    next.points
+                ) &&
+                next.points.length
+                    ? next.points[0]
+                    : null
+            );
+
+        if (focusPoint) {
+            focusLandingServerPointV2(
+                focusPoint
+            );
+        }
+    };
+
 
 
 async function initLandingMapShell() {
@@ -1546,15 +1083,6 @@ async function initLandingMapShell() {
         }, { passive: false });
     }
 
-    const membersEl = document.getElementById('yh-stat-members');
-    const reachEl = document.getElementById('yh-stat-reach');
-    const impressionsEl = document.getElementById('yh-stat-impressions');
-
-    if (membersEl) animateLandingStat(membersEl, 17392, 1200);
-    if (reachEl) animateLandingStat(reachEl, 82, 1000);
-    if (impressionsEl) animateLandingStat(impressionsEl, 142, 1350);
-
-    startLandingFeedRotation();
 
     const depsReady = await ensureLandingGlobeDeps({
         retries: 5,
@@ -1830,6 +1358,13 @@ const earthGeometry =
         },
         destroy() {
             state.destroyed = true;
+
+            window.clearTimeout(
+                yhLandingMapSleepTimerV2
+            );
+
+            yhLandingMapSleepTimerV2 = 0;
+
             renderer.dispose();
             earthGeometry.dispose();
             satelliteGeometry.dispose();
@@ -1953,6 +1488,33 @@ const earthGeometry =
             );
         }
 
+        if (isPaused) {
+            window.clearTimeout(
+                yhLandingMapSleepTimerV2
+            );
+
+            yhLandingMapSleepTimerV2 =
+                window.setTimeout(() => {
+                    yhLandingMapSleepTimerV2 =
+                        0;
+
+                    if (
+                        state.destroyed ||
+                        yhLandingMapInstance !==
+                            api
+                    ) {
+                        return;
+                    }
+
+                    yhLandingMapSpinRaf =
+                        requestAnimationFrame(
+                            animate
+                        );
+                }, 90);
+
+            return;
+        }
+
         yhLandingMapSpinRaf =
             requestAnimationFrame(
                 animate
@@ -1964,11 +1526,7 @@ const earthGeometry =
             animate
         );
 
-    window.setTimeout(() => {
-        window
-            .yhNormalizeLandingGlobeBrightnessV2
-            ?.();
-    }, 120);
+    scheduleLandingFeedStartV2();
 }
 
 
@@ -2278,6 +1836,9 @@ function initLandingDivisionCarousel() {
         if (
             track.classList.contains(
                 'is-programmatic'
+            ) ||
+            track.classList.contains(
+                'is-dragging'
             )
         ) {
             return;
@@ -2477,8 +2038,6 @@ function initLandingDivisionCarousel() {
         track.scrollLeft =
             dragStartScrollLeft -
             deltaX;
-
-        syncIndicatorFromScroll();
     };
 
     const finishPointerDrag = (event) => {
@@ -2689,51 +2248,9 @@ window.addEventListener('load', () => {
     localStorage.removeItem('yh_token');
     localStorage.removeItem('token');
 
-    const syncLandingMobileGlobePlacement = () => {
-        const heroGrid = document.querySelector('.yh-landing-hero-grid');
-        const activityPanel = document.querySelector('.yh-landing-activity-panel');
-        const heroVisual = document.querySelector('.yh-landing-hero-visual');
-
-        if (!heroGrid || !activityPanel || !heroVisual) return;
-
-        let desktopAnchor = document.getElementById('yh-landing-hero-visual-desktop-anchor');
-
-        if (!desktopAnchor) {
-            desktopAnchor = document.createElement('span');
-            desktopAnchor.id = 'yh-landing-hero-visual-desktop-anchor';
-            desktopAnchor.setAttribute('aria-hidden', 'true');
-            desktopAnchor.style.display = 'none';
-
-            if (heroVisual.parentElement) {
-                heroVisual.parentElement.insertBefore(desktopAnchor, heroVisual);
-            }
-        }
-
-        const shouldUseMobilePlacement = window.matchMedia('(max-width: 768px)').matches;
-
-        if (shouldUseMobilePlacement) {
-            if (activityPanel.nextElementSibling !== heroVisual) {
-                activityPanel.insertAdjacentElement('afterend', heroVisual);
-            }
-        } else if (desktopAnchor.parentElement && desktopAnchor.nextElementSibling !== heroVisual) {
-            desktopAnchor.parentElement.insertBefore(heroVisual, desktopAnchor.nextSibling);
-        }
-
-        window.requestAnimationFrame(() => {
-            if (typeof syncLandingGlobeSize === 'function') {
-                syncLandingGlobeSize();
-            }
-        });
-    };
-
-    syncLandingMobileGlobePlacement();
-
     bindLandingGlobeViewportPauseV1();
 
     scheduleLandingMapShellInitV1();
-
-    window.addEventListener('resize', syncLandingMobileGlobePlacement, { passive: true });
-    window.addEventListener('orientationchange', syncLandingMobileGlobePlacement, { passive: true });
 
     // --- CARD FLIP / REGISTER MODAL LOGIC ---
     const flipper = document.getElementById('auth-flipper');
@@ -4864,163 +4381,7 @@ if (formRegisterSimple) {
 
     initLandingSectionReveal();
 });
-/* PATCH: Landing globe brightness normalization runtime v2 */
-(function installYHLandingGlobeBrightnessNormalizationRuntimeV2() {
-    if (window.__yhLandingGlobeBrightnessNormalizationRuntimeV2Installed) return;
-    window.__yhLandingGlobeBrightnessNormalizationRuntimeV2Installed = true;
 
-    function clamp(value, min, max) {
-        return Math.min(max, Math.max(min, value));
-    }
-
-    function getSceneCandidates() {
-        const out = [];
-
-        if (window.yhLandingMapInstance) {
-            if (typeof window.yhLandingMapInstance.scene === 'function') {
-                try { out.push(window.yhLandingMapInstance.scene()); } catch (_) {}
-            }
-            if (window.yhLandingMapInstance.scene) {
-                out.push(window.yhLandingMapInstance.scene);
-            }
-        }
-
-        if (window.scene) out.push(window.scene);
-        return out.filter(Boolean);
-    }
-
-    function getRendererCandidate() {
-        if (window.yhLandingMapInstance && typeof window.yhLandingMapInstance.renderer === 'function') {
-            try { return window.yhLandingMapInstance.renderer(); } catch (_) {}
-        }
-        return null;
-    }
-
-    function normalizeLightRig(scene) {
-        if (!scene) return false;
-
-        const THREE = window.THREE || null;
-        let ambientFound = false;
-        let hemiFound = false;
-        let changed = false;
-
-        scene.traverse?.((node) => {
-            if (!node) return;
-
-            const type = String(node.type || '');
-
-            if (type === 'AmbientLight') {
-                node.intensity = clamp(Math.max(Number(node.intensity || 0), 1.16), 1.16, 1.22);
-                ambientFound = true;
-                changed = true;
-            }
-
-            if (type === 'HemisphereLight') {
-                node.intensity = clamp(Math.max(Number(node.intensity || 0), 0.88), 0.88, 0.96);
-                hemiFound = true;
-                changed = true;
-            }
-
-            if (type === 'DirectionalLight') {
-                node.intensity = clamp(Math.max(Number(node.intensity || 0), 0.76), 0.76, 0.98);
-                changed = true;
-            }
-
-            if (node.material) {
-                const materials = Array.isArray(node.material) ? node.material : [node.material];
-
-                materials.forEach((mat) => {
-                    if (!mat) return;
-
-                    if ('roughness' in mat && Number.isFinite(Number(mat.roughness))) {
-                        mat.roughness = clamp(Number(mat.roughness) * 0.97, 0, 1);
-                    }
-
-                    if ('metalness' in mat && Number.isFinite(Number(mat.metalness))) {
-                        mat.metalness = clamp(Number(mat.metalness) * 0.94, 0, 1);
-                    }
-
-                    if ('emissiveIntensity' in mat) {
-                        mat.emissiveIntensity = clamp(Math.max(Number(mat.emissiveIntensity || 0), 0.08), 0.08, 0.12);
-                    }
-
-                    if ('toneMapped' in mat) {
-                        mat.toneMapped = true;
-                    }
-
-                    mat.needsUpdate = true;
-                    changed = true;
-                });
-            }
-        });
-
-        if (THREE && !ambientFound) {
-            try {
-                const ambient = new THREE.AmbientLight(0xffffff, 1.18);
-                ambient.name = 'yhLandingAmbientNormalizeV2';
-                scene.add(ambient);
-                changed = true;
-            } catch (_) {}
-        }
-
-        if (THREE && !hemiFound) {
-            try {
-                const hemi = new THREE.HemisphereLight(0xffffff, 0x18345a, 0.92);
-                hemi.name = 'yhLandingHemisphereNormalizeV2';
-                scene.add(hemi);
-                changed = true;
-            } catch (_) {}
-        }
-
-        return changed;
-    }
-
-    function normalizeRenderer(renderer) {
-        if (!renderer) return false;
-        let changed = false;
-
-        try {
-            if ('toneMappingExposure' in renderer) {
-                renderer.toneMappingExposure = clamp(Math.max(Number(renderer.toneMappingExposure || 1), 1.03), 1.03, 1.08);
-                changed = true;
-            }
-        } catch (_) {}
-
-        try {
-            if ('outputColorSpace' in renderer && window.THREE?.SRGBColorSpace) {
-                renderer.outputColorSpace = window.THREE.SRGBColorSpace;
-                changed = true;
-            }
-        } catch (_) {}
-
-        return changed;
-    }
-
-    function runNormalization() {
-        let touched = false;
-
-        getSceneCandidates().forEach((scene) => {
-            if (normalizeLightRig(scene)) {
-                touched = true;
-            }
-        });
-
-        if (normalizeRenderer(getRendererCandidate())) {
-            touched = true;
-        }
-
-        return touched;
-    }
-
-    /*
-     * Run normalization only when the deferred globe has
-     * actually been created. initLandingMapShell() calls
-     * this once after the renderer is ready.
-     */
-    window.yhNormalizeLandingGlobeBrightnessV2 =
-        runNormalization;
-})();
-/* END PATCH: Landing globe brightness normalization runtime v2 */
 
 
 /* PATCH: Landing zoom lock cleanup v1 */
