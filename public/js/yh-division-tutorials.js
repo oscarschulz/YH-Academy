@@ -524,19 +524,57 @@
         }
     }
 
-    function retryPendingCompletions() {
-        const record = readLocalRecord();
+function retryPendingCompletions() {
+    /*
+     * Parent division overview is intentionally
+     * passive. Do not issue tutorial persistence
+     * requests while the user is simply viewing it.
+     */
+    if (isDashboardPage()) {
+        const workspace =
+            getCurrentWorkspace();
 
-        Object.entries(record.pending || {}).forEach(([division, pending]) => {
-            const cleanDivision = normalizeDivision(division);
-            if (!cleanDivision || !pending) return;
+        if (
+            workspace === 'academy' ||
+            workspace === 'plazas' ||
+            workspace === 'federation'
+        ) {
+            return false;
+        }
+    }
+
+    const record =
+        readLocalRecord();
+
+    Object.entries(
+        record.pending || {}
+    ).forEach(
+        ([division, pending]) => {
+            const cleanDivision =
+                normalizeDivision(
+                    division
+                );
+
+            if (
+                !cleanDivision ||
+                !pending
+            ) {
+                return;
+            }
 
             persistDivisionCompletion(
                 cleanDivision,
-                String(pending.completionMethod || 'finish')
+                String(
+                    pending
+                        .completionMethod ||
+                    'finish'
+                )
             ).catch(() => {});
-        });
-    }
+        }
+    );
+
+    return true;
+}
 
     function ensureOverlay() {
         let overlay = document.getElementById('yh-division-tutorial-overlay');
@@ -697,15 +735,67 @@
         return String(document.body?.getAttribute('data-yh-unified-workspace') || '').trim().toLowerCase();
     }
 
-    function currentWorkspaceBelongsToDivision(division = '') {
-        const cleanDivision = normalizeDivision(division);
-        const workspace = getCurrentWorkspace();
-
-        if (!isDashboardPage()) return true;
-        if (!workspace) return false;
-        if (workspace === cleanDivision) return true;
-        return workspace.startsWith(`${cleanDivision}-`);
+function isDashboardParentDivisionOverview(
+    division = ''
+) {
+    if (!isDashboardPage()) {
+        return false;
     }
+
+    const cleanDivision =
+        normalizeDivision(
+            division
+        );
+
+    const workspace =
+        getCurrentWorkspace();
+
+    if (!cleanDivision || !workspace) {
+        return false;
+    }
+
+    return workspace === cleanDivision;
+}
+
+function currentWorkspaceBelongsToDivision(
+    division = ''
+) {
+    const cleanDivision =
+        normalizeDivision(
+            division
+        );
+
+    const workspace =
+        getCurrentWorkspace();
+
+    if (!isDashboardPage()) {
+        return true;
+    }
+
+    if (!workspace) {
+        return false;
+    }
+
+    /*
+     * IMPORTANT:
+     * Parent division pages are overview screens,
+     * not tutorial child workspaces.
+     *
+     * academy
+     * plazas
+     * federation
+     *
+     * must remain idle until the user explicitly
+     * selects one of their child sections.
+     */
+    if (workspace === cleanDivision) {
+        return false;
+    }
+
+    return workspace.startsWith(
+        `${cleanDivision}-`
+    );
+}
 
     function isStandalonePageReady(division = '') {
         if (isDashboardPage()) return true;
@@ -854,29 +944,84 @@
         return true;
     }
 
-    function routeDashboardParentToDefault(division = '') {
-        if (!isDashboardPage()) return false;
-
-        const cleanDivision = normalizeDivision(division);
-        const config = DIVISION_CONFIG[cleanDivision];
-        if (!config || getCurrentWorkspace() !== cleanDivision) return false;
-
-        if (typeof window.activateDashboardUnifiedWorkspace !== 'function') return false;
-
-        window.activateDashboardUnifiedWorkspace(config.defaultWorkspace, {
-            animate: false,
-            scroll: true,
-            persist: true,
-            ...(cleanDivision === 'federation' ? { federationAccessVerified: true } : {})
-        });
-
-        return true;
+function routeDashboardParentToDefault(
+    division = ''
+) {
+    if (!isDashboardPage()) {
+        return false;
     }
 
-    async function openTutorial(division = '', options = {}) {
-        const cleanDivision = normalizeDivision(division);
-        const config = DIVISION_CONFIG[cleanDivision];
-        if (!config) return false;
+    const cleanDivision =
+        normalizeDivision(
+            division
+        );
+
+    if (!cleanDivision) {
+        return false;
+    }
+
+    const workspace =
+        getCurrentWorkspace();
+
+    /*
+     * Parent division overviews are final navigation
+     * destinations by themselves.
+     *
+     * NEVER automatically promote:
+     *
+     * academy    -> academy-roadmap
+     * plazas     -> plazas-explorer
+     * federation -> federation-command
+     *
+     * A child workspace may only open from an
+     * explicit user action.
+     */
+    if (workspace === cleanDivision) {
+        document.body?.setAttribute(
+            'data-yh-parent-division-overview-held',
+            cleanDivision
+        );
+
+        return false;
+    }
+
+    return false;
+}
+
+    async function openTutorial(
+        division = '',
+        options = {}
+    ) {
+        const cleanDivision =
+            normalizeDivision(
+                division
+            );
+
+        const config =
+            DIVISION_CONFIG[
+                cleanDivision
+            ];
+
+        if (!config) {
+            return false;
+        }
+
+        /*
+        * Automatic tutorial work is forbidden while
+        * the Dashboard is sitting on a parent division
+        * overview.
+        *
+        * This check happens BEFORE any access API or
+        * tutorial-state API request.
+        */
+        if (
+            options.force !== true &&
+            isDashboardParentDivisionOverview(
+                cleanDivision
+            )
+        ) {
+            return false;
+        }
 
         if (isEmbeddedChildPage()) {
             if (
@@ -1051,56 +1196,127 @@
         }, { passive: true });
     }
 
-    function scheduleCurrentEntry(delay = 260) {
-        window.clearTimeout(entryTimer);
+function scheduleCurrentEntry(
+    delay = 260
+) {
+    window.clearTimeout(
+        entryTimer
+    );
 
-        entryTimer = window.setTimeout(async () => {
-            const division = getCurrentDivision();
-            if (!division || !DIVISION_CONFIG[division]) return;
+    /*
+     * Dashboard parent division overview:
+     * STOP HERE.
+     *
+     * Do not start a timer.
+     * Do not verify access.
+     * Do not load tutorial state.
+     * Do not request a child workspace.
+     */
+    if (isDashboardPage()) {
+        const workspace =
+            getCurrentWorkspace();
 
-            if (
-                !isStandalonePageReady(
-                    division
-                )
-            ) {
-                if (
-                    standaloneRetryCount <
-                    16
-                ) {
-                    standaloneRetryCount +=
-                        1;
-
-                    scheduleCurrentEntry(
-                        420
-                    );
-                }
-
-                return;
-            }
-
-            if (isEmbeddedChildPage()) {
-                requestParentTutorial(
-                    division
-                );
-
-                return;
-            }
-
-            if (
-                !currentWorkspaceBelongsToDivision(
-                    division
-                )
-            ) {
-                return;
-            }
+        if (
+            workspace === 'academy' ||
+            workspace === 'plazas' ||
+            workspace === 'federation'
+        ) {
+            entryTimer = null;
 
             standaloneRetryCount = 0;
 
-            await openTutorial(
-                division
+            document.body?.setAttribute(
+                'data-yh-parent-division-overview-held',
+                workspace
             );
-        }, Math.max(0, Number(delay) || 0));
+
+            return false;
+        }
     }
+
+    entryTimer =
+        window.setTimeout(
+            async () => {
+                const division =
+                    getCurrentDivision();
+
+                if (
+                    !division ||
+                    !DIVISION_CONFIG[
+                        division
+                    ]
+                ) {
+                    return;
+                }
+
+                /*
+                 * Recheck at execution time too.
+                 *
+                 * The user may have returned to the
+                 * parent overview after this timer
+                 * was originally scheduled.
+                 */
+                if (
+                    isDashboardParentDivisionOverview(
+                        division
+                    )
+                ) {
+                    standaloneRetryCount = 0;
+                    return;
+                }
+
+                if (
+                    !isStandalonePageReady(
+                        division
+                    )
+                ) {
+                    if (
+                        standaloneRetryCount <
+                        16
+                    ) {
+                        standaloneRetryCount +=
+                            1;
+
+                        scheduleCurrentEntry(
+                            420
+                        );
+                    }
+
+                    return;
+                }
+
+                if (
+                    isEmbeddedChildPage()
+                ) {
+                    requestParentTutorial(
+                        division
+                    );
+
+                    return;
+                }
+
+                if (
+                    !currentWorkspaceBelongsToDivision(
+                        division
+                    )
+                ) {
+                    return;
+                }
+
+                standaloneRetryCount = 0;
+
+                await openTutorial(
+                    division
+                );
+            },
+            Math.max(
+                0,
+                Number(delay) || 0
+            )
+        );
+
+    return true;
+}
 
     function bindGlobalEvents() {
         window.addEventListener(

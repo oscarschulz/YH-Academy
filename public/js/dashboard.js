@@ -22505,9 +22505,41 @@ function scheduleDashboardApprovedDivisionTutorialCheckV1(
         return false;
     }
 
+    const cleanWorkspaceKey =
+        String(
+            workspaceKey || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    /*
+     * Parent division tabs are overview screens.
+     *
+     * Clicking Academy / Plazas / Federation from
+     * the mobile bottom navbar must remain on the
+     * parent overview until the user explicitly
+     * selects a child section.
+     *
+     * Do not let delayed tutorial checks promote
+     * the parent workspace into a child workspace.
+     */
+    const isParentDivisionOverview =
+        cleanWorkspaceKey === 'academy' ||
+        cleanWorkspaceKey === 'plazas' ||
+        cleanWorkspaceKey === 'federation';
+
+    if (isParentDivisionOverview) {
+        document.body?.setAttribute(
+            'data-yh-division-tutorial-check-reason',
+            'parent-overview-held'
+        );
+
+        return false;
+    }
+
     const access =
         getDashboardMobileDivisionAccessStateV1(
-            workspaceKey
+            cleanWorkspaceKey
         );
 
     /*
@@ -22529,23 +22561,38 @@ function scheduleDashboardApprovedDivisionTutorialCheckV1(
             .toLowerCase();
 
     /*
-     * Use the tutorial controller's existing
-     * completion and approval checks.
-     *
-     * Several timings cover:
-     * - immediate workspace activation
-     * - tutorial script initialization
-     * - embedded child readiness
-     * - slower production navigation
+     * Tutorial checks remain available for actual
+     * child workspaces selected by the user.
      */
     [80, 320, 900, 1600].forEach(
         (delay) => {
             window.setTimeout(() => {
-                const currentDivision =
-                    getDashboardMobileDivisionFromWorkspaceV1(
+                const currentWorkspace =
+                    String(
                         document.body?.getAttribute(
                             'data-yh-unified-workspace'
-                        ) ||
+                        ) || ''
+                    )
+                        .trim()
+                        .toLowerCase();
+
+                /*
+                 * Extra runtime protection:
+                 * if the user has already returned
+                 * to a parent overview before this
+                 * timer fires, stop here.
+                 */
+                if (
+                    currentWorkspace === 'academy' ||
+                    currentWorkspace === 'plazas' ||
+                    currentWorkspace === 'federation'
+                ) {
+                    return;
+                }
+
+                const currentDivision =
+                    getDashboardMobileDivisionFromWorkspaceV1(
+                        currentWorkspace ||
                         document.body?.getAttribute(
                             'data-yh-unified-division'
                         ) ||
