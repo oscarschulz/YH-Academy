@@ -525,24 +525,6 @@
     }
 
 function retryPendingCompletions() {
-    /*
-     * Parent division overview is intentionally
-     * passive. Do not issue tutorial persistence
-     * requests while the user is simply viewing it.
-     */
-    if (isDashboardPage()) {
-        const workspace =
-            getCurrentWorkspace();
-
-        if (
-            workspace === 'academy' ||
-            workspace === 'plazas' ||
-            workspace === 'federation'
-        ) {
-            return false;
-        }
-    }
-
     const record =
         readLocalRecord();
 
@@ -777,19 +759,14 @@ function currentWorkspaceBelongsToDivision(
     }
 
     /*
-     * IMPORTANT:
-     * Parent division pages are overview screens,
-     * not tutorial child workspaces.
+     * The parent Division Overview is now the primary
+     * tutorial entry point after approval.
      *
-     * academy
-     * plazas
-     * federation
-     *
-     * must remain idle until the user explicitly
-     * selects one of their child sections.
+     * Child workspaces remain valid only as a fallback
+     * for an unfinished tutorial.
      */
     if (workspace === cleanDivision) {
-        return false;
+        return true;
     }
 
     return workspace.startsWith(
@@ -1007,21 +984,13 @@ function routeDashboardParentToDefault(
         }
 
         /*
-        * Automatic tutorial work is forbidden while
-        * the Dashboard is sitting on a parent division
-        * overview.
-        *
-        * This check happens BEFORE any access API or
-        * tutorial-state API request.
-        */
-        if (
-            options.force !== true &&
-            isDashboardParentDivisionOverview(
-                cleanDivision
-            )
-        ) {
-            return false;
-        }
+         * Parent Division Overview is a valid automatic
+         * tutorial entry point.
+         *
+         * Approval and completion checks below remain
+         * authoritative, so pending/rejected/completed
+         * users still do not receive the tutorial.
+         */
 
         if (isEmbeddedChildPage()) {
             if (
@@ -1064,17 +1033,25 @@ function routeDashboardParentToDefault(
                     options.refresh === true
                 );
         } catch (error) {
-            console.warn('Division tutorial state load skipped:', error?.message || error);
-
-            if (isDashboardPage()) {
-                routeDashboardParentToDefault(cleanDivision);
-            }
+            console.warn(
+                'Division tutorial state load skipped:',
+                error?.message || error
+            );
 
             return false;
         }
 
-        if (options.force !== true && isDivisionCompleted(cleanDivision, state)) {
-            routeDashboardParentToDefault(cleanDivision);
+        if (
+            options.force !== true &&
+            isDivisionCompleted(
+                cleanDivision,
+                state
+            )
+        ) {
+            /*
+             * Tutorial already completed.
+             * Stay exactly where the user is.
+             */
             return false;
         }
 
@@ -1116,11 +1093,23 @@ function routeDashboardParentToDefault(
         if (!division) return;
 
         markDivisionCompletedLocally(division, method);
-        persistDivisionCompletion(division, method).catch((error) => {
-            console.warn('Division tutorial completion will retry later:', error?.message || error);
+
+        persistDivisionCompletion(
+            division,
+            method
+        ).catch((error) => {
+            console.warn(
+                'Division tutorial completion will retry later:',
+                error?.message || error
+            );
         });
 
-        routeDashboardParentToDefault(division);
+        /*
+         * Finish / Skip closes only the tutorial.
+         *
+         * Do NOT activate Roadmap, Explorer, Command,
+         * or any other child workspace.
+         */
     }
 
     function goToSlide(index) {
@@ -1203,37 +1192,6 @@ function scheduleCurrentEntry(
         entryTimer
     );
 
-    /*
-     * Dashboard parent division overview:
-     * STOP HERE.
-     *
-     * Do not start a timer.
-     * Do not verify access.
-     * Do not load tutorial state.
-     * Do not request a child workspace.
-     */
-    if (isDashboardPage()) {
-        const workspace =
-            getCurrentWorkspace();
-
-        if (
-            workspace === 'academy' ||
-            workspace === 'plazas' ||
-            workspace === 'federation'
-        ) {
-            entryTimer = null;
-
-            standaloneRetryCount = 0;
-
-            document.body?.setAttribute(
-                'data-yh-parent-division-overview-held',
-                workspace
-            );
-
-            return false;
-        }
-    }
-
     entryTimer =
         window.setTimeout(
             async () => {
@@ -1246,22 +1204,6 @@ function scheduleCurrentEntry(
                         division
                     ]
                 ) {
-                    return;
-                }
-
-                /*
-                 * Recheck at execution time too.
-                 *
-                 * The user may have returned to the
-                 * parent overview after this timer
-                 * was originally scheduled.
-                 */
-                if (
-                    isDashboardParentDivisionOverview(
-                        division
-                    )
-                ) {
-                    standaloneRetryCount = 0;
                     return;
                 }
 
@@ -1295,6 +1237,16 @@ function scheduleCurrentEntry(
                     return;
                 }
 
+                /*
+                 * This now accepts either:
+                 *
+                 * academy
+                 * plazas
+                 * federation
+                 *
+                 * OR a child workspace belonging to
+                 * that same division.
+                 */
                 if (
                     !currentWorkspaceBelongsToDivision(
                         division

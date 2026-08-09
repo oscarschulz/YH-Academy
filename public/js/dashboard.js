@@ -22512,28 +22512,18 @@ function scheduleDashboardApprovedDivisionTutorialCheckV1(
             .trim()
             .toLowerCase();
 
-    /*
-     * Parent division tabs are overview screens.
-     *
-     * Clicking Academy / Plazas / Federation from
-     * the mobile bottom navbar must remain on the
-     * parent overview until the user explicitly
-     * selects a child section.
-     *
-     * Do not let delayed tutorial checks promote
-     * the parent workspace into a child workspace.
-     */
     const isParentDivisionOverview =
         cleanWorkspaceKey === 'academy' ||
         cleanWorkspaceKey === 'plazas' ||
         cleanWorkspaceKey === 'federation';
 
-    if (isParentDivisionOverview) {
-        document.body?.setAttribute(
-            'data-yh-division-tutorial-check-reason',
-            'parent-overview-held'
-        );
-
+    /*
+     * The automatic tutorial entry point is now the
+     * approved parent Division Overview.
+     *
+     * Child tabs must never be auto-opened here.
+     */
+    if (!isParentDivisionOverview) {
         return false;
     }
 
@@ -22544,7 +22534,7 @@ function scheduleDashboardApprovedDivisionTutorialCheckV1(
 
     /*
      * Pending, rejected, and not-applied users
-     * must never receive the division tutorial.
+     * still receive no tutorial.
      */
     if (
         access?.isMobileDivision !== true ||
@@ -22560,64 +22550,53 @@ function scheduleDashboardApprovedDivisionTutorialCheckV1(
             .trim()
             .toLowerCase();
 
-    /*
-     * Tutorial checks remain available for actual
-     * child workspaces selected by the user.
-     */
-    [80, 320, 900, 1600].forEach(
-        (delay) => {
-            window.setTimeout(() => {
-                const currentWorkspace =
-                    String(
-                        document.body?.getAttribute(
-                            'data-yh-unified-workspace'
-                        ) || ''
-                    )
-                        .trim()
-                        .toLowerCase();
-
-                /*
-                 * Extra runtime protection:
-                 * if the user has already returned
-                 * to a parent overview before this
-                 * timer fires, stop here.
-                 */
-                if (
-                    currentWorkspace === 'academy' ||
-                    currentWorkspace === 'plazas' ||
-                    currentWorkspace === 'federation'
-                ) {
-                    return;
-                }
-
-                const currentDivision =
-                    getDashboardMobileDivisionFromWorkspaceV1(
-                        currentWorkspace ||
-                        document.body?.getAttribute(
-                            'data-yh-unified-division'
-                        ) ||
-                        ''
-                    );
-
-                if (
-                    !expectedDivision ||
-                    currentDivision !==
-                        expectedDivision
-                ) {
-                    return;
-                }
-
-                window
-                    .YHDivisionTutorials
-                    ?.checkCurrent?.();
-            }, delay);
-        }
-    );
-
     document.body?.setAttribute(
         'data-yh-division-tutorial-check-reason',
-        String(reason || 'workspace')
+        String(
+            reason ||
+            'parent-overview'
+        )
     );
+
+    /*
+     * Give the Overview one paint first, then ask
+     * the tutorial controller to perform its normal
+     * approval + completion checks.
+     */
+    window.setTimeout(() => {
+        const currentWorkspace =
+            String(
+                document.body?.getAttribute(
+                    'data-yh-unified-workspace'
+                ) || ''
+            )
+                .trim()
+                .toLowerCase();
+
+        if (
+            currentWorkspace !==
+            cleanWorkspaceKey
+        ) {
+            return;
+        }
+
+        const currentDivision =
+            getDashboardMobileDivisionFromWorkspaceV1(
+                currentWorkspace
+            );
+
+        if (
+            !expectedDivision ||
+            currentDivision !==
+                expectedDivision
+        ) {
+            return;
+        }
+
+        window
+            .YHDivisionTutorials
+            ?.checkCurrent?.();
+    }, 80);
 
     return true;
 }
