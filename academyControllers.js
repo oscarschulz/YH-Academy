@@ -1863,7 +1863,10 @@ function academyProfileAssetExists(assetPath = '') {
     }
 }
 
-function sanitizeAcademyProfileAsset(value = '') {
+function sanitizeAcademyProfileAsset(value = '', options = {}) {
+    const requireLocalFile =
+        options?.requireLocalFile === true;
+
     const clean = sanitize(value);
     if (!clean) return '';
 
@@ -1908,9 +1911,13 @@ function sanitizeAcademyProfileAsset(value = '') {
 
     normalized = normalized.slice(0, 2048);
 
-    if (normalized.startsWith('/uploads/academy-profile/') && !academyProfileAssetExists(normalized)) {
-        return '';
-    }
+if (
+    requireLocalFile &&
+    normalized.startsWith('/uploads/academy-profile/') &&
+    !academyProfileAssetExists(normalized)
+) {
+    return '';
+}
 
     return normalized;
 }
@@ -10084,25 +10091,27 @@ exports.updateCurrentProfile = async (req, res) => {
             username: nextUsername,
             role_label: 'Academy Member',
             bio: nextBio || 'Focused on execution, consistency, and long-term growth inside The Academy.',
-            avatar: hasAvatarField
-                ? (
-                    sanitizeAcademyProfileAsset(
-                        req.body?.avatar ||
-                        req.body?.profilePhoto ||
-                        req.body?.photoURL
-                    ) ||
-                    currentProfile.avatar
-                )
-                : currentProfile.avatar,
-            cover_photo: hasCoverField
-                ? (
-                    sanitizeAcademyProfileAsset(
-                        req.body?.cover_photo ||
-                        req.body?.coverPhoto
-                    ) ||
-                    currentProfile.cover_photo
-                )
-                : currentProfile.cover_photo,
+avatar: hasAvatarField
+    ? (
+        sanitizeAcademyProfileAsset(
+            req.body?.avatar ||
+            req.body?.profilePhoto ||
+            req.body?.photoURL,
+            { requireLocalFile: true }
+        ) ||
+        currentProfile.avatar
+    )
+    : currentProfile.avatar,
+cover_photo: hasCoverField
+    ? (
+        sanitizeAcademyProfileAsset(
+            req.body?.cover_photo ||
+            req.body?.coverPhoto,
+            { requireLocalFile: true }
+        ) ||
+        currentProfile.cover_photo
+    )
+    : currentProfile.cover_photo,
             search_tags: hasSearchTagsField
                 ? normalizeAcademyProfileTags(
                     req.body?.search_tags ??
