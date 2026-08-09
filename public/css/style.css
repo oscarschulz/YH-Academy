@@ -11991,6 +11991,10 @@ body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="
     border: 1px solid var(--neon-blue);
     color: #fff;
     height: 47px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     font-weight: 500;
     cursor: pointer;
     appearance: none;
@@ -12002,6 +12006,11 @@ body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="
     padding-right: 2.5rem;
 }
 
+#academy-roadmap-modal .form-group {
+    min-width: 0;
+    max-width: 100%;
+}
+
 #academy-roadmap-modal .input-field.styled-select:focus {
     box-shadow: 0 0 12px rgba(14, 165, 233, 0.5);
     background-color: rgba(14, 165, 233, 0.15);
@@ -12011,6 +12020,335 @@ body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="
     background: #1e293b;
     color: #f9fafb;
     padding: 14px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    white-space: normal;
+}
+
+
+/* Roadmap exact-width custom dropdowns v1 */
+#academy-roadmap-modal .roadmap-custom-select {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+#academy-roadmap-modal
+.roadmap-custom-select
+.roadmap-custom-select-native {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    opacity: 0;
+    pointer-events: none;
+    user-select: none;
+}
+
+#academy-roadmap-modal
+.roadmap-custom-select-trigger {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: 47px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 0.75rem;
+    padding: 0 1rem;
+
+    border: 1px solid var(--neon-blue);
+    border-radius: 8px;
+
+    background:
+        rgba(
+            14,
+            165,
+            233,
+            0.1
+        );
+
+    color: #fff;
+
+    font-family:
+        'Poppins',
+        sans-serif;
+
+    font-size: 1.03rem;
+    font-weight: 500;
+    line-height: 1.2;
+
+    text-align: left;
+    cursor: pointer;
+    box-sizing: border-box;
+
+    -webkit-tap-highlight-color:
+        transparent;
+
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+#academy-roadmap-modal
+.roadmap-custom-select-trigger:hover,
+#academy-roadmap-modal
+.roadmap-custom-select-trigger:focus-visible,
+#academy-roadmap-modal
+.roadmap-custom-select.is-open
+.roadmap-custom-select-trigger {
+    outline: none;
+
+    background:
+        rgba(
+            14,
+            165,
+            233,
+            0.15
+        );
+
+    border-color: #38bdf8;
+
+    box-shadow:
+        0 0 12px
+        rgba(
+            14,
+            165,
+            233,
+            0.5
+        );
+}
+
+#academy-roadmap-modal
+.roadmap-custom-select-trigger.is-placeholder {
+    color:
+        rgba(
+            226,
+            232,
+            240,
+            0.72
+        );
+}
+
+#academy-roadmap-modal
+.roadmap-custom-select-value {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#academy-roadmap-modal
+.roadmap-custom-select-arrow {
+    width: 9px;
+    height: 9px;
+    flex: 0 0 9px;
+
+    margin-right: 2px;
+
+    border-right:
+        2px solid
+        #38bdf8;
+
+    border-bottom:
+        2px solid
+        #38bdf8;
+
+    transform:
+        rotate(45deg)
+        translateY(-2px);
+
+    transform-origin:
+        center;
+
+    transition:
+        transform
+        0.18s ease;
+}
+
+#academy-roadmap-modal
+.roadmap-custom-select.is-open
+.roadmap-custom-select-arrow {
+    transform:
+        rotate(225deg)
+        translateY(-1px);
+}
+
+
+/*
+ * Menu is attached to body,
+ * therefore it intentionally
+ * isn't prefixed with the modal.
+ */
+.roadmap-custom-select-menu {
+    position: fixed;
+    display: none;
+
+    z-index: 16000;
+
+    min-width: 0;
+    box-sizing: border-box;
+
+    padding: 4px 0;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    overscroll-behavior:
+        contain;
+
+    border:
+        1px solid
+        rgba(
+            56,
+            189,
+            248,
+            0.68
+        );
+
+    border-radius: 10px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(
+                30,
+                41,
+                59,
+                0.99
+            ),
+            rgba(
+                15,
+                23,
+                42,
+                0.99
+            )
+        );
+
+    box-shadow:
+        0 18px 45px
+        rgba(
+            0,
+            0,
+            0,
+            0.55
+        ),
+        0 0 18px
+        rgba(
+            14,
+            165,
+            233,
+            0.12
+        );
+
+    scrollbar-width: thin;
+}
+
+.roadmap-custom-select-menu.is-open {
+    display: block;
+}
+
+.roadmap-custom-select-option {
+    display: block;
+
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+
+    margin: 0;
+    padding: 10px 14px;
+
+    border: 0;
+    border-radius: 0;
+
+    background:
+        transparent;
+
+    color: #f8fafc;
+
+    font-family:
+        'Poppins',
+        sans-serif;
+
+    font-size: 0.98rem;
+    font-weight: 500;
+    line-height: 1.35;
+
+    text-align: left;
+
+    white-space: normal;
+    overflow-wrap: anywhere;
+
+    cursor: pointer;
+
+    box-sizing:
+        border-box;
+
+    -webkit-tap-highlight-color:
+        transparent;
+}
+
+.roadmap-custom-select-option:hover,
+.roadmap-custom-select-option:focus-visible {
+    outline: none;
+
+    background:
+        rgba(
+            14,
+            165,
+            233,
+            0.18
+        );
+
+    color: #fff;
+}
+
+.roadmap-custom-select-option.is-selected {
+    background:
+        rgba(
+            148,
+            163,
+            184,
+            0.2
+        );
+
+    color: #fff;
+    font-weight: 700;
+}
+
+.roadmap-custom-select-option.is-disabled,
+.roadmap-custom-select-option:disabled {
+    color:
+        rgba(
+            203,
+            213,
+            225,
+            0.55
+        );
+
+    cursor: default;
+}
+
+@media (max-width: 640px) {
+    #academy-roadmap-modal
+    .roadmap-custom-select-trigger {
+        font-size: 0.96rem;
+    }
+
+    .roadmap-custom-select-option {
+        padding:
+            10px 13px;
+
+        font-size:
+            0.94rem;
+    }
 }
 
 .roadmap-intake-phase {
@@ -12022,38 +12360,47 @@ body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="
 }
 
 .roadmap-builder-progress {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.45rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
     margin-bottom: 1.1rem;
 }
 
 .roadmap-builder-progress span {
-    display: inline-flex;
+    display: none;
     align-items: center;
     justify-content: center;
-    min-height: 30px;
-    padding: 0.35rem 0.54rem;
+    min-height: 32px;
+    width: auto;
+    min-width: 112px;
+    max-width: 100%;
+    padding: 0.38rem 1rem;
     border-radius: 999px;
     border: 1px solid rgba(148, 163, 184, 0.14);
     background: rgba(255, 255, 255, 0.035);
     color: rgba(203, 213, 225, 0.72);
     font-size: 0.91rem;
     font-weight: 800;
-    letter-spacing: 0.04em;
+    line-height: 1;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
+    text-align: center;
+    white-space: nowrap;
 }
 
 .roadmap-builder-progress span.is-active {
+    display: inline-flex;
     border-color: rgba(14, 165, 233, 0.5);
     background: rgba(14, 165, 233, 0.14);
     color: #7dd3fc;
+    box-shadow:
+        0 0 0 1px rgba(14, 165, 233, 0.08),
+        0 0 18px rgba(14, 165, 233, 0.08);
 }
 
 .roadmap-builder-progress span.is-complete {
-    border-color: rgba(34, 197, 94, 0.32);
-    background: rgba(34, 197, 94, 0.08);
-    color: #86efac;
+    display: none;
 }
 
 .roadmap-builder-hero,
@@ -12085,6 +12432,79 @@ body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="
 
 .roadmap-pillar-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Academy Roadmap Step 1 + Step 2 horizontal option cards */
+@media (max-width: 900px) {
+    #roadmap-phase-1 .roadmap-builder-card-grid-2,
+    #roadmap-phase-2 .roadmap-pillar-card-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.7rem;
+    }
+
+    #roadmap-phase-1 .roadmap-builder-card,
+    #roadmap-phase-2 .roadmap-builder-card {
+        width: 100%;
+        min-height: 86px;
+        padding: 0.9rem 1rem;
+        display: grid;
+        grid-template-columns: minmax(132px, 0.42fr) minmax(0, 1fr);
+        align-items: center;
+        align-content: center;
+        column-gap: 1rem;
+        row-gap: 0.25rem;
+        border-radius: 14px;
+    }
+
+    #roadmap-phase-1 .roadmap-builder-card strong,
+    #roadmap-phase-2 .roadmap-builder-card strong {
+        min-width: 0;
+        margin: 0;
+        font-size: 1rem;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+    }
+
+    #roadmap-phase-1 .roadmap-builder-card span,
+    #roadmap-phase-2 .roadmap-builder-card span {
+        min-width: 0;
+        margin: 0;
+        font-size: 0.91rem;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+    }
+}
+
+@media (max-width: 520px) {
+    #roadmap-phase-1 .roadmap-season-choice-panel {
+        padding: 0.9rem;
+        gap: 0.72rem;
+    }
+
+    #roadmap-phase-1 .roadmap-builder-card-grid-2,
+    #roadmap-phase-2 .roadmap-pillar-card-grid {
+        gap: 0.62rem;
+    }
+
+    #roadmap-phase-1 .roadmap-builder-card,
+    #roadmap-phase-2 .roadmap-builder-card {
+        min-height: 82px;
+        grid-template-columns: minmax(116px, 0.43fr) minmax(0, 1fr);
+        column-gap: 0.8rem;
+        padding: 0.82rem 0.9rem;
+    }
+
+    #roadmap-phase-1 .roadmap-builder-card strong,
+    #roadmap-phase-2 .roadmap-builder-card strong {
+        font-size: 0.94rem;
+        line-height: 1.22;
+    }
+
+    #roadmap-phase-1 .roadmap-builder-card span,
+    #roadmap-phase-2 .roadmap-builder-card span {
+        font-size: 0.84rem;
+        line-height: 1.34;
+    }
 }
 
 .roadmap-builder-card {
@@ -12136,33 +12556,228 @@ body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="
     pointer-events: none !important;
 }
 
-.roadmap-dna-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.7rem;
+/* Roadmap Step 4 — adaptive clean DNA preview v2 */
+#roadmap-phase-4 {
+    width: 100%;
+    min-width: 0;
 }
 
-.roadmap-dna-grid div {
-    display: grid;
-    gap: 0.25rem;
-    border-radius: 14px;
-    border: 1px solid rgba(148, 163, 184, 0.12);
-    background: rgba(2, 6, 23, 0.24);
-    padding: 0.91rem;
+#roadmap-phase-4 > .text-center {
+    width: 100%;
+    max-width: 680px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
-.roadmap-dna-grid span {
-    color: #7dd3fc;
-    font-size: 0.91rem;
-    font-weight: 900;
-    letter-spacing: 0.08em;
+#roadmap-phase-4 .roadmap-dna-card {
+    width: 100%;
+    min-width: 0;
+    display: grid;
+    gap: 0.78rem;
+    padding: clamp(0.9rem, 2.5vw, 1.2rem);
+    border-radius: 18px;
+    overflow: hidden;
+}
+
+#roadmap-phase-4 .roadmap-diagnosis-head {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.85rem;
+}
+
+#roadmap-phase-4 .roadmap-diagnosis-head > div {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+#roadmap-phase-4 .roadmap-shared-kicker {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 0.84rem;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
 }
 
-.roadmap-dna-grid strong {
+#roadmap-phase-4 .roadmap-diagnosis-head h4 {
+    margin: 0.22rem 0 0;
     color: #f8fafc;
     font-size: 1rem;
-    line-height: 1.4;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+#roadmap-phase-4 #roadmap-accuracy-score {
+    flex: 0 0 auto;
+    min-width: 58px;
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.3rem 0.58rem;
+    border-radius: 999px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    background:
+        linear-gradient(
+            180deg,
+            rgba(14, 165, 233, 0.16),
+            rgba(14, 165, 233, 0.08)
+        );
+    color: #7dd3fc;
+    font-size: 1rem;
+    font-weight: 900;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+#roadmap-phase-4 .roadmap-accuracy-track {
+    width: 100%;
+    height: 7px;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 999px;
+}
+
+#roadmap-phase-4 #roadmap-diagnosis-copy {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.52;
+    overflow-wrap: anywhere;
+}
+
+/*
+ * Responsive based on the actual available card width.
+ * A narrow Roadmap modal automatically becomes one column,
+ * even when the browser viewport itself is wider.
+ */
+#roadmap-phase-4 .roadmap-dna-grid {
+    width: 100%;
+    min-width: 0;
+    display: grid;
+    grid-template-columns:
+        repeat(
+            auto-fit,
+            minmax(
+                min(100%, 260px),
+                1fr
+            )
+        );
+    gap: 0.62rem;
+}
+
+#roadmap-phase-4 .roadmap-dna-grid > div {
+    width: 100%;
+    min-width: 0;
+    min-height: 70px;
+    display: grid;
+    grid-template-columns:
+        minmax(104px, 0.38fr)
+        minmax(0, 1fr);
+    align-items: center;
+    align-content: center;
+    column-gap: 0.82rem;
+    row-gap: 0.22rem;
+    padding: 0.78rem 0.85rem;
+    border-radius: 13px;
+    border: 1px solid rgba(148, 163, 184, 0.13);
+    background:
+        linear-gradient(
+            135deg,
+            rgba(14, 165, 233, 0.055),
+            rgba(2, 6, 23, 0.26)
+        );
+    overflow: hidden;
+}
+
+#roadmap-phase-4 .roadmap-dna-grid span {
+    min-width: 0;
+    margin: 0;
+    color: #7dd3fc;
+    font-size: 0.76rem;
+    font-weight: 900;
+    line-height: 1.3;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+#roadmap-phase-4 .roadmap-dna-grid strong {
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    color: #f8fafc;
+    font-size: 0.91rem;
+    font-weight: 750;
+    line-height: 1.42;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+/* Extra-small Roadmap modal */
+@media (max-width: 520px) {
+    #roadmap-phase-4 .roadmap-dna-card {
+        padding: 0.82rem;
+        gap: 0.7rem;
+        border-radius: 15px;
+    }
+
+    #roadmap-phase-4 .roadmap-diagnosis-head {
+        gap: 0.65rem;
+    }
+
+    #roadmap-phase-4 .roadmap-shared-kicker {
+        font-size: 0.78rem;
+    }
+
+    #roadmap-phase-4 .roadmap-diagnosis-head h4 {
+        font-size: 0.94rem;
+    }
+
+    #roadmap-phase-4 #roadmap-accuracy-score {
+        min-width: 52px;
+        min-height: 31px;
+        padding: 0.26rem 0.45rem;
+        font-size: 0.92rem;
+    }
+
+    #roadmap-phase-4 #roadmap-diagnosis-copy {
+        font-size: 0.85rem;
+        line-height: 1.48;
+    }
+
+    #roadmap-phase-4 .roadmap-dna-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.55rem;
+    }
+
+    #roadmap-phase-4 .roadmap-dna-grid > div {
+        min-height: 66px;
+        grid-template-columns:
+            minmax(96px, 0.38fr)
+            minmax(0, 1fr);
+        column-gap: 0.7rem;
+        padding: 0.7rem 0.75rem;
+        border-radius: 12px;
+    }
+
+    #roadmap-phase-4 .roadmap-dna-grid span {
+        font-size: 0.72rem;
+        line-height: 1.28;
+    }
+
+    #roadmap-phase-4 .roadmap-dna-grid strong {
+        font-size: 0.86rem;
+        line-height: 1.38;
+    }
 }
 
 .roadmap-commitment-strip {
@@ -12413,6 +13028,28 @@ body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="
 
     .roadmap-diagnosis-head {
         align-items: center;
+    }
+
+    /* Roadmap Step 3 — one field per row on mobile */
+    #roadmap-phase-3 .roadmap-shared-section .form-row {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    #roadmap-phase-3 .roadmap-shared-section .form-group {
+        width: 100%;
+        min-width: 0;
+        margin-bottom: 0;
+    }
+
+    #roadmap-phase-3 .roadmap-shared-section .input-field {
+        width: 100%;
+        min-width: 0;
     }
 }
 .sidebar-text-group {
@@ -17697,12 +18334,27 @@ min-height: 38px;
         grid-template-columns: 1fr;
     }
 
+    /*
+     * Mission detail actions:
+     * Back + Start/Track stay on one row.
+     */
     .academy-mission-playbook-detail-head,
     #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-detail-head {
         position: static;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+
+        display: grid;
+        grid-template-columns:
+            minmax(0, 0.9fr)
+            minmax(0, 1.1fr);
+
         align-items: stretch;
-        flex-direction: column;
+        gap: 8px;
+
         margin: 0 0 10px;
+        padding: 0;
     }
 
     #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .chat-header {
@@ -17715,6 +18367,20 @@ min-height: 38px;
     #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-start {
         width: 100%;
         min-width: 0;
+        min-height: 42px;
+        height: 100%;
+
+        margin: 0;
+        padding: 9px 8px;
+
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+
+        font-size: 0.78rem;
+        line-height: 1.1;
+        text-align: center;
+        white-space: nowrap;
     }
 }
 
@@ -22180,7 +22846,7 @@ body.yh-dashboard-my-contacts-open {
     .yh-wallet-ledger-grid,
     .yh-wallet-form-grid,
     .yh-wallet-guide {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .yh-wallet-form-wide {
@@ -22193,25 +22859,103 @@ body.yh-dashboard-my-contacts-open {
     }
 }
 
+/* Wallet mobile — show every section in one continuous page */
+@media (max-width: 768px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        #yh-universe-workspace-launch-card,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        #yh-universe-workspace-frame-shell,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        #yh-universe-workspace-inline-host,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        #yh-wallet-modal.yh-wallet-inline-view,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-dialog {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        #yh-universe-workspace-frame-shell {
+        display: block !important;
+        border-radius: 18px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        #yh-wallet-modal.yh-wallet-inline-view {
+        padding: 0 !important;
+        align-items: stretch !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-dialog {
+        padding: 14px 12px 24px !important;
+    }
+
+    /* Desktop Wallet tabs are unnecessary on mobile */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-inline-tabs {
+        display: none !important;
+    }
+
+    /* Always expose every Wallet section on mobile */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-guide,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-stats,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-grid,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-ledger-grid {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-division-panel,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-withdraw-panel,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-grid > .yh-wallet-panel,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-ledger-grid > .yh-wallet-panel {
+        display: block !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-head {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        padding-right: 0 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-refresh,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-submit {
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-form-grid,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-method-card--guided {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+}
+
 @media (max-width: 520px) {
-    .yh-wallet-modal {
-        padding: 10px;
-        align-items: stretch;
-    }
-
-    .yh-wallet-dialog {
-        width: 100%;
-        max-height: 94vh;
-        border-radius: 20px;
-        padding: 16px;
-    }
-
-    .yh-wallet-head {
-        padding-right: 46px;
-    }
-
-    .yh-wallet-method-card--guided {
-        grid-template-columns: 1fr;
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+        .yh-wallet-dialog {
+        padding: 12px 10px 20px !important;
+        border-radius: 16px !important;
     }
 }
 /* ========================================================= */
@@ -22256,6 +23000,7 @@ body[data-yh-view="academy"] #academy-feed-view {
 
 /* ========================================================= */
 /* DASHBOARD PROFILE MEDIA EDITOR                            */
+/* desktop + mobile                                         */
 /* ========================================================= */
 
 .yh-dashboard-profile-media-editor {
@@ -22268,51 +23013,104 @@ body[data-yh-view="academy"] #academy-feed-view {
 }
 
 .yh-dashboard-profile-cover-preview {
+    position: relative;
+
     width: 100%;
     height: auto;
+
     aspect-ratio: 8 / 3;
     min-height: 0;
+
     border-radius: 18px;
     border: 1px solid rgba(148, 163, 184, 0.18);
+
     background:
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.2), transparent 34%),
-        linear-gradient(135deg, rgba(15, 23, 42, 0.26), rgba(2, 6, 23, 0.26));
-    background-size: 100% 100%;
+        radial-gradient(
+            circle at top left,
+            rgba(56, 189, 248, 0.2),
+            transparent 34%
+        ),
+        linear-gradient(
+            135deg,
+            rgba(15, 23, 42, 0.26),
+            rgba(2, 6, 23, 0.26)
+        );
+
+    background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+
     display: flex;
     align-items: flex-end;
     justify-content: flex-end;
+
     padding: 16px;
+
     overflow: hidden;
 }
 
 .yh-dashboard-profile-cover-preview[data-has-cover="true"] {
-    box-shadow: inset 0 -60px 90px rgba(2, 6, 23, 0.42);
+    box-shadow:
+        inset 0 -60px 90px
+        rgba(2, 6, 23, 0.28);
 }
 
 .yh-dashboard-profile-avatar-editor-row {
     display: grid;
-    grid-template-columns: 78px minmax(0, 1fr) auto;
+
+    grid-template-columns:
+        78px
+        minmax(0, 1fr)
+        auto;
+
     align-items: center;
+
     gap: 14px;
+}
+
+.yh-dashboard-profile-avatar-preview-wrap {
+    position: relative;
+
+    width: 78px;
+    height: 78px;
+
+    min-width: 78px;
 }
 
 .yh-dashboard-profile-avatar-preview {
     width: 78px;
     height: 78px;
+
     border-radius: 26px;
+
     display: grid;
     place-items: center;
+
     background:
-        radial-gradient(circle at 25% 20%, rgba(255, 255, 255, 0.16), transparent 35%),
-        linear-gradient(135deg, rgba(56, 189, 248, 0.32), rgba(56, 189, 248, 0.28));
-    border: 1px solid rgba(255, 255, 255, 0.14);
+        radial-gradient(
+            circle at 25% 20%,
+            rgba(255, 255, 255, 0.16),
+            transparent 35%
+        ),
+        linear-gradient(
+            135deg,
+            rgba(56, 189, 248, 0.32),
+            rgba(56, 189, 248, 0.28)
+        );
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.14);
+
     color: #ffffff;
+
     font-size: 1.35rem;
     font-weight: 900;
+
     background-size: cover;
     background-position: center;
+    background-repeat: no-repeat;
+
     overflow: hidden;
 }
 
@@ -22329,6 +23127,7 @@ body[data-yh-view="academy"] #academy-feed-view {
 
 .yh-dashboard-profile-avatar-copy span {
     color: var(--text-muted);
+
     font-size: 0.78rem;
     line-height: 1.5;
 }
@@ -22336,41 +23135,231 @@ body[data-yh-view="academy"] #academy-feed-view {
 .yh-dashboard-profile-media-btn {
     width: auto;
     min-width: 170px;
+
     padding: 12px 16px;
+
     border-radius: 14px;
+
     white-space: nowrap;
 }
 
 .yh-dashboard-profile-cover-btn {
-    background: rgba(2, 6, 23, 0.72);
+    background:
+        rgba(2, 6, 23, 0.72);
+
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
 }
 
+
+/* ---------- EXISTING IMAGE ACTION MENU ---------- */
+
+.yh-dashboard-profile-media-menu-wrap {
+    position: relative;
+
+    z-index: 20;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.yh-dashboard-profile-cover-preview
+> .yh-dashboard-profile-media-menu-wrap {
+    position: absolute;
+
+    top: 12px;
+    right: 12px;
+}
+
+.yh-dashboard-profile-avatar-preview-wrap
+> .yh-dashboard-profile-media-menu-wrap {
+    position: absolute;
+
+    top: 6px;
+    right: 6px;
+}
+
+.yh-dashboard-profile-media-menu-toggle {
+    width: 38px;
+    min-width: 38px;
+
+    height: 38px;
+    min-height: 38px;
+
+    padding: 0;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.2);
+
+    border-radius: 12px;
+
+    background:
+        rgba(2, 6, 23, 0.82);
+
+    color: #ffffff;
+
+    font-size: 1rem;
+    font-weight: 800;
+
+    line-height: 1;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 8px 24px
+        rgba(0, 0, 0, 0.28);
+
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.yh-dashboard-profile-media-menu-toggle:hover {
+    border-color:
+        rgba(56, 189, 248, 0.5);
+
+    background:
+        rgba(8, 25, 50, 0.94);
+}
+
+.yh-dashboard-profile-media-menu {
+    position: absolute;
+
+    top: calc(100% + 7px);
+    right: 0;
+
+    z-index: 30;
+
+    width: max-content;
+    min-width: 190px;
+    max-width: min(260px, 75vw);
+
+    padding: 6px;
+
+    border:
+        1px solid
+        rgba(56, 189, 248, 0.24);
+
+    border-radius: 12px;
+
+    background:
+        rgba(3, 10, 25, 0.97);
+
+    box-shadow:
+        0 16px 36px
+        rgba(0, 0, 0, 0.42);
+
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+.yh-dashboard-profile-media-menu-item {
+    width: 100%;
+    min-height: 42px;
+
+    padding: 9px 12px;
+
+    border: 0;
+    border-radius: 9px;
+
+    background: transparent;
+
+    color: #f8fbff;
+
+    text-align: left;
+
+    font-size: 0.86rem;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.yh-dashboard-profile-media-menu-item:hover {
+    background:
+        rgba(56, 189, 248, 0.12);
+
+    color: #dff7ff;
+}
+
+
+/* ---------- MOBILE ---------- */
+
 @media (max-width: 680px) {
+
     .yh-dashboard-profile-avatar-editor-row {
-        grid-template-columns: 64px minmax(0, 1fr);
+        grid-template-columns:
+            64px
+            minmax(0, 1fr);
+    }
+
+    .yh-dashboard-profile-avatar-preview-wrap {
+        width: 64px;
+        height: 64px;
+        min-width: 64px;
     }
 
     .yh-dashboard-profile-avatar-preview {
         width: 64px;
         height: 64px;
+
         border-radius: 22px;
     }
 
-    .yh-dashboard-profile-avatar-editor-row .yh-dashboard-profile-media-btn {
+    .yh-dashboard-profile-avatar-editor-row
+    > .yh-dashboard-profile-media-btn {
         grid-column: 1 / -1;
+
         width: 100%;
     }
 
     .yh-dashboard-profile-cover-preview {
         min-height: 0;
         height: auto;
+
         aspect-ratio: 8 / 3;
+
+        padding: 12px;
     }
 
-    .yh-dashboard-profile-cover-preview .yh-dashboard-profile-media-btn {
+    .yh-dashboard-profile-cover-preview
+    > .yh-dashboard-profile-media-btn {
         width: 100%;
+    }
+
+    .yh-dashboard-profile-cover-preview
+    > .yh-dashboard-profile-media-menu-wrap {
+        top: 9px;
+        right: 9px;
+    }
+
+    .yh-dashboard-profile-avatar-preview-wrap
+    > .yh-dashboard-profile-media-menu-wrap {
+        top: 4px;
+        right: 4px;
+    }
+
+    .yh-dashboard-profile-media-menu-toggle {
+        width: 34px;
+        min-width: 34px;
+
+        height: 34px;
+        min-height: 34px;
+
+        border-radius: 10px;
+
+        font-size: 0.9rem;
+    }
+
+    .yh-dashboard-profile-media-menu {
+        min-width: 180px;
+
+        max-width:
+            min(220px, calc(100vw - 40px));
     }
 }
 /* =========================================

@@ -3038,18 +3038,23 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         justify-items: stretch !important;
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-main,
-    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-actions,
-    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-main,
-    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-actions,
-    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-main,
-    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-actions {
-        display: none !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-main,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-actions,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-main,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-actions,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-main,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-actions,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="resources"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-main,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="resources"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-actions,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="business-chats"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-main,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="business-chats"] #yh-universe-workspace-launch-card > .yh-universe-workspace-launch-actions {
+    display: none !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-workspace-frame-shell,
-    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-universe-workspace-frame-shell,
-    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-frame-shell {
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-workspace-frame-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-universe-workspace-frame-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-frame-shell,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="business-chats"] #yh-universe-workspace-frame-shell {
         position: relative !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -3100,7 +3105,8 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
 
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="academy"] #yh-universe-workspace-inline-frame,
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-universe-workspace-inline-frame,
-    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-inline-frame {
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-inline-frame,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="business-chats"] #yh-universe-workspace-inline-frame {
         width: 100% !important;
         min-width: 100% !important;
         max-width: 100% !important;
@@ -3987,3 +3993,557 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
     }
 }
 /* END PATCH: Dashboard resources transparency tune v194 */
+
+
+/* ========================================================= */
+/* WALLET MOBILE CONTINUOUS WORKSPACE v197                   */
+/* Mobile only: show the complete Wallet as one scroll page. */
+/* ========================================================= */
+
+@media (max-width: 768px) {
+
+    /*
+     * The Dashboard itself owns the mobile scroll.
+     * Wallet content must be allowed to grow naturally.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #universe-hub-view,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    .universe-hub-view {
+        min-height: 0 !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding-bottom:
+            calc(
+                104px +
+                env(safe-area-inset-bottom, 0px)
+            ) !important;
+    }
+
+    /*
+     * Remove the desktop fixed-height Wallet frame.
+     * This is the main cause of the large empty area.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-universe-workspace-launch-card,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-universe-workspace-frame-shell,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-universe-workspace-inline-host {
+        width: 100% !important;
+        max-width: 100% !important;
+
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-universe-workspace-frame-shell {
+        margin: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    /*
+     * Wallet is inline inside the Dashboard.
+     * It must behave like normal page content,
+     * not like a fixed modal.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal.yh-wallet-inline-view {
+        position: relative !important;
+        inset: auto !important;
+
+        width: 100% !important;
+        max-width: 100% !important;
+
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        overflow: visible !important;
+
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-dialog {
+        position: relative !important;
+
+        width: 100% !important;
+        max-width: 100% !important;
+
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+
+        margin: 0 !important;
+        padding:
+            12px
+            10px
+            24px !important;
+
+        overflow: visible !important;
+    }
+
+    /*
+     * Desktop Wallet navigation tabs are not needed
+     * because mobile shows everything continuously.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    .yh-wallet-inline-tabs {
+        display: none !important;
+    }
+
+    /*
+     * OVERVIEW
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-guide {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-stats {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-division-panel {
+        display: block !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    /*
+     * PAYMENT METHODS + PAYOUT METHODS
+     *
+     * This intentionally defeats the desktop
+     * data-yh-wallet-active-tab filtering on mobile.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-grid {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-grid
+    > .yh-wallet-panel {
+        display: block !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    /*
+     * REQUEST WITHDRAWAL
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-withdraw-panel {
+        display: block !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-form-grid {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    /*
+     * PAYMENT + PAYOUT HISTORY
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-ledger-grid {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-ledger-grid
+    > .yh-wallet-panel {
+        display: block !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    /*
+     * General Wallet card safety.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-panel,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-guide-step,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-stat-card {
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-head,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-panel-head,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-method-title-row,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-ledger-card {
+        width: 100% !important;
+        min-width: 0 !important;
+
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-refresh,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-submit {
+        width: 100% !important;
+        max-width: none !important;
+    }
+}
+/* END PATCH: Wallet mobile continuous workspace v197 */
+
+
+/* ========================================================= */
+/* WALLET MOBILE EDGE + CLIPPING FIX v198                    */
+/* ========================================================= */
+
+@media (max-width: 768px) {
+
+    /*
+     * Mobile Wallet already contains the real Wallet UI.
+     * Remove the duplicated approved/access launcher copy.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-universe-workspace-launch-card
+    > .yh-universe-workspace-launch-main,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-universe-workspace-launch-card
+    > .yh-universe-workspace-launch-actions {
+        display: none !important;
+    }
+
+
+    /*
+     * Wallet must behave as one natural-height mobile page.
+     * Remove clipping inherited from desktop/Tailwind shells.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-universe-workspace-launch-card,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-universe-workspace-frame-shell,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-universe-workspace-inline-host,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal.yh-wallet-inline-view,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-dialog {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+
+        overflow: visible !important;
+
+        clip-path: none !important;
+        -webkit-clip-path: none !important;
+    }
+
+
+    /*
+     * Do not keep the launch card as a desktop one-cell grid.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-universe-workspace-launch-card {
+        display: block !important;
+
+        grid-template-columns: none !important;
+        grid-template-rows: none !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        border: 0 !important;
+        border-radius: 0 !important;
+
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-universe-workspace-frame-shell,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-universe-workspace-inline-host {
+        margin: 0 !important;
+        padding: 0 !important;
+
+        border: 0 !important;
+        border-radius: 0 !important;
+
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+
+    /*
+     * Inline Wallet does not need the modal close X.
+     * It currently appears clipped along the Wallet edge.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-close {
+        display: none !important;
+    }
+
+
+    /*
+     * Give all Wallet sections a real safe mobile gutter.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-dialog {
+        box-sizing: border-box !important;
+
+        padding:
+            12px
+            14px
+            34px !important;
+    }
+
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-dialog
+    > * {
+        box-sizing: border-box !important;
+
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+
+    /*
+     * Keep all primary sections fully inside the viewport.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-head,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-guide,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-stats,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-division-panel,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-grid,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-withdraw-panel,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-ledger-grid {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+
+        box-sizing: border-box !important;
+    }
+
+
+    /*
+     * Individual cards must not exceed their grid cell.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-guide-step,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-stat-card,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-panel,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-method-card,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-ledger-card {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+
+        box-sizing: border-box !important;
+    }
+
+
+    /*
+     * Consistent vertical spacing between mobile sections.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-guide,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-stats,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-grid,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-ledger-grid {
+        gap: 12px !important;
+    }
+}
+
+/* END PATCH: Wallet mobile edge + clipping fix v198 */
+/* ========================================================= */
+/* WALLET MOBILE REFRESH BUTTON ALIGNMENT v199               */
+/* ========================================================= */
+
+@media (max-width: 768px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-head-actions {
+        width: 100% !important;
+        min-width: 0 !important;
+
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+
+        margin: 0 !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+
+        box-sizing: border-box !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    #yh-wallet-refresh {
+        width: 100% !important;
+        max-width: none !important;
+
+        margin-left: auto !important;
+        margin-right: auto !important;
+
+        transform: translateX(-4px) !important;
+    }
+}
+
+/* END PATCH: Wallet mobile refresh button alignment v199 */

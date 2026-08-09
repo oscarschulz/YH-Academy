@@ -52,6 +52,33 @@ a {
   display: none !important;
 }
 
+/*
+ * Mobile first-paint guard.
+ * Do not expose the raw/native Business Chats form before
+ * the custom mobile controls have been installed.
+ */
+@media (max-width: 720px) {
+  body[data-yh-view="business-chats"]:not([data-bc-ui-ready="true"]) .bc-shell,
+  body[data-yh-page="business-chats"]:not([data-bc-ui-ready="true"]) .bc-shell {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  body[data-yh-view="business-chats"][data-bc-ui-ready="true"] .bc-shell,
+  body[data-yh-page="business-chats"][data-bc-ui-ready="true"] .bc-shell {
+    visibility: visible;
+    pointer-events: auto;
+  }
+}
+
+/* Custom Business Chat selects stay inactive on desktop.
+   Mobile enables these while retaining the native select
+   as the underlying value source. */
+.bc-mobile-select-trigger,
+.bc-mobile-select-menu {
+  display: none;
+}
+
 .bc-shell {
   position: relative;
   z-index: 1;
@@ -568,6 +595,79 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 }
 
 @media (min-width: 901px) {
+
+  /* ===================================================== */
+  /* BUSINESS CHATS DESKTOP CONTROLS                       */
+  /* ===================================================== */
+
+  .bc-view-tabs {
+    max-width: 660px;
+    gap: 10px;
+    padding: 8px;
+  }
+
+  .bc-view-tab {
+    min-height: 48px;
+    padding: 11px 24px;
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+
+  .bc-start-panel form {
+    padding: 22px;
+    gap: 16px;
+  }
+
+  .bc-form-row {
+    gap: 9px;
+  }
+
+  .bc-form-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.9fr);
+    gap: 16px;
+  }
+
+  #bcMemberSearch,
+  #bcDivisionFilter,
+  #bcBusinessPurpose {
+    width: 100%;
+    min-width: 0;
+    height: 50px;
+    min-height: 50px;
+    padding: 0 15px;
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+
+  #bcDivisionFilter,
+  #bcBusinessPurpose {
+    padding-left: 15px;
+    padding-right: 42px;
+  }
+
+  #bcOpeningMessage {
+    width: 100%;
+    min-width: 0;
+    min-height: 122px;
+    height: 122px;
+    padding: 14px 15px;
+    font-size: 1rem;
+    line-height: 1.45;
+    resize: vertical;
+  }
+
+  #bcSearchMembers {
+    width: auto;
+    min-width: 190px;
+    min-height: 50px;
+    height: 50px;
+    padding: 11px 24px;
+    justify-self: center;
+    font-size: 0.98rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
   body[data-yh-view="business-chats"][data-bc-active-view="conversations"] .bc-shell {
     min-height: 100svh;
     display: flex;
@@ -670,25 +770,244 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     flex-direction: column;
   }
 
-  .bc-actions,
-  .bc-safety-actions {
+.bc-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.bc-safety-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.bc-ghost-btn,
+.bc-primary-btn,
+.bc-danger-btn,
+.bc-primary-small,
+.bc-ghost-small {
+  width: 100%;
+}
+
+#bcReportThread,
+#bcCloseThread,
+#bcBlockThread {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  height: 44px;
+  padding: 9px 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+  /* ===================================================== */
+  /* BUSINESS CHAT MOBILE FORM CONTROLS                    */
+  /* ===================================================== */
+
+  #bcMemberSearch {
     width: 100%;
+    min-width: 0;
+    min-height: 50px;
+    height: 50px;
+    padding: 11px 14px;
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+
+  /* Opening Message — larger mobile composer */
+  #bcOpeningMessage {
+    width: 100%;
+    min-width: 0;
+
+    min-height: 118px;
+    height: 118px;
+
+    padding: 13px 14px;
+
+    font-size: 1rem;
+    line-height: 1.45;
+
+    resize: vertical;
+  }
+
+  /* Search Members — larger mobile action */
+  #bcSearchMembers {
+    width: 100%;
+
+    min-height: 52px;
+    height: 52px;
+
+    padding: 11px 16px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /* ===================================================== */
+  /* CUSTOM MOBILE SELECTS                                 */
+  /* Division + Business Purpose                           */
+  /* ===================================================== */
+
+  .bc-mobile-select-shell {
+    position: relative;
+
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /*
+   * Keep the real select as the underlying value source,
+   * but remove its native visual popup on mobile.
+   */
+  .bc-mobile-select-shell > select {
+    position: absolute;
+
+    width: 1px;
+    height: 1px;
+
+    min-width: 1px;
+    min-height: 1px;
+
+    margin: 0;
+    padding: 0;
+
+    opacity: 0;
+    pointer-events: none;
+
+    overflow: hidden;
+  }
+
+  .bc-mobile-select-trigger {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+
+    min-height: 50px;
+    height: 50px;
+
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 10px 14px;
+
+    text-align: left;
+
+    font-size: 1rem;
+    line-height: 1.2;
+
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
-  .bc-ghost-btn,
-  .bc-primary-btn,
-  .bc-danger-btn,
-  .bc-primary-small,
-  .bc-ghost-small {
+  .bc-mobile-select-trigger > span:first-child {
+    min-width: 0;
+    max-width: 100%;
+
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .bc-mobile-select-arrow {
+    flex: 0 0 auto;
+
+    font-size: 1rem;
+    line-height: 1;
+
+    pointer-events: none;
+  }
+
+  /*
+   * CRITICAL:
+   * left:0 + right:0 + width:100% means the opened
+   * options card can never become wider than its
+   * closed dropdown field.
+   */
+  .bc-mobile-select-menu {
+    position: absolute;
+
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+
     width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+
+    z-index: 100;
+
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+
+    max-height: 260px;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    box-sizing: border-box;
+
+    -webkit-overflow-scrolling: touch;
   }
 
-  .bc-stat-grid,
-  .bc-form-grid,
-  .bc-reply-form {
-    grid-template-columns: 1fr;
+  .bc-mobile-select-option {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+
+    min-height: 46px;
+
+    padding: 10px 14px;
+
+    display: flex;
+    align-items: center;
+
+    text-align: left;
+
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+
+    box-sizing: border-box;
+  }
+
+  /*
+   * Original selects still maintain 100% width internally.
+   * This also protects layout while the JS custom control
+   * is being initialized.
+   */
+  #bcDivisionFilter,
+  #bcBusinessPurpose {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Existing Conversations reply button */
+  #bcSendReply {
+    width: 100%;
+
+    min-height: 46px;
+    height: 46px;
+
+    padding: 10px 14px;
+
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1;
   }
 
   body[data-bc-active-view="conversations"] .bc-conversation-shell {

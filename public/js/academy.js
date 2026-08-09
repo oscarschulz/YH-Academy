@@ -555,7 +555,7 @@ const {
     normalizeAcademyFeedId,
     logoutUser,
     openYHConfirmModal,
-    showToast,
+    showToast: sharedShowToast,
     updateUserProfile,
     persistKnownUser: sharedPersistKnownUser,
     readKnownUsersCache: sharedReadKnownUsersCache,
@@ -564,6 +564,99 @@ const {
     resolveAcademyFeedAvatarUrl: sharedResolveAcademyFeedAvatarUrl,
     renderAcademyFeedAvatarHtml: sharedRenderAcademyFeedAvatarHtml
 } = window.YHSharedCore;
+
+/* PATCH: Suppress all toast UI during Roadmap creation v1 */
+function academyIsRoadmapCreationOpenV1() {
+    const modal =
+        document.getElementById(
+            'academy-roadmap-modal'
+        );
+
+    return (
+        !!modal &&
+        !modal.classList.contains(
+            'hidden-step'
+        )
+    );
+}
+
+function academyHideRoadmapToastSurfaceV1() {
+    const toast =
+        document.getElementById(
+            'toast-notification'
+        );
+
+    if (!toast) return;
+
+    toast.classList.remove('show');
+
+    toast.style.setProperty(
+        'display',
+        'none',
+        'important'
+    );
+
+    toast.style.setProperty(
+        'visibility',
+        'hidden',
+        'important'
+    );
+
+    toast.style.setProperty(
+        'opacity',
+        '0',
+        'important'
+    );
+
+    toast.style.setProperty(
+        'pointer-events',
+        'none',
+        'important'
+    );
+}
+
+function academyRestoreToastSurfaceV1() {
+    const toast =
+        document.getElementById(
+            'toast-notification'
+        );
+
+    if (!toast) return;
+
+    toast.style.removeProperty('display');
+    toast.style.removeProperty('visibility');
+    toast.style.removeProperty('opacity');
+    toast.style.removeProperty('pointer-events');
+}
+
+function showToast(...args) {
+    if (
+        academyIsRoadmapCreationOpenV1()
+    ) {
+        academyHideRoadmapToastSurfaceV1();
+        return false;
+    }
+
+    academyRestoreToastSurfaceV1();
+
+    if (
+        typeof sharedShowToast !==
+        'function'
+    ) {
+        return false;
+    }
+
+    return sharedShowToast(...args);
+}
+
+/*
+ * Other Academy modules sometimes call
+ * window.YHSharedCore.showToast directly.
+ * Route those calls through the same Roadmap guard.
+ */
+window.YHSharedCore.showToast =
+    showToast;
+/* END PATCH: Suppress all toast UI during Roadmap creation v1 */
 
 const socket = io({
     withCredentials: true,
@@ -12695,8 +12788,29 @@ const missionsHtml = missions.length
                 </div>
 
                 <div class="academy-home-actions">
-                    <button id="academy-home-open-checkin" type="button" class="btn-primary academy-home-action-btn">Start Today’s Work</button>
-                    <button id="academy-home-enter-chat" type="button" class="btn-secondary academy-home-action-btn">Open Community</button>
+                    <button
+                        id="academy-home-open-checkin"
+                        type="button"
+                        class="btn-primary academy-home-action-btn"
+                    >
+                        Start Today’s Work
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn-secondary academy-home-action-btn"
+                        data-academy-roadmap-change-focus
+                    >
+                        Change Main Focus
+                    </button>
+
+                    <button
+                        id="academy-home-enter-chat"
+                        type="button"
+                        class="btn-secondary academy-home-action-btn"
+                    >
+                        Open Community
+                    </button>
                 </div>
             </section>
 
@@ -31665,12 +31779,11 @@ function academyOpenRoadmapRebuildIntakeV1() {
         true
     );
 
-    openRoadmapIntake();
-
-    showToast(
-        'Update your current goals so the AI can rebuild your personalized Roadmap.',
-        'success'
+    academySetNewRoadmapCycleRequestedV1(
+        false
     );
+
+    openRoadmapIntake();
 }
 
 if (
@@ -31704,6 +31817,142 @@ if (
         }
     );
 }
+
+
+/* PATCH: Academy Change Main Focus mode v1 */
+const YH_ACADEMY_NEW_ROADMAP_CYCLE_KEY_V1 =
+    'yh_academy_new_roadmap_cycle_v1';
+
+function academyIsNewRoadmapCycleRequestedV1() {
+    try {
+        return (
+            window.__academyNewRoadmapCycleV1 ===
+                true ||
+            sessionStorage.getItem(
+                YH_ACADEMY_NEW_ROADMAP_CYCLE_KEY_V1
+            ) === '1'
+        );
+    } catch (_) {
+        return (
+            window.__academyNewRoadmapCycleV1 ===
+            true
+        );
+    }
+}
+
+function academySetNewRoadmapCycleRequestedV1(
+    enabled = false
+) {
+    window.__academyNewRoadmapCycleV1 =
+        enabled === true;
+
+    try {
+        if (enabled) {
+            sessionStorage.setItem(
+                YH_ACADEMY_NEW_ROADMAP_CYCLE_KEY_V1,
+                '1'
+            );
+        } else {
+            sessionStorage.removeItem(
+                YH_ACADEMY_NEW_ROADMAP_CYCLE_KEY_V1
+            );
+        }
+    } catch (_) {}
+}
+
+async function academyOpenRoadmapFocusChangeV1() {
+    const confirmed =
+        await openYHConfirmModal({
+            title:
+                'Change Main Focus?',
+
+            message:
+                'Your completed missions, XP, check-ins, and previous Roadmap will stay saved. A new Roadmap cycle will be built around your new focus.',
+
+            okText:
+                'Change Focus',
+
+            cancelText:
+                'Keep Current Focus'
+        });
+
+    if (!confirmed) {
+        return;
+    }
+
+    const existingDraft =
+        typeof readRoadmapDraftV1 ===
+            'function'
+            ? readRoadmapDraftV1()
+            : null;
+
+    /*
+     * Do not reuse an unfinished normal/rebuild
+     * Roadmap draft for a Change Main Focus flow.
+     */
+    if (
+        existingDraft &&
+        existingDraft.newCycle !== true &&
+        typeof clearRoadmapDraftV1 ===
+            'function'
+    ) {
+        clearRoadmapDraftV1();
+    }
+
+    academySetRoadmapRebuildRequestedV1(
+        false
+    );
+
+    academySetNewRoadmapCycleRequestedV1(
+        true
+    );
+
+    openRoadmapIntake();
+
+    /*
+     * Change Main Focus begins directly at Step 2.
+     */
+    setRoadmapIntakePhase(2);
+
+    document
+        .getElementById(
+            'roadmap-focus-area'
+        )
+        ?.focus();
+}
+
+if (
+    window
+        .__academyRoadmapFocusChangeBoundV1 !==
+    true
+) {
+    window.__academyRoadmapFocusChangeBoundV1 =
+        true;
+
+    document.addEventListener(
+        'click',
+        async (event) => {
+            const target =
+                event.target instanceof Element
+                    ? event.target
+                    : event.target
+                        ?.parentElement;
+
+            const button =
+                target?.closest?.(
+                    '[data-academy-roadmap-change-focus]'
+                );
+
+            if (!button) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            await academyOpenRoadmapFocusChangeV1();
+        }
+    );
+}
+/* END PATCH: Academy Change Main Focus mode v1 */
 
 async function loadAcademyHome(forceFresh = false) {
     let cachedHome = null;
@@ -34078,6 +34327,616 @@ function updateRoadmapDnaPreview() {
     if (scoreEl) scoreEl.textContent = `${score}%`;
 }
 
+/* PATCH: Roadmap exact-width custom dropdowns v1 */
+let roadmapCustomSelectOpenV1 = null;
+
+function closeRoadmapCustomSelectV1() {
+    const state = roadmapCustomSelectOpenV1;
+    if (!state) return;
+
+    state.wrapper.classList.remove('is-open');
+    state.trigger.setAttribute('aria-expanded', 'false');
+    state.menu.classList.remove('is-open');
+    state.menu.setAttribute('aria-hidden', 'true');
+
+    roadmapCustomSelectOpenV1 = null;
+}
+
+function positionRoadmapCustomSelectV1(state) {
+    if (
+        !state?.trigger?.isConnected ||
+        !state?.menu?.isConnected
+    ) {
+        return;
+    }
+
+    const rect =
+        state.trigger.getBoundingClientRect();
+
+    const viewportHeight =
+        Math.max(
+            document.documentElement.clientHeight || 0,
+            window.innerHeight || 0
+        );
+
+    const gap = 6;
+    const edge = 8;
+
+    const spaceBelow =
+        viewportHeight -
+        rect.bottom -
+        edge;
+
+    const spaceAbove =
+        rect.top -
+        edge;
+
+    const openAbove =
+        spaceBelow < 150 &&
+        spaceAbove > spaceBelow;
+
+    const available =
+        (
+            openAbove
+                ? spaceAbove
+                : spaceBelow
+        ) - gap;
+
+    /*
+     * Critical part:
+     * menu width is copied directly from
+     * the visible field width.
+     */
+    state.menu.style.width =
+        `${rect.width}px`;
+
+    state.menu.style.maxWidth =
+        `${rect.width}px`;
+
+    state.menu.style.left =
+        `${rect.left}px`;
+
+    state.menu.style.maxHeight =
+        `${Math.min(
+            260,
+            Math.max(
+                90,
+                available
+            )
+        )}px`;
+
+    if (openAbove) {
+        state.menu.style.top =
+            'auto';
+
+        state.menu.style.bottom =
+            `${
+                viewportHeight -
+                rect.top +
+                gap
+            }px`;
+    } else {
+        state.menu.style.bottom =
+            'auto';
+
+        state.menu.style.top =
+            `${
+                rect.bottom +
+                gap
+            }px`;
+    }
+}
+
+function syncRoadmapCustomSelectV1(
+    state
+) {
+    const select =
+        state?.select;
+
+    if (!select) return;
+
+    const selected =
+        select.options[
+            select.selectedIndex
+        ] ||
+        select.options[0] ||
+        null;
+
+    state.label.textContent =
+        String(
+            selected?.textContent ||
+            'Select option.'
+        ).trim();
+
+    state.trigger.classList.toggle(
+        'is-placeholder',
+        !String(
+            select.value || ''
+        ).trim()
+    );
+
+    state.trigger.disabled =
+        select.disabled === true;
+
+    state.menu
+        .querySelectorAll(
+            '[data-roadmap-custom-option]'
+        )
+        .forEach((button) => {
+            const isSelected =
+                button.dataset.value ===
+                String(
+                    select.value || ''
+                );
+
+            button.classList.toggle(
+                'is-selected',
+                isSelected
+            );
+
+            button.setAttribute(
+                'aria-selected',
+                isSelected
+                    ? 'true'
+                    : 'false'
+            );
+        });
+}
+
+function cleanupRoadmapCustomSelectsV1() {
+    document
+        .querySelectorAll(
+            '.roadmap-custom-select-menu[data-roadmap-select-id]'
+        )
+        .forEach((menu) => {
+            const select =
+                document.getElementById(
+                    menu.dataset
+                        .roadmapSelectId ||
+                    ''
+                );
+
+            if (
+                select?.isConnected
+            ) {
+                return;
+            }
+
+            if (
+                roadmapCustomSelectOpenV1
+                    ?.menu === menu
+            ) {
+                closeRoadmapCustomSelectV1();
+            }
+
+            menu.remove();
+        });
+}
+
+function enhanceRoadmapCustomSelectV1(
+    select
+) {
+    if (
+        !(
+            select instanceof
+            HTMLSelectElement
+        ) ||
+        !select.matches(
+            '#academy-roadmap-modal select.input-field.styled-select:not(.roadmap-hidden-native-select)'
+        )
+    ) {
+        return;
+    }
+
+    if (
+        select.dataset
+            .roadmapCustomSelectEnhanced ===
+        'true'
+    ) {
+        syncRoadmapCustomSelectV1(
+            select
+                .__roadmapCustomSelectV1
+        );
+
+        return;
+    }
+
+    if (!select.id) {
+        select.id =
+            `roadmap-select-${Date.now()}-${Math.random()
+                .toString(36)
+                .slice(2, 8)}`;
+    }
+
+    const wrapper =
+        document.createElement(
+            'div'
+        );
+
+    wrapper.className =
+        'roadmap-custom-select';
+
+    select.parentNode.insertBefore(
+        wrapper,
+        select
+    );
+
+    wrapper.appendChild(
+        select
+    );
+
+    select.classList.add(
+        'roadmap-custom-select-native'
+    );
+
+    const trigger =
+        document.createElement(
+            'button'
+        );
+
+    trigger.type =
+        'button';
+
+    trigger.className =
+        'roadmap-custom-select-trigger';
+
+    trigger.setAttribute(
+        'aria-haspopup',
+        'listbox'
+    );
+
+    trigger.setAttribute(
+        'aria-expanded',
+        'false'
+    );
+
+    const label =
+        document.createElement(
+            'span'
+        );
+
+    label.className =
+        'roadmap-custom-select-value';
+
+    const arrow =
+        document.createElement(
+            'span'
+        );
+
+    arrow.className =
+        'roadmap-custom-select-arrow';
+
+    arrow.setAttribute(
+        'aria-hidden',
+        'true'
+    );
+
+    trigger.append(
+        label,
+        arrow
+    );
+
+    wrapper.appendChild(
+        trigger
+    );
+
+    const menu =
+        document.createElement(
+            'div'
+        );
+
+    menu.className =
+        'roadmap-custom-select-menu';
+
+    menu.setAttribute(
+        'role',
+        'listbox'
+    );
+
+    menu.setAttribute(
+        'aria-hidden',
+        'true'
+    );
+
+    menu.dataset
+        .roadmapSelectId =
+        select.id;
+
+    Array.from(
+        select.options
+    ).forEach((option) => {
+        const button =
+            document.createElement(
+                'button'
+            );
+
+        button.type =
+            'button';
+
+        button.className =
+            'roadmap-custom-select-option';
+
+        button.setAttribute(
+            'role',
+            'option'
+        );
+
+        button.setAttribute(
+            'data-roadmap-custom-option',
+            'true'
+        );
+
+        button.dataset.value =
+            String(
+                option.value ?? ''
+            );
+
+        button.textContent =
+            String(
+                option.textContent ||
+                ''
+            ).trim();
+
+        button.disabled =
+            option.disabled === true;
+
+        if (button.disabled) {
+            button.classList.add(
+                'is-disabled'
+            );
+        }
+
+        button.addEventListener(
+            'click',
+            () => {
+                if (
+                    button.disabled
+                ) {
+                    return;
+                }
+
+                const nextValue =
+                    button.dataset.value ||
+                    '';
+
+                if (
+                    String(
+                        select.value || ''
+                    ) !== nextValue
+                ) {
+                    select.value =
+                        nextValue;
+
+                    /*
+                     * Preserve the existing
+                     * Roadmap autosave +
+                     * diagnosis behavior.
+                     */
+                    select.dispatchEvent(
+                        new Event(
+                            'input',
+                            {
+                                bubbles:
+                                    true
+                            }
+                        )
+                    );
+
+                    select.dispatchEvent(
+                        new Event(
+                            'change',
+                            {
+                                bubbles:
+                                    true
+                            }
+                        )
+                    );
+                }
+
+                syncRoadmapCustomSelectV1(
+                    select
+                        .__roadmapCustomSelectV1
+                );
+
+                closeRoadmapCustomSelectV1();
+
+                trigger.focus();
+            }
+        );
+
+        menu.appendChild(
+            button
+        );
+    });
+
+    /*
+     * Put the dropdown on body instead of inside
+     * the scrollable Roadmap modal.
+     * This prevents clipping by modal overflow.
+     */
+    document.body.appendChild(
+        menu
+    );
+
+    const state = {
+        select,
+        wrapper,
+        trigger,
+        label,
+        menu
+    };
+
+    select
+        .__roadmapCustomSelectV1 =
+        state;
+
+    select.dataset
+        .roadmapCustomSelectEnhanced =
+        'true';
+
+    trigger.addEventListener(
+        'click',
+        (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (
+                roadmapCustomSelectOpenV1 ===
+                state
+            ) {
+                closeRoadmapCustomSelectV1();
+                return;
+            }
+
+            closeRoadmapCustomSelectV1();
+
+            roadmapCustomSelectOpenV1 =
+                state;
+
+            syncRoadmapCustomSelectV1(
+                state
+            );
+
+            positionRoadmapCustomSelectV1(
+                state
+            );
+
+            wrapper.classList.add(
+                'is-open'
+            );
+
+            trigger.setAttribute(
+                'aria-expanded',
+                'true'
+            );
+
+            menu.classList.add(
+                'is-open'
+            );
+
+            menu.setAttribute(
+                'aria-hidden',
+                'false'
+            );
+        }
+    );
+
+    /*
+     * Programmatic changes and restored drafts
+     * stay synchronized with the visible control.
+     */
+    select.addEventListener(
+        'change',
+        () => {
+            syncRoadmapCustomSelectV1(
+                state
+            );
+        }
+    );
+
+    syncRoadmapCustomSelectV1(
+        state
+    );
+}
+
+function enhanceRoadmapCustomSelectsV1(
+    root = document
+) {
+    cleanupRoadmapCustomSelectsV1();
+
+    const scope =
+        root instanceof Element ||
+        root instanceof Document
+            ? root
+            : document;
+
+    scope
+        .querySelectorAll(
+            'select.input-field.styled-select:not(.roadmap-hidden-native-select)'
+        )
+        .forEach(
+            enhanceRoadmapCustomSelectV1
+        );
+}
+
+if (
+    window
+        .__roadmapCustomSelectGlobalBoundV1 !==
+    true
+) {
+    window
+        .__roadmapCustomSelectGlobalBoundV1 =
+        true;
+
+    /*
+     * Close when tapping outside.
+     */
+    document.addEventListener(
+        'pointerdown',
+        (event) => {
+            const state =
+                roadmapCustomSelectOpenV1;
+
+            if (!state) return;
+
+            if (
+                state.trigger.contains(
+                    event.target
+                ) ||
+                state.menu.contains(
+                    event.target
+                )
+            ) {
+                return;
+            }
+
+            closeRoadmapCustomSelectV1();
+        },
+        true
+    );
+
+    document.addEventListener(
+        'keydown',
+        (event) => {
+            if (
+                event.key ===
+                'Escape'
+            ) {
+                closeRoadmapCustomSelectV1();
+            }
+        }
+    );
+
+    /*
+     * Keep the menu aligned to its field when
+     * the Roadmap modal scrolls or screen rotates.
+     */
+    const reposition = () => {
+        if (
+            roadmapCustomSelectOpenV1
+        ) {
+            positionRoadmapCustomSelectV1(
+                roadmapCustomSelectOpenV1
+            );
+        }
+    };
+
+    window.addEventListener(
+        'resize',
+        reposition,
+        {
+            passive: true
+        }
+    );
+
+    document.addEventListener(
+        'scroll',
+        reposition,
+        true
+    );
+}
+/* END PATCH: Roadmap exact-width custom dropdowns v1 */
+
 function renderRoadmapScopeField(field = {}) {
     const fieldId = `roadmap-scope-answer-${field.key}`;
     const requiredAttr = field.required ? 'required' : '';
@@ -34137,26 +34996,80 @@ function renderRoadmapScopeField(field = {}) {
     `;
 }
 
-function renderRoadmapScopeQuestions(scopeKey = '') {
-    const container = document.getElementById('roadmap-scope-questions');
-    const heading = document.getElementById('roadmap-scope-heading');
-    const help = document.getElementById('roadmap-scope-help');
-    const chip = document.getElementById('roadmap-selected-scope-label');
-    const config = getRoadmapScopeConfig(scopeKey);
+function renderRoadmapScopeQuestions(
+    scopeKey = ''
+) {
+    const container =
+        document.getElementById(
+            'roadmap-scope-questions'
+        );
+
+    const heading =
+        document.getElementById(
+            'roadmap-scope-heading'
+        );
+
+    const help =
+        document.getElementById(
+            'roadmap-scope-help'
+        );
+
+    const chip =
+        document.getElementById(
+            'roadmap-selected-scope-label'
+        );
+
+    const config =
+        getRoadmapScopeConfig(
+            scopeKey
+        );
 
     if (!container) return;
 
+    /*
+     * Remove an open dropdown before replacing
+     * dynamic scope fields.
+     */
+    closeRoadmapCustomSelectV1();
+
     if (!config) {
-        container.innerHTML = '';
-        if (heading) heading.textContent = 'AI intake questions';
-        if (help) help.textContent = 'Answer the questions below so the AI can build a more accurate roadmap for you.';
-        if (chip) chip.textContent = 'No scope selected';
+        container.innerHTML =
+            '';
+
+        if (heading) {
+            heading.textContent =
+                'AI intake questions';
+        }
+
+        if (help) {
+            help.textContent =
+                'Answer the questions below so the AI can build a more accurate roadmap for you.';
+        }
+
+        if (chip) {
+            chip.textContent =
+                'No scope selected';
+        }
+
+        cleanupRoadmapCustomSelectsV1();
+
         return;
     }
 
-    if (heading) heading.textContent = config.sectionTitle;
-    if (help) help.textContent = config.sectionCopy;
-    if (chip) chip.textContent = config.label;
+    if (heading) {
+        heading.textContent =
+            config.sectionTitle;
+    }
+
+    if (help) {
+        help.textContent =
+            config.sectionCopy;
+    }
+
+    if (chip) {
+        chip.textContent =
+            config.label;
+    }
 
     container.innerHTML = `
         <div class="roadmap-scope-block">
@@ -34164,9 +35077,25 @@ function renderRoadmapScopeQuestions(scopeKey = '') {
                 <div class="roadmap-scope-block-kicker">Scope-specific intake</div>
                 <div class="roadmap-scope-block-copy">${escapeRoadmapHtml(config.sectionCopy)}</div>
             </div>
-            ${config.fields.map((field) => renderRoadmapScopeField(field)).join('')}
+
+            ${config.fields
+                .map(
+                    (field) =>
+                        renderRoadmapScopeField(
+                            field
+                        )
+                )
+                .join('')}
         </div>
     `;
+
+    /*
+     * Convert newly created scope-specific
+     * native selects immediately.
+     */
+    enhanceRoadmapCustomSelectsV1(
+        container
+    );
 }
 
 function collectRoadmapScopeAnswers(scopeKey = '') {
@@ -34186,6 +35115,387 @@ function collectRoadmapScopeAnswers(scopeKey = '') {
 function readRoadmapInputValue(id = '') {
     return String(document.getElementById(id)?.value || '').trim();
 }
+
+/* PATCH: Roadmap builder local auto-save + resume v1 */
+const YH_ROADMAP_DRAFT_PREFIX_V1 =
+    'yh_academy_roadmap_builder_draft_v1';
+
+let roadmapDraftSaveTimerV1 = null;
+let roadmapDraftWriteSuspendedV1 = false;
+
+function getRoadmapDraftStorageKeyV1() {
+    const accountScope = [
+        getStoredUserValue('yh_user_email', ''),
+        getStoredUserValue('yh_user_username', ''),
+        getStoredUserValue('yh_user_name', '')
+    ]
+        .map((value) =>
+            String(value || '')
+                .trim()
+                .toLowerCase()
+        )
+        .find(Boolean) || 'current-user';
+
+    const safeScope =
+        accountScope
+            .replace(/[^a-z0-9@._-]+/g, '_')
+            .slice(0, 160);
+
+    return `${YH_ROADMAP_DRAFT_PREFIX_V1}:${safeScope}`;
+}
+
+function readRoadmapDraftV1() {
+    try {
+        const parsed =
+            JSON.parse(
+                localStorage.getItem(
+                    getRoadmapDraftStorageKeyV1()
+                ) || 'null'
+            );
+
+        return (
+            parsed &&
+            typeof parsed === 'object' &&
+            !Array.isArray(parsed)
+        )
+            ? parsed
+            : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function collectRoadmapDraftFieldsV1() {
+    const form =
+        document.getElementById(
+            'form-academy-roadmap'
+        );
+
+    if (!form) return {};
+
+    const fields = {};
+
+    form
+        .querySelectorAll(
+            'input[id], select[id], textarea[id]'
+        )
+        .forEach((field) => {
+            const type =
+                String(
+                    field.getAttribute('type') || ''
+                )
+                    .trim()
+                    .toLowerCase();
+
+            if (
+                type === 'submit' ||
+                type === 'button' ||
+                type === 'reset' ||
+                type === 'file'
+            ) {
+                return;
+            }
+
+            fields[field.id] = {
+                value:
+                    String(field.value ?? ''),
+                checked:
+                    (
+                        type === 'checkbox' ||
+                        type === 'radio'
+                    )
+                        ? field.checked === true
+                        : undefined
+            };
+        });
+
+    return fields;
+}
+
+function saveRoadmapDraftNowV1() {
+    if (roadmapDraftWriteSuspendedV1) {
+        return false;
+    }
+
+    const form =
+        document.getElementById(
+            'form-academy-roadmap'
+        );
+
+    if (!form) {
+        return false;
+    }
+
+    const currentStep =
+        Math.max(
+            1,
+            Math.min(
+                5,
+                Number(
+                    readRoadmapInputValue(
+                        'roadmap-builder-phase'
+                    ) || '1'
+                ) || 1
+            )
+        );
+
+    try {
+        localStorage.setItem(
+            getRoadmapDraftStorageKeyV1(),
+            JSON.stringify({
+                version: 1,
+                step: currentStep,
+
+                rebuild:
+                    typeof academyIsRoadmapRebuildRequestedV1 ===
+                        'function' &&
+                    academyIsRoadmapRebuildRequestedV1(),
+
+                newCycle:
+                    typeof academyIsNewRoadmapCycleRequestedV1 ===
+                        'function' &&
+                    academyIsNewRoadmapCycleRequestedV1(),
+
+                fields:
+                    collectRoadmapDraftFieldsV1(),
+
+                savedAt:
+                    new Date().toISOString()
+            })
+        );
+
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+function scheduleRoadmapDraftSaveV1(
+    delayMs = 180
+) {
+    if (roadmapDraftWriteSuspendedV1) {
+        return;
+    }
+
+    window.clearTimeout(
+        roadmapDraftSaveTimerV1
+    );
+
+    roadmapDraftSaveTimerV1 =
+        window.setTimeout(
+            () => {
+                roadmapDraftSaveTimerV1 =
+                    null;
+
+                saveRoadmapDraftNowV1();
+            },
+            Math.max(
+                0,
+                Number(delayMs) || 0
+            )
+        );
+}
+
+function clearRoadmapDraftV1() {
+    window.clearTimeout(
+        roadmapDraftSaveTimerV1
+    );
+
+    roadmapDraftSaveTimerV1 = null;
+
+    try {
+        localStorage.removeItem(
+            getRoadmapDraftStorageKeyV1()
+        );
+    } catch (_) {}
+}
+
+function restoreRoadmapDraftV1() {
+    const draft =
+        readRoadmapDraftV1();
+
+    const fields =
+        draft?.fields &&
+        typeof draft.fields === 'object' &&
+        !Array.isArray(draft.fields)
+            ? draft.fields
+            : null;
+
+    if (!fields) {
+        return false;
+    }
+
+    const previousSuspendedState =
+        roadmapDraftWriteSuspendedV1;
+
+    roadmapDraftWriteSuspendedV1 =
+        true;
+
+    try {
+        const savedFocus =
+            String(
+                fields['roadmap-focus-area']
+                    ?.value ||
+                fields['roadmap-focus-area-key']
+                    ?.value ||
+                ''
+            ).trim();
+
+        const scopeConfig =
+            getRoadmapScopeConfig(
+                savedFocus
+            );
+
+        const focusSelect =
+            document.getElementById(
+                'roadmap-focus-area'
+            );
+
+        if (
+            focusSelect &&
+            savedFocus
+        ) {
+            focusSelect.value =
+                savedFocus;
+        }
+
+        /*
+         * Scope-specific questions are dynamic.
+         * Rebuild them first before restoring their values.
+         */
+        if (scopeConfig) {
+            renderRoadmapScopeQuestions(
+                savedFocus
+            );
+        }
+
+        Object.entries(
+            fields
+        ).forEach(
+            ([id, savedField]) => {
+                const field =
+                    document.getElementById(
+                        id
+                    );
+
+                if (!field) return;
+
+                const type =
+                    String(
+                        field.getAttribute(
+                            'type'
+                        ) || ''
+                    )
+                        .trim()
+                        .toLowerCase();
+
+                if (
+                    type === 'checkbox' ||
+                    type === 'radio'
+                ) {
+                    field.checked =
+                        savedField?.checked ===
+                        true;
+
+                    return;
+                }
+
+                field.value =
+                    String(
+                        savedField?.value ??
+                        ''
+                    );
+            }
+        );
+
+        /*
+         * Repair dependent hidden values if an
+         * older/incomplete draft is restored.
+         */
+        if (scopeConfig) {
+            const focusKey =
+                document.getElementById(
+                    'roadmap-focus-area-key'
+                );
+
+            const schemaKey =
+                document.getElementById(
+                    'roadmap-schema-key'
+                );
+
+            if (
+                focusKey &&
+                !String(
+                    focusKey.value || ''
+                ).trim()
+            ) {
+                focusKey.value =
+                    savedFocus;
+            }
+
+            if (
+                schemaKey &&
+                !String(
+                    schemaKey.value || ''
+                ).trim()
+            ) {
+                schemaKey.value =
+                    scopeConfig.schemaKey;
+            }
+        }
+
+        /*
+         * Restore which type of Roadmap session
+         * this draft belongs to.
+         */
+        if (
+            typeof academySetRoadmapRebuildRequestedV1 ===
+                'function'
+        ) {
+            academySetRoadmapRebuildRequestedV1(
+                draft?.rebuild === true
+            );
+        }
+
+        if (
+            typeof academySetNewRoadmapCycleRequestedV1 ===
+                'function'
+        ) {
+            academySetNewRoadmapCycleRequestedV1(
+                draft?.newCycle === true
+            );
+        }
+
+        const savedStep =
+            Math.max(
+                1,
+                Math.min(
+                    5,
+                    Number(
+                        draft.step ||
+                        fields[
+                            'roadmap-builder-phase'
+                        ]?.value ||
+                        1
+                    ) || 1
+                )
+            );
+
+        setRoadmapIntakePhase(
+            savedStep
+        );
+
+        syncRoadmapBuilderCardStates();
+        updateRoadmapDiagnosisPreview();
+        updateRoadmapDnaPreview();
+
+        return true;
+    } finally {
+        roadmapDraftWriteSuspendedV1 =
+            previousSuspendedState;
+    }
+}
+/* END PATCH: Roadmap builder local auto-save + resume v1 */
 
 function getRoadmapDailyMinutes() {
     const dailyHours = Number(readRoadmapInputValue('roadmap-daily-hours'));
@@ -34293,6 +35603,22 @@ function installRoadmapSmartFormListeners() {
     form.addEventListener('input', updateRoadmapDiagnosisPreview);
     form.addEventListener('change', updateRoadmapDiagnosisPreview);
 
+    /*
+     * Debounced Roadmap draft auto-save.
+     * Text fields, selects, hidden builder values,
+     * dynamic scope questions, and card selections
+     * all flow through input/change.
+     */
+    form.addEventListener(
+        'input',
+        () => scheduleRoadmapDraftSaveV1()
+    );
+
+    form.addEventListener(
+        'change',
+        () => scheduleRoadmapDraftSaveV1()
+    );
+
     form.addEventListener('click', (event) => {
         const target = event.target instanceof Element
             ? event.target
@@ -34367,52 +35693,200 @@ function setRoadmapIntakePhase(step = 1) {
 }
 
 function resetRoadmapIntakeModalState() {
-    const form = document.getElementById('form-academy-roadmap');
-    if (form) form.reset();
+    const previousSuspendedState =
+        roadmapDraftWriteSuspendedV1;
 
-    setRoadmapHiddenInputValue('roadmap-focus-area-key', '');
-    setRoadmapHiddenInputValue('roadmap-schema-key', '');
-    setRoadmapHiddenInputValue('roadmap-intake-version', '4');
-    setRoadmapHiddenInputValue('roadmap-builder-phase', '1');
-    setRoadmapHiddenInputValue('roadmap-evolution-style', 'ai_guided_seasons');
-    setRoadmapHiddenInputValue('roadmap-monthly-focus-mode', 'ai_recommend');
-    setRoadmapHiddenInputValue('roadmap-season-start-mode', 'next_sunday');
-    setRoadmapHiddenInputValue('roadmap-first-season-label', '28-Day Foundation Reset');
+    /*
+     * Resetting the UI must never overwrite an
+     * existing saved Roadmap draft with blank values.
+     */
+    roadmapDraftWriteSuspendedV1 =
+        true;
 
-    const focusSelect = document.getElementById('roadmap-focus-area');
-    if (focusSelect) focusSelect.value = '';
+    try {
+        const form =
+            document.getElementById(
+                'form-academy-roadmap'
+            );
 
-    renderRoadmapScopeQuestions('');
-    setRoadmapIntakePhase(1);
-    installRoadmapSmartFormListeners();
-    updateRoadmapDiagnosisPreview();
-    updateRoadmapDnaPreview();
+        if (form) form.reset();
 
-    const submitBtn = document.getElementById('btn-submit-roadmap-intake');
-    if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerText = 'Build My AI Roadmap ➔';
+        setRoadmapHiddenInputValue(
+            'roadmap-focus-area-key',
+            ''
+        );
+
+        setRoadmapHiddenInputValue(
+            'roadmap-schema-key',
+            ''
+        );
+
+        setRoadmapHiddenInputValue(
+            'roadmap-intake-version',
+            '4'
+        );
+
+        setRoadmapHiddenInputValue(
+            'roadmap-builder-phase',
+            '1'
+        );
+
+        setRoadmapHiddenInputValue(
+            'roadmap-evolution-style',
+            'ai_guided_seasons'
+        );
+
+        setRoadmapHiddenInputValue(
+            'roadmap-monthly-focus-mode',
+            'ai_recommend'
+        );
+
+        setRoadmapHiddenInputValue(
+            'roadmap-season-start-mode',
+            'next_sunday'
+        );
+
+        setRoadmapHiddenInputValue(
+            'roadmap-first-season-label',
+            '28-Day Foundation Reset'
+        );
+
+        const focusSelect =
+            document.getElementById(
+                'roadmap-focus-area'
+            );
+
+        if (focusSelect) {
+            focusSelect.value = '';
+        }
+
+        renderRoadmapScopeQuestions('');
+        setRoadmapIntakePhase(1);
+        installRoadmapSmartFormListeners();
+        updateRoadmapDiagnosisPreview();
+        updateRoadmapDnaPreview();
+
+        const submitBtn =
+            document.getElementById(
+                'btn-submit-roadmap-intake'
+            );
+
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerText =
+                'Build My AI Roadmap ➔';
+        }
+    } finally {
+        roadmapDraftWriteSuspendedV1 =
+            previousSuspendedState;
     }
 }
 
 function openRoadmapIntake() {
     if (!roadmapModal) return;
+
     closeAcademyLauncher();
+
+    /*
+     * Start from a clean DOM state, then hydrate
+     * the user's saved draft over it.
+     */
     resetRoadmapIntakeModalState();
-    roadmapModal.classList.remove('hidden-step');
-    document.body?.classList.add('academy-launcher-open');
-    document.getElementById('roadmap-focus-area')?.focus();
+
+    const restoredDraft =
+        restoreRoadmapDraftV1();
+
+    roadmapModal.classList.remove(
+        'hidden-step'
+    );
+
+    document.body?.classList.add(
+        'academy-launcher-open'
+    );
+
+    /*
+     * Remove any toast that was already visible
+     * before the Roadmap modal opened.
+     */
+    academyHideRoadmapToastSurfaceV1();
+
+    /*
+     * Build/sync the custom Roadmap dropdown UI
+     * after draft restoration.
+     */
+    enhanceRoadmapCustomSelectsV1(
+        roadmapModal
+    );
+
+    /*
+     * Only focus the Step 2 selector for a brand-new
+     * draft. A resumed draft stays exactly where
+     * the user left it.
+     */
+    if (!restoredDraft) {
+        document
+            .getElementById(
+                'roadmap-focus-area'
+            )
+            ?.focus();
+    }
 }
 
-function closeRoadmapIntake() {
+function closeRoadmapIntake(
+    options = {}
+) {
     if (!roadmapModal) return;
-    roadmapModal.classList.add('hidden-step');
-    document.body?.classList.remove('academy-launcher-open');
+
+    closeRoadmapCustomSelectV1();
+
+    const discardDraft =
+        options?.discardDraft === true;
+
+    const wasOpen =
+        !roadmapModal.classList.contains(
+            'hidden-step'
+        );
+
+    /*
+     * Normal close = preserve.
+     * Successful completion = discard.
+     */
+    if (discardDraft) {
+        clearRoadmapDraftV1();
+    } else if (wasOpen) {
+        saveRoadmapDraftNowV1();
+    }
+
+    roadmapModal.classList.add(
+        'hidden-step'
+    );
+
+    document.body?.classList.remove(
+        'academy-launcher-open'
+    );
+
+    /*
+     * Clear only the temporary DOM state.
+     * The saved draft remains in localStorage.
+     */
     resetRoadmapIntakeModalState();
 
+    /*
+     * Restore normal Academy toast behavior
+     * only after the Roadmap modal is closed.
+     */
+    academyRestoreToastSurfaceV1();
+
     try {
-        if (typeof shouldShowAcademyRoadmapApplyStateAfterClose === 'function' && shouldShowAcademyRoadmapApplyStateAfterClose()) {
-            showAcademyRoadmapApplyState(readAcademyMembershipCache() || {});
+        if (
+            typeof shouldShowAcademyRoadmapApplyStateAfterClose ===
+                'function' &&
+            shouldShowAcademyRoadmapApplyStateAfterClose()
+        ) {
+            showAcademyRoadmapApplyState(
+                readAcademyMembershipCache() ||
+                {}
+            );
         }
     } catch (_) {}
 }
@@ -35666,6 +37140,27 @@ try {
 
 const roadmapForm = document.getElementById('form-academy-roadmap');
 
+const persistRoadmapDraftBeforePageExitV1 = () => {
+    if (
+        roadmapModal &&
+        !roadmapModal.classList.contains(
+            'hidden-step'
+        )
+    ) {
+        saveRoadmapDraftNowV1();
+    }
+};
+
+window.addEventListener(
+    'pagehide',
+    persistRoadmapDraftBeforePageExitV1
+);
+
+window.addEventListener(
+    'beforeunload',
+    persistRoadmapDraftBeforePageExitV1
+);
+
 closeRoadmapBtn?.addEventListener('click', closeRoadmapIntake);
 
 roadmapModal?.addEventListener('click', (event) => {
@@ -35763,12 +37258,23 @@ if (roadmapForm) {
         const isRoadmapRebuild =
             academyIsRoadmapRebuildRequestedV1();
 
+        const isNewRoadmapCycle =
+            academyIsNewRoadmapCycleRequestedV1();
+
         if (
             hasRoadmapIntakeAlreadyBeenFilled() &&
-            !isRoadmapRebuild
+            !isRoadmapRebuild &&
+            !isNewRoadmapCycle
         ) {
-            showToast('Roadmap setup is already complete.', 'error');
-            closeRoadmapIntake();
+            showToast(
+                'Roadmap setup is already complete.',
+                'error'
+            );
+
+            closeRoadmapIntake({
+                discardDraft: true
+            });
+
             return;
         }
 
@@ -35878,7 +37384,12 @@ if (roadmapForm) {
             },
             forceRoadmapRebuild:
                 isRoadmapRebuild,
-            submittedAt: new Date().toISOString()
+
+            startNewRoadmapCycle:
+                isNewRoadmapCycle,
+
+            submittedAt:
+                new Date().toISOString()
         };
 
         try {
@@ -35907,17 +37418,28 @@ if (roadmapForm) {
 
             writeAcademyMembershipCache(nextSnapshot);
             localStorage.removeItem(YH_ROADMAP_LOCK_KEY);
-            academySetRoadmapRebuildRequestedV1(false);
+            academySetRoadmapRebuildRequestedV1(
+                false
+            );
 
-            closeRoadmapIntake();
+            academySetNewRoadmapCycleRequestedV1(
+                false
+            );
+
+            closeRoadmapIntake({
+                discardDraft: true
+            });
+
             syncRoadmapTabIndicator(nextSnapshot);
             showAcademyRoadmapLoadingShell();
             openAcademyRoadmapView(true);
 
             showToast(
-                isRoadmapRebuild
-                    ? 'Personalized Roadmap rebuilt successfully.'
-                    : 'Roadmap setup complete. Your roadmap is now unlocked.',
+                isNewRoadmapCycle
+                    ? 'Main focus changed. Your new Roadmap cycle is ready.'
+                    : isRoadmapRebuild
+                        ? 'Personalized Roadmap rebuilt successfully.'
+                        : 'Roadmap setup complete. Your roadmap is now unlocked.',
                 'success'
             );
         } catch (error) {
@@ -44715,11 +46237,13 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         scheduleSync(120);
     }
 
-    window.addEventListener('load', () => scheduleSync(180), { passive: true });
-    window.addEventListener('focus', () => scheduleSync(220), { passive: true });
+    window.addEventListener(
+        'focus',
+        () => scheduleSync(220),
+        { passive: true }
+    );
 
     [
-        'click',
         'academy:home-loaded',
         'academy:mission-completed',
         'academy:checkin-saved',
@@ -44730,10 +46254,6 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
             () => scheduleSync(260),
             true
         );
-    });
-
-    [250, 700, 1400, 2600, 4200].forEach((delay) => {
-        window.setTimeout(() => scheduleSync(40), delay);
     });
 
     try {
@@ -45465,11 +46985,13 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         scheduleSync(180);
     }
 
-    window.addEventListener('load', () => scheduleSync(260), { passive: true });
-    window.addEventListener('focus', () => scheduleSync(320), { passive: true });
+    window.addEventListener(
+        'focus',
+        () => scheduleSync(320),
+        { passive: true }
+    );
 
     [
-        'click',
         'academy:home-loaded',
         'academy:mission-completed',
         'academy:checkin-saved',
@@ -45512,9 +47034,6 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         window.__yhAcademyQuestMainCardObserverV1 = observer;
     } catch (_) {}
 
-    [400, 900, 1800, 3200].forEach((delay) => {
-        window.setTimeout(() => scheduleSync(40), delay);
-    });
 })();
 /* END PATCH: Academy Quest main card frontend v1 */
 

@@ -915,7 +915,7 @@
         try {
             state =
                 await loadTutorialState(
-                    options.force !== true ||
+                    options.force === true ||
                     options.refresh === true
                 );
         } catch (error) {

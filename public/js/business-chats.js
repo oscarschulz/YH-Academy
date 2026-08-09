@@ -503,6 +503,274 @@
 
     textarea.placeholder = 'Explain why you want to start this business conversation.';
   }
+  function installBusinessChatMobileSelects() {
+  const selectIds = [
+    'bcDivisionFilter',
+    'bcBusinessPurpose'
+  ];
+
+  const closeAllMenus = (except = null) => {
+    document
+      .querySelectorAll('.bc-mobile-select-menu')
+      .forEach((menu) => {
+        if (menu === except) return;
+
+        menu.classList.add('hidden-step');
+
+        const shell = menu.closest(
+          '.bc-mobile-select-shell'
+        );
+
+        shell
+          ?.querySelector('.bc-mobile-select-trigger')
+          ?.setAttribute('aria-expanded', 'false');
+      });
+  };
+
+  selectIds.forEach((id) => {
+    const select = $(id);
+
+    if (!select) return;
+
+    if (
+      select.dataset
+        .bcMobileSelectBound === 'true'
+    ) {
+      return;
+    }
+
+    select.dataset.bcMobileSelectBound =
+      'true';
+
+    const shell =
+      document.createElement('div');
+
+    shell.className =
+      'bc-mobile-select-shell';
+
+    select.parentNode.insertBefore(
+      shell,
+      select
+    );
+
+    shell.appendChild(select);
+
+    const trigger =
+      document.createElement('button');
+
+    trigger.type = 'button';
+    trigger.className =
+      'bc-mobile-select-trigger';
+
+    trigger.setAttribute(
+      'aria-expanded',
+      'false'
+    );
+
+    const triggerLabel =
+      document.createElement('span');
+
+    const triggerArrow =
+      document.createElement('span');
+
+    triggerArrow.className =
+      'bc-mobile-select-arrow';
+
+    triggerArrow.setAttribute(
+      'aria-hidden',
+      'true'
+    );
+
+    triggerArrow.textContent = '⌄';
+
+    trigger.append(
+      triggerLabel,
+      triggerArrow
+    );
+
+    const menu =
+      document.createElement('div');
+
+    menu.className =
+      'bc-mobile-select-menu hidden-step';
+
+    menu.setAttribute(
+      'role',
+      'listbox'
+    );
+
+    const syncTrigger = () => {
+      const selected =
+        select.options[
+          select.selectedIndex
+        ];
+
+      triggerLabel.textContent =
+        selected?.textContent ||
+        selected?.value ||
+        '';
+    };
+
+    const rebuildMenu = () => {
+      menu.innerHTML = '';
+
+      Array.from(
+        select.options || []
+      ).forEach((option) => {
+        const item =
+          document.createElement('button');
+
+        item.type = 'button';
+
+        item.className =
+          'bc-mobile-select-option';
+
+        item.setAttribute(
+          'role',
+          'option'
+        );
+
+        item.dataset.value =
+          option.value;
+
+        item.textContent =
+          option.textContent;
+
+        if (
+          option.value ===
+          select.value
+        ) {
+          item.classList.add(
+            'is-selected'
+          );
+
+          item.setAttribute(
+            'aria-selected',
+            'true'
+          );
+        } else {
+          item.setAttribute(
+            'aria-selected',
+            'false'
+          );
+        }
+
+        menu.appendChild(item);
+      });
+    };
+
+    trigger.addEventListener(
+      'click',
+      (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const willOpen =
+          menu.classList.contains(
+            'hidden-step'
+          );
+
+        closeAllMenus(
+          willOpen ? menu : null
+        );
+
+        menu.classList.toggle(
+          'hidden-step',
+          !willOpen
+        );
+
+        trigger.setAttribute(
+          'aria-expanded',
+          willOpen
+            ? 'true'
+            : 'false'
+        );
+      }
+    );
+
+    menu.addEventListener(
+      'click',
+      (event) => {
+        const optionButton =
+          event.target?.closest?.(
+            '.bc-mobile-select-option'
+          );
+
+        if (!optionButton) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        select.value =
+          optionButton.dataset.value ||
+          '';
+
+        syncTrigger();
+        rebuildMenu();
+
+        menu.classList.add(
+          'hidden-step'
+        );
+
+        trigger.setAttribute(
+          'aria-expanded',
+          'false'
+        );
+
+        select.dispatchEvent(
+          new Event(
+            'change',
+            {
+              bubbles: true
+            }
+          )
+        );
+      }
+    );
+
+    select.addEventListener(
+      'change',
+      () => {
+        syncTrigger();
+        rebuildMenu();
+      }
+    );
+
+    syncTrigger();
+    rebuildMenu();
+
+    shell.append(
+      trigger,
+      menu
+    );
+  });
+
+  if (
+    document.body?.dataset
+      .bcMobileSelectOutsideBound !==
+    'true'
+  ) {
+    document.body.dataset
+      .bcMobileSelectOutsideBound =
+      'true';
+
+    document.addEventListener(
+      'click',
+      () => {
+        closeAllMenus();
+      }
+    );
+  }
+}
+
+  function markBusinessChatUiReady() {
+    if (!document.body) return;
+
+    document.body.setAttribute(
+      'data-bc-ui-ready',
+      'true'
+    );
+  }
 
   function formatDate(value = '') {
     const clean = String(value || '').trim();
@@ -757,19 +1025,41 @@
     const title = $('bcThreadTitle');
     const meta = $('bcThreadMeta');
     const body = $('bcThreadBody');
-    const input = $('bcReplyInput');
-    const send = $('bcSendReply');
-    const report = $('bcReportThread');
-    const close = $('bcCloseThread');
-    const block = $('bcBlockThread');
+const input = $('bcReplyInput');
+const send = $('bcSendReply');
+const report = $('bcReportThread');
+const close = $('bcCloseThread');
+const block = $('bcBlockThread');
+const safetyActions = document.querySelector('.bc-safety-actions');
+const replyForm = $('bcReplyForm');
 
-    if (!conversation) {
-      if (title) title.textContent = 'Select a conversation';
-      if (meta) meta.textContent = 'Your Plaza business threads will appear here.';
-      if (body) body.innerHTML = '<div class="bc-empty">Select a thread to read the conversation and reply.</div>';
-      [input, send, report, close, block].forEach((el) => { if (el) el.disabled = true; });
-      return;
-    }
+if (!conversation) {
+  if (title) title.textContent = 'Select a conversation';
+  if (meta) meta.textContent = 'Your Plaza business threads will appear here.';
+  if (body) body.innerHTML = '<div class="bc-empty">Select a thread to read the conversation and reply.</div>';
+
+  if (safetyActions) {
+    safetyActions.classList.add('hidden-step');
+  }
+
+  if (replyForm) {
+    replyForm.classList.add('hidden-step');
+  }
+
+  [input, send, report, close, block].forEach((el) => {
+    if (el) el.disabled = true;
+  });
+
+  return;
+}
+
+if (safetyActions) {
+  safetyActions.classList.remove('hidden-step');
+}
+
+if (replyForm) {
+  replyForm.classList.remove('hidden-step');
+}
 
     const closed = isClosed(conversation);
     const blocked = isBlocked(conversation);
@@ -1647,6 +1937,7 @@
     ensureBusinessPurposeOptions();
     restoreBusinessPurposeSelection();
     syncBusinessPurposeHelperText();
+    installBusinessChatMobileSelects();
     bindEvents();
     initBusinessChatViewTabs();
 
@@ -1658,6 +1949,8 @@
 
     initSocket();
     renderAll();
+
+    markBusinessChatUiReady();
 
     await Promise.all([
       refreshConversations({ force: true }),
@@ -1674,6 +1967,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     init().catch((error) => {
       console.error('Business Chats init error:', error);
+      markBusinessChatUiReady();
       showToast(error.message || 'Failed to initialize Business Chats.', 'error');
     });
   });

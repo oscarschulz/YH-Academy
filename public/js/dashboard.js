@@ -1526,7 +1526,7 @@ function getYHTrustTierLabel(academySnapshot = null, plazaSnapshot = null, feder
     return 'Guest';
 }
 
-const YH_DIVISION_PENDING_REFRESH_INTERVAL_MS = 2500;
+const YH_DIVISION_PENDING_REFRESH_INTERVAL_MS = 10000;
 let yhDivisionPendingRefreshTimer = null;
 let yhDivisionPendingRefreshInFlight = false;
 
@@ -1610,16 +1610,40 @@ async function refreshDashboardDivisionAccessNow() {
     try {
         const tasks = [];
 
-        if (typeof refreshAcademyMembershipStatus === 'function') {
-            tasks.push(refreshAcademyMembershipStatus(true));
+        const academyPending =
+            isDashboardAcademyPendingSnapshot();
+
+        const plazaPending =
+            isDashboardPlazaPendingSnapshot();
+
+        const federationPending =
+            isDashboardFederationPendingSnapshot();
+
+        if (
+            academyPending &&
+            typeof refreshAcademyMembershipStatus === 'function'
+        ) {
+            tasks.push(
+                refreshAcademyMembershipStatus(true)
+            );
         }
 
-        if (typeof refreshPlazaAccessStatusFromBackend === 'function') {
-            tasks.push(refreshPlazaAccessStatusFromBackend(true));
+        if (
+            plazaPending &&
+            typeof refreshPlazaAccessStatusFromBackend === 'function'
+        ) {
+            tasks.push(
+                refreshPlazaAccessStatusFromBackend(true)
+            );
         }
 
-        if (typeof refreshFederationAccessStatusFromBackend === 'function') {
-            tasks.push(refreshFederationAccessStatusFromBackend(true));
+        if (
+            federationPending &&
+            typeof refreshFederationAccessStatusFromBackend === 'function'
+        ) {
+            tasks.push(
+                refreshFederationAccessStatusFromBackend(true)
+            );
         }
 
         await Promise.allSettled(tasks);
@@ -19532,269 +19556,336 @@ function forceDashboardInlineFrameContentOnly(frame) {
                 #020617 !important;
         }
 
-        /* PATCH: Business Chats dashboard iframe shell support only v136 */
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"],
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] {
-            overflow: hidden !important;
-        }
+/* PATCH: Business Chats dashboard iframe shell support only v138 */
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-shell,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-shell {
-            width: 100% !important;
-            height: 100% !important;
-            min-height: 100% !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            overflow: hidden !important;
-        }
+/*
+ * Dashboard embedding should only remove duplicated shell UI.
+ * business-chats.css remains the layout/responsive authority.
+ */
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-topnav,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-topnav {
-            flex: 0 0 auto !important;
-            min-height: auto !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 0 !important;
-            padding: 9px 14px !important;
-            margin: 0 !important;
-            position: sticky !important;
-            top: 0 !important;
-            z-index: 30 !important;
-        }
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"],
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+}
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-brand,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-brand,
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-actions,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-actions {
-            display: none !important;
-        }
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-shell,
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-shell {
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-view-tabs,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-view-tabs {
-            width: min(700px, 100%) !important;
-            max-width: 700px !important;
-            margin: 0 auto !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 8px !important;
-            padding: 7px !important;
-        }
+/*
+ * Dashboard already provides its own Business Chats title,
+ * profile control and navigation, so don't duplicate them
+ * inside the embedded page.
+ */
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-brand,
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-brand,
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-actions,
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-actions,
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-hero-card,
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-hero-card {
+    display: none;
+}
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-view-tab,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-view-tab {
-            flex: 1 1 0 !important;
-            min-height: 42px !important;
-            padding: 10px 16px !important;
-            font-size: 0.96rem !important;
-            line-height: 1.15 !important;
-            white-space: nowrap !important;
-        }
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="overview"] .bc-hero,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="overview"] .bc-hero {
-            display: grid !important;
-            grid-template-columns: minmax(0, 1fr) !important;
-            gap: 0 !important;
-            margin: 10px 16px 0 !important;
-        }
+/* ===================== DESKTOP EMBED ===================== */
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"]:not([data-bc-active-view="overview"]) .bc-hero,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"]:not([data-bc-active-view="overview"]) .bc-hero {
-            display: none !important;
-        }
+@media (min-width: 769px) {
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"],
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] {
+        height: 100%;
+        overflow: hidden;
+    }
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-hero-card,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-hero-card {
-            display: none !important;
-        }
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-shell,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-shell {
+        height: 100%;
+        min-height: 100%;
+        padding: 0;
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-stat-grid,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-stat-grid {
-            display: grid !important;
-            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-            gap: 14px !important;
-        }
+        display: flex;
+        flex-direction: column;
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-stat-card,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-stat-card {
-            min-height: 104px !important;
-            padding: 18px 20px !important;
-            gap: 10px !important;
-        }
+        overflow: hidden;
+    }
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-stat-card span,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-stat-card span {
-            font-size: 0.8rem !important;
-            line-height: 1.2 !important;
-            letter-spacing: 0.08em !important;
-        }
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-topnav,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-topnav {
+        flex: 0 0 auto;
+        min-height: auto;
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-stat-card strong,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-stat-card strong {
-            margin-top: 2px !important;
-            font-size: 1.55rem !important;
-            line-height: 1 !important;
-        }
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-main-grid,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-main-grid {
-            flex: 1 1 auto !important;
-            min-height: 0 !important;
-            height: auto !important;
-            margin: 0 !important;
-            padding: 20px 24px 30px !important;
-            overflow: auto !important;
-        }
+        padding: 9px 14px;
+        margin: 0;
+    }
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="overview"] .bc-main-grid,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="overview"] .bc-main-grid,
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="start"] .bc-main-grid,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="start"] .bc-main-grid,
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="blocked"] .bc-main-grid,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="blocked"] .bc-main-grid {
-            grid-template-columns: minmax(0, 1120px) !important;
-            justify-content: center !important;
-        }
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-view-tabs,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-view-tabs {
+        width: min(700px, 100%);
+        max-width: 700px;
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-left-stack,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-left-stack {
-            gap: 18px !important;
-        }
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-panel-head,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-panel-head {
-            padding: 24px 28px 20px !important;
-            gap: 16px !important;
-        }
+        gap: 8px;
+        padding: 7px;
+        margin: 0 auto;
+    }
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-panel-head strong,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-panel-head strong {
-            font-size: 1.28rem !important;
-            line-height: 1.2 !important;
-        }
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-view-tab,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-view-tab {
+        flex: 1 1 0;
+        min-height: 42px;
+        padding: 10px 16px;
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-panel-head span,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-panel-head span {
-            margin-top: 6px !important;
-            max-width: 820px !important;
-            font-size: 0.98rem !important;
-            line-height: 1.55 !important;
-        }
+        font-size: 0.96rem;
+        line-height: 1.15;
+        white-space: nowrap;
+    }
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel form,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel form {
-            padding: 22px 28px 26px !important;
-            gap: 18px !important;
-        }
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="overview"] .bc-hero,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="overview"] .bc-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-form-grid,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-form-grid {
-            gap: 18px !important;
-        }
+        gap: 0;
+        margin: 10px 16px 0;
+    }
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-form-row,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-form-row {
-            gap: 10px !important;
-        }
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"]:not([data-bc-active-view="overview"]) .bc-hero,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"]:not([data-bc-active-view="overview"]) .bc-hero {
+        display: none;
+    }
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-form-row label,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-form-row label,
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-form-row span,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-form-row span {
-            font-size: 0.9rem !important;
-            line-height: 1.2 !important;
-            letter-spacing: 0.08em !important;
-        }
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-stat-grid,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-stat-grid {
+        grid-template-columns:
+            repeat(4, minmax(0, 1fr));
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel input,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel input,
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel select,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel select {
-            min-height: 50px !important;
-            height: 50px !important;
-            padding: 12px 16px !important;
-            font-size: 0.98rem !important;
-            line-height: 1.25 !important;
-            pointer-events: auto !important;
-            user-select: text !important;
-            -webkit-user-select: text !important;
-            cursor: text !important;
-        }
+        gap: 14px;
+    }
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel select,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel select {
-            cursor: pointer !important;
-        }
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-stat-card,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-stat-card {
+        min-height: 104px;
+        padding: 18px 20px;
+        gap: 10px;
+    }
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel textarea,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel textarea {
-            min-height: 96px !important;
-            height: 96px !important;
-            max-height: 180px !important;
-            padding: 14px 16px !important;
-            font-size: 0.98rem !important;
-            line-height: 1.5 !important;
-            pointer-events: auto !important;
-            user-select: text !important;
-            -webkit-user-select: text !important;
-            cursor: text !important;
-            resize: vertical !important;
-        }
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-main-grid,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-main-grid {
+        flex: 1 1 auto;
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-primary-btn,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-primary-btn,
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-primary-small,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-primary-small,
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-ghost-btn,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-ghost-btn,
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-ghost-small,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-ghost-small,
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-danger-btn,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-danger-btn {
-            min-height: 38px !important;
-            height: 38px !important;
-            padding: 8px 16px !important;
-            font-size: 0.88rem !important;
-            line-height: 1.1 !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            justify-self: center !important;
-            align-self: center !important;
-            width: auto !important;
-            max-width: 100% !important;
-            box-sizing: border-box !important;
-        }
+        min-height: 0;
+        height: auto;
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-member-results,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-member-results,
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-blocked-list,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-blocked-list {
-            padding: 22px 28px 28px !important;
-            min-height: 112px !important;
-        }
+        margin: 0;
+        padding: 20px 24px 30px;
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-empty,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-empty {
-            min-height: 72px !important;
-            padding: 22px 24px !important;
-            display: flex !important;
-            align-items: center !important;
-            font-size: 1rem !important;
-            line-height: 1.55 !important;
-        }
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
 
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-conversation-shell,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-conversation-shell {
-            height: calc(100% - 8px) !important;
-            min-height: 560px !important;
-            max-height: none !important;
-        }
-        /* END PATCH: Business Chats dashboard iframe shell support only v136 */
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="overview"] .bc-main-grid,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="overview"] .bc-main-grid,
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="start"] .bc-main-grid,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="start"] .bc-main-grid,
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="blocked"] .bc-main-grid,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="blocked"] .bc-main-grid {
+        grid-template-columns:
+            minmax(0, 1120px);
+
+        justify-content: center;
+    }
+
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-conversation-shell,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-conversation-shell {
+        height: calc(100% - 8px);
+        min-height: 560px;
+        max-height: none;
+    }
+}
+
+
+/* ====================== MOBILE EMBED ====================== */
+
+@media (max-width: 768px) {
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"],
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 100% !important;
+        max-height: 100% !important;
+
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+
+        overscroll-behavior-y: contain !important;
+        -webkit-overflow-scrolling: touch !important;
+        touch-action: pan-y !important;
+
+        box-sizing: border-box !important;
+    }
+
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-shell,
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+
+    height: auto !important;
+    min-height: 100% !important;
+
+    margin: 0 !important;
+    padding:
+        8px
+        8px
+        calc(
+            4px +
+            env(safe-area-inset-bottom, 0px)
+        ) !important;
+
+    display: block !important;
+
+    overflow: visible !important;
+    box-sizing: border-box !important;
+}
+
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-topnav,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-topnav {
+        width: 100%;
+        min-width: 0;
+        min-height: 0;
+
+        position: sticky;
+        top: 0;
+        z-index: 30;
+
+        display: block;
+
+        margin: 0 0 10px;
+        padding: 6px;
+    }
+
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-view-tabs,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-view-tabs {
+        width: 100%;
+        max-width: 100%;
+
+        display: grid;
+        grid-template-columns:
+            repeat(3, minmax(0, 1fr));
+
+        gap: 6px;
+        margin: 0;
+        padding: 6px;
+    }
+
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-view-tab,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-view-tab {
+        width: 100%;
+        min-width: 0;
+        min-height: 42px;
+
+        padding: 7px 4px;
+
+        font-size: 0.72rem;
+        line-height: 1.15;
+
+        white-space: normal;
+        overflow-wrap: anywhere;
+
+        text-align: center;
+    }
+
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="overview"] .bc-hero,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="overview"] .bc-hero {
+        width: 100%;
+        min-width: 0;
+
+        display: block;
+
+        margin: 0 0 12px;
+    }
+
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"]:not([data-bc-active-view="overview"]) .bc-hero,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"]:not([data-bc-active-view="overview"]) .bc-hero {
+        display: none;
+    }
+
+    /*
+     * IMPORTANT:
+     * No grid-template-columns is declared for
+     * .bc-stat-grid, .bc-main-grid or .bc-form-grid here.
+     *
+     * Their actual responsive layout comes from
+     * business-chats.css.
+     */
+
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-stat-grid,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-stat-grid,
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-main-grid,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-main-grid,
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-left-stack,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-left-stack,
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-main-grid,
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-main-grid {
+    height: auto;
+    min-height: 0;
+
+    margin: 0;
+    padding-bottom: 0;
+
+    overflow: visible;
+}
+
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="overview"] .bc-start-panel,
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="overview"] .bc-start-panel {
+    min-height:
+        calc(
+            100dvh + 84px
+        );
+
+    height: auto;
+
+    display: flex;
+    flex-direction: column;
+}
+
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="overview"] .bc-member-results,
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="overview"] .bc-member-results {
+    flex: 1 0 auto;
+    align-content: start;
+}
+
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-conversation-shell,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-conversation-shell {
+        width: 100%;
+        min-width: 0;
+
+        height: auto;
+        min-height: 0;
+        max-height: none;
+    }
+}
+
+/* END PATCH: Business Chats dashboard iframe shell support only v138 */
 
         /*
          * Desktop-only mission action placement.
@@ -20005,7 +20096,11 @@ function setDashboardMobileBottomNavScrollStateV1(
             window.innerWidth <= 768;
     }
 
-    const supportsScrollHide =
+const supportsScrollHide =
+        workspaceKey ===
+            'wallet' ||
+        workspaceKey ===
+            'business-chats' ||
         workspaceKey.startsWith(
             'academy-'
         ) ||
@@ -20078,6 +20173,489 @@ function setDashboardMobileBottomNavScrollStateV1(
 
     return shouldHide;
 }
+
+/* PATCH: Wallet mobile bottom-nav auto-hide v1 */
+(function installDashboardWalletBottomNavAutoHideV1() {
+    if (
+        window
+            .__yhDashboardWalletBottomNavAutoHideV1Installed
+    ) {
+        return;
+    }
+
+    window
+        .__yhDashboardWalletBottomNavAutoHideV1Installed =
+        true;
+
+    const positions =
+        new WeakMap();
+
+    let lastTouchY =
+        null;
+
+    let wasWalletWorkspace =
+        String(
+            document.body
+                ?.getAttribute(
+                    'data-yh-unified-workspace'
+                ) || ''
+        )
+            .trim()
+            .toLowerCase() ===
+        'wallet';
+
+
+    const isWalletWorkspace = () => {
+        return (
+            String(
+                document.body
+                    ?.getAttribute(
+                        'data-yh-unified-workspace'
+                    ) || ''
+            )
+                .trim()
+                .toLowerCase() ===
+            'wallet'
+        );
+    };
+
+
+    const isMobileViewport = () => {
+        try {
+            return window
+                .matchMedia(
+                    '(max-width: 768px)'
+                )
+                .matches;
+        } catch (_) {
+            return (
+                Number(
+                    window.innerWidth || 9999
+                ) <=
+                768
+            );
+        }
+    };
+
+
+    const getScrollTop = (
+        target
+    ) => {
+        if (
+            !target ||
+            target === document ||
+            target === document.body ||
+            target ===
+                document.documentElement ||
+            target ===
+                document.scrollingElement
+        ) {
+            return Math.max(
+                0,
+                Number(
+                    window.scrollY ||
+                    window.pageYOffset ||
+                    document
+                        .documentElement
+                        ?.scrollTop ||
+                    document
+                        .body
+                        ?.scrollTop ||
+                    0
+                )
+            );
+        }
+
+        return Math.max(
+            0,
+            Number(
+                target.scrollTop ||
+                0
+            )
+        );
+    };
+
+
+    const syncWalletScrollTarget = (
+        target,
+        reason =
+            'wallet-scroll'
+    ) => {
+        if (
+            !isMobileViewport() ||
+            !isWalletWorkspace() ||
+            !target
+        ) {
+            return;
+        }
+
+        const currentTop =
+            getScrollTop(
+                target
+            );
+
+        const previousTop =
+            Number(
+                positions.get(
+                    target
+                ) || 0
+            );
+
+        positions.set(
+            target,
+            currentTop
+        );
+
+        const delta =
+            currentTop -
+            previousTop;
+
+
+        /*
+         * Always show navbar again close to
+         * the very top of the Wallet.
+         */
+        if (
+            currentTop <= 8
+        ) {
+            setDashboardMobileBottomNavScrollStateV1(
+                false,
+                reason + '-top'
+            );
+
+            return;
+        }
+
+
+        /*
+         * Scrolling upward:
+         * reveal navigation.
+         */
+        if (
+            delta < -4
+        ) {
+            setDashboardMobileBottomNavScrollStateV1(
+                false,
+                reason + '-up'
+            );
+
+            return;
+        }
+
+
+        /*
+         * Scrolling downward:
+         * hide navigation.
+         */
+        if (
+            delta > 4
+        ) {
+            setDashboardMobileBottomNavScrollStateV1(
+                true,
+                reason + '-down'
+            );
+        }
+    };
+
+
+    /*
+     * Capture scroll from the Wallet's actual
+     * scroll container, whether it is the hub,
+     * body, or another parent container.
+     */
+    document.addEventListener(
+        'scroll',
+        (event) => {
+            if (
+                !isMobileViewport() ||
+                !isWalletWorkspace()
+            ) {
+                return;
+            }
+
+            const target =
+                event.target ===
+                    document
+                    ? (
+                        document
+                            .scrollingElement ||
+                        document
+                            .documentElement
+                    )
+                    : event.target;
+
+            syncWalletScrollTarget(
+                target,
+                'wallet-scroll'
+            );
+        },
+        {
+            capture: true,
+            passive: true
+        }
+    );
+
+
+    /*
+     * Desktop/mobile simulator wheel support.
+     */
+    document.addEventListener(
+        'wheel',
+        (event) => {
+            if (
+                !isMobileViewport() ||
+                !isWalletWorkspace()
+            ) {
+                return;
+            }
+
+            const deltaY =
+                Number(
+                    event.deltaY ||
+                    0
+                );
+
+            if (
+                deltaY > 4
+            ) {
+                setDashboardMobileBottomNavScrollStateV1(
+                    true,
+                    'wallet-wheel-down'
+                );
+            } else if (
+                deltaY < -4
+            ) {
+                setDashboardMobileBottomNavScrollStateV1(
+                    false,
+                    'wallet-wheel-up'
+                );
+            }
+        },
+        {
+            capture: true,
+            passive: true
+        }
+    );
+
+
+    /*
+     * iPhone / Android touch intent.
+     * Finger moves UP = page scrolls DOWN.
+     */
+    document.addEventListener(
+        'touchstart',
+        (event) => {
+            if (
+                !isMobileViewport() ||
+                !isWalletWorkspace()
+            ) {
+                lastTouchY =
+                    null;
+
+                return;
+            }
+
+            const touchY =
+                Number(
+                    event
+                        .touches
+                        ?.[0]
+                        ?.clientY
+                );
+
+            lastTouchY =
+                Number.isFinite(
+                    touchY
+                )
+                    ? touchY
+                    : null;
+        },
+        {
+            capture: true,
+            passive: true
+        }
+    );
+
+
+    document.addEventListener(
+        'touchmove',
+        (event) => {
+            if (
+                !isMobileViewport() ||
+                !isWalletWorkspace() ||
+                lastTouchY === null
+            ) {
+                return;
+            }
+
+            const currentTouchY =
+                Number(
+                    event
+                        .touches
+                        ?.[0]
+                        ?.clientY
+                );
+
+            if (
+                !Number.isFinite(
+                    currentTouchY
+                )
+            ) {
+                return;
+            }
+
+            const touchDelta =
+                lastTouchY -
+                currentTouchY;
+
+
+            if (
+                touchDelta > 5
+            ) {
+                setDashboardMobileBottomNavScrollStateV1(
+                    true,
+                    'wallet-touch-down'
+                );
+            } else if (
+                touchDelta < -5
+            ) {
+                setDashboardMobileBottomNavScrollStateV1(
+                    false,
+                    'wallet-touch-up'
+                );
+            }
+
+            lastTouchY =
+                currentTouchY;
+        },
+        {
+            capture: true,
+            passive: true
+        }
+    );
+
+
+    document.addEventListener(
+        'touchend',
+        () => {
+            lastTouchY =
+                null;
+        },
+        {
+            capture: true,
+            passive: true
+        }
+    );
+
+
+    document.addEventListener(
+        'touchcancel',
+        () => {
+            lastTouchY =
+                null;
+        },
+        {
+            capture: true,
+            passive: true
+        }
+    );
+
+
+    /*
+     * When leaving Wallet, restore the navbar.
+     * Other division-specific scroll handlers can
+     * then take control normally.
+     */
+    const observeWorkspace =
+        () => {
+            if (
+                !document.body
+            ) {
+                return;
+            }
+
+            const observer =
+                new MutationObserver(
+                    () => {
+                        const nowWallet =
+                            isWalletWorkspace();
+
+                        if (
+                            wasWalletWorkspace &&
+                            !nowWallet
+                        ) {
+                            setDashboardMobileBottomNavScrollStateV1(
+                                false,
+                                'wallet-exit'
+                            );
+                        }
+
+                        if (
+                            !wasWalletWorkspace &&
+                            nowWallet
+                        ) {
+                            setDashboardMobileBottomNavScrollStateV1(
+                                false,
+                                'wallet-enter'
+                            );
+                        }
+
+                        wasWalletWorkspace =
+                            nowWallet;
+                    }
+                );
+
+            observer.observe(
+                document.body,
+                {
+                    attributes: true,
+                    attributeFilter: [
+                        'data-yh-unified-workspace'
+                    ]
+                }
+            );
+
+            window
+                .__yhDashboardWalletBottomNavObserverV1 =
+                observer;
+        };
+
+
+    if (
+        document.body
+    ) {
+        observeWorkspace();
+    } else {
+        document.addEventListener(
+            'DOMContentLoaded',
+            observeWorkspace,
+            {
+                once: true
+            }
+        );
+    }
+
+
+    window.addEventListener(
+        'resize',
+        () => {
+            if (
+                isWalletWorkspace() &&
+                !isMobileViewport()
+            ) {
+                setDashboardMobileBottomNavScrollStateV1(
+                    false,
+                    'wallet-desktop'
+                );
+            }
+        },
+        {
+            passive: true
+        }
+    );
+})();
+/* END PATCH: Wallet mobile bottom-nav auto-hide v1 */
+
 
 if (!window.__yhAcademyMessageThreadNavSyncV1Bound) {
     window.__yhAcademyMessageThreadNavSyncV1Bound = true;
@@ -20180,11 +20758,16 @@ function bindDashboardInlineAcademyScrollNavigationV1(
             'federation-'
         );
 
+    const isBusinessChatsWorkspace =
+        workspaceKey ===
+            'business-chats';
+
     if (
         (
             !isAcademyWorkspace &&
             !isPlazaWorkspace &&
-            !isFederationWorkspace
+            !isFederationWorkspace &&
+            !isBusinessChatsWorkspace
         ) ||
         !doc
     ) {
@@ -20245,14 +20828,17 @@ function bindDashboardInlineAcademyScrollNavigationV1(
     const usesImmediateScrollIntent =
         isMissionsWorkspace ||
         isPlazaWorkspace ||
-        isFederationWorkspace;
+        isFederationWorkspace ||
+        isBusinessChatsWorkspace;
 
     const scrollReasonPrefix =
         isPlazaWorkspace
             ? 'plazas'
             : isFederationWorkspace
                 ? 'federation'
-                : 'academy';
+                : isBusinessChatsWorkspace
+                    ? 'business-chats'
+                    : 'academy';
 
     const positions =
         new WeakMap();
@@ -23250,11 +23836,6 @@ function openDivisionPreview(targetDivision = 'plazas', options = {}) {
 
 function switchServer(targetDivision) {
     const division = normalizeUniverseDivision(targetDivision);
-
-    if (division === 'academy') {
-        showUniverseHub('academy');
-        return;
-    }
 
     openDivisionPreview(division);
 }
@@ -32543,37 +33124,217 @@ function getDashboardProfileEditorDisplayName() {
     ).trim() || 'Hustler';
 }
 
-function renderDashboardProfileEditorAvatarPreview(previewUrl = '', displayName = '') {
-    const avatar = document.getElementById('yh-dashboard-profile-avatar-preview');
+function setDashboardProfileMediaMenuOpen(kind = 'avatar', open = false) {
+    const normalizedKind =
+        kind === 'cover'
+            ? 'cover'
+            : 'avatar';
+
+    const menu =
+        document.getElementById(
+            `yh-dashboard-profile-${normalizedKind}-menu`
+        );
+
+    const toggle =
+        document.getElementById(
+            `yh-dashboard-profile-${normalizedKind}-menu-toggle`
+        );
+
+    if (menu) {
+        menu.classList.toggle(
+            'hidden-step',
+            open !== true
+        );
+    }
+
+    if (toggle) {
+        toggle.setAttribute(
+            'aria-expanded',
+            open === true
+                ? 'true'
+                : 'false'
+        );
+    }
+}
+
+function closeDashboardProfileMediaMenus() {
+    setDashboardProfileMediaMenuOpen(
+        'avatar',
+        false
+    );
+
+    setDashboardProfileMediaMenuOpen(
+        'cover',
+        false
+    );
+}
+
+function syncDashboardProfileEditorMediaControl(
+    kind = 'avatar',
+    previewUrl = ''
+) {
+    const normalizedKind =
+        kind === 'cover'
+            ? 'cover'
+            : 'avatar';
+
+    const resolvedUrl =
+        normalizeDashboardProfileAssetUrl(
+            previewUrl
+        );
+
+    const hasImage =
+        Boolean(resolvedUrl);
+
+    const directButton =
+        document.getElementById(
+            `yh-dashboard-profile-${normalizedKind}-trigger`
+        );
+
+    const menuWrap =
+        document.getElementById(
+            `yh-dashboard-profile-${normalizedKind}-menu-wrap`
+        );
+
+    if (directButton) {
+        directButton.classList.toggle(
+            'hidden-step',
+            hasImage
+        );
+    }
+
+    if (menuWrap) {
+        menuWrap.classList.toggle(
+            'hidden-step',
+            !hasImage
+        );
+    }
+
+    if (!hasImage) {
+        setDashboardProfileMediaMenuOpen(
+            normalizedKind,
+            false
+        );
+    }
+}
+
+function renderDashboardProfileEditorAvatarPreview(
+    previewUrl = '',
+    displayName = ''
+) {
+    const avatar =
+        document.getElementById(
+            'yh-dashboard-profile-avatar-preview'
+        );
+
     if (!avatar) return;
 
-    const resolvedUrl = normalizeDashboardProfileAssetUrl(previewUrl);
-    const resolvedName = String(displayName || getDashboardProfileEditorDisplayName() || 'YH').trim();
+    const resolvedUrl =
+        normalizeDashboardProfileAssetUrl(
+            previewUrl
+        );
+
+    const resolvedName =
+        String(
+            displayName ||
+            getDashboardProfileEditorDisplayName() ||
+            'YH'
+        ).trim();
+
+    syncDashboardProfileEditorMediaControl(
+        'avatar',
+        resolvedUrl
+    );
 
     if (resolvedUrl) {
         avatar.textContent = '';
-        avatar.style.backgroundImage = `url("${resolvedUrl}")`;
-        avatar.style.backgroundSize = 'cover';
-        avatar.style.backgroundPosition = 'center';
+
+        avatar.style.backgroundImage =
+            `url("${resolvedUrl}")`;
+
+        avatar.style.backgroundSize =
+            'cover';
+
+        avatar.style.backgroundPosition =
+            'center';
+
+        avatar.style.backgroundRepeat =
+            'no-repeat';
+
+        avatar.setAttribute(
+            'data-has-avatar',
+            'true'
+        );
+
         return;
     }
 
-    avatar.style.backgroundImage = 'none';
-    avatar.textContent = resolvedName.charAt(0).toUpperCase() || 'Y';
+    avatar.style.backgroundImage =
+        'none';
+
+    avatar.style.backgroundSize =
+        '';
+
+    avatar.style.backgroundPosition =
+        '';
+
+    avatar.style.backgroundRepeat =
+        '';
+
+    avatar.removeAttribute(
+        'data-has-avatar'
+    );
+
+    avatar.textContent =
+        resolvedName
+            .charAt(0)
+            .toUpperCase() ||
+        'Y';
 }
 
-function renderDashboardProfileEditorCoverPreview(previewUrl = '') {
-    const cover = document.getElementById('yh-dashboard-profile-cover-preview');
+function renderDashboardProfileEditorCoverPreview(
+    previewUrl = ''
+) {
+    const cover =
+        document.getElementById(
+            'yh-dashboard-profile-cover-preview'
+        );
+
     if (!cover) return;
 
-    const resolvedUrl = normalizeDashboardProfileAssetUrl(previewUrl);
+    const resolvedUrl =
+        normalizeDashboardProfileAssetUrl(
+            previewUrl
+        );
+
+    syncDashboardProfileEditorMediaControl(
+        'cover',
+        resolvedUrl
+    );
 
     if (resolvedUrl) {
-        cover.style.backgroundImage = `linear-gradient(180deg, rgba(5, 12, 28, 0.08), rgba(5, 12, 28, 0.58)), url("${resolvedUrl}")`;
-        cover.style.backgroundSize = '100% 100%';
-        cover.style.backgroundPosition = 'center';
-        cover.style.backgroundRepeat = 'no-repeat';
-        cover.setAttribute('data-has-cover', 'true');
+        cover.style.backgroundImage =
+            `linear-gradient(
+                180deg,
+                rgba(5, 12, 28, 0.08),
+                rgba(5, 12, 28, 0.38)
+            ),
+            url("${resolvedUrl}")`;
+
+        cover.style.backgroundSize =
+            'cover';
+
+        cover.style.backgroundPosition =
+            'center';
+
+        cover.style.backgroundRepeat =
+            'no-repeat';
+
+        cover.setAttribute(
+            'data-has-cover',
+            'true'
+        );
+
         return;
     }
 
@@ -32581,7 +33342,10 @@ function renderDashboardProfileEditorCoverPreview(previewUrl = '') {
     cover.style.backgroundSize = '';
     cover.style.backgroundPosition = '';
     cover.style.backgroundRepeat = '';
-    cover.removeAttribute('data-has-cover');
+
+    cover.removeAttribute(
+        'data-has-cover'
+    );
 }
 
 function setDashboardProfileEditorAsset(kind = 'avatar', options = {}) {
@@ -33405,7 +34169,11 @@ function ensureDashboardUniverseProfileEditor() {
 
             <div class="yh-dashboard-profile-modal-body yh-dashboard-profile-edit-fields hide-scrollbar">
                 <section class="yh-dashboard-profile-media-editor">
-                    <div class="yh-dashboard-profile-cover-preview" id="yh-dashboard-profile-cover-preview">
+
+                    <div
+                        class="yh-dashboard-profile-cover-preview"
+                        id="yh-dashboard-profile-cover-preview"
+                    >
                         <button
                             type="button"
                             class="btn-secondary yh-dashboard-profile-media-btn yh-dashboard-profile-cover-btn"
@@ -33413,10 +34181,74 @@ function ensureDashboardUniverseProfileEditor() {
                         >
                             Change Cover Photo
                         </button>
+
+                        <div
+                            class="yh-dashboard-profile-media-menu-wrap hidden-step"
+                            id="yh-dashboard-profile-cover-menu-wrap"
+                        >
+                            <button
+                                type="button"
+                                class="yh-dashboard-profile-media-menu-toggle"
+                                id="yh-dashboard-profile-cover-menu-toggle"
+                                aria-label="Cover photo options"
+                                aria-expanded="false"
+                            >
+                                •••
+                            </button>
+
+                            <div
+                                class="yh-dashboard-profile-media-menu hidden-step"
+                                id="yh-dashboard-profile-cover-menu"
+                            >
+                                <button
+                                    type="button"
+                                    class="yh-dashboard-profile-media-menu-item"
+                                    id="yh-dashboard-profile-cover-menu-change"
+                                >
+                                    Change Cover Photo
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="yh-dashboard-profile-avatar-editor-row">
-                        <div class="yh-dashboard-profile-avatar-preview" id="yh-dashboard-profile-avatar-preview">Y</div>
+
+                        <div class="yh-dashboard-profile-avatar-preview-wrap">
+                            <div
+                                class="yh-dashboard-profile-avatar-preview"
+                                id="yh-dashboard-profile-avatar-preview"
+                            >
+                                Y
+                            </div>
+
+                            <div
+                                class="yh-dashboard-profile-media-menu-wrap hidden-step"
+                                id="yh-dashboard-profile-avatar-menu-wrap"
+                            >
+                                <button
+                                    type="button"
+                                    class="yh-dashboard-profile-media-menu-toggle"
+                                    id="yh-dashboard-profile-avatar-menu-toggle"
+                                    aria-label="Profile picture options"
+                                    aria-expanded="false"
+                                >
+                                    •••
+                                </button>
+
+                                <div
+                                    class="yh-dashboard-profile-media-menu hidden-step"
+                                    id="yh-dashboard-profile-avatar-menu"
+                                >
+                                    <button
+                                        type="button"
+                                        class="yh-dashboard-profile-media-menu-item"
+                                        id="yh-dashboard-profile-avatar-menu-change"
+                                    >
+                                        Change Profile Picture
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
                         <div class="yh-dashboard-profile-avatar-copy">
                             <strong>Profile picture</strong>
@@ -33561,13 +34393,158 @@ function ensureDashboardUniverseProfileEditor() {
         openDashboardBasicAssistantPanel();
     });
 
-    document.getElementById('yh-dashboard-profile-avatar-trigger')?.addEventListener('click', () => {
-        document.getElementById('yh-dashboard-profile-avatar-input')?.click();
-    });
+    document
+        .getElementById(
+            'yh-dashboard-profile-avatar-trigger'
+        )
+        ?.addEventListener(
+            'click',
+            () => {
+                document
+                    .getElementById(
+                        'yh-dashboard-profile-avatar-input'
+                    )
+                    ?.click();
+            }
+        );
 
-    document.getElementById('yh-dashboard-profile-cover-trigger')?.addEventListener('click', () => {
-        document.getElementById('yh-dashboard-profile-cover-input')?.click();
-    });
+    document
+        .getElementById(
+            'yh-dashboard-profile-cover-trigger'
+        )
+        ?.addEventListener(
+            'click',
+            () => {
+                document
+                    .getElementById(
+                        'yh-dashboard-profile-cover-input'
+                    )
+                    ?.click();
+            }
+        );
+
+    document
+        .getElementById(
+            'yh-dashboard-profile-avatar-menu-toggle'
+        )
+        ?.addEventListener(
+            'click',
+            (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const menu =
+                    document.getElementById(
+                        'yh-dashboard-profile-avatar-menu'
+                    );
+
+                const willOpen =
+                    menu?.classList.contains(
+                        'hidden-step'
+                    ) === true;
+
+                closeDashboardProfileMediaMenus();
+
+                if (willOpen) {
+                    setDashboardProfileMediaMenuOpen(
+                        'avatar',
+                        true
+                    );
+                }
+            }
+        );
+
+    document
+        .getElementById(
+            'yh-dashboard-profile-cover-menu-toggle'
+        )
+        ?.addEventListener(
+            'click',
+            (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const menu =
+                    document.getElementById(
+                        'yh-dashboard-profile-cover-menu'
+                    );
+
+                const willOpen =
+                    menu?.classList.contains(
+                        'hidden-step'
+                    ) === true;
+
+                closeDashboardProfileMediaMenus();
+
+                if (willOpen) {
+                    setDashboardProfileMediaMenuOpen(
+                        'cover',
+                        true
+                    );
+                }
+            }
+        );
+
+    document
+        .getElementById(
+            'yh-dashboard-profile-avatar-menu-change'
+        )
+        ?.addEventListener(
+            'click',
+            (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                setDashboardProfileMediaMenuOpen(
+                    'avatar',
+                    false
+                );
+
+                document
+                    .getElementById(
+                        'yh-dashboard-profile-avatar-input'
+                    )
+                    ?.click();
+            }
+        );
+
+    document
+        .getElementById(
+            'yh-dashboard-profile-cover-menu-change'
+        )
+        ?.addEventListener(
+            'click',
+            (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                setDashboardProfileMediaMenuOpen(
+                    'cover',
+                    false
+                );
+
+                document
+                    .getElementById(
+                        'yh-dashboard-profile-cover-input'
+                    )
+                    ?.click();
+            }
+        );
+
+    document.addEventListener(
+        'click',
+        (event) => {
+            if (
+                event.target?.closest?.(
+                    '.yh-dashboard-profile-media-menu-wrap'
+                )
+            ) {
+                return;
+            }
+
+            closeDashboardProfileMediaMenus();
+        }
+    );
 
     document.getElementById('yh-dashboard-profile-avatar-input')?.addEventListener('change', (event) => {
         const file = event.target?.files?.[0] || null;
@@ -41743,10 +42720,11 @@ function openFederationLockedView(snapshot = null) {
     setDashboardViewMode('hub');
     persistDashboardShellView('hub', 'federation');
 
-    activateDashboardUnifiedWorkspace('federation-command', {
+    activateDashboardUnifiedWorkspace('federation', {
         animate: false,
         scroll: true,
-        persist: true
+        persist: true,
+        federationAccessVerified: true
     });
 
     syncFederationEntryButton();
@@ -42366,23 +43344,20 @@ async function handleAcademyLaunchClick(event) {
         syncAcademyEntryButton(membershipSnapshot);
 
         if (membershipStatus === 'approved') {
-            const hasRoadmapAccess = membershipSnapshot?.hasRoadmapAccess === true;
-
             if (!hasSeenAcademyCommunityApprovalToast(membershipSnapshot)) {
                 showToast(
-                    hasRoadmapAccess
-                        ? 'Academy membership approved. Opening Roadmap.'
-                        : 'Academy membership approved. Opening Community Feed.',
+                    'Academy membership approved.',
                     'success'
                 );
                 markAcademyCommunityApprovalToastSeen(membershipSnapshot);
             }
 
-            showAcademyTabLoader('Entering Academy...');
-            shouldReleaseLoader = false;
+            activateDashboardUnifiedWorkspace('academy', {
+                animate: false,
+                scroll: true,
+                persist: true
+            });
 
-            // default on entry: roadmap if unlocked, otherwise community
-            enterAcademyWorld('home');
             return false;
         }
 

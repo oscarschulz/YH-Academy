@@ -1331,11 +1331,22 @@ async function getRoadmapById(uid, roadmapId) {
 
 async function getActiveRoadmap(uid) {
     const rows = await getRows('academyRoadmaps', uid, { limit: 100 });
-    const mapped = rows.map((row) => mapRoadmapData(rowData(row), row.source_document_id));
+    const mapped = rows.map((row) =>
+        mapRoadmapData(
+            rowData(row),
+            row.source_document_id
+        )
+    );
 
-    return mapped.find((item) => sanitizeString(item.status || 'active').toLowerCase() === 'active')
-        || mapped[0]
-        || null;
+    return (
+        mapped.find(
+            (item) =>
+                sanitizeString(
+                    item.status || 'active'
+                ).toLowerCase() === 'active'
+        ) ||
+        null
+    );
 }
 
 async function listAllMissionsByRoadmap(uid, roadmapId) {
@@ -1783,20 +1794,51 @@ async function createCheckin(uid, roadmapId, payload = {}) {
 }
 
 async function getRecentCheckinStreakDays(uid) {
-    const activeRoadmap = await getActiveRoadmap(uid);
-    if (!activeRoadmap) return 0;
+    const rows =
+        await getRows(
+            'academyCheckins',
+            uid,
+            {
+                limit: 500
+            }
+        ).catch(() => []);
 
-    const checkins = await listRecentCheckins(uid, activeRoadmap.id, 60);
-    const dates = new Set(checkins.map((item) => sanitizeString(item.checkinDate)).filter(Boolean));
+    const checkins =
+        rows.map((row) =>
+            mapCheckinData(
+                rowData(row),
+                row.source_document_id
+            )
+        );
+
+    const dates =
+        new Set(
+            checkins
+                .map((item) =>
+                    sanitizeString(
+                        item.checkinDate
+                    )
+                )
+                .filter(Boolean)
+        );
 
     let streak = 0;
     const cursor = new Date();
 
     for (let i = 0; i < 60; i += 1) {
-        const key = cursor.toISOString().slice(0, 10);
-        if (!dates.has(key)) break;
+        const key =
+            cursor
+                .toISOString()
+                .slice(0, 10);
+
+        if (!dates.has(key)) {
+            break;
+        }
+
         streak += 1;
-        cursor.setDate(cursor.getDate() - 1);
+        cursor.setDate(
+            cursor.getDate() - 1
+        );
     }
 
     return streak;
@@ -3511,57 +3553,400 @@ async function repairRoadmapMissionBundleV1(
 
 /* END PATCH: Academy Roadmap bundle integrity repair v1 */
 
-async function persistRoadmapBundle(uid, profile = {}, plan = {}) {
+async function persistRoadmapBundle(
+    uid,
+    profile = {},
+    plan = {}
+) {
     const now = nowIso();
-    const roadmapId = sanitizeString(plan.id || plan.roadmapId || `roadmap_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`);
-    const active = await getActiveRoadmap(uid).catch(() => null);
-    const nextVersion = toNumber(active?.version, 0) + 1 || 1;
 
+    const roadmapId =
+        sanitizeString(
+            plan.id ||
+            plan.roadmapId ||
+            (
+                `roadmap_${Date.now()}_` +
+                crypto
+                    .randomBytes(3)
+                    .toString('hex')
+            )
+        );
+
+    /*
+     * Load existing Roadmaps before writing the
+     * new bundle so we can preserve Roadmap history
+     * and maintain exactly one canonical active Roadmap.
+     */
+    const roadmapRows =
+        await getRows(
+            'academyRoadmaps',
+            uid,
+            {
+                limit: 100
+            }
+        ).catch(() => []);
+
+    const roadmapEntries =
+        roadmapRows.map((row) => {
+            const data =
+                rowData(row);
+
+            return {
+                row,
+                data,
+                roadmap:
+                    mapRoadmapData(
+                        data,
+                        row.source_document_id
+                    )
+            };
+        });
+
+    const activeEntries =
+        roadmapEntries.filter(
+            ({ roadmap }) =>
+                sanitizeString(
+                    roadmap.status ||
+                    ''
+                ).toLowerCase() ===
+                'active'
+        );
+
+    const currentActive =
+        activeEntries[0]
+            ?.roadmap ||
+        null;
+
+    const existingTarget =
+        roadmapEntries.find(
+            ({ roadmap }) =>
+                sanitizeString(
+                    roadmap.id
+                ) ===
+                roadmapId
+        ) ||
+        null;
+
+    const highestVersion =
+        roadmapEntries.reduce(
+            (highest, entry) =>
+                Math.max(
+                    highest,
+                    toNumber(
+                        entry
+                            ?.roadmap
+                            ?.version,
+                        0
+                    )
+                ),
+            0
+        );
+
+    const isSameRoadmap =
+        sanitizeString(
+            currentActive?.id
+        ) ===
+        roadmapId;
+
+    const nextVersion =
+        Math.max(
+            1,
+            isSameRoadmap
+                ? (
+                    toNumber(
+                        currentActive?.version,
+                        0
+                    ) + 1
+                )
+                : (
+                    highestVersion + 1
+                )
+        );
+
+    const hasDifferentActiveRoadmap =
+        activeEntries.some(
+            ({ roadmap }) => {
+                const activeId =
+                    sanitizeString(
+                        roadmap?.id
+                    );
+
+                return (
+                    activeId &&
+                    activeId !==
+                        roadmapId
+                );
+            }
+        );
+
+    /*
+     * When this is a true new cycle, keep the
+     * previous Roadmap active while the new missions
+     * are still being persisted.
+     */
     const roadmapPayload = {
         id: roadmapId,
         version: nextVersion,
-        status: 'active',
-        readinessScore: toNumber(plan.readinessScore, 0),
-        focusAreas: Array.isArray(plan.focusAreas) ? plan.focusAreas : [],
-        summary: plan.summary && typeof plan.summary === 'object' ? plan.summary : {},
-        roadmap: plan.roadmap && typeof plan.roadmap === 'object' ? plan.roadmap : {},
-        plannerRunId: sanitizeString(plan.plannerRunId),
-        adaptivePlanning: plan.adaptivePlanning && typeof plan.adaptivePlanning === 'object' ? plan.adaptivePlanning : {},
-        nurtureTelemetry: plan.nurtureTelemetry && typeof plan.nurtureTelemetry === 'object' ? plan.nurtureTelemetry : {},
-        createdByModel: sanitizeString(plan.createdByModel || 'academy-rule-engine-v1'),
-        createdAt: now,
-        updatedAt: now
+
+        status:
+            hasDifferentActiveRoadmap
+                ? 'building'
+                : 'active',
+
+        readinessScore:
+            toNumber(
+                plan.readinessScore,
+                0
+            ),
+
+        focusAreas:
+            Array.isArray(
+                plan.focusAreas
+            )
+                ? plan.focusAreas
+                : [],
+
+        summary:
+            plan.summary &&
+            typeof plan.summary ===
+                'object'
+                ? plan.summary
+                : {},
+
+        roadmap:
+            plan.roadmap &&
+            typeof plan.roadmap ===
+                'object'
+                ? plan.roadmap
+                : {},
+
+        plannerRunId:
+            sanitizeString(
+                plan.plannerRunId
+            ),
+
+        adaptivePlanning:
+            plan.adaptivePlanning &&
+            typeof plan.adaptivePlanning ===
+                'object'
+                ? plan.adaptivePlanning
+                : {},
+
+        nurtureTelemetry:
+            plan.nurtureTelemetry &&
+            typeof plan.nurtureTelemetry ===
+                'object'
+                ? plan.nurtureTelemetry
+                : {},
+
+        createdByModel:
+            sanitizeString(
+                plan.createdByModel ||
+                'academy-rule-engine-v1'
+            ),
+
+        createdAt:
+            existingTarget
+                ?.data
+                ?.createdAt ||
+            now,
+
+        updatedAt:
+            now
     };
 
-    await upsertRecord('academyRoadmaps', uid, roadmapId, roadmapPayload, {
+    await upsertRecord(
+        'academyRoadmaps',
+        uid,
         roadmapId,
-        status: 'active'
-    });
-
-    const missions = extractRoadmapStepsForPersistence(plan);
-    for (let index = 0; index < missions.length; index += 1) {
-        const mission = missions[index] || {};
-        const missionId = sanitizeString(mission.id || `mission_${Date.now()}_${index}_${crypto.randomBytes(2).toString('hex')}`);
-
-        await upsertRecord('academyMissions', uid, missionId, {
-            ...mission,
-            id: missionId,
+        roadmapPayload,
+        {
             roadmapId,
-            status: sanitizeString(mission.status || 'pending'),
-            sortOrder: toNumber(mission.sortOrder, index + 1),
-            createdAt: now,
-            updatedAt: now
-        }, {
-            roadmapId,
-            status: sanitizeString(mission.status || 'pending')
-        });
+            status:
+                roadmapPayload.status
+        }
+    );
+
+    /*
+     * Persist the complete mission bundle before
+     * promoting a new Roadmap cycle to active.
+     */
+    const missions =
+        extractRoadmapStepsForPersistence(
+            plan
+        );
+
+    for (
+        let index = 0;
+        index < missions.length;
+        index += 1
+    ) {
+        const mission =
+            missions[index] ||
+            {};
+
+        const missionId =
+            sanitizeString(
+                mission.id ||
+                (
+                    `mission_${Date.now()}_` +
+                    `${index}_` +
+                    crypto
+                        .randomBytes(2)
+                        .toString('hex')
+                )
+            );
+
+        await upsertRecord(
+            'academyMissions',
+            uid,
+            missionId,
+            {
+                ...mission,
+
+                id:
+                    missionId,
+
+                roadmapId,
+
+                status:
+                    sanitizeString(
+                        mission.status ||
+                        'pending'
+                    ),
+
+                sortOrder:
+                    toNumber(
+                        mission.sortOrder,
+                        index + 1
+                    ),
+
+                createdAt:
+                    mission.createdAt ||
+                    now,
+
+                updatedAt:
+                    now
+            },
+            {
+                roadmapId,
+
+                status:
+                    sanitizeString(
+                        mission.status ||
+                        'pending'
+                    )
+            }
+        );
     }
 
-    await setAccessUnlocked(uid);
+    /*
+     * Mission persistence succeeded.
+     * The new Roadmap can now become canonical.
+     */
+    if (
+        hasDifferentActiveRoadmap
+    ) {
+        await upsertRecord(
+            'academyRoadmaps',
+            uid,
+            roadmapId,
+            {
+                ...roadmapPayload,
+                status:
+                    'active',
+                activatedAt:
+                    now,
+                updatedAt:
+                    now
+            },
+            {
+                roadmapId,
+                status:
+                    'active'
+            }
+        );
+    }
+
+    /*
+     * Archive previous active Roadmaps without
+     * deleting their missions, check-ins, XP,
+     * planner history, or other historical records.
+     */
+    for (
+        const entry of activeEntries
+    ) {
+        const previousRoadmapId =
+            sanitizeString(
+                entry
+                    ?.roadmap
+                    ?.id
+            );
+
+        if (
+            !previousRoadmapId ||
+            previousRoadmapId ===
+                roadmapId
+        ) {
+            continue;
+        }
+
+        try {
+            await upsertRecord(
+                'academyRoadmaps',
+                uid,
+                previousRoadmapId,
+                {
+                    ...entry.data,
+
+                    id:
+                        previousRoadmapId,
+
+                    status:
+                        'archived',
+
+                    archivedAt:
+                        now,
+
+                    archivedReason:
+                        'superseded_by_new_roadmap_cycle',
+
+                    successorRoadmapId:
+                        roadmapId,
+
+                    updatedAt:
+                        now
+                },
+                {
+                    roadmapId:
+                        previousRoadmapId,
+
+                    status:
+                        'archived'
+                }
+            );
+        } catch (archiveError) {
+            /*
+             * The new Roadmap is already valid and active.
+             * Do not destroy the completed generation
+             * because historical cleanup failed.
+             */
+            console.warn(
+                'Previous Academy Roadmap archive skipped:',
+                archiveError?.message ||
+                archiveError
+            );
+        }
+    }
+
+    await setAccessUnlocked(
+        uid
+    );
 
     return {
         roadmapId,
-        version: nextVersion
+        version:
+            nextVersion
     };
 }
 

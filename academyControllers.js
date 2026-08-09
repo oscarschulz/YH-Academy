@@ -10996,10 +10996,27 @@ exports.submitRoadmapApplication = async (req, res) => {
                 ).toLowerCase()
             );
 
+        const startNewRoadmapCycle =
+            req.body?.startNewRoadmapCycle === true ||
+            ['true', '1', 'yes'].includes(
+                sanitize(
+                    req.body
+                        ?.startNewRoadmapCycle ||
+                    ''
+                ).toLowerCase()
+            );
+
         let forcedRoadmapReuseId =
             '';
 
-        if (forceRoadmapRebuild) {
+        /*
+         * Explicit rebuild = repair the SAME Roadmap.
+         * Change Main Focus = create a NEW Roadmap ID.
+         */
+        if (
+            forceRoadmapRebuild &&
+            !startNewRoadmapCycle
+        ) {
             const currentRoadmap =
                 await academyFirestoreRepo
                     .getActiveRoadmap(uid)
@@ -11016,7 +11033,8 @@ exports.submitRoadmapApplication = async (req, res) => {
 
         if (
             existingRoadmapApplication &&
-            !forceRoadmapRebuild
+            !forceRoadmapRebuild &&
+            !startNewRoadmapCycle
         ) {
             const existingStatus = sanitize(existingRoadmapApplication.status || existingRoadmapApplication.reviewStatus || '').toLowerCase();
 
@@ -11386,18 +11404,31 @@ exports.submitRoadmapApplication = async (req, res) => {
             )
         };
 
-        const plannerResult = await generateAndPersistPlanFirestore(uid, mergedProfile, {
-            mode:
-                forceRoadmapRebuild
-                    ? 'roadmap_explicit_rebuild'
-                    : 'roadmap_application_auto_unlock',
-            trigger:
-                forceRoadmapRebuild
-                    ? 'roadmap_explicit_rebuild'
-                    : 'roadmap_application',
-            reuseRoadmapId:
-                forcedRoadmapReuseId
-        });
+        const plannerResult =
+            await generateAndPersistPlanFirestore(
+                uid,
+                mergedProfile,
+                {
+                    mode:
+                        startNewRoadmapCycle
+                            ? 'roadmap_focus_change'
+                            : forceRoadmapRebuild
+                                ? 'roadmap_explicit_rebuild'
+                                : 'roadmap_application_auto_unlock',
+
+                    trigger:
+                        startNewRoadmapCycle
+                            ? 'roadmap_focus_change'
+                            : forceRoadmapRebuild
+                                ? 'roadmap_explicit_rebuild'
+                                : 'roadmap_application',
+
+                    reuseRoadmapId:
+                        startNewRoadmapCycle
+                            ? ''
+                            : forcedRoadmapReuseId
+                }
+            );
 
         const roadmapHomePayload = chooseRoadmapHomePayload(
             plannerResult,

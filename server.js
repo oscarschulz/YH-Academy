@@ -6875,6 +6875,29 @@ const apiLimiter = rateLimit({
             if (path === '/federation/connect/my-requests') return true;
             if (path === '/federation/influence') return true;
 
+            // Normal authenticated Dashboard / Academy hydration reads.
+            // These are read-only UI state requests and must not consume
+            // the generic public API limiter bucket.
+            if (path === '/universe/profile') return true;
+            if (path === '/contacts') return true;
+            if (path === '/universe/referrals/me') return true;
+            if (path === '/universe/tutorials') return true;
+
+            if (path === '/academy/profile') return true;
+            if (path === '/academy/progression') return true;
+            if (path === '/academy/champions') return true;
+            if (path === '/academy/leaderboard') return true;
+            if (path === '/academy/squad') return true;
+            if (path === '/academy/squad/leaderboard') return true;
+            if (path === '/academy/squad/contributors') return true;
+            if (path === '/academy/squad/missions') return true;
+
+            if (path === '/plaza/application-status') return true;
+            if (path === '/plaza/reputation') return true;
+
+            if (path === '/realtime/notifications') return true;
+            if (path === '/member/system-notifications') return true;
+
             if (path === '/universe/collections' || path.startsWith('/universe/collections/')) return true;
         }
 
