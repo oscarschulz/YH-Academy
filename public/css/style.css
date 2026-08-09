@@ -15040,6 +15040,29 @@ body > #academy-search-results-panel:not(.hidden-step),
     display: none;
 }
 
+/*
+ * Dashboard own-profile modal:
+ * remove the entire action region so the social
+ * stats follow the identity hero immediately.
+ */
+body[data-yh-page="dashboard"]
+#academy-profile-view[data-profile-layout="self"]
+.academy-profile-hero-actions {
+    display: none !important;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view[data-profile-layout="self"]
+.academy-profile-hero-card {
+    min-height: 0 !important;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view[data-profile-layout="self"]
+.academy-profile-cover-body {
+    min-height: 0 !important;
+}
+
 #academy-profile-view .academy-profile-social-strip {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -21486,6 +21509,137 @@ body[data-yh-view="hub"] .desktop-user-strip-left {
     cursor: pointer;
 }
 
+/* Delete Account modal close button only */
+.yh-dashboard-delete-account-close,
+.yh-dashboard-change-password-close {
+    flex: 0 0 auto;
+
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    min-height: 36px;
+
+    padding: 0;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 999px;
+
+    border: 1px solid rgba(248, 113, 113, 0.24);
+
+    background:
+        radial-gradient(
+            circle at 35% 25%,
+            rgba(255, 255, 255, 0.08),
+            transparent 45%
+        ),
+        rgba(127, 29, 29, 0.12);
+
+    color: #fca5a5;
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 6px 18px rgba(0, 0, 0, 0.22);
+
+    cursor: pointer;
+
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        background 0.18s ease,
+        color 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.yh-dashboard-delete-account-close svg,
+.yh-dashboard-change-password-close svg {
+    width: 17px;
+    height: 17px;
+
+    display: block;
+
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.yh-dashboard-delete-account-close:hover,
+.yh-dashboard-change-password-close:hover {
+    transform: translateY(-1px) scale(1.04);
+
+    border-color: rgba(248, 113, 113, 0.58);
+
+    background:
+        radial-gradient(
+            circle at 35% 25%,
+            rgba(255, 255, 255, 0.1),
+            transparent 45%
+        ),
+        rgba(185, 28, 28, 0.22);
+
+    color: #fecaca;
+
+    box-shadow:
+        0 0 0 3px rgba(239, 68, 68, 0.06),
+        0 8px 22px rgba(127, 29, 29, 0.28);
+}
+
+.yh-dashboard-delete-account-close:active,
+.yh-dashboard-change-password-close:active {
+    transform: scale(0.94);
+}
+
+.yh-dashboard-delete-account-close:focus-visible,
+.yh-dashboard-change-password-close:focus-visible {
+    outline: none;
+
+    box-shadow:
+        0 0 0 3px rgba(248, 113, 113, 0.16),
+        0 8px 22px rgba(127, 29, 29, 0.24);
+}
+.yh-dashboard-change-password-close {
+    border-color: rgba(56, 189, 248, 0.28);
+
+    background:
+        radial-gradient(
+            circle at 35% 25%,
+            rgba(255, 255, 255, 0.08),
+            transparent 45%
+        ),
+        rgba(14, 165, 233, 0.1);
+
+    color: #7dd3fc;
+}
+
+.yh-dashboard-change-password-close:hover {
+    border-color: rgba(56, 189, 248, 0.62);
+
+    background:
+        radial-gradient(
+            circle at 35% 25%,
+            rgba(255, 255, 255, 0.1),
+            transparent 45%
+        ),
+        rgba(14, 165, 233, 0.2);
+
+    color: #dff7ff;
+
+    box-shadow:
+        0 0 0 3px rgba(56, 189, 248, 0.07),
+        0 8px 22px rgba(2, 132, 199, 0.22);
+}
+
+.yh-dashboard-change-password-close:focus-visible {
+    outline: none;
+
+    box-shadow:
+        0 0 0 3px rgba(56, 189, 248, 0.16),
+        0 8px 22px rgba(2, 132, 199, 0.2);
+}
+
 .yh-dashboard-profile-modal-body {
     display: grid;
     gap: 16px;
@@ -22271,6 +22425,21 @@ body.yh-dashboard-my-contacts-open {
 .yh-profile-danger-action:hover {
     background: rgba(239, 68, 68, 0.18) !important;
     color: #fff !important;
+}
+
+.yh-dashboard-settings-danger-card {
+    border-color: rgba(239, 68, 68, 0.22);
+    background:
+        linear-gradient(
+            180deg,
+            rgba(127, 29, 29, 0.07),
+            rgba(15, 23, 42, 0.28)
+        );
+}
+
+.yh-dashboard-settings-danger-card
+.yh-dashboard-settings-subscription-title-row strong {
+    color: #fecaca;
 }
 
 .yh-dashboard-danger-warning {
@@ -27868,27 +28037,63 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
     position: fixed;
     inset: 0;
     z-index: 16050;
+
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+
+    width: 100%;
+    min-height: 100dvh;
+
     padding: 24px;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+
     background:
-        radial-gradient(circle at center, rgba(56, 189, 248, 0.08), transparent 36%),
+        radial-gradient(
+            circle at center,
+            rgba(56, 189, 248, 0.08),
+            transparent 36%
+        ),
         rgba(2, 6, 23, 0.72);
+
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
 }
 
 .yh-dashboard-settings-badge-payment-card {
     width: min(94vw, 560px);
-    max-height: min(86vh, 760px);
+
+    height: auto;
+    min-height: 0;
+    max-height: none;
+
+    flex: 0 0 auto;
+
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+
+    margin: auto 0;
+
+    overflow: visible;
+
     border-radius: 24px;
-    border: 1px solid rgba(56, 189, 248, 0.32);
+
+    border:
+        1px solid
+        rgba(56, 189, 248, 0.32);
+
     background:
-        linear-gradient(180deg, rgba(10, 22, 39, 0.28), rgba(5, 10, 24, 0.28));
+        linear-gradient(
+            180deg,
+            rgba(10, 22, 39, 0.28),
+            rgba(5, 10, 24, 0.28)
+        );
+
     box-shadow:
         0 28px 90px rgba(0, 0, 0, 0.52),
         0 0 36px rgba(14, 165, 233, 0.14);
@@ -27979,9 +28184,17 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
 }
 
 .yh-dashboard-settings-badge-payment-body {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
+
+    width: 100%;
+    min-width: 0;
+
+    height: auto;
     min-height: 0;
-    overflow-y: auto;
+    max-height: none;
+
+    overflow: visible;
+
     padding: 18px 22px 20px;
 }
 
@@ -28149,18 +28362,53 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
 }
 
 .yh-dashboard-settings-badge-payment-actions {
+    position: static;
+
     flex: 0 0 auto;
+
+    width: 100%;
+    min-width: 0;
+
     display: grid;
     grid-template-columns: 0.8fr 1.2fr;
+
     gap: 10px;
+
     padding: 16px 22px 22px;
-    border-top: 1px solid rgba(148, 163, 184, 0.14);
-    background: rgba(2, 6, 23, 0.24);
+
+    border-top:
+        1px solid
+        rgba(148, 163, 184, 0.14);
+
+    background:
+        rgba(2, 6, 23, 0.24);
 }
 
 @media (max-width: 560px) {
     .yh-dashboard-settings-badge-payment-modal {
-        padding: 14px;
+        align-items: flex-start;
+
+        padding:
+            max(14px, env(safe-area-inset-top))
+            14px
+            max(20px, env(safe-area-inset-bottom));
+
+        overflow-x: hidden;
+        overflow-y: auto;
+
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .yh-dashboard-settings-badge-payment-card {
+        width: 100%;
+
+        height: auto;
+        min-height: 0;
+        max-height: none;
+
+        margin: 0;
+
+        overflow: visible;
     }
 
     .yh-dashboard-settings-badge-payment-head {

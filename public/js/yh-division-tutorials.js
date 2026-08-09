@@ -81,6 +81,48 @@
                 }
             ]
         },
+        wallet: {
+            version: 1,
+            label: 'Universal Wallet',
+            shortLabel: 'Wallet',
+            defaultWorkspace: 'wallet',
+            slides: [
+                {
+                    eyebrow: 'Wallet Flow 01',
+                    title: 'Payments come in',
+                    copy: 'Stripe, PayPal, OxaPay, or manual admin confirmation can create payment records.',
+                    image: '/assets/dashboard/wallet.png',
+                    features: [
+                        'Stripe / PayPal',
+                        'OxaPay',
+                        'Manual confirmation'
+                    ]
+                },
+                {
+                    eyebrow: 'Wallet Flow 02',
+                    title: 'Earnings become approved',
+                    copy: 'Approved commissions, mission payouts, and deal earnings appear in your Wallet balance.',
+                    image: '/assets/dashboard/wallet.png',
+                    features: [
+                        'Commissions',
+                        'Mission payouts',
+                        'Deal earnings'
+                    ]
+                },
+                {
+                    eyebrow: 'Wallet Flow 03',
+                    title: 'Request a withdrawal',
+                    copy: 'Submit payout details. Admin reviews, processes, and updates the payout status.',
+                    image: '/assets/dashboard/wallet.png',
+                    features: [
+                        'Payout details',
+                        'Admin review',
+                        'Status tracking'
+                    ]
+                }
+            ]
+        },
+
         federation: {
             version: 1,
             label: 'The Federation',
@@ -131,7 +173,15 @@
     function normalizeDivision(value = '') {
         const clean = String(value || '').trim().toLowerCase();
         if (clean === 'plaza' || clean === 'plazas') return 'plazas';
-        if (clean === 'academy' || clean === 'federation') return clean;
+
+        if (
+            clean === 'academy' ||
+            clean === 'federation' ||
+            clean === 'wallet'
+        ) {
+            return clean;
+        }
+
         return '';
     }
 
@@ -209,6 +259,13 @@
             },
 
             federation: {
+                completedVersion: 0,
+                completedAt: '',
+                completionMethod: '',
+                approvalToken: ''
+            },
+
+            wallet: {
                 completedVersion: 0,
                 completedAt: '',
                 completionMethod: '',
@@ -867,6 +924,16 @@ function currentWorkspaceBelongsToDivision(
     ) {
         const cleanDivision =
             normalizeDivision(division);
+
+        /*
+         * Wallet access itself is already inside the
+         * authenticated Dashboard. The canonical
+         * tutorial GET/PATCH endpoints remain auth
+         * protected on the server.
+         */
+        if (cleanDivision === 'wallet') {
+            return true;
+        }
 
         const endpoint =
             getDivisionAccessEndpoint(

@@ -8155,7 +8155,8 @@ async function getUniverseSafeDoc(collectionName = '', docId = '') {
 const YH_DIVISION_TUTORIAL_VERSIONS = Object.freeze({
     academy: 1,
     plazas: 1,
-    federation: 1
+    federation: 1,
+    wallet: 1
 });
 
 function normalizeYHDivisionTutorialKey(value = '') {
@@ -8170,7 +8171,8 @@ function normalizeYHDivisionTutorialKey(value = '') {
 
     if (
         clean === 'academy' ||
-        clean === 'federation'
+        clean === 'federation' ||
+        clean === 'wallet'
     ) {
         return clean;
     }
@@ -8245,6 +8247,24 @@ function getYHDivisionTutorialApprovalSnapshot(
             status: '',
             approvedAt: '',
             approvalToken: '',
+            application: null
+        };
+    }
+
+    /*
+     * Wallet is a universal authenticated utility,
+     * not an approval-gated YH division.
+     *
+     * Its tutorial belongs to the user account and
+     * therefore remains valid independently of any
+     * Academy, Plazas, or Federation approval cycle.
+     */
+    if (cleanDivision === 'wallet') {
+        return {
+            approved: true,
+            status: 'active',
+            approvedAt: '',
+            approvalToken: 'wallet:account',
             application: null
         };
     }
@@ -8477,6 +8497,11 @@ function buildYHDivisionTutorialState(
         federation:
             normalizeYHDivisionTutorialEntry(
                 source.federation
+            ),
+
+        wallet:
+            normalizeYHDivisionTutorialEntry(
+                source.wallet
             )
     };
 

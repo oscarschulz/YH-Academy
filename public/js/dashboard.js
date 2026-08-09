@@ -3902,6 +3902,68 @@ function openYHResourcesInline() {
 }
 /* END PATCH: Dashboard resources no wallet overlap v193 */
 
+/* PATCH: Universal Wallet one-time tutorial entry v1 */
+function scheduleYHWalletTutorialEntryV1(attempt = 0) {
+    window.clearTimeout(
+        window.__yhWalletTutorialEntryTimerV1
+    );
+
+    window.__yhWalletTutorialEntryTimerV1 =
+        window.setTimeout(() => {
+            const currentWorkspace =
+                String(
+                    document.body?.getAttribute(
+                        'data-yh-unified-workspace'
+                    ) || ''
+                )
+                    .trim()
+                    .toLowerCase();
+
+            /*
+             * Never open the tutorial after the user
+             * has already navigated away from Wallet.
+             */
+            if (currentWorkspace !== 'wallet') {
+                return;
+            }
+
+            const tutorialController =
+                window.YHDivisionTutorials;
+
+            if (
+                tutorialController &&
+                typeof tutorialController.open ===
+                    'function'
+            ) {
+                void tutorialController.open(
+                    'wallet',
+                    {
+                        /*
+                         * Refresh server state so completion
+                         * on another device is respected.
+                         */
+                        refresh: true
+                    }
+                );
+
+                return;
+            }
+
+            /*
+             * dashboard.js is loaded before the tutorial
+             * controller. Retry briefly during cold boot.
+             */
+            if (attempt < 8) {
+                scheduleYHWalletTutorialEntryV1(
+                    attempt + 1
+                );
+            }
+        }, attempt === 0 ? 100 : 160);
+
+    return true;
+}
+/* END PATCH: Universal Wallet one-time tutorial entry v1 */
+
 function mountYHWalletInlineView() {
     const card = document.getElementById('yh-universe-workspace-launch-card');
     const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
@@ -3951,6 +4013,15 @@ function mountYHWalletInlineView() {
         console.error('refreshYHWalletSnapshot inline error:', error);
         showToast(error?.message || 'Failed to load wallet.', 'error');
     });
+
+    /*
+     * First visit:
+     * server state = incomplete -> tutorial opens.
+     *
+     * Later visits:
+     * server state = completed -> open() exits silently.
+     */
+    scheduleYHWalletTutorialEntryV1();
 
     return true;
 }
@@ -7333,6 +7404,24 @@ function bootDashboardSettingsModal() {
 
     document
         .getElementById(
+            'yh-dashboard-settings-delete-account'
+        )
+        ?.addEventListener(
+            'click',
+            () => {
+                if (
+                    typeof window
+                        .openDashboardDeleteAccountModal ===
+                    'function'
+                ) {
+                    window
+                        .openDashboardDeleteAccountModal();
+                }
+            }
+        );
+
+    document
+        .getElementById(
             'yh-dashboard-change-password-close'
         )
         ?.addEventListener('click', () => {
@@ -10620,6 +10709,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initUniverseImageLightbox();
     renderYHEconomicSnapshot();
+
+    /*
+     * Expose the existing account-delete controller
+     * so Settings boot logic outside this callback
+     * can safely use the exact same delete flow.
+     */
+    window.openDashboardDeleteAccountModal =
+        openDashboardDeleteAccountModal;
+
     bootYHWalletPanel();
     bootYHUniverseReferralPanel();
     // --- UPDATED NAVIGATION & ROUTING LOGIC ---
@@ -32485,22 +32583,98 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     }
 
     if (profileCoverBand) {
-        const resolvedCoverPhoto = normalizeDashboardProfileAssetUrl(normalized.coverPhoto || '');
+        const selfProfileCache =
+            isSelf &&
+            typeof dashboardGetSelfProfileCache === 'function'
+                ? (dashboardGetSelfProfileCache() || {})
+                : {};
+
+        const topProfileCache =
+            isSelf &&
+            typeof dashboardGetTopProfileCache === 'function'
+                ? (dashboardGetTopProfileCache() || {})
+                : {};
+
+        const selfCoverFallback =
+            isSelf
+                ? String(
+                    selfProfileCache.cover_photo ||
+                    selfProfileCache.coverPhoto ||
+                    topProfileCache.cover_photo ||
+                    topProfileCache.coverPhoto ||
+                    localStorage.getItem('yh_user_cover_photo') ||
+                    ''
+                ).trim()
+                : '';
+
+        const resolvedCoverPhoto =
+            normalizeDashboardProfileAssetUrl(
+                normalized.coverPhoto ||
+                normalized.cover_photo ||
+                selfCoverFallback ||
+                ''
+            );
 
         if (resolvedCoverPhoto) {
-            profileCoverBand.style.backgroundImage = `linear-gradient(180deg, rgba(10, 22, 39, 0.12), rgba(10, 22, 39, 0.58)), url("${resolvedCoverPhoto}")`;
-            profileCoverBand.style.backgroundSize = '100% 100%';
-            profileCoverBand.style.backgroundPosition = 'center';
-            profileCoverBand.style.backgroundRepeat = 'no-repeat';
-            profileCoverBand.setAttribute('data-profile-image-preview', resolvedCoverPhoto);
-            profileCoverBand.setAttribute('data-profile-image-preview-type', 'cover photo');
+            profileCoverBand.style.backgroundImage =
+                `linear-gradient(
+                    180deg,
+                    rgba(10, 22, 39, 0.06),
+                    rgba(10, 22, 39, 0.38)
+                ),
+                url(${JSON.stringify(resolvedCoverPhoto)})`;
+
+            profileCoverBand.style.backgroundSize =
+                'cover';
+
+            profileCoverBand.style.backgroundPosition =
+                'center';
+
+            profileCoverBand.style.backgroundRepeat =
+                'no-repeat';
+
+            profileCoverBand.setAttribute(
+                'data-profile-image-preview',
+                resolvedCoverPhoto
+            );
+
+            profileCoverBand.setAttribute(
+                'data-profile-image-preview-type',
+                'cover photo'
+            );
+
+            profileCoverBand.setAttribute(
+                'data-has-profile-cover',
+                'true'
+            );
         } else {
-            profileCoverBand.style.backgroundImage = '';
-            profileCoverBand.style.backgroundSize = '';
-            profileCoverBand.style.backgroundPosition = '';
-            profileCoverBand.style.backgroundRepeat = '';
-            profileCoverBand.removeAttribute('data-profile-image-preview');
-            profileCoverBand.removeAttribute('data-profile-image-preview-type');
+            profileCoverBand.style.removeProperty(
+                'background-image'
+            );
+
+            profileCoverBand.style.removeProperty(
+                'background-size'
+            );
+
+            profileCoverBand.style.removeProperty(
+                'background-position'
+            );
+
+            profileCoverBand.style.removeProperty(
+                'background-repeat'
+            );
+
+            profileCoverBand.removeAttribute(
+                'data-profile-image-preview'
+            );
+
+            profileCoverBand.removeAttribute(
+                'data-profile-image-preview-type'
+            );
+
+            profileCoverBand.removeAttribute(
+                'data-has-profile-cover'
+            );
         }
     }
 
@@ -32522,30 +32696,43 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         `;
     }
 
-    const profileActionRow = document.querySelector('#academy-profile-view .academy-profile-action-row');
+    const profileActionRow =
+        document.querySelector(
+            '#academy-profile-view .academy-profile-action-row'
+        );
+
     if (profileActionRow) {
+        /*
+         * Remove badge CTAs that may have been created
+         * by an earlier self-profile render.
+         */
         profileActionRow
-            .querySelectorAll('[data-yh-dashboard-avail-badge], .yh-badge-avail-btn')
+            .querySelectorAll(
+                '[data-yh-dashboard-avail-badge], .yh-badge-avail-btn'
+            )
             .forEach((node) => node.remove());
 
+        /*
+         * Own profile:
+         * no YHA/YHF/Delete Account action row here.
+         *
+         * Visited profiles retain Follow / Friend /
+         * Message actions.
+         */
+        profileActionRow.classList.toggle(
+            'hidden-step',
+            isSelf
+        );
+
         if (isSelf) {
-            const badgeButtonsHtml = [
-                dashboardRenderVerifiedBadgeAvailButton(normalized, 'academy'),
-                dashboardRenderVerifiedBadgeAvailButton(normalized, 'federation')
-            ].filter(Boolean).join('');
-
-            if (badgeButtonsHtml) {
-                const deleteActionAnchor =
-                    secondaryAction && secondaryAction.parentElement === profileActionRow
-                        ? secondaryAction
-                        : null;
-
-                if (deleteActionAnchor) {
-                    deleteActionAnchor.insertAdjacentHTML('beforebegin', badgeButtonsHtml);
-                } else {
-                    profileActionRow.insertAdjacentHTML('beforeend', badgeButtonsHtml);
-                }
-            }
+            profileActionRow.setAttribute(
+                'aria-hidden',
+                'true'
+            );
+        } else {
+            profileActionRow.removeAttribute(
+                'aria-hidden'
+            );
         }
     }
 
@@ -35388,7 +35575,20 @@ function ensureDashboardDeleteAccountModal() {
                     <p>This will disable your login account and remove your public profile identity from active use.</p>
                 </div>
 
-                <button type="button" class="yh-dashboard-profile-modal-close" data-dashboard-delete-account-close aria-label="Close">✕</button>
+                <button
+    type="button"
+    class="yh-dashboard-profile-modal-close yh-dashboard-delete-account-close"
+    data-dashboard-delete-account-close
+    aria-label="Close delete account modal"
+>
+    <svg
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        focusable="false"
+    >
+        <path d="M7 7L17 17M17 7L7 17"></path>
+    </svg>
+</button>
             </div>
 
             <div class="yh-dashboard-profile-modal-body hide-scrollbar">
@@ -45007,12 +45207,42 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-hero-card {
     overflow: hidden !important;
 }
 
-body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-band,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-band {
+    width: 100% !important;
+
+    height: clamp(
+        112px,
+        12vw,
+        160px
+    ) !important;
+
+    min-height: 0 !important;
+    aspect-ratio: auto !important;
+
+    opacity: 1 !important;
+
+    border-bottom:
+        1px solid
+        rgba(125, 211, 252, 0.18) !important;
+
+    background-color:
+        rgba(7, 17, 31, 0.72) !important;
+
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+}
+
 body[data-yh-page="academy"] #academy-profile-view .academy-profile-cover-band {
     min-height: 155px !important;
     opacity: 0.95 !important;
-    border-bottom: 1px solid rgba(125, 211, 252, 0.18) !important;
-    background-color: rgba(7, 17, 31, 0.72) !important;
+
+    border-bottom:
+        1px solid
+        rgba(125, 211, 252, 0.18) !important;
+
+    background-color:
+        rgba(7, 17, 31, 0.72) !important;
 }
 
 body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-body,
@@ -45299,6 +45529,21 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-empty-state 
     body[data-yh-page="dashboard"] #academy-profile-view .chat-messages,
     body[data-yh-page="academy"] #academy-profile-view .chat-messages {
         padding: 12px !important;
+    }
+
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-band {
+        height: clamp(
+            88px,
+            23vw,
+            112px
+        ) !important;
+
+        min-height: 0 !important;
+        aspect-ratio: auto !important;
+
+        background-size: cover !important;
+        background-position: center !important;
+        background-repeat: no-repeat !important;
     }
 
     body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-body,
