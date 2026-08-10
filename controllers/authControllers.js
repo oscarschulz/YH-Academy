@@ -552,7 +552,9 @@ async function generateUniqueUsername(fullName, preferredUsername = '') {
     return `${base}${Date.now().toString().slice(-6)}`;
 }
 
-const AUTH_SESSION_EXPIRES_IN = process.env.AUTH_SESSION_EXPIRES_IN || '3650d';
+const AUTH_SESSION_EXPIRES_IN =
+    process.env.AUTH_SESSION_EXPIRES_IN ||
+    '30d';
 
 function isCompactProfileAsset(value = '') {
     const clean = String(value || '').trim();
@@ -659,7 +661,12 @@ function publicUser(user) {
 }
 
 const AUTH_COOKIE_NAME = 'yh_auth_token';
-const AUTH_COOKIE_MAX_AGE_MS = Number(process.env.AUTH_COOKIE_MAX_AGE_MS || (3650 * 24 * 60 * 60 * 1000));
+
+const AUTH_COOKIE_MAX_AGE_MS =
+    Number(
+        process.env.AUTH_COOKIE_MAX_AGE_MS ||
+        (30 * 24 * 60 * 60 * 1000)
+    );
 
 function setAuthCookie(res, token) {
     const isSecure =

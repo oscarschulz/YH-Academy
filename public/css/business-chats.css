@@ -291,20 +291,45 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 }
 
 .bc-start-panel form {
+  width: 100%;
+  min-width: 0;
+
   padding: 18px;
+
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-flow: row;
+
   gap: 12px;
 }
 
 .bc-form-row {
+  width: 100%;
+  min-width: 0;
+
+  grid-column: 1 / -1;
+
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+
   gap: 7px;
 }
 
+/*
+ * Backward-compatible guard:
+ * even if an older cached Business Chats document still
+ * contains .bc-form-grid, its fields must stack vertically.
+ */
 .bc-form-grid {
+  width: 100%;
+  min-width: 0;
+
+  grid-column: 1 / -1;
+
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(172px, 0.9fr);
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+
+  gap: 12px;
 }
 
 .bc-start-panel input,
@@ -315,10 +340,19 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 .bc-inline-dialog-field textarea {
   position: relative;
   z-index: 1;
+
+  display: block;
+
   width: 100%;
   min-width: 0;
+  max-width: 100%;
+
+  justify-self: stretch;
+
   outline: none;
+
   pointer-events: auto;
+
   user-select: text;
   -webkit-user-select: text;
 }
@@ -620,11 +654,6 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 
   .bc-form-row {
     gap: 9px;
-  }
-
-  .bc-form-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.9fr);
-    gap: 16px;
   }
 
   #bcMemberSearch,

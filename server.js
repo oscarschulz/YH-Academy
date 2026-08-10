@@ -2091,7 +2091,23 @@ function getSocketToken(socket) {
 }
 
 function normalizeServerAuthStatus(value = '') {
-    return sanitizeText(value).toLowerCase().replace(/\s+/g, '_');
+    return sanitizeText(value)
+        .toLowerCase()
+        .replace(/\s+/g, '_');
+}
+
+function normalizeServerAuthSessionVersion(
+    value
+) {
+    const parsed =
+        Number(value);
+
+    return Number.isFinite(parsed)
+        ? Math.max(
+            0,
+            Math.trunc(parsed)
+        )
+        : 0;
 }
 
 function isDeletedServerAccountRecord(userData = {}) {
@@ -2139,9 +2155,39 @@ async function resolveActiveServerAuthUserFromToken(token = '') {
             return null;
         }
 
-        const userData = userSnapshot.data() || {};
+        const userData =
+            userSnapshot.data() || {};
 
-        if (isDeletedServerAccountRecord(userData)) {
+        if (
+            isDeletedServerAccountRecord(
+                userData
+            )
+        ) {
+            return null;
+        }
+
+        /*
+         * Keep direct-server routes and Socket.IO
+         * aligned with middlewares/auth.js.
+         *
+         * A password change increments the stored
+         * authSessionVersion, immediately invalidating
+         * every previously-issued token.
+         */
+        const tokenAuthSessionVersion =
+            normalizeServerAuthSessionVersion(
+                verified?.authSessionVersion
+            );
+
+        const userAuthSessionVersion =
+            normalizeServerAuthSessionVersion(
+                userData.authSessionVersion
+            );
+
+        if (
+            tokenAuthSessionVersion !==
+            userAuthSessionVersion
+        ) {
             return null;
         }
 

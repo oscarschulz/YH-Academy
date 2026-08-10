@@ -23686,12 +23686,16 @@ body[data-yh-view="academy"] #academy-feed-view {
         border-radius: 22px;
     }
 
-    .yh-dashboard-profile-avatar-editor-row
-    > .yh-dashboard-profile-media-btn {
-        grid-column: 1 / -1;
+.yh-dashboard-profile-avatar-editor-row
+> .yh-dashboard-profile-media-btn {
+    grid-column: 1 / -1;
 
-        width: 100%;
-    }
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    white-space: normal;
+}
 
     .yh-dashboard-profile-cover-preview {
         min-height: 0;

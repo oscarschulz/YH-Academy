@@ -13873,7 +13873,7 @@ const dashboardUnifiedWorkspaceLaunchMap = {
         kicker: 'Business Chats',
         copy: 'Open the real Business Chats page inside the Dashboard command layer.',
         routeLabel: '/business-chats.html',
-        url: '/business-chats.html',
+        url: '/business-chats.html?v=20260810-form-stack-v4',
         resourceType: 'business-chats',
         buttonText: 'Open Business Chats →',
         loadingLabel: 'Opening Business Chats...'
@@ -19678,6 +19678,39 @@ body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-shell {
 }
 
 /*
+ * Business Chats form layout authority.
+ * Every field occupies its own full row.
+ */
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] #bcSearchForm,
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] #bcSearchForm {
+    width: 100% !important;
+    min-width: 0 !important;
+
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-auto-flow: row !important;
+}
+
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] #bcSearchForm > .bc-form-row,
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] #bcSearchForm > .bc-form-row {
+    width: 100% !important;
+    min-width: 0 !important;
+
+    grid-column: 1 / -1 !important;
+}
+
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] #bcMemberSearch,
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] #bcMemberSearch,
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-mobile-select-shell,
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-mobile-select-shell,
+body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] #bcOpeningMessage,
+body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] #bcOpeningMessage {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+
+/*
  * Dashboard already provides its own Business Chats title,
  * profile control and navigation, so don't duplicate them
  * inside the embedded page.
@@ -20199,6 +20232,8 @@ const supportsScrollHide =
             'wallet' ||
         workspaceKey ===
             'business-chats' ||
+        workspaceKey ===
+            'edit-profile' ||
         workspaceKey.startsWith(
             'academy-'
         ) ||
@@ -20292,19 +20327,10 @@ const supportsScrollHide =
         null;
 
     let wasWalletWorkspace =
-        String(
-            document.body
-                ?.getAttribute(
-                    'data-yh-unified-workspace'
-                ) || ''
-        )
-            .trim()
-            .toLowerCase() ===
-        'wallet';
-
-
-    const isWalletWorkspace = () => {
-        return (
+        [
+            'wallet',
+            'edit-profile'
+        ].includes(
             String(
                 document.body
                     ?.getAttribute(
@@ -20312,8 +20338,24 @@ const supportsScrollHide =
                     ) || ''
             )
                 .trim()
-                .toLowerCase() ===
-            'wallet'
+                .toLowerCase()
+        );
+
+
+    const isWalletWorkspace = () => {
+        const workspaceKey =
+            String(
+                document.body
+                    ?.getAttribute(
+                        'data-yh-unified-workspace'
+                    ) || ''
+            )
+                .trim()
+                .toLowerCase();
+
+        return (
+            workspaceKey === 'wallet' ||
+            workspaceKey === 'edit-profile'
         );
     };
 
@@ -33391,14 +33433,6 @@ function syncDashboardProfileEditorMediaControl(
             ? 'cover'
             : 'avatar';
 
-    const resolvedUrl =
-        normalizeDashboardProfileAssetUrl(
-            previewUrl
-        );
-
-    const hasImage =
-        Boolean(resolvedUrl);
-
     const directButton =
         document.getElementById(
             `yh-dashboard-profile-${normalizedKind}-trigger`
@@ -33409,26 +33443,40 @@ function syncDashboardProfileEditorMediaControl(
             `yh-dashboard-profile-${normalizedKind}-menu-wrap`
         );
 
-    if (directButton) {
-        directButton.classList.toggle(
-            'hidden-step',
-            hasImage
+    /*
+     * COVER PHOTO
+     * Always use the 3-dots action menu.
+     * Never show the large direct button.
+     */
+    if (normalizedKind === 'cover') {
+        directButton?.classList.add(
+            'hidden-step'
         );
+
+        menuWrap?.classList.remove(
+            'hidden-step'
+        );
+
+        return;
     }
 
-    if (menuWrap) {
-        menuWrap.classList.toggle(
-            'hidden-step',
-            !hasImage
-        );
-    }
+    /*
+     * PROFILE PICTURE
+     * Always use the actual visible button.
+     * Never switch it to a 3-dots menu.
+     */
+    directButton?.classList.remove(
+        'hidden-step'
+    );
 
-    if (!hasImage) {
-        setDashboardProfileMediaMenuOpen(
-            normalizedKind,
-            false
-        );
-    }
+    menuWrap?.classList.add(
+        'hidden-step'
+    );
+
+    setDashboardProfileMediaMenuOpen(
+        'avatar',
+        false
+    );
 }
 
 function renderDashboardProfileEditorAvatarPreview(
@@ -34389,14 +34437,14 @@ function ensureDashboardUniverseProfileEditor() {
                     >
                         <button
                             type="button"
-                            class="btn-secondary yh-dashboard-profile-media-btn yh-dashboard-profile-cover-btn"
+                            class="btn-secondary yh-dashboard-profile-media-btn yh-dashboard-profile-cover-btn hidden-step"
                             id="yh-dashboard-profile-cover-trigger"
                         >
                             Change Cover Photo
                         </button>
 
                         <div
-                            class="yh-dashboard-profile-media-menu-wrap hidden-step"
+                            class="yh-dashboard-profile-media-menu-wrap"
                             id="yh-dashboard-profile-cover-menu-wrap"
                         >
                             <button
@@ -34432,34 +34480,6 @@ function ensureDashboardUniverseProfileEditor() {
                                 id="yh-dashboard-profile-avatar-preview"
                             >
                                 Y
-                            </div>
-
-                            <div
-                                class="yh-dashboard-profile-media-menu-wrap hidden-step"
-                                id="yh-dashboard-profile-avatar-menu-wrap"
-                            >
-                                <button
-                                    type="button"
-                                    class="yh-dashboard-profile-media-menu-toggle"
-                                    id="yh-dashboard-profile-avatar-menu-toggle"
-                                    aria-label="Profile picture options"
-                                    aria-expanded="false"
-                                >
-                                    •••
-                                </button>
-
-                                <div
-                                    class="yh-dashboard-profile-media-menu hidden-step"
-                                    id="yh-dashboard-profile-avatar-menu"
-                                >
-                                    <button
-                                        type="button"
-                                        class="yh-dashboard-profile-media-menu-item"
-                                        id="yh-dashboard-profile-avatar-menu-change"
-                                    >
-                                        Change Profile Picture
-                                    </button>
-                                </div>
                             </div>
                         </div>
 

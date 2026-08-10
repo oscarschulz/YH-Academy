@@ -2278,12 +2278,18 @@ if (document.readyState === 'loading') {
 window.addEventListener('load', () => {
     captureYHUniverseReferralFromUrl();
 
-    // Prevent landing-page redirect loops caused by stale browser auth flags.
-    // The server-side /dashboard cookie gate is now the source of truth.
-    localStorage.removeItem('yh_user_loggedIn');
-    localStorage.removeItem('yh_token');
-    localStorage.removeItem('token');
-
+    /*
+     * Persistent authentication:
+     *
+     * Do not clear a valid login simply because the
+     * user opened or returned to the public landing page.
+     *
+     * Auth state is cleared only by:
+     * - explicit logout
+     * - expired JWT
+     * - password/session invalidation
+     * - deleted/disabled account
+     */
     bindLandingGlobeViewportPauseV1();
 
     scheduleLandingMapShellInitV1();

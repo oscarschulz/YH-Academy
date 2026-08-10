@@ -7,8 +7,8 @@
   <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1" />
   <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1" />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/css/business-chats.css?v=20260809-bc-first-paint-v1" />
-  <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260707-yhu-shared-tailwind-v5" />
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260707-yhu-shared-tailwind-v5" />
+<link rel="stylesheet" href="/css/business-chats.css?v=20260810-form-stack-v4" />
 </head>
 <body data-yh-view="business-chats" data-yh-page="business-chats" data-bc-active-view="overview">
   <div class="bc-shell">
@@ -74,21 +74,24 @@
           </div>
 
           <form id="bcSearchForm">
-            <div class="bc-form-grid">
-              <div class="bc-form-row">
-                <label for="bcMemberSearch">Search member</label>
-                <input id="bcMemberSearch" type="search" placeholder="Name, role, city, skill, or business area" maxlength="120" />
-              </div>
+            <div class="bc-form-row">
+              <label for="bcMemberSearch">Search member</label>
+              <input
+                id="bcMemberSearch"
+                type="search"
+                placeholder="Name, role, city, skill, or business area"
+                maxlength="120"
+              />
+            </div>
 
-              <div class="bc-form-row">
-                <label for="bcDivisionFilter">Division</label>
-                <select id="bcDivisionFilter">
-                  <option value="all" selected>All approved members</option>
-                  <option value="academy">Academy members</option>
-                  <option value="plaza">Plaza members</option>
-                  <option value="federation">Federation members</option>
-                </select>
-              </div>
+            <div class="bc-form-row">
+              <label for="bcDivisionFilter">Division</label>
+              <select id="bcDivisionFilter">
+                <option value="all" selected>All approved members</option>
+                <option value="academy">Academy members</option>
+                <option value="plaza">Plaza members</option>
+                <option value="federation">Federation members</option>
+              </select>
             </div>
 
             <div class="bc-form-row">
@@ -206,6 +209,6 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
-<script src="/js/business-chats.js?v=20260809-bc-first-paint-v1"></script>
+<script src="/js/business-chats.js?v=20260810-form-stack-fetch-lifecycle-v1"></script>
 </body>
 </html>

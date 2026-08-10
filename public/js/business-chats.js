@@ -18,6 +18,7 @@
     blocksLoading: false,
     socket: null,
     autoRefreshTimer: null,
+    disposed: false,
     activeView: 'overview',
     lastMemberSearch: {
       query: '',
@@ -1387,8 +1388,29 @@ if (replyForm) {
       renderAll();
       return state.conversations;
     } catch (error) {
-      console.error('refresh conversations error:', error);
-      showToast(error.message || 'Failed to load business chats.', 'error');
+      /*
+       * Background refreshes may be interrupted when
+       * the Dashboard iframe is hidden, replaced,
+       * restored, or the browser changes visibility.
+       *
+       * Silent refresh failures should not create
+       * console noise or user-facing error toasts.
+       *
+       * Initial/manual refresh failures remain visible.
+       */
+      if (options.silent !== true) {
+        console.error(
+          'refresh conversations error:',
+          error
+        );
+
+        showToast(
+          error?.message ||
+            'Failed to load business chats.',
+          'error'
+        );
+      }
+
       renderAll();
       return [];
     } finally {
@@ -1813,11 +1835,24 @@ if (replyForm) {
   }
 
   function startAutoRefresh() {
-    window.clearInterval(state.autoRefreshTimer);
-    state.autoRefreshTimer = window.setInterval(() => {
-      if (document.hidden) return;
-      refreshConversations({ force: true, silent: true }).catch(() => {});
-    }, 30000);
+    window.clearInterval(
+      state.autoRefreshTimer
+    );
+
+    state.autoRefreshTimer =
+      window.setInterval(() => {
+        if (
+          state.disposed === true ||
+          document.hidden
+        ) {
+          return;
+        }
+
+        refreshConversations({
+          force: true,
+          silent: true
+        }).catch(() => {});
+      }, 30000);
   }
 
   function bindEvents() {
@@ -1914,16 +1949,55 @@ if (replyForm) {
     $('bcCloseThread')?.addEventListener('click', () => runSafetyAction('close'));
     $('bcBlockThread')?.addEventListener('click', () => runSafetyAction('block'));
 
-    window.addEventListener('beforeunload', () => {
-      if (state.socket && typeof state.socket.disconnect === 'function') {
+    const disposeBusinessChatsPage = () => {
+      state.disposed = true;
+
+      if (
+        state.socket &&
+        typeof state.socket.disconnect ===
+          'function'
+      ) {
         state.socket.disconnect();
       }
-      window.clearInterval(state.autoRefreshTimer);
-    });
 
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) refreshConversations({ force: true, silent: true }).catch(() => {});
-    });
+      window.clearInterval(
+        state.autoRefreshTimer
+      );
+    };
+
+    window.addEventListener(
+      'beforeunload',
+      disposeBusinessChatsPage
+    );
+
+    window.addEventListener(
+      'pagehide',
+      disposeBusinessChatsPage
+    );
+
+    window.addEventListener(
+      'pageshow',
+      () => {
+        state.disposed = false;
+      }
+    );
+
+    document.addEventListener(
+      'visibilitychange',
+      () => {
+        if (
+          document.hidden ||
+          state.disposed === true
+        ) {
+          return;
+        }
+
+        refreshConversations({
+          force: true,
+          silent: true
+        }).catch(() => {});
+      }
+    );
   }
 
   async function init() {
