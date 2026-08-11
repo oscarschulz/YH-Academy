@@ -176,7 +176,7 @@ function createRouteAlias(
 function injectNativeRuntimeIntoHtml() {
     const runtimeTag = [
     '<script src="/js/yh-native-runtime.js?v=20260810-ios-native-runtime-v2"></script>',
-    '<script src="/js/yh-native-session.js?v=20260810-ios-native-session-v1"></script>'
+    '<script src="/js/yh-native-session.js?v=20260811-ios-native-session-v2"></script>'
     ].join('\n    ');
 
     function walk(directory) {
@@ -297,6 +297,26 @@ if (
         applySource.replace(
             /(["'])\/socket\.io\/socket\.io\.js\1/g,
             `"${YH_PRODUCTION_ORIGIN}/socket.io/socket.io.js"`
+        );
+
+    /*
+     * Capacitor native navigation must target the
+     * bundled HTML file directly.
+     *
+     * The website can keep using /dashboard,
+     * but the generated iOS bundle uses
+     * /dashboard.html.
+     */
+    applySource =
+        applySource.replaceAll(
+            "window.location.href = '/dashboard';",
+            "window.location.href = '/dashboard.html';"
+        );
+
+    applySource =
+        applySource.replaceAll(
+            'window.location.assign(`/dashboard?auth=${Date.now()}`);',
+            'window.location.assign(`/dashboard.html?auth=${Date.now()}`);'
         );
 
     fs.writeFileSync(

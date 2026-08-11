@@ -223,9 +223,10 @@
 
             /*
              * Keep navigation inside the bundled app.
+             * Use the actual bundled HTML file directly.
              */
             window.location.replace(
-                '/dashboard'
+                '/dashboard.html'
             );
 
             return true;
