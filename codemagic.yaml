@@ -13,8 +13,10 @@ workflows:
       xcode: 26.4
 
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.younghustlersuniverse.app
+        provisioning_profiles:
+          - YHU_APP_STORE_PROFILE
+        certificates:
+          - "YHU Apple Distribution"
 
       vars:
         APP_STORE_APPLE_ID: "6800318455"
