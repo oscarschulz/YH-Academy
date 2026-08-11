@@ -14,7 +14,7 @@ workflows:
 
       ios_signing:
         provisioning_profiles:
-          - YHU_APP_STORE_PROFILE
+          - yhu_app_store_profile_2026
         certificates:
           - "YHU Apple Distribution"
 
