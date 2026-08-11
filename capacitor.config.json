@@ -1,0 +1,26 @@
+{
+  "appId": "com.younghustlersuniverse.app",
+  "appName": "Young Hustlers Universe",
+  "webDir": "mobile-public",
+
+  "ios": {
+    "preferredContentMode": "mobile",
+    "allowsLinkPreview": false,
+    "backgroundColor": "#020617"
+  },
+
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "DARK",
+      "backgroundColor": "#020617"
+    },
+
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchShowDuration": 700,
+      "backgroundColor": "#020617",
+      "showSpinner": false
+    }
+  }
+}

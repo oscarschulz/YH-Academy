@@ -24,11 +24,93 @@ const { yhuSupabaseAdmin } = require('./config/supabaseAdmin');
 const app = express();
 app.set('trust proxy', 1);
 
+const YH_NATIVE_APP_ORIGINS = new Set([
+    'capacitor://localhost'
+]);
+
+const configuredCorsOrigins = String(
+    process.env.CORS_ALLOWED_ORIGINS || ''
+)
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+const allowedOrigins = new Set([
+    ...configuredCorsOrigins,
+    ...YH_NATIVE_APP_ORIGINS
+]);
+
+function isAllowedYHClientOrigin(origin = '') {
+    const cleanOrigin =
+        String(origin || '').trim();
+
+    /*
+     * Requests without an Origin header include
+     * same-origin/server-to-server calls.
+     */
+    if (!cleanOrigin) {
+        return true;
+    }
+
+    /*
+     * Preserve the server's current behavior when
+     * CORS_ALLOWED_ORIGINS is not configured.
+     */
+    if (!configuredCorsOrigins.length) {
+        return true;
+    }
+
+    return allowedOrigins.has(cleanOrigin);
+}
+
+function yhCorsOriginCallback(origin, callback) {
+    if (isAllowedYHClientOrigin(origin)) {
+        return callback(null, true);
+    }
+
+    return callback(
+        new Error('Not allowed by CORS')
+    );
+}
+
 const server = http.createServer(app);
+
 const io = new Server(server, {
-    transports: ['websocket', 'polling'],
+    transports: [
+        'websocket',
+        'polling'
+    ],
+
     pingInterval: 10000,
-    pingTimeout: 5000
+    pingTimeout: 5000,
+
+    cors: {
+        origin:
+            yhCorsOriginCallback,
+
+        credentials:
+            true
+    },
+
+    /*
+     * Socket.IO CORS protects HTTP polling.
+     * allowRequest applies the same rule to the
+     * WebSocket handshake itself.
+     */
+    allowRequest(req, callback) {
+        const origin =
+            String(
+                req?.headers?.origin ||
+                ''
+            ).trim();
+
+        callback(
+            null,
+            isAllowedYHClientOrigin(
+                origin
+            )
+        );
+    }
 });
 const publicLandingNamespace = io.of('/public-landing');
 
@@ -5758,19 +5840,12 @@ async function saveAcademyProfileUploadToLocal({
 }
 
 
-const allowedOrigins = String(process.env.CORS_ALLOWED_ORIGINS || '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean);
-
 app.use(cors({
-    origin(origin, callback) {
-        if (!origin) return callback(null, true);
-        if (!allowedOrigins.length) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, true);
-        return callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true
+    origin:
+        yhCorsOriginCallback,
+
+    credentials:
+        true
 }));
 
 

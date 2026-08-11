@@ -1,6 +1,6 @@
 {
-  "name": "YH-Academy",
-  "path": "i:\\Users\\baudss\\Documents\\github\\YH-Academy",
+  "name": "YH Academy",
+  "path": "D:\\Downloads\\Projects and Bots\\YH Academy",
   "type": "directory",
   "children": [
     {
@@ -52,11 +52,83 @@
               "type": "file"
             },
             {
+              "name": "academyFirestoreRepoLegacy.js",
+              "type": "file"
+            },
+            {
+              "name": "academyLeadSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "academyMemberProfileSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "academySupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "adminBroadcastSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "adminPatronApplicationsSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "adminPlazaSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "adminPlazaSupabaseWriteRepo.js",
+              "type": "file"
+            },
+            {
               "name": "aiNurtureFirestoreRepo.js",
               "type": "file"
             },
             {
+              "name": "federationConnectSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "federationInfluenceSupabaseRepo.js",
+              "type": "file"
+            },
+            {
               "name": "paymentLedgerRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "paymentLedgerSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "plazaBridgeRequestsSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "plazaBusinessMessagesSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "plazaDirectoryRegionsSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "plazaEventLedgerSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "plazaMeetupsSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "plazaPatronSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "plazaRecordsSupabaseRepo.js",
               "type": "file"
             },
             {
@@ -65,6 +137,10 @@
             },
             {
               "name": "realtimeFirestoreRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "realtimeSupabaseRepo.js",
               "type": "file"
             },
             {
@@ -80,7 +156,19 @@
               "type": "file"
             },
             {
+              "name": "userNotificationsSupabaseRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "verifiedBadgeSupabaseRepo.js",
+              "type": "file"
+            },
+            {
               "name": "yhuSupabaseMirrorRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "yhuUsersSupabaseRepo.js",
               "type": "file"
             }
           ]
@@ -134,11 +222,19 @@
       "type": "folder",
       "children": [
         {
+          "name": "firebase-service-account.json",
+          "type": "file"
+        },
+        {
           "name": "firebaseAdmin.js",
           "type": "file"
         },
         {
           "name": "supabaseAdmin.js",
+          "type": "file"
+        },
+        {
+          "name": "yhu-database-service-account.json",
           "type": "file"
         }
       ]
@@ -160,11 +256,39 @@
           "type": "file"
         },
         {
+          "name": "federationInfluenceControllers.js",
+          "type": "file"
+        },
+        {
           "name": "paymentControllers.js",
           "type": "file"
         },
         {
+          "name": "plazaBridgeRequestsSupabaseLiteControllers.js",
+          "type": "file"
+        },
+        {
+          "name": "plazaBusinessMessagesSupabaseLiteControllers.js",
+          "type": "file"
+        },
+        {
           "name": "plazaControllers.js",
+          "type": "file"
+        },
+        {
+          "name": "plazaDirectoryRegionsSupabaseLiteControllers.js",
+          "type": "file"
+        },
+        {
+          "name": "plazaMeetupsSupabaseLiteControllers.js",
+          "type": "file"
+        },
+        {
+          "name": "plazaPatronSupabaseLiteControllers.js",
+          "type": "file"
+        },
+        {
+          "name": "plazaSupabaseLiteControllers.js",
           "type": "file"
         },
         {
@@ -194,6 +318,11 @@
           "type": "file"
         }
       ]
+    },
+    {
+      "name": "mobile-src",
+      "type": "folder",
+      "children": []
     },
     {
       "name": "private",
@@ -334,6 +463,10 @@
                       "type": "file"
                     },
                     {
+                      "name": "academy-icon-expansion-mission.png",
+                      "type": "file"
+                    },
+                    {
                       "name": "academy-icon-global-community.png",
                       "type": "file"
                     },
@@ -456,6 +589,10 @@
                   "type": "file"
                 },
                 {
+                  "name": "dashboard icon.png",
+                  "type": "file"
+                },
+                {
                   "name": "edit-profile.png",
                   "type": "file"
                 },
@@ -469,6 +606,14 @@
                 },
                 {
                   "name": "plaza.png",
+                  "type": "file"
+                },
+                {
+                  "name": "referral icon.png",
+                  "type": "file"
+                },
+                {
+                  "name": "resources icon.png",
                   "type": "file"
                 },
                 {
@@ -491,6 +636,10 @@
           "name": "css",
           "type": "folder",
           "children": [
+            {
+              "name": "academy-embed.css",
+              "type": "file"
+            },
             {
               "name": "academy-thread-bottom-fix.css",
               "type": "file"
@@ -520,11 +669,19 @@
               "type": "file"
             },
             {
+              "name": "yh-division-tutorials.css",
+              "type": "file"
+            },
+            {
               "name": "yh-tailwind.css",
               "type": "file"
             },
             {
               "name": "yh-tailwind.input.css",
+              "type": "file"
+            },
+            {
+              "name": "yhu-game-system.css",
               "type": "file"
             }
           ]
@@ -533,6 +690,28 @@
           "name": "images",
           "type": "folder",
           "children": [
+            {
+              "name": "landing",
+              "type": "folder",
+              "children": [
+                {
+                  "name": "acxademy.png",
+                  "type": "file"
+                },
+                {
+                  "name": "federation.png",
+                  "type": "file"
+                },
+                {
+                  "name": "new bg.png",
+                  "type": "file"
+                },
+                {
+                  "name": "plaza.png",
+                  "type": "file"
+                }
+              ]
+            },
             {
               "name": "YHA",
               "type": "folder",
@@ -808,6 +987,10 @@
           "type": "folder",
           "children": [
             {
+              "name": "academy-embed.js",
+              "type": "file"
+            },
+            {
               "name": "academy-thread-bottom-fix.js",
               "type": "file"
             },
@@ -840,11 +1023,23 @@
               "type": "file"
             },
             {
+              "name": "yh-division-tutorials.js",
+              "type": "file"
+            },
+            {
               "name": "yh-shared-core.js",
               "type": "file"
             },
             {
               "name": "yh-shared-runtime.js",
+              "type": "file"
+            },
+            {
+              "name": "yhu-game-core.js",
+              "type": "file"
+            },
+            {
+              "name": "yhu-game-dashboard.js",
               "type": "file"
             }
           ]
@@ -876,6 +1071,16 @@
                   "type": "file"
                 }
               ]
+            },
+            {
+              "name": "academy-profile",
+              "type": "folder",
+              "children": [
+                {
+                  "name": "1783777924197_n18nylvoitfyden0ciot_cover_f4467cbf642c_cover-cover-cropped-asd2.png",
+                  "type": "file"
+                }
+              ]
             }
           ]
         },
@@ -888,6 +1093,10 @@
               "type": "file"
             }
           ]
+        },
+        {
+          "name": "academy-embed.html",
+          "type": "file"
         },
         {
           "name": "academy.html",
@@ -954,6 +1163,18 @@
       "type": "folder",
       "children": [
         {
+          "name": "build-mobile-public.js",
+          "type": "file"
+        },
+        {
+          "name": "generate-filetree.js",
+          "type": "file"
+        },
+        {
+          "name": "import-all-firestore-to-supabase-archive.js",
+          "type": "file"
+        },
+        {
           "name": "import-yhu-firebase-federation-requests-to-supabase.js",
           "type": "file"
         },
@@ -968,7 +1189,15 @@
       "type": "file"
     },
     {
+      "name": ".vercelignore",
+      "type": "file"
+    },
+    {
       "name": "academyControllers.js",
+      "type": "file"
+    },
+    {
+      "name": "capacitor.config.json",
       "type": "file"
     },
     {
@@ -977,26 +1206,6 @@
     },
     {
       "name": "filetree.json",
-      "type": "file"
-    },
-    {
-      "name": "live-academy-v15.js",
-      "type": "file"
-    },
-    {
-      "name": "live-academy-v16.js",
-      "type": "file"
-    },
-    {
-      "name": "live-academy-v17.js",
-      "type": "file"
-    },
-    {
-      "name": "live-academy-v21.js",
-      "type": "file"
-    },
-    {
-      "name": "live-academy.html",
       "type": "file"
     },
     {
@@ -1016,6 +1225,10 @@
       "type": "file"
     },
     {
+      "name": "push-future-patches.sh",
+      "type": "file"
+    },
+    {
       "name": "server.js",
       "type": "file"
     },
@@ -1025,10 +1238,8 @@
     }
   ],
   "metadata": {
-    "generated": "2026-06-10T20:10:25.496Z",
-    "generator": "FileTree Pro Extension",
-    "version": "0.2.0",
-    "showIcons": false,
-    "maxDepth": 10
+    "generated": "2026-08-10T11:15:53.442Z",
+    "generator": "YH custom filetree generator",
+    "version": "1.0.0"
   }
 }

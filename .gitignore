@@ -31,3 +31,6 @@ collections-service-account.base64.txt
 
 .vercel
 .env*
+
+# Generated Capacitor web bundle
+/mobile-public/
