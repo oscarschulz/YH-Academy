@@ -45569,10 +45569,31 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-empty-state 
         padding: 12px !important;
     }
 
+/* Dashboard mobile: compact horizontal profile hero */
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-card,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-hero-card {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    aspect-ratio: 3 / 2 !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+/* Uploaded background fills the whole horizontal card */
 body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-band {
+    position: absolute !important;
+    inset: 0 !important;
+
     width: 100% !important;
     height: 100% !important;
-    min-height: 100% !important;
+    min-height: 0 !important;
     max-height: none !important;
 
     aspect-ratio: auto !important;
@@ -45582,17 +45603,131 @@ body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-band
     background-repeat: no-repeat !important;
 }
 
+/* Profile information becomes an overlay */
 body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-body {
-    padding:
-        164px
-        16px
-        18px !important;
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 2 !important;
 
-    margin-top: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
 
+    margin: 0 !important;
+    padding: 16px !important;
+
+    display: flex !important;
     align-items: center !important;
+    justify-content: center !important;
+
+    gap: 0 !important;
 }
 
+/* Horizontal mobile identity layout */
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-left {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+
+    flex: 0 0 auto !important;
+
+    display: grid !important;
+    grid-template-columns: 76px minmax(0, 1fr) !important;
+    align-items: center !important;
+    justify-content: stretch !important;
+
+    gap: 13px !important;
+
+    text-align: left !important;
+}
+
+/* Compact profile picture */
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-avatar-wrap {
+    width: 76px !important;
+    height: 76px !important;
+    min-width: 76px !important;
+    min-height: 76px !important;
+
+    margin: 0 !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    transform: none !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-avatar {
+    width: 76px !important;
+    height: 76px !important;
+    min-width: 76px !important;
+    min-height: 76px !important;
+
+    margin: 0 !important;
+
+    font-size: 1.55rem !important;
+}
+
+/* Text goes beside the profile picture */
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-identity-block {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+
+    padding: 0 !important;
+
+    display: grid !important;
+    justify-items: start !important;
+    align-content: center !important;
+
+    gap: 3px !important;
+
+    text-align: left !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-name,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-username,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-role {
+    width: 100% !important;
+    max-width: 100% !important;
+
+    text-align: left !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-name {
+    font-size: 1.12rem !important;
+    line-height: 1.08 !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-username {
+    font-size: 0.78rem !important;
+    line-height: 1.2 !important;
+    margin-top: 2px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-subline,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-tag-list {
+    width: 100% !important;
+
+    justify-content: flex-start !important;
+    text-align: left !important;
+}
+
+/* Pull all lower profile content directly below the hero */
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-shell {
+    gap: 10px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-card {
+    margin-bottom: 0 !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-social-strip {
+    margin-top: 0 !important;
+}
+
+/* Leave standalone Academy profile unchanged */
 body[data-yh-page="academy"] #academy-profile-view .academy-profile-cover-body {
     padding: 0 16px 18px !important;
     align-items: flex-start !important;
