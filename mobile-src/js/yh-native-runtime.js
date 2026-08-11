@@ -911,6 +911,122 @@
 
     installNativeMediaBridge();
 
+    /* ===================================================== */
+    /* NATIVE LANDING SCROLL BRIDGE                         */
+    /* ===================================================== */
+
+    function installNativeLandingScrollBridge() {
+        if (!isNativeApp()) {
+            return false;
+        }
+
+        const styleId =
+            'yh-native-landing-scroll-bridge-v1';
+
+        if (
+            !document.getElementById(
+                styleId
+            )
+        ) {
+            const style =
+                document.createElement(
+                    'style'
+                );
+
+            style.id = styleId;
+
+            style.textContent = `
+body[data-yh-page="apply"] {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: auto !important;
+    touch-action: pan-y !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 100dvh !important;
+    overflow: visible !important;
+    touch-action: pan-y !important;
+}
+
+body[data-yh-page="apply"] #yh-world-map,
+body[data-yh-page="apply"] #yh-world-map canvas {
+    touch-action: pan-y !important;
+}
+
+body[data-yh-page="apply"] #yh-world-map canvas {
+    pointer-events: none !important;
+}
+`;
+
+            document.head
+                ?.appendChild(
+                    style
+                );
+        }
+
+        const unlockRootScroll = () => {
+            if (
+                document.body?.getAttribute(
+                    'data-yh-page'
+                ) !== 'apply'
+            ) {
+                return;
+            }
+
+            try {
+                document.documentElement
+                    .style
+                    .setProperty(
+                        'overflow-y',
+                        'auto',
+                        'important'
+                    );
+
+                document.documentElement
+                    .style
+                    .setProperty(
+                        'height',
+                        'auto',
+                        'important'
+                    );
+
+                document.documentElement
+                    .style
+                    .setProperty(
+                        'touch-action',
+                        'pan-y',
+                        'important'
+                    );
+            } catch (_) {}
+        };
+
+        if (
+            document.readyState ===
+            'loading'
+        ) {
+            document.addEventListener(
+                'DOMContentLoaded',
+                unlockRootScroll,
+                {
+                    once: true
+                }
+            );
+        } else {
+            unlockRootScroll();
+        }
+
+        return true;
+    }
+
+    installNativeLandingScrollBridge();
+
     const api = {
         productionOrigin:
             YH_PRODUCTION_ORIGIN,

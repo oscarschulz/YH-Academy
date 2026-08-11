@@ -175,7 +175,7 @@ function createRouteAlias(
 
 function injectNativeRuntimeIntoHtml() {
     const runtimeTag = [
-    '<script src="/js/yh-native-runtime.js?v=20260810-ios-native-runtime-v2"></script>',
+    '<script src="/js/yh-native-runtime.js?v=20260811-ios-native-runtime-v3"></script>',
     '<script src="/js/yh-native-session.js?v=20260811-ios-native-session-v2"></script>'
     ].join('\n    ');
 
@@ -322,6 +322,77 @@ if (
     fs.writeFileSync(
         mobileApplyJs,
         applySource,
+        'utf8'
+    );
+}
+
+/*
+ * Dashboard Academy child workspaces must point to
+ * the actual bundled HTML document in Capacitor.
+ *
+ * The live website keeps its clean /academy routes.
+ * Only the generated native dashboard copy changes.
+ */
+const mobileDashboardJs =
+    path.join(
+        OUTPUT_DIR,
+        'js',
+        'dashboard.js'
+    );
+
+if (
+    fs.existsSync(
+        mobileDashboardJs
+    )
+) {
+    let dashboardSource =
+        fs.readFileSync(
+            mobileDashboardJs,
+            'utf8'
+        );
+
+    const academyRouteReplacements = [
+        [
+            "url: '/academy',",
+            "url: '/academy.html',"
+        ],
+        [
+            "url: '/academy?section=home',",
+            "url: '/academy.html?section=home',"
+        ],
+        [
+            "url: '/academy?section=lead-missions',",
+            "url: '/academy.html?section=lead-missions',"
+        ],
+        [
+            "url: '/academy?section=community',",
+            "url: '/academy.html?section=community',"
+        ],
+        [
+            "url: '/academy?section=messages',",
+            "url: '/academy.html?section=messages',"
+        ],
+        [
+            "url: '/academy?section=voice',",
+            "url: '/academy.html?section=voice',"
+        ]
+    ];
+
+    academyRouteReplacements
+        .forEach(
+            ([from, to]) => {
+                dashboardSource =
+                    dashboardSource
+                        .replaceAll(
+                            from,
+                            to
+                        );
+            }
+        );
+
+    fs.writeFileSync(
+        mobileDashboardJs,
+        dashboardSource,
         'utf8'
     );
 }
