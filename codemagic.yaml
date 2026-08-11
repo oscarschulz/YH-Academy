@@ -1,0 +1,70 @@
+workflows:
+  yhu-ios-testflight:
+    name: YHU iOS TestFlight
+
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+
+    integrations:
+      app_store_connect: "YHU Codemagic"
+
+    environment:
+      node: 22
+      xcode: 26.4
+
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.younghustlersuniverse.app
+
+      vars:
+        APP_STORE_APPLE_ID: "6800318455"
+
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm ci
+
+      - name: Build YHU mobile frontend
+        script: |
+          npm run mobile:build
+
+      - name: Create Capacitor iOS project
+        script: |
+          rm -rf ios
+          npx cap add ios --packagemanager SPM
+
+      - name: Generate iOS app icon and splash assets
+        script: |
+          npx @capacitor/assets generate --ios
+
+      - name: Sync Capacitor
+        script: |
+          npx cap sync ios
+
+      - name: Apply YHU code signing
+        script: |
+          xcode-project use-profiles \
+            --project ios/App/App.xcodeproj
+
+      - name: Set build number
+        script: |
+          cd ios/App
+          agvtool new-version -all "$BUILD_NUMBER"
+
+      - name: Build signed YHU IPA
+        script: |
+          cd ios/App
+
+          xcode-project build-ipa \
+            --project "App.xcodeproj" \
+            --scheme "App"
+
+    artifacts:
+      - ios/App/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      app_store_connect:
+        auth: integration
