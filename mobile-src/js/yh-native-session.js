@@ -83,6 +83,78 @@
         } catch (_) {}
     }
 
+    function installNativeSessionBootShield() {
+        if (!isNativeApp()) {
+            return false;
+        }
+
+        if (!isAuthEntryPage()) {
+            return false;
+        }
+
+        const token =
+            getStoredToken();
+
+        /*
+         * Guest users should see the landing page
+         * immediately.
+         */
+        if (!token) {
+            return false;
+        }
+
+        /*
+         * Logged-in users must never see the landing
+         * page while their stored session is being
+         * validated.
+         */
+        const styleId =
+            'yh-native-session-boot-shield-v1';
+
+        if (
+            !document.getElementById(
+                styleId
+            )
+        ) {
+            const style =
+                document.createElement(
+                    'style'
+                );
+
+            style.id =
+                styleId;
+
+            style.textContent = `
+html[data-yh-native-session="checking"] {
+    background: #020617 !important;
+}
+
+html[data-yh-native-session="checking"] body {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+`;
+
+            document.head
+                ?.appendChild(
+                    style
+                );
+        }
+
+        markSessionState(
+            'checking'
+        );
+
+        return true;
+    }
+
+    /*
+     * Run synchronously while <head> is still parsing,
+     * before the landing page body can paint.
+     */
+    installNativeSessionBootShield();
+
     async function validateStoredSession(
         token = ''
     ) {

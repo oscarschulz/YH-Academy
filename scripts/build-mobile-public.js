@@ -176,7 +176,7 @@ function createRouteAlias(
 function injectNativeRuntimeIntoHtml() {
     const runtimeTag = [
     '<script src="/js/yh-native-runtime.js?v=20260812-ios-native-runtime-v4"></script>',
-    '<script src="/js/yh-native-session.js?v=20260811-ios-native-session-v2"></script>'
+    '<script src="/js/yh-native-session.js?v=20260812-ios-native-session-v3"></script>'
     ].join('\n    ');
 
     function walk(directory) {
