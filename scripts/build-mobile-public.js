@@ -175,8 +175,8 @@ function createRouteAlias(
 
 function injectNativeRuntimeIntoHtml() {
     const runtimeTag = [
-    '<script src="/js/yh-native-runtime.js?v=20260812-ios-native-runtime-v4"></script>',
-    '<script src="/js/yh-native-session.js?v=20260812-ios-native-session-v3"></script>'
+    '<script src="/js/yh-native-runtime.js?v=20260812-ios-native-runtime-v5"></script>',
+    '<script src="/js/yh-native-session.js?v=20260812-ios-native-session-v4"></script>'
     ].join('\n    ');
 
     function walk(directory) {
@@ -388,6 +388,64 @@ if (
                             to
                         );
             }
+        );
+
+    /*
+     * Keep the native iOS launch splash visible until
+     * Dashboard's initial access/data synchronization
+     * has completed.
+     *
+     * This modifies the generated mobile dashboard only.
+     * The live website dashboard.js remains untouched.
+     */
+    const nativeDashboardReadyBlock = `            syncDashboardDivisionAccessPolling();
+
+            if (shouldShowDashboardBootstrapLoader) {
+                setTimeout(() => {
+                    hideDashboardBootstrapLoader();
+                }, 280);
+            } else {
+                hideDashboardBootstrapLoader();
+            }`;
+
+    const nativeDashboardReadyReplacement = `            syncDashboardDivisionAccessPolling();
+
+            if (shouldShowDashboardBootstrapLoader) {
+                setTimeout(() => {
+                    hideDashboardBootstrapLoader();
+                }, 280);
+            } else {
+                hideDashboardBootstrapLoader();
+            }
+
+            /*
+             * Native iOS keeps the launch splash visible
+             * until the Dashboard has completed its first
+             * access/data synchronization and painted.
+             */
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(() => {
+                    void window.YHNativeRuntime
+                        ?.hideNativeSplashScreen?.(
+                            'dashboard-ready'
+                        );
+                });
+            });`;
+
+    if (
+        !dashboardSource.includes(
+            nativeDashboardReadyBlock
+        )
+    ) {
+        throw new Error(
+            'Native dashboard ready anchor not found.'
+        );
+    }
+
+    dashboardSource =
+        dashboardSource.replace(
+            nativeDashboardReadyBlock,
+            nativeDashboardReadyReplacement
         );
 
     fs.writeFileSync(

@@ -83,6 +83,19 @@
         } catch (_) {}
     }
 
+    async function releaseNativeSplash(
+        reason = 'session-ready'
+    ) {
+        try {
+            return await window.YHNativeRuntime
+                ?.hideNativeSplashScreen?.(
+                    reason
+                ) === true;
+        } catch (_) {
+            return false;
+        }
+    }
+
     function installNativeSessionBootShield() {
         if (!isNativeApp()) {
             return false;
@@ -264,6 +277,10 @@ html[data-yh-native-session="checking"] body {
                 'guest'
             );
 
+            await releaseNativeSplash(
+                'guest'
+            );
+
             return false;
         }
 
@@ -316,6 +333,10 @@ html[data-yh-native-session="checking"] body {
                 'offline'
             );
 
+            await releaseNativeSplash(
+                'session-offline'
+            );
+
             return false;
         }
 
@@ -323,6 +344,10 @@ html[data-yh-native-session="checking"] body {
 
         markSessionState(
             'guest'
+        );
+
+        await releaseNativeSplash(
+            'invalid-session'
         );
 
         return false;

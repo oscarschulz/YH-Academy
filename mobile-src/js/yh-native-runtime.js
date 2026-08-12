@@ -1062,6 +1062,137 @@ body[data-yh-page="apply"] #yh-world-map canvas {
 
     installNativeLandingScrollBridge();
 
+    /* ===================================================== */
+    /* NATIVE SPLASH LIFECYCLE BRIDGE                       */
+    /* ===================================================== */
+
+    let yhNativeSplashPlugin =
+        null;
+
+    let yhNativeSplashHidePromise =
+        null;
+
+    function getNativeSplashPlugin() {
+        if (!isNativeApp()) {
+            return null;
+        }
+
+        if (yhNativeSplashPlugin) {
+            return yhNativeSplashPlugin;
+        }
+
+        try {
+            const capacitor =
+                window.Capacitor;
+
+            if (!capacitor) {
+                return null;
+            }
+
+            const existingPlugin =
+                capacitor.Plugins
+                    ?.SplashScreen;
+
+            if (
+                existingPlugin &&
+                typeof existingPlugin.hide ===
+                    'function'
+            ) {
+                yhNativeSplashPlugin =
+                    existingPlugin;
+
+                return yhNativeSplashPlugin;
+            }
+
+            if (
+                typeof capacitor.isPluginAvailable ===
+                    'function' &&
+                capacitor.isPluginAvailable(
+                    'SplashScreen'
+                ) !== true
+            ) {
+                return null;
+            }
+
+            if (
+                typeof capacitor.registerPlugin ===
+                    'function'
+            ) {
+                yhNativeSplashPlugin =
+                    capacitor.registerPlugin(
+                        'SplashScreen'
+                    );
+
+                return yhNativeSplashPlugin;
+            }
+        } catch (_) {}
+
+        return null;
+    }
+
+    async function hideNativeSplashScreen(
+        reason = 'ready'
+    ) {
+        if (!isNativeApp()) {
+            return false;
+        }
+
+        if (yhNativeSplashHidePromise) {
+            return yhNativeSplashHidePromise;
+        }
+
+        const splash =
+            getNativeSplashPlugin();
+
+        if (
+            !splash ||
+            typeof splash.hide !==
+                'function'
+        ) {
+            return false;
+        }
+
+        try {
+            document.documentElement
+                .setAttribute(
+                    'data-yh-native-splash',
+                    'hiding'
+                );
+
+            document.documentElement
+                .setAttribute(
+                    'data-yh-native-splash-reason',
+                    String(
+                        reason || 'ready'
+                    )
+                );
+        } catch (_) {}
+
+        yhNativeSplashHidePromise =
+            Promise.resolve(
+                splash.hide()
+            )
+                .then(() => {
+                    try {
+                        document.documentElement
+                            .setAttribute(
+                                'data-yh-native-splash',
+                                'hidden'
+                            );
+                    } catch (_) {}
+
+                    return true;
+                })
+                .catch(() => {
+                    yhNativeSplashHidePromise =
+                        null;
+
+                    return false;
+                });
+
+        return yhNativeSplashHidePromise;
+    }
+
     const api = {
         productionOrigin:
             YH_PRODUCTION_ORIGIN,
@@ -1081,7 +1212,9 @@ body[data-yh-page="apply"] #yh-world-map canvas {
 
         rewriteNativeSrcset,
 
-        rewriteNativeMediaTree
+        rewriteNativeMediaTree,
+
+        hideNativeSplashScreen
     };
 
     window.YHNativeRuntime =
