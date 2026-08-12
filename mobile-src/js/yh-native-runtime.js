@@ -921,7 +921,7 @@
         }
 
         const styleId =
-            'yh-native-landing-scroll-bridge-v1';
+            'yh-native-landing-scroll-bridge-v2';
 
         if (
             !document.getElementById(
@@ -936,21 +936,26 @@
             style.id = styleId;
 
             style.textContent = `
-body[data-yh-page="apply"] {
+body[data-yh-page="apply"] #step-1.yh-landing-step {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
     overflow-x: hidden !important;
-    overflow-y: auto !important;
-    overscroll-behavior-y: auto !important;
+    overflow-y: scroll !important;
+    overscroll-behavior-x: none !important;
+    overscroll-behavior-y: contain !important;
     touch-action: pan-y !important;
     -webkit-overflow-scrolling: touch;
 }
 
-body[data-yh-page="apply"] #step-1.yh-landing-step {
-    position: static !important;
-    inset: auto !important;
+body[data-yh-page="apply"] #step-1.yh-landing-step > .yh-landing-shell {
     width: 100% !important;
     height: auto !important;
-    max-height: none !important;
     min-height: 100dvh !important;
+    max-height: none !important;
     overflow: visible !important;
     touch-action: pan-y !important;
 }
@@ -971,7 +976,7 @@ body[data-yh-page="apply"] #yh-world-map canvas {
                 );
         }
 
-        const unlockRootScroll = () => {
+        const lockRootToLandingScroller = () => {
             if (
                 document.body?.getAttribute(
                     'data-yh-page'
@@ -980,29 +985,59 @@ body[data-yh-page="apply"] #yh-world-map canvas {
                 return;
             }
 
+            const landingStep =
+                document.getElementById(
+                    'step-1'
+                );
+
+            if (!landingStep) {
+                return;
+            }
+
             try {
                 document.documentElement
                     .style
                     .setProperty(
-                        'overflow-y',
-                        'auto',
+                        'height',
+                        '100%',
                         'important'
                     );
 
                 document.documentElement
+                    .style
+                    .setProperty(
+                        'overflow',
+                        'hidden',
+                        'important'
+                    );
+
+                document.body
                     .style
                     .setProperty(
                         'height',
-                        'auto',
+                        '100%',
                         'important'
                     );
 
-                document.documentElement
+                document.body
                     .style
                     .setProperty(
-                        'touch-action',
-                        'pan-y',
+                        'overflow',
+                        'hidden',
                         'important'
+                    );
+
+                landingStep
+                    .style
+                    .setProperty(
+                        '-webkit-overflow-scrolling',
+                        'touch'
+                    );
+
+                document.documentElement
+                    .setAttribute(
+                        'data-yh-native-landing-scroll',
+                        'step-1'
                     );
             } catch (_) {}
         };
@@ -1013,13 +1048,13 @@ body[data-yh-page="apply"] #yh-world-map canvas {
         ) {
             document.addEventListener(
                 'DOMContentLoaded',
-                unlockRootScroll,
+                lockRootToLandingScroller,
                 {
                     once: true
                 }
             );
         } else {
-            unlockRootScroll();
+            lockRootToLandingScroller();
         }
 
         return true;
