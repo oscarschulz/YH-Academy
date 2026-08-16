@@ -165,6 +165,7 @@
     let tutorialStateCache = null;
     let activeDivision = '';
     let activeSlideIndex = 0;
+    let tutorialReturnFocus = null;
     let entryTimer = null;
     let standaloneRetryCount = 0;
     let touchStartX = 0;
@@ -624,6 +625,7 @@ function retryPendingCompletions() {
         overlay.className = 'yh-division-tutorial-overlay';
         overlay.hidden = true;
         overlay.setAttribute('aria-hidden', 'true');
+        overlay.setAttribute('inert', '');
 
         overlay.innerHTML = `
             <div class="yh-division-tutorial-backdrop" aria-hidden="true"></div>
@@ -743,6 +745,31 @@ function retryPendingCompletions() {
             nextButton.textContent = safeIndex === slides.length - 1 ? 'Finish' : 'Next';
         }
     }
+
+        function getTutorialFocusableElements() {
+        const overlay = document.getElementById(
+            'yh-division-tutorial-overlay'
+        );
+
+        if (
+            !overlay ||
+            overlay.hidden ||
+            overlay.getAttribute('aria-hidden') === 'true'
+        ) {
+            return [];
+        }
+
+        return Array.from(
+            overlay.querySelectorAll(
+                'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )
+        ).filter((element) => (
+            element instanceof HTMLElement &&
+            !element.hidden &&
+            element.getAttribute('aria-hidden') !== 'true'
+        ));
+    }
+
 
     function isEmbeddedChildPage() {
         try {
@@ -1050,6 +1077,23 @@ function routeDashboardParentToDefault(
             return false;
         }
 
+        const existingOverlay =
+            document.getElementById(
+                'yh-division-tutorial-overlay'
+            );
+
+        if (
+            options.force !== true &&
+            activeDivision === cleanDivision &&
+            existingOverlay &&
+            existingOverlay.hidden === false &&
+            existingOverlay.getAttribute(
+                'aria-hidden'
+            ) !== 'true'
+        ) {
+            return true;
+        }
+
         /*
          * Parent Division Overview is a valid automatic
          * tutorial entry point.
@@ -1126,8 +1170,20 @@ function routeDashboardParentToDefault(
         activeSlideIndex = Math.max(0, Math.min(config.slides.length - 1, Number(options.slide || 0) || 0));
 
         const overlay = ensureOverlay();
+        const currentFocus = document.activeElement;
+
+        if (
+            currentFocus instanceof HTMLElement &&
+            currentFocus !== document.body &&
+            currentFocus !== document.documentElement &&
+            !overlay.contains(currentFocus)
+        ) {
+            tutorialReturnFocus = currentFocus;
+        }
+
         renderActiveSlide();
 
+        overlay.removeAttribute('inert');
         overlay.hidden = false;
         overlay.classList.add('is-open');
         overlay.setAttribute('aria-hidden', 'false');
@@ -1145,7 +1201,25 @@ function routeDashboardParentToDefault(
         const division = activeDivision;
         const overlay = document.getElementById('yh-division-tutorial-overlay');
 
+        const activeElement = document.activeElement;
+
+        if (
+            overlay &&
+            activeElement instanceof HTMLElement &&
+            overlay.contains(activeElement)
+        ) {
+            activeElement.blur();
+        }
+
+        const returnFocus =
+            tutorialReturnFocus instanceof HTMLElement
+                ? tutorialReturnFocus
+                : null;
+
+        tutorialReturnFocus = null;
+
         if (overlay) {
+            overlay.setAttribute('inert', '');
             overlay.classList.remove('is-open');
             overlay.setAttribute('aria-hidden', 'true');
             overlay.hidden = true;
@@ -1156,6 +1230,18 @@ function routeDashboardParentToDefault(
 
         activeDivision = '';
         activeSlideIndex = 0;
+
+        if (returnFocus?.isConnected) {
+            window.requestAnimationFrame(() => {
+                try {
+                    returnFocus.focus({
+                        preventScroll: true
+                    });
+                } catch (_) {
+                    returnFocus.focus();
+                }
+            });
+        }
 
         if (!division) return;
 
@@ -1444,7 +1530,59 @@ function scheduleCurrentEntry(
         document.addEventListener('keydown', (event) => {
             if (!activeDivision) return;
 
-            if (event.key === 'ArrowRight') {
+            if (event.key === 'Tab') {
+                const overlay =
+                    document.getElementById(
+                        'yh-division-tutorial-overlay'
+                    );
+
+                const focusable =
+                    getTutorialFocusableElements();
+
+                if (!overlay || !focusable.length) {
+                    event.preventDefault();
+                    return;
+                }
+
+                const first = focusable[0];
+                const last =
+                    focusable[focusable.length - 1];
+
+                const current =
+                    document.activeElement;
+
+                if (
+                    event.shiftKey &&
+                    (
+                        current === first ||
+                        !overlay.contains(current)
+                    )
+                ) {
+                    event.preventDefault();
+
+                    last.focus({
+                        preventScroll: true
+                    });
+
+                    return;
+                }
+
+                if (
+                    !event.shiftKey &&
+                    (
+                        current === last ||
+                        !overlay.contains(current)
+                    )
+                ) {
+                    event.preventDefault();
+
+                    first.focus({
+                        preventScroll: true
+                    });
+
+                    return;
+                }
+            } else if (event.key === 'ArrowRight') {
                 event.preventDefault();
                 goNext();
             } else if (event.key === 'ArrowLeft') {

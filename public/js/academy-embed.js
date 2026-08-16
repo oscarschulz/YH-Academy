@@ -1095,32 +1095,6 @@
         `;
     }
 
-    function renderMissionPlaybookCard(playbook = {}) {
-        const selected = state.selectedMissionPlaybook === playbook.key;
-
-        return `
-            <article class="yhae-playbook-card ${selected ? 'is-selected' : ''}">
-                <span>${escapeHtml(playbook.typeLabel || 'Mission Playbook')}</span>
-                <strong>${escapeHtml(playbook.title || 'Academy Mission')}</strong>
-                <p>${escapeHtml(playbook.description || 'Execution guide for Academy missions.')}</p>
-
-                <div class="yhae-playbook-actions">
-                    <button type="button" class="yhae-inline-action" data-yhae-open-playbook="${escapeHtml(playbook.key)}">
-                        ${selected ? 'Hide Guide' : 'View Mission Guide'}
-                    </button>
-                </div>
-
-                ${selected ? `
-                    <div class="yhae-playbook-detail">
-                        <div class="yhae-kicker">Mission Objective</div>
-                        <p>${escapeHtml(playbook.objective || 'Follow the mission guide and submit proof when the full workspace is connected.')}</p>
-                        <small>Full mission workspace actions will be connected in the next pass.</small>
-                    </div>
-                ` : ''}
-            </article>
-        `;
-    }
-
     function renderRoadmapGenerationPending(home = {}) {
         const stage = $('#yhaeStage');
         if (!stage) return;

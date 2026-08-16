@@ -365,6 +365,8 @@ router.post('/plaza/messages/:id/block', auth, plazaBusinessMessagesSupabaseLite
 
 router.get('/plaza/meetups', auth, plazaMeetupsSupabaseLiteControllers.getMeetups);
 router.post('/plaza/meetups', auth, plazaMeetupsSupabaseLiteControllers.createMeetup);
+router.patch('/plaza/meetups/:id', auth, plazaMeetupsSupabaseLiteControllers.updateMeetup);
+router.delete('/plaza/meetups/:id', auth, plazaMeetupsSupabaseLiteControllers.deleteMeetup);
 router.patch('/plaza/meetups/:id/patron-status', auth, plazaMeetupsSupabaseLiteControllers.updatePatronMeetupStatus);
 
 // ==========================================
@@ -403,43 +405,168 @@ router.post('/payouts/withdrawal-requests', auth, paymentControllers.createWithd
 // ==========================================
 // 🧠 INTERNAL AI NURTURE ROUTES
 // ==========================================
-router.get('/internal/ai-nurture/:gate/bootstrap', aiNurtureGate, aiNurtureControllers.bootstrap);
-router.get('/internal/ai-nurture/:gate/settings', aiNurtureGate, aiNurtureControllers.getSettings);
-router.patch('/internal/ai-nurture/:gate/settings', aiNurtureGate, aiNurtureControllers.updateSettings);
 
-router.get('/internal/ai-nurture/:gate/batches', aiNurtureGate, aiNurtureControllers.listBatchProgress);
-router.post('/internal/ai-nurture/:gate/batches/:batchId/run-remaining', aiNurtureGate, aiNurtureControllers.runRemainingBatchJobs);
-router.post('/internal/ai-nurture/:gate/batches/:batchId/retry-failed', aiNurtureGate, aiNurtureControllers.retryFailedBatchSources);
-router.post('/internal/ai-nurture/:gate/batches/:batchId/approve-ready', aiNurtureGate, aiNurtureControllers.approveReadyBatchSources);
+/*
+ * Every endpoint below this prefix requires
+ * the HttpOnly AI Nurture session cookie.
+ *
+ * No gate secret is accepted in API URLs.
+ */
+router.use(
+    '/internal/ai-nurture',
+    aiNurtureGate
+);
 
-router.post('/internal/ai-nurture/:gate/sources', aiNurtureGate, aiNurtureControllers.createSource);
-router.post('/internal/ai-nurture/:gate/sources/batch', aiNurtureGate, aiNurtureControllers.createBatchSources);
-router.post('/internal/ai-nurture/:gate/sources/discover', aiNurtureGate, aiNurtureControllers.discoverSourceLinks);
-router.get('/internal/ai-nurture/:gate/sources', aiNurtureGate, aiNurtureControllers.listSources);
-router.post('/internal/ai-nurture/:gate/sources/approve-ready', aiNurtureGate, aiNurtureControllers.approveReadySources);
-router.get('/internal/ai-nurture/:gate/sources/:id', aiNurtureGate, aiNurtureControllers.getSourceById);
-router.post('/internal/ai-nurture/:gate/sources/:id/process', aiNurtureGate, aiNurtureControllers.processSource);
-router.post('/internal/ai-nurture/:gate/sources/:id/reprocess', aiNurtureGate, aiNurtureControllers.queueReprocess);
+router.get(
+    '/internal/ai-nurture/bootstrap',
+    aiNurtureControllers.bootstrap
+);
 
-router.post('/internal/ai-nurture/:gate/sources/:id/approve', aiNurtureGate, aiNurtureControllers.approveSource);
-router.post('/internal/ai-nurture/:gate/sources/:id/reject', aiNurtureGate, aiNurtureControllers.rejectSource);
-router.post('/internal/ai-nurture/:gate/sources/:id/notes', aiNurtureGate, aiNurtureControllers.addReviewNote);
+router.get(
+    '/internal/ai-nurture/settings',
+    aiNurtureControllers.getSettings
+);
 
-router.post('/internal/ai-nurture/:gate/mentor-packs', aiNurtureGate, aiNurtureControllers.createMentorKnowledgePack);
-router.delete('/internal/ai-nurture/:gate/mentor-packs/:id', aiNurtureGate, aiNurtureControllers.deleteMentorKnowledgePack);
+router.patch(
+    '/internal/ai-nurture/settings',
+    aiNurtureControllers.updateSettings
+);
 
-router.get('/internal/ai-nurture/:gate/library', aiNurtureGate, aiNurtureControllers.listLibrary);
-router.post('/internal/ai-nurture/:gate/context-preview', aiNurtureGate, aiNurtureControllers.previewContext);
-router.get('/internal/ai-nurture/:gate/context-packs', aiNurtureGate, aiNurtureControllers.listContextPacks);
-router.post('/internal/ai-nurture/:gate/context-packs/rebuild', aiNurtureGate, aiNurtureControllers.rebuildContextPacks);
+router.get(
+    '/internal/ai-nurture/batches',
+    aiNurtureControllers.listBatchProgress
+);
 
-router.get('/internal/ai-nurture/:gate/jobs', aiNurtureGate, aiNurtureControllers.listJobs);
-router.post('/internal/ai-nurture/:gate/jobs/run-next', aiNurtureGate, aiNurtureControllers.runNextJob);
-router.post('/internal/ai-nurture/:gate/jobs/run-batch', aiNurtureGate, aiNurtureControllers.runQueuedJobs);
-router.get('/internal/ai-nurture/:gate/user-overlays/:uid', aiNurtureGate, aiNurtureControllers.getUserOverlay);
-router.patch('/internal/ai-nurture/:gate/user-overlays/:uid', aiNurtureGate, aiNurtureControllers.updateUserOverlay);
+router.post(
+    '/internal/ai-nurture/batches/:batchId/run-remaining',
+    aiNurtureControllers.runRemainingBatchJobs
+);
 
-router.get('/internal/ai-nurture/:gate/academy/telemetry/:uid', aiNurtureGate, academyControllers.getInternalRoadmapTelemetry);
+router.post(
+    '/internal/ai-nurture/batches/:batchId/retry-failed',
+    aiNurtureControllers.retryFailedBatchSources
+);
+
+router.post(
+    '/internal/ai-nurture/batches/:batchId/approve-ready',
+    aiNurtureControllers.approveReadyBatchSources
+);
+
+router.post(
+    '/internal/ai-nurture/sources',
+    aiNurtureControllers.createSource
+);
+
+router.post(
+    '/internal/ai-nurture/sources/batch',
+    aiNurtureControllers.createBatchSources
+);
+
+router.post(
+    '/internal/ai-nurture/sources/discover',
+    aiNurtureControllers.discoverSourceLinks
+);
+
+router.get(
+    '/internal/ai-nurture/sources',
+    aiNurtureControllers.listSources
+);
+
+router.post(
+    '/internal/ai-nurture/sources/approve-ready',
+    aiNurtureControllers.approveReadySources
+);
+
+router.get(
+    '/internal/ai-nurture/sources/:id',
+    aiNurtureControllers.getSourceById
+);
+
+router.post(
+    '/internal/ai-nurture/sources/:id/process',
+    aiNurtureControllers.processSource
+);
+
+router.post(
+    '/internal/ai-nurture/sources/:id/reprocess',
+    aiNurtureControllers.queueReprocess
+);
+
+router.post(
+    '/internal/ai-nurture/sources/:id/approve',
+    aiNurtureControllers.approveSource
+);
+
+router.post(
+    '/internal/ai-nurture/sources/:id/reject',
+    aiNurtureControllers.rejectSource
+);
+
+router.post(
+    '/internal/ai-nurture/sources/:id/notes',
+    aiNurtureControllers.addReviewNote
+);
+
+router.post(
+    '/internal/ai-nurture/mentor-packs',
+    aiNurtureControllers.createMentorKnowledgePack
+);
+
+router.delete(
+    '/internal/ai-nurture/mentor-packs/:id',
+    aiNurtureControllers.deleteMentorKnowledgePack
+);
+
+router.get(
+    '/internal/ai-nurture/library',
+    aiNurtureControllers.listLibrary
+);
+
+router.post(
+    '/internal/ai-nurture/context-preview',
+    aiNurtureControllers.previewContext
+);
+
+router.get(
+    '/internal/ai-nurture/context-packs',
+    aiNurtureControllers.listContextPacks
+);
+
+router.post(
+    '/internal/ai-nurture/context-packs/rebuild',
+    aiNurtureControllers.rebuildContextPacks
+);
+
+router.get(
+    '/internal/ai-nurture/jobs',
+    aiNurtureControllers.listJobs
+);
+
+router.post(
+    '/internal/ai-nurture/jobs/run-next',
+    aiNurtureControllers.runNextJob
+);
+
+router.post(
+    '/internal/ai-nurture/jobs/run-batch',
+    aiNurtureControllers.runQueuedJobs
+);
+
+router.get(
+    '/internal/ai-nurture/user-overlays/:uid',
+    aiNurtureControllers.getUserOverlay
+);
+
+router.patch(
+    '/internal/ai-nurture/user-overlays/:uid',
+    aiNurtureControllers.updateUserOverlay
+);
+
+router.get(
+    '/internal/ai-nurture/academy/telemetry/:uid',
+    academyControllers
+        .getInternalRoadmapTelemetry
+);
 // ==========================================
 // ⚡ REALTIME BACKEND ROUTES
 // ==========================================

@@ -3357,6 +3357,18 @@ if (formRegisterSimple) {
             return;
         }
 
+        if (
+            password.length < 8 ||
+            password.length > 128
+        ) {
+            showToast(
+                "Password must be between 8 and 128 characters.",
+                "error"
+            );
+            document.getElementById('reg-password')?.focus();
+            return;
+        }
+
         if (!confirmPassword) {
             showToast("Please confirm your password.", "error");
             document.getElementById('reg-confirm-password')?.focus();
@@ -3798,9 +3810,60 @@ if (formRegisterSimple) {
     const formResetPass = document.getElementById('form-reset-pass');
     if (formResetPass) {
         formResetPass.addEventListener('submit', async (e) => {
-            e.preventDefault(); const newPassword = document.getElementById('reset-new-password').value; const confirmPassword = document.getElementById('reset-confirm-password').value;
-            if (newPassword !== confirmPassword) { showToast("Passwords do not match.", "error"); return; }
-            const submitBtn = document.getElementById('btn-reset-save'); submitBtn.innerText = yhT('auth.saving'); submitBtn.disabled = true;
+            e.preventDefault();
+
+            const newPassword =
+                document.getElementById(
+                    'reset-new-password'
+                ).value;
+
+            const confirmPassword =
+                document.getElementById(
+                    'reset-confirm-password'
+                ).value;
+
+            if (
+                newPassword.length < 8 ||
+                newPassword.length > 128
+            ) {
+                showToast(
+                    "New password must be between 8 and 128 characters.",
+                    "error"
+                );
+
+                document
+                    .getElementById(
+                        'reset-new-password'
+                    )
+                    ?.focus();
+
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                showToast(
+                    "Passwords do not match.",
+                    "error"
+                );
+
+                document
+                    .getElementById(
+                        'reset-confirm-password'
+                    )
+                    ?.focus();
+
+                return;
+            }
+
+            const submitBtn =
+                document.getElementById(
+                    'btn-reset-save'
+                );
+
+            submitBtn.innerText =
+                yhT('auth.saving');
+
+            submitBtn.disabled = true;
             try {
                 const response = await fetch('/api/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: resetEmailHolder, newPassword }) });
                 const result = await response.json();

@@ -1408,8 +1408,8 @@ body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel {
   min-height: 100dvh;
   max-height: 100dvh;
   display: grid;
-  place-items: start center;
-  align-items: start;
+  place-items: center;
+  align-items: center;
   justify-items: center;
   padding: max(18px, env(safe-area-inset-top)) clamp(16px, 2.4vw, 42px) max(18px, env(safe-area-inset-bottom));
   overflow-y: auto;
@@ -1678,14 +1678,18 @@ body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel .yh-otp-expiry-
 }
 
 @media (max-width: 720px) {
-  body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel {
-    padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
-    place-items: start center;
-    align-items: start;
-    justify-items: center;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
+    body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel {
+        padding:
+            max(14px, env(safe-area-inset-top))
+            14px
+            max(14px, env(safe-area-inset-bottom));
+
+        place-items: center;
+        align-items: center;
+        justify-items: center;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
 
   body[data-yh-page="apply"] #step-2.yh-account-verify-modal-panel .yh-account-verify-card {
     width: 100%;

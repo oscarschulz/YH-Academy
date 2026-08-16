@@ -8844,7 +8844,12 @@ async (req, res) => {
 /* END PATCH: Universe division tutorial persistence v2 */
 
 
-exports.getUniverseProfile = async (req, res) => {
+/*
+ * Legacy pre-shared Universe profile implementation.
+ * Kept temporarily for regression reference only.
+ * The canonical exported handler is defined below.
+ */
+const getUniverseProfileLegacyV1 = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
 
@@ -9603,33 +9608,127 @@ exports.getUniverseProfile = async (req, res) => {
             });
         }
 
-        const userData = userSnapshot.data() || {};
+        let userData = userSnapshot.data() || {};
 
-        const storedAcademyProfile = await academyFirestoreRepo
-            .getCurrentProfile(uid)
-            .catch(() => null) || {};
+        /*
+         * Canonical access repair/self-heal must happen
+         * before building the Universe profile response.
+         */
+        userData = await applyUniverseProfileSameEmailApprovalMirrorV1({
+            uid,
+            userRef,
+            userData
+        });
 
-        const academyProfile = buildAcademyProfileResponse(uid, userData, storedAcademyProfile);
+        const canonicalAccessRepairPatchV1 =
+            buildUniverseProfileCanonicalAccessSelfHealPatchV1(
+                userData
+            );
 
+        if (
+            Object.keys(
+                canonicalAccessRepairPatchV1
+            ).length &&
+            userSnapshot.ref &&
+            typeof userSnapshot.ref.set === 'function'
+        ) {
+            await userSnapshot.ref
+                .set(
+                    canonicalAccessRepairPatchV1,
+                    {
+                        merge: true
+                    }
+                )
+                .catch((error) => {
+                    console.warn(
+                        'Universe profile canonical access self-heal skipped:',
+                        error?.message || error
+                    );
+                });
+
+            userData =
+                mergeUniverseProfileSelfHealPatchV1(
+                    userData,
+                    canonicalAccessRepairPatchV1
+                );
+
+            await yhuUsersSupabaseRepo
+                .syncFromFirestoreUserRef(
+                    userRef,
+                    {
+                        source:
+                            'universe-profile:canonical-access-self-heal'
+                    }
+                )
+                .catch((error) => {
+                    console.warn(
+                        'Universe profile yhu_users self-heal sync skipped:',
+                        error?.message || error
+                    );
+                });
+
+            await academyMemberProfileSupabaseRepo
+                .upsertProfileFromUserData(
+                    uid,
+                    userData
+                )
+                .catch((error) => {
+                    console.warn(
+                        'Universe profile academy member self-heal sync skipped:',
+                        error?.message || error
+                    );
+                });
+        }
+
+        const storedAcademyProfile =
+            await withUniverseProfileTimeout(
+                academyFirestoreRepo
+                    .getCurrentProfile(uid)
+                    .catch(() => null),
+                2500,
+                null
+            ) || {};
+
+        const academyProfile =
+            buildAcademyProfileResponse(
+                uid,
+                userData,
+                storedAcademyProfile
+            );
+
+        /*
+         * Keep /api/universe/profile lightweight.
+         * Full social profile hydration is intentionally
+         * excluded from this endpoint.
+         */
         try {
-            const socialProfile = await academyCommunityRepo.getMemberProfile({
-                viewerId: uid,
-                targetUserId: uid
-            });
+            if (
+                typeof academyCommunityRepo
+                    .getMemberSocialCounts ===
+                'function'
+            ) {
+                const socialCounts =
+                    await withUniverseProfileTimeout(
+                        academyCommunityRepo
+                            .getMemberSocialCounts({
+                                userId: uid,
+                                viewerId: uid
+                            }),
+                        2500,
+                        null
+                    );
 
-            academyProfile.followers_count = socialProfile?.followers_count ?? academyProfile.followers_count ?? '—';
-            academyProfile.following_count = socialProfile?.following_count ?? academyProfile.following_count ?? '—';
-            academyProfile.friends_count = socialProfile?.friends_count ?? socialProfile?.friend_count ?? academyProfile.friends_count ?? '—';
-            academyProfile.friend_count = academyProfile.friends_count;
-
-            if (Number.isFinite(Number(socialProfile?.post_count))) {
-                academyProfile.post_count = Number(socialProfile.post_count);
+                applyAcademySocialStatsToProfileResponse(
+                    academyProfile,
+                    socialCounts
+                );
             }
-
-            if (Array.isArray(socialProfile?.recent_posts)) {
-                academyProfile.recent_posts = socialProfile.recent_posts;
-            }
-        } catch (_) {}
+        } catch (socialCountError) {
+            console.warn(
+                'getUniverseProfile social count fallback:',
+                socialCountError?.message || socialCountError
+            );
+        }
 
         const academyApplication =
             userData.academyApplication && typeof userData.academyApplication === 'object'
@@ -9647,34 +9746,52 @@ exports.getUniverseProfile = async (req, res) => {
                 : null;
 
         let academyAccessState = null;
+
         try {
-            academyAccessState = await academyFirestoreRepo.getAccessState(uid);
+            academyAccessState =
+                await withUniverseProfileTimeout(
+                    academyFirestoreRepo
+                        .getAccessState(uid),
+                    2500,
+                    null
+                );
         } catch (_) {
             academyAccessState = null;
         }
 
-        const rawAcademyStatus =
-            userData.academyMembershipStatus ||
-            userData.academyApplicationStatus ||
-            academyApplication?.status ||
-            '';
+        const academyStatus =
+            resolveUniverseDivisionStatus([
+                userData.hasAcademyAccess === true
+                    ? 'approved'
+                    : '',
+                userData.canEnterAcademy === true
+                    ? 'approved'
+                    : '',
+                academyApplication?.status,
+                userData.academyMembershipStatus,
+                userData.academyApplicationStatus
+            ]);
 
-        const rawPlazaStatus =
-            userData.plazaAccessStatus ||
-            userData.plazaMembershipStatus ||
-            userData.plazaApplicationStatus ||
-            plazaApplication?.status ||
-            '';
+        const plazaStatus =
+            resolveUniverseDivisionStatus([
+                userData.hasPlazaAccess === true
+                    ? 'approved'
+                    : '',
+                plazaApplication?.status,
+                userData.plazaAccessStatus,
+                userData.plazaMembershipStatus,
+                userData.plazaApplicationStatus
+            ]);
 
-        const rawFederationStatus =
-            userData.federationMembershipStatus ||
-            userData.federationApplicationStatus ||
-            federationApplication?.status ||
-            '';
-
-        const academyStatus = normalizeUniverseProfileStatus(rawAcademyStatus);
-        const plazaStatus = normalizeUniverseProfileStatus(rawPlazaStatus);
-        const federationStatus = normalizeUniverseProfileStatus(rawFederationStatus);
+        const federationStatus =
+            resolveUniverseDivisionStatus([
+                userData.hasFederationAccess === true
+                    ? 'approved'
+                    : '',
+                federationApplication?.status,
+                userData.federationMembershipStatus,
+                userData.federationApplicationStatus
+            ]);
 
         const isAcademyMember =
             userData.hasAcademyAccess === true ||
@@ -9690,7 +9807,15 @@ exports.getUniverseProfile = async (req, res) => {
             userData.hasFederationAccess === true ||
             federationStatus === 'approved';
 
-        const plazaDirectoryRaw = await getUniverseSafeDoc('plazaDirectoryProfiles', uid);
+        const plazaDirectoryRaw =
+            await withUniverseProfileTimeout(
+                getUniverseSafeDoc(
+                    'plazaDirectoryProfiles',
+                    uid
+                ),
+                2500,
+                null
+            );
 
         const divisions = {
             academy: buildUniverseDivisionState({
@@ -10325,10 +10450,14 @@ exports.changeCurrentPassword = async (req, res) => {
             });
         }
 
-        if (!newPassword || newPassword.length < 8) {
+        if (
+            !newPassword ||
+            newPassword.length < 8 ||
+            newPassword.length > 128
+        ) {
             return res.status(400).json({
                 success: false,
-                message: 'New password must be at least 8 characters.'
+                message: 'New password must be between 8 and 128 characters.'
             });
         }
 
@@ -10388,17 +10517,60 @@ exports.changeCurrentPassword = async (req, res) => {
             });
         }
 
-        const nextPasswordHash = await bcrypt.hash(newPassword, 10);
-        const nowIso = new Date().toISOString();
+        const nextPasswordHash =
+            await bcrypt.hash(
+                newPassword,
+                10
+            );
+
+        const nowIso =
+            new Date().toISOString();
+
+        const currentAuthSessionVersion =
+            Number.isFinite(
+                Number(
+                    userData.authSessionVersion
+                )
+            )
+                ? Math.max(
+                    0,
+                    Math.trunc(
+                        Number(
+                            userData.authSessionVersion
+                        )
+                    )
+                )
+                : 0;
 
         const updatePayload = {
-            password: nextPasswordHash,
-            passwordUpdatedAt: nowIso,
-            updatedAt: nowIso
+            password:
+                nextPasswordHash,
+
+            authSessionVersion:
+                currentAuthSessionVersion + 1,
+
+            passwordChangedAt:
+                nowIso,
+
+            passwordUpdatedAt:
+                nowIso,
+
+            passwordResetCode:
+                null,
+
+            passwordResetExpiresAt:
+                null,
+
+            passwordResetVerifiedAt:
+                null,
+
+            updatedAt:
+                nowIso
         };
 
         if (userData.passwordHash) {
-            updatePayload.passwordHash = nextPasswordHash;
+            updatePayload.passwordHash =
+                nextPasswordHash;
         }
 
         await userRef.update(updatePayload);
@@ -10408,7 +10580,9 @@ exports.changeCurrentPassword = async (req, res) => {
 
         return res.json({
             success: true,
-            message: 'Password changed successfully.'
+            logoutRequired: true,
+            message:
+                'Password changed successfully. Please log in again with your new password.'
         });
     } catch (error) {
         console.error('changeCurrentPassword error:', error);

@@ -98,8 +98,99 @@ function normalizeJson(value) {
   return value;
 }
 
+const YHU_USER_MIRROR_SENSITIVE_KEYS = new Set([
+  'password',
+  'passwordhash',
+  'password_hash',
+  '_passwordhash',
+  '_pwhash',
+
+  'verificationcode',
+  'verification_code',
+  'verificationcodeissuedat',
+  'verification_code_issued_at',
+
+  'passwordresetcode',
+  'password_reset_code',
+  'passwordresetexpiresat',
+  'password_reset_expires_at',
+  'passwordresetverifiedat',
+  'password_reset_verified_at',
+
+  'resetcode',
+  'reset_code',
+  'resettoken',
+  'reset_token',
+
+  'authtoken',
+  'auth_token',
+  'sessiontoken',
+  'session_token',
+  'accesstoken',
+  'access_token',
+  'refreshtoken',
+  'refresh_token',
+
+  'jwt',
+  'jwttoken',
+  'jwt_token',
+
+  'otp',
+  'otpcode',
+  'otp_code',
+  'otptoken',
+  'otp_token',
+  'otpexpiresat',
+  'otp_expires_at',
+
+  'secret',
+  'apikey',
+  'api_key',
+  'privatekey',
+  'private_key'
+]);
+
+function normalizeUserMirrorSensitiveKey(key = '') {
+  return String(key || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '');
+}
+
+function stripSensitiveUserMirrorFields(value) {
+  if (Array.isArray(value)) {
+    return value.map(
+      stripSensitiveUserMirrorFields
+    );
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  const output = {};
+
+  for (const [key, child] of Object.entries(value)) {
+    if (
+      YHU_USER_MIRROR_SENSITIVE_KEYS.has(
+        normalizeUserMirrorSensitiveKey(key)
+      )
+    ) {
+      continue;
+    }
+
+    output[key] =
+      stripSensitiveUserMirrorFields(child);
+  }
+
+  return output;
+}
+
 function hashData(data) {
-  return crypto.createHash('sha256').update(JSON.stringify(data || {})).digest('hex');
+  return crypto
+    .createHash('sha256')
+    .update(JSON.stringify(data || {}))
+    .digest('hex');
 }
 
 function isFirebaseQuotaError(error) {
@@ -116,7 +207,12 @@ function isFirebaseQuotaError(error) {
 }
 
 function buildUserRow(firebaseDocumentId, data = {}, context = {}) {
-  const raw = normalizeJson({ ...data, yhuMirrorContext: context }) || {};
+  const raw = stripSensitiveUserMirrorFields(
+    normalizeJson({
+      ...data,
+      yhuMirrorContext: context
+    }) || {}
+  );
   const academyProfile = raw.academyProfile && typeof raw.academyProfile === 'object' ? raw.academyProfile : {};
   const academyApplication = raw.academyApplication && typeof raw.academyApplication === 'object' ? raw.academyApplication : {};
 
@@ -398,44 +494,12 @@ async function getFederationRequestByDocumentId(requestId) {
 
 
 
-function mapSupabaseUserRowToAuthUser(row = {}) {
-  const raw = row.raw_data && typeof row.raw_data === 'object' ? row.raw_data : {};
+/*
+ * yhu_users is an identity/profile mirror only.
+ * It must never be converted into an authentication
+ * credential source.
+ */
 
-  const id = cleanText(row.firebase_document_id || raw.id || raw.uid || raw.firebaseUid);
-  const email = cleanText(row.email || raw.email || raw.emailLower).toLowerCase();
-  const username = cleanText(row.username || raw.username || raw.handle).replace(/^@+/, '').toLowerCase();
-  const fullName = firstNonEmpty(row.full_name, row.display_name, raw.fullName, raw.displayName, raw.name, email, id) || '';
-  const password = firstNonEmpty(raw.password, raw.passwordHash, raw.password_hash, raw._passwordHash, raw._pwHash, row.password_hash) || '';
-
-  const verified =
-    raw.isVerified === true ||
-    raw.emailVerified === true ||
-    raw.verified === true ||
-    cleanText(raw.accountStatus || row.account_status).toLowerCase() === 'active';
-
-  return {
-    ...raw,
-    id,
-    uid: id,
-    firebaseUid: id,
-    email,
-    username,
-    fullName,
-    displayName: firstNonEmpty(row.display_name, raw.displayName, raw.name, fullName) || fullName,
-    name: firstNonEmpty(raw.name, raw.displayName, fullName) || fullName,
-    contact: firstNonEmpty(row.phone, raw.contact, raw.phone, raw.phoneNumber) || '',
-    city: firstNonEmpty(row.city, raw.city) || '',
-    country: firstNonEmpty(row.country, raw.country, raw.locationCountry) || '',
-    countryCode: firstNonEmpty(raw.countryCode, raw.country_code) || '',
-    avatar: firstNonEmpty(raw.avatar, raw.profilePhoto, raw.photoURL) || '',
-    profilePhoto: firstNonEmpty(raw.profilePhoto, raw.avatar, raw.photoURL) || '',
-    photoURL: firstNonEmpty(raw.photoURL, raw.profilePhoto, raw.avatar) || '',
-    password,
-    isVerified: verified,
-    accountStatus: firstNonEmpty(row.account_status, raw.accountStatus, 'active') || 'active',
-    authSource: 'supabase-yhu-users'
-  };
-}
 
 async function deleteMirrorRowsByColumn(tableName = '', column = '', value = '') {
   const client = getSupabaseClient();
@@ -511,77 +575,6 @@ async function deleteUserMirror({ uid = '', email = '' } = {}) {
   };
 }
 
-async function findUserByIdentifier(identifier = '') {
-  const cleanIdentifier = cleanText(identifier).toLowerCase();
-
-  if (!cleanIdentifier) {
-    return {
-      ok: false,
-      skipped: true,
-      reason: 'missing_identifier',
-      user: null
-    };
-  }
-
-  const client = getSupabaseClient();
-
-  if (!client) {
-    return {
-      ok: false,
-      skipped: true,
-      reason: 'missing_supabase_env',
-      user: null
-    };
-  }
-
-  const username = cleanIdentifier.replace(/^@+/, '');
-
-  const queries = cleanIdentifier.includes('@')
-    ? [
-        ['email', cleanIdentifier],
-        ['username', username]
-      ]
-    : [
-        ['username', username],
-        ['email', cleanIdentifier]
-      ];
-
-  for (const [column, value] of queries) {
-    if (!value) continue;
-
-    const { data, error } = await client
-      .from('yhu_users')
-      .select('*')
-      .eq(column, value)
-      .order('synced_at', { ascending: false })
-      .limit(10);
-
-    if (error) {
-      console.error('[YHU Supabase Mirror] Auth lookup failed:', error.message);
-      throw error;
-    }
-
-    const rows = Array.isArray(data) ? data : [];
-
-    if (rows.length > 0) {
-      const mappedUsers = rows.map((row) => mapSupabaseUserRowToAuthUser(row));
-      const preferredUser = mappedUsers.find((user) => cleanText(user.password)) || mappedUsers[0];
-
-      return {
-        ok: true,
-        source: 'supabase',
-        user: preferredUser
-      };
-    }
-  }
-
-  return {
-    ok: true,
-    source: 'supabase',
-    user: null
-  };
-}
-
 
 module.exports = {
   isFirebaseQuotaError,
@@ -592,7 +585,5 @@ module.exports = {
   mapSupabaseFederationRequestRow,
   listFederationRequestsByRequester,
   getFederationRequestByDocumentId,
-  mapSupabaseUserRowToAuthUser,
-  deleteUserMirror,
-  findUserByIdentifier
+  deleteUserMirror
 };

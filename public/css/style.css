@@ -118,11 +118,6 @@ body {
 .fw-bold { font-weight: bold; }
 .relative-panel { position: relative; }
 
-/* Global Fonts */
-.main-title { font-size: 2rem; font-weight: 700; color: var(--text-main); letter-spacing: 1px; }
-.subtitle { color: var(--text-muted); font-size: 1rem; font-weight: 300; }
-h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
-
 /* ========================================================= */
 /* 3. MAIN MODAL CONTAINERS                                  */
 /* ========================================================= */
@@ -275,14 +270,11 @@ h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
 .form-group label { display: block; font-size: 1rem; font-weight: 500; margin-bottom: 0.45rem; color: var(--text-muted); }
 .input-field { width: 100%; padding: 0.875rem; background: rgba(255, 255, 255, 0.05); color: var(--text-main); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.5rem; outline: none; font-size: 1.03rem; transition: 0.3s; }
 .input-field:focus { border-color: var(--neon-blue); box-shadow: 0 0 10px var(--neon-glow); }
-.input-field option { background: #111827; color: white; }
 textarea.input-field { resize: none; }
 
 /* Buttons */
 .btn-primary { width: 100%; background: var(--neon-blue); color: #fff; padding: 0.875rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; border: none; transition: 0.3s; box-shadow: 0 4px 15px var(--neon-glow); }
 .btn-primary:hover { background: #0284c7; transform: translateY(-2px); }
-.btn-secondary { width: 100%; background: transparent; color: var(--neon-blue); border: 1px solid var(--neon-blue); padding: 0.875rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: 0.3s; }
-.btn-secondary:hover { background: var(--neon-glow); color: #fff; }
 .btn-large { padding: 1rem; font-size: 1.1rem; }
 
 /* Locked/disabled buttons (after successful sync) */
@@ -346,7 +338,6 @@ textarea.input-field { resize: none; }
 #ai-status-title { font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
 
 /* Approved content primitives only. Layout ownership lives in yh-tailwind.css. */
-.approved-badge-section { margin-bottom: 1rem; }
 .approved-title-big {
     margin: 0;
     color: #fff;
@@ -790,8 +781,96 @@ body.yh-notif-menu-open::after {
     pointer-events: none;
     background: rgba(2, 6, 23, 0.08);
 }
-.notif-header { padding: 15px; font-weight: 600; font-size: 1.03rem; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; }
-.notif-header span { font-size: 0.95rem; color: var(--neon-blue); cursor: pointer; font-weight: 400; }
+.notif-header {
+    padding: 15px;
+
+    font-weight: 600;
+    font-size: 1.03rem;
+
+    color: #fff;
+
+    border-bottom:
+        1px solid
+        rgba(255,255,255,0.05);
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    gap: 12px;
+}
+
+.notif-header span {
+    font-size: 0.95rem;
+
+    color: var(--neon-blue);
+
+    cursor: pointer;
+
+    font-weight: 400;
+}
+
+
+/* ========================================= */
+/* MARK ALL NOTIFICATIONS AS READ — LOADING */
+/* ========================================= */
+
+#mark-all-read {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 7px;
+
+    min-height: 28px;
+
+    transition:
+        opacity 0.18s ease,
+        color 0.18s ease;
+}
+
+#mark-all-read.is-loading,
+#mark-all-read[aria-busy="true"] {
+    cursor: wait;
+
+    pointer-events: none;
+
+    opacity: 0.82;
+
+    color:
+        rgba(125, 211, 252, 0.92);
+}
+
+#mark-all-read.is-loading::before,
+#mark-all-read[aria-busy="true"]::before {
+    content: '';
+
+    width: 12px;
+    height: 12px;
+
+    flex: 0 0 12px;
+
+    border-radius: 50%;
+
+    border:
+        2px solid
+        rgba(56, 189, 248, 0.24);
+
+    border-top-color:
+        rgba(125, 211, 252, 1);
+
+    animation:
+        yh-notification-mark-all-spin
+        0.7s
+        linear
+        infinite;
+}
+
+@keyframes yh-notification-mark-all-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
 .notif-list { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; }
 .notif-list li { padding: 12px 15px; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 1rem; color: var(--text-main); display: flex; align-items: flex-start; gap: 10px; transition: 0.2s; cursor: pointer; }
 .notif-list li:hover { background: rgba(255,255,255,0.05); }
@@ -2018,34 +2097,592 @@ body.yh-notif-menu-open::after {
     padding: 14px;
 }
 /* ========================================================= */
-/* 🤖 ADMISSIONS FORM: LOADING SPINNER STYLING FIX */
+/* SHARED DIVISION APPLICATION SUBMISSION STATE              */
+/* Academy • Plazas • Federation                             */
 /* ========================================================= */
+#academy-apply-modal[data-yh-application-submitting="true"],
+#plaza-apply-modal[data-yh-application-submitting="true"],
+#federation-apply-modal[data-yh-application-submitting="true"] {
+    align-items: center !important;
+    justify-content: center !important;
 
-#academy-apply-modal #ai-spinner-phase {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+#academy-apply-modal
+.modal-content.is-division-application-submitting,
+
+#plaza-apply-modal
+.modal-content.is-division-application-submitting,
+
+#federation-apply-modal
+.modal-content.is-division-application-submitting {
+    position: relative;
+
+    width:
+        min(
+            420px,
+            calc(100vw - 28px)
+        );
+
+    max-width: 420px;
+
+    height: auto;
+    min-height: 0;
+    max-height: none;
+
+    margin: auto;
+
+    padding:
+        28px
+        22px;
+
+    overflow: visible;
+}
+
+
+/*
+ * While submitting, remove ALL application
+ * form/header/footer content from layout.
+ *
+ * The !important is intentional because the
+ * Federation one-question form has its own
+ * display:grid !important runtime layout.
+ *
+ * During submission, the shared loader must
+ * be the ONLY visible content.
+ */
+#academy-apply-modal
+.modal-content.is-division-application-submitting
+> :not(.yh-division-application-submit-state),
+
+#plaza-apply-modal
+.modal-content.is-division-application-submitting
+> :not(.yh-division-application-submit-state),
+
+#federation-apply-modal
+.modal-content.is-division-application-submitting
+> :not(.yh-division-application-submit-state) {
+    display: none !important;
+}
+
+
+.yh-division-application-submit-state {
+    width: 100%;
+
+    min-height: 0;
+
+    display: grid;
+    place-items: center;
+
+    gap: 14px;
+
+    padding:
+        10px
+        4px;
+
     text-align: center;
 }
 
-#academy-apply-modal .pulse-ring {
-    display: block;
-    width: 60px;
-    height: 60px;
-    margin: 0 auto 20px auto;
-    border-radius: 50%;
-    border: 3px solid rgba(14, 165, 233, 0.2);
-    border-top-color: var(--neon-blue);
-    animation: pulseSpin 1s linear infinite;
-    position: relative;
-    left: auto;
-    right: auto;
+
+.yh-division-application-submit-spinner {
+    width: 56px;
+    height: 56px;
+
+    margin:
+        0
+        auto
+        4px;
+
+    border-radius: 999px;
+
+    border:
+        3px solid
+        rgba(
+            56,
+            189,
+            248,
+            0.16
+        );
+
+    border-top-color:
+        rgba(
+            56,
+            189,
+            248,
+            1
+        );
+
+    box-shadow:
+        0 0 24px
+        rgba(
+            56,
+            189,
+            248,
+            0.14
+        );
+
+    animation:
+        yhDivisionApplicationSubmitSpin
+        0.8s
+        linear
+        infinite;
 }
 
-@keyframes pulseSpin {
-    0% { transform: rotate(0deg); box-shadow: 0 0 10px rgba(14, 165, 233, 0.5); }
-    100% { transform: rotate(360deg); box-shadow: 0 0 25px rgba(14, 165, 233, 0.2); }
+
+.yh-division-application-submit-title {
+    width: 100%;
+
+    max-width: 300px;
+
+    margin: 0 auto;
+
+    color:
+        var(
+            --neon-blue,
+            #38bdf8
+        );
+
+    font-size: 1rem;
+    line-height: 1.45;
+
+    font-weight: 700;
+}
+
+
+.yh-division-application-submit-copy {
+    width: 100%;
+
+    max-width: 310px;
+
+    margin: 0 auto;
+
+    color:
+        rgba(
+            203,
+            213,
+            225,
+            0.86
+        );
+
+    font-size: 0.92rem;
+    line-height: 1.6;
+}
+
+
+@keyframes yhDivisionApplicationSubmitSpin {
+    to {
+        transform:
+            rotate(
+                360deg
+            );
+    }
+}
+
+/* ========================================================= */
+/* DIVISION APPLICATION — SUBMITTED / PENDING STATE           */
+/* Plazas • Federation                                       */
+/* ========================================================= */
+
+#plaza-apply-modal.is-division-application-submitted,
+#federation-apply-modal.is-division-application-submitted {
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+
+#plaza-apply-modal
+.modal-content.is-division-application-submitted,
+
+#federation-apply-modal
+.modal-content.is-division-application-submitted {
+    position: relative;
+
+    width:
+        min(
+            430px,
+            calc(100vw - 28px)
+        );
+
+    max-width: 430px;
+
+    height: auto;
+    min-height: 0;
+    max-height:
+        calc(
+            100dvh -
+            32px
+        );
+
+    margin: auto;
+
+    padding:
+        30px
+        24px;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/*
+ * Preserve the actual application forms in DOM,
+ * but remove them from layout while the
+ * post-submit confirmation state is active.
+ */
+#plaza-apply-modal
+.modal-content.is-division-application-submitted
+> :not(.yh-dashboard-division-submitted-state),
+
+#federation-apply-modal
+.modal-content.is-division-application-submitted
+> :not(.yh-dashboard-division-submitted-state) {
+    display: none !important;
+}
+
+
+.yh-dashboard-division-submitted-state {
+    position: relative;
+}
+.yh-dashboard-plaza-submitted-state {
+    width: 100%;
+
+    display: grid;
+    justify-items: center;
+
+    gap: 14px;
+
+    padding:
+        8px
+        2px
+        2px;
+
+    text-align: center;
+}
+
+
+.yh-dashboard-plaza-submitted-kicker {
+    color:
+        var(
+            --neon-blue,
+            #38bdf8
+        );
+
+    font-size: 0.75rem;
+
+    line-height: 1.2;
+
+    font-weight: 900;
+
+    letter-spacing: 0.13em;
+
+    text-transform: uppercase;
+}
+
+
+.yh-dashboard-plaza-submitted-icon {
+    width: 68px;
+    height: 68px;
+
+    display: grid;
+    place-items: center;
+
+    margin:
+        2px
+        auto
+        0;
+
+    border:
+        1px solid
+        rgba(
+            56,
+            189,
+            248,
+            0.42
+        );
+
+    border-radius: 999px;
+
+    background:
+        radial-gradient(
+            circle at 50% 35%,
+            rgba(
+                56,
+                189,
+                248,
+                0.18
+            ),
+            rgba(
+                2,
+                6,
+                23,
+                0.72
+            )
+        );
+
+    color:
+        var(
+            --neon-blue,
+            #38bdf8
+        );
+
+    font-size: 1.8rem;
+    font-weight: 900;
+
+    box-shadow:
+        0 0 30px
+        rgba(
+            56,
+            189,
+            248,
+            0.14
+        );
+}
+
+
+.yh-dashboard-plaza-submitted-state h2 {
+    margin: 2px 0 0;
+
+    color: #ffffff;
+
+    font-size:
+        clamp(
+            1.3rem,
+            4vw,
+            1.7rem
+        );
+
+    line-height: 1.18;
+
+    font-weight: 900;
+}
+
+
+.yh-dashboard-plaza-submitted-lead {
+    width: 100%;
+
+    max-width: 350px;
+
+    margin: 0;
+
+    color:
+        #dcecff;
+
+    font-size: 0.96rem;
+    line-height: 1.6;
+}
+
+
+.yh-dashboard-plaza-submitted-status {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 14px;
+
+    margin-top: 4px;
+
+    padding:
+        13px
+        15px;
+
+    border:
+        1px solid
+        rgba(
+            56,
+            189,
+            248,
+            0.22
+        );
+
+    border-radius: 14px;
+
+    background:
+        rgba(
+            14,
+            165,
+            233,
+            0.07
+        );
+
+    text-align: left;
+}
+
+
+.yh-dashboard-plaza-submitted-status span {
+    color:
+        var(
+            --text-muted,
+            #94a3b8
+        );
+
+    font-size: 0.8rem;
+
+    font-weight: 700;
+
+    letter-spacing: 0.06em;
+
+    text-transform: uppercase;
+}
+
+
+.yh-dashboard-plaza-submitted-status strong {
+    color:
+        var(
+            --neon-blue,
+            #38bdf8
+        );
+
+    font-size: 0.94rem;
+
+    font-weight: 900;
+
+    text-align: right;
+}
+
+
+.yh-dashboard-plaza-submitted-copy {
+    width: 100%;
+
+    max-width: 350px;
+
+    margin: 0;
+
+    color:
+        var(
+            --text-muted,
+            #94a3b8
+        );
+
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+
+.yh-dashboard-plaza-submitted-close {
+    width: 100%;
+
+    min-height: 46px;
+
+    margin-top: 4px;
+
+    justify-content: center;
+}
+
+
+@media (max-width: 520px) {
+    /*
+     * Generic Federation/Plaza modal styling
+     * normally docks the card toward the bottom.
+     *
+     * Submitted confirmation should remain
+     * vertically centered.
+     */
+    #plaza-apply-modal.is-division-application-submitted,
+    #federation-apply-modal.is-division-application-submitted {
+        align-items: center !important;
+
+        padding:
+            max(
+                14px,
+                env(
+                    safe-area-inset-top,
+                    0px
+                )
+            )
+            14px
+            max(
+                14px,
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            ) !important;
+    }
+
+
+    #plaza-apply-modal
+    .modal-content.is-division-application-submitted,
+
+    #federation-apply-modal
+    .modal-content.is-division-application-submitted {
+        width: 100%;
+
+        max-width: 390px;
+
+        padding:
+            26px
+            18px;
+
+        border-radius: 20px;
+    }
+
+
+    .yh-dashboard-plaza-submitted-icon {
+        width: 60px;
+        height: 60px;
+
+        font-size: 1.55rem;
+    }
+
+
+    .yh-dashboard-plaza-submitted-status {
+        padding:
+            12px
+            13px;
+    }
+}
+
+@media (max-width: 720px) {
+    #academy-apply-modal
+    .modal-content.is-division-application-submitting,
+
+    #plaza-apply-modal
+    .modal-content.is-division-application-submitting,
+
+    #federation-apply-modal
+    .modal-content.is-division-application-submitting {
+        width:
+            min(
+                380px,
+                calc(100vw - 28px)
+            );
+
+        min-height: 0;
+        height: auto;
+
+        padding:
+            24px
+            18px;
+    }
+
+
+    .yh-division-application-submit-state {
+        min-height: 0;
+
+        gap: 12px;
+
+        padding:
+            6px
+            2px;
+    }
+
+
+    .yh-division-application-submit-spinner {
+        width: 52px;
+        height: 52px;
+    }
+
+
+    .yh-division-application-submit-title {
+        font-size: 0.95rem;
+    }
+
+
+    .yh-division-application-submit-copy {
+        font-size: 0.88rem;
+    }
 }
 /* ========================================================= */
 /* ROADMAP TRANSFORMATION SYSTEM                             */
@@ -8953,94 +9590,27 @@ body.academy-feed-share-open {
     position: relative;
     z-index: 1;
     overflow: visible;
-    padding-top: clamp(10px, 1.2vh, 18px);
 }
 
 .yh-landing-section,
 .yh-landing-auth-wrap {
     position: relative;
     z-index: 3;
-}
-
-.yh-landing-section,
-.yh-landing-auth-wrap {
     width: min(100%, 1680px);
     max-width: 1680px;
     margin: 0 auto;
 }
 
-.yh-landing-hero {
-    width: 100%;
-    max-width: none;
-    margin: 0;
-    min-height: auto;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-}
-
-.yh-landing-hero-grid {
-    width: min(100%, 1440px);
-    max-width: 1440px;
-    margin: 0 auto;
-    flex: 1 1 auto;
-    display: grid;
-    grid-template-columns: minmax(360px, 0.86fr) minmax(520px, 1.14fr);
-    gap: clamp(26px, 4vw, 76px);
-    align-items: center;
-    align-content: center;
-    min-height: calc(100svh - 76px);
-    padding: clamp(46px, 5vw, 76px) 0 clamp(56px, 7vw, 108px);
-    transform: none;
-}
-
-.yh-landing-hero-copy {
-    position: relative;
-    z-index: 4;
-    max-width: 640px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
-
 .yh-landing-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    width: fit-content;
-    max-width: max-content;
-    flex: 0 0 auto;
-    align-self: flex-start;
-    border: 1px solid rgba(56, 189, 248, 0.32);
-    background:
-        linear-gradient(180deg, rgba(56, 189, 248, 0.12), rgba(14, 165, 233, 0.045));
-    color: #38bdf8;
-    padding: 0.48rem 0.9rem;
-    border-radius: 999px;
-    font-size: 0.95rem;
-    font-weight: 800;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    margin-bottom: 0.82rem;
-    white-space: nowrap;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.05),
-        0 0 24px rgba(56, 189, 248, 0.12);
 }
 
 .yh-landing-title {
-    max-width: 11.6ch;
-    margin: 0 0 0.72rem;
+    margin-top: 0;
+    margin-right: 0;
+    margin-left: 0;
     color: #f8fbff;
-    font-size: clamp(3.7rem, 5.4vw, 6.35rem);
-    line-height: 0.92;
-    letter-spacing: -0.07em;
-    font-weight: 900;
-    text-wrap: balance;
     text-shadow: 0 22px 55px rgba(0, 0, 0, 0.42);
 }
 
@@ -9051,52 +9621,10 @@ body.academy-feed-share-open {
     color: transparent;
 }
 
-.yh-landing-narrative {
-    max-width: 610px;
-    margin-bottom: 0.62rem;
-    color: #f8fafc;
-    font-size: clamp(0.98rem, 1.1vw, 1.08rem);
-    line-height: 1.36;
-    font-weight: 800;
-}
-
-.yh-landing-subtitle {
-    max-width: 590px;
-    color: rgba(226, 232, 240, 0.8);
-    font-size: 0.98rem;
-    line-height: 1.72;
-    margin-bottom: 1.3rem;
-}
-
-.yh-landing-cta-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: stretch;
-    gap: 0.82rem;
-    margin-bottom: 1.18rem;
-}
-
-.yh-landing-cta-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 0.62rem;
-}
-
-.yh-landing-cta-note {
-    color: rgba(226, 232, 240, 0.78);
-    font-size: 0.95rem;
-    font-weight: 500;
-    padding-left: 0.1rem;
-}
-
 .yh-landing-cta-primary,
 .yh-landing-cta-secondary {
-    width: auto;
-    min-width: 185px;
     min-height: 48px;
-    padding: 0.82rem 1.05rem;
     border-radius: 12px;
-    transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease;
 }
 
 .yh-landing-cta-primary {
@@ -9112,54 +9640,13 @@ body.academy-feed-share-open {
     background: rgba(3, 7, 18, 0.42);
 }
 
-.yh-landing-proof-strip {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 0.8rem;
-}
-
-.yh-landing-proof-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.63rem 0.89rem;
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.62);
-    border: 1px solid rgba(56, 189, 248, 0.12);
-    color: #e5e7eb;
-    font-size: 0.95rem;
-    font-weight: 500;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-}
-
-.yh-landing-metrics {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    max-width: 630px;
-    gap: 0.78rem;
-}
 
 .yh-landing-metric-card {
-    position: relative;
-    min-height: 68px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    background:
-        linear-gradient(180deg, rgba(15, 23, 42, 0.64), rgba(3, 7, 18, 0.52));
-    border: 1px solid rgba(148, 163, 184, 0.12);
-    border-radius: 13px;
-    padding: 0.91rem 1.07rem 0.91rem 3.15rem;
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.045),
-        0 16px 44px rgba(0, 0, 0, 0.2);
-    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .yh-landing-metric-card::before {
@@ -9183,19 +9670,9 @@ body.academy-feed-share-open {
 .yh-landing-metric-card:nth-child(2)::before { content: "◎"; }
 .yh-landing-metric-card:nth-child(3)::before { content: "⌁"; }
 
-.yh-landing-metric-card:hover {
-    transform: translateY(-4px);
-    border-color: rgba(56, 189, 248, 0.3);
-    box-shadow: 0 20px 44px rgba(2, 8, 23, 0.42);
-}
 
 .yh-landing-metric-card strong {
-    display: block;
     width: 100%;
-    color: #f8fbff;
-    font-size: 1.14rem;
-    line-height: 1;
-    margin-bottom: 0.18rem;
     text-align: center;
     font-variant-numeric: tabular-nums;
 }
@@ -9203,19 +9680,10 @@ body.academy-feed-share-open {
 .yh-landing-metric-card span {
     display: block;
     width: 100%;
-    color: rgba(203, 213, 225, 0.72);
-    font-size: 0.95rem;
     line-height: 1.25;
     text-align: center;
 }
 
-.yh-landing-scroll-hint {
-    display: none !important;
-}
-
-.yh-landing-scroll-arrow {
-    display: none !important;
-}
 
 .yh-landing-hero {
     width: 100%;
@@ -14769,13 +15237,82 @@ body > #academy-search-results-panel:not(.hidden-step),
     height: auto;
     aspect-ratio: 8 / 3;
     min-height: 0;
+
+    position: relative;
+
     background:
-        linear-gradient(135deg, rgba(14, 165, 233, 0.22), rgba(15, 23, 42, 0.08)),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+        linear-gradient(
+            135deg,
+            rgba(14, 165, 233, 0.22),
+            rgba(15, 23, 42, 0.08)
+        ),
+        linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.04),
+            rgba(255, 255, 255, 0.01)
+        );
+
     background-size: 100% 100%;
     background-position: center;
     background-repeat: no-repeat;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+    border-bottom:
+        1px solid
+        rgba(255, 255, 255, 0.08);
+
+    overflow: hidden;
+}
+
+#academy-profile-view
+.academy-profile-cover-image {
+    position: absolute;
+
+    inset: 0;
+
+    z-index: 0;
+
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    max-width: none;
+
+    object-fit: cover;
+    object-position: center center;
+
+    pointer-events: none;
+
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#academy-profile-view
+.academy-profile-cover-image[hidden] {
+    display: none !important;
+}
+
+/*
+ * Readability layer above the uploaded image.
+ * Profile identity remains above this at z-index 2.
+ */
+#academy-profile-view
+.academy-profile-cover-band::after {
+    content: '';
+
+    position: absolute;
+    inset: 0;
+
+    z-index: 1;
+
+    pointer-events: none;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(3, 10, 24, 0.06),
+            rgba(3, 10, 24, 0.32)
+        );
 }
 
 #academy-profile-view .academy-profile-cover-band[data-profile-image-preview],
@@ -17561,14 +18098,43 @@ body.federation-application-open {
 
 @media (max-width: 520px) {
     .yh-federation-apply-modal {
-        align-items: flex-end;
-        padding: 12px;
+        align-items: center;
+        justify-content: center;
+
+        padding:
+            max(
+                12px,
+                env(
+                    safe-area-inset-top,
+                    0px
+                )
+            )
+            12px
+            max(
+                12px,
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            );
     }
 
     .yh-federation-apply-card {
         width: 100%;
-        max-height: 92dvh;
+
+        height: auto;
+        min-height: 0;
+
+        max-height:
+            calc(
+                100dvh -
+                24px
+            );
+
+        margin: auto;
+
         padding: 20px 16px;
+
         border-radius: 22px;
     }
 
@@ -21680,16 +22246,85 @@ body[data-yh-view="hub"] .desktop-user-strip-left {
 }
 
 .yh-dashboard-profile-preview-cover {
-    min-height: 150px;
     position: relative;
+
+    width: 100%;
+    height: auto;
+    min-height: 0;
+
+    /*
+     * Canonical YH Universe cover ratio.
+     *
+     * This is the exact same 5:4 frame
+     * used by the image cropper.
+     */
+    aspect-ratio: 5 / 4;
+
     display: flex;
     align-items: flex-end;
+
     padding: 20px;
+
     background:
-        radial-gradient(circle at 20% 10%, rgba(56, 189, 248, 0.18), transparent 36%),
-        linear-gradient(135deg, rgba(14, 165, 233, 0.14), rgba(15, 23, 42, 0.26));
+        radial-gradient(
+            circle at 20% 10%,
+            rgba(56, 189, 248, 0.18),
+            transparent 36%
+        ),
+        linear-gradient(
+            135deg,
+            rgba(14, 165, 233, 0.14),
+            rgba(15, 23, 42, 0.26)
+        );
+
     background-size: cover;
     background-position: center;
+
+    overflow: hidden;
+}
+
+.yh-dashboard-profile-preview-cover-image {
+    position: absolute;
+
+    inset: 0;
+
+    z-index: 0;
+
+    width: 100%;
+    height: 100%;
+
+    max-width: none;
+
+    display: block;
+
+    object-fit: cover;
+    object-position: center center;
+
+    pointer-events: none;
+}
+
+.yh-dashboard-profile-preview-cover::after {
+    content: '';
+
+    position: absolute;
+    inset: 0;
+
+    z-index: 1;
+
+    pointer-events: none;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(5, 12, 28, 0.06),
+            rgba(5, 12, 28, 0.48)
+        );
+}
+
+.yh-dashboard-profile-preview-cover
+.yh-dashboard-profile-preview-avatar {
+    position: relative;
+    z-index: 2;
 }
 
 .yh-dashboard-profile-preview-avatar {
@@ -22683,6 +23318,64 @@ body.yh-dashboard-my-contacts-open {
         padding: 14px;
     }
 
+
+    /*
+     * Delete Account is a compact confirmation
+     * dialog, not a full-height workspace.
+     *
+     * Keep other Dashboard modals untouched,
+     * but center this specific modal.
+     */
+    #yh-dashboard-delete-account-overlay.yh-dashboard-profile-modal {
+        align-items: center;
+        justify-content: center;
+
+        padding:
+            max(
+                14px,
+                env(
+                    safe-area-inset-top,
+                    0px
+                )
+            )
+            14px
+            max(
+                14px,
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            );
+
+        overflow-x: hidden;
+        overflow-y: auto;
+
+        -webkit-overflow-scrolling: touch;
+    }
+
+
+    #yh-dashboard-delete-account-overlay
+    .yh-dashboard-delete-account-card {
+        flex: 0 0 auto;
+
+        width: min(
+            560px,
+            100%
+        );
+
+        height: auto;
+        min-height: 0;
+
+        max-height:
+            calc(
+                100dvh -
+                28px
+            );
+
+        margin: auto;
+    }
+
+
     .yh-dashboard-settings-body {
         gap: 12px;
     }
@@ -23394,7 +24087,10 @@ body[data-yh-view="academy"] #academy-feed-view {
     width: 100%;
     height: auto;
 
-    aspect-ratio: 8 / 3;
+    /*
+     * Same dimensions as the crop viewport.
+     */
+    aspect-ratio: 5 / 4;
     min-height: 0;
 
     border-radius: 18px;
@@ -23429,6 +24125,62 @@ body[data-yh-view="academy"] #academy-feed-view {
     box-shadow:
         inset 0 -60px 90px
         rgba(2, 6, 23, 0.28);
+}
+
+.yh-dashboard-profile-cover-image {
+    position: absolute;
+
+    inset: 0;
+
+    z-index: 0;
+
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    max-width: none;
+
+    object-fit: cover;
+    object-position: center center;
+
+    pointer-events: none;
+
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.yh-dashboard-profile-cover-image[hidden] {
+    display: none !important;
+}
+
+/*
+ * When the Cover Photo action menu is open,
+ * temporarily allow it to escape the card.
+ *
+ * The actual cover image keeps its rounded
+ * corners independently.
+ */
+.yh-dashboard-profile-cover-preview.is-cover-menu-open {
+    overflow: visible;
+
+    z-index: 80;
+}
+
+.yh-dashboard-profile-cover-preview
+.yh-dashboard-profile-cover-image {
+    border-radius: inherit;
+}
+
+/*
+ * Keep media controls above the uploaded image.
+ */
+.yh-dashboard-profile-cover-preview
+> .yh-dashboard-profile-media-btn,
+.yh-dashboard-profile-cover-preview
+> .yh-dashboard-profile-media-menu-wrap {
+    position: relative;
+    z-index: 2;
 }
 
 .yh-dashboard-profile-avatar-editor-row {
@@ -23519,14 +24271,192 @@ body[data-yh-view="academy"] #academy-feed-view {
     white-space: nowrap;
 }
 
-.yh-dashboard-profile-cover-btn {
-    background:
-        rgba(2, 6, 23, 0.72);
+/*
+ * Permanent Cover Photo CTA
+ *
+ * Existing cover:
+ * → Change Cover Photo overlay
+ *
+ * No cover:
+ * → Upload Cover Photo centered
+ */
+.yh-dashboard-profile-cover-preview
+> .yh-dashboard-profile-cover-btn {
+    position: absolute;
 
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    left: 50%;
+    bottom: 14px;
+
+    z-index: 5;
+
+    width: auto;
+    min-width: 210px;
+    max-width: calc(100% - 28px);
+
+    min-height: 42px;
+
+    padding: 10px 18px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    transform:
+        translateX(-50%);
+
+    border:
+        1px solid
+        rgba(56, 189, 248, 0.58);
+
+    border-radius: 13px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(8, 25, 50, 0.94),
+            rgba(2, 8, 23, 0.94)
+        );
+
+    color: #ffffff;
+
+    font-weight: 800;
+
+    box-shadow:
+        0 12px 30px
+        rgba(0, 0, 0, 0.42),
+        0 0 22px
+        rgba(56, 189, 248, 0.10);
+
+    backdrop-filter:
+        blur(14px);
+
+    -webkit-backdrop-filter:
+        blur(14px);
 }
 
+
+/*
+ * No uploaded cover:
+ * put the Upload CTA directly
+ * in the center of the empty card.
+ */
+.yh-dashboard-profile-cover-preview:not(
+    [data-has-cover="true"]
+)
+> .yh-dashboard-profile-cover-btn {
+    top: 50%;
+    bottom: auto;
+
+    transform:
+        translate(
+            -50%,
+            -50%
+        );
+}
+
+
+/*
+ * Dark readability fade behind the CTA
+ * whenever a cover is visible.
+ */
+.yh-dashboard-profile-cover-preview[
+    data-has-cover="true"
+]::after {
+    content: '';
+
+    position: absolute;
+
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    z-index: 1;
+
+    height: 72%;
+
+    pointer-events: none;
+
+    background:
+        linear-gradient(
+            180deg,
+            transparent,
+            rgba(2, 6, 23, 0.68)
+        );
+}
+
+
+.yh-dashboard-profile-cover-preview
+> .yh-dashboard-profile-cover-btn:hover {
+    transform:
+        translateX(-50%)
+        translateY(-1px);
+
+    border-color:
+        rgba(125, 211, 252, 0.88);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(14, 45, 80, 0.98),
+            rgba(3, 12, 31, 0.98)
+        );
+}
+
+
+.yh-dashboard-profile-cover-preview:not(
+    [data-has-cover="true"]
+)
+> .yh-dashboard-profile-cover-btn:hover {
+    transform:
+        translate(
+            -50%,
+            calc(-50% - 1px)
+        );
+}
+
+.yh-dashboard-profile-cover-preview:not(
+    [data-has-cover="true"]
+) {
+    border-color:
+        rgba(56, 189, 248, 0.28);
+
+    background:
+        radial-gradient(
+            circle at 50% 20%,
+            rgba(56, 189, 248, 0.14),
+            transparent 42%
+        ),
+        linear-gradient(
+            135deg,
+            rgba(8, 24, 44, 0.72),
+            rgba(2, 8, 23, 0.82)
+        );
+}
+
+.yh-dashboard-profile-cover-preview:not(
+    [data-has-cover="true"]
+)::before {
+    content:
+        'Add a cover photo to personalize your profile';
+
+    position: absolute;
+
+    left: 18px;
+    right: 18px;
+    bottom: 18px;
+
+    z-index: 2;
+
+    color:
+        rgba(148, 163, 184, 0.78);
+
+    font-size: 0.76rem;
+    line-height: 1.35;
+
+    text-align: center;
+
+    pointer-events: none;
+}
 
 /* ---------- EXISTING IMAGE ACTION MENU ---------- */
 
@@ -23546,6 +24476,8 @@ body[data-yh-view="academy"] #academy-feed-view {
 
     top: 12px;
     right: 12px;
+
+    z-index: 90;
 }
 
 .yh-dashboard-profile-avatar-preview-wrap
@@ -23609,7 +24541,7 @@ body[data-yh-view="academy"] #academy-feed-view {
     top: calc(100% + 7px);
     right: 0;
 
-    z-index: 30;
+    z-index: 120;
 
     width: max-content;
     min-width: 190px;
@@ -23698,23 +24630,87 @@ body[data-yh-view="academy"] #academy-feed-view {
 }
 
     .yh-dashboard-profile-cover-preview {
-        min-height: 0;
+        /*
+         * Mobile editor keeps the same
+         * canonical 5:4 cover ratio so the
+         * preview matches the real saved image.
+         */
+        width: 100%;
+
         height: auto;
 
-        aspect-ratio: 8 / 3;
+        min-height: 0;
+
+        aspect-ratio: 5 / 4;
 
         padding: 12px;
     }
 
+
+    /*
+     * Large, permanently visible CTA
+     * over the mobile cover.
+     */
     .yh-dashboard-profile-cover-preview
-    > .yh-dashboard-profile-media-btn {
-        width: 100%;
+    > .yh-dashboard-profile-cover-btn {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+
+        top: auto;
+
+        width: auto;
+        max-width: none;
+        min-width: 0;
+
+        min-height: 40px;
+
+        padding:
+            9px
+            12px;
+
+        transform: none;
+
+        font-size: 0.78rem;
+    }
+
+
+    .yh-dashboard-profile-cover-preview
+    > .yh-dashboard-profile-cover-btn:hover {
+        transform: none;
+    }
+
+
+    /*
+     * No cover:
+     * Upload button remains centered.
+     */
+    .yh-dashboard-profile-cover-preview:not(
+        [data-has-cover="true"]
+    )
+    > .yh-dashboard-profile-cover-btn {
+        top: 50%;
+        bottom: auto;
+
+        transform:
+            translateY(-50%);
+    }
+
+
+    .yh-dashboard-profile-cover-preview:not(
+        [data-has-cover="true"]
+    )
+    > .yh-dashboard-profile-cover-btn:hover {
+        transform:
+            translateY(-50%);
     }
 
     .yh-dashboard-profile-cover-preview
     > .yh-dashboard-profile-media-menu-wrap {
         top: 9px;
         right: 9px;
+
+        z-index: 90;
     }
 
     .yh-dashboard-profile-avatar-preview-wrap
@@ -23724,15 +24720,35 @@ body[data-yh-view="academy"] #academy-feed-view {
     }
 
     .yh-dashboard-profile-media-menu-toggle {
-        width: 34px;
-        min-width: 34px;
+        width: 36px;
+        min-width: 36px;
 
-        height: 34px;
-        min-height: 34px;
+        height: 36px;
+        min-height: 36px;
 
-        border-radius: 10px;
+        border-radius: 11px;
 
-        font-size: 0.9rem;
+        border-color:
+            rgba(125, 211, 252, 0.58);
+
+        background:
+            rgba(2, 6, 23, 0.94);
+
+        color: #ffffff;
+
+        font-size: 0.95rem;
+
+        box-shadow:
+            0 8px 22px
+            rgba(0, 0, 0, 0.56),
+            0 0 0 1px
+            rgba(56, 189, 248, 0.10);
+
+        backdrop-filter:
+            blur(14px);
+
+        -webkit-backdrop-filter:
+            blur(14px);
     }
 
     .yh-dashboard-profile-media-menu {
@@ -24370,28 +25386,6 @@ body[data-yh-page="dashboard"] #academy-profile-view .hash-big-profile-img {
     }
 }
 /* =========================================================
-   PROFILE MODE PILL VERIFIED BADGE
-   ========================================================= */
-
-#academy-profile-view .academy-profile-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    width: fit-content;
-}
-
-#academy-profile-view .academy-profile-pill .yh-verified-badge-icon {
-    width: 22px;
-    height: 22px;
-    margin-left: 2px;
-}
-
-#academy-profile-view .academy-profile-pill .yh-verified-badge-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-/* =========================================================
    PROFILE VERIFIED BADGE ICONS
    ========================================================= */
 
@@ -24519,16 +25513,59 @@ body[data-yh-page="dashboard"] #academy-profile-view .hash-big-profile-img {
 
 .yh-dashboard-profile-cropper-stage {
     min-height: 390px;
+
     border-radius: 22px;
-    border: 1px solid rgba(148, 163, 184, 0.16);
+
+    border:
+        1px solid
+        rgba(148, 163, 184, 0.16);
+
     background:
-        radial-gradient(circle at center, rgba(56, 189, 248, 0.08), transparent 42%),
+        radial-gradient(
+            circle at center,
+            rgba(56, 189, 248, 0.08),
+            transparent 42%
+        ),
         rgba(2, 6, 23, 0.26);
+
     display: flex;
     align-items: center;
     justify-content: center;
+
     padding: 24px;
+
     margin-bottom: 16px;
+}
+
+
+/*
+ * COVER PHOTO CROPPER
+ *
+ * The complete stage becomes the crop viewport.
+ * This removes the large unused area around the
+ * old narrow cover strip.
+ *
+ * Keep this at 5:4 so it matches:
+ * - saved 1500 × 1200 cover
+ * - Edit Profile cover
+ * - final Profile Preview cover
+ */
+.yh-dashboard-profile-cropper-stage.is-cover {
+    width: 100%;
+
+    height: auto;
+    min-height: 0;
+
+    aspect-ratio: 5 / 4;
+
+    padding: 0;
+
+    overflow: hidden;
+
+    border-radius: 18px;
+
+    background:
+        rgba(2, 6, 23, 0.48);
 }
 
 .yh-dashboard-profile-cropper-frame {
@@ -24548,8 +25585,34 @@ body[data-yh-page="dashboard"] #academy-profile-view .hash-big-profile-img {
 
 .yh-dashboard-profile-cropper-frame.is-cover {
     width: min(82vw, 610px);
-    aspect-ratio: 8 / 3;
+
+    /*
+     * Must match the final rendered
+     * YH Universe cover format exactly.
+     */
+    aspect-ratio: 5 / 4;
+
     border-radius: 18px;
+}
+
+
+/*
+ * When cropping a Cover Photo, the frame must
+ * occupy the complete stage.
+ *
+ * Higher specificity intentionally overrides
+ * both desktop and mobile width limits.
+ */
+.yh-dashboard-profile-cropper-stage.is-cover
+.yh-dashboard-profile-cropper-frame.is-cover {
+    width: 100%;
+    max-width: none;
+
+    aspect-ratio: 5 / 4;
+
+    border-radius: inherit;
+
+    flex: 0 0 auto;
 }
 
 .yh-dashboard-profile-cropper-frame.is-dragging,
@@ -24674,9 +25737,27 @@ body.yh-dashboard-profile-cropper-open {
         border-radius: 20px;
     }
 
-    .yh-dashboard-profile-cropper-stage {
+    /*
+     * Avatar still needs the larger stage
+     * around its circular crop viewport.
+     */
+    .yh-dashboard-profile-cropper-stage:not(.is-cover) {
         min-height: 310px;
         padding: 18px;
+    }
+
+    /*
+     * Cover uses the entire available width.
+     * No unused vertical cropper space.
+     */
+    .yh-dashboard-profile-cropper-stage.is-cover {
+        width: 100%;
+
+        min-height: 0;
+
+        aspect-ratio: 5 / 4;
+
+        padding: 0;
     }
 
     .yh-dashboard-profile-cropper-frame {
@@ -24684,7 +25765,8 @@ body.yh-dashboard-profile-cropper-open {
     }
 
     .yh-dashboard-profile-cropper-frame.is-cover {
-        width: min(84vw, 360px);
+        width: 100%;
+        max-width: none;
     }
 
     .yh-dashboard-profile-cropper-zoom-wrap {
@@ -26299,19 +27381,7 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
     animation: academyRightBotFloat 2.7s ease-in-out infinite !important;
 }
 
-.academy-right-bot-cta.is-docked {
-    position: absolute !important;
-    left: 20px !important;
-    right: 20px !important;
-    bottom: 24px !important;
-    width: auto !important;
-    margin: 0 !important;
-    border-radius: 16px !important;
-    padding: 10.5px 14px !important;
-    justify-content: flex-start !important;
-    animation: none !important;
-    transform: none !important;
-}/* Academy inline message edit modal + wandering right bot */
+/* Academy inline message edit modal + wandering right bot */
 .academy-inline-message-edit-overlay {
     position: fixed;
     inset: 0;
@@ -26417,20 +27487,6 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
     transform: translateY(-3px) scale(1.02);
 }
 
-.academy-right-bot-cta.is-docked {
-    position: absolute !important;
-    left: 20px !important;
-    right: 20px !important;
-    bottom: 24px !important;
-    width: auto !important;
-    margin: 0 !important;
-    border-radius: 16px !important;
-    padding: 10.5px 14px !important;
-    justify-content: flex-start !important;
-    animation: none !important;
-    transform: none !important;
-}
-
 @keyframes academyRightBotPlayPulse {
     0%, 100% {
         filter: drop-shadow(0 0 0 rgba(56, 189, 248, 0));
@@ -26468,20 +27524,6 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
     transform: translateY(-3px) scale(1.02);
 }
 
-.academy-right-bot-cta.is-docked {
-    position: absolute !important;
-    left: 20px !important;
-    right: 20px !important;
-    bottom: 24px !important;
-    width: auto !important;
-    margin: 0 !important;
-    border-radius: 16px !important;
-    padding: 10.5px 14px !important;
-    justify-content: flex-start !important;
-    animation: none !important;
-    transform: none !important;
-}
-
 .academy-messages-inbox-avatar.has-profile-photo {
     color: transparent !important;
     text-indent: -9999px;
@@ -26493,8 +27535,9 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
 
 .academy-messages-inbox-avatar.has-profile-photo::before {
     content: "";
-}mic meter,
-and strict bot lane */
+}
+
+/* Academy Voice Lounge mic meter and strict bot lane */
 .academy-voice-mic-meter {
     position: absolute;
     left: 22px;
@@ -26509,24 +27552,6 @@ and strict bot lane */
     border-radius: 18px;
     border: 1px solid rgba(56, 189, 248, 0.28);
     background: rgba(3, 7, 18, 0.72);
-    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.34);
-    backdrop-filter: blur(12px);
-    pointer-events: none;
-}
-/* Academy Voice Lounge password-popup guard {
-    position: absolute;
-    left: 22px;
-    right: 22px;
-    bottom: 22px;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 14px 16px;
-    border-radius: 18px;
-    border: 1px solid rgba(56, 189, 248, 0.28);
-    background: rgba(3, 7, 18, 0.24);
     box-shadow: 0 16px 44px rgba(0, 0, 0, 0.34);
     backdrop-filter: blur(12px);
     pointer-events: none;
@@ -27045,99 +28070,761 @@ body[data-yh-page="academy"] .academy-ai-coach-bottom-visible:not(#academy-ai-co
 
 .academy-ai-coach-rect-prompts {
     flex: 0 0 auto;
-    display: flex;
-    gap: 8px;
-    padding: 14px 16px;
-    overflow-x: auto;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
 
-.academy-ai-coach-rect-prompts button {
-    flex: 0 0 auto;
-    border-radius: 999px;
-    border: 1px solid rgba(56, 189, 248, 0.22);
-    background: rgba(14, 165, 233, 0.09);
-    color: #dff7ff;
-    padding: 9.5px 12px;
-    font-size: 0.95rem;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.academy-ai-coach-rect-learn-wrap {
-    flex: 0 0 auto;
     position: relative;
+    z-index: 30;
+
+    display: block;
+
+    width: 100%;
+    min-width: 0;
+
+    padding: 12px 16px;
+
+    overflow: visible;
+
+    border-bottom:
+        1px solid
+        rgba(255, 255, 255, 0.06);
+}
+
+
+/* ========================================================= */
+/* AI COACH QUICK ACTIONS DROPDOWN                           */
+/* ========================================================= */
+
+.academy-ai-coach-rect-quick-menu {
+    position: relative;
+
+    width: min(280px, 100%);
+    min-width: 0;
+
+    margin: 0;
+}
+
+
+/* remove native disclosure marker */
+
+.academy-ai-coach-rect-quick-menu > summary {
+    list-style: none;
+}
+
+.academy-ai-coach-rect-quick-menu > summary::-webkit-details-marker {
+    display: none;
+}
+
+
+/* dropdown trigger */
+
+.academy-ai-coach-rect-quick-trigger {
+    width: 100%;
+    min-height: 42px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+
+    padding: 10px 14px;
+
+    border-radius: 14px;
+
+    border:
+        1px solid
+        rgba(56, 189, 248, 0.30);
+
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(56, 189, 248, 0.13),
+            transparent 46%
+        ),
+        rgba(4, 12, 28, 0.78);
+
+    color: #dff7ff;
+
+    font-size: 0.92rem;
+    font-weight: 800;
+
+    cursor: pointer;
+
+    user-select: none;
+    -webkit-user-select: none;
+
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.academy-ai-coach-rect-quick-trigger:hover {
+    border-color:
+        rgba(125, 211, 252, 0.56);
+
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(56, 189, 248, 0.18),
+            transparent 46%
+        ),
+        rgba(5, 16, 36, 0.92);
+}
+
+.academy-ai-coach-rect-quick-menu[open]
+.academy-ai-coach-rect-quick-trigger {
+    border-color:
+        rgba(125, 211, 252, 0.68);
+
+    box-shadow:
+        0 0 0 3px
+        rgba(14, 165, 233, 0.08);
+}
+
+
+/* dropdown arrow */
+
+.academy-ai-coach-rect-quick-arrow {
+    flex: 0 0 auto;
+
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+
+    color:
+        rgba(191, 219, 254, 0.92);
+
+    font-size: 1rem;
+    line-height: 1;
+
+    transition:
+        transform 0.2s ease;
+}
+
+.academy-ai-coach-rect-quick-menu[open]
+.academy-ai-coach-rect-quick-arrow {
+    transform: rotate(180deg);
+}
+
+
+/* dropdown card */
+
+.academy-ai-coach-rect-quick-panel {
+    position: absolute;
+
+    top: calc(100% + 8px);
+    left: 0;
+
+    z-index: 100;
+
+    width: min(320px, calc(100vw - 32px));
+    max-width: 100%;
+
+    /*
+     * Learn From has its own expanded overlay.
+     * Do not clip that child dropdown here.
+     */
+    max-height: none;
+
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+
+    gap: 8px;
+
+    padding: 10px;
+
+    overflow: visible;
+
+    overscroll-behavior: auto;
+
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    border-radius: 16px;
+
+    border:
+        1px solid
+        rgba(56, 189, 248, 0.28);
+
+    background:
+        radial-gradient(
+            circle at 12% 0%,
+            rgba(56, 189, 248, 0.14),
+            transparent 38%
+        ),
+        rgba(3, 10, 24, 0.97);
+
+    box-shadow:
+        0 22px 48px
+        rgba(0, 0, 0, 0.52),
+        inset 0 1px 0
+        rgba(255, 255, 255, 0.05);
+
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+.academy-ai-coach-rect-quick-panel::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+
+/* small dropdown labels */
+
+.academy-ai-coach-rect-quick-section-label {
+    padding:
+        4px
+        4px
+        1px;
+
+    color:
+        rgba(148, 163, 184, 0.92);
+
+    font-size: 0.72rem;
+    line-height: 1;
+
+    font-weight: 800;
+
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+
+/* divider between Learn From and prompt actions */
+
+.academy-ai-coach-rect-quick-divider {
+    height: 1px;
+
+    margin: 3px 2px;
+
+    background:
+        rgba(255, 255, 255, 0.07);
+}
+
+
+/* quick-prompt menu items */
+
+.academy-ai-coach-rect-quick-panel
+> button {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 10px;
+
+    padding: 10px 12px;
+
+    border-radius: 12px;
+
+    border:
+        1px solid
+        rgba(56, 189, 248, 0.14);
+
+    background:
+        rgba(14, 165, 233, 0.06);
+
+    color: #dff7ff;
+
+    font-size: 0.9rem;
+    font-weight: 700;
+
+    line-height: 1.2;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition:
+        border-color 0.18s ease,
+        background 0.18s ease;
+}
+
+.academy-ai-coach-rect-quick-panel
+> button:hover {
+    border-color:
+        rgba(56, 189, 248, 0.42);
+
+    background:
+        rgba(14, 165, 233, 0.13);
+}
+
+
+/* ========================================================= */
+/* LEARN FROM SELECT INSIDE QUICK ACTIONS                    */
+/* ========================================================= */
+
+.academy-ai-coach-rect-learn-wrap {
+    width: 100%;
+    min-width: 0;
+
+    position: relative;
+
+    display: block;
 }
 
 .academy-ai-coach-rect-learn-wrap label {
     position: absolute;
+
     width: 1px;
     height: 1px;
+
     padding: 0;
     margin: -1px;
+
     overflow: hidden;
+
     clip: rect(0, 0, 0, 0);
+
     white-space: nowrap;
+
     border: 0;
 }
 
-.academy-ai-coach-rect-learn-wrap select {
-    appearance: none;
-    -webkit-appearance: none;
-    border-radius: 999px;
-    border: 1px solid rgba(56, 189, 248, 0.36);
+/*
+ * Native select stays in DOM only as the
+ * compatibility/state layer.
+ */
+.academy-ai-coach-rect-learn-native {
+    position: absolute !important;
+
+    width: 1px !important;
+    height: 1px !important;
+
+    padding: 0 !important;
+    margin: 0 !important;
+
+    opacity: 0 !important;
+
+    overflow: hidden !important;
+
+    pointer-events: none !important;
+
+    clip:
+        rect(
+            0,
+            0,
+            0,
+            0
+        ) !important;
+}
+
+
+/* ========================================================= */
+/* CUSTOM LEARN FROM DROPDOWN                                */
+/* ========================================================= */
+
+.academy-ai-coach-learn-menu {
+    position: relative;
+
+    width: 100%;
+    max-width: 100%;
+
+    margin: 0;
+
+    overflow: visible;
+}
+
+
+.academy-ai-coach-learn-menu
+> summary {
+    list-style: none;
+}
+
+
+.academy-ai-coach-learn-menu
+> summary::-webkit-details-marker {
+    display: none;
+}
+
+
+/*
+ * Visible Learn From button.
+ */
+.academy-ai-coach-learn-trigger {
+    width: 100%;
+    max-width: 100%;
+
+    min-height: 44px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 10px;
+
+    padding:
+        10px
+        12px;
+
+    border:
+        1px solid
+        rgba(
+            56,
+            189,
+            248,
+            0.32
+        );
+
+    border-radius: 12px;
+
     background:
-        linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(56, 189, 248, 0.14)),
-        rgba(2, 6, 23, 0.62);
+        linear-gradient(
+            135deg,
+            rgba(
+                14,
+                165,
+                233,
+                0.10
+            ),
+            rgba(
+                56,
+                189,
+                248,
+                0.12
+            )
+        ),
+        rgba(
+            2,
+            6,
+            23,
+            0.88
+        );
+
     color: #f8fafc;
-    padding: 9.5px 30px 9.5px 13px;
-    font-size: 0.95rem;
+
+    font-size: 0.9rem;
     font-weight: 800;
+
+    line-height: 1.2;
+
     cursor: pointer;
+
     outline: none;
-    min-height: 34px;
-    max-width: 190px;
 }
 
-.academy-ai-coach-rect-learn-wrap::after {
-    content: '⌄';
+
+.academy-ai-coach-learn-trigger:focus-visible {
+    border-color:
+        rgba(
+            125,
+            211,
+            252,
+            0.68
+        );
+
+    box-shadow:
+        0 0 0 3px
+        rgba(
+            14,
+            165,
+            233,
+            0.10
+        );
+}
+
+
+.academy-ai-coach-learn-menu.is-locked
+.academy-ai-coach-learn-trigger {
+    border-color:
+        rgba(
+            251,
+            191,
+            36,
+            0.5
+        );
+
+    box-shadow:
+        0 0 0 3px
+        rgba(
+            251,
+            191,
+            36,
+            0.08
+        );
+}
+
+
+.academy-ai-coach-learn-trigger-arrow {
+    flex:
+        0
+        0
+        auto;
+
+    transition:
+        transform
+        0.18s
+        ease;
+}
+
+
+.academy-ai-coach-learn-menu[open]
+.academy-ai-coach-learn-trigger-arrow {
+    transform:
+        rotate(
+            180deg
+        );
+}
+
+
+/*
+ * IMPORTANT:
+ *
+ * The options card is deliberately inset by
+ * 6px on both sides.
+ *
+ * Therefore:
+ *
+ * options card width
+ * =
+ * trigger width - 12px
+ *
+ * It can never become wider than the
+ * Learn From trigger.
+ */
+.academy-ai-coach-learn-options {
     position: absolute;
-    right: 11px;
-    top: 50%;
-    transform: translateY(-53%);
-    pointer-events: none;
-    color: rgba(191, 219, 254, 0.9);
-    font-size: 0.88rem;
-    font-weight: 900;
+
+    top:
+        calc(
+            100% +
+            6px
+        );
+
+    left: 6px;
+    right: 6px;
+
+    z-index: 160;
+
+    width: auto;
+
+    max-width:
+        calc(
+            100% -
+            12px
+        );
+
+    /*
+     * Show the complete Learn From list.
+     * No internal height clipping or scroll box.
+     */
+    max-height: none;
+
+    display: grid;
+
+    /*
+     * Two columns allow every Big Figure
+     * and philosopher to remain visible
+     * without creating an excessively tall
+     * dropdown on mobile.
+     */
+    grid-template-columns:
+        repeat(
+            2,
+            minmax(
+                0,
+                1fr
+            )
+        );
+
+    align-items: stretch;
+
+    gap: 3px;
+
+    padding: 6px;
+
+    overflow: visible;
+
+    overscroll-behavior:
+        auto;
+
+    border:
+        1px solid
+        rgba(
+            56,
+            189,
+            248,
+            0.24
+        );
+
+    border-radius: 12px;
+
+    background:
+        rgba(
+            3,
+            12,
+            27,
+            0.98
+        );
+
+    box-shadow:
+        0 18px 40px
+        rgba(
+            0,
+            0,
+            0,
+            0.42
+        );
 }
 
-.academy-ai-coach-rect-learn-wrap select:focus {
-    border-color: rgba(125, 211, 252, 0.68);
-    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.10);
+
+.academy-ai-coach-learn-option {
+    width: 100%;
+    min-width: 0;
+
+    min-height: 36px;
+
+    display: flex;
+    align-items: center;
+
+    padding:
+        7px
+        8px;
+
+    border: 0;
+
+    border-radius: 8px;
+
+    background:
+        transparent;
+
+    color:
+        #f8fafc;
+
+    font-size:
+        0.78rem;
+
+    font-weight: 600;
+
+    line-height: 1.22;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    overflow: visible;
 }
 
-.academy-ai-coach-rect-learn-wrap select option {
-    background: #07111f;
-    color: #f8fafc;
+
+.academy-ai-coach-learn-option
+span {
+    min-width: 0;
+
+    overflow: visible;
+
+    text-overflow: clip;
+
+    white-space: normal;
+
+    overflow-wrap: anywhere;
 }
 
-.academy-ai-coach-rect-learn-wrap select.is-locked {
-    border-color: rgba(251, 191, 36, 0.5);
-    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.08);
+
+.academy-ai-coach-learn-option:hover,
+.academy-ai-coach-learn-option:focus-visible {
+    background:
+        rgba(
+            56,
+            189,
+            248,
+            0.10
+        );
+
+    outline: none;
+}
+
+
+.academy-ai-coach-learn-option.is-selected {
+    background:
+        rgba(
+            56,
+            189,
+            248,
+            0.16
+        );
+
+    color:
+        #dff7ff;
+}
+
+
+/* ========================================================= */
+/* MOBILE QUICK ACTION DROPDOWN                              */
+/* ========================================================= */
+
+@media (max-width: 700px) {
+    .academy-ai-coach-rect-prompts {
+        padding:
+            10px
+            12px;
+    }
+
+    .academy-ai-coach-rect-quick-menu {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .academy-ai-coach-rect-quick-trigger {
+        width: 100%;
+
+        min-height: 44px;
+
+        padding:
+            10px
+            13px;
+    }
+
+    .academy-ai-coach-rect-quick-panel {
+        width: 100%;
+        max-width: 100%;
+
+        max-height: none;
+
+        overflow: visible;
+    }
 }
 
 .academy-ai-coach-learn-pay-modal {
     position: absolute;
+
     inset: 0;
-    z-index: 5;
+
+    /*
+     * Must sit above:
+     *
+     * AI Coach prompts = 30
+     * Quick Actions dropdown = 100
+     *
+     * This modal becomes the highest
+     * interaction layer inside the AI Coach.
+     */
+    z-index: 500;
+
     display: grid;
     place-items: center;
+
     padding: 20px;
-    background: rgba(2, 6, 23, 0.34);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+
+    background:
+        rgba(
+            2,
+            6,
+            23,
+            0.58
+        );
+
+    backdrop-filter:
+        blur(12px);
+
+    -webkit-backdrop-filter:
+        blur(12px);
+
+    pointer-events: auto;
 }
 
 .academy-ai-coach-learn-pay-modal.hidden-step {
@@ -27146,13 +28833,69 @@ body[data-yh-page="academy"] .academy-ai-coach-bottom-visible:not(#academy-ai-co
 
 .academy-ai-coach-learn-pay-card {
     position: relative;
-    width: min(360px, 100%);
+
+    z-index: 1;
+
+    width:
+        min(
+            360px,
+            100%
+        );
+
     border-radius: 22px;
-    border: 1px solid rgba(56, 189, 248, 0.28);
+
+    border:
+        1px solid
+        rgba(
+            56,
+            189,
+            248,
+            0.38
+        );
+
     background:
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 34%),
-        linear-gradient(180deg, rgba(8, 15, 32, 0.28), rgba(5, 8, 22, 0.28));
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.46);
+        radial-gradient(
+            circle at top left,
+            rgba(
+                56,
+                189,
+                248,
+                0.16
+            ),
+            transparent 34%
+        ),
+        linear-gradient(
+            180deg,
+            rgba(
+                8,
+                15,
+                32,
+                0.94
+            ),
+            rgba(
+                5,
+                8,
+                22,
+                0.94
+            )
+        );
+
+    box-shadow:
+        0 24px 70px
+            rgba(
+                0,
+                0,
+                0,
+                0.56
+            ),
+        0 0 28px
+            rgba(
+                14,
+                165,
+                233,
+                0.10
+            );
+
     padding: 20px;
 }
 
@@ -27854,12 +29597,262 @@ body[data-yh-page="academy"] .academy-ai-coach-rect-form {
     position: sticky;
     top: 0;
     z-index: 80;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    overflow-x: auto;
+
+    display: block;
+
+    width: 100%;
+    min-width: 0;
+
+    overflow: visible;
+
     padding: 12px;
     margin: 0;
+}
+
+
+/* ========================================================= */
+/* ROADMAP SECTION DROPDOWN                                  */
+/* ========================================================= */
+
+.academy-roadmap-tabs-menu {
+    position: relative;
+
+    width: min(320px, 100%);
+    min-width: 0;
+
+    margin: 0;
+}
+
+.academy-roadmap-tabs-menu > summary {
+    list-style: none;
+}
+
+.academy-roadmap-tabs-menu > summary::-webkit-details-marker {
+    display: none;
+}
+
+
+/* Main selector */
+
+.academy-roadmap-tabs-trigger {
+    width: 100%;
+    min-height: 44px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+
+    padding: 10px 14px;
+
+    border:
+        1px solid
+        rgba(56, 189, 248, 0.30);
+
+    border-radius: 14px;
+
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(56, 189, 248, 0.13),
+            transparent 46%
+        ),
+        rgba(3, 10, 24, 0.82);
+
+    color: #dff7ff;
+
+    font-family:
+        "Orbitron",
+        "Rajdhani",
+        "Poppins",
+        system-ui,
+        sans-serif;
+
+    font-size: 0.9rem;
+    line-height: 1;
+
+    font-weight: 800;
+
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+
+    cursor: pointer;
+
+    user-select: none;
+    -webkit-user-select: none;
+
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.academy-roadmap-tabs-trigger:hover {
+    border-color:
+        rgba(125, 211, 252, 0.56);
+
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(56, 189, 248, 0.19),
+            transparent 46%
+        ),
+        rgba(4, 14, 32, 0.94);
+}
+
+.academy-roadmap-tabs-menu[open]
+.academy-roadmap-tabs-trigger {
+    border-color:
+        rgba(103, 232, 249, 0.66);
+
+    box-shadow:
+        0 0 0 3px
+        rgba(14, 165, 233, 0.08);
+}
+
+
+/* Arrow */
+
+.academy-roadmap-tabs-trigger-arrow {
+    flex: 0 0 auto;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 1rem;
+    line-height: 1;
+
+    color:
+        rgba(191, 219, 254, 0.92);
+
+    transition:
+        transform 0.2s ease;
+}
+
+.academy-roadmap-tabs-menu[open]
+.academy-roadmap-tabs-trigger-arrow {
+    transform: rotate(180deg);
+}
+
+
+/* Dropdown panel */
+
+.academy-roadmap-tabs-menu-panel {
+    position: absolute;
+
+    top: calc(100% + 8px);
+    left: 0;
+
+    z-index: 200;
+
+    width: 100%;
+    min-width: 0;
+
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1fr);
+
+    gap: 7px;
+
+    padding: 9px;
+
+    border:
+        1px solid
+        rgba(56, 189, 248, 0.28);
+
+    border-radius: 15px;
+
+    background:
+        radial-gradient(
+            circle at 12% 0%,
+            rgba(56, 189, 248, 0.14),
+            transparent 38%
+        ),
+        rgba(3, 10, 24, 0.98);
+
+    box-shadow:
+        0 22px 48px
+        rgba(0, 0, 0, 0.52),
+        inset 0 1px 0
+        rgba(255, 255, 255, 0.05);
+
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+
+/* Options */
+
+.academy-roadmap-menu-option {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 10px;
+
+    padding: 10px 12px;
+
+    border:
+        1px solid
+        rgba(56, 189, 248, 0.12);
+
+    border-radius: 11px;
+
+    background:
+        rgba(14, 165, 233, 0.04);
+
+    color:
+        rgba(226, 238, 255, 0.80);
+
+    font-family:
+        "Orbitron",
+        "Rajdhani",
+        "Poppins",
+        system-ui,
+        sans-serif;
+
+    font-size: 0.82rem;
+    line-height: 1.2;
+
+    font-weight: 800;
+
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition:
+        border-color 0.18s ease,
+        background 0.18s ease,
+        color 0.18s ease;
+}
+
+.academy-roadmap-menu-option:hover {
+    border-color:
+        rgba(56, 189, 248, 0.42);
+
+    background:
+        rgba(14, 165, 233, 0.11);
+
+    color: #ffffff;
+}
+
+.academy-roadmap-menu-option.is-active {
+    border-color:
+        rgba(103, 232, 249, 0.58);
+
+    background:
+        rgba(14, 165, 233, 0.16);
+
+    color: #ffffff;
 }
 body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] #academy-chat .chat-messages,
 body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] #academy-chat .chat-messages {
@@ -27884,21 +29877,9 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
 }
 
 .academy-roadmap-tabs-head::-webkit-scrollbar {
+    width: 0;
     height: 0;
-}
-
-.academy-roadmap-inner-tab {
-    flex: 0 0 auto;
-    border-radius: 999px;
-    padding: 10.5px 15px;
-    font-size: 1rem;
-    font-weight: 800;
-    cursor: pointer;
-    transition: 0.2s ease;
-}
-
-.academy-roadmap-inner-tab:hover,
-.academy-roadmap-inner-tab.is-active {
+    display: none;
 }
 
 .academy-roadmap-tabs-body {
@@ -27952,12 +29933,35 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
 @media (max-width: 780px) {
     .academy-roadmap-tabs-head {
         padding: 9.5px;
-        gap: 6px;
     }
 
-    .academy-roadmap-inner-tab {
-        padding: 9.5px 13px;
-        font-size: 0.95rem;
+    .academy-roadmap-tabs-menu {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .academy-roadmap-tabs-trigger {
+        width: 100%;
+        min-height: 44px;
+
+        padding:
+            10px
+            13px;
+    }
+
+    .academy-roadmap-tabs-menu-panel {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .academy-roadmap-menu-option {
+        min-height: 44px;
+
+        padding:
+            11px
+            12px;
+
+        font-size: 0.8rem;
     }
 
     .academy-roadmap-tab-panel-card {

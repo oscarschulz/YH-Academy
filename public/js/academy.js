@@ -2978,10 +2978,18 @@ function initAcademyMobileBottomNavAutoHide() {
             isVoiceVisible ||
             isVideoVisible;
 
+        const isAiCoachOpen =
+            document.body
+                ?.classList
+                .contains(
+                    'academy-ai-coach-rect-open'
+                ) === true;
+
         const shouldShowBottomNav =
             isTabletOrPhoneViewport() &&
             isAnyPrimaryAcademyTabVisible &&
-            !isSingleActionThread;
+            !isSingleActionThread &&
+            !isAiCoachOpen;
 
         academyMobileBottomNav.style.transition = 'transform 0.22s ease, opacity 0.22s ease';
         academyMobileBottomNav.style.willChange = 'transform, opacity';
@@ -13336,28 +13344,118 @@ function academyGetRoadmapInnerTabLabel(tab = 'overview') {
 }
 
 function academySetRoadmapInnerTab(tab = 'overview') {
-    const cleanTab = ['overview', 'today', 'sprint', 'progress', 'coach'].includes(String(tab || '').trim().toLowerCase())
-        ? String(tab || '').trim().toLowerCase()
-        : 'overview';
+    const cleanTab =
+        [
+            'overview',
+            'today',
+            'sprint',
+            'progress',
+            'coach'
+        ].includes(
+            String(tab || '')
+                .trim()
+                .toLowerCase()
+        )
+            ? String(tab || '')
+                .trim()
+                .toLowerCase()
+            : 'overview';
 
-    const shell = document.querySelector('[data-academy-roadmap-tabs-shell]');
+    const shell =
+        document.querySelector(
+            '[data-academy-roadmap-tabs-shell]'
+        );
+
     if (!shell) return;
 
-    shell.querySelectorAll('[data-academy-roadmap-inner-tab]').forEach((button) => {
-        const isActive = button.getAttribute('data-academy-roadmap-inner-tab') === cleanTab;
-        button.classList.toggle('is-active', isActive);
-        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
-    });
+    shell
+        .querySelectorAll(
+            '[data-academy-roadmap-inner-tab]'
+        )
+        .forEach((button) => {
+            const isActive =
+                button.getAttribute(
+                    'data-academy-roadmap-inner-tab'
+                ) === cleanTab;
 
-    shell.querySelectorAll('[data-academy-roadmap-inner-panel]').forEach((panel) => {
-        const isActive = panel.getAttribute('data-academy-roadmap-inner-panel') === cleanTab;
-        panel.classList.toggle('is-active', isActive);
-        panel.classList.toggle('hidden-step', !isActive);
-        panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
-    });
+            button.classList.toggle(
+                'is-active',
+                isActive
+            );
+
+            button.setAttribute(
+                'aria-selected',
+                isActive
+                    ? 'true'
+                    : 'false'
+            );
+        });
+
+    shell
+        .querySelectorAll(
+            '[data-academy-roadmap-inner-panel]'
+        )
+        .forEach((panel) => {
+            const isActive =
+                panel.getAttribute(
+                    'data-academy-roadmap-inner-panel'
+                ) === cleanTab;
+
+            panel.classList.toggle(
+                'is-active',
+                isActive
+            );
+
+            panel.classList.toggle(
+                'hidden-step',
+                !isActive
+            );
+
+            panel.setAttribute(
+                'aria-hidden',
+                isActive
+                    ? 'false'
+                    : 'true'
+            );
+        });
+
+    /*
+     * Keep dropdown trigger synced
+     * with the currently selected Roadmap section.
+     */
+    const currentLabel =
+        shell.querySelector(
+            '[data-academy-roadmap-current-label]'
+        );
+
+    if (currentLabel) {
+        currentLabel.textContent =
+            academyGetRoadmapInnerTabLabel(
+                cleanTab
+            );
+    }
+
+    /*
+     * Close dropdown automatically
+     * after a Roadmap section is selected.
+     */
+    const roadmapMenu =
+        shell.querySelector(
+            '[data-academy-roadmap-menu]'
+        );
+
+    if (
+        roadmapMenu instanceof
+        HTMLDetailsElement
+    ) {
+        roadmapMenu.open = false;
+    }
 
     try {
-        sessionStorage.setItem('yh_academy_roadmap_inner_tab_v2', cleanTab);
+        sessionStorage.setItem(
+            'yh_academy_roadmap_inner_tab_v2',
+            cleanTab
+        );
     } catch (_) {}
 }
 
@@ -13392,11 +13490,84 @@ function academyBuildRoadmapTabbedShellFromCurrentDom() {
     chatWelcomeBox.innerHTML = `
         <section class="academy-roadmap-tabs-shell" data-academy-roadmap-tabs-shell>
             <div class="academy-roadmap-tabs-head">
-                <button type="button" class="academy-roadmap-inner-tab is-active" data-academy-roadmap-inner-tab="overview" aria-selected="true">Overview</button>
-                <button type="button" class="academy-roadmap-inner-tab" data-academy-roadmap-inner-tab="today" aria-selected="false">Today’s Work</button>
-                <button type="button" class="academy-roadmap-inner-tab" data-academy-roadmap-inner-tab="sprint" aria-selected="false">Sprint Plan</button>
-                <button type="button" class="academy-roadmap-inner-tab" data-academy-roadmap-inner-tab="progress" aria-selected="false">Progress</button>
-                <button type="button" class="academy-roadmap-inner-tab" data-academy-roadmap-inner-tab="coach" aria-selected="false">AI Coach</button>
+                <details
+                    class="academy-roadmap-tabs-menu"
+                    data-academy-roadmap-menu
+                >
+                    <summary class="academy-roadmap-tabs-trigger">
+                        <span data-academy-roadmap-current-label>
+                            Overview
+                        </span>
+
+                        <span
+                            class="academy-roadmap-tabs-trigger-arrow"
+                            aria-hidden="true"
+                        >
+                            ⌄
+                        </span>
+                    </summary>
+
+                    <div
+                        class="academy-roadmap-tabs-menu-panel"
+                        role="tablist"
+                        aria-label="Roadmap sections"
+                    >
+                        <button
+                            type="button"
+                            class="academy-roadmap-menu-option is-active"
+                            data-academy-roadmap-inner-tab="overview"
+                            aria-selected="true"
+                            role="tab"
+                        >
+                            <span>Overview</span>
+                            <span aria-hidden="true">›</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            class="academy-roadmap-menu-option"
+                            data-academy-roadmap-inner-tab="today"
+                            aria-selected="false"
+                            role="tab"
+                        >
+                            <span>Today’s Work</span>
+                            <span aria-hidden="true">›</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            class="academy-roadmap-menu-option"
+                            data-academy-roadmap-inner-tab="sprint"
+                            aria-selected="false"
+                            role="tab"
+                        >
+                            <span>Sprint Plan</span>
+                            <span aria-hidden="true">›</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            class="academy-roadmap-menu-option"
+                            data-academy-roadmap-inner-tab="progress"
+                            aria-selected="false"
+                            role="tab"
+                        >
+                            <span>Progress</span>
+                            <span aria-hidden="true">›</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            class="academy-roadmap-menu-option"
+                            data-academy-roadmap-inner-tab="coach"
+                            aria-selected="false"
+                            role="tab"
+                        >
+                            <span>AI Coach</span>
+                            <span aria-hidden="true">›</span>
+                        </button>
+                    </div>
+                </details>
             </div>
 
             <div class="academy-roadmap-tabs-body">
@@ -15653,7 +15824,21 @@ async function academyChangeOwnAccountPassword(changeBtn = null) {
         }
 
         clearAcademyProfileSettingsPasswordFields();
-        showToast('Password changed successfully.', 'success');
+
+        showToast(
+            result?.message ||
+                'Password changed successfully. Please log in again.',
+            'success'
+        );
+
+        await new Promise((resolve) => {
+            window.setTimeout(
+                resolve,
+                650
+            );
+        });
+
+        await logoutUser();
     });
 }
 function academySetProfileMobileMenuOpenState(isOpen = false) {
@@ -18022,9 +18207,80 @@ function academyLeadSafeArray(value = []) {
     return Array.isArray(value) ? value : [];
 }
 
-function academyLeadFormatStatus(value = '', fallback = 'not_started') {
-    const clean = String(value || fallback || '').trim();
-    return clean ? clean.replace(/_/g, ' ') : fallback.replace(/_/g, ' ');
+function academyLeadFormatDisplayLabel(
+    value = '',
+    fallback = ''
+) {
+    const raw =
+        String(
+            value ||
+            fallback ||
+            ''
+        ).trim();
+
+    if (!raw) return '';
+
+    const clean =
+        raw.toLowerCase();
+
+    const labels = {
+        pending_review:
+            'Pending Review',
+
+        pending_admin_review:
+            'Pending Admin Review',
+
+        under_review:
+            'Under Review',
+
+        not_started:
+            'Not Started',
+
+        not_requested:
+            'Not Requested',
+
+        opportunity_mission:
+            'Opportunity Mission',
+
+        routed_mission:
+            'Routed Mission',
+
+        payment_pending:
+            'Payment Pending',
+
+        pending_payment:
+            'Pending Payment',
+
+        checkout_started:
+            'Checkout Started',
+
+        intro_delivered:
+            'Introduction Delivered'
+    };
+
+    if (labels[clean]) {
+        return labels[clean];
+    }
+
+    return raw
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(
+            /\b\w/g,
+            (char) =>
+                char.toUpperCase()
+        );
+}
+
+function academyLeadFormatStatus(
+    value = '',
+    fallback = 'not_started'
+) {
+    return academyLeadFormatDisplayLabel(
+        value,
+        fallback
+    );
 }
 
 function academyLeadMoneySummary(items = [], field = 'amount') {
@@ -19074,7 +19330,15 @@ function renderAcademyAssignedMissions(leads = []) {
                             </td>
                             <td>
                                 <strong>${academyLeadSafeText(item.routedSourceTitle || item.companyName || 'Assigned mission')}</strong>
-                                <div class="academy-lead-list-meta">${academyLeadSafeText(item.missionType || item.contactType || 'opportunity_mission')}</div>
+                                <div class="academy-lead-list-meta">
+    ${academyLeadSafeText(
+        academyLeadFormatDisplayLabel(
+            item.missionType ||
+            item.contactType ||
+            'opportunity_mission'
+        )
+    )}
+</div>
                             </td>
                             <td>${academyLeadSafeText(item.missionBrief || item.academyMissionNeed || item.nextAction || 'Admin will define the task.')}</td>
                             <td>${academyLeadSafeText(academyLeadGetAssignedMissionValue(item))}</td>
@@ -19347,7 +19611,14 @@ function renderAcademyOpportunityMissions(opportunityMissions = []) {
                                     ${academyLeadSafeText(item.description || item.partnerNeed || 'No description available.')}
                                 </div>
                             </td>
-                            <td>${academyLeadSafeText(item.type || item.sourceFeature)}</td>
+                            <td>
+    ${academyLeadSafeText(
+        academyLeadFormatDisplayLabel(
+            item.type ||
+            item.sourceFeature
+        )
+    )}
+</td>
                             <td>${academyLeadSafeText(academyLeadGetOpportunityBudget(item))}</td>
                             <td>${academyLeadSafeText(item.region || 'Global')}</td>
                             <td>${academyLeadSafeText(item.academyMissionNeed || item.partnerNeed || 'Admin will define operator task.')}</td>
@@ -19438,15 +19709,45 @@ function renderLeadMissionsPayouts(payouts = []) {
                 <tbody>
                     ${safePayouts.map((item) => `
                         <tr>
-                            <td>
-                                ${academyLeadSafeText(item.sourceDivision || 'academy')}
-                                ${item.sourceRecordId ? `<div class="academy-lead-list-meta">Source: ${academyLeadSafeText(item.sourceRecordId)}</div>` : ''}
-                                ${item.federationRequestId ? `<div class="academy-lead-list-meta">Fed: ${academyLeadSafeText(item.federationRequestId)}</div>` : ''}
-                            </td>
-                            <td>
-                                <strong>${academyLeadSafeText(item.title || 'Academy mission earning')}</strong>
-                                <div class="academy-lead-list-meta">${academyLeadSafeText(item.basisType || item.sourceFeature || 'routed_mission')}</div>
-                            </td>
+                    <td>
+                        ${academyLeadSafeText(
+                            academyLeadGetOpportunitySourceLabel(
+                                item.sourceDivision ||
+                                'academy'
+                            )
+                        )}
+
+                        ${
+                            item.sourceRecordId
+                                ? `<div class="academy-lead-list-meta">Source Record: ${academyLeadSafeText(item.sourceRecordId)}</div>`
+                                : ''
+                        }
+
+                        ${
+                            item.federationRequestId
+                                ? `<div class="academy-lead-list-meta">Federation Request: ${academyLeadSafeText(item.federationRequestId)}</div>`
+                                : ''
+                        }
+                    </td>
+
+                    <td>
+                        <strong>
+                            ${academyLeadSafeText(
+                                item.title ||
+                                'Academy mission earning'
+                            )}
+                        </strong>
+
+                        <div class="academy-lead-list-meta">
+                            ${academyLeadSafeText(
+                                academyLeadFormatDisplayLabel(
+                                    item.basisType ||
+                                    item.sourceFeature ||
+                                    'routed_mission'
+                                )
+                            )}
+                        </div>
+                    </td>
                             <td>${academyFeedEscapeHtml(academyLeadFormatMoney(item.amount, item.currency))}</td>
                             <td>${academyFeedEscapeHtml(academyLeadFormatMoney(item.dealGrossValue, item.currency))}</td>
                             <td>
@@ -19511,10 +19812,27 @@ function renderLeadMissionsDeals(deals = []) {
                     ${safeDeals.map((item) => `
                         <tr>
                             <td>
-                                ${academyLeadSafeText(item.sourceDivision || 'academy')}
-                                ${item.federationRequestId ? `<div class="academy-lead-list-meta">Fed: ${academyLeadSafeText(item.federationRequestId)}</div>` : ''}
+                                ${academyLeadSafeText(
+                                    academyLeadGetOpportunitySourceLabel(
+                                        item.sourceDivision ||
+                                        'academy'
+                                    )
+                                )}
+
+                                ${
+                                    item.federationRequestId
+                                        ? `<div class="academy-lead-list-meta">Federation Request: ${academyLeadSafeText(item.federationRequestId)}</div>`
+                                        : ''
+                                }
                             </td>
-                            <td>${academyLeadSafeText(item.dealType)}</td>
+
+                            <td>
+                                ${academyLeadSafeText(
+                                    academyLeadFormatDisplayLabel(
+                                        item.dealType
+                                    )
+                                )}
+                            </td>
                             <td>${academyLeadSafeText(academyLeadFormatStatus(item.dealStatus, 'under_review'))}</td>
                             <td>${academyFeedEscapeHtml(academyLeadFormatMoney(item.grossValue, item.currency))}</td>
                             <td>${academyFeedEscapeHtml(academyLeadFormatMoney(item.operatorPayoutAmount, item.currency))}</td>
@@ -32202,26 +32520,188 @@ function restoreDashboardViewState() {
     enterAcademyWorld('home');
 }
 
-function setAcademySidebarActive(activeId = '') {
-    document.querySelectorAll('.channel-link').forEach((link) => {
-        link.classList.remove('active');
-    });
+function getAcademyDashboardWorkspaceFromNavId(
+    activeId = ''
+) {
+    const cleanId =
+        String(activeId || '')
+            .trim()
+            .toLowerCase();
 
-    document.querySelectorAll('.academy-mobile-nav-item[data-academy-target], .academy-mobile-bottom-nav-item[data-academy-target]').forEach((item) => {
-        item.classList.remove('is-active');
-        item.removeAttribute('aria-current');
-    });
+    const workspaceMap = {
+        /*
+         * Academy's historical nav-missions
+         * button is the Roadmap workspace.
+         */
+        'nav-missions':
+            'academy-roadmap',
+
+        'nav-lead-missions':
+            'academy-missions',
+
+        'nav-chat':
+            'academy-community',
+
+        'nav-messages':
+            'academy-messages',
+
+        'nav-voice':
+            'academy-voice'
+    };
+
+    return (
+        workspaceMap[cleanId] ||
+        ''
+    );
+}
+
+
+function syncAcademyDashboardParentWorkspace(
+    activeId = ''
+) {
+    if (
+        typeof isAcademyDashboardEmbedContext ===
+            'function' &&
+        !isAcademyDashboardEmbedContext()
+    ) {
+        return false;
+    }
+
+    const workspaceKey =
+        getAcademyDashboardWorkspaceFromNavId(
+            activeId
+        );
+
+    if (!workspaceKey) {
+        return false;
+    }
+
+    try {
+        if (
+            !window.parent ||
+            window.parent === window
+        ) {
+            return false;
+        }
+
+        const parentWindow =
+            window.parent;
+
+        const parentWorkspace =
+            String(
+                parentWindow.document
+                    ?.body
+                    ?.getAttribute(
+                        'data-yh-unified-workspace'
+                    ) ||
+                ''
+            )
+                .trim()
+                .toLowerCase();
+
+        /*
+         * Already synchronized.
+         * Do not reactivate the same Dashboard
+         * workspace unnecessarily.
+         */
+        if (
+            parentWorkspace ===
+            workspaceKey
+        ) {
+            return false;
+        }
+
+        if (
+            typeof parentWindow
+                .activateDashboardUnifiedWorkspace !==
+            'function'
+        ) {
+            return false;
+        }
+
+        parentWindow
+            .activateDashboardUnifiedWorkspace(
+                workspaceKey,
+                {
+                    animate: false,
+                    scroll: false,
+                    persist: true
+                }
+            );
+
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+
+function setAcademySidebarActive(
+    activeId = ''
+) {
+    document
+        .querySelectorAll(
+            '.channel-link'
+        )
+        .forEach((link) => {
+            link.classList.remove(
+                'active'
+            );
+        });
+
+    document
+        .querySelectorAll(
+            [
+                '.academy-mobile-nav-item',
+                '[data-academy-target],',
+                '.academy-mobile-bottom-nav-item',
+                '[data-academy-target]'
+            ].join('')
+        )
+        .forEach((item) => {
+            item.classList.remove(
+                'is-active'
+            );
+
+            item.removeAttribute(
+                'aria-current'
+            );
+        });
 
     if (activeId) {
-        document.getElementById(activeId)?.classList.add('active');
+        document
+            .getElementById(
+                activeId
+            )
+            ?.classList.add(
+                'active'
+            );
 
         document
-            .querySelectorAll(`.academy-mobile-nav-item[data-academy-target="${activeId}"], .academy-mobile-bottom-nav-item[data-academy-target="${activeId}"]`)
+            .querySelectorAll(
+                `.academy-mobile-nav-item[data-academy-target="${activeId}"], .academy-mobile-bottom-nav-item[data-academy-target="${activeId}"]`
+            )
             .forEach((item) => {
-                item.classList.add('is-active');
-                item.setAttribute('aria-current', 'page');
+                item.classList.add(
+                    'is-active'
+                );
+
+                item.setAttribute(
+                    'aria-current',
+                    'page'
+                );
             });
     }
+
+    /*
+     * When Academy is embedded inside Dashboard,
+     * keep Dashboard desktop + mobile child-tab
+     * selection synchronized with the Academy
+     * view that actually became active.
+     */
+    syncAcademyDashboardParentWorkspace(
+        activeId
+    );
 }
 
 function syncAcademyShellForViewport() {
@@ -37813,7 +38293,7 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         tabs.setAttribute('aria-label', 'Conversation type');
 
         tabs.innerHTML = [
-            '<button type="button" class="academy-messages-inbox-tab" role="tab" data-academy-message-tab="dm">DMs</button>',
+            '<button type="button" class="academy-messages-inbox-tab" role="tab" data-academy-message-tab="dm">Direct Messages</button>',
             '<button type="button" class="academy-messages-inbox-tab" role="tab" data-academy-message-tab="group">Groups</button>'
         ].join('');
 
@@ -41943,6 +42423,8 @@ function lockBotToVisibleBottom() {
         }
     }
 
+    let academyYhaBadgePaymentReturnFocus = null;
+
     function ensureAcademyYhaBadgePaymentModal() {
         let modal = document.getElementById('academy-yha-badge-payment-method-modal');
 
@@ -41952,6 +42434,7 @@ function lockBotToVisibleBottom() {
         modal.id = 'academy-yha-badge-payment-method-modal';
         modal.className = 'yh-dashboard-settings-badge-payment-modal hidden-step academy-yha-badge-payment-method-modal';
         modal.setAttribute('aria-hidden', 'true');
+        modal.setAttribute('inert', '');
         modal.setAttribute('role', 'dialog');
         modal.setAttribute('aria-modal', 'true');
         modal.setAttribute('aria-labelledby', 'academy-yha-badge-payment-title');
@@ -42122,14 +42605,51 @@ function lockBotToVisibleBottom() {
         return modal;
     }
 
-    function closeAcademyYhaBadgePaymentModal() {
-        const modal = document.getElementById('academy-yha-badge-payment-method-modal');
-        if (!modal) return;
+function closeAcademyYhaBadgePaymentModal() {
+    const modal = document.getElementById(
+        'academy-yha-badge-payment-method-modal'
+    );
 
-        modal.classList.add('hidden-step');
-        modal.classList.remove('is-open');
-        modal.setAttribute('aria-hidden', 'true');
+    if (!modal) return;
+
+    const isOpen =
+        modal.classList.contains('is-open') ||
+        modal.getAttribute('aria-hidden') === 'false';
+
+    if (!isOpen) return;
+
+    const activeElement = document.activeElement;
+
+    if (
+        activeElement &&
+        modal.contains(activeElement) &&
+        typeof activeElement.blur === 'function'
+    ) {
+        activeElement.blur();
     }
+
+    const returnFocus =
+        academyYhaBadgePaymentReturnFocus;
+
+    academyYhaBadgePaymentReturnFocus = null;
+
+    modal.setAttribute('inert', '');
+    modal.classList.remove('is-open');
+    modal.classList.add('hidden-step');
+    modal.setAttribute('aria-hidden', 'true');
+
+    if (
+        returnFocus &&
+        returnFocus.isConnected &&
+        typeof returnFocus.focus === 'function'
+    ) {
+        window.requestAnimationFrame(() => {
+            try {
+                returnFocus.focus();
+            } catch (_) {}
+        });
+    }
+}
 
     function syncAcademyYhaBadgePaymentModalUi() {
         const modal = ensureAcademyYhaBadgePaymentModal();
@@ -42196,25 +42716,43 @@ function lockBotToVisibleBottom() {
         });
     }
 
-    function openAcademyYhaBadgePaymentModalFromLearnFrom() {
-        closeLearnFromPayModal();
+function openAcademyYhaBadgePaymentModalFromLearnFrom() {
+    closeLearnFromPayModal();
 
-        academyYhaBadgePaymentModalState = {
-            billingPlan: 'monthly',
-            provider: 'stripe',
-            paymentMethod: 'card_bank_wallet'
-        };
+    academyYhaBadgePaymentReturnFocus =
+        document.getElementById(INPUT_ID) || null;
 
-        const modal = ensureAcademyYhaBadgePaymentModal();
+    academyYhaBadgePaymentModalState = {
+        billingPlan: 'monthly',
+        provider: 'stripe',
+        paymentMethod: 'card_bank_wallet'
+    };
 
-        academyPickValidYhaProvider('stripe');
-        syncAcademyYhaBadgePaymentModalUi();
+    const modal = ensureAcademyYhaBadgePaymentModal();
 
-        modal.classList.remove('hidden-step');
-        modal.classList.add('is-open');
-        modal.setAttribute('aria-hidden', 'false');
+    academyPickValidYhaProvider('stripe');
+    syncAcademyYhaBadgePaymentModalUi();
 
-        hydrateAcademyYhaBadgePaymentProviderConfig()
+    modal.removeAttribute('inert');
+    modal.setAttribute('aria-hidden', 'false');
+    modal.classList.remove('hidden-step');
+    modal.classList.add('is-open');
+
+    window.requestAnimationFrame(() => {
+        const closeButton =
+            modal.querySelector(
+                '[data-academy-yha-payment-close]'
+            );
+
+        if (
+            closeButton &&
+            typeof closeButton.focus === 'function'
+        ) {
+            closeButton.focus();
+        }
+    });
+
+    hydrateAcademyYhaBadgePaymentProviderConfig()
             .then(() => {
                 academyPickValidYhaProvider(academyYhaBadgePaymentModalState.provider || 'stripe');
                 syncAcademyYhaBadgePaymentModalUi();
@@ -42521,22 +43059,99 @@ function lockBotToVisibleBottom() {
     }
 
     function openLearnFromPayModal(selectedKey = '') {
-        pendingLearnFromSelection = normalizeLearnFromKey(selectedKey);
-        selectedLearnFromPaymentType = '';
+        pendingLearnFromSelection =
+            normalizeLearnFromKey(
+                selectedKey
+            );
 
-        const payModal = document.getElementById(LEARN_FROM_PAY_MODAL_ID);
-        const selectedMeta = getLearnFromMeta(pendingLearnFromSelection);
+        selectedLearnFromPaymentType =
+            '';
 
-        if (!payModal) return;
+        const coachModal =
+            document.getElementById(
+                MODAL_ID
+            );
 
-        const nameEl = payModal.querySelector('[data-learn-from-selected-name]');
-        if (nameEl) {
-            nameEl.textContent = selectedMeta?.key ? selectedMeta.shortLabel : 'this mentor mode';
+        const payModal =
+            document.getElementById(
+                LEARN_FROM_PAY_MODAL_ID
+            );
+
+        const selectedMeta =
+            getLearnFromMeta(
+                pendingLearnFromSelection
+            );
+
+        if (!payModal) {
+            return;
         }
 
-        payModal.classList.remove('hidden-step');
-        payModal.setAttribute('aria-hidden', 'false');
+        /*
+         * Close AI Coach Actions first.
+         *
+         * The subscription requirement modal
+         * must replace the quick-action dropdown
+         * visually instead of appearing behind it.
+         */
+        const quickMenu =
+            coachModal?.querySelector(
+                '.academy-ai-coach-rect-quick-menu'
+            );
+
+        if (
+            quickMenu instanceof
+            HTMLDetailsElement
+        ) {
+            quickMenu.open =
+                false;
+        }
+
+        const nameEl =
+            payModal.querySelector(
+                '[data-learn-from-selected-name]'
+            );
+
+        if (nameEl) {
+            nameEl.textContent =
+                selectedMeta?.key
+                    ? selectedMeta.shortLabel
+                    : 'this mentor mode';
+        }
+
+        payModal.classList.remove(
+            'hidden-step'
+        );
+
+        payModal.setAttribute(
+            'aria-hidden',
+            'false'
+        );
+
         syncLearnFromPaymentSelection();
+
+        /*
+         * Move focus into the visible modal
+         * instead of leaving focus inside the
+         * now-collapsed Learn From selector.
+         */
+        window.requestAnimationFrame(
+            () => {
+                const closeButton =
+                    payModal.querySelector(
+                        '[data-learn-from-pay-close]'
+                    );
+
+                if (
+                    closeButton &&
+                    typeof closeButton.focus ===
+                        'function'
+                ) {
+                    try {
+                        closeButton.focus();
+                    } catch (_) {}
+                }
+            }
+        );
     }
 
     function closeLearnFromPayModal() {
@@ -42822,32 +43437,148 @@ function lockBotToVisibleBottom() {
     }
 
     function buildLearnFromOptionsHtml() {
-        const selectedKey = getStoredLearnFromKey();
+        const selectedKey =
+            getStoredLearnFromKey();
 
-        return LEARN_FROM_OPTIONS.map((item) => {
-            const selected = item.key === selectedKey ? ' selected' : '';
-            return `<option value="${escapeHtml(item.key)}"${selected}>${escapeHtml(item.label)}</option>`;
-        }).join('');
+        return LEARN_FROM_OPTIONS
+            .map((item) => {
+                const selected =
+                    item.key === selectedKey
+                        ? ' selected'
+                        : '';
+
+                return `
+                    <option
+                        value="${escapeHtml(item.key)}"
+                        ${selected}
+                    >
+                        ${escapeHtml(item.label)}
+                    </option>
+                `;
+            })
+            .join('');
     }
 
+
+    function buildLearnFromMenuOptionsHtml() {
+        const selectedKey =
+            getStoredLearnFromKey();
+
+        return LEARN_FROM_OPTIONS
+            .map((item) => {
+                const isSelected =
+                    item.key === selectedKey;
+
+                return `
+                    <button
+                        type="button"
+                        class="academy-ai-coach-learn-option${isSelected ? ' is-selected' : ''}"
+                        data-learn-from-option="${escapeHtml(item.key)}"
+                        aria-current="${isSelected ? 'true' : 'false'}"
+                    >
+                        <span>
+                            ${escapeHtml(item.label)}
+                        </span>
+                    </button>
+                `;
+            })
+            .join('');
+    }
+
+
     function syncLearnFromSelect() {
-        const select = document.getElementById(LEARN_FROM_ID);
+        const select =
+            document.getElementById(
+                LEARN_FROM_ID
+            );
+
         if (!select) return;
 
-        const meta = getLearnFromMeta();
+        const wrap =
+            select.closest(
+                '.academy-ai-coach-rect-learn-wrap'
+            );
 
-        if (meta.key && !hasAcademyLearnFromAccess()) {
-            select.value = '';
-            select.classList.add('is-locked');
-            select.title = 'Learn From modes unlock with an active YHA Academy Verified Badge.';
-            return;
+        const menu =
+            wrap?.querySelector(
+                '.academy-ai-coach-learn-menu'
+            );
+
+        const trigger =
+            wrap?.querySelector(
+                '[data-learn-from-trigger-label]'
+            );
+
+        const hasAccess =
+            hasAcademyLearnFromAccess();
+
+        const meta =
+            getLearnFromMeta();
+
+        const visibleMeta =
+            meta.key && !hasAccess
+                ? LEARN_FROM_OPTIONS[0]
+                : meta;
+
+        select.classList.toggle(
+            'is-locked',
+            !hasAccess
+        );
+
+        select.value =
+            visibleMeta?.key || '';
+
+        select.title =
+            visibleMeta?.key
+                ? (
+                    `Academy AI Coach will use the approved ` +
+                    `${visibleMeta.shortLabel} knowledge lens.`
+                )
+                : (
+                    hasAccess
+                        ? 'Academy AI Coach will use the default roadmap coach mode.'
+                        : 'Learn From modes unlock with an active YHA Academy Verified Badge.'
+                );
+
+        menu?.classList.toggle(
+            'is-locked',
+            !hasAccess
+        );
+
+        if (trigger) {
+            trigger.textContent =
+                visibleMeta?.label ||
+                'Learn from';
         }
 
-        select.classList.toggle('is-locked', !hasAcademyLearnFromAccess());
-        select.value = meta.key || '';
-        select.title = meta.key
-            ? `Academy AI Coach will use the approved ${meta.shortLabel} knowledge lens.`
-            : 'Academy AI Coach will use the default roadmap coach mode.';
+        menu
+            ?.querySelectorAll(
+                '[data-learn-from-option]'
+            )
+            .forEach((button) => {
+                const buttonKey =
+                    normalizeLearnFromKey(
+                        button.getAttribute(
+                            'data-learn-from-option'
+                        ) || ''
+                    );
+
+                const selected =
+                    buttonKey ===
+                    (visibleMeta?.key || '');
+
+                button.classList.toggle(
+                    'is-selected',
+                    selected
+                );
+
+                button.setAttribute(
+                    'aria-current',
+                    selected
+                        ? 'true'
+                        : 'false'
+                );
+            });
     }
 
     function createModal() {
@@ -42874,16 +43605,108 @@ function lockBotToVisibleBottom() {
                     <button type="button" class="academy-ai-coach-rect-close" id="${CLOSE_ID}" aria-label="Close AI Coach">✕</button>
                 </div>
 
-                <div class="academy-ai-coach-rect-prompts" aria-label="Suggested prompts">
-                    <div class="academy-ai-coach-rect-learn-wrap">
-                        <label for="${LEARN_FROM_ID}">Learn from</label>
-                        <select id="${LEARN_FROM_ID}" aria-label="Learn from approved big figure knowledge">
-                            ${buildLearnFromOptionsHtml()}
-                        </select>
-                    </div>
-                    <button type="button" data-ai-coach-prompt="What should I focus on today?">Today’s focus</button>
-                    <button type="button" data-ai-coach-prompt="Simplify my next mission.">Simplify mission</button>
-                    <button type="button" data-ai-coach-prompt="Help me recover after missed tasks.">Recover</button>
+                <div
+                    class="academy-ai-coach-rect-prompts"
+                    aria-label="AI Coach actions"
+                >
+                    <details class="academy-ai-coach-rect-quick-menu">
+                        <summary class="academy-ai-coach-rect-quick-trigger">
+                            <span>AI Coach Actions</span>
+
+                            <span
+                                class="academy-ai-coach-rect-quick-arrow"
+                                aria-hidden="true"
+                            >
+                                ⌄
+                            </span>
+                        </summary>
+
+                        <div class="academy-ai-coach-rect-quick-panel">
+                            <div class="academy-ai-coach-rect-quick-section-label">
+                                Learn from
+                            </div>
+
+                            <div class="academy-ai-coach-rect-learn-wrap">
+                                <label for="${LEARN_FROM_ID}">
+                                    Learn from
+                                </label>
+
+                                <!--
+                                    Keep the original select as the
+                                    state/access compatibility layer.
+                                    It is no longer the visible UI.
+                                -->
+                                <select
+                                    id="${LEARN_FROM_ID}"
+                                    class="academy-ai-coach-rect-learn-native"
+                                    aria-hidden="true"
+                                    tabindex="-1"
+                                >
+                                    ${buildLearnFromOptionsHtml()}
+                                </select>
+
+                                <details
+                                    class="academy-ai-coach-learn-menu"
+                                >
+                                    <summary
+                                        class="academy-ai-coach-learn-trigger"
+                                        aria-label="Choose Learn From mentor"
+                                    >
+                                        <span
+                                            data-learn-from-trigger-label
+                                        >
+                                            Learn from
+                                        </span>
+
+                                        <span
+                                            class="academy-ai-coach-learn-trigger-arrow"
+                                            aria-hidden="true"
+                                        >
+                                            ⌄
+                                        </span>
+                                    </summary>
+
+                                    <div
+                                        class="academy-ai-coach-learn-options hide-scrollbar"
+                                    >
+                                        ${buildLearnFromMenuOptionsHtml()}
+                                    </div>
+                                </details>
+                            </div>
+                            <div
+                                class="academy-ai-coach-rect-quick-divider"
+                                aria-hidden="true"
+                            ></div>
+
+                            <div class="academy-ai-coach-rect-quick-section-label">
+                                Quick prompts
+                            </div>
+
+                            <button
+                                type="button"
+                                data-ai-coach-prompt="What should I focus on today?"
+                            >
+                                <span>Today’s focus</span>
+                                <span aria-hidden="true">›</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                data-ai-coach-prompt="Simplify my next mission."
+                            >
+                                <span>Simplify mission</span>
+                                <span aria-hidden="true">›</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                data-ai-coach-prompt="Help me recover after missed tasks."
+                            >
+                                <span>Recover</span>
+                                <span aria-hidden="true">›</span>
+                            </button>
+                        </div>
+                    </details>
                 </div>
 
                 <div class="academy-ai-coach-rect-history hide-scrollbar" id="${HISTORY_ID}">
@@ -43116,6 +43939,135 @@ function lockBotToVisibleBottom() {
         }
     }
 
+    function setAcademyAiCoachBottomNavLock(
+        active = false
+    ) {
+        const locked =
+            active === true;
+
+        /*
+         * Academy standalone bottom navbar.
+         *
+         * Hide it immediately and with inline
+         * !important styles so the existing
+         * auto-hide/reveal system cannot flash
+         * it above the AI Coach type field.
+         */
+        const localBottomNav =
+            document.getElementById(
+                'academy-mobile-bottom-nav'
+            );
+
+        if (localBottomNav) {
+            if (locked) {
+                localBottomNav.setAttribute(
+                    'data-academy-ai-coach-nav-lock',
+                    'true'
+                );
+
+                localBottomNav.classList.add(
+                    'academy-mobile-bottom-nav-hidden'
+                );
+
+                localBottomNav.setAttribute(
+                    'aria-hidden',
+                    'true'
+                );
+
+                localBottomNav.style.setProperty(
+                    'display',
+                    'none',
+                    'important'
+                );
+
+                localBottomNav.style.setProperty(
+                    'opacity',
+                    '0',
+                    'important'
+                );
+
+                localBottomNav.style.setProperty(
+                    'visibility',
+                    'hidden',
+                    'important'
+                );
+
+                localBottomNav.style.setProperty(
+                    'pointer-events',
+                    'none',
+                    'important'
+                );
+
+                localBottomNav.style.setProperty(
+                    'transform',
+                    'translateY(calc(100% + 22px))',
+                    'important'
+                );
+            } else {
+                localBottomNav.removeAttribute(
+                    'data-academy-ai-coach-nav-lock'
+                );
+
+                /*
+                 * Release only the AI Coach's
+                 * inline lock.
+                 *
+                 * The normal Academy bottom-nav
+                 * controller decides afterward
+                 * whether it should be visible
+                 * based on scroll/view state.
+                 */
+                localBottomNav.style.removeProperty(
+                    'display'
+                );
+
+                localBottomNav.style.removeProperty(
+                    'opacity'
+                );
+
+                localBottomNav.style.removeProperty(
+                    'visibility'
+                );
+
+                localBottomNav.style.removeProperty(
+                    'pointer-events'
+                );
+
+                localBottomNav.style.removeProperty(
+                    'transform'
+                );
+            }
+        }
+
+        /*
+         * Academy is normally rendered inside
+         * the Dashboard workspace iframe.
+         *
+         * Tell the parent Dashboard to lock its
+         * own bottom navbar too.
+         */
+        try {
+            if (
+                window.parent &&
+                window.parent !== window
+            ) {
+                window.parent.postMessage(
+                    {
+                        type:
+                            'yh:academy-ai-coach-modal-state',
+
+                        open:
+                            locked
+                    },
+                    window.location.origin
+                );
+            }
+        } catch (_) {}
+
+        return locked;
+    }
+
+
     function openModal() {
         if (!hasAcademyAiCoachSubscriberAccess()) {
             try {
@@ -43128,12 +44080,38 @@ function lockBotToVisibleBottom() {
 
         const modal = createModal();
 
-        modal.classList.remove('hidden-step');
-        modal.classList.add('is-open');
-        modal.setAttribute('aria-hidden', 'false');
-        document.body?.classList.add('academy-ai-coach-rect-open');
+        modal.classList.remove(
+            'hidden-step'
+        );
 
-        refreshAcademyLearnFromAccess().catch(() => null);
+        modal.classList.add(
+            'is-open'
+        );
+
+        modal.setAttribute(
+            'aria-hidden',
+            'false'
+        );
+
+        document.body?.classList.add(
+            'academy-ai-coach-rect-open'
+        );
+
+        /*
+         * The AI Coach owns the complete mobile
+         * interaction surface while open.
+         *
+         * Bottom navigation must not overlap
+         * the message type field.
+         */
+        setAcademyAiCoachBottomNavLock(
+            true
+        );
+
+        refreshAcademyLearnFromAccess()
+            .catch(
+                () => null
+            );
         loadCoachMessages();
 
         window.setTimeout(() => {
@@ -43142,13 +44120,49 @@ function lockBotToVisibleBottom() {
     }
 
     function closeModal() {
-        const modal = document.getElementById(MODAL_ID);
+        const modal =
+            document.getElementById(
+                MODAL_ID
+            );
+
         if (!modal) return;
 
-        modal.classList.remove('is-open');
-        modal.classList.add('hidden-step');
-        modal.setAttribute('aria-hidden', 'true');
-        document.body?.classList.remove('academy-ai-coach-rect-open');
+        const quickMenu =
+            modal.querySelector(
+                '.academy-ai-coach-rect-quick-menu'
+            );
+
+        if (
+            quickMenu instanceof
+            HTMLDetailsElement
+        ) {
+            quickMenu.open = false;
+        }
+
+        modal.classList.remove(
+            'is-open'
+        );
+
+        modal.classList.add(
+            'hidden-step'
+        );
+
+        modal.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+
+        document.body?.classList.remove(
+            'academy-ai-coach-rect-open'
+        );
+
+        /*
+         * Release the navbar lock only after
+         * the AI Coach is completely closed.
+         */
+        setAcademyAiCoachBottomNavLock(
+            false
+        );
     }
 
     function bindModalEvents(modal) {
@@ -43172,32 +44186,130 @@ function lockBotToVisibleBottom() {
             await sendCoachMessage(input?.value || '');
         });
 
-        modal.querySelector('#' + LEARN_FROM_ID)?.addEventListener('change', (event) => {
-            const requestedKey = normalizeLearnFromKey(event.currentTarget?.value || '');
+        modal
+            .querySelector(
+                '#' + LEARN_FROM_ID
+            )
+            ?.addEventListener(
+                'change',
+                (event) => {
+                    const requestedKey =
+                        normalizeLearnFromKey(
+                            event.currentTarget
+                                ?.value || ''
+                        );
 
-            if (requestedKey && !hasAcademyLearnFromAccess()) {
-                event.currentTarget.value = '';
-                setStoredLearnFromKey('');
-                syncLearnFromSelect();
-                openLearnFromPayModal(requestedKey);
-                return;
-            }
+                    if (
+                        requestedKey &&
+                        !hasAcademyLearnFromAccess()
+                    ) {
+                        event.currentTarget.value =
+                            '';
 
-            const selectedKey = setStoredLearnFromKey(requestedKey);
-            syncLearnFromSelect();
+                        setStoredLearnFromKey(
+                            ''
+                        );
 
-            try {
-                if (typeof showToast === 'function') {
-                    const meta = getLearnFromMeta(selectedKey);
-                    showToast(
-                        selectedKey
-                            ? `AI Coach will learn from ${meta.shortLabel}.`
-                            : 'AI Coach returned to default Academy mode.',
-                        'success'
-                    );
+                        syncLearnFromSelect();
+
+                        openLearnFromPayModal(
+                            requestedKey
+                        );
+
+                        return;
+                    }
+
+                    const selectedKey =
+                        setStoredLearnFromKey(
+                            requestedKey
+                        );
+
+                    syncLearnFromSelect();
+
+                    try {
+                        if (
+                            typeof showToast ===
+                            'function'
+                        ) {
+                            const meta =
+                                getLearnFromMeta(
+                                    selectedKey
+                                );
+
+                            showToast(
+                                selectedKey
+                                    ? (
+                                        `AI Coach will learn from ` +
+                                        `${meta.shortLabel}.`
+                                    )
+                                    : (
+                                        'AI Coach returned to default Academy mode.'
+                                    ),
+                                'success'
+                            );
+                        }
+                    } catch (_) {}
                 }
-            } catch (_) {}
-        });
+            );
+
+
+        /*
+         * Custom Learn From menu.
+         *
+         * We still route the selection through
+         * the hidden native select's existing
+         * change handler so access gating,
+         * YHA subscription checks, storage,
+         * and payment behavior stay untouched.
+         */
+        modal
+            .querySelectorAll(
+                '[data-learn-from-option]'
+            )
+            .forEach((button) => {
+                button.addEventListener(
+                    'click',
+                    (event) => {
+                        event.preventDefault();
+
+                        const learnMenu =
+                            button.closest(
+                                '.academy-ai-coach-learn-menu'
+                            );
+
+                        if (
+                            learnMenu instanceof
+                            HTMLDetailsElement
+                        ) {
+                            learnMenu.open =
+                                false;
+                        }
+
+                        const select =
+                            document.getElementById(
+                                LEARN_FROM_ID
+                            );
+
+                        if (!select) return;
+
+                        select.value =
+                            normalizeLearnFromKey(
+                                button.getAttribute(
+                                    'data-learn-from-option'
+                                ) || ''
+                            );
+
+                        select.dispatchEvent(
+                            new Event(
+                                'change',
+                                {
+                                    bubbles: true
+                                }
+                            )
+                        );
+                    }
+                );
+            });
 
         modal.querySelectorAll('[data-learn-from-pay-select]').forEach((button) => {
             button.addEventListener('click', () => {
@@ -43235,7 +44347,23 @@ function lockBotToVisibleBottom() {
 
         modal.querySelectorAll('[data-ai-coach-prompt]').forEach((button) => {
             button.addEventListener('click', async () => {
-                await sendCoachMessage(button.getAttribute('data-ai-coach-prompt') || '');
+                const quickMenu =
+                    button.closest(
+                        '.academy-ai-coach-rect-quick-menu'
+                    );
+
+                if (
+                    quickMenu instanceof
+                    HTMLDetailsElement
+                ) {
+                    quickMenu.open = false;
+                }
+
+                await sendCoachMessage(
+                    button.getAttribute(
+                        'data-ai-coach-prompt'
+                    ) || ''
+                );
             });
         });
     }

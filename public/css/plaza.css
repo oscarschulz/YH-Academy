@@ -1579,6 +1579,22 @@ gap: 8px;
 
 .yh-plaza-modal {
   z-index: 90;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.yh-plaza-modal::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .yh-plaza-drawer {
@@ -1903,6 +1919,22 @@ gap: 8px;
   .yh-plaza-modal-card,
   .yh-plaza-drawer-panel {
   padding: 20px;
+}
+
+/*
+ * Dashboard mobile Plaza modal:
+ * reserve scroll space above the persistent bottom nav.
+ */
+body.yh-dashboard-inline-embed-body .yh-plaza-modal {
+  padding-bottom:
+    calc(
+      96px +
+      env(safe-area-inset-bottom, 0px)
+    );
+}
+
+body.yh-dashboard-inline-embed-body .yh-plaza-modal-card {
+  margin-bottom: 12px;
 }
 
   .yh-plaza-tabs {

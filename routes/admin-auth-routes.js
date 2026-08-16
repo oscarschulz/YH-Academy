@@ -20,8 +20,7 @@ const userNotificationsSupabaseRepo = require('../backend/repositories/userNotif
 
 const ADMIN_SESSION_COOKIE = 'yh_admin_session';
 const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
-
-const sessions = new Map();
+const ADMIN_SESSION_COLLECTION = 'yhAdminSessions';
 
 function escapeEmailHtml(value = '') {
   return String(value)
@@ -167,7 +166,12 @@ function parseCookies(req) {
     const value = part.slice(idx + 1).trim();
 
     if (!key) return;
-    out[key] = decodeURIComponent(value);
+
+    try {
+      out[key] = decodeURIComponent(value);
+    } catch (_) {
+      out[key] = value;
+    }
   });
 
   return out;
@@ -191,7 +195,6 @@ function verifyPassword(password, storedHash) {
 
 function getEnvConfig() {
   return {
-    routeToken: String(process.env.ADMIN_ROUTE_TOKEN || '').trim(),
     username: String(process.env.ADMIN_USERNAME || '').trim(),
     passwordHash: String(process.env.ADMIN_PASSWORD_HASH || '').trim(),
     secureCookies: process.env.NODE_ENV === 'production'
@@ -226,37 +229,108 @@ function clearSessionCookie(res, secureCookies) {
   res.setHeader('Set-Cookie', parts.join('; '));
 }
 
-function readSessionFromRequest(req) {
+function getAdminSessionDocRef(sessionId = '') {
+  const cleanSessionId = String(sessionId || '').trim();
+  if (!cleanSessionId) return null;
+
+  const sessionHash = crypto
+    .createHash('sha256')
+    .update(cleanSessionId, 'utf8')
+    .digest('hex');
+
+  return firestore
+    .collection(ADMIN_SESSION_COLLECTION)
+    .doc(sessionHash);
+}
+
+function adminSessionTimeToMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+async function createAdminSession({ username = '', role = 'Super Admin' } = {}) {
+  const sessionId = crypto.randomBytes(32).toString('hex');
+  const nowMs = Date.now();
+  const expiresAtMs = nowMs + ADMIN_SESSION_TTL_MS;
+  const sessionRef = getAdminSessionDocRef(sessionId);
+
+  await sessionRef.set({
+    username: String(username || '').trim(),
+    role: String(role || 'Super Admin').trim() || 'Super Admin',
+    createdAt: Timestamp.fromMillis(nowMs),
+    updatedAt: Timestamp.fromMillis(nowMs),
+    expiresAt: Timestamp.fromMillis(expiresAtMs)
+  });
+
+  return {
+    id: sessionId,
+    username: String(username || '').trim(),
+    role: String(role || 'Super Admin').trim() || 'Super Admin',
+    createdAt: nowMs,
+    expiresAt: expiresAtMs
+  };
+}
+
+async function readSessionFromRequest(req) {
   const cookies = parseCookies(req);
   const sessionId = cookies[ADMIN_SESSION_COOKIE];
 
   if (!sessionId) return null;
 
-  const session = sessions.get(sessionId);
-  if (!session) return null;
+  const sessionRef = getAdminSessionDocRef(sessionId);
+  if (!sessionRef) return null;
 
-  if (Date.now() > Number(session.expiresAt || 0)) {
-    sessions.delete(sessionId);
+  const sessionSnap = await sessionRef.get();
+  if (!sessionSnap.exists) return null;
+
+  const session = sessionSnap.data() || {};
+  const expiresAt = adminSessionTimeToMillis(session.expiresAt);
+
+  if (!expiresAt || Date.now() > expiresAt) {
+    await sessionRef.delete().catch(() => null);
     return null;
   }
 
   return {
     id: sessionId,
-    ...session
+    username: String(session.username || '').trim(),
+    role: String(session.role || 'Super Admin').trim() || 'Super Admin',
+    createdAt: adminSessionTimeToMillis(session.createdAt),
+    expiresAt
   };
 }
 
-function cleanupExpiredSessions() {
-  const now = Date.now();
+async function refreshAdminSession(session = {}) {
+  const sessionId = String(session.id || '').trim();
+  const sessionRef = getAdminSessionDocRef(sessionId);
 
-  for (const [sessionId, session] of sessions.entries()) {
-    if (now > Number(session.expiresAt || 0)) {
-      sessions.delete(sessionId);
-    }
-  }
+  if (!sessionRef) return null;
+
+  const nowMs = Date.now();
+  const expiresAtMs = nowMs + ADMIN_SESSION_TTL_MS;
+
+  await sessionRef.set({
+    username: String(session.username || '').trim(),
+    role: String(session.role || 'Super Admin').trim() || 'Super Admin',
+    updatedAt: Timestamp.fromMillis(nowMs),
+    expiresAt: Timestamp.fromMillis(expiresAtMs)
+  }, { merge: true });
+
+  return {
+    ...session,
+    expiresAt: expiresAtMs
+  };
 }
 
-setInterval(cleanupExpiredSessions, 15 * 60 * 1000).unref();
+async function deleteAdminSession(sessionId = '') {
+  const sessionRef = getAdminSessionDocRef(sessionId);
+  if (!sessionRef) return;
+
+  await sessionRef.delete();
+}
 
 function createAdminRouters(options = {}) {
   const privateAdminDir =
@@ -267,42 +341,44 @@ function createAdminRouters(options = {}) {
 
   apiRouter.use(express.json());
 
-  function requireGateParam(req, res, next) {
-    const { routeToken } = getEnvConfig();
-
-    if (!routeToken) {
-      return res.status(500).send('ADMIN_ROUTE_TOKEN is missing.');
-    }
-
-    if (!safeEqualString(req.params.gate || '', routeToken)) {
-      return res.status(404).send('Not found');
-    }
-
-    next();
-  }
-function requireAdminSession(req, res, next) {
+async function requireAdminSession(req, res, next) {
   const env = getEnvConfig();
-  const session = readSessionFromRequest(req);
 
-  if (!session) {
-    clearSessionCookie(res, env.secureCookies);
+  try {
+    const session = await readSessionFromRequest(req);
 
-    return res.status(401).json({
+    if (!session) {
+      clearSessionCookie(res, env.secureCookies);
+
+      return res.status(401).json({
+        success: false,
+        message: 'No active admin session.'
+      });
+    }
+
+    const refreshedSession = await refreshAdminSession(session);
+
+    if (!refreshedSession) {
+      clearSessionCookie(res, env.secureCookies);
+
+      return res.status(401).json({
+        success: false,
+        message: 'No active admin session.'
+      });
+    }
+
+    setSessionCookie(res, session.id, env.secureCookies);
+
+    req.adminSession = refreshedSession;
+    return next();
+  } catch (error) {
+    console.error('Admin session validation error:', error);
+
+    return res.status(503).json({
       success: false,
-      message: 'No active admin session.'
+      message: 'Admin session service is temporarily unavailable.'
     });
   }
-
-  const refreshedSession = {
-    ...session,
-    expiresAt: Date.now() + ADMIN_SESSION_TTL_MS
-  };
-
-  sessions.set(session.id, refreshedSession);
-  setSessionCookie(res, session.id, env.secureCookies);
-
-  req.adminSession = refreshedSession;
-  next();
 }
 
 function toIso(value) {
@@ -2040,36 +2116,45 @@ const applications = users.flatMap((user) => {
   };
 }
 
-  pageRouter.get('/admin/:gate/login', requireGateParam, (req, res) => {
-    return res.sendFile(path.join(privateAdminDir, 'admin-login.html'));
-  });
+  pageRouter.get('/admin/login', async (req, res) => {
+    try {
+      const session = await readSessionFromRequest(req);
 
-  pageRouter.get('/admin/:gate/panel', requireGateParam, (req, res) => {
-    const session = readSessionFromRequest(req);
+      if (session) {
+        return res.redirect('/admin/panel');
+      }
 
-    if (!session) {
-      return res.redirect(`/admin/${req.params.gate}/login`);
+      return res.sendFile(path.join(privateAdminDir, 'admin-login.html'));
+    } catch (error) {
+      console.error('Admin login page session check error:', error);
+      return res.status(503).send('Admin session service is temporarily unavailable.');
     }
-
-    return res.sendFile(path.join(privateAdminDir, 'admin-panel.html'));
   });
 
-  apiRouter.post('/api/admin/login', (req, res) => {
-    const { gate, routeToken, username, password } = req.body || {};
-    const env = getEnvConfig();
-    const incomingGate = String(gate || routeToken || '').trim();
+  pageRouter.get('/admin/panel', async (req, res) => {
+    try {
+      const session = await readSessionFromRequest(req);
 
-    if (!env.routeToken || !env.username || !env.passwordHash) {
+      if (!session) {
+        return res.redirect('/admin/login');
+      }
+
+      return res.sendFile(path.join(privateAdminDir, 'admin-panel.html'));
+    } catch (error) {
+      console.error('Admin panel session check error:', error);
+      return res.status(503).send('Admin session service is temporarily unavailable.');
+    }
+  });
+
+
+  apiRouter.post('/api/admin/login', async (req, res) => {
+    const { username, password } = req.body || {};
+    const env = getEnvConfig();
+
+    if (!env.username || !env.passwordHash) {
       return res.status(500).json({
         success: false,
         message: 'Admin auth environment variables are incomplete.'
-      });
-    }
-
-    if (!safeEqualString(incomingGate, env.routeToken)) {
-      return res.status(404).json({
-        success: false,
-        message: 'Invalid route token.'
       });
     }
 
@@ -2083,44 +2168,62 @@ const applications = users.flatMap((user) => {
       });
     }
 
-    const sessionId = crypto.randomBytes(32).toString('hex');
-
-    sessions.set(sessionId, {
-      username: env.username,
-      role: 'Super Admin',
-      createdAt: Date.now(),
-      expiresAt: Date.now() + ADMIN_SESSION_TTL_MS
-    });
-
-    setSessionCookie(res, sessionId, env.secureCookies);
-
-    return res.json({
-      success: true,
-      redirectTo: `/admin/${env.routeToken}/panel`,
-      user: {
+    try {
+      const session = await createAdminSession({
         username: env.username,
         role: 'Super Admin'
-      }
-    });
-  });
+      });
 
-  apiRouter.get('/api/admin/session', (req, res) => {
-    const session = readSessionFromRequest(req);
+      setSessionCookie(res, session.id, env.secureCookies);
 
-    if (!session) {
-      return res.status(401).json({
+      return res.json({
+        success: true,
+        redirectTo: '/admin/panel',
+        user: {
+          username: env.username,
+          role: 'Super Admin'
+        }
+      });
+    } catch (error) {
+      console.error('Admin session creation error:', error);
+
+      return res.status(503).json({
         success: false,
-        message: 'No active admin session.'
+        message: 'Unable to create admin session.'
       });
     }
+  });
 
-    return res.json({
-      success: true,
-      user: {
-        username: session.username,
-        role: session.role
+  apiRouter.get('/api/admin/session', async (req, res) => {
+    const env = getEnvConfig();
+
+    try {
+      const session = await readSessionFromRequest(req);
+
+      if (!session) {
+        clearSessionCookie(res, env.secureCookies);
+
+        return res.status(401).json({
+          success: false,
+          message: 'No active admin session.'
+        });
       }
-    });
+
+      return res.json({
+        success: true,
+        user: {
+          username: session.username,
+          role: session.role
+        }
+      });
+    } catch (error) {
+      console.error('Admin session status error:', error);
+
+      return res.status(503).json({
+        success: false,
+        message: 'Admin session service is temporarily unavailable.'
+      });
+    }
   });
 function normalizeAdminPlazaCommissionRate(value = null, fallback = 0.2) {
   const parsed = toNumber(value, fallback);
@@ -5711,17 +5814,19 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', req
       });
     }
 
-    const leadRef = userRef.collection('academyLeadMissions').doc(leadId);
-    const leadSnap = await leadRef.get();
+    const existingLead =
+      await academyFirestoreRepo.getLeadMissionLeadById(
+        memberId,
+        leadId
+      );
 
-    if (!leadSnap.exists) {
+    if (!existingLead) {
       return res.status(404).json({
         success: false,
         message: 'Lead Mission record not found.'
       });
     }
 
-    const existingLead = leadSnap.data() || {};
     const body = req.body || {};
     const patch = {};
 
@@ -5771,13 +5876,68 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', req
     const updatePayload = {
       ...routing,
       ...directLeadPatch,
-      sourceDivision: cleanText(existingLead.sourceDivision || 'academy') || 'academy',
-      adminNetworkUpdatedAt: nowIso,
-      adminNetworkUpdatedBy: req.adminSession.username,
-      updatedAt: Timestamp.now()
+      sourceDivision:
+        cleanText(
+          existingLead.sourceDivision ||
+          'academy'
+        ) || 'academy',
+
+      adminNetworkUpdatedAt:
+        nowIso,
+
+      adminNetworkUpdatedBy:
+        req.adminSession.username,
+
+      updatedAt:
+        nowIso
     };
 
-    await leadRef.set(updatePayload, { merge: true });
+    const updatedLeadForMirror =
+      await academyFirestoreRepo.updateLeadMissionLead(
+        memberId,
+        leadId,
+        updatePayload
+      );
+
+    if (!updatedLeadForMirror) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lead Mission record not found.'
+      });
+    }
+
+    /*
+     * Firestore is compatibility-only.
+     * Update an existing mirror when present,
+     * but never require or create one.
+     */
+    try {
+      const legacyLeadRef =
+        userRef
+          .collection('academyLeadMissions')
+          .doc(leadId);
+
+      const legacyLeadSnap =
+        await legacyLeadRef.get();
+
+      if (legacyLeadSnap.exists) {
+        await legacyLeadRef.set(
+          {
+            ...updatePayload,
+            updatedAt: Timestamp.now()
+          },
+          {
+            merge: true
+          }
+        );
+      }
+    } catch (mirrorError) {
+      console.warn(
+        'Admin Academy Lead Mission Firestore mirror skipped:',
+        mirrorError?.message ||
+        mirrorError
+      );
+    }
 
     await createAdminBroadcastWithSupabaseSync({
       audience: cleanText(userSnap.data()?.fullName || userSnap.data()?.name || userSnap.data()?.username || memberId),
@@ -5786,12 +5946,6 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', req
       sentAt: nowIso,
       createdBy: req.adminSession.username
     });
-
-    const updatedSnap = await leadRef.get();
-    const updatedLeadForMirror = {
-      id: updatedSnap.id,
-      ...(updatedSnap.data() || {})
-    };
 
     await universeCollectionMirrorRepo.mirrorAcademyLead({
       action: 'admin_network_updated',
@@ -5818,11 +5972,31 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', req
       lead: updatedLeadForMirror
     });
   } catch (error) {
-    console.error('admin lead mission network update error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to update Lead Mission network routing.'
-    });
+    console.error(
+      'admin lead mission network update error:',
+      error
+    );
+
+    const statusCode =
+      Number(
+        error?.statusCode ||
+        error?.status
+      );
+
+    return res
+      .status(
+        Number.isFinite(statusCode) &&
+        statusCode >= 400 &&
+        statusCode < 600
+          ? statusCode
+          : 500
+      )
+      .json({
+        success: false,
+        message:
+          error?.message ||
+          'Failed to update Lead Mission network routing.'
+      });
   }
 });
 function normalizeAdminDealPackage(body = {}) {
@@ -6345,6 +6519,36 @@ apiRouter.post('/api/admin/federation/deal-rooms/:roomId/status', requireAdminSe
       });
     }
 
+const room =
+  snap.data() || {};
+
+const expectedValueAmount =
+  Math.max(
+    0,
+    Number(
+      room.expectedValueAmount ||
+      0
+    )
+  );
+
+/*
+ * Reassert the canonical commission rule
+ * during admin review so older/tampered
+ * Deal Rooms cannot carry a client-defined
+ * economic rate forward.
+ */
+const platformCommissionRate = 20;
+
+const platformCommissionAmount =
+  expectedValueAmount > 0
+    ? Math.round(
+        (
+          expectedValueAmount *
+          platformCommissionRate
+        ) / 100
+      )
+    : 0;
+
     const commissionStatus =
       nextStatus === 'commission_due'
         ? 'due'
@@ -6354,17 +6558,30 @@ apiRouter.post('/api/admin/federation/deal-rooms/:roomId/status', requireAdminSe
 
     const patch = {
       adminStatus: nextStatus,
-      dealStatus: nextStatus === 'closed'
-        ? 'closed'
-        : nextStatus === 'rejected'
-          ? 'rejected'
-          : nextStatus === 'approved'
-            ? 'approved'
-            : nextStatus === 'in_discussion'
-              ? 'in_discussion'
-              : snap.data()?.dealStatus || 'proposed',
-      updatedAt: Timestamp.now(),
-      reviewedBy: cleanText(req.adminSession?.username || 'admin')
+
+      dealStatus:
+        nextStatus === 'closed'
+          ? 'closed'
+          : nextStatus === 'rejected'
+            ? 'rejected'
+            : nextStatus === 'approved'
+              ? 'approved'
+              : nextStatus === 'in_discussion'
+                ? 'in_discussion'
+                : room.dealStatus ||
+                  'proposed',
+
+      platformCommissionRate,
+      platformCommissionAmount,
+
+      updatedAt:
+        Timestamp.now(),
+
+      reviewedBy:
+        cleanText(
+          req.adminSession?.username ||
+          'admin'
+        )
     };
 
     if (commissionStatus) {
@@ -6706,21 +6923,32 @@ apiRouter.post('/api/admin/applications/:applicationId/division-override', requi
     });
   }
 });
-apiRouter.post('/api/admin/logout', (req, res) => {
+apiRouter.post('/api/admin/logout', async (req, res) => {
   const env = getEnvConfig();
   const cookies = parseCookies(req);
   const sessionId = cookies[ADMIN_SESSION_COOKIE];
 
-  if (sessionId) {
-    sessions.delete(sessionId);
+  try {
+    if (sessionId) {
+      await deleteAdminSession(sessionId);
+    }
+
+    clearSessionCookie(res, env.secureCookies);
+
+    return res.json({
+      success: true,
+      redirectTo: '/admin/login'
+    });
+  } catch (error) {
+    console.error('Admin session logout error:', error);
+    clearSessionCookie(res, env.secureCookies);
+
+    return res.status(503).json({
+      success: false,
+      redirectTo: '/admin/login',
+      message: 'Admin session could not be fully revoked.'
+    });
   }
-
-  clearSessionCookie(res, env.secureCookies);
-
-  return res.json({
-    success: true,
-    redirectTo: env.routeToken ? `/admin/${env.routeToken}/login` : '/'
-  });
 });
 
 return { pageRouter, apiRouter };

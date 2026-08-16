@@ -256,7 +256,23 @@ function mapMeetupRow(row = {}) {
         tags: safeArray(data.tags || row.tags),
 
         createdAt: toIso(data.createdAt || row.created_at_source || row.created_at),
-        updatedAt: toIso(data.updatedAt || row.updated_at_source || row.updated_at)
+
+        /*
+         * Stable concurrency token comes from the
+         * database version column, not from the JSON
+         * payload's timestamp formatting.
+         */
+        version: toIso(
+            row.updated_at_source ||
+            data.updatedAt ||
+            row.updated_at
+        ),
+
+        updatedAt: toIso(
+            data.updatedAt ||
+            row.updated_at_source ||
+            row.updated_at
+        )
     };
 }
 
@@ -290,22 +306,359 @@ async function listMeetups(limit = 100) {
         .filter((item) => isReadableStatus(item.status || item.reviewStatus || 'active'));
 }
 
-async function updateMeetup(id = '', patch = {}) {
-    const existing = await getExisting('meetup', id);
+async function getMeetupById(
+    id = ''
+) {
+    const cleanId =
+        sanitizeText(id);
 
-    if (!existing) {
-        throw new Error('Plaza meetup not found.');
+    if (!cleanId) {
+        return null;
     }
 
-    const current = existing.data && typeof existing.data === 'object' ? existing.data : {};
+    const row =
+        await getExisting(
+            'meetup',
+            cleanId
+        );
+
+    if (!row) {
+        return null;
+    }
+
+    const data =
+        row.data &&
+        typeof row.data === 'object'
+            ? row.data
+            : {};
+
+    return {
+        ...mapMeetupRow(row),
+        raw: data
+    };
+}
+
+function toPublicMeetup(
+    meetup = {}
+) {
+    const startAt =
+        toIso(
+            meetup.startAt ||
+            meetup.startsAt ||
+            meetup.scheduledAt
+        );
+
+    return {
+        id:
+            sanitizeText(
+                meetup.id
+            ),
+
+        title:
+            sanitizeText(
+                meetup.title ||
+                'Plaza meetup'
+            ),
+
+        name:
+            sanitizeText(
+                meetup.name ||
+                meetup.title ||
+                'Plaza meetup'
+            ),
+
+        description:
+            sanitizeText(
+                meetup.description
+            ),
+
+        summary:
+            sanitizeText(
+                meetup.summary
+            ),
+
+        meetupType:
+            sanitizeText(
+                meetup.meetupType ||
+                'community'
+            ),
+
+        format:
+            sanitizeText(
+                meetup.format ||
+                'online'
+            ),
+
+        location:
+            sanitizeText(
+                meetup.location
+            ),
+
+        meetingUrl:
+            sanitizeText(
+                meetup.meetingUrl
+            ),
+
+        regionId:
+            sanitizeText(
+                meetup.regionId ||
+                meetup.raw?.regionId ||
+                ''
+            ),
+
+        region:
+            sanitizeText(
+                meetup.region ||
+                meetup.raw?.region ||
+                'Global'
+            ),
+
+        startAt,
+        startsAt:
+            startAt,
+        scheduledAt:
+            startAt,
+
+        endAt:
+            toIso(
+                meetup.endAt
+            ),
+
+        hostName:
+            sanitizeText(
+                meetup.hostName ||
+                'YH Member'
+            ),
+
+        attendeeCount:
+            Number.isFinite(
+                Number(
+                    meetup.attendeeCount
+                )
+            )
+                ? Number(
+                    meetup.attendeeCount
+                )
+                : 0,
+
+        patronStatus:
+            normalizeStatus(
+                meetup.patronStatus ||
+                'none'
+            ),
+
+        status:
+            normalizeStatus(
+                meetup.status ||
+                'planned'
+            ),
+
+        reviewStatus:
+            normalizeStatus(
+                meetup.reviewStatus ||
+                'active'
+            ),
+
+        tags:
+            safeArray(
+                meetup.tags
+            ),
+
+        createdAt:
+            toIso(
+                meetup.createdAt
+            ),
+
+        version:
+            toIso(
+                meetup.version ||
+                meetup.updatedAt
+            ),
+
+        updatedAt:
+            toIso(
+                meetup.updatedAt
+            )
+    };
+}
+
+async function updateMeetup(
+    id = '',
+    patch = {},
+    options = {}
+) {
+    const cleanId =
+        sanitizeText(id);
+
+    const existing =
+        await getExisting(
+            'meetup',
+            cleanId
+        );
+
+    if (!existing) {
+        const error =
+            new Error(
+                'Plaza meetup not found.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const expectedUpdatedAt =
+        sanitizeText(
+            options.expectedUpdatedAt
+        );
+
+    const currentUpdatedAt =
+        toIso(
+            existing.updated_at_source ||
+            existing.data?.updatedAt
+        );
+
+    /*
+     * Supabase may serialize the same timestamptz as
+     * "+00:00" while the JSON payload uses "Z".
+     * Compare the actual instant instead of the raw
+     * timestamp string.
+     */
+    const expectedUpdatedAtMs =
+        expectedUpdatedAt
+            ? Date.parse(
+                expectedUpdatedAt
+            )
+            : NaN;
+
+    const currentUpdatedAtMs =
+        currentUpdatedAt
+            ? Date.parse(
+                currentUpdatedAt
+            )
+            : NaN;
+
+    const versionsMatch =
+        !expectedUpdatedAt ||
+        (
+            Number.isFinite(
+                expectedUpdatedAtMs
+            ) &&
+            Number.isFinite(
+                currentUpdatedAtMs
+            )
+                ? expectedUpdatedAtMs ===
+                    currentUpdatedAtMs
+                : expectedUpdatedAt ===
+                    currentUpdatedAt
+        );
+
+    if (!versionsMatch) {
+        const error =
+            new Error(
+                'This meetup changed since you loaded it. Reload and retry.'
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
+
+    const current =
+        existing.data &&
+        typeof existing.data === 'object'
+            ? existing.data
+            : {};
+
     const nextData = {
         ...current,
         ...patch,
-        id: sanitizeText(id),
-        updatedAt: nowIso()
+
+        id:
+            cleanId,
+
+        updatedAt:
+            nowIso()
     };
 
-    return importMeetup(id, nextData);
+    const row =
+        buildMeetupRow(
+            nextData
+        );
+
+    /*
+     * When a version was supplied, make the update
+     * atomic against the version the browser loaded.
+     */
+    if (expectedUpdatedAt) {
+        const {
+            data,
+            error
+        } =
+            await yhuSupabaseAdmin
+                .from(TABLE)
+                .update(row)
+                .eq(
+                    'id',
+                    existing.id
+                )
+                /*
+                 * Use the exact database-returned
+                 * representation for the atomic CAS.
+                 * The browser version was already
+                 * verified semantically above.
+                 */
+                .eq(
+                    'updated_at_source',
+                    currentUpdatedAt
+                )
+                .select('*')
+                .maybeSingle();
+
+        if (error) {
+            throw new Error(
+                'Plaza meetup update failed: ' +
+                error.message
+            );
+        }
+
+        if (!data) {
+            const conflict =
+                new Error(
+                    'This meetup changed since you loaded it. Reload and retry.'
+                );
+
+            conflict.statusCode = 409;
+            throw conflict;
+        }
+
+        return mapMeetupRow(
+            data
+        );
+    }
+
+    return importMeetup(
+        cleanId,
+        nextData
+    );
+}
+
+async function softDeleteMeetup(
+    id = '',
+    extra = {},
+    options = {}
+) {
+    return updateMeetup(
+        id,
+        {
+            ...extra,
+
+            status:
+                'deleted',
+
+            reviewStatus:
+                'deleted'
+        },
+        options
+    );
 }
 
 async function updatePatronMeetupStatus(id = '', patronStatus = '', extra = {}) {
@@ -336,7 +689,10 @@ module.exports = {
     importMeetup,
     createMeetup,
     listMeetups,
+    getMeetupById,
+    toPublicMeetup,
     updateMeetup,
+    softDeleteMeetup,
     updatePatronMeetupStatus,
     deleteRecord,
     mapMeetupRow

@@ -77,7 +77,50 @@ function blockBelongsToViewer(block = {}, viewer = {}) {
 
     if (!keys.size) return false;
 
-    return keys.has(sanitizeText(block.blockerId));
+    return keys.has(
+        sanitizeText(
+            block.blockerId
+        )
+    );
+}
+
+function getConversationPartyIds(
+    conversation = {}
+) {
+    return Array.from(
+        new Set(
+            [
+                conversation.requesterId,
+                conversation.targetUserId,
+                conversation.businessMemberId,
+                conversation.authorId,
+                ...(
+                    Array.isArray(
+                        conversation.participantIds
+                    )
+                        ? conversation.participantIds
+                        : []
+                )
+            ]
+                .map(sanitizeText)
+                .filter(Boolean)
+        )
+    );
+}
+
+function getConversationOtherPartyIds(
+    conversation = {},
+    viewer = {}
+) {
+    const keys =
+        viewerKeys(viewer);
+
+    return getConversationPartyIds(
+        conversation
+    ).filter(
+        (value) =>
+            !keys.has(value)
+    );
 }
 
 function buildInitialMessage(req = {}, viewer = {}) {
@@ -116,51 +159,154 @@ function buildBaseConversationPayload({
     sourceId = ''
 }) {
     const body = req.body || {};
-    const now = new Date().toISOString();
-    const initialMessage = buildInitialMessage(req, viewer);
-    const cleanTargetUserId = sanitizeText(targetUserId || body.targetUserId || body.recipientId || '');
+    const now =
+        new Date().toISOString();
 
-    const participantIds = Array.from(
-        new Set([
-            viewer.id,
-            viewer.firebaseUid,
-            cleanTargetUserId,
-            ...(safeArray(body.participantIds))
-        ].map(sanitizeText).filter(Boolean))
-    );
+    const initialMessage =
+        buildInitialMessage(
+            req,
+            viewer
+        );
 
-    const messages = initialMessage ? [initialMessage] : [];
+    /*
+     * Conversation membership and routing metadata
+     * are server-owned.
+     *
+     * Never accept target/participant identities,
+     * conversation type, or lifecycle state from
+     * member-controlled request fields.
+     */
+    const cleanTargetUserId =
+        sanitizeText(
+            targetUserId
+        );
+
+    const participantIds =
+        Array.from(
+            new Set(
+                [
+                    viewer.id,
+                    viewer.firebaseUid,
+                    cleanTargetUserId
+                ]
+                    .map(sanitizeText)
+                    .filter(Boolean)
+            )
+        );
+
+    const messages =
+        initialMessage
+            ? [initialMessage]
+            : [];
 
     return {
-        title: clampText(body.title || title || subject || 'Plaza Business Chat', 180),
-        subject: clampText(body.subject || subject || title || 'Plaza Business Chat', 180),
-        conversationType: clampText(body.conversationType || body.type || conversationType, 100, conversationType),
-        region: clampText(body.region || region || 'Global', 120, 'Global') || 'Global',
+        title:
+            clampText(
+                body.title ||
+                title ||
+                subject ||
+                'Plaza Business Chat',
+                180
+            ),
+
+        subject:
+            clampText(
+                body.subject ||
+                subject ||
+                title ||
+                'Plaza Business Chat',
+                180
+            ),
+
+        conversationType:
+            clampText(
+                conversationType,
+                100,
+                'business'
+            ),
+
+        region:
+            clampText(
+                region ||
+                'Global',
+                120,
+                'Global'
+            ) || 'Global',
 
         participantIds,
-        participants: safeArray(body.participants),
 
-        requesterId: viewer.id,
-        targetUserId: cleanTargetUserId,
-        businessMemberId: sanitizeText(body.businessMemberId || cleanTargetUserId),
+        /*
+         * Keep the secondary participant object list
+         * empty. Canonical identity is participantIds.
+         * This prevents repository normalization from
+         * importing arbitrary client-supplied IDs.
+         */
+        participants: [],
 
-        authorId: viewer.id,
-        authorName: viewer.name,
-        authorEmail: viewer.email,
+        requesterId:
+            viewer.id,
 
-        preview: initialMessage?.text || clampText(body.preview || body.description || '', 600),
-        description: clampText(body.description || body.summary || '', 1200),
+        targetUserId:
+            cleanTargetUserId,
+
+        businessMemberId:
+            cleanTargetUserId,
+
+        authorId:
+            viewer.id,
+
+        authorName:
+            viewer.name,
+
+        authorEmail:
+            viewer.email,
+
+        preview:
+            initialMessage?.text ||
+            clampText(
+                body.preview ||
+                body.description ||
+                '',
+                600
+            ),
+
+        description:
+            clampText(
+                body.description ||
+                body.summary ||
+                '',
+                1200
+            ),
+
         messages,
-        replies: messages,
+        replies:
+            messages,
 
-        source,
-        sourceId,
+        source:
+            sanitizeText(
+                source
+            ),
 
-        status: sanitizeText(body.status || 'open'),
-        reviewStatus: sanitizeText(body.reviewStatus || 'active'),
-        createdAt: now,
-        updatedAt: now,
-        lastMessageAt: initialMessage?.createdAt || now
+        sourceId:
+            sanitizeText(
+                sourceId
+            ),
+
+        status:
+            'open',
+
+        reviewStatus:
+            'active',
+
+        createdAt:
+            now,
+
+        updatedAt:
+            now,
+
+        lastMessageAt:
+            initialMessage?.createdAt ||
+            now
     };
 }
 
@@ -186,11 +332,39 @@ exports.getBusinessMembers = async (req, res) => {
             });
         }
 
-        const directory = await directoryRepo.listDirectory(160);
-        const members = directory.filter((member) => {
-            const id = sanitizeText(member.id || member.userId || member.firebaseUid);
-            return id && id !== viewer.id && id !== viewer.firebaseUid;
-        });
+        const directoryResult =
+            await directoryRepo.listDirectory(160);
+
+        const directory =
+            Array.isArray(directoryResult)
+                ? directoryResult
+                : Array.isArray(directoryResult?.items)
+                    ? directoryResult.items
+                    : [];
+
+        const members =
+            directory
+                .filter((member) => {
+                    const id =
+                        sanitizeText(
+                            member.id ||
+                            member.userId ||
+                            member.firebaseUid
+                        );
+
+                    return (
+                        id &&
+                        id !== viewer.id &&
+                        id !==
+                            viewer.firebaseUid
+                    );
+                })
+                .map((member) =>
+                    directoryRepo
+                        .toPublicDirectoryProfile(
+                            member
+                        )
+                );
 
         return res.json({
             success: true,
@@ -323,88 +497,374 @@ exports.getMessages = async (req, res) => {
     }
 };
 
-exports.createConversationFromRequest = async (req, res) => {
+exports.createConversationFromRequest = async (
+    req,
+    res
+) => {
     try {
-        const viewer = getViewerFromRequest(req);
-        const requestId = sanitizeText(req.params?.requestId);
+        const viewer =
+            getViewerFromRequest(req);
+
+        const requestId =
+            sanitizeText(
+                req.params?.requestId
+            );
 
         if (!viewer.id) {
             return res.status(401).json({
                 success: false,
-                message: 'Missing authenticated user.'
+                message:
+                    'Missing authenticated user.'
             });
         }
 
-        let request = null;
-        try {
-            request = await bridgeRequestsRepo.getRequestById(requestId);
-        } catch (error) {
-            console.warn('Request lookup skipped:', error?.message || error);
+        if (!requestId) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Plaza request id is required.'
+            });
         }
 
-        const payload = buildBaseConversationPayload({
+        /*
+         * Request-backed conversations must originate
+         * from a real Plaza request.
+         *
+         * Do not swallow repository lookup failures and
+         * do not create an orphan conversation when the
+         * referenced request does not exist.
+         */
+        const request =
+            await bridgeRequestsRepo
+                .getRequestById(
+                    requestId
+                );
+
+        if (!request) {
+            return res.status(404).json({
+                success: false,
+                message:
+                    'Plaza request not found.'
+            });
+        }
+
+        const requestStatus =
+            sanitizeText(
+                request.status
+            )
+                .toLowerCase()
+                .replace(
+                    /[-_]+/g,
+                    ' '
+                )
+                .replace(
+                    /\s+/g,
+                    ' '
+                );
+
+        /*
+         * The normal Plaza workflow creates the chat
+         * only after the request advances to
+         * Conversation Opened.
+         */
+        if (
+            requestStatus !==
+            'conversation opened'
+        ) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    'This Plaza request is not ready for a conversation.'
+            });
+        }
+
+        const viewerIdentityKeys =
+            viewerKeys(viewer);
+
+        const ownerIds =
+            Array.from(
+                new Set(
+                    [
+                        request.authorId,
+                        request.authorFirebaseUid
+                    ]
+                        .map(sanitizeText)
+                        .filter(Boolean)
+                )
+            );
+
+        const managerIds =
+            Array.from(
+                new Set(
+                    [
+                        request.assignedTo,
+                        request.targetUserId,
+                        request.patronUserId
+                    ]
+                        .map(sanitizeText)
+                        .filter(Boolean)
+                )
+            );
+
+        const viewerIsOwner =
+            ownerIds.some(
+                (id) =>
+                    viewerIdentityKeys
+                        .has(id)
+            );
+
+        const viewerIsManager =
+            managerIds.some(
+                (id) =>
+                    viewerIdentityKeys
+                        .has(id)
+            );
+
+        if (
+            !viewerIsOwner &&
+            !viewerIsManager
+        ) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    'You are not part of this Plaza request.'
+            });
+        }
+
+        /*
+         * Select the opposite side of the request.
+         * Never allow the caller or request body to
+         * choose an unrelated conversation target.
+         */
+        const targetUserId =
+            viewerIsOwner
+                ? (
+                    managerIds.find(
+                        (id) =>
+                            !viewerIdentityKeys
+                                .has(id)
+                    ) ||
+                    ''
+                )
+                : (
+                    ownerIds.find(
+                        (id) =>
+                            !viewerIdentityKeys
+                                .has(id)
+                    ) ||
+                    ''
+                );
+
+        if (!targetUserId) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    'This Plaza request does not have a valid conversation counterpart.'
+            });
+        }
+
+        const payload =
+            buildBaseConversationPayload({
+                req,
+                viewer,
+                targetUserId,
+                title:
+                    `Plaza Request: ${
+                        request.title ||
+                        requestId
+                    }`,
+                subject:
+                    request.subject ||
+                    request.title ||
+                    requestId,
+                conversationType:
+                    'request',
+                region:
+                    request.region ||
+                    'Global',
+                source:
+                    'request',
+                sourceId:
+                    requestId
+            });
+
+        return createConversationAndRespond(
             req,
-            viewer,
-            targetUserId: request?.authorId || request?.targetUserId || '',
-            title: `Plaza Request: ${request?.title || requestId || 'Request'}`,
-            subject: request?.subject || request?.title || requestId || 'Plaza request',
-            conversationType: 'request',
-            region: request?.region || 'Global',
-            source: 'request',
-            sourceId: requestId
-        });
-
-        return createConversationAndRespond(req, res, payload);
+            res,
+            payload
+        );
     } catch (error) {
-        console.error('plazaBusinessMessagesSupabaseLite.createConversationFromRequest error:', error);
+        console.error(
+            'plazaBusinessMessagesSupabaseLite.createConversationFromRequest error:',
+            error
+        );
 
-        return res.status(500).json({
+        return res.status(
+            Number(
+                error?.statusCode ||
+                error?.status
+            ) || 500
+        ).json({
             success: false,
             source: 'supabase',
-            message: error?.message || 'Failed to create Plaza request conversation.'
+            message:
+                error?.message ||
+                'Failed to create Plaza request conversation.'
         });
     }
 };
 
-exports.createConversationFromBusinessMember = async (req, res) => {
+exports.createConversationFromBusinessMember = async (
+    req,
+    res
+) => {
     try {
-        const viewer = getViewerFromRequest(req);
-        const targetUserId = sanitizeText(req.params?.targetUserId);
+        const viewer =
+            getViewerFromRequest(req);
+
+        const requestedTargetId =
+            sanitizeText(
+                req.params?.targetUserId
+            );
 
         if (!viewer.id) {
             return res.status(401).json({
                 success: false,
-                message: 'Missing authenticated user.'
+                message:
+                    'Missing authenticated user.'
             });
         }
 
-        if (!targetUserId) {
+        if (!requestedTargetId) {
             return res.status(400).json({
                 success: false,
-                message: 'Target user id is required.'
+                message:
+                    'Target user id is required.'
             });
         }
 
-        const payload = buildBaseConversationPayload({
+        /*
+         * The URL may identify only an actual,
+         * currently published Plaza Directory member.
+         * Never treat an arbitrary caller-supplied ID
+         * as a valid Business Chat recipient.
+         */
+        const targetMember =
+            await directoryRepo
+                .getDirectoryProfileById(
+                    requestedTargetId
+                );
+
+        if (!targetMember) {
+            return res.status(404).json({
+                success: false,
+                message:
+                    'Active Plaza business member not found.'
+            });
+        }
+
+        const viewerIdentityKeys =
+            viewerKeys(viewer);
+
+        const targetIdentityKeys =
+            Array.from(
+                new Set(
+                    [
+                        targetMember.id,
+                        targetMember.userId,
+                        targetMember.firebaseUid
+                    ]
+                        .map(sanitizeText)
+                        .filter(Boolean)
+                )
+            );
+
+        /*
+         * Reject self-conversations even when the same
+         * account is represented by a different alias
+         * such as directory id vs Firebase uid.
+         */
+        if (
+            targetIdentityKeys.some(
+                (id) =>
+                    viewerIdentityKeys
+                        .has(id)
+            )
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'You cannot start a Plaza Business Chat with yourself.'
+            });
+        }
+
+        const targetUserId =
+            sanitizeText(
+                targetMember.userId ||
+                targetMember.firebaseUid ||
+                targetMember.id
+            );
+
+        if (!targetUserId) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    'This Plaza member does not have a valid conversation identity.'
+            });
+        }
+
+        const payload =
+            buildBaseConversationPayload({
+                req,
+                viewer,
+                targetUserId,
+
+                title:
+                    'Plaza Business Chat',
+
+                subject:
+                    `Business member: ${
+                        targetMember.name ||
+                        requestedTargetId
+                    }`,
+
+                conversationType:
+                    'business',
+
+                region:
+                    targetMember.region ||
+                    req.body?.region ||
+                    'Global',
+
+                source:
+                    'business_member',
+
+                sourceId:
+                    requestedTargetId
+            });
+
+        return createConversationAndRespond(
             req,
-            viewer,
-            targetUserId,
-            title: `Plaza Business Chat`,
-            subject: `Business member: ${targetUserId}`,
-            conversationType: 'business',
-            region: req.body?.region || 'Global',
-            source: 'business_member',
-            sourceId: targetUserId
-        });
-
-        return createConversationAndRespond(req, res, payload);
+            res,
+            payload
+        );
     } catch (error) {
-        console.error('plazaBusinessMessagesSupabaseLite.createConversationFromBusinessMember error:', error);
+        console.error(
+            'plazaBusinessMessagesSupabaseLite.createConversationFromBusinessMember error:',
+            error
+        );
 
-        return res.status(500).json({
+        return res.status(
+            Number(
+                error?.statusCode ||
+                error?.status
+            ) || 500
+        ).json({
             success: false,
             source: 'supabase',
-            message: error?.message || 'Failed to create Plaza business conversation.'
+            message:
+                error?.message ||
+                'Failed to create Plaza business conversation.'
         });
     }
 };
@@ -413,45 +873,125 @@ exports.createConversationFromMember = async (req, res) => {
     return exports.createConversationFromBusinessMember(req, res);
 };
 
-exports.createConversationFromRegion = async (req, res) => {
+exports.createConversationFromRegion = async (
+    req,
+    res
+) => {
     try {
-        const viewer = getViewerFromRequest(req);
-        const regionId = sanitizeText(req.params?.regionId);
+        const viewer =
+            getViewerFromRequest(req);
+
+        const regionId =
+            sanitizeText(
+                req.params?.regionId
+            );
 
         if (!viewer.id) {
             return res.status(401).json({
                 success: false,
-                message: 'Missing authenticated user.'
+                message:
+                    'Missing authenticated user.'
             });
         }
 
         if (!regionId) {
             return res.status(400).json({
                 success: false,
-                message: 'Region id is required.'
+                message:
+                    'Region id is required.'
             });
         }
 
-        const payload = buildBaseConversationPayload({
+        /*
+         * Region conversations may only originate
+         * from a real, currently published Plaza
+         * region.
+         */
+        const regionRecord =
+            await directoryRepo
+                .getRegionById(
+                    regionId
+                );
+
+        if (!regionRecord) {
+            return res.status(404).json({
+                success: false,
+                message:
+                    'Active Plaza region not found.'
+            });
+        }
+
+        const regionLabel =
+            sanitizeText(
+                regionRecord.region ||
+                regionRecord.name ||
+                regionRecord.title ||
+                'Global'
+            ) || 'Global';
+
+        const regionTitle =
+            sanitizeText(
+                regionRecord.name ||
+                regionRecord.title ||
+                regionLabel
+            );
+
+        const payload =
+            buildBaseConversationPayload({
+                req,
+                viewer,
+
+                targetUserId:
+                    '',
+
+                title:
+                    `Plaza Region Chat: ${
+                        regionTitle
+                    }`,
+
+                subject:
+                    `Region: ${
+                        regionTitle
+                    }`,
+
+                conversationType:
+                    'region',
+
+                region:
+                    regionLabel,
+
+                source:
+                    'region',
+
+                sourceId:
+                    sanitizeText(
+                        regionRecord.id ||
+                        regionId
+                    )
+            });
+
+        return createConversationAndRespond(
             req,
-            viewer,
-            targetUserId: '',
-            title: `Plaza Region Chat: ${regionId}`,
-            subject: `Region: ${regionId}`,
-            conversationType: 'region',
-            region: req.body?.region || regionId || 'Global',
-            source: 'region',
-            sourceId: regionId
-        });
-
-        return createConversationAndRespond(req, res, payload);
+            res,
+            payload
+        );
     } catch (error) {
-        console.error('plazaBusinessMessagesSupabaseLite.createConversationFromRegion error:', error);
+        console.error(
+            'plazaBusinessMessagesSupabaseLite.createConversationFromRegion error:',
+            error
+        );
 
-        return res.status(500).json({
+        return res.status(
+            Number(
+                error?.statusCode ||
+                error?.status
+            ) || 500
+        ).json({
             success: false,
             source: 'supabase',
-            message: error?.message || 'Failed to create Plaza region conversation.'
+            message:
+                error?.message ||
+                'Failed to create Plaza region conversation.'
         });
     }
 };
@@ -490,17 +1030,55 @@ exports.createConversationReply = async (req, res) => {
             });
         }
 
+        const currentConversation =
+            await businessRepo
+                .getConversationById(
+                    conversationId
+                );
+
+        if (!currentConversation) {
+            return res.status(404).json({
+                success: false,
+                message:
+                    'Plaza conversation not found.'
+            });
+        }
+
+        if (
+            !conversationBelongsToViewer(
+                currentConversation,
+                viewer
+            )
+        ) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    'You are not part of this Plaza conversation.'
+            });
+        }
+
         const reply = {
             authorId: viewer.id,
             authorName: viewer.name,
             authorEmail: viewer.email,
             text,
-            type: sanitizeText(req.body?.type || 'message'),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+            type:
+                sanitizeText(
+                    req.body?.type ||
+                    'message'
+                ),
+            createdAt:
+                new Date().toISOString(),
+            updatedAt:
+                new Date().toISOString()
         };
 
-        const conversation = await businessRepo.addConversationReply(conversationId, reply);
+        const conversation =
+            await businessRepo
+                .addConversationReply(
+                    conversationId,
+                    reply
+                );
 
         return res.status(201).json({
             success: true,
@@ -538,19 +1116,100 @@ exports.reportConversation = async (req, res) => {
             });
         }
 
-        const report = await businessRepo.createReport({
-            conversationId,
-            reportedUserId: sanitizeText(req.body?.reportedUserId || req.body?.targetUserId || ''),
-            reporterId: viewer.id,
-            reporterName: viewer.name,
-            reporterEmail: viewer.email,
-            reason: clampText(req.body?.reason || req.body?.category || 'Report', 180),
-            details: clampText(req.body?.details || req.body?.description || req.body?.message || '', 1600),
-            status: 'pending_review',
-            reviewStatus: 'pending_review',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        });
+        const conversation =
+            await businessRepo
+                .getConversationById(
+                    conversationId
+                );
+
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message:
+                    'Plaza conversation not found.'
+            });
+        }
+
+        if (
+            !conversationBelongsToViewer(
+                conversation,
+                viewer
+            )
+        ) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    'You cannot report a Plaza conversation you are not part of.'
+            });
+        }
+
+        const otherPartyIds =
+            getConversationOtherPartyIds(
+                conversation,
+                viewer
+            );
+
+        const requestedReportedUserId =
+            sanitizeText(
+                req.body?.reportedUserId ||
+                req.body?.targetUserId ||
+                ''
+            );
+
+        if (
+            requestedReportedUserId &&
+            !otherPartyIds.includes(
+                requestedReportedUserId
+            )
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Reported user is not part of this Plaza conversation.'
+            });
+        }
+
+        const reportedUserId =
+            requestedReportedUserId ||
+            otherPartyIds[0] ||
+            '';
+
+        const report =
+            await businessRepo.createReport({
+                conversationId,
+                reportedUserId,
+                reporterId:
+                    viewer.id,
+                reporterName:
+                    viewer.name,
+                reporterEmail:
+                    viewer.email,
+                reason:
+                    clampText(
+                        req.body?.reason ||
+                        req.body?.category ||
+                        'Report',
+                        180
+                    ),
+                details:
+                    clampText(
+                        req.body?.details ||
+                        req.body?.description ||
+                        req.body?.message ||
+                        '',
+                        1600
+                    ),
+                status:
+                    'pending_review',
+                reviewStatus:
+                    'pending_review',
+                createdAt:
+                    new Date()
+                        .toISOString(),
+                updatedAt:
+                    new Date()
+                        .toISOString()
+            });
 
         return res.status(201).json({
             success: true,
@@ -587,11 +1246,47 @@ exports.closeConversation = async (req, res) => {
             });
         }
 
-        const conversation = await businessRepo.closeConversation(conversationId, {
-            closedBy: viewer.id,
-            closedByName: viewer.name,
-            closedAt: new Date().toISOString()
-        });
+        const currentConversation =
+            await businessRepo
+                .getConversationById(
+                    conversationId
+                );
+
+        if (!currentConversation) {
+            return res.status(404).json({
+                success: false,
+                message:
+                    'Plaza conversation not found.'
+            });
+        }
+
+        if (
+            !conversationBelongsToViewer(
+                currentConversation,
+                viewer
+            )
+        ) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    'You cannot close a Plaza conversation you are not part of.'
+            });
+        }
+
+        const conversation =
+            await businessRepo
+                .closeConversation(
+                    conversationId,
+                    {
+                        closedBy:
+                            viewer.id,
+                        closedByName:
+                            viewer.name,
+                        closedAt:
+                            new Date()
+                                .toISOString()
+                    }
+                );
 
         return res.json({
             success: true,
@@ -628,20 +1323,68 @@ exports.blockConversationParticipant = async (req, res) => {
             });
         }
 
-        const conversation = await businessRepo.getConversationById(conversationId);
+        const conversation =
+            await businessRepo
+                .getConversationById(
+                    conversationId
+                );
 
-        const blockedUserId = sanitizeText(
-            req.body?.blockedUserId ||
-            req.body?.targetUserId ||
-            conversation?.targetUserId ||
-            safeArray(conversation?.participantIds).find((id) => id !== viewer.id && id !== viewer.firebaseUid) ||
-            ''
-        );
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message:
+                    'Plaza conversation not found.'
+            });
+        }
+
+        if (
+            !conversationBelongsToViewer(
+                conversation,
+                viewer
+            )
+        ) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    'You cannot block from a Plaza conversation you are not part of.'
+            });
+        }
+
+        const otherPartyIds =
+            getConversationOtherPartyIds(
+                conversation,
+                viewer
+            );
+
+        const requestedBlockedUserId =
+            sanitizeText(
+                req.body?.blockedUserId ||
+                req.body?.targetUserId ||
+                ''
+            );
+
+        const blockedUserId =
+            requestedBlockedUserId ||
+            otherPartyIds[0] ||
+            '';
 
         if (!blockedUserId) {
             return res.status(400).json({
                 success: false,
-                message: 'Blocked user id is required.'
+                message:
+                    'Blocked user id is required.'
+            });
+        }
+
+        if (
+            !otherPartyIds.includes(
+                blockedUserId
+            )
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Blocked user is not part of this Plaza conversation.'
             });
         }
 

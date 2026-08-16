@@ -412,23 +412,41 @@ exports.getDirectory = async (req, res) => {
                     cursor
                 });
 
+        const publicItems =
+            page.items.map(
+                (profile) =>
+                    directoryRegionsRepo
+                        .toPublicDirectoryProfile(
+                            profile
+                        )
+            );
+
         return res.json({
             success: true,
             source: 'supabase',
+
             directory:
-                page.items,
+                publicItems,
+
             profiles:
-                page.items,
+                publicItems,
+
             members:
-                page.items,
+                publicItems,
+
             directoryCount:
-                page.items.length,
+                publicItems.length,
+
             hasMore:
                 page.hasMore === true,
+
             nextCursor:
-                page.nextCursor || '',
+                page.nextCursor ||
+                '',
+
             fetchedAt:
-                new Date().toISOString()
+                new Date()
+                    .toISOString()
         });
     } catch (error) {
         console.error(

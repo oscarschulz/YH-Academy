@@ -54,7 +54,9 @@ function normalizeDocId(value = '') {
 }
 
 function normalizeTags(values = []) {
-    const source = Array.isArray(values) ? values : String(values || '').split(',');
+    const source = Array.isArray(values)
+        ? values
+        : String(values || '').split(',');
 
     return Array.from(
         new Set(
@@ -64,6 +66,106 @@ function normalizeTags(values = []) {
                 .map((item) => item.slice(0, 48))
         )
     ).slice(0, 16);
+}
+
+/*
+ * Collections URLs may be external HTTPS/HTTP links
+ * or safe same-origin absolute paths.
+ *
+ * Explicitly reject executable/browser-special
+ * schemes such as javascript:, data:, vbscript:,
+ * file:, blob:, etc.
+ */
+function normalizeCollectionsResourceUrl(
+    value = '',
+    maxLength = 1200
+) {
+    const clean = cleanText(value)
+        .slice(
+            0,
+            Math.max(
+                1,
+                Number(maxLength) || 1200
+            )
+        );
+
+    if (!clean) {
+        return '';
+    }
+
+    if (
+        /[\u0000-\u001F\u007F]/.test(
+            clean
+        )
+    ) {
+        return '';
+    }
+
+    /*
+     * Allow same-origin absolute paths such as
+     * /uploads/... but reject protocol-relative
+     * URLs such as //evil.example.
+     */
+    if (
+        clean.startsWith('/') &&
+        !clean.startsWith('//')
+    ) {
+        return clean;
+    }
+
+    try {
+        const parsed =
+            new URL(clean);
+
+        if (
+            parsed.protocol !== 'https:' &&
+            parsed.protocol !== 'http:'
+        ) {
+            return '';
+        }
+
+        return parsed
+            .toString()
+            .slice(
+                0,
+                Math.max(
+                    1,
+                    Number(maxLength) || 1200
+                )
+            );
+    } catch (_) {
+        return '';
+    }
+}
+
+function normalizeCollectionsPublicMeta(
+    value = {}
+) {
+    const source =
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value)
+            ? value
+            : {};
+
+    return {
+        ...source,
+
+        resourceUrl:
+            normalizeCollectionsResourceUrl(
+                source.resourceUrl
+            ),
+
+        fileUrl:
+            normalizeCollectionsResourceUrl(
+                source.fileUrl
+            ),
+
+        imageUrl:
+            normalizeCollectionsResourceUrl(
+                source.imageUrl
+            )
+    };
 }
 
 function buildCreatorSnapshot(user = {}, fallback = {}) {
@@ -169,11 +271,35 @@ function buildCatalogRow({
     const now = nowTs();
     const cleanId = normalizeDocId(documentId || payload.id || payload.indexId || `${recordSource}_${Date.now()}`);
     const sourcePath = `${sourceCollectionPath}/${cleanId}`;
-    const publicMeta = payload.publicMeta && typeof payload.publicMeta === 'object'
-        ? payload.publicMeta
-        : {};
+    const publicMeta =
+        normalizeCollectionsPublicMeta(
+            payload.publicMeta
+        );
 
-    const summary = cleanText(payload.summary || payload.description || publicMeta.summary || '').slice(0, 1800);
+    const resourceUrl =
+        normalizeCollectionsResourceUrl(
+            payload.resourceUrl ||
+            publicMeta.resourceUrl
+        );
+
+    const fileUrl =
+        normalizeCollectionsResourceUrl(
+            payload.fileUrl ||
+            publicMeta.fileUrl
+        );
+
+    const imageUrl =
+        normalizeCollectionsResourceUrl(
+            payload.imageUrl ||
+            publicMeta.imageUrl
+        );
+
+    const summary = cleanText(
+        payload.summary ||
+        payload.description ||
+        publicMeta.summary ||
+        ''
+    ).slice(0, 1800);
     const reviewStatus = normalizeReviewStatus(payload.reviewStatus);
     const listingStatus = normalizeReviewStatus(payload.listingStatus || payload.reviewStatus);
 
@@ -182,6 +308,13 @@ function buildCatalogRow({
 
     const data = {
         ...payload,
+
+        publicMeta,
+
+        resourceUrl,
+        fileUrl,
+        imageUrl,
+
         id: cleanId,
         source: recordSource,
         recordSource,
@@ -228,9 +361,9 @@ function buildCatalogRow({
         private_meta_available: payload.privateMetaAvailable === true,
         monetized: payload.monetized === true,
 
-        resource_url: cleanText(payload.resourceUrl || publicMeta.resourceUrl || ''),
-        file_url: cleanText(payload.fileUrl || publicMeta.fileUrl || ''),
-        image_url: cleanText(payload.imageUrl || publicMeta.imageUrl || ''),
+        resource_url: resourceUrl,
+        file_url: fileUrl,
+        image_url: imageUrl,
 
         buyer_price_amount: toNumber(payload.buyerPriceAmount ?? publicMeta.buyerPriceAmount, 0),
         seller_price_amount: toNumber(payload.sellerPriceAmount ?? publicMeta.sellerPriceAmount, 0),

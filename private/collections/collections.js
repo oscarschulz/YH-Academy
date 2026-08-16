@@ -79,6 +79,50 @@
             .replace(/'/g, '&#039;');
     }
 
+        function getSafeCollectionsResourceUrl(
+        value = ''
+    ) {
+        const clean =
+            String(value || '')
+                .trim()
+                .slice(0, 900);
+
+        if (!clean) {
+            return '';
+        }
+
+        if (
+            /[\u0000-\u001F\u007F]/.test(
+                clean
+            )
+        ) {
+            return '';
+        }
+
+        if (
+            clean.startsWith('/') &&
+            !clean.startsWith('//')
+        ) {
+            return clean;
+        }
+
+        try {
+            const parsed =
+                new URL(clean);
+
+            if (
+                parsed.protocol !== 'https:' &&
+                parsed.protocol !== 'http:'
+            ) {
+                return '';
+            }
+
+            return parsed.toString();
+        } catch (_) {
+            return '';
+        }
+    }
+
     function getCollectionsAccessKey() {
         const parts = window.location.pathname.split('/').filter(Boolean);
 
@@ -307,7 +351,12 @@
     }
 
     function renderOpenAction(item = {}) {
-        const url = String(item.resourceUrl || item.publicMeta?.resourceUrl || '').trim();
+        const url =
+            getSafeCollectionsResourceUrl(
+                item.resourceUrl ||
+                item.publicMeta?.resourceUrl ||
+                ''
+            );
 
         if (url) {
             return `
@@ -446,7 +495,12 @@
         }
 
         if (els.inspectorActions) {
-            const resourceUrl = String(item.resourceUrl || meta.resourceUrl || '').trim();
+            const resourceUrl =
+                getSafeCollectionsResourceUrl(
+                    item.resourceUrl ||
+                    meta.resourceUrl ||
+                    ''
+                );
 
             els.inspectorActions.innerHTML = `
                 ${resourceUrl ? `<a class="collections-open-link" href="${escapeHtml(resourceUrl)}" target="_blank" rel="noopener noreferrer">Open Resource ↗</a>` : ''}

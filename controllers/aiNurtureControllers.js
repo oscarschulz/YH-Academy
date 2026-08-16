@@ -1,5 +1,6 @@
 const aiNurtureRepo = require('../backend/repositories/aiNurtureFirestoreRepo');
 const aiNurtureJobRunner = require('../backend/services/aiNurtureJobRunner');
+const safeRemoteTextFetch = require('../backend/services/safeRemoteTextFetch');
 
 function sanitize(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
@@ -19,8 +20,8 @@ exports.bootstrap = async (req, res) => {
         const settings = await aiNurtureRepo.getSettings();
         return res.json({
             success: true,
+            authenticated: true,
             settings,
-            gate: sanitize(req.params?.gate),
             app: 'ai-nurture'
         });
     } catch (error) {
@@ -385,42 +386,56 @@ function extractLinksFromText(value = '', baseUrl = '', maxLinks = 50) {
     return discovered.slice(0, Math.max(1, Math.min(100, Number.parseInt(maxLinks, 10) || 50)));
 }
 
-async function fetchDiscoveryPage(targetUrl = '') {
-    const cleanUrl = normalizeDiscoveredUrl(targetUrl);
+async function fetchDiscoveryPage(
+    targetUrl = ''
+) {
+    const cleanUrl =
+        normalizeDiscoveredUrl(
+            targetUrl
+        );
 
     if (!cleanUrl) {
-        throw new Error('A valid discovery URL is required.');
+        const error =
+            new Error(
+                'A valid discovery URL is required.'
+            );
+
+        error.statusCode = 400;
+
+        throw error;
     }
 
-    if (typeof fetch !== 'function') {
-        throw new Error('Server fetch is not available in this Node runtime.');
-    }
+    const result =
+        await safeRemoteTextFetch
+            .fetchText(
+                cleanUrl,
+                {
+                    timeoutMs: 12000,
+                    maxRedirects: 5,
+                    maxBytes: 1500000,
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+                    userAgent:
+                        'Mozilla/5.0 AI-Nurture-Link-Discovery/1.0',
 
-    try {
-        const response = await fetch(cleanUrl, {
-            method: 'GET',
-            redirect: 'follow',
-            signal: controller.signal,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 AI-Nurture-Link-Discovery/1.0',
-                'Accept': 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5'
-            }
-        });
+                    accept:
+                        'text/html,application/xhtml+xml,text/plain;q=0.9,application/json;q=0.7,*/*;q=0.2'
+                }
+            );
 
-        const body = await response.text();
+    return {
+        finalUrl:
+            result.finalUrl ||
+            cleanUrl,
 
-        return {
-            finalUrl: response.url || cleanUrl,
-            ok: response.ok,
-            status: response.status,
-            body
-        };
-    } finally {
-        clearTimeout(timeout);
-    }
+        ok:
+            result.ok,
+
+        status:
+            result.status,
+
+        body:
+            result.text || ''
+    };
 }
 
 exports.discoverSourceLinks = async (req, res) => {
@@ -460,7 +475,12 @@ exports.discoverSourceLinks = async (req, res) => {
             links
         });
     } catch (error) {
-        return sendError(res, error, 'Failed to discover source links.', 500);
+        return sendError(
+            res,
+            error,
+            'Failed to discover source links.',
+            error?.statusCode || 500
+        );
     }
 };
 

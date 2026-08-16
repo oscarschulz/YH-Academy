@@ -1,7 +1,4 @@
 (function bootMentorKnowledgePackManager() {
-    const pathParts = window.location.pathname.split('/').filter(Boolean);
-    const gate = pathParts[pathParts.length - 1];
-
     const mentorPresets = {
         alex_hormozi: {
             name: 'Alex Hormozi',
@@ -558,13 +555,22 @@
     }
 
     async function request(path, options = {}) {
-        const response = await fetch(`/api/internal/ai-nurture/${gate}${path}`, {
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                ...(options.headers || {})
+        const response = await fetch(
+            `/api/internal/ai-nurture${path}`,
+            {
+                ...options,
+
+                credentials:
+                    'same-origin',
+
+                headers: {
+                    'Content-Type':
+                        'application/json',
+
+                    ...(options.headers || {})
+                }
             }
-        });
+        );
 
         const result = await response.json().catch(() => ({}));
         setOutput(result, response.ok);
@@ -1362,11 +1368,18 @@
                 listEl.textContent = 'Loading batch history…';
             }
 
-            const response = await fetch(`/api/internal/ai-nurture/${gate}/batches?limit=20`, {
-                headers: {
-                    'Content-Type': 'application/json'
+            const response = await fetch(
+                '/api/internal/ai-nurture/batches?limit=20',
+                {
+                    credentials:
+                        'same-origin',
+
+                    headers: {
+                        'Content-Type':
+                            'application/json'
+                    }
                 }
-            });
+            );
 
             const result = await response.json().catch(() => ({}));
 

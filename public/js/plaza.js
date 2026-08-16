@@ -1175,8 +1175,99 @@ function titleCase(value) {
   return String(value || "")
     .split(/[\s_-]+/)
     .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .map(
+      (part) =>
+        part.charAt(0).toUpperCase() +
+        part.slice(1).toLowerCase()
+    )
     .join(" ");
+}
+
+function formatPlazaUserLabel(
+  value = "",
+  fallback = ""
+) {
+  const raw =
+    String(value || fallback || "")
+      .trim();
+
+  if (!raw) return "";
+
+  const clean =
+    raw.toLowerCase();
+
+  const labels = {
+    pending_admin_review:
+      "Pending Admin Review",
+
+    pending_review:
+      "Pending Review",
+
+    queued_for_review:
+      "Queued for Review",
+
+    routed_to_patron:
+      "Routed to Patron",
+
+    under_review:
+      "Under Review",
+
+    in_progress:
+      "In Progress",
+
+    conversation_opened:
+      "Conversation Opened",
+
+    not_started:
+      "Not Started",
+
+    pending_payment:
+      "Pending Payment",
+
+    checkout_started:
+      "Checkout Started",
+
+    submitted:
+      "Submitted",
+
+    matched:
+      "Matched",
+
+    approved:
+      "Approved",
+
+    rejected:
+      "Rejected",
+
+    resolved:
+      "Resolved",
+
+    completed:
+      "Completed",
+
+    closed:
+      "Closed",
+
+    active:
+      "Active",
+
+    draft:
+      "Draft",
+
+    manual:
+      "Manual Review",
+
+    stripe:
+      "Stripe",
+
+    oxapay:
+      "OxaPay"
+  };
+
+  return (
+    labels[clean] ||
+    titleCase(raw)
+  );
 }
 
 function normalizePlazaMoneyValue(value = 0) {
@@ -1226,10 +1317,13 @@ function getPlazaOpportunityEconomyLabel(item = {}) {
     revenue_share: "Revenue Share",
     bounty: "Bounty",
     equity: "Equity",
-    not_sure: "Economy TBD"
+    not_sure: "Compensation Pending"
   };
 
-  return labels[mode] || "Economy TBD";
+  return (
+    labels[mode] ||
+    "Compensation Pending"
+  );
 }
 
 function getPlazaOpportunityEscalationLabel(item = {}) {
@@ -3646,7 +3740,12 @@ function normalizeServerMeetupItem(item, index = 0) {
     region: String(item?.region || "YH Plaza"),
     format: String(item?.format || "in-person"),
     location: String(item?.location || ""),
-    scheduledAt: String(item?.scheduledAt || item?.startsAt || ""),
+    scheduledAt: String(
+      item?.scheduledAt ||
+      item?.startsAt ||
+      item?.startAt ||
+      ""
+    ),
     description: String(item?.description || item?.text || ""),
     patronName: String(item?.patronName || "Plaza Patron"),
     patronRole: String(item?.patronRole || "Regional Patron"),
@@ -3658,6 +3757,7 @@ function normalizeServerMeetupItem(item, index = 0) {
     featuredByPatron: item?.featuredByPatron === true,
     hostName: String(item?.hostName || "Hustler"),
     attendeeCount: Number(item?.attendeeCount || 0),
+    canManage: item?.canManage === true,
     status: String(item?.status || "planned"),
     createdAt: item?.createdAt || new Date().toISOString(),
     updatedAt: item?.updatedAt || item?.createdAt || new Date().toISOString()
@@ -3722,6 +3822,363 @@ async function createPlazaMeetup(payload = {}) {
 
   return meetup;
 }
+
+async function updatePlazaMeetup(
+  meetupId = "",
+  payload = {}
+) {
+  const cleanId = String(
+    meetupId || ""
+  ).trim();
+
+  if (!cleanId) {
+    throw new Error(
+      "Missing Plaza meetup id."
+    );
+  }
+
+  const current =
+    plazaServerMeetups.find(
+      (item) =>
+        item.id === cleanId
+    ) || null;
+
+  const expectedVersion =
+    String(
+      current?.version ||
+      current?.updatedAt ||
+      ""
+    ).trim();
+
+  if (!expectedVersion) {
+    throw new Error(
+      "Meetup version is missing. Reload Meetups and retry."
+    );
+  }
+
+  const result =
+    await plazaApiFetch(
+      `/api/plaza/meetups/${encodeURIComponent(cleanId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          ...payload,
+          expectedVersion
+        })
+      }
+    );
+
+  const meetup =
+    result.meetup
+      ? normalizeServerMeetupItem(
+          result.meetup
+        )
+      : null;
+
+  if (!meetup) {
+    throw new Error(
+      "Updated meetup response was incomplete."
+    );
+  }
+
+  plazaServerMeetups =
+    plazaServerMeetups.map(
+      (item) =>
+        item.id === cleanId
+          ? meetup
+          : item
+    );
+
+  plazaServerMeetupsLoaded = true;
+
+  return meetup;
+}
+
+async function deletePlazaMeetup(
+  meetupId = ""
+) {
+  const cleanId = String(
+    meetupId || ""
+  ).trim();
+
+  if (!cleanId) {
+    return false;
+  }
+
+  const current =
+    plazaServerMeetups.find(
+      (item) =>
+        item.id === cleanId
+    ) || null;
+
+  const expectedUpdatedAt =
+    String(
+      current?.updatedAt || ""
+    ).trim();
+
+  if (!expectedUpdatedAt) {
+    throw new Error(
+      "Meetup version is missing. Reload Meetups and retry."
+    );
+  }
+
+  await plazaApiFetch(
+    `/api/plaza/meetups/${encodeURIComponent(cleanId)}`,
+    {
+      method: "DELETE",
+      body: JSON.stringify({
+        expectedVersion
+      })
+    }
+  );
+
+  plazaServerMeetups =
+    plazaServerMeetups.filter(
+      (item) =>
+        item.id !== cleanId
+    );
+
+  plazaServerMeetupsLoaded = true;
+
+  if (
+    plazaMeetupEditingId ===
+    cleanId
+  ) {
+    resetPlazaMeetupEditor();
+  }
+
+  return true;
+}
+
+function toPlazaMeetupDateTimeLocalValue(
+  value = ""
+) {
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  const localDate =
+    new Date(
+      date.getTime() -
+      date.getTimezoneOffset() *
+        60000
+    );
+
+  return localDate
+    .toISOString()
+    .slice(0, 16);
+}
+
+function resetPlazaMeetupEditor(
+  options = {}
+) {
+  plazaMeetupEditingId = "";
+
+  if (
+    options.resetForm !== false
+  ) {
+    plazaMeetupComposerForm
+      ?.reset();
+  }
+
+  if (
+    plazaMeetupComposerSubmitBtn
+  ) {
+    plazaMeetupComposerSubmitBtn
+      .textContent =
+        "Set Up Meetup";
+  }
+
+  if (
+    plazaMeetupEditCancelBtn
+  ) {
+    plazaMeetupEditCancelBtn
+      .hidden = true;
+  }
+}
+
+function beginPlazaMeetupEdit(
+  meetupId = ""
+) {
+  const meetup =
+    plazaServerMeetups.find(
+      (item) =>
+        item.id === meetupId
+    ) || null;
+
+  if (
+    !meetup ||
+    meetup.canManage !== true
+  ) {
+    showToast(
+      "You can only edit meetups you created.",
+      "error"
+    );
+
+    return;
+  }
+
+  if (
+    !plazaMeetupComposerForm
+  ) {
+    return;
+  }
+
+  plazaMeetupEditingId =
+    meetup.id;
+
+  populateMeetupRegionSelect();
+
+  const setFieldValue =
+    (
+      name,
+      value
+    ) => {
+      const field =
+        plazaMeetupComposerForm
+          .elements
+          .namedItem(name);
+
+      if (
+        field &&
+        "value" in field
+      ) {
+        field.value =
+          String(
+            value ?? ""
+          );
+
+        field.dispatchEvent(
+          new Event(
+            "change",
+            {
+              bubbles: true
+            }
+          )
+        );
+      }
+    };
+
+  setFieldValue(
+    "regionId",
+    meetup.regionId
+  );
+
+  setFieldValue(
+    "format",
+    meetup.format
+  );
+
+  setFieldValue(
+    "title",
+    meetup.title
+  );
+
+  setFieldValue(
+    "scheduledAt",
+    toPlazaMeetupDateTimeLocalValue(
+      meetup.scheduledAt
+    )
+  );
+
+  setFieldValue(
+    "location",
+    meetup.location
+  );
+
+  setFieldValue(
+    "description",
+    meetup.description
+  );
+
+  if (
+    plazaMeetupComposerSubmitBtn
+  ) {
+    plazaMeetupComposerSubmitBtn
+      .textContent =
+        "Save Changes";
+  }
+
+  if (
+    plazaMeetupEditCancelBtn
+  ) {
+    plazaMeetupEditCancelBtn
+      .hidden = false;
+  }
+
+  plazaMeetupComposerForm
+    .scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+}
+
+function openPlazaMeetupDeleteModal(
+  meetupId = ""
+) {
+  const meetup =
+    plazaServerMeetups.find(
+      (item) =>
+        item.id === meetupId
+    ) || null;
+
+  if (
+    !meetup ||
+    meetup.canManage !== true
+  ) {
+    showToast(
+      "You can only delete meetups you created.",
+      "error"
+    );
+
+    return;
+  }
+
+  openModal({
+    kicker:
+      "Delete Meetup",
+
+    title:
+      "Remove this meetup?",
+
+    bodyHtml: `
+      <div class="yh-plaza-modal-copy">
+        This will remove <strong>${escapeHtml(meetup.title)}</strong> from Plaza Meetups while preserving its audit record.
+      </div>
+
+      <div class="yh-plaza-request-summary">
+        <div class="yh-plaza-card-note yh-plaza-card-note-strong">Meetup</div>
+        <p>${escapeHtml(meetup.region)} • ${escapeHtml(meetup.scheduledAt ? formatDate(meetup.scheduledAt) : "Date pending")}</p>
+      </div>
+
+      <div class="yh-plaza-form-actions">
+        <button
+          type="button"
+          class="yh-plaza-btn yh-plaza-btn-secondary"
+          data-close-modal
+        >
+          Keep Meetup
+        </button>
+
+        <button
+          type="button"
+          class="yh-plaza-btn yh-plaza-btn-danger"
+          data-confirm-meetup-delete="${escapeHtml(meetup.id)}"
+        >
+          Delete Meetup
+        </button>
+      </div>
+    `
+  });
+}
+
 function normalizeBusinessMemberItem(item = {}, index = 0) {
   return {
     id: String(item && item.id || 'business-member-' + (index + 1)),
@@ -6448,6 +6905,9 @@ const plazaMeetupsList = document.getElementById("plazaMeetupsList");
 const plazaMeetupComposerForm = document.getElementById("plazaMeetupComposerForm");
 const plazaMeetupRegionSelect = document.getElementById("plazaMeetupRegionSelect");
 const plazaMeetupComposerSubmitBtn = document.getElementById("plazaMeetupComposerSubmitBtn");
+const plazaMeetupEditCancelBtn = document.getElementById("plazaMeetupEditCancelBtn");
+
+let plazaMeetupEditingId = "";
 const plazaConversationTitle = document.getElementById("plazaConversationTitle");
 const plazaConversationMeta = document.getElementById("plazaConversationMeta");
 const plazaConversationThread = document.getElementById("plazaConversationThread");
@@ -6502,6 +6962,29 @@ const plazaDrawer = document.getElementById("plazaDrawer");
 const plazaDrawerTitle = document.getElementById("plazaDrawerTitle");
 const plazaDrawerKicker = document.getElementById("plazaDrawerKicker");
 const plazaDrawerBody = document.getElementById("plazaDrawerBody");
+
+let plazaModalReturnFocus = null;
+let plazaDrawerReturnFocus = null;
+
+function getPlazaDialogFocusableElements(root) {
+  if (!root) return [];
+
+  return Array.from(
+    root.querySelectorAll(
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter((element) => {
+    if (
+      element.hidden ||
+      element.getAttribute("aria-hidden") === "true" ||
+      element.closest(".hidden-step")
+    ) {
+      return false;
+    }
+
+    return element.getClientRects().length > 0;
+  });
+}
 
 const introBtn = document.getElementById("plazaOpenIntroBtn");
 const connectBtn = document.getElementById("plazaOpenConnectBtn");
@@ -6992,35 +7475,206 @@ function showToast(message) {
 }
 
 function openModal({ kicker, title, bodyHtml }) {
-  if (!plazaModal || !plazaModalTitle || !plazaModalBody || !plazaModalKicker) return;
+  if (
+    !plazaModal ||
+    !plazaModalTitle ||
+    !plazaModalBody ||
+    !plazaModalKicker
+  ) {
+    return;
+  }
+
+  const wasOpen =
+    plazaModal.classList.contains("is-open") ||
+    plazaModal.getAttribute("aria-hidden") === "false";
+
+  if (!wasOpen) {
+    const activeElement =
+      document.activeElement;
+
+    plazaModalReturnFocus =
+      activeElement &&
+      activeElement !== document.body &&
+      !plazaModal.contains(activeElement) &&
+      typeof activeElement.focus === "function"
+        ? activeElement
+        : null;
+  }
+
   plazaModalKicker.textContent = kicker;
   plazaModalTitle.textContent = title;
   plazaModalBody.innerHTML = bodyHtml;
-  plazaModal.classList.add("is-open");
+
+  plazaModal.removeAttribute("inert");
   plazaModal.setAttribute("aria-hidden", "false");
+  plazaModal.classList.add("is-open");
+
+  /*
+   * Always open a reused Plaza modal from the top.
+   * The modal itself owns vertical scrolling.
+   */
+  plazaModal.scrollTop = 0;
+
+  window.requestAnimationFrame(() => {
+    plazaModal.scrollTop = 0;
+
+    const modalCard =
+      plazaModal.querySelector(
+        ".yh-plaza-modal-card"
+      );
+
+    if (modalCard) {
+      modalCard.scrollTop = 0;
+    }
+
+    const closeButton =
+      plazaModal.querySelector(
+        ".yh-plaza-modal-close"
+      );
+
+    if (
+      closeButton &&
+      typeof closeButton.focus === "function"
+    ) {
+      closeButton.focus();
+    }
+  });
 }
 
 function closeModal() {
   if (!plazaModal) return;
+
+  const isOpen =
+    plazaModal.classList.contains("is-open") ||
+    plazaModal.getAttribute("aria-hidden") === "false";
+
+  if (!isOpen) return;
+
+  const activeElement =
+    document.activeElement;
+
+  if (
+    activeElement &&
+    plazaModal.contains(activeElement) &&
+    typeof activeElement.blur === "function"
+  ) {
+    activeElement.blur();
+  }
+
+  const returnFocus =
+    plazaModalReturnFocus;
+
+  plazaModalReturnFocus = null;
+
+  plazaModal.setAttribute("inert", "");
   plazaModal.classList.remove("is-open");
   plazaModal.setAttribute("aria-hidden", "true");
+
+  if (
+    returnFocus &&
+    returnFocus.isConnected &&
+    typeof returnFocus.focus === "function"
+  ) {
+    window.requestAnimationFrame(() => {
+      try {
+        returnFocus.focus();
+      } catch (_) {}
+    });
+  }
 }
 
 function openDrawer({ kicker, title, bodyHtml }) {
-  if (!plazaDrawer || !plazaDrawerTitle || !plazaDrawerBody || !plazaDrawerKicker) return;
+  if (
+    !plazaDrawer ||
+    !plazaDrawerTitle ||
+    !plazaDrawerBody ||
+    !plazaDrawerKicker
+  ) {
+    return;
+  }
+
+  const wasOpen =
+    plazaDrawer.classList.contains("is-open") ||
+    plazaDrawer.getAttribute("aria-hidden") === "false";
+
+  if (!wasOpen) {
+    const activeElement =
+      document.activeElement;
+
+    plazaDrawerReturnFocus =
+      activeElement &&
+      activeElement !== document.body &&
+      !plazaDrawer.contains(activeElement) &&
+      typeof activeElement.focus === "function"
+        ? activeElement
+        : null;
+  }
+
   plazaDrawerKicker.textContent = kicker;
   plazaDrawerTitle.textContent = title;
   plazaDrawerBody.innerHTML = bodyHtml;
-  plazaDrawer.classList.add("is-open");
+
+  plazaDrawer.removeAttribute("inert");
   plazaDrawer.setAttribute("aria-hidden", "false");
+  plazaDrawer.classList.add("is-open");
+
+  window.requestAnimationFrame(() => {
+    const closeButton =
+      plazaDrawer.querySelector(
+        ".yh-plaza-drawer-close"
+      );
+
+    if (
+      closeButton &&
+      typeof closeButton.focus === "function"
+    ) {
+      closeButton.focus();
+    }
+  });
 }
 
 function closeDrawer() {
   clearPlazaRequestAutosaveTimer();
 
   if (!plazaDrawer) return;
+
+  const isOpen =
+    plazaDrawer.classList.contains("is-open") ||
+    plazaDrawer.getAttribute("aria-hidden") === "false";
+
+  if (!isOpen) return;
+
+  const activeElement =
+    document.activeElement;
+
+  if (
+    activeElement &&
+    plazaDrawer.contains(activeElement) &&
+    typeof activeElement.blur === "function"
+  ) {
+    activeElement.blur();
+  }
+
+  const returnFocus =
+    plazaDrawerReturnFocus;
+
+  plazaDrawerReturnFocus = null;
+
+  plazaDrawer.setAttribute("inert", "");
   plazaDrawer.classList.remove("is-open");
   plazaDrawer.setAttribute("aria-hidden", "true");
+
+  if (
+    returnFocus &&
+    returnFocus.isConnected &&
+    typeof returnFocus.focus === "function"
+  ) {
+    window.requestAnimationFrame(() => {
+      try {
+        returnFocus.focus();
+      } catch (_) {}
+    });
+  }
 }
 
 function renderMiniMemberCard(item) {
@@ -7116,7 +7770,12 @@ function renderRequestCard(item) {
                 ${viewModel.patronRegion ? ` • ${escapeHtml(viewModel.patronRegion)}` : ""}
               </div>
               <div class="yh-plaza-card-note">
-                Status: ${escapeHtml(viewModel.patronRouteStatus || "routed_to_patron")}
+                Status: ${escapeHtml(
+  formatPlazaUserLabel(
+    viewModel.patronRouteStatus,
+    "routed_to_patron"
+  )
+)}
                 ${viewModel.patronActionNote ? ` • Note: ${escapeHtml(viewModel.patronActionNote)}` : ""}
               </div>
             `
@@ -7209,23 +7868,40 @@ function renderRequestCard(item) {
           </button>
         ` : ""}
 
-        ${viewModel.nextStatus ? `
-          <button
-            type="button"
-            class="yh-plaza-ghost-btn"
-            data-request-advance="${escapeHtml(viewModel.id)}"
-          >
-            ${escapeHtml(viewModel.advanceLabel)}
-          </button>
-        ` : `
-          <button
-            type="button"
-            class="yh-plaza-ghost-btn"
-            disabled
-          >
-            Request Closed
-          </button>
-        `}
+        ${
+          viewModel.nextStatus === "Submitted"
+            ? `
+              <button
+                type="button"
+                class="yh-plaza-ghost-btn"
+                data-request-advance="${escapeHtml(viewModel.id)}"
+              >
+                ${escapeHtml(viewModel.advanceLabel)}
+              </button>
+            `
+            : viewModel.nextStatus
+              ? `
+                <button
+                  type="button"
+                  class="yh-plaza-ghost-btn"
+                  disabled
+                  aria-disabled="true"
+                  title="The next review stage is handled by the assigned Plaza operator or admin."
+                >
+                  Awaiting Plaza Review
+                </button>
+              `
+              : `
+                <button
+                  type="button"
+                  class="yh-plaza-ghost-btn"
+                  disabled
+                  aria-disabled="true"
+                >
+                  Request Closed
+                </button>
+              `
+        }
 
         <button
           type="button"
@@ -9381,22 +10057,22 @@ function renderPlazaExplorerScreenV1() {
   if (profileBadgeNode) {
     profileBadgeNode.textContent =
       reputationLoaded
-        ? "Live Ledger"
-        : "Syncing Ledger";
+        ? "Profile Current"
+        : "Updating Profile";
   }
 
   if (rankBadgeNode) {
     rankBadgeNode.textContent =
       reputationLoaded
-        ? "Live Ledger"
-        : "Syncing Ledger";
+        ? "Rank Current"
+        : "Updating Rank";
   }
 
   if (reputationBadgeNode) {
     reputationBadgeNode.textContent =
       reputationLoaded
         ? `${reputationEventCount.toLocaleString()} Verified Events`
-        : "Syncing Ledger";
+        : "Updating Reputation";
   }
 
   document
@@ -9924,7 +10600,14 @@ function renderPlazaPatronApplicationStatus() {
 
   plazaPatronApplicationStatusCard.hidden = false;
   plazaPatronApplicationStatusCard.innerHTML = `
-    <strong>Your Patron application is ${escapeHtml(application.status || "Under Review")}.</strong>
+    <strong>
+  Your Patron application is ${escapeHtml(
+    formatPlazaUserLabel(
+      application.status,
+      "Under Review"
+    )
+  )}.
+</strong>
     <p>
       Plaza: ${escapeHtml(application.region || "Selected Plaza")} • Role: ${escapeHtml(application.preferredRole || "Regional Patron")}
     </p>
@@ -10049,7 +10732,9 @@ function renderBridge() {
   plazaBridgeGrid.innerHTML = items.map((item) => `
     <article class="yh-plaza-bridge-card">
       <div class="yh-plaza-bridge-card-head">
-        <span class="yh-plaza-region-badge">${escapeHtml(item.stage)}</span>
+        <span class="yh-plaza-region-badge">${escapeHtml(
+  formatPlazaUserLabel(item.stage)
+)}</span>
         <span class="yh-plaza-region-badge">${escapeHtml(item.region)}</span>
       </div>
       <div class="yh-plaza-bridge-lanes">
@@ -10142,7 +10827,17 @@ function renderRequestsPreview() {
   plazaRequestsPreview.innerHTML = items.map((item) => `
     <article class="yh-plaza-rail-mini" data-rail-request-open="${escapeHtml(item.id)}">
       <strong>${escapeHtml(item.objective || "Request")}</strong>
-      <span>${escapeHtml(item.status)} • ${escapeHtml(formatDate(item.createdAt))}</span>
+      <span>
+  ${escapeHtml(
+    formatPlazaUserLabel(
+      item.status
+    )
+  )}
+  •
+  ${escapeHtml(
+    formatDate(item.createdAt)
+  )}
+</span>
     </article>
   `).join("");
 }
@@ -10156,6 +10851,41 @@ function renderRequestsScreen() {
   plazaRequestsScreenList.innerHTML = items.length
     ? items.map(renderRequestCard).join("")
     : `<div class="yh-plaza-empty">No requests yet. Use the form above or request a connection from a directory card, opportunity, bridge lane, or region hub.</div>`;
+}
+
+/*
+ * Resolve the same Request source that the Requests UI renders.
+ *
+ * Server-backed requests must be checked first because My Requests
+ * normally renders from plazaServerRequests after hydration.
+ * Local adapter remains the fallback for offline/local state.
+ */
+function getPlazaRequestByIdForUi(requestId = "") {
+  const cleanId = String(
+    requestId || ""
+  ).trim();
+
+  if (!cleanId) return null;
+
+  if (plazaServerRequestsLoaded) {
+    const serverRequest =
+      plazaServerRequests.find(
+        (item) =>
+          String(item?.id || "").trim() ===
+          cleanId
+      );
+
+    if (serverRequest) {
+      return serverRequest;
+    }
+  }
+
+  return (
+    plazaAdapter.getRequestById(
+      cleanId
+    ) ||
+    null
+  );
 }
 
 function getIncomingStatusClass(status) {
@@ -10225,7 +10955,13 @@ function renderInboxCard(item) {
         </div>
         <div class="yh-plaza-inline-actions">
           <span class="yh-plaza-kind-chip is-${escapeHtml(normalizeIncomingKind(item.kind))}">${escapeHtml(getIncomingKindLabel(item.kind))}</span>
-          <span class="yh-plaza-incoming-status is-${escapeHtml(getIncomingStatusClass(item.status))}">${escapeHtml(item.status)}</span>
+          <span class="yh-plaza-incoming-status is-${escapeHtml(getIncomingStatusClass(item.status))}">
+  ${escapeHtml(
+    normalizeIncomingStatus(
+      item.status
+    )
+  )}
+</span>
         </div>
       </div>
 
@@ -10429,32 +11165,125 @@ function installPlazaBusinessRealtime() {
 }
 
 
+function stopPlazaConversationAutoRefresh(
+  options = {}
+) {
+  if (plazaConversationAutoRefreshTimer) {
+    window.clearInterval(
+      plazaConversationAutoRefreshTimer
+    );
+
+    plazaConversationAutoRefreshTimer =
+      null;
+  }
+
+  if (
+    options.disconnectSocket === true &&
+    plazaBusinessSocket &&
+    typeof plazaBusinessSocket.disconnect ===
+      "function"
+  ) {
+    plazaBusinessSocket.disconnect();
+  }
+}
+
+function installPlazaConversationPageLifecycle() {
+  if (
+    window
+      .__yhPlazaConversationPageLifecycleInstalled ===
+    true
+  ) {
+    return;
+  }
+
+  window
+    .__yhPlazaConversationPageLifecycleInstalled =
+    true;
+
+  /*
+   * pagehide runs before the document enters BFCache.
+   * Close the WebSocket intentionally so Chromium does
+   * not terminate an active transport after caching.
+   */
+  window.addEventListener(
+    "pagehide",
+    () => {
+      stopPlazaConversationAutoRefresh({
+        disconnectSocket: true
+      });
+    }
+  );
+
+  /*
+   * A BFCache restore keeps the same JavaScript
+   * objects. Reconnect the existing Socket.IO client
+   * instead of constructing another one.
+   */
+  window.addEventListener(
+    "pageshow",
+    () => {
+      if (document.hidden) return;
+
+      startPlazaConversationAutoRefresh();
+
+      loadPlazaMessagesFromServer({
+        silent: true
+      }).catch(() => {});
+    }
+  );
+
+  document.addEventListener(
+    "visibilitychange",
+    () => {
+      if (document.hidden) return;
+
+      startPlazaConversationAutoRefresh();
+
+      loadPlazaMessagesFromServer({
+        silent: true
+      }).catch(() => {});
+    }
+  );
+}
+
 function startPlazaConversationAutoRefresh() {
   installPlazaBusinessRealtime();
-  joinAllPlazaRealtimeConversations();
+  installPlazaConversationPageLifecycle();
 
-  if (plazaConversationAutoRefreshTimer) return;
+  if (
+    plazaBusinessSocket &&
+    typeof plazaBusinessSocket.connect ===
+      "function" &&
+    plazaBusinessSocket.connected !== true
+  ) {
+    plazaBusinessSocket.connect();
+  } else {
+    joinAllPlazaRealtimeConversations();
+  }
 
-  plazaConversationAutoRefreshTimer = window.setInterval(() => {
-    if (document.hidden) return;
+  if (plazaConversationAutoRefreshTimer) {
+    return;
+  }
 
-    loadPlazaMessagesFromServer({ silent: true }).catch((error) => {
-      console.warn("Plaza conversation auto-refresh failed:", error);
-    });
-  }, Math.max(PLAZA_CONVERSATION_REFRESH_MS, 300000));
+  plazaConversationAutoRefreshTimer =
+    window.setInterval(
+      () => {
+        if (document.hidden) return;
 
-  window.addEventListener("beforeunload", () => {
-    if (plazaConversationAutoRefreshTimer) {
-      window.clearInterval(plazaConversationAutoRefreshTimer);
-      plazaConversationAutoRefreshTimer = null;
-    }
-  });
-
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) {
-      loadPlazaMessagesFromServer({ silent: true }).catch(() => {});
-    }
-  });
+        loadPlazaMessagesFromServer({
+          silent: true
+        }).catch((error) => {
+          console.warn(
+            "Plaza conversation auto-refresh failed:",
+            error
+          );
+        });
+      },
+      Math.max(
+        PLAZA_CONVERSATION_REFRESH_MS,
+        300000
+      )
+    );
 }
 
 function renderNotificationCard(item) {
@@ -10465,7 +11294,13 @@ function renderNotificationCard(item) {
           <span class="yh-plaza-queue-chip">${escapeHtml(item.audienceRole === "all" ? "All queues" : getQueueRoleLabel(item.audienceRole))}</span>
           <h3>${escapeHtml(item.title)}</h3>
         </div>
-        <span class="yh-plaza-notification-status is-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>
+        <span class="yh-plaza-notification-status is-${escapeHtml(item.status)}">
+  ${escapeHtml(
+    formatPlazaUserLabel(
+      item.status
+    )
+  )}
+</span>
       </div>
 
       <p>${escapeHtml(item.text)}</p>
@@ -10603,7 +11438,14 @@ function renderPatronDeskRegionCard(region = {}) {
           <span class="yh-plaza-queue-chip">${escapeHtml(region.continent || region.network || "Plaza")}</span>
           <h3>${escapeHtml(region.region || "Assigned Plaza")}</h3>
         </div>
-        <span class="yh-plaza-kind-chip">${escapeHtml(region.patronStatus || "active")}</span>
+        <span class="yh-plaza-kind-chip">
+  ${escapeHtml(
+    formatPlazaUserLabel(
+      region.patronStatus,
+      "active"
+    )
+  )}
+</span>
       </div>
 
       <p>${escapeHtml(region.text || "You are assigned as the Patron / Leader for this Plaza region.")}</p>
@@ -10622,7 +11464,14 @@ function renderPatronDeskRequestCard(item = {}) {
     <article class="yh-plaza-request-card">
       <div class="yh-plaza-request-card-head">
         <div>
-          <span class="yh-plaza-request-status">${escapeHtml(item.status || "Submitted")}</span>
+          <span class="yh-plaza-request-status">
+  ${escapeHtml(
+    formatPlazaUserLabel(
+      item.status,
+      "Submitted"
+    )
+  )}
+</span>
           <h3>${escapeHtml(item.objective || "Regional request")}</h3>
         </div>
         <span class="yh-plaza-view-chip">${escapeHtml(item.region || item.patronRegion || "Plaza")}</span>
@@ -10661,7 +11510,14 @@ function renderPatronDeskPayoutCard(item = {}) {
     <article class="yh-plaza-message-card">
       <div class="yh-plaza-message-card-head">
         <div>
-          <span class="yh-plaza-queue-chip">${escapeHtml(status)}</span>
+          <span class="yh-plaza-queue-chip">
+  ${escapeHtml(
+    formatPlazaUserLabel(
+      status,
+      "pending_review"
+    )
+  )}
+</span>
           <h3>${escapeHtml(formatPlazaCurrencyAmount(amount, currency) || `${currency} ${amount}`)}</h3>
         </div>
         <span class="yh-plaza-kind-chip">${escapeHtml(item.region || item.sourceDivision || "Plaza")}</span>
@@ -10671,7 +11527,14 @@ function renderPatronDeskPayoutCard(item = {}) {
 
       <div class="yh-plaza-message-meta">
         <span>Ledger: ${escapeHtml(item.payoutLedgerId || item.id || "Pending")}</span>
-        <span>${escapeHtml(item.provider || "manual")}</span>
+        <span>
+  ${escapeHtml(
+    formatPlazaUserLabel(
+      item.provider,
+      "manual"
+    )
+  )}
+</span>
         <span>${escapeHtml(item.updatedAt ? formatDate(item.updatedAt) : item.createdAt ? formatDate(item.createdAt) : "Just now")}</span>
       </div>
     </article>
@@ -10683,7 +11546,14 @@ function renderPatronDeskRecommendationCard(item = {}) {
     <article class="yh-plaza-message-card">
       <div class="yh-plaza-message-card-head">
         <div>
-          <span class="yh-plaza-queue-chip">${escapeHtml(item.status || "pending_admin_review")}</span>
+          <span class="yh-plaza-queue-chip">
+  ${escapeHtml(
+    formatPlazaUserLabel(
+      item.status,
+      "pending_admin_review"
+    )
+  )}
+</span>
           <h3>${escapeHtml(item.memberName || item.memberId || "Federation candidate")}</h3>
         </div>
         <span class="yh-plaza-kind-chip">${escapeHtml(item.region || "Plaza")}</span>
@@ -10897,6 +11767,30 @@ function renderMeetupCard(item) {
           ? `<div class="yh-plaza-card-note"><strong>Official Patron Meetup:</strong> ${escapeHtml(item.officialPatronName || item.patronName || "Plaza Patron")} ${item.patronStatusNote ? `• ${escapeHtml(item.patronStatusNote)}` : ""}</div>`
           : ""
       }
+
+      ${
+        item.canManage
+          ? `
+            <div class="yh-plaza-inline-actions">
+              <button
+                type="button"
+                class="yh-plaza-btn yh-plaza-btn-secondary"
+                data-meetup-edit="${escapeHtml(item.id)}"
+              >
+                Edit Meetup
+              </button>
+
+              <button
+                type="button"
+                class="yh-plaza-btn yh-plaza-btn-danger"
+                data-meetup-delete="${escapeHtml(item.id)}"
+              >
+                Delete Meetup
+              </button>
+            </div>
+          `
+          : ""
+      }
     </article>
   `;
 }
@@ -10931,6 +11825,7 @@ function prefillPlazaMeetupFromRegion(regionId = "") {
     return;
   }
 
+  resetPlazaMeetupEditor();
   populateMeetupRegionSelect();
 
   if (plazaMeetupRegionSelect) {
@@ -11704,7 +12599,7 @@ function openGeneralConnectDrawer() {
 }
 
 function openRequestEditDrawer(requestId) {
-  const request = plazaAdapter.getRequestById(requestId);
+  const request = getPlazaRequestByIdForUi(requestId);
   if (!request) return;
 
   if (normalizeObjective(request.objective) === "Hiring") {
@@ -11759,7 +12654,7 @@ function openRequestEditDrawer(requestId) {
 }
 
 function openRequestDeleteModal(requestId) {
-  const request = plazaAdapter.getRequestById(requestId);
+  const request = getPlazaRequestByIdForUi(requestId);
   if (!request) return;
 
   openModal({
@@ -12146,8 +13041,17 @@ function openDirectoryContextForMember(member, sourceType) {
 }
 
 function openRequestContext(requestId) {
-  const item = plazaAdapter.getRequestById(requestId);
-  if (!item) return;
+  const item =
+    plazaAdapter.getRequestById(
+      requestId
+    );
+
+  if (!item) {
+    showToast(
+      "Related Plaza context is no longer available."
+    );
+    return;
+  }
 
   const sourceType = String(item.sourceType || "").trim().toLowerCase();
   const targetId = String(item.targetId || "").trim();
@@ -12667,7 +13571,7 @@ function bindEvents() {
 
   document.addEventListener("click", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
+    if (!(target instanceof Element)) return;
 
     const questFilterButton = target.closest("[data-plaza-quest-filter]");
     if (questFilterButton instanceof HTMLButtonElement) {
@@ -12704,12 +13608,18 @@ function bindEvents() {
       return;
     }
 
-    if (target.matches("[data-close-modal]")) {
+    const closeModalBtn =
+      target.closest("[data-close-modal]");
+
+    if (closeModalBtn instanceof Element) {
       closeModal();
       return;
     }
 
-    if (target.matches("[data-close-drawer]")) {
+    const closeDrawerBtn =
+      target.closest("[data-close-drawer]");
+
+    if (closeDrawerBtn instanceof Element) {
       closeDrawer();
       return;
     }
@@ -12905,6 +13815,58 @@ function bindEvents() {
       return;
     }
 
+    const plazaBusinessMessageBtn =
+      target.closest("[data-plaza-business-message]");
+
+    if (
+      plazaBusinessMessageBtn instanceof
+      HTMLButtonElement
+    ) {
+      const targetUserId =
+        plazaBusinessMessageBtn.dataset
+          .plazaBusinessMessage || "";
+
+      void runLockedButtonAction(
+        `business-message:${targetUserId}`,
+        plazaBusinessMessageBtn,
+        "Opening...",
+        async () => {
+          const conversation =
+            await createPlazaConversationFromBusinessMember(
+              targetUserId,
+              getPlazaBusinessInitialMessage()
+            );
+
+          if (!conversation) {
+            throw new Error(
+              "Business Chat could not be created."
+            );
+          }
+
+          renderMessagesScreen();
+          renderConversationScreen(
+            conversation
+          );
+
+          showToast(
+            "Business Chat opened."
+          );
+        }
+      ).catch((error) => {
+        console.error(
+          "open Plaza Business Chat error:",
+          error
+        );
+
+        showToast(
+          error?.message ||
+          "Could not open Business Chat."
+        );
+      });
+
+      return;
+    }
+
     const memberBtn = target.closest("[data-member-id]");
     if (memberBtn instanceof HTMLElement) {
       openMemberRequest(getPlazaDirectoryItemById(memberBtn.dataset.memberId));
@@ -12931,9 +13893,124 @@ function bindEvents() {
       return;
     }
 
+    const regionChatBtn =
+      target.closest("[data-region-chat]");
+
+    if (
+      regionChatBtn instanceof
+      HTMLButtonElement
+    ) {
+      void openPlazaRegionChat(
+        regionChatBtn.dataset.regionChat || "",
+        regionChatBtn
+      ).catch((error) => {
+        console.error(
+          "openPlazaRegionChat error:",
+          error
+        );
+
+        showToast(
+          error?.message ||
+          "Could not open Plaza chat."
+        );
+      });
+
+      return;
+    }
+
+    const meetupEditBtn =
+      target.closest(
+        "[data-meetup-edit]"
+      );
+
+    if (
+      meetupEditBtn instanceof
+      HTMLButtonElement
+    ) {
+      beginPlazaMeetupEdit(
+        meetupEditBtn.dataset
+          .meetupEdit || ""
+      );
+
+      return;
+    }
+
+    const meetupDeleteBtn =
+      target.closest(
+        "[data-meetup-delete]"
+      );
+
+    if (
+      meetupDeleteBtn instanceof
+      HTMLButtonElement
+    ) {
+      openPlazaMeetupDeleteModal(
+        meetupDeleteBtn.dataset
+          .meetupDelete || ""
+      );
+
+      return;
+    }
+
+    const confirmMeetupDeleteBtn =
+      target.closest(
+        "[data-confirm-meetup-delete]"
+      );
+
+    if (
+      confirmMeetupDeleteBtn instanceof
+      HTMLButtonElement
+    ) {
+      const meetupId =
+        confirmMeetupDeleteBtn.dataset
+          .confirmMeetupDelete || "";
+
+      void runLockedButtonAction(
+        `meetup-delete:${meetupId}`,
+        confirmMeetupDeleteBtn,
+        "Deleting...",
+        async () => {
+          const deleted =
+            await deletePlazaMeetup(
+              meetupId
+            );
+
+          if (!deleted) {
+            throw new Error(
+              "Plaza meetup was not deleted."
+            );
+          }
+
+          closeModal();
+          renderMeetupsScreen();
+
+          showToast(
+            "Plaza meetup deleted."
+          );
+        }
+      ).catch((error) => {
+        console.error(
+          "delete Plaza meetup error:",
+          error
+        );
+
+        showToast(
+          error?.message ||
+          "Could not delete this Plaza meetup.",
+          "error"
+        );
+      });
+
+      return;
+    }
+
     const regionMeetupBtn = target.closest("[data-region-meetup]");
+
     if (regionMeetupBtn instanceof HTMLElement) {
-      prefillPlazaMeetupFromRegion(regionMeetupBtn.dataset.regionMeetup || "");
+      prefillPlazaMeetupFromRegion(
+        regionMeetupBtn.dataset.regionMeetup || ""
+      );
+
       return;
     }
 
@@ -12946,7 +14023,35 @@ function bindEvents() {
 
     const bridgeBtn = target.closest("[data-bridge-id]");
     if (bridgeBtn instanceof HTMLElement) {
-      renderBridgeDetailScreen(plazaAdapter.getBridgeById(bridgeBtn.dataset.bridgeId));
+      renderBridgeDetailScreen(
+        plazaAdapter.getBridgeById(
+          bridgeBtn.dataset.bridgeId
+        )
+      );
+      return;
+    }
+
+    const requestContextBtn =
+      target.closest(
+        "[data-request-open-context]"
+      );
+
+    if (
+      requestContextBtn instanceof
+      HTMLElement
+    ) {
+      const requestId =
+        requestContextBtn.dataset
+          .requestOpenContext || "";
+
+      if (!requestId) {
+        showToast(
+          "Related Plaza request is missing."
+        );
+        return;
+      }
+
+      openRequestContext(requestId);
       return;
     }
 
@@ -12991,79 +14096,179 @@ function bindEvents() {
       return;
     }
 
-const confirmRequestDeleteBtn = target.closest("[data-confirm-request-delete]");
-if (confirmRequestDeleteBtn instanceof HTMLButtonElement) {
-  const requestId = confirmRequestDeleteBtn.dataset.confirmRequestDelete || "";
+const confirmRequestDeleteBtn =
+  target.closest(
+    "[data-confirm-request-delete]"
+  );
+
+if (
+  confirmRequestDeleteBtn instanceof
+  HTMLButtonElement
+) {
+  const requestId =
+    confirmRequestDeleteBtn.dataset
+      .confirmRequestDelete || "";
 
   void runLockedButtonAction(
     `request-delete:${requestId}`,
     confirmRequestDeleteBtn,
-    "Deleting.",
+    "Deleting...",
     async () => {
       const deleted =
         await deletePlazaRequestFromServer(
           requestId
         );
 
-      if (deleted) {
-        plazaOpsAdapter.removeIncomingByRequestId(requestId);
-        closeModal();
-        renderRequestsPreview();
-        renderRequestsScreen();
-        renderInboxScreen();
-        renderOperationalPreviews();
-        showToast("Request deleted from Plaza.");
+      if (!deleted) {
+        throw new Error(
+          "Plaza request was not deleted."
+        );
       }
+
+      plazaOpsAdapter
+        .removeIncomingByRequestId(
+          requestId
+        );
+
+      closeModal();
+
+      renderRequestsPreview();
+      renderRequestsScreen();
+      renderInboxScreen();
+      renderNotificationsScreen();
+      renderOperationalPreviews();
+
+      showToast(
+        "Request deleted from Plaza."
+      );
     }
-  );
+  ).catch((error) => {
+    console.error(
+      "delete Plaza request error:",
+      error
+    );
+
+    showToast(
+      error?.message ||
+      "Could not delete this Plaza request.",
+      "error"
+    );
+  });
+
   return;
 }
 
 const requestAdvanceBtn = target.closest("[data-request-advance]");
 if (requestAdvanceBtn instanceof HTMLButtonElement) {
-  const requestId = requestAdvanceBtn.dataset.requestAdvance || "";
+  const requestId =
+    requestAdvanceBtn.dataset
+      .requestAdvance || "";
 
   void runLockedButtonAction(
     `request-advance:${requestId}`,
     requestAdvanceBtn,
-    "Processing.",
+    "Processing...",
     async () => {
       const updatedRequest =
         await advancePlazaRequestStatus(
           requestId
         );
 
-      if (updatedRequest) {
-        plazaOpsAdapter.syncIncomingStatusFromRequest(updatedRequest);
+      if (!updatedRequest) {
+        throw new Error(
+          "Plaza request status was not updated."
+        );
+      }
 
-        if (updatedRequest.status === "Conversation Opened") {
-          const conversation = plazaServerRequestsLoaded
-            ? await createPlazaConversationFromRequest(updatedRequest.id)
+      plazaOpsAdapter
+        .syncIncomingStatusFromRequest(
+          updatedRequest
+        );
+
+      if (
+        updatedRequest.status ===
+        "Conversation Opened"
+      ) {
+        const conversation =
+          plazaServerRequestsLoaded
+            ? await createPlazaConversationFromRequest(
+                updatedRequest.id
+              )
             : null;
 
-          if (conversation) {
-            renderMessagesScreen();
-          }
-        }
-
-        renderRequestsPreview();
-        renderRequestsScreen();
-        renderInboxScreen();
-        renderNotificationsScreen();
-        renderOperationalPreviews();
-
-        if (updatedRequest.status === "Matched" && safeArray(updatedRequest.matchedEntityLabels).length) {
-          showToast(`Request matched toward ${updatedRequest.matchedEntityLabels[0]}.`);
-        } else if (updatedRequest.status === "Conversation Opened") {
-          showToast("Conversation opened inside Plaza Messages.");
-        } else if (updatedRequest.status === "Closed") {
-          showToast("Request closed inside Plaza.");
-        } else {
-          showToast(`Request moved to ${updatedRequest.status}.`);
+        if (conversation) {
+          renderMessagesScreen();
         }
       }
+
+      renderRequestsPreview();
+      renderRequestsScreen();
+      renderInboxScreen();
+      renderNotificationsScreen();
+      renderOperationalPreviews();
+
+      if (
+        updatedRequest.status ===
+          "Matched" &&
+        safeArray(
+          updatedRequest
+            .matchedEntityLabels
+        ).length
+      ) {
+        showToast(
+          `Request matched toward ${
+            updatedRequest
+              .matchedEntityLabels[0]
+          }.`
+        );
+      } else if (
+        updatedRequest.status ===
+        "Conversation Opened"
+      ) {
+        showToast(
+          "Conversation opened inside Plaza Messages."
+        );
+      } else if (
+        updatedRequest.status ===
+        "Closed"
+      ) {
+        showToast(
+          "Request closed inside Plaza."
+        );
+      } else {
+        showToast(
+          `Request moved to ${updatedRequest.status}.`
+        );
+      }
     }
-  );
+  ).catch((error) => {
+    console.error(
+      "advance Plaza request error:",
+      error
+    );
+
+    const message =
+      String(error?.message || "").trim();
+
+    if (
+      message.includes(
+        "Only the assigned Plaza operator or admin"
+      )
+    ) {
+      showToast(
+        "This review stage is handled by the assigned Plaza operator or admin.",
+        "error"
+      );
+      return;
+    }
+
+    showToast(
+      message ||
+      "Could not update this Plaza request.",
+      "error"
+    );
+  });
+
   return;
 }
 
@@ -13203,7 +14408,7 @@ if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
 
         const data = new FormData(form);
         const requestId = String(data.get("requestId") || "");
-        const existingRequest = requestId ? plazaAdapter.getRequestById(requestId) : null;
+        const existingRequest = requestId ? getPlazaRequestByIdForUi(requestId) : null;
         const submitMode = String(submitButton?.dataset.requestSubmitMode || "send");
 
         const payload = {
@@ -13336,7 +14541,7 @@ if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
 
         const data = new FormData(form);
         const requestId = String(data.get("requestId") || "");
-        const existingRequest = requestId ? plazaAdapter.getRequestById(requestId) : null;
+        const existingRequest = requestId ? getPlazaRequestByIdForUi(requestId) : null;
         const submitMode = String(submitButton?.dataset.requestSubmitMode || "send");
         const resumeFile = data.get("resumeFile");
         const attachmentMeta = [];
@@ -13541,9 +14746,88 @@ if (form.id === "plazaConversationForm") {
   });
 
   document.addEventListener("keydown", (event) => {
+    const modalOpen =
+      plazaModal?.classList.contains("is-open") ||
+      plazaModal?.getAttribute("aria-hidden") === "false";
+
+    const drawerOpen =
+      plazaDrawer?.classList.contains("is-open") ||
+      plazaDrawer?.getAttribute("aria-hidden") === "false";
+
     if (event.key === "Escape") {
-      closeModal();
-      closeDrawer();
+      if (modalOpen) {
+        event.preventDefault();
+        closeModal();
+        return;
+      }
+
+      if (drawerOpen) {
+        event.preventDefault();
+        closeDrawer();
+      }
+
+      return;
+    }
+
+    if (event.key !== "Tab") return;
+
+    const activeDialog =
+      modalOpen
+        ? plazaModal
+        : drawerOpen
+          ? plazaDrawer
+          : null;
+
+    if (!activeDialog) return;
+
+    const focusable =
+      getPlazaDialogFocusableElements(
+        activeDialog
+      );
+
+    if (!focusable.length) {
+      event.preventDefault();
+      return;
+    }
+
+    const first =
+      focusable[0];
+
+    const last =
+      focusable[
+        focusable.length - 1
+      ];
+
+    const activeElement =
+      document.activeElement;
+
+    if (!activeDialog.contains(activeElement)) {
+      event.preventDefault();
+
+      if (event.shiftKey) {
+        last.focus();
+      } else {
+        first.focus();
+      }
+
+      return;
+    }
+
+    if (
+      event.shiftKey &&
+      activeElement === first
+    ) {
+      event.preventDefault();
+      last.focus();
+      return;
+    }
+
+    if (
+      !event.shiftKey &&
+      activeElement === last
+    ) {
+      event.preventDefault();
+      first.focus();
     }
   });
 }
@@ -13855,11 +15139,21 @@ async function submitPlazaMeetupComposer(event) {
   if (!plazaMeetupComposerForm) return;
 
   const submitButton = plazaMeetupComposerSubmitBtn || event.submitter || null;
-  const lockKey = "form:plazaMeetupComposer";
+
+  const editingId =
+    String(
+      plazaMeetupEditingId || ""
+    ).trim();
+
+  const lockKey =
+    editingId
+      ? `meetup-edit:${editingId}`
+      : "form:plazaMeetupComposer";
 
   if (plazaActionLocks.has(lockKey)) return;
 
   const formData = new FormData(plazaMeetupComposerForm);
+
   const payload = {
     regionId: String(formData.get("regionId") || "").trim(),
     format: String(formData.get("format") || "in-person").trim(),
@@ -13880,18 +15174,51 @@ async function submitPlazaMeetupComposer(event) {
   }
 
   plazaActionLocks.add(lockKey);
-  setButtonBusy(submitButton, "Creating...");
+
+  setButtonBusy(
+    submitButton,
+    editingId
+      ? "Saving..."
+      : "Creating..."
+  );
 
   try {
-    await createPlazaMeetup(payload);
+    if (editingId) {
+      await updatePlazaMeetup(
+        editingId,
+        payload
+      );
 
-    plazaMeetupComposerForm.reset();
+      showToast(
+        "Plaza meetup updated."
+      );
+    } else {
+      await createPlazaMeetup(
+        payload
+      );
+
+      showToast(
+        "Plaza meetup created."
+      );
+    }
+
+    resetPlazaMeetupEditor();
     renderMeetupsScreen();
-
-    showToast("Plaza meetup created.");
   } catch (error) {
-    console.error("submitPlazaMeetupComposer error:", error);
-    showToast(error.message || "Could not create Plaza meetup.", "error");
+    console.error(
+      "submitPlazaMeetupComposer error:",
+      error
+    );
+
+    showToast(
+      error.message ||
+      (
+        editingId
+          ? "Could not update Plaza meetup."
+          : "Could not create Plaza meetup."
+      ),
+      "error"
+    );
   } finally {
     clearButtonBusy(submitButton);
     plazaActionLocks.delete(lockKey);
@@ -14568,20 +15895,92 @@ async function autoSavePlazaDirectoryProfileFromAcademySignal() {
     return null;
   }
 
-  plazaDirectoryAutoSeedPromise = (async () => {
+plazaDirectoryAutoSeedPromise = (async () => {
     try {
-      const profile = await savePlazaDirectoryProfile(payload);
-      markPlazaDirectoryAutoSeeded(payload);
+      /*
+       * Existing directory profiles require the current
+       * updatedAt version before any write. Plaza access
+       * can unlock before directory hydration finishes,
+       * so never auto-seed against an unknown version.
+       */
+      if (
+        plazaServerDirectoryLoaded === false &&
+        plazaDirectoryLoading === false
+      ) {
+        await loadPlazaDirectoryFromServer({
+          silent: true
+        });
+      }
 
-    if (profile) {
-      plazaServerDirectoryLoaded = true;
-      writePlazaDirectoryStatusCache(profile, { source: "auto-seed" });
-      renderDirectory();
-    }
+      const directoryWaitStartedAt =
+        Date.now();
 
-    return profile;
+      while (
+        (
+          plazaDirectoryLoading === true ||
+          plazaCursorPaginationStateV1
+            .directory
+            .hydrating === true
+        ) &&
+        Date.now() -
+          directoryWaitStartedAt <
+          5000
+      ) {
+        await new Promise((resolve) => {
+          window.setTimeout(
+            resolve,
+            50
+          );
+        });
+      }
+
+      /*
+       * If directory hydration did not finish safely,
+       * skip this automatic write. Do not bypass the
+       * server's optimistic-concurrency requirement.
+       *
+       * Because the auto-seed fingerprint is not marked,
+       * a later Plaza boot can retry normally.
+       */
+      if (
+        plazaServerDirectoryLoaded === false ||
+        plazaDirectoryLoading === true ||
+        plazaCursorPaginationStateV1
+          .directory
+          .hydrating === true
+      ) {
+        return null;
+      }
+
+      const profile =
+        await savePlazaDirectoryProfile(
+          payload
+        );
+
+      markPlazaDirectoryAutoSeeded(
+        payload
+      );
+
+      if (profile) {
+        plazaServerDirectoryLoaded = true;
+
+        writePlazaDirectoryStatusCache(
+          profile,
+          {
+            source: "auto-seed"
+          }
+        );
+
+        renderDirectory();
+      }
+
+      return profile;
     } catch (error) {
-      console.error("autoSavePlazaDirectoryProfileFromAcademySignal error:", error);
+      console.error(
+        "autoSavePlazaDirectoryProfileFromAcademySignal error:",
+        error
+      );
+
       return null;
     } finally {
       plazaDirectoryAutoSeedPromise = null;
@@ -15499,6 +16898,12 @@ if (plazaRegionComposerForm) {
 
 if (plazaMeetupComposerForm) {
   plazaMeetupComposerForm.addEventListener("submit", submitPlazaMeetupComposer);
+}
+
+if (plazaMeetupEditCancelBtn) {
+  plazaMeetupEditCancelBtn.addEventListener("click", () => {
+    resetPlazaMeetupEditor();
+  });
 }
 
 if (plazaPatronApplicationForm) {

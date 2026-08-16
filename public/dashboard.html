@@ -8,11 +8,11 @@
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" href="/css/style.css?v=20260809-payment-modal-full-content-v1">
-<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260729-ui-plazas-child-tabs-v2">
-<link rel="stylesheet" href="/css/yhu-game-system.css?v=20260724-phase3e-fe3-council-governance-diplomacy-v1">
-<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260809-business-chats-mobile-frame-v1">
-<link rel="stylesheet" href="/css/yh-division-tutorials.css?v=20260804-division-tutorials-v1">
+<link rel="stylesheet" href="/css/style.css?v=20260815-css-sync-v1">
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260815-css-sync-v1">
+<link rel="stylesheet" href="/css/yhu-game-system.css?v=20260815-css-sync-v1">
+<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260815-css-sync-v1">
+<link rel="stylesheet" href="/css/yh-division-tutorials.css?v=20260815-css-sync-v1">
 
 <!-- PATCH: Dashboard state owner early paint v3 -->
 <style id="yh-dashboard-state-owner-early-paint-v3">
@@ -1706,10 +1706,18 @@
         loading="lazy"
     ></iframe>
 </main>
-    </div>
 
-<div id="federation-apply-modal" class="modal-overlay hidden-step yh-federation-apply-modal yh-dashboard-division-apply-modal">
-    <div class="modal-content hide-scrollbar yh-federation-apply-card" yh-dashboard-division-apply-card>
+<div
+    id="federation-apply-modal"
+    class="modal-overlay hidden-step yh-federation-apply-modal yh-dashboard-division-apply-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="yh-dashboard-federation-apply-title"
+    aria-hidden="true"
+    hidden
+    inert
+>
+    <div class="modal-content hide-scrollbar yh-federation-apply-card yh-dashboard-division-apply-card">
         <button
             id="btn-close-federation-apply"
             type="button"
@@ -1721,7 +1729,7 @@
 
         <div class="yh-federation-apply-head">
             <div class="yh-dashboard-federation-kicker">Federation Application</div>
-            <h2>Apply for Federation Access</h2>
+            <h2 id="yh-dashboard-federation-apply-title">Apply for Federation Access</h2>
             <p>
                 Apply to enter the private strategic layer of Young Hustlers. Access is reviewed based on trust,
                 leverage, network value, regional relevance, and your ability to contribute or request high-value introductions.
@@ -1954,7 +1962,7 @@
     </div>
 </div>
 
-<div id="plaza-apply-modal" class="modal-overlay hidden-step yh-federation-apply-modal yh-dashboard-division-apply-modal yh-dashboard-plaza-apply-modal" role="dialog" aria-modal="true" aria-labelledby="yh-dashboard-plaza-apply-title">
+<div id="plaza-apply-modal" class="modal-overlay hidden-step yh-federation-apply-modal yh-dashboard-division-apply-modal yh-dashboard-plaza-apply-modal" role="dialog" aria-modal="true" aria-labelledby="yh-dashboard-plaza-apply-title" aria-hidden="true" hidden inert>
     <div class="modal-content hide-scrollbar yh-federation-apply-card yh-dashboard-division-apply-card yh-dashboard-plaza-apply-card">
         <button
             id="btn-close-plaza-apply"
@@ -2290,11 +2298,14 @@
 
             <div id="ai-verdict-phase" class="hidden-step text-center py-large">
                 <div id="ai-verdict-icon" style="line-height: 1;">
-                    <img
-                        src="/images/yhlobby.png"
-                        alt="YH Lobby"
-                        style="width:80px;height:80px;object-fit:contain;display:block;margin:0 auto;"
-                    >
+                <img
+                    src="/images/yhlobby.png"
+                    alt="YH Lobby"
+                    loading="lazy"
+                    decoding="async"
+                    fetchpriority="low"
+                    style="width:80px;height:80px;object-fit:contain;display:block;margin:0 auto;"
+                >
                 </div>
 <h2 id="ai-verdict-title" style="color: var(--success); margin-top: 1rem;">Application Submitted</h2>
 <p id="ai-verdict-desc" class="subtitle mb-large">Your Academy application has been received and is now pending admin review.</p>
@@ -2391,7 +2402,7 @@
 
                 <article class="academy-profile-social-stat academy-profile-social-stat-self">
                     <div class="academy-profile-social-label">Active roadmap</div>
-                    <div class="academy-profile-social-value" id="academy-profile-roadmap">Not loaded</div>
+                    <div class="academy-profile-social-value" id="academy-profile-roadmap">No Active Roadmap</div>
                 </article>
 
                 <article class="academy-profile-social-stat academy-profile-social-stat-shared academy-profile-social-stat-followers" data-social-stat="followers">

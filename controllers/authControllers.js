@@ -1235,10 +1235,20 @@ exports.registerUser = async (req, res) => {
             });
         }
 
-        if (!password.trim()) {
+        if (!password) {
             return res.status(400).json({
                 success: false,
                 message: 'Password is required.'
+            });
+        }
+
+        if (
+            password.length < 8 ||
+            password.length > 128
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: 'Password must be between 8 and 128 characters.'
             });
         }
 
@@ -1799,30 +1809,32 @@ exports.loginUser = async (req, res) => {
         }
 
         let user = null;
-        let usedSupabaseFallback = false;
 
         try {
             user = await findUserByIdentifier(identifier);
         } catch (lookupError) {
-            if (!yhuSupabaseMirrorRepo.isFirebaseQuotaError(lookupError)) {
+            if (
+                !yhuSupabaseMirrorRepo
+                    .isFirebaseQuotaError(lookupError)
+            ) {
                 throw lookupError;
             }
 
-            console.warn('Firebase login lookup quota exhausted. Trying YHU Supabase fallback.');
-
-            const supabaseResult = await yhuSupabaseMirrorRepo.findUserByIdentifier(identifier);
-
-            if (supabaseResult?.ok && supabaseResult.user) {
-                user = supabaseResult.user;
-                usedSupabaseFallback = true;
-            } else {
-                return res.status(503).json({
-                    success: false,
-                    retryable: true,
-                    code: 'firebase_quota_exhausted',
-                    message: 'Login database is temporarily busy because Firebase quota is exhausted. Please try again after quota resets.'
-                });
-            }
+            /*
+             * Authentication credentials remain
+             * Firebase-only.
+             *
+             * yhu_users is an identity/profile mirror
+             * and must never be used as a password-hash
+             * fallback.
+             */
+            return res.status(503).json({
+                success: false,
+                retryable: true,
+                code: 'firebase_quota_exhausted',
+                message:
+                    'Login database is temporarily busy because Firebase quota is exhausted. Please try again after quota resets.'
+            });
         }
 
         if (!user) {
@@ -1850,14 +1862,6 @@ exports.loginUser = async (req, res) => {
             return res.status(410).json(deletedAccountResponsePayload());
         }
 
-        if (usedSupabaseFallback && !user.password) {
-            return res.status(503).json({
-                success: false,
-                retryable: true,
-                code: 'supabase_auth_record_incomplete',
-                message: 'Your account exists in the Supabase mirror, but the password hash is not available there yet. Please try again after the Firebase quota resets or after the full user import is completed.'
-            });
-        }
 
         const isMatch = await bcrypt.compare(password, user.password || '');
         if (!isMatch) {
@@ -1868,17 +1872,11 @@ exports.loginUser = async (req, res) => {
         }
 
         if (user.isVerified !== true) {
-            if (usedSupabaseFallback) {
-                return res.status(503).json({
-                    success: false,
-                    retryable: true,
-                    verificationRequired: true,
-                    code: 'firebase_quota_exhausted',
-                    message: 'Your account needs verification, but Firebase quota is exhausted so a new OTP cannot be issued right now.'
-                });
-            }
-
-            const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const otpCode =
+                Math.floor(
+                    100000 +
+                    Math.random() * 900000
+                ).toString();
 
             await usersCollection().doc(user.id).update({
                 verificationCode: otpCode,
@@ -1907,7 +1905,7 @@ subject: 'Your YH Universe verification code',
 
         return res.json({
             success: true,
-            source: usedSupabaseFallback ? 'supabase-fallback' : 'firebase',
+            source: 'firebase',
             message: 'Login successful!',
             token,
             user: publicUser(user)
@@ -2426,6 +2424,16 @@ exports.resetPassword = async (req, res) => {
         const email = String(req.body?.email || '').trim().toLowerCase();
         const newPassword = String(req.body?.newPassword || '');
 
+        if (
+            newPassword.length < 8 ||
+            newPassword.length > 128
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: 'New password must be between 8 and 128 characters.'
+            });
+        }
+
         const user = await findUserByEmail(email);
         if (!user) {
             const deletedUsers = await findDeletedUsersByEmail(email);
@@ -2455,13 +2463,36 @@ exports.resetPassword = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(newPassword, salt);
 
+        const currentAuthSessionVersion =
+            Number.isFinite(
+                Number(
+                    user.authSessionVersion
+                )
+            )
+                ? Math.max(
+                    0,
+                    Math.trunc(
+                        Number(
+                            user.authSessionVersion
+                        )
+                    )
+                )
+                : 0;
+
+        const changedAt = nowIso();
+
         await usersCollection().doc(user.id).update({
             password: hashedPassword,
+            authSessionVersion:
+                currentAuthSessionVersion + 1,
+            passwordChangedAt: changedAt,
             passwordResetCode: null,
             passwordResetExpiresAt: null,
             passwordResetVerifiedAt: null,
-            updatedAt: nowIso()
+            updatedAt: changedAt
         });
+
+        clearAuthCookie(res);
 
         return res.json({
             success: true,

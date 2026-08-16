@@ -6,9 +6,12 @@
     <title> Young Hustlers Universe</title>
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
-<link rel="stylesheet" href="/css/responsive-apply.css?v=20260807-division-carousel-arrow-nav-v1">
-<link rel="stylesheet" href="/css/style.css?v=20260801-yhu-landing-ios-scroll-v1">
-<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260708-yhu-globe-edge-fix-v1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/responsive-apply.css?v=20260815-css-sync-v1">
+<link rel="stylesheet" href="/css/style.css?v=20260815-css-sync-v1">
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260815-css-sync-v1">
 </head>
 <body data-yh-page="apply">
 
@@ -18,7 +21,14 @@
 
 <div id="yh-post-login-loader" class="yh-auth-transition-loader hidden-step" aria-hidden="true">
     <div class="yh-auth-transition-card">
-        <img src="/images/landing/federation.png?v=20260621-reference-icons-01" alt="Young Hustlers" class="yh-auth-transition-logo">
+        <img
+    src="/images/landing/federation.png?v=20260621-reference-icons-01"
+    alt="Young Hustlers"
+    class="yh-auth-transition-logo"
+    loading="lazy"
+    decoding="async"
+    fetchpriority="low"
+>
         <div class="yh-auth-transition-title">Entering Universe</div>
         <div class="yh-auth-transition-copy" id="yh-post-login-loader-text">
             Syncing your access and preparing your dashboard...

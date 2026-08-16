@@ -24,52 +24,175 @@ const { yhuSupabaseAdmin } = require('./config/supabaseAdmin');
 const app = express();
 app.set('trust proxy', 1);
 
-const YH_NATIVE_APP_ORIGINS = new Set([
-    'capacitor://localhost'
-]);
+function normalizeYHCorsOrigin(
+    value = ''
+) {
+    const clean =
+        String(value || '')
+            .trim();
 
-const configuredCorsOrigins = String(
-    process.env.CORS_ALLOWED_ORIGINS || ''
-)
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-const allowedOrigins = new Set([
-    ...configuredCorsOrigins,
-    ...YH_NATIVE_APP_ORIGINS
-]);
-
-function isAllowedYHClientOrigin(origin = '') {
-    const cleanOrigin =
-        String(origin || '').trim();
-
-    /*
-     * Requests without an Origin header include
-     * same-origin/server-to-server calls.
-     */
-    if (!cleanOrigin) {
-        return true;
+    if (!clean) {
+        return '';
     }
 
     /*
-     * Preserve the server's current behavior when
-     * CORS_ALLOWED_ORIGINS is not configured.
+     * Capacitor uses a custom scheme whose URL
+     * origin is not represented like normal HTTP.
      */
-    if (!configuredCorsOrigins.length) {
-        return true;
+    if (
+        clean.startsWith(
+            'capacitor://'
+        )
+    ) {
+        return clean
+            .replace(/\/+$/, '');
     }
 
-    return allowedOrigins.has(cleanOrigin);
+    try {
+        const parsed =
+            new URL(clean);
+
+        if (
+            parsed.protocol !== 'http:' &&
+            parsed.protocol !== 'https:'
+        ) {
+            return '';
+        }
+
+        return parsed.origin;
+    } catch (_) {
+        return '';
+    }
 }
 
-function yhCorsOriginCallback(origin, callback) {
-    if (isAllowedYHClientOrigin(origin)) {
-        return callback(null, true);
+const YH_NATIVE_APP_ORIGINS =
+    new Set([
+        'capacitor://localhost',
+
+        /*
+         * Capacitor native WebViews may use these
+         * local origins depending on platform/runtime.
+         */
+        'https://localhost',
+        'http://localhost'
+    ]);
+
+const configuredCorsOrigins =
+    String(
+        process.env
+            .CORS_ALLOWED_ORIGINS ||
+        ''
+    )
+        .split(',')
+        .map(
+            normalizeYHCorsOrigin
+        )
+        .filter(Boolean);
+
+const configuredAppOrigins = [
+    process.env.PUBLIC_BASE_URL,
+    process.env.APP_BASE_URL,
+    process.env.BASE_URL
+]
+    .map(
+        normalizeYHCorsOrigin
+    )
+    .filter(Boolean);
+
+const localServerPort =
+    String(
+        process.env.PORT ||
+        3000
+    ).trim() || '3000';
+
+const YH_LOCAL_DEV_ORIGINS =
+    new Set([
+        `http://localhost:${localServerPort}`,
+        `http://127.0.0.1:${localServerPort}`,
+        `https://localhost:${localServerPort}`
+    ]);
+
+const isProductionYHServer =
+    process.env.NODE_ENV ===
+    'production';
+
+const allowedOrigins =
+    new Set([
+        ...configuredCorsOrigins,
+        ...configuredAppOrigins,
+        ...YH_NATIVE_APP_ORIGINS,
+
+        ...(
+            isProductionYHServer
+                ? []
+                : YH_LOCAL_DEV_ORIGINS
+        )
+    ]);
+
+if (
+    isProductionYHServer &&
+    configuredCorsOrigins.length === 0 &&
+    configuredAppOrigins.length === 0
+) {
+    console.warn(
+        '[SECURITY] No production web CORS origin is configured. Browser cross-origin requests will be denied until CORS_ALLOWED_ORIGINS or a public/app/base URL is configured.'
+    );
+}
+
+function isAllowedYHClientOrigin(
+    origin = ''
+) {
+    const rawOrigin =
+        String(origin || '')
+            .trim();
+
+    /*
+     * Requests without Origin include
+     * server-to-server requests and many
+     * same-origin navigation requests.
+     */
+    if (!rawOrigin) {
+        return true;
+    }
+
+    const cleanOrigin =
+        normalizeYHCorsOrigin(
+            rawOrigin
+        );
+
+    if (!cleanOrigin) {
+        return false;
+    }
+
+    /*
+     * Important:
+     * There is intentionally NO
+     * "if empty allow everything" fallback.
+     */
+    return allowedOrigins.has(
+        cleanOrigin
+    );
+}
+
+function yhCorsOriginCallback(
+    origin,
+    callback
+) {
+    if (
+        isAllowedYHClientOrigin(
+            origin
+        )
+    ) {
+        return callback(
+            null,
+            true
+        );
     }
 
     return callback(
-        new Error('Not allowed by CORS')
+        new Error(
+            'Not allowed by CORS'
+        )
     );
 }
 
@@ -352,10 +475,24 @@ const YH_ACADEMY_LEARN_FROM_ACCESS_PLAN = Object.freeze({
 function buildActiveYHLearnFromAccessPayload(payment = {}, context = {}) {
     const now = new Date();
     const accessType = sanitizeText(payment.metadata?.accessType || context.accessType || 'one_time').toLowerCase();
-    const expiresAt = accessType === 'monthly' ? new Date(now) : null;
 
-    if (expiresAt) {
-        expiresAt.setMonth(expiresAt.getMonth() + 1);
+    let expiresAt = null;
+
+    if (accessType === 'monthly') {
+        const explicitExpiresAt = sanitizeText(context.expiresAt || '');
+        const parsedExplicitExpiresAt = explicitExpiresAt
+            ? new Date(explicitExpiresAt)
+            : null;
+
+        if (
+            parsedExplicitExpiresAt &&
+            !Number.isNaN(parsedExplicitExpiresAt.getTime())
+        ) {
+            expiresAt = parsedExplicitExpiresAt;
+        } else {
+            expiresAt = new Date(now);
+            expiresAt.setMonth(expiresAt.getMonth() + 1);
+        }
     }
 
     return {
@@ -392,7 +529,11 @@ function buildActiveYHVerifiedBadgePayload(plan = {}, payment = {}, context = {}
     );
 
     const amount = getYHBadgeBillingAmount(plan, billingPlan);
-    const expiresAt = getYHBadgeExpiresAt(billingPlan);
+    const explicitExpiresAt = sanitizeText(context.expiresAt || '');
+    const expiresAt =
+        billingPlan === 'monthly' && explicitExpiresAt
+            ? explicitExpiresAt
+            : getYHBadgeExpiresAt(billingPlan);
 
     return {
         active: true,
@@ -679,6 +820,13 @@ async function syncYHVerifiedBadgePaymentStatus(payment = {}, status = 'pending'
                 ? cleanStatus
                 : 'pending_payment';
 
+    const billingPlan = normalizeYHBadgeBillingPlan(
+        context.billingPlan ||
+        updatedPayment.metadata?.billingPlan ||
+        updatedPayment.metadata?.billingInterval ||
+        'monthly'
+    );
+
     const userBadgePayload =
         cleanStatus === 'paid'
             ? buildActiveYHVerifiedBadgePayload(plan, updatedPayment, context)
@@ -689,21 +837,44 @@ async function syncYHVerifiedBadgePaymentStatus(payment = {}, status = 'pending'
                 division: plan.division,
                 amountMonthly: roundYHMoney(updatedPayment.amount || plan.amountMonthly || 0),
                 currency: sanitizeText(updatedPayment.currency || plan.currency || 'USD').toUpperCase() || 'USD',
-                interval: plan.interval,
+                interval: getYHBadgeBillingInterval(billingPlan),
+                billingPlan,
+                lifetimeAccess: billingPlan === 'lifetime',
                 asset: plan.asset,
                 paymentLedgerId: updatedPayment.id,
                 paymentStatus: cleanStatus,
                 provider: sanitizeText(context.provider || updatedPayment.provider || ''),
                 providerPaymentId: sanitizeText(context.providerPaymentId || updatedPayment.providerPaymentId || ''),
+                providerSubscriptionId: sanitizeText(
+                    context.providerSubscriptionId ||
+                    updatedPayment.metadata?.providerSubscriptionId ||
+                    updatedPayment.metadata?.stripeSubscriptionId ||
+                    ''
+                ),
+                expiresAt: sanitizeText(context.expiresAt || ''),
                 updatedAt: new Date().toISOString()
             };
 
-    await firestore.collection('users').doc(payerUid).set({
+    const badgeUserRef =
+        firestore
+            .collection('users')
+            .doc(payerUid);
+
+    await badgeUserRef.set({
         verificationBadges: {
             [plan.division]: userBadgePayload
         },
         updatedAt: new Date().toISOString()
     }, { merge: true });
+
+    /*
+     * Keep yhu_users aligned for every billing state,
+     * not only paid states that create a notification.
+     */
+    await syncServerYhuUserToSupabase(
+        badgeUserRef,
+        'payment:verified-badge-status'
+    );
 
     await syncYHVerifiedBadgeStatusToSupabase({
         userId: payerUid,
@@ -803,13 +974,33 @@ async function syncYHLearnFromAccessPaymentStatus(payment = {}, status = 'pendin
                 paymentStatus: cleanStatus,
                 provider: sanitizeText(context.provider || updatedPayment.provider || ''),
                 providerPaymentId: sanitizeText(context.providerPaymentId || updatedPayment.providerPaymentId || ''),
+                providerSubscriptionId: sanitizeText(
+                    context.providerSubscriptionId ||
+                    updatedPayment.metadata?.stripeSubscriptionId ||
+                    ''
+                ),
+                expiresAt: sanitizeText(context.expiresAt || ''),
                 updatedAt: new Date().toISOString()
             };
 
-    await firestore.collection('users').doc(payerUid).set({
+    const learnFromUserRef =
+        firestore
+            .collection('users')
+            .doc(payerUid);
+
+    await learnFromUserRef.set({
         academyLearnFromAccess: accessPayload,
         updatedAt: new Date().toISOString()
     }, { merge: true });
+
+    /*
+     * Failed, expired, and cancelled subscription
+     * states must also reach the canonical user mirror.
+     */
+    await syncServerYhuUserToSupabase(
+        learnFromUserRef,
+        'payment:academy-learn-from-access'
+    );
 
     if (cleanStatus === 'paid') {
         await appendYHVerifiedBadgePaymentNotification(payerUid, {
@@ -970,11 +1161,23 @@ function mapFederationConnectOpportunityDoc(docSnap) {
         universeCommissionAmount,
         buyerPriceAmount,
         currency,
-        saleReviewStatus: sanitizeText(lead.saleReviewStatus || 'approved'),
-        saleStatus: sanitizeText(lead.saleStatus || 'listed'),
-        listingAvailability: sanitizeText(lead.listingAvailability || 'lifetime'),
+        saleEnabled: lead.saleEnabled === true,
+        saleReviewStatus: sanitizeText(
+            lead.saleReviewStatus || 'not_listed'
+        ),
+        saleStatus: sanitizeText(
+            lead.saleStatus ||
+            lead.federationListingStatus ||
+            'not_listed'
+        ),
+        listingAvailability: sanitizeText(
+            lead.listingAvailability || 'lifetime'
+        ),
         unlimitedPurchases: lead.unlimitedPurchases !== false,
-        purchaseCount: Math.max(0, Number(lead.purchaseCount || 0)),
+        purchaseCount: Math.max(
+            0,
+            Number(lead.purchaseCount || 0)
+        ),
 
         summary: sanitizeText(
             lead.notes ||
@@ -1052,11 +1255,23 @@ function mapFederationConnectOpportunityCoreRow(row = {}) {
         universeCommissionAmount,
         buyerPriceAmount,
         currency,
-        saleReviewStatus: sanitizeText(lead.saleReviewStatus || 'approved'),
-        saleStatus: sanitizeText(lead.saleStatus || lead.federationListingStatus || 'listed'),
-        listingAvailability: sanitizeText(lead.listingAvailability || 'lifetime'),
+        saleEnabled: lead.saleEnabled === true,
+        saleReviewStatus: sanitizeText(
+            lead.saleReviewStatus || 'not_listed'
+        ),
+        saleStatus: sanitizeText(
+            lead.saleStatus ||
+            lead.federationListingStatus ||
+            'not_listed'
+        ),
+        listingAvailability: sanitizeText(
+            lead.listingAvailability || 'lifetime'
+        ),
         unlimitedPurchases: lead.unlimitedPurchases !== false,
-        purchaseCount: Math.max(0, Number(lead.purchaseCount || 0)),
+        purchaseCount: Math.max(
+            0,
+            Number(lead.purchaseCount || 0)
+        ),
 
         summary: sanitizeText(
             lead.notes ||
@@ -1071,12 +1286,39 @@ function mapFederationConnectOpportunityCoreRow(row = {}) {
 async function countSupabaseFederationReadyLeadMissions() {
     const { count, error } = await yhuSupabaseAdmin
         .from('yhu_academy_core_records')
-        .select('id', { count: 'exact', head: true })
-        .eq('record_type', 'academyLeadMissions')
-        .filter('data->>federationReady', 'eq', 'true');
+        .select('id', {
+            count: 'exact',
+            head: true
+        })
+        .eq(
+            'record_type',
+            'academyLeadMissions'
+        )
+        .filter(
+            'data->>federationReady',
+            'eq',
+            'true'
+        )
+        .filter(
+            'data->>saleEnabled',
+            'eq',
+            'true'
+        )
+        .filter(
+            'data->>saleStatus',
+            'eq',
+            'listed'
+        )
+        .filter(
+            'data->>saleReviewStatus',
+            'eq',
+            'approved'
+        );
 
     if (error) {
-        throw new Error(`Supabase Federation-ready lead count failed: ${error.message}`);
+        throw new Error(
+            `Supabase Federation-ready lead count failed: ${error.message}`
+        );
     }
 
     return count || 0;
@@ -1102,11 +1344,35 @@ async function listSupabaseFederationConnectOpportunities(limit = 80) {
             try {
                 return mapFederationConnectOpportunityCoreRow(row);
             } catch (mapError) {
-                console.error('Supabase federation connect opportunity map error:', mapError);
+                console.error(
+                    'Supabase federation connect opportunity map error:',
+                    mapError
+                );
                 return null;
             }
         })
-        .filter((item) => item && item.leadId && item.ownerUid);
+        .filter((item) => {
+            if (!item || !item.leadId || !item.ownerUid) {
+                return false;
+            }
+
+            const saleStatus =
+                sanitizeText(
+                    item.saleStatus
+                ).toLowerCase();
+
+            const saleReviewStatus =
+                sanitizeText(
+                    item.saleReviewStatus
+                ).toLowerCase();
+
+            return (
+                item.saleEnabled === true &&
+                item.buyerPriceAmount > 0 &&
+                saleStatus === 'listed' &&
+                saleReviewStatus === 'approved'
+            );
+        });
 }
 
 function buildFederationLeadAccessGrantId(requesterUid = '', requestId = '') {
@@ -1243,6 +1509,25 @@ function isFederationLeadPurchasePaid(request = {}) {
     );
 }
 
+function isFederationSelfPurchase(requesterUid = '', ownerUid = '') {
+    const cleanRequesterUid = sanitizeText(requesterUid);
+    const cleanOwnerUid = sanitizeText(ownerUid);
+
+    return Boolean(
+        cleanRequesterUid &&
+        cleanOwnerUid &&
+        cleanRequesterUid === cleanOwnerUid
+    );
+}
+
+function isFederationSelfPurchaseRequest(request = {}, requesterUid = '') {
+    return isFederationSelfPurchase(
+        requesterUid ||
+        request.requesterUid,
+        request.ownerUid
+    );
+}
+
 function mapUnlockedFederationLeadDetails(lead = {}, context = {}) {
     const pricingAmount = Math.max(0, Number(context.pricingAmount || lead.buyerPriceAmount || 0));
     const operatorPayoutAmount = Math.max(0, Number(context.operatorPayoutAmount || lead.sellerPriceAmount || 0));
@@ -1282,7 +1567,11 @@ function mapUnlockedFederationLeadDetails(lead = {}, context = {}) {
         platformCommissionAmount,
         currency,
 
-        unlockedAt: mapFederationConnectTimestamp(Timestamp.now())
+        unlockedAt:
+            mapFederationConnectTimestamp(
+                context.unlockedAt ||
+                Timestamp.now()
+            )
     };
 }
 
@@ -1290,86 +1579,343 @@ async function ensureFederationLeadAccessGrant({
     requestId = '',
     requesterUid = '',
     request = {},
-    leadSnap = null,
+    lead = null,
     paymentRecordId = ''
 } = {}) {
-    const cleanRequestId = sanitizeText(requestId);
-    const cleanRequesterUid = sanitizeText(requesterUid);
-    const ownerUid = sanitizeText(request.ownerUid);
-    const leadId = sanitizeText(request.leadId);
+    const cleanRequestId =
+        sanitizeText(requestId);
 
-    if (!cleanRequestId || !cleanRequesterUid || !ownerUid || !leadId || !leadSnap?.exists) {
+    const cleanRequesterUid =
+        sanitizeText(requesterUid);
+
+    const ownerUid =
+        sanitizeText(request.ownerUid);
+
+    const leadId =
+        sanitizeText(request.leadId);
+
+    if (
+        !cleanRequestId ||
+        !cleanRequesterUid ||
+        !ownerUid ||
+        !leadId ||
+        !lead ||
+        typeof lead !== 'object'
+    ) {
         return null;
     }
 
-    const grantId = buildFederationLeadAccessGrantId(cleanRequesterUid, cleanRequestId);
-    const now = Timestamp.now();
+    const grantId =
+        buildFederationLeadAccessGrantId(
+            cleanRequesterUid,
+            cleanRequestId
+        );
+
+    const now =
+        Timestamp.now();
+
+    const nowIso =
+        new Date().toISOString();
+
+    const leadPath =
+        `users/${ownerUid}` +
+        `/academyLeadMissions/${leadId}`;
 
     const grantPayload = {
-        requestId: cleanRequestId,
-        requesterUid: cleanRequesterUid,
-        requesterEmail: sanitizeText(request.requesterEmail).toLowerCase(),
-        requesterName: sanitizeText(request.requesterName || 'Federation Member'),
+        requestId:
+            cleanRequestId,
+
+        requesterUid:
+            cleanRequesterUid,
+
+        requesterEmail:
+            sanitizeText(
+                request.requesterEmail
+            ).toLowerCase(),
+
+        requesterName:
+            sanitizeText(
+                request.requesterName ||
+                'Federation Member'
+            ),
 
         ownerUid,
         leadId,
-        leadPath: sanitizeText(leadSnap.ref.path),
+        leadPath,
 
-        sourceDivision: 'federation',
-        sourceFeature: 'lead_purchase',
-        accessStatus: 'unlocked',
-        paymentStatus: 'paid',
-        paymentRecordId: sanitizeText(paymentRecordId || request.paymentLedgerId || ''),
-        federationRequestId: cleanRequestId,
+        sourceDivision:
+            'federation',
 
-        pricingAmount: Math.max(0, Number(request.pricingAmount || 0)),
-        currency: sanitizeText(request.currency || 'USD').toUpperCase() || 'USD',
-        platformCommissionAmount: Math.max(0, Number(request.platformCommissionAmount || 0)),
-        operatorPayoutAmount: Math.max(0, Number(request.operatorPayoutAmount || 0)),
+        sourceFeature:
+            'lead_purchase',
 
-        unlockedAt: now,
-        updatedAt: now,
-        createdAt: now
+        accessStatus:
+            'unlocked',
+
+        paymentStatus:
+            'paid',
+
+        paymentRecordId:
+            sanitizeText(
+                paymentRecordId ||
+                request.paymentLedgerId ||
+                ''
+            ),
+
+        federationRequestId:
+            cleanRequestId,
+
+        pricingAmount:
+            Math.max(
+                0,
+                Number(
+                    request.pricingAmount ||
+                    0
+                )
+            ),
+
+        currency:
+            sanitizeText(
+                request.currency ||
+                'USD'
+            ).toUpperCase() ||
+            'USD',
+
+        platformCommissionAmount:
+            Math.max(
+                0,
+                Number(
+                    request.platformCommissionAmount ||
+                    0
+                )
+            ),
+
+        operatorPayoutAmount:
+            Math.max(
+                0,
+                Number(
+                    request.operatorPayoutAmount ||
+                    0
+                )
+            ),
+
+        unlockedAt:
+            now,
+
+        updatedAt:
+            now,
+
+        createdAt:
+            now
     };
 
-    const grantRef = firestore.collection('federationLeadAccessGrants').doc(grantId);
-    const existingGrant = await grantRef.get();
+    const grantRef =
+        firestore
+            .collection(
+                'federationLeadAccessGrants'
+            )
+            .doc(grantId);
 
-    await grantRef.set({
-        ...grantPayload,
-        ...(existingGrant.exists ? { createdAt: existingGrant.data()?.createdAt || now } : {})
-    }, { merge: true });
+    const existingGrant =
+        await grantRef.get();
 
-    await firestore.collection('federationConnectionRequests').doc(cleanRequestId).set({
-        leadAccessGrantId: grantId,
-        leadAccessStatus: 'unlocked',
-        leadUnlockedAt: now,
-        updatedAt: now
-    }, { merge: true });
+    const existingGrantData =
+        existingGrant.exists
+            ? (
+                existingGrant.data() ||
+                {}
+            )
+            : {};
 
-    await leadSnap.ref.set({
-        saleStatus: 'listed',
-        federationListingStatus: 'listed',
-        listingAvailability: 'lifetime',
-        unlimitedPurchases: true,
-        lastPurchasedAt: now,
-        updatedAt: now,
-        ...(!existingGrant.exists ? { purchaseCount: FieldValue.increment(1) } : {})
-    }, { merge: true });
+    const firstUnlockedAt =
+        existingGrantData.unlockedAt ||
+        request.leadUnlockedAt ||
+        now;
 
-    const nextSnap = await grantRef.get();
-    const grant = nextSnap.data() || {};
+    const firstCreatedAt =
+        existingGrantData.createdAt ||
+        now;
+
+    await grantRef.set(
+        {
+            ...grantPayload,
+
+            /*
+             * Access creation timestamps are immutable.
+             * Re-reading an already-unlocked lead must
+             * not look like a new unlock.
+             */
+            unlockedAt:
+                firstUnlockedAt,
+
+            createdAt:
+                firstCreatedAt,
+
+            updatedAt:
+                now
+        },
+        {
+            merge: true
+        }
+    );
+
+    await firestore
+        .collection(
+            'federationConnectionRequests'
+        )
+        .doc(cleanRequestId)
+        .set(
+            {
+                leadAccessGrantId:
+                    grantId,
+
+                leadAccessStatus:
+                    'unlocked',
+
+                leadUnlockedAt:
+                    firstUnlockedAt,
+
+                updatedAt:
+                    now
+            },
+            {
+                merge: true
+            }
+        );
+
+    /*
+     * Supabase Academy core is authoritative.
+     * Increment only for a newly-created access grant,
+     * making repeated unlock calls idempotent.
+     */
+    if (!existingGrant.exists) {
+        await academyFirestoreRepo
+            .markLeadMissionPurchasedV1(
+                ownerUid,
+                leadId,
+                {
+                    purchasedAt:
+                        nowIso,
+
+                    incrementPurchaseCount:
+                        true
+                }
+            );
+    }
+
+    /*
+     * Firestore is now compatibility-only for older
+     * readers. Never require this mirror to exist.
+     */
+    try {
+        const legacyLeadRef =
+            firestore
+                .collection('users')
+                .doc(ownerUid)
+                .collection(
+                    'academyLeadMissions'
+                )
+                .doc(leadId);
+
+        const legacyLeadSnap =
+            await legacyLeadRef.get();
+
+        if (legacyLeadSnap.exists) {
+            await legacyLeadRef.set(
+                {
+                    saleStatus:
+                        'listed',
+
+                    federationListingStatus:
+                        'listed',
+
+                    listingAvailability:
+                        'lifetime',
+
+                    unlimitedPurchases:
+                        true,
+
+                    lastPurchasedAt:
+                        now,
+
+                    updatedAt:
+                        now,
+
+                    ...(
+                        !existingGrant.exists
+                            ? {
+                                purchaseCount:
+                                    FieldValue
+                                        .increment(1)
+                            }
+                            : {}
+                    )
+                },
+                {
+                    merge: true
+                }
+            );
+        }
+    } catch (error) {
+        console.warn(
+            'Federation lead Firestore purchase mirror skipped:',
+            error?.message ||
+            error
+        );
+    }
+
+    const nextSnap =
+        await grantRef.get();
+
+    const grant =
+        nextSnap.data() ||
+        {};
 
     return {
-        id: grantId,
-        requestId: sanitizeText(grant.requestId),
-        ownerUid: sanitizeText(grant.ownerUid),
-        leadId: sanitizeText(grant.leadId),
-        requesterUid: sanitizeText(grant.requesterUid),
-        accessStatus: sanitizeText(grant.accessStatus || 'unlocked'),
-        paymentStatus: sanitizeText(grant.paymentStatus || 'paid'),
-        unlockedAt: mapFederationConnectTimestamp(grant.unlockedAt),
-        updatedAt: mapFederationConnectTimestamp(grant.updatedAt)
+        id:
+            grantId,
+
+        requestId:
+            sanitizeText(
+                grant.requestId
+            ),
+
+        ownerUid:
+            sanitizeText(
+                grant.ownerUid
+            ),
+
+        leadId:
+            sanitizeText(
+                grant.leadId
+            ),
+
+        requesterUid:
+            sanitizeText(
+                grant.requesterUid
+            ),
+
+        accessStatus:
+            sanitizeText(
+                grant.accessStatus ||
+                'unlocked'
+            ),
+
+        paymentStatus:
+            sanitizeText(
+                grant.paymentStatus ||
+                'paid'
+            ),
+
+        unlockedAt:
+            mapFederationConnectTimestamp(
+                grant.unlockedAt
+            ),
+
+        updatedAt:
+            mapFederationConnectTimestamp(
+                grant.updatedAt
+            )
     };
 }
 
@@ -2150,16 +2696,43 @@ async function syncStripePaidFederationRequestToAcademyEconomy(
 function parseCookieHeader(raw = '') {
     const out = {};
 
-    String(raw || '').split(';').forEach((part) => {
-        const idx = part.indexOf('=');
-        if (idx === -1) return;
+    String(raw || '')
+        .split(';')
+        .forEach((part) => {
+            const idx =
+                part.indexOf('=');
 
-        const key = part.slice(0, idx).trim();
-        const value = part.slice(idx + 1).trim();
+            if (idx === -1) {
+                return;
+            }
 
-        if (!key) return;
-        out[key] = decodeURIComponent(value);
-    });
+            const key =
+                part
+                    .slice(0, idx)
+                    .trim();
+
+            const value =
+                part
+                    .slice(idx + 1)
+                    .trim();
+
+            if (!key) {
+                return;
+            }
+
+            try {
+                out[key] =
+                    decodeURIComponent(
+                        value
+                    );
+            } catch (_) {
+                /*
+                 * Malformed %-encoding must not
+                 * crash a Socket.IO handshake.
+                 */
+                out[key] = value;
+            }
+        });
 
     return out;
 }
@@ -5848,6 +6421,27 @@ app.use(cors({
         true
 }));
 
+/*
+ * Convert deliberate CORS denials into a clean
+ * client response instead of exposing an Express
+ * development stack trace.
+ */
+app.use((error, req, res, next) => {
+    if (
+        error &&
+        error.message ===
+            'Not allowed by CORS'
+    ) {
+        return res.status(403).json({
+            success: false,
+            code: 'cors_origin_denied',
+            message:
+                'This request origin is not allowed.'
+        });
+    }
+
+    return next(error);
+});
 
 /* PATCH: Server Admin Broadcast Supabase helpers */
 async function createServerAdminBroadcastWithSupabaseSync(payload = {}) {
@@ -5876,6 +6470,325 @@ async function createServerAdminBroadcastWithSupabaseSync(payload = {}) {
   return ref;
 }
 /* END PATCH: Server Admin Broadcast Supabase helpers */
+
+function stripeUnixSecondsToIso(value) {
+    const seconds = Number(value);
+
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+        return '';
+    }
+
+    return new Date(seconds * 1000).toISOString();
+}
+
+function getStripeExpandableId(value) {
+    if (!value) return '';
+
+    if (typeof value === 'string') {
+        return sanitizeText(value);
+    }
+
+    if (typeof value === 'object') {
+        return sanitizeText(value.id || '');
+    }
+
+    return '';
+}
+
+async function resolveStripeInvoiceSubscriptionContext(invoice = {}) {
+    const parentSubscriptionDetails =
+        invoice.parent?.subscription_details &&
+        typeof invoice.parent.subscription_details === 'object'
+            ? invoice.parent.subscription_details
+            : invoice.subscription_details &&
+              typeof invoice.subscription_details === 'object'
+                ? invoice.subscription_details
+                : {};
+
+    let subscription =
+        invoice.subscription &&
+        typeof invoice.subscription === 'object'
+            ? invoice.subscription
+            : null;
+
+    let subscriptionId = getStripeExpandableId(
+        parentSubscriptionDetails.subscription ||
+        invoice.subscription
+    );
+
+    let metadata =
+        parentSubscriptionDetails.metadata &&
+        typeof parentSubscriptionDetails.metadata === 'object'
+            ? parentSubscriptionDetails.metadata
+            : subscription?.metadata &&
+              typeof subscription.metadata === 'object'
+                ? subscription.metadata
+                : {};
+
+    if (
+        subscriptionId &&
+        (
+            !subscription ||
+            !sanitizeText(metadata.kind) ||
+            !sanitizeText(metadata.paymentLedgerId)
+        )
+    ) {
+        try {
+            const fetchedSubscription =
+                await getStripeClient()
+                    .subscriptions
+                    .retrieve(subscriptionId);
+
+            if (
+                fetchedSubscription &&
+                typeof fetchedSubscription === 'object'
+            ) {
+                subscription = fetchedSubscription;
+
+                if (
+                    !sanitizeText(metadata.kind) ||
+                    !sanitizeText(metadata.paymentLedgerId)
+                ) {
+                    metadata =
+                        fetchedSubscription.metadata &&
+                        typeof fetchedSubscription.metadata === 'object'
+                            ? fetchedSubscription.metadata
+                            : metadata;
+                }
+            }
+        } catch (error) {
+            console.warn(
+                'Stripe invoice subscription lookup skipped:',
+                error?.message || error
+            );
+        }
+    }
+
+    subscriptionId =
+        subscriptionId ||
+        getStripeExpandableId(subscription);
+
+    return {
+        subscription,
+        subscriptionId,
+        metadata,
+        customerId:
+            getStripeExpandableId(
+                subscription?.customer ||
+                invoice.customer
+            ),
+        expiresAt:
+            stripeUnixSecondsToIso(
+                subscription?.current_period_end ||
+                parentSubscriptionDetails.current_period_end ||
+                invoice.period_end
+            )
+    };
+}
+
+function mapStripeSubscriptionEntitlementStatus(subscription = {}) {
+    const status =
+        sanitizeText(
+            subscription.status || ''
+        ).toLowerCase();
+
+    if (
+        status === 'active' ||
+        status === 'trialing'
+    ) {
+        return 'paid';
+    }
+
+    if (
+        status === 'past_due' ||
+        status === 'unpaid' ||
+        status === 'incomplete' ||
+        status === 'paused'
+    ) {
+        return 'failed';
+    }
+
+    if (status === 'incomplete_expired') {
+        return 'expired';
+    }
+
+    if (
+        status === 'canceled' ||
+        status === 'cancelled'
+    ) {
+        return 'cancelled';
+    }
+
+    return '';
+}
+
+async function syncStripeRecurringEntitlementFromMetadata({
+    metadata = {},
+    entitlementStatus = '',
+    subscriptionId = '',
+    providerPaymentId = '',
+    providerStatus = '',
+    expiresAt = '',
+    invoiceId = '',
+    customerId = '',
+    eventType = ''
+} = {}) {
+    const kind =
+        sanitizeText(
+            metadata.kind || ''
+        ).toLowerCase();
+
+    const paymentLedgerId =
+        sanitizeText(
+            metadata.paymentLedgerId || ''
+        );
+
+    const cleanEntitlementStatus =
+        sanitizeText(
+            entitlementStatus || ''
+        ).toLowerCase();
+
+    if (
+        !paymentLedgerId ||
+        !cleanEntitlementStatus ||
+        (
+            kind !== 'verified_badge' &&
+            kind !== 'academy_learn_from_access'
+        )
+    ) {
+        return false;
+    }
+
+    const context = {
+        provider:
+            'stripe',
+
+        providerPaymentId:
+            sanitizeText(
+                providerPaymentId ||
+                subscriptionId ||
+                invoiceId
+            ),
+
+        providerSubscriptionId:
+            sanitizeText(
+                subscriptionId
+            ),
+
+        providerStatus:
+            sanitizeText(
+                providerStatus ||
+                cleanEntitlementStatus
+            ),
+
+        paymentMethod:
+            'card_bank_wallet',
+
+        paymentLedgerId,
+
+        userId:
+            sanitizeText(
+                metadata.userId
+            ),
+
+        userEmail:
+            sanitizeText(
+                metadata.userEmail
+            ),
+
+        verifiedBy:
+            'stripe-webhook',
+
+        expiresAt:
+            sanitizeText(
+                expiresAt
+            ),
+
+        metadata: {
+            stripeSubscriptionId:
+                sanitizeText(
+                    subscriptionId
+                ),
+
+            stripeInvoiceId:
+                sanitizeText(
+                    invoiceId
+                ),
+
+            stripeCustomerId:
+                sanitizeText(
+                    customerId
+                ),
+
+            stripeEventType:
+                sanitizeText(
+                    eventType
+                ),
+
+            stripeLifecycleStatus:
+                cleanEntitlementStatus
+        }
+    };
+
+    if (kind === 'verified_badge') {
+        const payment =
+            await resolveYHVerifiedBadgePaymentFromWebhook(
+                paymentLedgerId,
+                ''
+            );
+
+        if (!payment) {
+            return false;
+        }
+
+        await syncYHVerifiedBadgePaymentStatus(
+            payment,
+            cleanEntitlementStatus,
+            {
+                ...context,
+
+                badgeDivision:
+                    sanitizeText(
+                        metadata.badgeDivision
+                    ),
+
+                billingPlan:
+                    sanitizeText(
+                        metadata.billingPlan ||
+                        'monthly'
+                    )
+            }
+        );
+
+        return true;
+    }
+
+    const payment =
+        await resolveYHLearnFromPaymentFromWebhook(
+            paymentLedgerId,
+            ''
+        );
+
+    if (!payment) {
+        return false;
+    }
+
+    await syncYHLearnFromAccessPaymentStatus(
+        payment,
+        cleanEntitlementStatus,
+        {
+            ...context,
+
+            accessType:
+                sanitizeText(
+                    metadata.accessType ||
+                    'monthly'
+                )
+        }
+    );
+
+    return true;
+}
 
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     let event = null;
@@ -6105,50 +7018,374 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
             }
         }
 
+        if (
+            event.type === 'invoice.paid' ||
+            event.type === 'invoice.payment_failed'
+        ) {
+            const invoice =
+                event.data?.object || {};
+
+            const subscriptionContext =
+                await resolveStripeInvoiceSubscriptionContext(
+                    invoice
+                );
+
+            const lifecycleStatus =
+                event.type === 'invoice.paid'
+                    ? 'paid'
+                    : 'failed';
+
+            await syncStripeRecurringEntitlementFromMetadata({
+                metadata:
+                    subscriptionContext.metadata,
+
+                entitlementStatus:
+                    lifecycleStatus,
+
+                subscriptionId:
+                    subscriptionContext.subscriptionId,
+
+                providerPaymentId:
+                    subscriptionContext.subscriptionId ||
+                    sanitizeText(invoice.id),
+
+                providerStatus:
+                    event.type === 'invoice.paid'
+                        ? 'invoice_paid'
+                        : 'invoice_payment_failed',
+
+                expiresAt:
+                    subscriptionContext.expiresAt,
+
+                invoiceId:
+                    sanitizeText(
+                        invoice.id
+                    ),
+
+                customerId:
+                    subscriptionContext.customerId,
+
+                eventType:
+                    event.type
+            });
+        }
+
+        if (
+            event.type === 'customer.subscription.updated' ||
+            event.type === 'customer.subscription.deleted'
+        ) {
+            const subscription =
+                event.data?.object || {};
+
+            const metadata =
+                subscription.metadata &&
+                typeof subscription.metadata === 'object'
+                    ? subscription.metadata
+                    : {};
+
+            const lifecycleStatus =
+                event.type === 'customer.subscription.deleted'
+                    ? 'cancelled'
+                    : mapStripeSubscriptionEntitlementStatus(
+                        subscription
+                    );
+
+            if (lifecycleStatus) {
+                await syncStripeRecurringEntitlementFromMetadata({
+                    metadata,
+
+                    entitlementStatus:
+                        lifecycleStatus,
+
+                    subscriptionId:
+                        sanitizeText(
+                            subscription.id
+                        ),
+
+                    providerPaymentId:
+                        getStripeExpandableId(
+                            subscription.latest_invoice
+                        ) ||
+                        sanitizeText(
+                            subscription.id
+                        ),
+
+                    providerStatus:
+                        event.type ===
+                        'customer.subscription.deleted'
+                            ? 'subscription_deleted'
+                            : `subscription_${sanitizeText(
+                                subscription.status ||
+                                lifecycleStatus
+                            ).toLowerCase()}`,
+
+                    expiresAt:
+                        stripeUnixSecondsToIso(
+                            subscription.current_period_end
+                        ),
+
+                    customerId:
+                        getStripeExpandableId(
+                            subscription.customer
+                        ),
+
+                    eventType:
+                        event.type
+                });
+            }
+        }
+
         if (event.type === 'checkout.session.expired') {
             const session = event.data?.object || {};
             const metadata = session.metadata || {};
 
             if (metadata.kind === 'verified_badge') {
-                const paymentLedgerId = sanitizeText(metadata.paymentLedgerId || session.client_reference_id);
+                const paymentLedgerId = sanitizeText(
+                    metadata.paymentLedgerId ||
+                    session.client_reference_id
+                );
 
                 if (paymentLedgerId) {
-                    const payment = await resolveYHVerifiedBadgePaymentFromWebhook(paymentLedgerId, '');
-
-                    if (payment && sanitizeText(payment.status).toLowerCase() !== 'paid') {
-                        await syncYHVerifiedBadgePaymentStatus(payment, 'expired', {
-                            provider: 'stripe',
-                            providerPaymentId: sanitizeText(session.id),
-                            providerStatus: 'checkout_expired',
-                            paymentMethod: 'card_bank_wallet',
+                    const payment =
+                        await resolveYHVerifiedBadgePaymentFromWebhook(
                             paymentLedgerId,
-                            badgeDivision: sanitizeText(metadata.badgeDivision),
-                            userId: sanitizeText(metadata.userId),
-                            metadata: {
-                                stripeCheckoutSessionId: sanitizeText(session.id)
+                            ''
+                        );
+
+                    if (
+                        payment &&
+                        sanitizeText(
+                            payment.status
+                        ).toLowerCase() !== 'paid'
+                    ) {
+                        await syncYHVerifiedBadgePaymentStatus(
+                            payment,
+                            'expired',
+                            {
+                                provider: 'stripe',
+                                providerPaymentId: sanitizeText(session.id),
+                                providerStatus: 'checkout_expired',
+                                paymentMethod: 'card_bank_wallet',
+                                paymentLedgerId,
+                                badgeDivision: sanitizeText(metadata.badgeDivision),
+                                billingPlan: sanitizeText(metadata.billingPlan || 'monthly'),
+                                userId: sanitizeText(metadata.userId),
+                                userEmail: sanitizeText(metadata.userEmail),
+                                metadata: {
+                                    stripeCheckoutSessionId:
+                                        sanitizeText(session.id),
+
+                                    stripeEventType:
+                                        event.type
+                                }
                             }
-                        });
+                        );
                     }
                 }
             }
 
-            if (metadata.kind === 'federation_paid_intro') {
-                const requestId = sanitizeText(metadata.requestId || session.client_reference_id);
+            if (metadata.kind === 'academy_learn_from_access') {
+                const paymentLedgerId = sanitizeText(
+                    metadata.paymentLedgerId ||
+                    session.client_reference_id
+                );
+
+                if (paymentLedgerId) {
+                    const payment =
+                        await resolveYHLearnFromPaymentFromWebhook(
+                            paymentLedgerId,
+                            ''
+                        );
+
+                    if (
+                        payment &&
+                        sanitizeText(
+                            payment.status
+                        ).toLowerCase() !== 'paid'
+                    ) {
+                        await syncYHLearnFromAccessPaymentStatus(
+                            payment,
+                            'expired',
+                            {
+                                provider: 'stripe',
+                                providerPaymentId: sanitizeText(session.id),
+                                providerStatus: 'checkout_expired',
+                                paymentMethod: 'card_bank_wallet',
+                                paymentLedgerId,
+                                accessType: sanitizeText(
+                                    metadata.accessType ||
+                                    'monthly'
+                                ),
+                                userId: sanitizeText(metadata.userId),
+                                userEmail: sanitizeText(metadata.userEmail),
+                                metadata: {
+                                    stripeCheckoutSessionId:
+                                        sanitizeText(session.id),
+
+                                    stripeEventType:
+                                        event.type
+                                }
+                            }
+                        );
+                    }
+                }
+            }
+
+            if (
+                metadata.kind === 'federation_paid_intro' ||
+                metadata.kind === 'federation_lead_purchase'
+            ) {
+                const requestId = sanitizeText(
+                    metadata.requestId ||
+                    session.client_reference_id
+                );
 
                 if (requestId) {
-                    const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
-                    const requestSnap = await requestRef.get();
+                    const requestRef =
+                        firestore
+                            .collection(
+                                'federationConnectionRequests'
+                            )
+                            .doc(requestId);
+
+                    const requestSnap =
+                        await requestRef.get();
 
                     if (requestSnap.exists) {
-                        const current = requestSnap.data() || {};
-                        const currentPaymentStatus = sanitizeText(current.paymentStatus || 'not_started').toLowerCase();
+                        const current =
+                            requestSnap.data() || {};
+
+                        const currentPaymentStatus =
+                            sanitizeText(
+                                current.paymentStatus ||
+                                'not_started'
+                            ).toLowerCase();
 
                         if (currentPaymentStatus !== 'paid') {
-                            await requestRef.set({
-                                paymentStatus: 'checkout_expired',
-                                stripeCheckoutExpiredAt: Timestamp.now(),
-                                updatedAt: Timestamp.now()
-                            }, { merge: true });
+                            const paymentLedgerId =
+                                sanitizeText(
+                                    metadata.paymentLedgerId ||
+                                    current.paymentLedgerId
+                                );
+
+                            let ledgerIsPaid = false;
+                            let paymentLedgerStatus = 'expired';
+
+                            if (paymentLedgerId) {
+                                try {
+                                    const existingPayment =
+                                        await paymentLedgerRepo
+                                            .getPaymentRecordById(
+                                                paymentLedgerId
+                                            );
+
+                                    ledgerIsPaid =
+                                        sanitizeText(
+                                            existingPayment.status
+                                        ).toLowerCase() === 'paid';
+
+                                    if (!ledgerIsPaid) {
+                                        const updatedPayment =
+                                            await paymentLedgerRepo
+                                                .updatePaymentRecordStatus(
+                                                    paymentLedgerId,
+                                                    {
+                                                        status:
+                                                            'expired',
+
+                                                        provider:
+                                                            'stripe',
+
+                                                        providerStatus:
+                                                            'checkout_expired',
+
+                                                        paymentMethod:
+                                                            'card_bank_wallet',
+
+                                                        metadata: {
+                                                            stripeCheckoutSessionId:
+                                                                sanitizeText(
+                                                                    session.id
+                                                                ),
+
+                                                            stripeEventType:
+                                                                event.type,
+
+                                                            requestId,
+
+                                                            ownerUid:
+                                                                sanitizeText(
+                                                                    current.ownerUid ||
+                                                                    metadata.ownerUid
+                                                                ),
+
+                                                            leadId:
+                                                                sanitizeText(
+                                                                    current.leadId ||
+                                                                    metadata.leadId
+                                                                )
+                                                        }
+                                                    }
+                                                );
+
+                                        paymentLedgerStatus =
+                                            sanitizeText(
+                                                updatedPayment.status ||
+                                                'expired'
+                                            ).toLowerCase() ||
+                                            'expired';
+                                    } else {
+                                        paymentLedgerStatus =
+                                            'paid';
+                                    }
+                                } catch (error) {
+                                    console.warn(
+                                        'Federation Stripe expired ledger sync skipped:',
+                                        error?.message || error
+                                    );
+                                }
+                            }
+
+                            if (!ledgerIsPaid) {
+                                const now =
+                                    Timestamp.now();
+
+                                const expiryPatch = {
+                                    paymentStatus:
+                                        'checkout_expired',
+
+                                    paymentLedgerStatus,
+
+                                    stripeCheckoutExpiredAt:
+                                        now,
+
+                                    paymentUpdatedAt:
+                                        now,
+
+                                    updatedAt:
+                                        now
+                                };
+
+                                await requestRef.set(
+                                    expiryPatch,
+                                    {
+                                        merge: true
+                                    }
+                                );
+
+                                await syncFederationConnectionRequestToSupabaseRecord(
+                                    requestId,
+                                    {
+                                        id: requestId,
+                                        ...current,
+                                        ...expiryPatch
+                                    },
+                                    {
+                                        source:
+                                            'stripe-webhook:checkout-session-expired'
+                                    }
+                                );
+                            }
                         }
                     }
                 }
@@ -8120,6 +9357,50 @@ async function getFederationUserState(req) {
     };
 }
 
+async function requireFederationApiAccess(req, res, next) {
+    try {
+        const fedState =
+            await getFederationUserState(req);
+
+        if (fedState.approved === true) {
+            req.federationState = fedState;
+            return next();
+        }
+
+        const applicationStatus =
+            sanitizeText(
+                fedState.user?.federationMembershipStatus ||
+                fedState.user?.federationApplicationStatus ||
+                fedState.application?.status ||
+                ''
+            );
+
+        return res.status(403).json({
+            success: false,
+            message:
+                'Federation access requires admin approval.',
+            federationAccessRequired: true,
+            applicationStatus,
+            hasApplication:
+                Boolean(
+                    fedState.application ||
+                    applicationStatus
+                )
+        });
+    } catch (error) {
+        console.error(
+            'requireFederationApiAccess error:',
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message:
+                'Failed to verify Federation access.'
+        });
+    }
+}
+
 function mapFederationRequestDoc(docSnap) {
     const data = docSnap.data() || {};
 
@@ -8315,7 +9596,7 @@ app.get('/api/federation/me', requireApiUser, async (req, res) => {
     }
 });
 
-app.get('/api/federation/directory', requireApiUser, async (req, res) => {
+app.get('/api/federation/directory', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
         const snap = await firestore
             .collection('users')
@@ -8620,7 +9901,7 @@ async function listFederationMergedDealRoomsForUser(userId = '', limit = 100) {
     return rooms.slice(0, limit);
 }
 
-app.get('/api/federation/command', requireApiUser, async (req, res) => {
+app.get('/api/federation/command', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
         const fedState = await getFederationUserState(req);
 
@@ -8685,7 +9966,7 @@ app.get('/api/federation/command', requireApiUser, async (req, res) => {
     }
 });
 
-app.get('/api/federation/deal-rooms', requireApiUser, async (req, res) => {
+app.get('/api/federation/deal-rooms', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
         const fedState = await getFederationUserState(req);
 
@@ -8714,7 +9995,7 @@ app.get('/api/federation/deal-rooms', requireApiUser, async (req, res) => {
     }
 });
 
-app.get('/api/federation/requests', requireApiUser, async (req, res) => {
+app.get('/api/federation/requests', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
         const requesterUid = sanitizeText(req.user?.id);
 
@@ -8752,7 +10033,7 @@ app.get('/api/federation/requests', requireApiUser, async (req, res) => {
     }
 });
 
-app.get('/api/federation/connect/my-requests', requireApiUser, async (req, res) => {
+app.get('/api/federation/connect/my-requests', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
         const requesterUid = sanitizeText(req.user?.id);
 
@@ -8783,7 +10064,7 @@ app.get('/api/federation/connect/my-requests', requireApiUser, async (req, res) 
 /* END PATCH: Federation Supabase read overrides batch 1 */
 
 
-app.get('/api/federation/referrals', requireApiUser, async (req, res) => {
+app.get('/api/federation/referrals', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
         const fedState = await getFederationUserState(req);
 
@@ -8810,7 +10091,7 @@ app.get('/api/federation/referrals', requireApiUser, async (req, res) => {
 });
 
 
-app.post('/api/federation/deal-rooms', requireApiUser, async (req, res) => {
+app.post('/api/federation/deal-rooms', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
         const fedState = await getFederationUserState(req);
 
@@ -8839,11 +10120,33 @@ app.post('/api/federation/deal-rooms', requireApiUser, async (req, res) => {
             });
         }
 
-        const expectedValueAmount = Math.max(0, Number(body.expectedValueAmount || 0));
-        const platformCommissionRate = Math.max(0, Math.min(100, Number(body.platformCommissionRate || 20)));
-        const platformCommissionAmount = expectedValueAmount > 0
-            ? Math.round((expectedValueAmount * platformCommissionRate) / 100)
-            : 0;
+        const expectedValueAmount =
+            Math.max(
+                0,
+                Number(
+                    body.expectedValueAmount ||
+                    0
+                )
+            );
+
+        /*
+        * Federation Deal Room commission is a
+        * server-owned economic rule.
+        *
+        * Never accept platform commission from
+        * the member-controlled request body.
+        */
+        const platformCommissionRate = 20;
+
+        const platformCommissionAmount =
+            expectedValueAmount > 0
+                ? Math.round(
+                    (
+                        expectedValueAmount *
+                        platformCommissionRate
+                    ) / 100
+                )
+                : 0;
 
         const now = Timestamp.now();
 
@@ -8903,7 +10206,7 @@ app.post('/api/federation/deal-rooms', requireApiUser, async (req, res) => {
 });
 
 
-app.get('/api/federation/connect/opportunities', requireApiUser, async (req, res) => {
+app.get('/api/federation/connect/opportunities', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
         const opportunities = await listSupabaseFederationConnectOpportunities(80);
 
@@ -8941,7 +10244,7 @@ app.get('/api/federation/connect/opportunities', requireApiUser, async (req, res
     }
 });
 
-app.get('/api/federation/connect/requests/:requestId/unlocked-lead', requireApiUser, async (req, res) => {
+app.get('/api/federation/connect/requests/:requestId/unlocked-lead', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
         const requestId = sanitizeText(req.params.requestId);
         const requesterUid = sanitizeText(req.user?.id);
@@ -8972,6 +10275,19 @@ app.get('/api/federation/connect/requests/:requestId/unlocked-lead', requireApiU
             });
         }
 
+        if (
+            isFederationSelfPurchaseRequest(
+                request,
+                requesterUid
+            )
+        ) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    'You cannot unlock a Federation lead that you own.'
+            });
+        }
+
         if (!isFederationLeadPurchasePaid(request)) {
             return res.status(402).json({
                 success: false,
@@ -8989,37 +10305,43 @@ app.get('/api/federation/connect/requests/:requestId/unlocked-lead', requireApiU
             });
         }
 
-        const leadRef = firestore
-            .collection('users')
-            .doc(ownerUid)
-            .collection('academyLeadMissions')
-            .doc(leadId);
+        const lead =
+            await academyFirestoreRepo
+                .getLeadMissionLeadById(
+                    ownerUid,
+                    leadId
+                );
 
-        const leadSnap = await leadRef.get();
-
-        if (!leadSnap.exists) {
+        if (!lead) {
             return res.status(404).json({
                 success: false,
-                message: 'The purchased lead no longer exists.'
+                message:
+                    'The purchased lead no longer exists.'
             });
         }
-
-        const lead = leadSnap.data() || {};
 
         if (lead.federationReady !== true) {
             return res.status(403).json({
                 success: false,
-                message: 'This lead is no longer Federation-ready.'
+                message:
+                    'This lead is no longer Federation-ready.'
             });
         }
 
-        const grant = await ensureFederationLeadAccessGrant({
-            requestId,
-            requesterUid,
-            request,
-            leadSnap,
-            paymentRecordId: sanitizeText(request.paymentLedgerId || request.stripeCheckoutSessionId || '')
-        });
+        const grant =
+            await ensureFederationLeadAccessGrant({
+                requestId,
+                requesterUid,
+                request,
+                lead,
+
+                paymentRecordId:
+                    sanitizeText(
+                        request.paymentLedgerId ||
+                        request.stripeCheckoutSessionId ||
+                        ''
+                    )
+            });
 
         const unlockedLead = mapUnlockedFederationLeadDetails(lead, {
             requestId,
@@ -9028,7 +10350,15 @@ app.get('/api/federation/connect/requests/:requestId/unlocked-lead', requireApiU
             pricingAmount: request.pricingAmount,
             operatorPayoutAmount: request.operatorPayoutAmount,
             platformCommissionAmount: request.platformCommissionAmount,
-            currency: request.currency
+            currency: request.currency,
+
+            /*
+             * Surface the original access timestamp,
+             * not the time of this read request.
+             */
+            unlockedAt:
+                grant?.unlockedAt ||
+                request.leadUnlockedAt
         });
 
         return res.json({
@@ -9046,7 +10376,7 @@ app.get('/api/federation/connect/requests/:requestId/unlocked-lead', requireApiU
     }
 });
 
-app.post('/api/federation/connect/requests/:requestId/payment-provider', requireApiUser, async (req, res) => {
+app.post('/api/federation/connect/requests/:requestId/payment-provider', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
         const requestId = sanitizeText(req.params.requestId);
         const requesterUid = sanitizeText(req.user?.id);
@@ -9082,6 +10412,19 @@ app.post('/api/federation/connect/requests/:requestId/payment-provider', require
             return res.status(403).json({
                 success: false,
                 message: 'You can only choose a payment provider for your own request.'
+            });
+        }
+
+        if (
+            isFederationSelfPurchaseRequest(
+                request,
+                requesterUid
+            )
+        ) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    'You cannot purchase your own Federation lead.'
             });
         }
 
@@ -9184,7 +10527,7 @@ app.post('/api/federation/connect/requests/:requestId/payment-provider', require
     }
 });
 
-app.post('/api/federation/connect/requests/:requestId/oxapay-invoice', requireApiUser, async (req, res) => {
+app.post('/api/federation/connect/requests/:requestId/oxapay-invoice', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
         const requestId = sanitizeText(req.params.requestId);
         const requesterUid = sanitizeText(req.user?.id);
@@ -9212,6 +10555,19 @@ app.post('/api/federation/connect/requests/:requestId/oxapay-invoice', requireAp
             return res.status(403).json({
                 success: false,
                 message: 'You can only pay for your own Federation request.'
+            });
+        }
+
+        if (
+            isFederationSelfPurchaseRequest(
+                request,
+                requesterUid
+            )
+        ) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    'You cannot purchase your own Federation lead.'
             });
         }
 
@@ -9394,7 +10750,7 @@ app.post('/api/federation/connect/requests/:requestId/oxapay-invoice', requireAp
     }
 });
 
-app.post('/api/federation/connect/requests/:requestId/checkout-session', requireApiUser, async (req, res) => {
+app.post('/api/federation/connect/requests/:requestId/checkout-session', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
         const requestId = sanitizeText(req.params.requestId);
         const requesterUid = sanitizeText(req.user?.id);
@@ -9422,6 +10778,19 @@ app.post('/api/federation/connect/requests/:requestId/checkout-session', require
             return res.status(403).json({
                 success: false,
                 message: 'You can only pay for your own Federation request.'
+            });
+        }
+
+        if (
+            isFederationSelfPurchaseRequest(
+                request,
+                requesterUid
+            )
+        ) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    'You cannot purchase your own Federation lead.'
             });
         }
 
@@ -9614,7 +10983,7 @@ app.post('/api/federation/connect/requests/:requestId/checkout-session', require
     }
 });
 
-app.post('/api/federation/connect/requests', requireApiUser, async (req, res) => {
+app.post('/api/federation/connect/requests', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
         const requesterUid = sanitizeText(req.user?.id);
         const requesterEmail = sanitizeText(req.user?.email).toLowerCase();
@@ -9624,6 +10993,20 @@ app.post('/api/federation/connect/requests', requireApiUser, async (req, res) =>
         const ownerUid = sanitizeText(body.ownerUid);
         const leadId = sanitizeText(body.leadId);
         const hasSelectedLead = Boolean(ownerUid && leadId);
+
+        if (
+            hasSelectedLead &&
+            isFederationSelfPurchase(
+                requesterUid,
+                ownerUid
+            )
+        ) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    'You cannot purchase your own Federation lead.'
+            });
+        }
 
         const requestedContact = {
             companyName: sanitizeText(body.companyName).slice(0, 180),
@@ -9656,57 +11039,130 @@ app.post('/api/federation/connect/requests', requireApiUser, async (req, res) =>
             });
         }
 
-        let leadRef = null;
+        let leadPath = '';
+
         let opportunity = {
             id: '',
             leadId: '',
             ownerUid: '',
             title: `Looking for ${requestedContact.contactRole} in ${requestedContact.city ? `${requestedContact.city}, ` : ''}${requestedContact.country}`,
-            category: requestedContact.contactType || 'Strategic Network',
-            contactRole: requestedContact.contactRole,
-            city: requestedContact.city,
-            country: requestedContact.country,
-            strategicValue: 'requested',
-            tier: requestedContact.requestedTier || '',
-            sourceDivision: 'federation',
-            pipelineStage: requestedContact.pipelineStage || '',
-            sourceMethod: requestedContact.sourceMethod || '',
-            contactType: requestedContact.contactType,
-            companyLabel: requestedContact.companyName || 'Requested organization',
+            category:
+                requestedContact.contactType ||
+                'Strategic Network',
+            contactRole:
+                requestedContact.contactRole,
+            city:
+                requestedContact.city,
+            country:
+                requestedContact.country,
+            strategicValue:
+                'requested',
+            tier:
+                requestedContact.requestedTier ||
+                '',
+            sourceDivision:
+                'federation',
+            pipelineStage:
+                requestedContact.pipelineStage ||
+                '',
+            sourceMethod:
+                requestedContact.sourceMethod ||
+                '',
+            contactType:
+                requestedContact.contactType,
+            companyLabel:
+                requestedContact.companyName ||
+                'Requested organization',
             hasEmail: false,
             hasPhone: false,
             hasDirectContact: false,
-            summary: requestReason,
+            summary:
+                requestReason,
             createdAt: null,
             updatedAt: null
         };
 
         if (hasSelectedLead) {
-            leadRef = firestore
-                .collection('users')
-                .doc(ownerUid)
-                .collection('academyLeadMissions')
-                .doc(leadId);
+            const lead =
+                await academyFirestoreRepo
+                    .getLeadMissionLeadById(
+                        ownerUid,
+                        leadId
+                    );
 
-            const leadSnap = await leadRef.get();
-
-            if (!leadSnap.exists) {
+            if (!lead) {
                 return res.status(404).json({
                     success: false,
-                    message: 'This Federation Connect opportunity is no longer available.'
+                    message:
+                        'This Federation Connect opportunity is no longer available.'
                 });
             }
-
-            const lead = leadSnap.data() || {};
 
             if (lead.federationReady !== true) {
                 return res.status(403).json({
                     success: false,
-                    message: 'This lead has not been approved for Federation Connect.'
+                    message:
+                        'This lead has not been approved for Federation Connect.'
                 });
             }
 
-            opportunity = mapFederationConnectOpportunityDoc(leadSnap);
+            const saleEnabled =
+                lead.saleEnabled === true;
+
+            const saleStatus =
+                sanitizeText(
+                    lead.saleStatus ||
+                    lead.federationListingStatus ||
+                    ''
+                ).toLowerCase();
+
+            const saleReviewStatus =
+                sanitizeText(
+                    lead.saleReviewStatus ||
+                    ''
+                ).toLowerCase();
+
+            if (
+                !saleEnabled ||
+                !['listed', 'approved'].includes(
+                    saleStatus
+                ) ||
+                !['approved', 'listed'].includes(
+                    saleReviewStatus
+                )
+            ) {
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        'This Federation Connect opportunity is not currently available for purchase.'
+                });
+            }
+
+            leadPath =
+                `users/${ownerUid}` +
+                `/academyLeadMissions/${leadId}`;
+
+            opportunity =
+                mapFederationConnectOpportunityCoreRow({
+                    user_id:
+                        ownerUid,
+
+                    source_document_id:
+                        leadId,
+
+                    data:
+                        lead,
+
+                    created_at_source:
+                        sanitizeText(
+                            lead.createdAt
+                        ),
+
+                    updated_at_source:
+                        sanitizeText(
+                            lead.updatedAt
+                        )
+                });
         }
 
         const now = Timestamp.now();
@@ -9735,7 +11191,10 @@ app.post('/api/federation/connect/requests', requireApiUser, async (req, res) =>
 
             ownerUid: hasSelectedLead ? ownerUid : '',
             leadId: hasSelectedLead ? leadId : '',
-            leadPath: hasSelectedLead && leadRef ? leadRef.path : '',
+            leadPath:
+                hasSelectedLead
+                    ? leadPath
+                    : '',
             requestMode: hasSelectedLead ? 'selected_lead' : 'match_request',
             requestedContact,
 
@@ -11935,7 +13394,24 @@ app.get('/api/academy/membership-status', requireApiUser, async (req, res, next)
 });
 
 
+/*
+ * Plaza operational APIs are division-gated.
+ *
+ * Plaza application/status routes are registered
+ * above this point so authenticated users can still
+ * apply and check approval state before access.
+ *
+ * Every remaining /api/plaza/* request must belong
+ * to an authenticated, approved Plaza member.
+ */
+app.use(
+    '/api/plaza',
+    requireApiUser,
+    requirePlazaApiAccess
+);
+
 app.use('/api', apiRoutes);
+
 app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, res) => {
     try {
         const room = await realtimeSupabaseRepo.joinLiveRoom({

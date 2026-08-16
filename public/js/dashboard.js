@@ -236,6 +236,91 @@ const socket = io({
     auth: getStoredAuthToken() ? { token: getStoredAuthToken() } : {}
 });
 
+/* PATCH: Dashboard Socket.IO BFCache lifecycle v1 */
+function syncDashboardSocketAuthV1() {
+    const token =
+        typeof getStoredAuthToken === 'function'
+            ? String(
+                getStoredAuthToken() || ''
+            ).trim()
+            : '';
+
+    socket.auth =
+        token
+            ? {
+                token
+            }
+            : {};
+}
+
+function reconnectDashboardSocketV1() {
+    if (
+        !socket ||
+        typeof socket.connect !== 'function' ||
+        socket.connected === true
+    ) {
+        return;
+    }
+
+    syncDashboardSocketAuthV1();
+    socket.connect();
+}
+
+if (
+    window
+        .__yhDashboardSocketPageLifecycleV1Installed !==
+    true
+) {
+    window
+        .__yhDashboardSocketPageLifecycleV1Installed =
+        true;
+
+    /*
+     * Explicitly close the transport before Chromium
+     * places the Dashboard document into BFCache.
+     */
+    window.addEventListener(
+        'pagehide',
+        () => {
+            if (
+                socket &&
+                typeof socket.disconnect ===
+                    'function'
+            ) {
+                socket.disconnect();
+            }
+        }
+    );
+
+    /*
+     * BFCache restoration reuses this same document
+     * and Socket.IO object. Reconnect instead of
+     * creating another socket instance.
+     */
+    window.addEventListener(
+        'pageshow',
+        () => {
+            reconnectDashboardSocketV1();
+        }
+    );
+
+    /*
+     * Also recover after browser/app backgrounding
+     * when the transport was dropped while hidden.
+     */
+    document.addEventListener(
+        'visibilitychange',
+        () => {
+            if (document.hidden) {
+                return;
+            }
+
+            reconnectDashboardSocketV1();
+        }
+    );
+}
+/* END PATCH: Dashboard Socket.IO BFCache lifecycle v1 */
+
 const myName = getStoredUserValue('yh_user_name', "Hustler");
 function clearDashboardDeletedAccountClientState() {
     try {
@@ -3188,7 +3273,11 @@ function renderDashboardCommandOverview() {
         'Your business conversations are loaded and ready to review.'
     );
 
-    setDashboardCommandOverviewText('yh-command-referral-code', referral.code || 'Not ready', 'Not ready');
+    setDashboardCommandOverviewText(
+        'yh-command-referral-code',
+        referral.code || 'Pending',
+        'Pending'
+    );
     const commandReferralTotal = String(Number(referralStats.total || 0));
 
     setDashboardCommandOverviewText('yh-command-referral-total', commandReferralTotal, '0');
@@ -5223,19 +5312,51 @@ function dashboardSettingsFormatMoney(amount = 0, currency = 'USD') {
 }
 
 function dashboardSettingsFormatPlanText(value = '') {
-    const clean = String(value || '').trim();
+    const clean =
+        String(value || '').trim();
 
-    if (!clean || clean === 'loading' || clean === 'loading...' || clean === 'checking' || clean === 'checking...' || clean === 'syncing' || clean === 'syncing...' || clean === 'preparing' || clean === 'preparing...') return '';
+    if (
+        !clean ||
+        [
+            'loading',
+            'loading...',
+            'checking',
+            'checking...',
+            'syncing',
+            'syncing...',
+            'preparing',
+            'preparing...'
+        ].includes(clean.toLowerCase())
+    ) {
+        return '';
+    }
 
-    const normalized = clean.toLowerCase();
+    const normalized =
+        clean.toLowerCase();
 
-    if (normalized === '30_days') return '30 days';
-    if (normalized === 'one_time') return 'one-time';
-    if (normalized === 'checkout_started') return 'checkout started';
-    if (normalized === 'pending_payment') return 'pending payment';
-    if (normalized === 'card_bank_wallet') return 'card, bank, or wallet';
+    const labels = {
+        '30_days': '30 Days',
+        'one_time': 'One-Time',
+        'checkout_started': 'Checkout Started',
+        'pending_payment': 'Pending Payment',
+        'card_bank_wallet': 'Card, Bank, or Wallet',
+        'pending_admin_confirmation': 'Pending Admin Confirmation',
+        'pending_admin_approval': 'Pending Admin Approval',
+        'under_review': 'Under Review'
+    };
 
-    return clean.replace(/[_-]+/g, ' ');
+    if (labels[normalized]) {
+        return labels[normalized];
+    }
+
+    return clean
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(
+            /\b\w/g,
+            (char) => char.toUpperCase()
+        );
 }
 
 function dashboardSettingsFormatDate(value = '') {
@@ -6430,6 +6551,7 @@ function ensureDashboardSettingsBadgePaymentModal() {
     modal.id = 'yh-dashboard-settings-badge-payment-modal';
     modal.className = 'yh-dashboard-settings-badge-payment-modal hidden-step';
     modal.setAttribute('aria-hidden', 'true');
+    modal.setAttribute('inert', '');
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
     modal.setAttribute('aria-labelledby', 'yh-dashboard-settings-badge-payment-title');
@@ -6599,14 +6721,48 @@ function ensureDashboardSettingsBadgePaymentModal() {
 }
 
 function closeDashboardSettingsBadgePaymentModal() {
-    const modal = document.getElementById('yh-dashboard-settings-badge-payment-modal');
+    const modal = document.getElementById(
+        'yh-dashboard-settings-badge-payment-modal'
+    );
+
     if (!modal) return;
 
-    modal.classList.add('hidden-step');
-    modal.classList.remove('is-open');
-    modal.setAttribute('aria-hidden', 'true');
-}
+    const isOpen =
+        modal.classList.contains('is-open') ||
+        modal.getAttribute('aria-hidden') === 'false';
 
+    if (!isOpen) return;
+
+    const activeElement = document.activeElement;
+
+    if (
+        activeElement &&
+        modal.contains(activeElement) &&
+        typeof activeElement.blur === 'function'
+    ) {
+        activeElement.blur();
+    }
+
+    const returnFocus =
+        dashboardSettingsBadgePaymentModalState?.button || null;
+
+    modal.setAttribute('inert', '');
+    modal.classList.remove('is-open');
+    modal.classList.add('hidden-step');
+    modal.setAttribute('aria-hidden', 'true');
+
+    if (
+        returnFocus &&
+        returnFocus.isConnected &&
+        typeof returnFocus.focus === 'function'
+    ) {
+        window.requestAnimationFrame(() => {
+            try {
+                returnFocus.focus();
+            } catch (_) {}
+        });
+    }
+}
 function syncDashboardSettingsBadgePaymentModalUi() {
     const modal = ensureDashboardSettingsBadgePaymentModal();
     const plan = dashboardGetVerifiedBadgePlanMeta(dashboardSettingsBadgePaymentModalState.division || 'academy');
@@ -6726,9 +6882,24 @@ function openDashboardSettingsBadgePaymentModalFromButton(button = null) {
     dashboardSettingsPickValidBadgeProvider('stripe');
     syncDashboardSettingsBadgePaymentModalUi();
 
+    modal.removeAttribute('inert');
+    modal.setAttribute('aria-hidden', 'false');
     modal.classList.remove('hidden-step');
     modal.classList.add('is-open');
-    modal.setAttribute('aria-hidden', 'false');
+
+    window.requestAnimationFrame(() => {
+        const closeButton =
+            modal.querySelector(
+                '[data-yh-settings-badge-payment-close]'
+            );
+
+        if (
+            closeButton &&
+            typeof closeButton.focus === 'function'
+        ) {
+            closeButton.focus();
+        }
+    });
 
     hydrateDashboardBadgePaymentProviderConfig()
         .then(() => {
@@ -9898,7 +10069,10 @@ function renderYHUniverseReferralSnapshot(snapshot = {}) {
     }
 
     if (codeEl) {
-        codeEl.textContent = String(referral.code || 'Not ready').trim() || 'Not ready';
+        codeEl.textContent =
+            String(
+                referral.code || 'Pending'
+            ).trim() || 'Pending';
     }
 
     if (totalEl) {
@@ -10021,9 +10195,28 @@ async function copyYHCommandReferralLink() {
         copiedLabel = 'Referral code';
     }
 
-    if (!copyValue || copyValue === 'Loading...' || copyValue === 'Not ready' || copyValue === 'Referral link unavailable') {
-        setYHCommandReferralCopyButtonState('error', 'Not Ready');
-        if (typeof showToast === 'function') showToast('Referral link is still loading.', 'error');
+    if (
+        !copyValue ||
+        copyValue === 'Loading...' ||
+        copyValue === 'Not ready' ||
+        copyValue === 'Pending' ||
+        copyValue === 'Referral link unavailable'
+    ) {
+        setYHCommandReferralCopyButtonState(
+            'error',
+            'Pending'
+        );
+
+        if (
+            typeof showToast ===
+            'function'
+        ) {
+            showToast(
+                'Referral information is still being prepared.',
+                'error'
+            );
+        }
+
         return;
     }
 
@@ -11309,6 +11502,14 @@ async function openPlazaApplicationModal() {
         );
     }
 
+    if (
+        document.activeElement instanceof HTMLElement &&
+        !modal.contains(document.activeElement)
+    ) {
+        modal.__yhDashboardReturnFocus = document.activeElement;
+    }
+
+    modal.removeAttribute('inert');
     modal.classList.remove('hidden-step');
     modal.removeAttribute('hidden');
     modal.setAttribute('aria-hidden', 'false');
@@ -11762,10 +11963,36 @@ function closePlazaApplicationModal(options = {}) {
         );
     }
 
+    const activeElement = document.activeElement;
+
+    if (
+        activeElement instanceof HTMLElement &&
+        modal.contains(activeElement)
+    ) {
+        activeElement.blur();
+    }
+
+    const returnFocus =
+        modal.__yhDashboardReturnFocus instanceof HTMLElement
+            ? modal.__yhDashboardReturnFocus
+            : null;
+
+    modal.__yhDashboardReturnFocus = null;
+    modal.setAttribute('inert', '');
     modal.classList.add('hidden-step');
     modal.setAttribute('aria-hidden', 'true');
     modal.setAttribute('hidden', '');
     document.body?.classList.remove('plaza-application-open');
+
+    if (returnFocus?.isConnected) {
+        window.requestAnimationFrame(() => {
+            try {
+                returnFocus.focus({ preventScroll: true });
+            } catch (_) {
+                returnFocus.focus();
+            }
+        });
+    }
 }
 
 const DASHBOARD_PLAZA_APPLICATION_SCHEMA_VERSION = 'plaza-dashboard-typeform-v1';
@@ -11792,10 +12019,26 @@ const DASHBOARD_PLAZA_MEMBERSHIP_LABELS = {
 let dashboardPlazaApplicationCurrentStep = 'membershipType';
 
 function renderDashboardPlazaApplicationForm() {
-    const modal = document.getElementById('plaza-apply-modal');
-    const card = modal?.querySelector('.modal-content');
+    const modal =
+        document.getElementById(
+            'plaza-apply-modal'
+        );
+
+    const card =
+        modal?.querySelector(
+            '.modal-content'
+        );
 
     if (!card) return;
+
+    modal?.classList.remove(
+        'is-division-application-submitted'
+    );
+
+    card.classList.remove(
+        'is-division-application-submitted',
+        'is-division-application-submitting'
+    );
 
     card.innerHTML = `
         <button
@@ -12107,6 +12350,359 @@ function renderDashboardPlazaApplicationForm() {
 
     bindDashboardPlazaApplicationFormEvents();
 }
+
+
+function getDashboardDivisionSubmittedConfig(
+    division = 'plaza'
+) {
+    const cleanDivision =
+        String(division || '')
+            .trim()
+            .toLowerCase();
+
+    if (cleanDivision === 'federation') {
+        return {
+            division: 'federation',
+
+            modalId:
+                'federation-apply-modal',
+
+            label:
+                'Federation',
+
+            canEnterKey:
+                'canEnterFederation',
+
+            approvedTitle:
+                'Federation Access Approved',
+
+            approvedLead:
+                'Your Federation application has been approved and your access is now active.',
+
+            pendingLead:
+                'Your Federation application has been received successfully and is now pending admin review.',
+
+            approvedCopy:
+                'You can now close this confirmation and enter the Federation from your Dashboard.',
+
+            pendingCopy:
+                'Your Federation access will remain locked until an admin reviews and approves your application. You will receive an update once the review is complete.',
+
+            close() {
+                closeFederationApplicationModal({
+                    saveDraft: false,
+                    reason:
+                        'submitted-confirmation'
+                });
+            }
+        };
+    }
+
+    return {
+        division: 'plaza',
+
+        modalId:
+            'plaza-apply-modal',
+
+        label:
+            'Plazas',
+
+        canEnterKey:
+            'canEnterPlaza',
+
+        approvedTitle:
+            'Plazas Access Approved',
+
+        approvedLead:
+            'Your Plazas application has been approved and your access is now active.',
+
+        pendingLead:
+            'Your Plazas application has been received successfully and is now pending admin review.',
+
+        approvedCopy:
+            'You can now close this confirmation and enter the Plazas from your Dashboard.',
+
+        pendingCopy:
+            'Your Plazas access will remain locked until an admin reviews and approves your application. You will receive an update once the review is complete.',
+
+        close() {
+            closePlazaApplicationModal({
+                preserveDraft: false,
+                reason:
+                    'submitted-confirmation'
+            });
+        }
+    };
+}
+
+
+function resetDashboardDivisionApplicationSubmittedState(
+    division = 'plaza'
+) {
+    const config =
+        getDashboardDivisionSubmittedConfig(
+            division
+        );
+
+    const modal =
+        document.getElementById(
+            config.modalId
+        );
+
+    const card =
+        modal?.querySelector(
+            '.modal-content'
+        );
+
+    if (
+        !modal ||
+        !card
+    ) {
+        return false;
+    }
+
+    modal.classList.remove(
+        'is-division-application-submitted'
+    );
+
+    card.classList.remove(
+        'is-division-application-submitted'
+    );
+
+    card
+        .querySelector(
+            '.yh-dashboard-division-submitted-state'
+        )
+        ?.remove();
+
+    return true;
+}
+
+
+function renderDashboardDivisionApplicationSubmittedState(
+    division = 'plaza',
+    snapshot = {}
+) {
+    const config =
+        getDashboardDivisionSubmittedConfig(
+            division
+        );
+
+    const modal =
+        document.getElementById(
+            config.modalId
+        );
+
+    const card =
+        modal?.querySelector(
+            '.modal-content'
+        );
+
+    if (
+        !modal ||
+        !card
+    ) {
+        return false;
+    }
+
+    const rawStatus =
+        String(
+            snapshot?.applicationStatus ||
+            snapshot?.application?.status ||
+            'under review'
+        )
+            .trim()
+            .toLowerCase()
+            .replace(
+                /[_-]+/g,
+                ' '
+            );
+
+    const isApproved =
+        snapshot?.[
+            config.canEnterKey
+        ] === true ||
+        rawStatus === 'approved';
+
+    const statusLabel =
+        isApproved
+            ? 'Approved'
+            : rawStatus
+                .split(/\s+/)
+                .filter(Boolean)
+                .map(
+                    (part) =>
+                        part
+                            .charAt(0)
+                            .toUpperCase() +
+                        part.slice(1)
+                )
+                .join(' ');
+
+    /*
+     * Remove any previous confirmation,
+     * but preserve the real form underneath.
+     */
+    resetDashboardDivisionApplicationSubmittedState(
+        config.division
+    );
+
+    modal.classList.add(
+        'is-division-application-submitted'
+    );
+
+    modal.removeAttribute(
+        'aria-busy'
+    );
+
+    modal.dataset.yhApplicationSubmitting =
+        'false';
+
+    card.classList.remove(
+        'is-division-application-submitting'
+    );
+
+    card.classList.add(
+        'is-division-application-submitted'
+    );
+
+    const state =
+        document.createElement(
+            'div'
+        );
+
+    state.className =
+        [
+            'yh-dashboard-division-submitted-state',
+            'yh-dashboard-plaza-submitted-state'
+        ].join(' ');
+
+    state.setAttribute(
+        'role',
+        'status'
+    );
+
+    state.setAttribute(
+        'aria-live',
+        'polite'
+    );
+
+    state.innerHTML = `
+        <button
+            type="button"
+            class="yh-federation-apply-close yh-dashboard-division-submitted-x"
+            aria-label="Close ${config.label} application confirmation"
+        >
+            ✖
+        </button>
+
+        <div
+            class="yh-dashboard-plaza-submitted-kicker"
+        >
+            ${config.label} Application
+        </div>
+
+        <div
+            class="yh-dashboard-plaza-submitted-icon"
+            aria-hidden="true"
+        >
+            ✓
+        </div>
+
+        <h2>
+            ${
+                isApproved
+                    ? config.approvedTitle
+                    : 'Application Submitted for Review'
+            }
+        </h2>
+
+        <p
+            class="yh-dashboard-plaza-submitted-lead"
+        >
+            ${
+                isApproved
+                    ? config.approvedLead
+                    : config.pendingLead
+            }
+        </p>
+
+        <div
+            class="yh-dashboard-plaza-submitted-status"
+        >
+            <span>
+                Application Status
+            </span>
+
+            <strong>
+                ${statusLabel}
+            </strong>
+        </div>
+
+        <p
+            class="yh-dashboard-plaza-submitted-copy"
+        >
+            ${
+                isApproved
+                    ? config.approvedCopy
+                    : config.pendingCopy
+            }
+        </p>
+
+        <button
+            type="button"
+            class="btn-primary yh-dashboard-plaza-submitted-close yh-dashboard-division-submitted-close"
+        >
+            Close ➔
+        </button>
+    `;
+
+    card.appendChild(
+        state
+    );
+
+    card.scrollTop = 0;
+
+    const closeSubmittedState =
+        () => {
+            config.close();
+        };
+
+    state
+        .querySelector(
+            '.yh-dashboard-division-submitted-close'
+        )
+        ?.addEventListener(
+            'click',
+            closeSubmittedState
+        );
+
+    state
+        .querySelector(
+            '.yh-dashboard-division-submitted-x'
+        )
+        ?.addEventListener(
+            'click',
+            closeSubmittedState
+        );
+
+    return true;
+}
+
+
+/*
+ * Compatibility wrapper for the existing
+ * Plazas submission flow.
+ */
+function renderDashboardPlazaApplicationSubmittedState(
+    snapshot = {}
+) {
+    return renderDashboardDivisionApplicationSubmittedState(
+        'plaza',
+        snapshot
+    );
+}
+
 
 function getDashboardPlazaInputValue(id = '') {
     return String(document.getElementById(id)?.value || '').trim();
@@ -12666,10 +13262,21 @@ async function submitDashboardPlazaApplication(event) {
     event.preventDefault();
 
     const form = event.currentTarget;
-    const submitBtn = document.getElementById('btn-submit-plaza-application');
-    const originalText = submitBtn?.textContent || 'Submit Plaza Application ➔';
+    const submitBtn =
+        document.getElementById(
+            'btn-submit-plaza-application'
+        );
 
-    await refreshDashboardAcademyHomeSnapshot(true);
+    const originalText =
+        submitBtn?.textContent ||
+        'Submit Plaza Application ➔';
+
+    let submissionSucceeded =
+        false;
+
+    await refreshDashboardAcademyHomeSnapshot(
+        true
+    );
 
     syncDashboardPlazaMembershipTypeControl();
 
@@ -12692,14 +13299,26 @@ async function submitDashboardPlazaApplication(event) {
         return;
     }
 
+    setDashboardDivisionApplicationSubmitting(
+        'plaza',
+        true
+    );
+
     try {
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.setAttribute('aria-disabled', 'true');
-            submitBtn.textContent = 'Submitting...';
+
+            submitBtn.setAttribute(
+                'aria-disabled',
+                'true'
+            );
+
+            submitBtn.textContent =
+                'Submitting...';
         }
 
-        const payload = buildDashboardPlazaApplicationPayload();
+        const payload =
+            buildDashboardPlazaApplicationPayload();
 
         const result = await academyAuthedFetch('/api/plaza/application', {
             method: 'POST',
@@ -12729,9 +13348,39 @@ async function submitDashboardPlazaApplication(event) {
         clearDashboardPlazaApplicationDraft();
 
         form.reset();
-        closePlazaApplicationModal({ preserveDraft: false });
 
-        showToast('Plaza application submitted. Admin approval is required before entry.', 'success');
+        /*
+         * Finish the shared loading state first,
+         * then transition the SAME Plaza modal
+         * into its submitted/pending state.
+         *
+         * Do not automatically close the modal.
+         */
+        /*
+         * Build the submitted state first while
+         * the application form is still hidden.
+         *
+         * Then release the shared loading state.
+         * This prevents the final form step from
+         * flashing back into view.
+         */
+        renderDashboardDivisionApplicationSubmittedState(
+            'plaza',
+            snapshot
+        );
+
+        setDashboardDivisionApplicationSubmitting(
+            'plaza',
+            false
+        );
+
+        submissionSucceeded =
+            true;
+
+        showToast(
+            'Plazas application submitted successfully.',
+            'success'
+        );
     } catch (error) {
         console.error('submitDashboardPlazaApplication error:', error);
 
@@ -12746,10 +13395,29 @@ async function submitDashboardPlazaApplication(event) {
             showToast(error?.message || 'Failed to submit Plaza application.', 'error');
         }
     } finally {
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.removeAttribute('aria-disabled');
-            submitBtn.textContent = originalText;
+        /*
+         * On success, the Plaza modal has already
+         * transitioned into its submitted state.
+         *
+         * Only restore the form/loading UI when
+         * submission failed.
+         */
+        if (!submissionSucceeded) {
+            setDashboardDivisionApplicationSubmitting(
+                'plaza',
+                false
+            );
+
+            if (submitBtn) {
+                submitBtn.disabled = false;
+
+                submitBtn.removeAttribute(
+                    'aria-disabled'
+                );
+
+                submitBtn.textContent =
+                    originalText;
+            }
         }
     }
 }
@@ -20864,6 +21532,188 @@ if (!window.__yhAcademyMessageThreadNavSyncV1Bound) {
     });
 }
 
+
+/* ========================================================= */
+/* ACADEMY AI COACH → DASHBOARD BOTTOM NAV LOCK              */
+/* ========================================================= */
+
+if (
+    !window
+        .__yhAcademyAiCoachBottomNavSyncV1Bound
+) {
+    window
+        .__yhAcademyAiCoachBottomNavSyncV1Bound =
+        true;
+
+    window.addEventListener(
+        'message',
+        (event) => {
+            if (
+                event.origin !==
+                window.location.origin
+            ) {
+                return;
+            }
+
+            const data =
+                event.data || {};
+
+            if (
+                data.type !==
+                'yh:academy-ai-coach-modal-state'
+            ) {
+                return;
+            }
+
+            /*
+             * Only accept the signal from the
+             * real Dashboard workspace iframe.
+             */
+            const frame =
+                document.getElementById(
+                    'yh-universe-workspace-inline-frame'
+                );
+
+            if (
+                !frame ||
+                event.source !==
+                    frame.contentWindow
+            ) {
+                return;
+            }
+
+            const workspaceKey =
+                String(
+                    getDashboardInlineWorkspaceKeyFromFrame(
+                        frame
+                    ) || ''
+                )
+                    .trim()
+                    .toLowerCase();
+
+            if (
+                workspaceKey !==
+                    'academy' &&
+                !workspaceKey.startsWith(
+                    'academy-'
+                )
+            ) {
+                return;
+            }
+
+            const coachOpen =
+                data.open === true;
+
+            const body =
+                document.body;
+
+            const bottomNav =
+                document.querySelector(
+                    '#yh-mobile-app-shell .yh-mobile-bottom-nav'
+                );
+
+            body?.classList.toggle(
+                'yh-academy-ai-coach-modal-open',
+                coachOpen
+            );
+
+            if (
+                !(
+                    bottomNav instanceof
+                    HTMLElement
+                )
+            ) {
+                return;
+            }
+
+            if (coachOpen) {
+                /*
+                 * Strict modal ownership.
+                 *
+                 * Inline !important deliberately
+                 * beats the Dashboard mobile CSS
+                 * that normally forces display:grid.
+                 */
+                bottomNav.setAttribute(
+                    'aria-hidden',
+                    'true'
+                );
+
+                bottomNav.style.setProperty(
+                    'display',
+                    'none',
+                    'important'
+                );
+
+                bottomNav.style.setProperty(
+                    'visibility',
+                    'hidden',
+                    'important'
+                );
+
+                bottomNav.style.setProperty(
+                    'opacity',
+                    '0',
+                    'important'
+                );
+
+                bottomNav.style.setProperty(
+                    'pointer-events',
+                    'none',
+                    'important'
+                );
+
+                bottomNav.style.setProperty(
+                    'transform',
+                    'translate3d(0, 120%, 0)',
+                    'important'
+                );
+
+                return;
+            }
+
+            /*
+             * Remove only the AI Coach lock.
+             * Existing Dashboard scroll-state
+             * logic remains the authority after
+             * the modal closes.
+             */
+            bottomNav.style.removeProperty(
+                'display'
+            );
+
+            bottomNav.style.removeProperty(
+                'visibility'
+            );
+
+            bottomNav.style.removeProperty(
+                'opacity'
+            );
+
+            bottomNav.style.removeProperty(
+                'pointer-events'
+            );
+
+            bottomNav.style.removeProperty(
+                'transform'
+            );
+
+            const normallyHidden =
+                bottomNav.classList.contains(
+                    'is-scroll-hidden'
+                );
+
+            bottomNav.setAttribute(
+                'aria-hidden',
+                normallyHidden
+                    ? 'true'
+                    : 'false'
+            );
+        }
+    );
+}
+
+
 function bindDashboardInlineAcademyScrollNavigationV1(
     frame
 ) {
@@ -22924,9 +23774,15 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
             });
     }
 
-    if (copy.key !== 'overview' && copy.division !== 'resources') {
-        setUniverseSlide(copy.division, { animate: shouldAnimate });
-    }
+    /*
+     * Division workspace activation must not
+     * move the three-division carousel.
+     *
+     * Carousel selection is user-controlled.
+     * Navigating to Academy, Plazas, or
+     * Federation child workspaces must not
+     * silently change the visible carousel card.
+     */
 
     if (dashboardIsChildWorkspaceCleanV71(copy.key)) {
         try {
@@ -24206,9 +25062,16 @@ document.getElementById('form-federation-apply')?.addEventListener('submit', asy
         return;
     }
 
-    const originalText = submitBtn?.textContent || 'Submit Federation Application ➔';
+    const originalText =
+        submitBtn?.textContent ||
+        'Submit Federation Application ➔';
 
-    await refreshDashboardAcademyHomeSnapshot(true);
+    let submissionSucceeded =
+        false;
+
+    await refreshDashboardAcademyHomeSnapshot(
+        true
+    );
 
     const progressionGate = getDashboardDivisionProgressionGate('federation', getFederationAccessSnapshot());
     if (progressionGate.locked) {
@@ -24218,14 +25081,28 @@ document.getElementById('form-federation-apply')?.addEventListener('submit', asy
         return;
     }
 
+    setDashboardDivisionApplicationSubmitting(
+        'federation',
+        true
+    );
+
     try {
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.setAttribute('aria-disabled', 'true');
-            submitBtn.textContent = 'Submitting...';
+
+            submitBtn.setAttribute(
+                'aria-disabled',
+                'true'
+            );
+
+            submitBtn.textContent =
+                'Submitting...';
         }
 
-        const payload = collectFederationApplicationPayload(form);
+        const payload =
+            collectFederationApplicationPayload(
+                form
+            );
         const backendResult = await academyAuthedFetch('/api/federation/application', {
             method: 'POST',
             headers: {
@@ -24234,9 +25111,14 @@ document.getElementById('form-federation-apply')?.addEventListener('submit', asy
             body: JSON.stringify(payload)
         });
 
-        const savedApplication = queueFederationApplication(backendResult?.application || payload);
+        const savedApplication =
+            queueFederationApplication(
+                backendResult?.application ||
+                payload
+            );
 
         clearFederationApplicationDraft();
+
         form.reset();
 
         setSingleQuestionFormActiveStep(
@@ -24247,24 +25129,59 @@ document.getElementById('form-federation-apply')?.addEventListener('submit', asy
             }
         );
 
-        closeFederationApplicationModal({
-            saveDraft: false
-        });
-
         const snapshot = {
             hasApplication: true,
+
             canEnterFederation: false,
-            applicationStatus: 'under review',
-            application: savedApplication,
-            member: null
+
+            applicationStatus:
+                'under review',
+
+            application:
+                savedApplication,
+
+            member:
+                null
         };
 
-        writeFederationStatusCache(snapshot);
-        syncFederationEntryButton();
-        startDashboardDivisionAccessRefreshLoop();
-        returnToFederationCardInDashboard();
+        writeFederationStatusCache(
+            snapshot
+        );
 
-        showToast('Federation application submitted for admin review.', 'success');
+        syncFederationEntryButton();
+
+        startDashboardDivisionAccessRefreshLoop();
+
+        /*
+         * Match Academy / Plazas:
+         *
+         * successful POST
+         * → stop loader
+         * → keep modal open
+         * → show submitted confirmation
+         */
+        /*
+         * Keep the Federation form completely
+         * hidden until the submitted state has
+         * already been prepared.
+         */
+        renderDashboardDivisionApplicationSubmittedState(
+            'federation',
+            snapshot
+        );
+
+        setDashboardDivisionApplicationSubmitting(
+            'federation',
+            false
+        );
+
+        submissionSucceeded =
+            true;
+
+        showToast(
+            'Federation application submitted successfully.',
+            'success'
+        );
     } catch (error) {
         console.error('Federation application submit error:', error);
 
@@ -24280,10 +25197,34 @@ document.getElementById('form-federation-apply')?.addEventListener('submit', asy
             showToast(error?.message || 'Failed to submit Federation application.', 'error');
         }
     } finally {
+        /*
+         * Failed submission:
+         * loader → original application form.
+         *
+         * Successful submission:
+         * loader → submitted confirmation.
+         */
+        if (!submissionSucceeded) {
+            setDashboardDivisionApplicationSubmitting(
+                'federation',
+                false
+            );
+        }
+
+        /*
+         * Federation uses the same static form
+         * node on future legitimate openings,
+         * so always restore the actual button.
+         */
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.removeAttribute('aria-disabled');
-            submitBtn.textContent = originalText;
+
+            submitBtn.removeAttribute(
+                'aria-disabled'
+            );
+
+            submitBtn.textContent =
+                originalText;
         }
     }
 });
@@ -27454,13 +28395,75 @@ if (notifBell && notifDropdown) {
         }
     }, true);
 
-    if (markAllRead) {
-        markAllRead.addEventListener('click', async (e) => {
+if (markAllRead) {
+    markAllRead.addEventListener(
+        'click',
+        async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            await markAllRealtimeNotificationsRead();
-        });
-    }
+
+            /*
+             * Prevent duplicate requests while
+             * Mark All As Read is processing.
+             */
+            if (
+                markAllRead.dataset.loading ===
+                'true'
+            ) {
+                return;
+            }
+
+            const originalText =
+                String(
+                    markAllRead.textContent ||
+                    'Mark all as read'
+                ).trim();
+
+            markAllRead.dataset.loading =
+                'true';
+
+            markAllRead.classList.add(
+                'is-loading'
+            );
+
+            markAllRead.setAttribute(
+                'aria-busy',
+                'true'
+            );
+
+            markAllRead.setAttribute(
+                'aria-disabled',
+                'true'
+            );
+
+            markAllRead.textContent =
+                'Marking as read...';
+
+            try {
+                await markAllRealtimeNotificationsRead();
+            } finally {
+                markAllRead.dataset.loading =
+                    'false';
+
+                markAllRead.classList.remove(
+                    'is-loading'
+                );
+
+                markAllRead.removeAttribute(
+                    'aria-busy'
+                );
+
+                markAllRead.removeAttribute(
+                    'aria-disabled'
+                );
+
+                markAllRead.textContent =
+                    originalText ||
+                    'Mark all as read';
+            }
+        }
+    );
+}
 
     loadRealtimeNotifications(false);
 }
@@ -29960,7 +30963,7 @@ function buildAcademySelfProfilePayload(profile = {}) {
         mergedProfile.roadmapStatus ||
         cachedHome?.roadmap?.status ||
         cachedHome?.roadmapStatus ||
-        'Not loaded';
+        'No Active Roadmap';
 
     const progressText =
         document.getElementById('progress-text')?.innerText ||
@@ -30175,30 +31178,20 @@ function resolveDashboardUnifiedProfileMediaV1(
         );
 
     const coverPhoto =
-        normalizeDashboardProfileAssetUrl(
-            academyProfile.cover_photo ||
-            academyProfile.coverPhoto ||
-            academyProfile.cover_url ||
-            academyProfile.coverUrl ||
-
-            cachedProfile.cover_photo ||
-            cachedProfile.coverPhoto ||
-            cachedProfile.cover_url ||
-            cachedProfile.coverUrl ||
+        resolveDashboardProfileCoverAsset(
+            academyProfile,
+            cachedProfile,
 
             localStorage.getItem(
                 'yh_user_cover_photo'
-            ) ||
+            ),
+
             getStoredUserValue(
                 'yh_user_cover_photo',
                 ''
-            ) ||
+            ),
 
-            universeProfile.cover_photo ||
-            universeProfile.coverPhoto ||
-            universeProfile.cover_url ||
-            universeProfile.coverUrl ||
-            ''
+            universeProfile
         );
 
     return {
@@ -31695,6 +32688,7 @@ function ensureDashboardBadgeAvailModal() {
     modal.id = 'yh-badge-avail-modal';
     modal.className = 'yh-badge-avail-modal hidden-step';
     modal.setAttribute('aria-hidden', 'true');
+    modal.setAttribute('inert', '');
 
     modal.innerHTML = `
         <div class="yh-badge-avail-backdrop" data-yh-badge-modal-close></div>
@@ -32154,23 +33148,69 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
         });
 
     dashboardSetBadgeAvailModalStep(resumePendingCheckout ? 'payment' : 'overview');
+
+    modal.removeAttribute('inert');
+    modal.setAttribute('aria-hidden', 'false');
     modal.classList.remove('hidden-step');
     modal.classList.add('is-open');
-    modal.setAttribute('aria-hidden', 'false');
+
+    window.requestAnimationFrame(() => {
+        const closeButton =
+            modal.querySelector('.yh-badge-avail-close');
+
+        if (
+            closeButton &&
+            typeof closeButton.focus === 'function'
+        ) {
+            closeButton.focus();
+        }
+    });
 
     if (resumePendingCheckout) {
         showToast('Payment options reopened. You can generate a new checkout tab.', 'success');
     }
 }
 
-function closeDashboardBadgeAvailModal() {
-    const modal = document.getElementById('yh-badge-avail-modal');
-    if (!modal) return;
+    function closeDashboardBadgeAvailModal() {
+        const modal = document.getElementById('yh-badge-avail-modal');
+        if (!modal) return;
 
-    modal.classList.remove('is-open');
-    modal.classList.add('hidden-step');
-    modal.setAttribute('aria-hidden', 'true');
-}
+        const isOpen =
+            modal.classList.contains('is-open') ||
+            modal.getAttribute('aria-hidden') === 'false';
+
+        if (!isOpen) return;
+
+        const activeElement = document.activeElement;
+
+        if (
+            activeElement &&
+            modal.contains(activeElement) &&
+            typeof activeElement.blur === 'function'
+        ) {
+            activeElement.blur();
+        }
+
+        const returnFocus =
+            dashboardBadgeAvailModalState?.button || null;
+
+        modal.setAttribute('inert', '');
+        modal.classList.remove('is-open');
+        modal.classList.add('hidden-step');
+        modal.setAttribute('aria-hidden', 'true');
+
+        if (
+            returnFocus &&
+            returnFocus.isConnected &&
+            typeof returnFocus.focus === 'function'
+        ) {
+            window.requestAnimationFrame(() => {
+                try {
+                    returnFocus.focus();
+                } catch (_) {}
+            });
+        }
+    }
 
 function normalizeDashboardProfileTagArray(value = []) {
     const source = Array.isArray(value)
@@ -32627,44 +33667,102 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     if (profileCoverBand) {
         const selfProfileCache =
             isSelf &&
-            typeof dashboardGetSelfProfileCache === 'function'
-                ? (dashboardGetSelfProfileCache() || {})
+            typeof dashboardGetSelfProfileCache ===
+                'function'
+                ? (
+                    dashboardGetSelfProfileCache() ||
+                    {}
+                )
                 : {};
 
         const topProfileCache =
             isSelf &&
-            typeof dashboardGetTopProfileCache === 'function'
-                ? (dashboardGetTopProfileCache() || {})
+            typeof dashboardGetTopProfileCache ===
+                'function'
+                ? (
+                    dashboardGetTopProfileCache() ||
+                    {}
+                )
                 : {};
 
-        const selfCoverFallback =
-            isSelf
-                ? String(
-                    selfProfileCache.cover_photo ||
-                    selfProfileCache.coverPhoto ||
-                    topProfileCache.cover_photo ||
-                    topProfileCache.coverPhoto ||
-                    localStorage.getItem('yh_user_cover_photo') ||
-                    ''
-                ).trim()
-                : '';
-
         const resolvedCoverPhoto =
-            normalizeDashboardProfileAssetUrl(
-                normalized.coverPhoto ||
-                normalized.cover_photo ||
-                selfCoverFallback ||
-                ''
+            isSelf
+                ? resolveDashboardProfileCoverAsset(
+                    normalized,
+                    selfProfileCache,
+                    topProfileCache,
+
+                    localStorage.getItem(
+                        'yh_user_cover_photo'
+                    ),
+
+                    getStoredUserValue(
+                        'yh_user_cover_photo',
+                        ''
+                    )
+                )
+                : resolveDashboardProfileCoverAsset(
+                    normalized
+                );
+
+        /*
+         * Use a real IMG element as the primary
+         * renderer. The CSS background remains
+         * only as a visual fallback.
+         */
+        let coverImage =
+            profileCoverBand.querySelector(
+                '.academy-profile-cover-image'
             );
 
+        if (!coverImage) {
+            coverImage =
+                document.createElement(
+                    'img'
+                );
+
+            coverImage.className =
+                'academy-profile-cover-image';
+
+            coverImage.alt = '';
+            coverImage.decoding = 'async';
+            coverImage.loading = 'eager';
+            coverImage.draggable = false;
+
+            profileCoverBand.prepend(
+                coverImage
+            );
+        }
+
         if (resolvedCoverPhoto) {
+            coverImage.hidden = false;
+
+            if (
+                coverImage.getAttribute(
+                    'src'
+                ) !== resolvedCoverPhoto
+            ) {
+                coverImage.src =
+                    resolvedCoverPhoto;
+            }
+
+            coverImage.onerror = () => {
+                coverImage.hidden = true;
+            };
+
+            /*
+             * Keep background-image only as fallback
+             * in case the IMG node has not painted yet.
+             */
             profileCoverBand.style.backgroundImage =
                 `linear-gradient(
                     180deg,
                     rgba(10, 22, 39, 0.06),
                     rgba(10, 22, 39, 0.38)
                 ),
-                url(${JSON.stringify(resolvedCoverPhoto)})`;
+                url(${JSON.stringify(
+                    resolvedCoverPhoto
+                )})`;
 
             profileCoverBand.style.backgroundSize =
                 'cover';
@@ -32690,6 +33788,11 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
                 'true'
             );
         } else {
+            coverImage.hidden = true;
+            coverImage.removeAttribute(
+                'src'
+            );
+
             profileCoverBand.style.removeProperty(
                 'background-image'
             );
@@ -33242,25 +34345,19 @@ function getDashboardUniverseProfileDraft() {
         );
 
     const coverPhoto =
-        normalizeDashboardProfileAssetUrl(
-            readCache.cover_photo ||
-            readCache.coverPhoto ||
-            readCache.cover_url ||
-            readCache.coverUrl ||
+        resolveDashboardProfileCoverAsset(
+            readCache,
 
             localStorage.getItem(
                 'yh_user_cover_photo'
-            ) ||
+            ),
+
             getStoredUserValue(
                 'yh_user_cover_photo',
                 ''
-            ) ||
+            ),
 
-            profile.cover_photo ||
-            profile.coverPhoto ||
-            profile.cover_url ||
-            profile.coverUrl ||
-            ''
+            profile
         );
 
     const tags = pickDashboardProfileTags(
@@ -33345,8 +34442,22 @@ const dashboardProfileEditorAssetState = {
 };
 
 function normalizeDashboardProfileAssetUrl(value = '') {
-    const clean = String(value || '').trim();
-    if (!clean || clean === 'loading' || clean === 'loading...' || clean === 'checking' || clean === 'checking...' || clean === 'syncing' || clean === 'syncing...' || clean === 'preparing' || clean === 'preparing...') return '';
+    const clean =
+        String(value || '').trim();
+
+    if (
+        !clean ||
+        clean === 'loading' ||
+        clean === 'loading...' ||
+        clean === 'checking' ||
+        clean === 'checking...' ||
+        clean === 'syncing' ||
+        clean === 'syncing...' ||
+        clean === 'preparing' ||
+        clean === 'preparing...'
+    ) {
+        return '';
+    }
 
     if (
         clean.startsWith('http://') ||
@@ -33359,6 +34470,75 @@ function normalizeDashboardProfileAssetUrl(value = '') {
     }
 
     return `/${clean.replace(/^\/+/, '')}`;
+}
+
+function resolveDashboardProfileCoverAsset(
+    ...sources
+) {
+    const candidates = [];
+
+    const pushCandidate = (value) => {
+        const clean =
+            String(value || '').trim();
+
+        if (clean) {
+            candidates.push(clean);
+        }
+    };
+
+    sources.forEach((source) => {
+        if (!source) return;
+
+        if (typeof source === 'string') {
+            pushCandidate(source);
+            return;
+        }
+
+        if (
+            typeof source !== 'object' ||
+            Array.isArray(source)
+        ) {
+            return;
+        }
+
+        [
+            source.cover_photo,
+            source.coverPhoto,
+
+            source.cover_url,
+            source.coverUrl,
+
+            source.cover_photo_url,
+            source.coverPhotoUrl,
+
+            source.cover_image,
+            source.coverImage,
+
+            source.cover_image_url,
+            source.coverImageUrl,
+
+            source.banner_photo,
+            source.bannerPhoto,
+
+            source.banner_url,
+            source.bannerUrl
+        ].forEach(
+            pushCandidate
+        );
+    });
+
+    for (const candidate of candidates) {
+        const resolved =
+            normalizeDashboardProfileAssetUrl(
+                candidate
+            );
+
+        if (resolved) {
+            return resolved;
+        }
+    }
+
+    return '';
 }
 
 function revokeDashboardProfileBlobUrl(value = '') {
@@ -33379,11 +34559,17 @@ function getDashboardProfileEditorDisplayName() {
     ).trim() || 'Hustler';
 }
 
-function setDashboardProfileMediaMenuOpen(kind = 'avatar', open = false) {
+function setDashboardProfileMediaMenuOpen(
+    kind = 'avatar',
+    open = false
+) {
     const normalizedKind =
         kind === 'cover'
             ? 'cover'
             : 'avatar';
+
+    const isOpen =
+        open === true;
 
     const menu =
         document.getElementById(
@@ -33398,16 +34584,32 @@ function setDashboardProfileMediaMenuOpen(kind = 'avatar', open = false) {
     if (menu) {
         menu.classList.toggle(
             'hidden-step',
-            open !== true
+            !isOpen
         );
     }
 
     if (toggle) {
         toggle.setAttribute(
             'aria-expanded',
-            open === true
+            isOpen
                 ? 'true'
                 : 'false'
+        );
+    }
+
+    /*
+     * Cover menu must be allowed to escape
+     * the clipped image card while open.
+     */
+    if (normalizedKind === 'cover') {
+        const coverPreview =
+            document.getElementById(
+                'yh-dashboard-profile-cover-preview'
+            );
+
+        coverPreview?.classList.toggle(
+            'is-cover-menu-open',
+            isOpen
         );
     }
 }
@@ -33443,17 +34645,57 @@ function syncDashboardProfileEditorMediaControl(
             `yh-dashboard-profile-${normalizedKind}-menu-wrap`
         );
 
-    /*
-     * COVER PHOTO
-     * Always use the 3-dots action menu.
-     * Never show the large direct button.
-     */
-    if (normalizedKind === 'cover') {
-        directButton?.classList.add(
-            'hidden-step'
+    const resolvedPreview =
+        normalizeDashboardProfileAssetUrl(
+            previewUrl
         );
 
-        menuWrap?.classList.remove(
+    const hasPreview =
+        Boolean(resolvedPreview);
+
+    /*
+     * COVER PHOTO
+     *
+     * No uploaded cover:
+     *   → show a clear Upload Cover Photo CTA.
+     *
+     * Existing uploaded cover:
+     *   → hide the large CTA.
+     *   → restore the compact 3-dots menu.
+     */
+    if (normalizedKind === 'cover') {
+        setDashboardProfileMediaMenuOpen(
+            'cover',
+            false
+        );
+
+        if (hasPreview) {
+            directButton?.classList.add(
+                'hidden-step'
+            );
+
+            menuWrap?.classList.remove(
+                'hidden-step'
+            );
+
+            return;
+        }
+
+        if (directButton) {
+            directButton.classList.remove(
+                'hidden-step'
+            );
+
+            directButton.textContent =
+                'Upload Cover Photo';
+
+            directButton.setAttribute(
+                'aria-label',
+                'Upload cover photo'
+            );
+        }
+
+        menuWrap?.classList.add(
             'hidden-step'
         );
 
@@ -33462,8 +34704,6 @@ function syncDashboardProfileEditorMediaControl(
 
     /*
      * PROFILE PICTURE
-     * Always use the actual visible button.
-     * Never switch it to a 3-dots menu.
      */
     directButton?.classList.remove(
         'hidden-step'
@@ -33573,14 +34813,87 @@ function renderDashboardProfileEditorCoverPreview(
         resolvedUrl
     );
 
+    let coverImage =
+        document.getElementById(
+            'yh-dashboard-profile-cover-preview-image'
+        );
+
+    if (!coverImage) {
+        coverImage =
+            document.createElement(
+                'img'
+            );
+
+        coverImage.id =
+            'yh-dashboard-profile-cover-preview-image';
+
+        coverImage.className =
+            'yh-dashboard-profile-cover-image';
+
+        coverImage.alt = '';
+        coverImage.decoding = 'async';
+        coverImage.draggable = false;
+
+        cover.prepend(
+            coverImage
+        );
+    }
+
     if (resolvedUrl) {
+        coverImage.hidden = false;
+
+        if (
+            coverImage.getAttribute(
+                'src'
+            ) !== resolvedUrl
+        ) {
+            coverImage.src =
+                resolvedUrl;
+        }
+
+        coverImage.onerror = () => {
+            coverImage.hidden = true;
+
+            cover.removeAttribute(
+                'data-has-cover'
+            );
+
+            cover.style.backgroundImage =
+                '';
+
+            cover.style.backgroundSize =
+                '';
+
+            cover.style.backgroundPosition =
+                '';
+
+            cover.style.backgroundRepeat =
+                '';
+
+            /*
+             * If the stored cover URL can no
+             * longer render, treat the editor
+             * as having no usable cover.
+             */
+            syncDashboardProfileEditorMediaControl(
+                'cover',
+                ''
+            );
+        };
+
+        /*
+         * Retain the old background-image only
+         * as a fallback behind the IMG.
+         */
         cover.style.backgroundImage =
             `linear-gradient(
                 180deg,
                 rgba(5, 12, 28, 0.08),
                 rgba(5, 12, 28, 0.38)
             ),
-            url("${resolvedUrl}")`;
+            url(${JSON.stringify(
+                resolvedUrl
+            )})`;
 
         cover.style.backgroundSize =
             'cover';
@@ -33598,6 +34911,11 @@ function renderDashboardProfileEditorCoverPreview(
 
         return;
     }
+
+    coverImage.hidden = true;
+    coverImage.removeAttribute(
+        'src'
+    );
 
     cover.style.backgroundImage = '';
     cover.style.backgroundSize = '';
@@ -33645,6 +34963,8 @@ function validateDashboardProfileImageFile(file = null, kind = 'avatar') {
     return true;
 }
 
+let dashboardProfileCropperReturnFocus = null;
+
 let dashboardProfileCropperState = {
     kind: 'avatar',
     file: null,
@@ -33675,8 +34995,14 @@ function handleDashboardProfileAssetFile(file = null, kind = 'avatar') {
 
 function getDashboardCropperOutputSize(kind = 'avatar') {
     return kind === 'cover'
-        ? { width: 1600, height: 600 }
-        : { width: 512, height: 512 };
+        ? {
+            width: 1500,
+            height: 1200
+        }
+        : {
+            width: 512,
+            height: 512
+        };
 }
 
 function getDashboardCropperMaxZoom(kind = 'avatar') {
@@ -33752,6 +35078,7 @@ function ensureDashboardProfileImageCropper() {
     modal.id = 'yh-dashboard-profile-cropper-modal';
     modal.className = 'yh-dashboard-profile-cropper-modal hidden-step';
     modal.setAttribute('aria-hidden', 'true');
+    modal.setAttribute('inert', '');
 
     modal.innerHTML = `
         <div class="yh-dashboard-profile-cropper-backdrop" data-profile-cropper-close></div>
@@ -33969,15 +35296,51 @@ function ensureDashboardProfileImageCropper() {
 }
 
 function openDashboardProfileImageCropper(file = null, kind = 'avatar') {
-    const normalizedKind = kind === 'cover' ? 'cover' : 'avatar';
-    const modal = ensureDashboardProfileImageCropper();
-    const frame = modal.querySelector('#yh-dashboard-profile-cropper-frame');
-    const imageEl = modal.querySelector('#yh-dashboard-profile-cropper-image');
-    const zoomInput = modal.querySelector('#yh-dashboard-profile-cropper-zoom');
-    const title = modal.querySelector('#yh-dashboard-profile-cropper-title');
-    const copy = modal.querySelector('#yh-dashboard-profile-cropper-copy');
+    const normalizedKind =
+        kind === 'cover'
+            ? 'cover'
+            : 'avatar';
 
-    if (!file || !imageEl || !frame) return;
+    const modal =
+        ensureDashboardProfileImageCropper();
+
+    const stage =
+        modal.querySelector(
+            '#yh-dashboard-profile-cropper-stage'
+        );
+
+    const frame =
+        modal.querySelector(
+            '#yh-dashboard-profile-cropper-frame'
+        );
+
+    const imageEl =
+        modal.querySelector(
+            '#yh-dashboard-profile-cropper-image'
+        );
+
+    const zoomInput =
+        modal.querySelector(
+            '#yh-dashboard-profile-cropper-zoom'
+        );
+
+    const title =
+        modal.querySelector(
+            '#yh-dashboard-profile-cropper-title'
+        );
+
+    const copy =
+        modal.querySelector(
+            '#yh-dashboard-profile-cropper-copy'
+        );
+
+    if (
+        !file ||
+        !imageEl ||
+        !frame
+    ) {
+        return;
+    }
 
     const sourceUrl = URL.createObjectURL(file);
     const image = new Image();
@@ -34002,8 +35365,32 @@ function openDashboardProfileImageCropper(file = null, kind = 'avatar') {
         pinchStartZoom: 1
     };
 
-    frame.classList.toggle('is-cover', normalizedKind === 'cover');
-    frame.classList.toggle('is-avatar', normalizedKind !== 'cover');
+    frame.classList.toggle(
+        'is-cover',
+        normalizedKind === 'cover'
+    );
+
+    frame.classList.toggle(
+        'is-avatar',
+        normalizedKind !== 'cover'
+    );
+
+    /*
+     * The Cover Photo cropper uses the entire
+     * visual stage as its crop viewport.
+     *
+     * Avatar keeps the existing circular
+     * cropper inside the larger stage.
+     */
+    stage?.classList.toggle(
+        'is-cover',
+        normalizedKind === 'cover'
+    );
+
+    stage?.classList.toggle(
+        'is-avatar',
+        normalizedKind !== 'cover'
+    );
 
     if (title) {
         title.textContent = normalizedKind === 'cover'
@@ -34012,9 +35399,17 @@ function openDashboardProfileImageCropper(file = null, kind = 'avatar') {
     }
 
     if (copy) {
-        copy.textContent = normalizedKind === 'cover'
-            ? 'Only the center wide viewport will be saved. Drag to position, then resize with pinch or zoom controls.'
-            : 'Only the center circle viewport will be saved. Drag to position, then resize with pinch or zoom controls.';
+        copy.textContent =
+            normalizedKind === 'cover'
+                ? (
+                    'Everything inside this cover frame will be saved ' +
+                    'and shown in the same 5:4 profile cover format. ' +
+                    'Drag to reposition, then resize with pinch or zoom controls.'
+                )
+                : (
+                    'Only the center circle viewport will be saved. ' +
+                    'Drag to position, then resize with pinch or zoom controls.'
+                );
     }
 
     if (zoomInput) {
@@ -34024,9 +35419,27 @@ function openDashboardProfileImageCropper(file = null, kind = 'avatar') {
         zoomInput.value = '1';
     }
 
-    modal.classList.remove('hidden-step');
+    modal.removeAttribute('inert');
     modal.setAttribute('aria-hidden', 'false');
-    document.body?.classList.add('yh-dashboard-profile-cropper-open');
+    modal.classList.remove('hidden-step');
+
+    document.body?.classList.add(
+        'yh-dashboard-profile-cropper-open'
+    );
+
+    window.requestAnimationFrame(() => {
+        const closeButton =
+            modal.querySelector(
+                '.yh-dashboard-profile-cropper-close'
+            );
+
+        if (
+            closeButton &&
+            typeof closeButton.focus === 'function'
+        ) {
+            closeButton.focus();
+        }
+    });
 
     image.onload = () => {
         dashboardProfileCropperState.image = image;
@@ -34047,10 +35460,33 @@ function openDashboardProfileImageCropper(file = null, kind = 'avatar') {
 }
 
 function closeDashboardProfileImageCropper() {
-    const modal = document.getElementById('yh-dashboard-profile-cropper-modal');
-    const imageEl = document.getElementById('yh-dashboard-profile-cropper-image');
+    const modal =
+        document.getElementById(
+            'yh-dashboard-profile-cropper-modal'
+        );
+
+    const imageEl =
+        document.getElementById(
+            'yh-dashboard-profile-cropper-image'
+        );
+
+    const returnFocus =
+        dashboardProfileCropperReturnFocus;
+
+    dashboardProfileCropperReturnFocus = null;
 
     if (modal) {
+        const activeElement = document.activeElement;
+
+        if (
+            activeElement &&
+            modal.contains(activeElement) &&
+            typeof activeElement.blur === 'function'
+        ) {
+            activeElement.blur();
+        }
+
+        modal.setAttribute('inert', '');
         modal.classList.add('hidden-step');
         modal.setAttribute('aria-hidden', 'true');
     }
@@ -34062,10 +35498,14 @@ function closeDashboardProfileImageCropper() {
         imageEl.style.transform = '';
     }
 
-    document.body?.classList.remove('yh-dashboard-profile-cropper-open');
+    document.body?.classList.remove(
+        'yh-dashboard-profile-cropper-open'
+    );
 
     if (dashboardProfileCropperState.sourceUrl) {
-        revokeDashboardProfileBlobUrl(dashboardProfileCropperState.sourceUrl);
+        revokeDashboardProfileBlobUrl(
+            dashboardProfileCropperState.sourceUrl
+        );
     }
 
     dashboardProfileCropperState = {
@@ -34087,6 +35527,18 @@ function closeDashboardProfileImageCropper() {
         pinchStartDistance: 0,
         pinchStartZoom: 1
     };
+
+    if (
+        returnFocus &&
+        returnFocus.isConnected &&
+        typeof returnFocus.focus === 'function'
+    ) {
+        window.requestAnimationFrame(() => {
+            try {
+                returnFocus.focus();
+            } catch (_) {}
+        });
+    }
 }
 
 function getDashboardProfileCropperGeometry() {
@@ -34335,8 +35787,21 @@ function renderDashboardUniverseProfileEditorPreview(draft = {}) {
         <section class="yh-dashboard-profile-preview-card">
             <div
                 class="yh-dashboard-profile-preview-cover"
-                ${cover ? `style="background-image:linear-gradient(180deg, rgba(5, 12, 28, 0.08), rgba(5, 12, 28, 0.58)), url('${academyFeedEscapeHtml(cover)}')"` : ''}
+                ${cover ? 'data-has-cover="true"' : ''}
             >
+                ${
+                    cover
+                        ? `
+                            <img
+                                class="yh-dashboard-profile-preview-cover-image"
+                                src="${academyFeedEscapeHtml(cover)}"
+                                alt=""
+                                decoding="async"
+                            >
+                        `
+                        : ''
+                }
+
                 ${avatarHtml}
             </div>
 
@@ -34437,14 +35902,15 @@ function ensureDashboardUniverseProfileEditor() {
                     >
                         <button
                             type="button"
-                            class="btn-secondary yh-dashboard-profile-media-btn yh-dashboard-profile-cover-btn hidden-step"
+                            class="btn-secondary yh-dashboard-profile-media-btn yh-dashboard-profile-cover-btn"
                             id="yh-dashboard-profile-cover-trigger"
+                            aria-label="Upload cover photo"
                         >
-                            Change Cover Photo
+                            Upload Cover Photo
                         </button>
 
                         <div
-                            class="yh-dashboard-profile-media-menu-wrap"
+                            class="yh-dashboard-profile-media-menu-wrap hidden-step"
                             id="yh-dashboard-profile-cover-menu-wrap"
                         >
                             <button
@@ -34632,7 +36098,10 @@ function ensureDashboardUniverseProfileEditor() {
         )
         ?.addEventListener(
             'click',
-            () => {
+            (event) => {
+                dashboardProfileCropperReturnFocus =
+                    event.currentTarget || null;
+
                 document
                     .getElementById(
                         'yh-dashboard-profile-avatar-input'
@@ -34647,7 +36116,10 @@ function ensureDashboardUniverseProfileEditor() {
         )
         ?.addEventListener(
             'click',
-            () => {
+            (event) => {
+                dashboardProfileCropperReturnFocus =
+                    event.currentTarget || null;
+
                 document
                     .getElementById(
                         'yh-dashboard-profile-cover-input'
@@ -34725,19 +36197,24 @@ function ensureDashboardUniverseProfileEditor() {
         ?.addEventListener(
             'click',
             (event) => {
-                event.preventDefault();
-                event.stopPropagation();
+        event.preventDefault();
+        event.stopPropagation();
 
-                setDashboardProfileMediaMenuOpen(
-                    'avatar',
-                    false
-                );
+        dashboardProfileCropperReturnFocus =
+            document.getElementById(
+                'yh-dashboard-profile-avatar-menu-toggle'
+            ) || null;
 
-                document
-                    .getElementById(
-                        'yh-dashboard-profile-avatar-input'
-                    )
-                    ?.click();
+        setDashboardProfileMediaMenuOpen(
+            'avatar',
+            false
+        );
+
+        document
+            .getElementById(
+                'yh-dashboard-profile-avatar-input'
+            )
+            ?.click();
             }
         );
 
@@ -34748,19 +36225,24 @@ function ensureDashboardUniverseProfileEditor() {
         ?.addEventListener(
             'click',
             (event) => {
-                event.preventDefault();
-                event.stopPropagation();
+            event.preventDefault();
+            event.stopPropagation();
 
-                setDashboardProfileMediaMenuOpen(
-                    'cover',
-                    false
-                );
+            dashboardProfileCropperReturnFocus =
+                document.getElementById(
+                    'yh-dashboard-profile-cover-menu-toggle'
+                ) || null;
 
-                document
-                    .getElementById(
-                        'yh-dashboard-profile-cover-input'
-                    )
-                    ?.click();
+            setDashboardProfileMediaMenuOpen(
+                'cover',
+                false
+            );
+
+            document
+                .getElementById(
+                    'yh-dashboard-profile-cover-input'
+                )
+                ?.click();
             }
         );
 
@@ -42421,11 +43903,29 @@ async function openFederationApplicationModal(
         return false;
     }
 
+    /*
+     * Restore the original Federation form
+     * if this modal is legitimately opened
+     * again after a previous confirmation.
+     */
+    resetDashboardDivisionApplicationSubmittedState(
+        'federation'
+    );
+
     runDashboardApplicationFormLoader(
         'Opening Federation Application...',
         () => {
             prefillFederationApplicationForm();
             syncFederationDirectStrategicApplicationMode();
+
+            if (
+                document.activeElement instanceof HTMLElement &&
+                !modal.contains(document.activeElement)
+            ) {
+                modal.__yhDashboardReturnFocus = document.activeElement;
+            }
+
+            modal.removeAttribute('inert');
 
             modal.classList.remove(
                 'hidden-step'
@@ -42478,8 +43978,36 @@ function closeFederationApplicationModal(options = {}) {
         saveFederationApplicationDraft();
     }
 
+    const activeElement = document.activeElement;
+
+    if (
+        activeElement instanceof HTMLElement &&
+        modal.contains(activeElement)
+    ) {
+        activeElement.blur();
+    }
+
+    const returnFocus =
+        modal.__yhDashboardReturnFocus instanceof HTMLElement
+            ? modal.__yhDashboardReturnFocus
+            : null;
+
+    modal.__yhDashboardReturnFocus = null;
+    modal.setAttribute('inert', '');
     modal.classList.add('hidden-step');
+    modal.setAttribute('aria-hidden', 'true');
+    modal.setAttribute('hidden', '');
     document.body?.classList.remove('federation-application-open');
+
+    if (returnFocus?.isConnected) {
+        window.requestAnimationFrame(() => {
+            try {
+                returnFocus.focus({ preventScroll: true });
+            } catch (_) {
+                returnFocus.focus();
+            }
+        });
+    }
 }
 
 /* PATCH: Federation apply runtime guard v1 */
@@ -42513,6 +44041,14 @@ function closeFederationApplicationModal(options = {}) {
             console.warn('Federation strategic sync skipped:', error?.message || error);
         }
 
+        if (
+            document.activeElement instanceof HTMLElement &&
+            !modal.contains(document.activeElement)
+        ) {
+            modal.__yhDashboardReturnFocus = document.activeElement;
+        }
+
+        modal.removeAttribute('inert');
         modal.classList.remove('hidden-step');
         modal.removeAttribute('hidden');
         modal.setAttribute('aria-hidden', 'false');
@@ -44153,6 +45689,197 @@ const escapeHtml = (value) => {
         .replace(/'/g, '&#39;');
 };
 
+
+/* ========================================================= */
+/* SHARED DIVISION APPLICATION SUBMISSION STATE              */
+/* Academy • Plazas • Federation                             */
+/* ========================================================= */
+
+const YH_DIVISION_APPLICATION_SUBMIT_MODAL_IDS =
+    Object.freeze({
+        academy:
+            'academy-apply-modal',
+
+        plaza:
+            'plaza-apply-modal',
+
+        federation:
+            'federation-apply-modal'
+    });
+
+
+function getDashboardDivisionApplicationSubmitElements(
+    division = 'academy'
+) {
+    const cleanDivision =
+        String(division || '')
+            .trim()
+            .toLowerCase();
+
+    const modalId =
+        YH_DIVISION_APPLICATION_SUBMIT_MODAL_IDS[
+            cleanDivision
+        ];
+
+    if (!modalId) {
+        return {
+            modal: null,
+            card: null,
+            state: null
+        };
+    }
+
+    const modal =
+        document.getElementById(
+            modalId
+        );
+
+    if (!modal) {
+        return {
+            modal: null,
+            card: null,
+            state: null
+        };
+    }
+
+    const card =
+        modal.querySelector(
+            '.yh-dashboard-division-apply-card, .modal-content'
+        );
+
+    if (!card) {
+        return {
+            modal,
+            card: null,
+            state: null
+        };
+    }
+
+    let state =
+        card.querySelector(
+            '.yh-division-application-submit-state'
+        );
+
+    if (!state) {
+        state =
+            document.createElement(
+                'div'
+            );
+
+        state.className =
+            'yh-division-application-submit-state hidden-step';
+
+        state.setAttribute(
+            'role',
+            'status'
+        );
+
+        state.setAttribute(
+            'aria-live',
+            'polite'
+        );
+
+        state.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+
+        state.innerHTML = `
+            <div
+                class="yh-division-application-submit-spinner"
+                aria-hidden="true"
+            ></div>
+
+            <strong
+                class="yh-division-application-submit-title"
+            >
+                Submitting your application for review.
+            </strong>
+
+            <p
+                class="yh-division-application-submit-copy"
+            >
+                Please wait while your application is securely
+                sent for admin review.
+            </p>
+        `;
+
+        card.appendChild(
+            state
+        );
+    }
+
+    return {
+        modal,
+        card,
+        state
+    };
+}
+
+
+function setDashboardDivisionApplicationSubmitting(
+    division = 'academy',
+    active = false
+) {
+    const {
+        modal,
+        card,
+        state
+    } =
+        getDashboardDivisionApplicationSubmitElements(
+            division
+        );
+
+    if (
+        !modal ||
+        !card ||
+        !state
+    ) {
+        return false;
+    }
+
+    const isActive =
+        active === true;
+
+    modal.setAttribute(
+        'aria-busy',
+        isActive
+            ? 'true'
+            : 'false'
+    );
+
+    modal.dataset.yhApplicationSubmitting =
+        isActive
+            ? 'true'
+            : 'false';
+
+    card.classList.toggle(
+        'is-division-application-submitting',
+        isActive
+    );
+
+    state.classList.toggle(
+        'hidden-step',
+        !isActive
+    );
+
+    state.setAttribute(
+        'aria-hidden',
+        isActive
+            ? 'false'
+            : 'true'
+    );
+
+    if (isActive) {
+        try {
+            card.scrollTop = 0;
+        } catch (_) {}
+    }
+
+    return true;
+}
+
+
 if (formApply) {
     formApply.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -44175,9 +45902,18 @@ if (formApply) {
         const vDesc = document.getElementById('ai-verdict-desc');
         const btnEnter = document.getElementById('btn-enter-academy-chat');
 
-        aiFormPhase?.classList.add('hidden-step');
-        aiVerdictPhase?.classList.add('hidden-step');
-        aiSpinnerPhase?.classList.remove('hidden-step');
+        /*
+         * Keep the legacy Academy spinner hidden.
+         * All three divisions now use the same
+         * Dashboard submission state.
+         */
+        aiSpinnerPhase?.classList.add(
+            'hidden-step'
+        );
+
+        aiVerdictPhase?.classList.add(
+            'hidden-step'
+        );
 
 const applicantIdentity = getCurrentAcademyApplicantIdentity();
 
@@ -44241,6 +45977,11 @@ const payload = {
     adminNote: ''
 };
 
+setDashboardDivisionApplicationSubmitting(
+    'academy',
+    true
+);
+
 try {
     const result = await academyAuthedFetch('/api/academy/membership-apply', {
         method: 'POST',
@@ -44272,8 +46013,26 @@ try {
         JSON.stringify(savedApplication?.academyProfile || payload)
     );
 
-    aiSpinnerPhase?.classList.add('hidden-step');
-    aiVerdictPhase?.classList.remove('hidden-step');
+    /*
+     * Hide the form before removing the shared
+     * loader so there is no one-frame flash.
+     */
+    aiFormPhase?.classList.add(
+        'hidden-step'
+    );
+
+    aiSpinnerPhase?.classList.add(
+        'hidden-step'
+    );
+
+    setDashboardDivisionApplicationSubmitting(
+        'academy',
+        false
+    );
+
+    aiVerdictPhase?.classList.remove(
+        'hidden-step'
+    );
 
             if (vIcon) {
                 vIcon.innerHTML = `
@@ -44315,9 +46074,27 @@ try {
             syncAcademyOccupationField();
             syncAcademyReferralFields();
         } catch (error) {
-            aiSpinnerPhase?.classList.add('hidden-step');
-            aiFormPhase?.classList.remove('hidden-step');
-            showToast("Failed to submit Academy application.", "error");
+            setDashboardDivisionApplicationSubmitting(
+                'academy',
+                false
+            );
+
+            aiSpinnerPhase?.classList.add(
+                'hidden-step'
+            );
+
+            aiVerdictPhase?.classList.add(
+                'hidden-step'
+            );
+
+            aiFormPhase?.classList.remove(
+                'hidden-step'
+            );
+
+            showToast(
+                "Failed to submit Academy application.",
+                "error"
+            );
         }
     });
 }
@@ -45256,6 +47033,46 @@ body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-band
     background-repeat: no-repeat !important;
 }
 
+
+/*
+ * Readability scrim.
+ *
+ * Keeps the uploaded cover clearly visible,
+ * but prevents bright areas of the image
+ * from competing with profile information.
+ */
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-cover-band::after {
+    content: '' !important;
+
+    position: absolute !important;
+    inset: 0 !important;
+
+    z-index: 1 !important;
+
+    pointer-events: none !important;
+
+    background:
+        radial-gradient(
+            circle at 62% 48%,
+            rgba(2, 6, 23, 0.46) 0%,
+            rgba(2, 6, 23, 0.30) 36%,
+            transparent 72%
+        ),
+        linear-gradient(
+            90deg,
+            rgba(2, 6, 23, 0.24) 0%,
+            rgba(2, 6, 23, 0.38) 50%,
+            rgba(2, 6, 23, 0.24) 100%
+        ),
+        linear-gradient(
+            180deg,
+            rgba(2, 6, 23, 0.08),
+            rgba(2, 6, 23, 0.26)
+        ) !important;
+}
+
 body[data-yh-page="academy"] #academy-profile-view .academy-profile-cover-band {
     min-height: 155px !important;
     opacity: 0.95 !important;
@@ -45337,40 +47154,170 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-avatar {
     font-size: 2.4rem !important;
 }
 
+/*
+ * Dashboard profile identity readability panel.
+ *
+ * Only the text area gets the glass treatment;
+ * the whole cover remains visible.
+ */
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-identity-block {
+    padding:
+        12px
+        14px !important;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.08) !important;
+
+    border-radius:
+        16px !important;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(2, 6, 23, 0.85),
+            rgba(8, 20, 38, 0.22)
+        ) !important;
+
+    box-shadow:
+        0 10px 24px
+            rgba(0, 0, 0, 0.18),
+        inset 0 1px 0
+            rgba(255, 255, 255, 0.05) !important;
+
+    backdrop-filter:
+        blur(8px)
+        saturate(1.04);
+
+    -webkit-backdrop-filter:
+        blur(8px)
+        saturate(1.04);
+}
+
+
 body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-name,
 body[data-yh-page="academy"] #academy-profile-view .academy-profile-name {
     color: #ffffff !important;
-    font-size: clamp(1.55rem, 2vw, 2.1rem) !important;
+
+    font-size:
+        clamp(
+            1.55rem,
+            2vw,
+            2.1rem
+        ) !important;
+
     line-height: 1.05 !important;
+
     font-weight: 900 !important;
-    letter-spacing: 0.01em !important;
-    text-shadow: 0 0 22px rgba(56, 189, 248, 0.2) !important;
+
+    letter-spacing:
+        0.01em !important;
+
+    text-shadow:
+        0 2px 4px
+            rgba(0, 0, 0, 0.96),
+        0 0 18px
+            rgba(0, 0, 0, 0.72),
+        0 0 18px
+            rgba(56, 189, 248, 0.16) !important;
 }
+
 
 body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-username,
 body[data-yh-page="academy"] #academy-profile-view .academy-profile-username {
-    color: #c7d8ee !important;
+    color: #eef7ff !important;
+
     font-size: 1rem !important;
-    font-weight: 700 !important;
+
+    font-weight: 750 !important;
+
     margin-top: 5px !important;
+
+    text-shadow:
+        0 2px 4px
+            rgba(0, 0, 0, 0.96),
+        0 0 12px
+            rgba(0, 0, 0, 0.72) !important;
 }
+
 
 body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-role,
 body[data-yh-page="academy"] #academy-profile-view .academy-profile-role {
     color: #67e8f9 !important;
+
     font-size: 0.9rem !important;
+
     font-weight: 900 !important;
+
+    text-shadow:
+        0 2px 4px
+            rgba(0, 0, 0, 0.96),
+        0 0 12px
+            rgba(0, 0, 0, 0.7) !important;
 }
 
 body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-pill,
 body[data-yh-page="academy"] #academy-profile-view .academy-profile-pill,
 body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-intro-visibility-badge,
 body[data-yh-page="academy"] #academy-profile-view .academy-profile-intro-visibility-badge {
-    border: 1px solid rgba(125, 211, 252, 0.34) !important;
-    background: rgba(14, 165, 233, 0.14) !important;
-    color: #e0f7ff !important;
-    font-weight: 900 !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    border:
+        1px solid
+        rgba(125, 211, 252, 0.42) !important;
+
+    background:
+        rgba(3, 15, 30, 0.78) !important;
+
+    color:
+        #ecfbff !important;
+
+    font-weight:
+        900 !important;
+
+    box-shadow:
+        0 5px 14px
+            rgba(0, 0, 0, 0.22),
+        inset 0 1px 0
+            rgba(255, 255, 255, 0.08) !important;
+
+    backdrop-filter:
+        blur(8px);
+
+    -webkit-backdrop-filter:
+        blur(8px);
+}
+
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-tag-chip {
+    border-color:
+        rgba(125, 211, 252, 0.28) !important;
+
+    background:
+        rgba(2, 10, 24, 0.74) !important;
+
+    color:
+        #eefaff !important;
+
+    text-shadow:
+        0 1px 3px
+        rgba(0, 0, 0, 0.88) !important;
+}
+
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-tag-chip-muted {
+    border-color:
+        rgba(148, 163, 184, 0.26) !important;
+
+    background:
+        rgba(2, 8, 20, 0.72) !important;
+
+    color:
+        #d2deed !important;
 }
 
 body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-action-row,
@@ -45675,7 +47622,9 @@ body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-identity-b
     min-width: 0 !important;
     max-width: 100% !important;
 
-    padding: 0 !important;
+    padding:
+        10px
+        11px !important;
 
     display: grid !important;
     justify-items: start !important;
@@ -45684,6 +47633,9 @@ body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-identity-b
     gap: 3px !important;
 
     text-align: left !important;
+
+    border-radius:
+        14px !important;
 }
 
 body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-name,
@@ -46282,6 +48234,357 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         }
     }
 
+    /*
+     * Mobile division application keyboard positioning.
+     *
+     * Normal state:
+     * - Academy / Plazas / Federation application stays
+     *   vertically and horizontally centered.
+     *
+     * Keyboard state:
+     * - visualViewport gives us the actual visible area
+     *   above the software keyboard.
+     * - the modal is centered inside that visible area.
+     * - when the keyboard closes, all temporary positioning
+     *   is removed and normal centered layout returns.
+     */
+    const divisionApplicationModals = Array.from(
+        document.querySelectorAll(
+            '.yh-dashboard-division-apply-modal'
+        )
+    );
+
+    let divisionApplicationStableViewportHeight =
+        Math.max(
+            Number(
+                window.visualViewport?.height ||
+                0
+            ),
+            Number(
+                window.innerHeight ||
+                0
+            ),
+            Number(
+                document.documentElement
+                    ?.clientHeight ||
+                0
+            )
+        );
+
+    function isDashboardDivisionApplicationMobile() {
+        try {
+            return window
+                .matchMedia(
+                    '(max-width: 720px)'
+                )
+                .matches;
+        } catch (_) {
+            return window.innerWidth <= 720;
+        }
+    }
+
+    function getOpenDashboardDivisionApplicationModal() {
+        return (
+            divisionApplicationModals.find(
+                (modal) => {
+                    if (
+                        !modal ||
+                        modal.classList.contains(
+                            'hidden-step'
+                        ) ||
+                        modal.hasAttribute(
+                            'hidden'
+                        ) ||
+                        modal.getAttribute(
+                            'aria-hidden'
+                        ) === 'true'
+                    ) {
+                        return false;
+                    }
+
+                    return true;
+                }
+            ) ||
+            null
+        );
+    }
+
+    function isDashboardDivisionApplicationInput(
+        node
+    ) {
+        if (
+            !node ||
+            !(
+                node instanceof
+                HTMLElement
+            )
+        ) {
+            return false;
+        }
+
+        if (
+            !node.closest(
+                '.yh-dashboard-division-apply-modal'
+            )
+        ) {
+            return false;
+        }
+
+        return Boolean(
+            node.matches(
+                [
+                    'input:not([type="button"])',
+                    'input:not([type="submit"])',
+                    'textarea',
+                    'select',
+                    '[contenteditable="true"]'
+                ].join(',')
+            )
+        );
+    }
+
+    function clearDashboardDivisionApplicationKeyboardState() {
+        divisionApplicationModals.forEach(
+            (modal) => {
+                modal.classList.remove(
+                    'yh-division-application-keyboard-open'
+                );
+
+                modal.style.removeProperty(
+                    '--yh-division-application-vv-top'
+                );
+
+                modal.style.removeProperty(
+                    '--yh-division-application-vv-height'
+                );
+            }
+        );
+    }
+
+    function syncDashboardDivisionApplicationKeyboardPosition() {
+        const modal =
+            getOpenDashboardDivisionApplicationModal();
+
+        if (
+            !modal ||
+            !isDashboardDivisionApplicationMobile()
+        ) {
+            clearDashboardDivisionApplicationKeyboardState();
+            return;
+        }
+
+        const visualViewport =
+            window.visualViewport;
+
+        const currentViewportHeight =
+            Number(
+                visualViewport?.height ||
+                window.innerHeight ||
+                document.documentElement
+                    ?.clientHeight ||
+                0
+            );
+
+        const activeElement =
+            document.activeElement;
+
+        const hasFocusedApplicationField =
+            isDashboardDivisionApplicationInput(
+                activeElement
+            );
+
+        /*
+         * Update our normal mobile viewport reference
+         * only while no application field has focus.
+         * This prevents keyboard-resized dimensions
+         * from becoming the new baseline.
+         */
+        if (
+            !hasFocusedApplicationField &&
+            currentViewportHeight > 0
+        ) {
+            divisionApplicationStableViewportHeight =
+                currentViewportHeight;
+        }
+
+        const hiddenViewportHeight =
+            Math.max(
+                0,
+                divisionApplicationStableViewportHeight -
+                    currentViewportHeight
+            );
+
+        /*
+         * Browser address/tool bars can resize the
+         * visual viewport slightly. 120px prevents
+         * those small changes from being mistaken
+         * for the software keyboard.
+         */
+        const keyboardOpen =
+            hasFocusedApplicationField &&
+            hiddenViewportHeight >= 120;
+
+        if (!keyboardOpen) {
+            clearDashboardDivisionApplicationKeyboardState();
+            return;
+        }
+
+        const viewportTop =
+            Math.max(
+                0,
+                Number(
+                    visualViewport?.offsetTop ||
+                    0
+                )
+            );
+
+        modal.classList.add(
+            'yh-division-application-keyboard-open'
+        );
+
+        modal.style.setProperty(
+            '--yh-division-application-vv-top',
+            `${viewportTop}px`
+        );
+
+        modal.style.setProperty(
+            '--yh-division-application-vv-height',
+            `${Math.max(
+                180,
+                currentViewportHeight
+            )}px`
+        );
+    }
+
+    document.addEventListener(
+        'focusin',
+        (event) => {
+            if (
+                !isDashboardDivisionApplicationInput(
+                    event.target
+                )
+            ) {
+                return;
+            }
+
+            window.requestAnimationFrame(
+                syncDashboardDivisionApplicationKeyboardPosition
+            );
+
+            window.setTimeout(
+                syncDashboardDivisionApplicationKeyboardPosition,
+                80
+            );
+
+            window.setTimeout(
+                syncDashboardDivisionApplicationKeyboardPosition,
+                240
+            );
+        },
+        true
+    );
+
+    document.addEventListener(
+        'focusout',
+        (event) => {
+            if (
+                !isDashboardDivisionApplicationInput(
+                    event.target
+                )
+            ) {
+                return;
+            }
+
+            window.setTimeout(
+                syncDashboardDivisionApplicationKeyboardPosition,
+                80
+            );
+
+            window.setTimeout(
+                syncDashboardDivisionApplicationKeyboardPosition,
+                240
+            );
+        },
+        true
+    );
+
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener(
+            'resize',
+            syncDashboardDivisionApplicationKeyboardPosition,
+            {
+                passive: true
+            }
+        );
+
+        window.visualViewport.addEventListener(
+            'scroll',
+            syncDashboardDivisionApplicationKeyboardPosition,
+            {
+                passive: true
+            }
+        );
+    }
+
+    window.addEventListener(
+        'resize',
+        () => {
+            if (
+                !isDashboardDivisionApplicationInput(
+                    document.activeElement
+                )
+            ) {
+                const viewportHeight =
+                    Number(
+                        window.visualViewport
+                            ?.height ||
+                        window.innerHeight ||
+                        0
+                    );
+
+                if (viewportHeight > 0) {
+                    divisionApplicationStableViewportHeight =
+                        viewportHeight;
+                }
+            }
+
+            syncDashboardDivisionApplicationKeyboardPosition();
+        },
+        {
+            passive: true
+        }
+    );
+
+    window.addEventListener(
+        'orientationchange',
+        () => {
+            clearDashboardDivisionApplicationKeyboardState();
+
+            window.setTimeout(
+                () => {
+                    divisionApplicationStableViewportHeight =
+                        Math.max(
+                            Number(
+                                window.visualViewport
+                                    ?.height ||
+                                0
+                            ),
+                            Number(
+                                window.innerHeight ||
+                                0
+                            )
+                        );
+
+                    syncDashboardDivisionApplicationKeyboardPosition();
+                },
+                350
+            );
+        },
+        {
+            passive: true
+        }
+    );
+
     const divisionSelectors = [
         [
             'academy',
@@ -46753,15 +49056,13 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         document.body?.classList.toggle('yh-dashboard-parent-intro-active-v1', isParent);
         document.body?.classList.toggle('yh-dashboard-overview-command-active-v1', isOverview);
 
-        if (isParent) {
-            const division = workspace === 'plazas' ? 'plazas' : workspace === 'federation' ? 'federation' : 'academy';
-
-            try {
-                if (typeof setUniverseSlide === 'function') {
-                    setUniverseSlide(division, { animate: false });
-                }
-            } catch (_) {}
-        }
+        /*
+         * Parent-intro synchronization controls
+         * Dashboard content only.
+         *
+         * It must never select another carousel
+         * division automatically.
+         */
 
     }
 

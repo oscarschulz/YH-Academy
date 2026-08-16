@@ -607,49 +607,11 @@ function getFederationMemberById(id = "") {
 }
 
 function ensureFederationProfileModal() {
-  let overlay = document.getElementById("fedUniverseProfileModal");
-
-  if (overlay) return overlay;
-
-  overlay = document.createElement("div");
-  overlay.id = "fedUniverseProfileModal";
-  overlay.className = "fed-universe-profile-modal";
-  overlay.setAttribute("aria-hidden", "true");
-
-  overlay.innerHTML = `
-    <div class="fed-universe-profile-backdrop" data-fed-profile-close></div>
-
-    <div class="fed-universe-profile-card" role="dialog" aria-modal="true" aria-labelledby="fedUniverseProfileTitle">
-      <div class="fed-universe-profile-headbar">
-        <div>
-          <span class="fed-sidebar-card-label">YH Universe Profile</span>
-          <h3 id="fedUniverseProfileTitle">Loading profile...</h3>
-        </div>
-
-        <button type="button" class="fed-universe-profile-close" data-fed-profile-close aria-label="Close profile">×</button>
-      </div>
-
-      <div class="fed-universe-profile-body" id="fedUniverseProfileBody"></div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-
-  overlay.addEventListener("click", (event) => {
-    const closeTrigger = event.target.closest("[data-fed-profile-close]");
-    if (!closeTrigger) return;
-    closeFederationProfileModal();
-  });
-
-  return overlay;
+  return ensureFederationUniverseProfileModal();
 }
 
 function closeFederationProfileModal() {
-  const overlay = document.getElementById("fedUniverseProfileModal");
-  if (!overlay) return;
-
-  overlay.classList.remove("is-open");
-  overlay.setAttribute("aria-hidden", "true");
+  return closeFederationUniverseProfileModal();
 }
 
 function renderFederationProfilePreview(profile = {}, fallbackMember = null) {
@@ -1393,48 +1355,239 @@ function setFederationConnectLocalRequests(requests = []) {
   writeStorage(STORAGE_KEYS.connectRequests, Array.isArray(requests) ? requests : []);
 }
 
-function formatFederationConnectStatus(value = "") {
-  const raw = String(value || "").trim().toLowerCase();
+function formatFederationEnumLabel(
+  value = "",
+  fallback = ""
+) {
+  const raw =
+    String(value || "")
+      .trim();
 
-  const labels = {
-    pending_admin_match: "Pending Admin Match",
-    pending_review: "Pending Review",
-    matched: "Matched",
-    pricing_sent: "Pricing Sent",
-    paid: "Paid",
-    intro_delivered: "Intro Delivered",
-    completed: "Completed",
-    rejected: "Rejected"
+  if (!raw) {
+    return fallback;
+  }
+
+  /*
+   * Preserve normal human-written text.
+   * Only technical enum-style values are
+   * automatically converted.
+   */
+  if (
+    raw.includes(" ") &&
+    !raw.includes("_")
+  ) {
+    return raw;
+  }
+
+  const acronymMap = {
+    ai: "AI",
+    api: "API",
+    dm: "DM",
+    id: "ID",
+    url: "URL",
+    yh: "YH",
+    yhu: "YHU",
+    yhf: "YHF"
   };
 
-  return labels[raw] || (raw ? raw.replace(/_/g, " ") : "Pending Admin Match");
+  return raw
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => {
+      const cleanPart =
+        String(part || "")
+          .trim()
+          .toLowerCase();
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          acronymMap,
+          cleanPart
+        )
+      ) {
+        return acronymMap[cleanPart];
+      }
+
+      return (
+        cleanPart
+          .charAt(0)
+          .toUpperCase() +
+        cleanPart.slice(1)
+      );
+    })
+    .join(" ");
+}
+
+function formatFederationConnectStatus(value = "") {
+  const raw =
+    String(value || "")
+      .trim()
+      .toLowerCase();
+
+  const labels = {
+    pending_admin_match:
+      "Pending Admin Match",
+
+    pending_review:
+      "Pending Review",
+
+    matched:
+      "Matched",
+
+    pricing_sent:
+      "Pricing Sent",
+
+    paid:
+      "Paid",
+
+    intro_delivered:
+      "Introduction Delivered",
+
+    completed:
+      "Completed",
+
+    rejected:
+      "Rejected"
+  };
+
+  return (
+    labels[raw] ||
+    formatFederationEnumLabel(
+      raw,
+      "Pending Admin Match"
+    )
+  );
 }
 
 function formatFederationConnectBudget(value = "") {
-  const raw = String(value || "").trim().toLowerCase();
+  const raw =
+    String(value || "")
+      .trim()
+      .toLowerCase();
 
   const labels = {
-    not_sure: "Not sure yet",
-    under_500: "Under $500",
-    "500_1500": "$500 - $1,500",
-    "1500_5000": "$1,500 - $5,000",
-    "5000_plus": "$5,000+"
+    not_sure:
+      "Not Sure Yet",
+
+    under_500:
+      "Under $500",
+
+    "500_1500":
+      "$500 - $1,500",
+
+    "1500_5000":
+      "$1,500 - $5,000",
+
+    "5000_plus":
+      "$5,000+"
   };
 
-  return labels[raw] || "Not sure yet";
+  return (
+    labels[raw] ||
+    "Not Sure Yet"
+  );
 }
 
 function formatFederationConnectUrgency(value = "") {
-  const raw = String(value || "").trim().toLowerCase();
+  const raw =
+    String(value || "")
+      .trim()
+      .toLowerCase();
 
   const labels = {
-    normal: "Normal",
-    this_week: "This week",
-    urgent: "Urgent",
-    exploring: "Exploring"
+    normal:
+      "Normal",
+
+    this_week:
+      "This Week",
+
+    urgent:
+      "Urgent",
+
+    exploring:
+      "Exploring"
   };
 
-  return labels[raw] || "Normal";
+  return (
+    labels[raw] ||
+    "Normal"
+  );
+}
+
+function formatFederationConnectIntroType(value = "") {
+  const raw =
+    String(value || "")
+      .trim()
+      .toLowerCase();
+
+  const labels = {
+    admin_brokered:
+      "Admin-Brokered Introduction",
+
+    operator_intro:
+      "Operator Warm Introduction",
+
+    contact_package:
+      "Contact Package After Approval",
+
+    not_sure:
+      "Not Sure Yet"
+  };
+
+  return (
+    labels[raw] ||
+    formatFederationEnumLabel(
+      raw,
+      "Admin-Brokered Introduction"
+    )
+  );
+}
+
+function formatFederationConnectPaymentStatus(value = "") {
+  const raw =
+    String(value || "not_started")
+      .trim()
+      .toLowerCase();
+
+  const labels = {
+    not_started:
+      "Not Started",
+
+    provider_selected:
+      "Payment Method Selected",
+
+    checkout_started:
+      "Checkout Started",
+
+    pending:
+      "Pending",
+
+    pending_payment:
+      "Pending Payment",
+
+    processing:
+      "Processing",
+
+    paid:
+      "Paid",
+
+    failed:
+      "Payment Failed",
+
+    cancelled:
+      "Cancelled",
+
+    refunded:
+      "Refunded"
+  };
+
+  return (
+    labels[raw] ||
+    formatFederationEnumLabel(
+      raw,
+      "Not Started"
+    )
+  );
 }
 
 function formatFederationConnectMoney(amount = 0, currency = "USD") {
@@ -1458,16 +1611,115 @@ function getFederationConnectPaymentStatus(request = {}) {
   return String(request.paymentStatus || "not_started").trim().toLowerCase();
 }
 
+function getFederationCurrentUserIdentityKeys() {
+  const state =
+    typeof getCurrentUserState === "function"
+      ? getCurrentUserState()
+      : {};
+
+  const sources = [
+    state?.currentUser,
+    state?.member,
+    state?.application,
+
+    federationServerState?.currentUser,
+    federationServerState?.member,
+    federationServerState?.application,
+
+    typeof getCurrentUser === "function"
+      ? getCurrentUser()
+      : null
+  ].filter(Boolean);
+
+  const identityKeys = new Set();
+
+  sources.forEach((source) => {
+    [
+      source?.id,
+      source?.userId,
+      source?.uid,
+      source?.firebaseUid,
+      source?.memberId
+    ].forEach((value) => {
+      const cleanValue =
+        String(value || "").trim();
+
+      if (cleanValue) {
+        identityKeys.add(cleanValue);
+      }
+    });
+  });
+
+  return identityKeys;
+}
+
+function isCurrentUserFederationLeadOwner(record = {}) {
+  const ownerUid =
+    String(
+      record?.ownerUid ||
+      record?.leadOwnerUid ||
+      ""
+    ).trim();
+
+  if (!ownerUid) {
+    return false;
+  }
+
+  return getFederationCurrentUserIdentityKeys()
+    .has(ownerUid);
+}
+
+function getFederationConnectPaymentBlockReason(request = {}) {
+  if (
+    isCurrentUserFederationLeadOwner(
+      request
+    )
+  ) {
+    return "You cannot purchase your own Federation lead.";
+  }
+
+  const paymentStatus =
+    getFederationConnectPaymentStatus(
+      request
+    );
+
+  const status =
+    String(request.status || "")
+      .trim()
+      .toLowerCase();
+
+  const amount =
+    Number(
+      request.pricingAmount || 0
+    );
+
+  if (
+    !Number.isFinite(amount) ||
+    amount <= 0
+  ) {
+    return "This Federation lead does not have a payable price yet.";
+  }
+
+  if (paymentStatus === "paid") {
+    return "This Federation lead has already been paid.";
+  }
+
+  if (
+    status === "paid" ||
+    status === "intro_delivered" ||
+    status === "completed" ||
+    status === "rejected"
+  ) {
+    return "This Federation request is no longer available for payment.";
+  }
+
+  return "";
+}
+
 function canPayFederationConnectRequest(request = {}) {
-  const paymentStatus = getFederationConnectPaymentStatus(request);
-  const status = String(request.status || "").trim().toLowerCase();
-  const amount = Number(request.pricingAmount || 0);
-
-  if (!Number.isFinite(amount) || amount <= 0) return false;
-  if (paymentStatus === "paid") return false;
-  if (status === "paid" || status === "intro_delivered" || status === "completed" || status === "rejected") return false;
-
-  return true;
+  return !getFederationConnectPaymentBlockReason(
+    request
+  );
 }
 
 function hasFederationConnectDealPackage(request = {}) {
@@ -1572,8 +1824,19 @@ function renderFederationUnlockedLeadPanel(request = {}) {
     renderFederationUnlockedLeadValue("Email", details.email),
     renderFederationUnlockedLeadValue("Phone", details.phone),
     renderFederationUnlockedLeadValue("Location", [details.city, details.country].filter(Boolean).join(", ")),
-    renderFederationUnlockedLeadValue("Source", details.sourceMethod),
-    renderFederationUnlockedLeadValue("Next Action", details.nextAction)
+    renderFederationUnlockedLeadValue(
+      "Source",
+      formatFederationEnumLabel(
+        details.sourceMethod
+      )
+    ),
+
+    renderFederationUnlockedLeadValue(
+      "Next Action",
+      formatFederationEnumLabel(
+        details.nextAction
+      )
+    )
   ].filter(Boolean).join("");
 
   return `
@@ -1693,7 +1956,14 @@ function renderFederationConnectDealMetrics(request = {}) {
         <small>Total access price</small>
       </div>
       <div class="fed-state-metric">
-        <strong>${escapeHtml(String(request.paymentStatus || "not_started").replace(/_/g, " "))}</strong>
+        <strong>
+          ${escapeHtml(
+            formatFederationConnectPaymentStatus(
+              request.paymentStatus
+            )
+          )}
+        </strong>
+
         <small>Payment</small>
       </div>
       <div class="fed-state-metric">
@@ -1713,16 +1983,45 @@ function renderFederationConnectDealMetrics(request = {}) {
     }
 
     ${
-      canPayFederationConnectRequest(request)
-        ? renderFederationPaymentProviderPanel(request)
-        : isPaid
-          ? `
-            <p class="fed-command-copy">Payment confirmed. Full lead details can now be unlocked for this buyer only.</p>
-            ${renderFederationUnlockedLeadPanel(request)}
-          `
-          : paymentStatus === "paid"
-            ? `<p class="fed-command-copy">Payment confirmed. Lead details can now be unlocked.</p>`
-            : ""
+      isCurrentUserFederationLeadOwner(request)
+        ? `
+          <div class="fed-command-card">
+            <div class="fed-sidebar-card-label">
+              Own Lead
+            </div>
+
+            <h4>
+              Purchase unavailable
+            </h4>
+
+            <p class="fed-command-copy">
+              This Federation lead belongs to your own account.
+              You cannot purchase or unlock your own lead through
+              the Federation marketplace.
+            </p>
+
+            <div class="fed-card-actions">
+              <button
+                type="button"
+                class="fed-btn fed-btn-secondary"
+                disabled
+                aria-disabled="true"
+              >
+                Your Lead — Not Purchasable
+              </button>
+            </div>
+          </div>
+        `
+        : canPayFederationConnectRequest(request)
+          ? renderFederationPaymentProviderPanel(request)
+          : isPaid
+            ? `
+              <p class="fed-command-copy">Payment confirmed. Full lead details can now be unlocked for this buyer only.</p>
+              ${renderFederationUnlockedLeadPanel(request)}
+            `
+            : paymentStatus === "paid"
+              ? `<p class="fed-command-copy">Payment confirmed. Lead details can now be unlocked.</p>`
+              : ""
     }
   `;
 }
@@ -1740,8 +2039,17 @@ async function selectFederationPaymentProvider(requestId = "", provider = "", bu
     return;
   }
 
-  if (!canPayFederationConnectRequest(request)) {
-    showFederationConnectFeedback("This Federation request is not ready for payment.", "error");
+  const paymentBlockReason =
+    getFederationConnectPaymentBlockReason(
+      request
+    );
+
+  if (paymentBlockReason) {
+    showFederationConnectFeedback(
+      paymentBlockReason,
+      "error"
+    );
+
     return;
   }
 
@@ -1826,8 +2134,17 @@ async function startFederationStripeCheckout(requestId = "", button = null) {
     return;
   }
 
-  if (!canPayFederationConnectRequest(request)) {
-    showFederationConnectFeedback("This request is not ready for Stripe checkout.", "error");
+  const paymentBlockReason =
+    getFederationConnectPaymentBlockReason(
+      request
+    );
+
+  if (paymentBlockReason) {
+    showFederationConnectFeedback(
+      paymentBlockReason,
+      "error"
+    );
+
     return;
   }
 
@@ -1890,8 +2207,17 @@ async function startFederationOxaPayCheckout(requestId = "", button = null) {
     return;
   }
 
-  if (!canPayFederationConnectRequest(request)) {
-    showFederationConnectFeedback("This request is not ready for OxaPay checkout.", "error");
+  const paymentBlockReason =
+    getFederationConnectPaymentBlockReason(
+      request
+    );
+
+  if (paymentBlockReason) {
+    showFederationConnectFeedback(
+      paymentBlockReason,
+      "error"
+    );
+
     return;
   }
 
@@ -2278,7 +2604,16 @@ function renderFederationConnectRequestsPanel() {
                 • ${escapeHtml(formatFederationConnectUrgency(request.urgency))}
                 ${
                   hasFederationConnectDealPackage(request)
-                    ? ` • ${escapeHtml(formatFederationConnectMoney(request.pricingAmount, request.currency))} • ${escapeHtml(String(request.paymentStatus || "not_started").replace(/_/g, " "))}`
+                    ? ` • ${escapeHtml(
+                        formatFederationConnectMoney(
+                          request.pricingAmount,
+                          request.currency
+                        )
+                      )} • ${escapeHtml(
+                        formatFederationConnectPaymentStatus(
+                          request.paymentStatus
+                        )
+                      )}`
                     : ""
                 }
               </small>
@@ -2362,7 +2697,14 @@ function renderFederationRequestsSection() {
           <small>Urgency</small>
         </div>
         <div class="fed-state-metric">
-          <strong>${escapeHtml(request.preferredIntroType || "admin_brokered")}</strong>
+          <strong>
+            ${escapeHtml(
+              formatFederationConnectIntroType(
+                request.preferredIntroType
+              )
+            )}
+          </strong>
+
           <small>Intro type</small>
         </div>
         <div class="fed-state-metric">
@@ -2683,17 +3025,48 @@ function renderFederationConnectSection() {
     <article class="fed-connect-card">
       <div class="fed-connect-card-top">
         <div>
-          <div class="fed-sidebar-card-label">${escapeHtml(opportunity.sourceDivision || "academy")} source</div>
-          <h4>${escapeHtml(opportunity.title)}</h4>
+          <div class="fed-sidebar-card-label">
+            ${escapeHtml(
+              formatFederationEnumLabel(
+                opportunity.sourceDivision ||
+                "academy"
+              )
+            )} Source
+          </div>
+
+          <h4>
+            ${escapeHtml(
+              opportunity.title
+            )}
+          </h4>
         </div>
-        <span class="fed-connect-value">${escapeHtml(opportunity.strategicValue || "standard")}</span>
+
+        <span class="fed-connect-value">
+          ${escapeHtml(
+            formatFederationEnumLabel(
+              opportunity.strategicValue ||
+              "standard"
+            )
+          )}
+        </span>
       </div>
 
       <p class="fed-command-copy">${escapeHtml(opportunity.summary)}</p>
 
       <div class="fed-connect-meta">
-        <span>${escapeHtml(opportunity.category)}</span>
-        <span>${escapeHtml(opportunity.tier)}</span>
+        <span>
+          ${escapeHtml(
+            opportunity.category
+          )}
+        </span>
+
+        <span>
+          ${escapeHtml(
+            formatFederationEnumLabel(
+              opportunity.tier
+            )
+          )}
+        </span>
         <span>${escapeHtml([opportunity.city, opportunity.country].filter(Boolean).join(", ") || "Private region")}</span>
         <span>${opportunity.hasDirectContact ? "Contact on file" : "Intro required"}</span>
         ${
@@ -2704,14 +3077,40 @@ function renderFederationConnectSection() {
       </div>
 
       <div class="fed-connect-card-foot">
-        <small>${escapeHtml(opportunity.companyLabel || "Private organization")}</small>
-        <button
-          type="button"
-          class="fed-btn fed-btn-primary"
-          data-connect-open-request="${escapeHtml(opportunity.id)}"
-        >
-          Request Connection
-        </button>
+        <small>
+          ${escapeHtml(
+            opportunity.companyLabel ||
+            "Private organization"
+          )}
+        </small>
+
+        ${
+          isCurrentUserFederationLeadOwner(
+            opportunity
+          )
+            ? `
+              <button
+                type="button"
+                class="fed-btn fed-btn-secondary"
+                disabled
+                aria-disabled="true"
+                title="You cannot request or purchase your own Federation lead."
+              >
+                Your Lead
+              </button>
+            `
+            : `
+              <button
+                type="button"
+                class="fed-btn fed-btn-primary"
+                data-connect-open-request="${escapeHtml(
+                  opportunity.id
+                )}"
+              >
+                Request Connection
+              </button>
+            `
+        }
       </div>
     </article>
   `).join("");
@@ -2792,12 +3191,47 @@ async function loadFederationConnectData(options = {}) {
 }
 
 function openFederationConnectRequest(opportunityId = "") {
-  const opportunity = federationConnectState.opportunities.find((item) => item.id === opportunityId);
-  const panel = qs("#connectRequestPanel");
-  const form = qs("#connectRequestForm");
-  const selected = qs("#connectSelectedOpportunity");
+  const opportunity =
+    federationConnectState
+      .opportunities
+      .find(
+        (item) =>
+          item.id ===
+          opportunityId
+      );
 
-  if (!opportunity || !panel || !form) return;
+  const panel =
+    qs("#connectRequestPanel");
+
+  const form =
+    qs("#connectRequestForm");
+
+  const selected =
+    qs("#connectSelectedOpportunity");
+
+  if (
+    !opportunity ||
+    !panel ||
+    !form
+  ) {
+    return;
+  }
+
+  if (
+    isCurrentUserFederationLeadOwner(
+      opportunity
+    )
+  ) {
+    showFederationConnectFeedback(
+      "You cannot request or purchase your own Federation lead.",
+      "error",
+      {
+        focus: true
+      }
+    );
+
+    return;
+  }
 
   form.reset();
 
@@ -2869,30 +3303,22 @@ function focusFederationConnectField(form, fieldName = "") {
 async function submitFederationConnectRequest(form) {
   if (!form || form.dataset.submitting === "true") return;
 
-  const payload = {
-    leadId: String(form.elements.leadId?.value || "").trim(),
-    ownerUid: String(form.elements.ownerUid?.value || "").trim(),
+  if (
+    payload.ownerUid &&
+    isCurrentUserFederationLeadOwner(
+      payload
+    )
+  ) {
+    showFederationConnectFeedback(
+      "You cannot request or purchase your own Federation lead.",
+      "error",
+      {
+        focus: true
+      }
+    );
 
-    companyName: String(form.elements.companyName?.value || "").trim(),
-    companyWebsite: String(form.elements.companyWebsite?.value || "").trim(),
-    contactName: String(form.elements.contactName?.value || "").trim(),
-    contactRole: String(form.elements.contactRole?.value || "").trim(),
-    contactType: String(form.elements.contactType?.value || "").trim(),
-    city: String(form.elements.city?.value || "").trim(),
-    country: String(form.elements.country?.value || "").trim(),
-    sourceMethod: String(form.elements.sourceMethod?.value || "").trim(),
-    channel: String(form.elements.channel?.value || "").trim(),
-    pipelineStage: String(form.elements.pipelineStage?.value || "").trim(),
-    priority: String(form.elements.priority?.value || "").trim(),
-    requestedTier: String(form.elements.requestedTier?.value || "").trim(),
-
-    requestReason: String(form.elements.requestReason?.value || "").trim(),
-    intendedUse: String(form.elements.intendedUse?.value || "").trim(),
-    budgetRange: String(form.elements.budgetRange?.value || "not_sure").trim(),
-    urgency: String(form.elements.urgency?.value || "normal").trim(),
-    preferredIntroType: String(form.elements.preferredIntroType?.value || "admin_brokered").trim(),
-    notes: String(form.elements.notes?.value || "").trim()
-  };
+    return;
+  }
 
   if (!payload.contactRole) {
     showFederationConnectFeedback("Add the contact role before submitting this request.", "error", { focus: true });
@@ -3252,20 +3678,6 @@ function getMembers() {
 
 function setMembers(members) {
   writeStorage(STORAGE_KEYS.members, members);
-}
-
-function getFederationMemberById(id = "") {
-  const cleanId = String(id || "").trim();
-
-  if (!cleanId) return null;
-
-  return getMembers().find((member) => {
-    return (
-      String(member.id || "").trim() === cleanId ||
-      String(member.userId || "").trim() === cleanId ||
-      String(member.email || "").trim().toLowerCase() === cleanId.toLowerCase()
-    );
-  }) || null;
 }
 
 function ensureSeedMembers() {
@@ -3852,6 +4264,20 @@ function redactDirectoryMember(member, mode = "preview") {
   };
 }
 
+let federationUniverseProfileReturnFocus = null;
+
+function getFederationUniverseProfileFocusableElements(overlay) {
+  if (!overlay) return [];
+
+  return Array.from(
+    overlay.querySelectorAll(
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter((element) => {
+    return !element.hidden && element.getAttribute("aria-hidden") !== "true";
+  });
+}
+
 function ensureFederationUniverseProfileModal() {
   let overlay = document.getElementById("fedUniverseProfileModal");
 
@@ -3861,6 +4287,7 @@ function ensureFederationUniverseProfileModal() {
   overlay.id = "fedUniverseProfileModal";
   overlay.className = "fed-universe-profile-modal";
   overlay.setAttribute("aria-hidden", "true");
+  overlay.setAttribute("inert", "");
 
   overlay.innerHTML = `
     <div class="fed-universe-profile-backdrop" data-fed-profile-close></div>
@@ -3885,8 +4312,47 @@ function ensureFederationUniverseProfileModal() {
   });
 
   document.addEventListener("keydown", (event) => {
+    if (!overlay.classList.contains("is-open")) return;
+
     if (event.key === "Escape") {
+      event.preventDefault();
       closeFederationUniverseProfileModal();
+      return;
+    }
+
+    if (event.key !== "Tab") return;
+
+    const focusableElements =
+      getFederationUniverseProfileFocusableElements(overlay);
+
+    if (!focusableElements.length) {
+      event.preventDefault();
+      return;
+    }
+
+    const firstFocusable = focusableElements[0];
+    const lastFocusable =
+      focusableElements[focusableElements.length - 1];
+    const activeElement = document.activeElement;
+
+    if (
+      event.shiftKey &&
+      (
+        activeElement === firstFocusable ||
+        !overlay.contains(activeElement)
+      )
+    ) {
+      event.preventDefault();
+      lastFocusable.focus();
+      return;
+    }
+
+    if (
+      !event.shiftKey &&
+      activeElement === lastFocusable
+    ) {
+      event.preventDefault();
+      firstFocusable.focus();
     }
   });
 
@@ -3897,14 +4363,64 @@ function closeFederationUniverseProfileModal() {
   const overlay = document.getElementById("fedUniverseProfileModal");
   if (!overlay) return;
 
+  const isOpen =
+    overlay.classList.contains("is-open") ||
+    overlay.getAttribute("aria-hidden") === "false";
+
+  if (!isOpen) return;
+
+  const activeElement = document.activeElement;
+
+  if (
+    activeElement &&
+    overlay.contains(activeElement) &&
+    typeof activeElement.blur === "function"
+  ) {
+    activeElement.blur();
+  }
+
+  overlay.setAttribute("inert", "");
   overlay.classList.remove("is-open");
   overlay.setAttribute("aria-hidden", "true");
+
+  const returnFocus = federationUniverseProfileReturnFocus;
+  federationUniverseProfileReturnFocus = null;
+
+  if (
+    returnFocus &&
+    returnFocus.isConnected &&
+    typeof returnFocus.focus === "function"
+  ) {
+    window.requestAnimationFrame(() => {
+      try {
+        returnFocus.focus();
+      } catch (_) {}
+    });
+  }
 }
 
 function renderFederationUniverseProfileBody(profile = {}, member = null) {
   const divisions = profile.divisions || {};
   const signals = profile.signals || {};
-  const targetUserId = String(profile.targetUid || profile.uid || profile.id || member?.userId || member?.id || "").trim();
+
+  const targetUserId = String(
+    profile.targetUid ||
+    profile.uid ||
+    profile.id ||
+    member?.userId ||
+    member?.id ||
+    ""
+  ).trim();
+
+  const coverPhoto = normalizeFederationAvatarUrl(
+    profile.cover_photo ||
+    profile.coverPhoto ||
+    profile.cover_url ||
+    profile.coverUrl ||
+    profile.coverPhotoUrl ||
+    profile.cover ||
+    ""
+  );
 
   const divisionChips = Object.values(divisions)
     .filter(Boolean)
@@ -3920,7 +4436,11 @@ function renderFederationUniverseProfileBody(profile = {}, member = null) {
 
   return `
     <div class="fed-universe-profile-cover">
-      ${profile.coverPhoto ? `<img src="${escapeHtml(profile.coverPhoto)}" alt="">` : ""}
+      ${
+        coverPhoto
+          ? `<img src="${escapeHtml(coverPhoto)}" alt="" loading="lazy" decoding="async">`
+          : ""
+      }
     </div>
 
     <div class="fed-universe-profile-main">
@@ -3987,19 +4507,43 @@ function renderFederationUniverseProfileBody(profile = {}, member = null) {
 
 async function openFederationUniverseProfile(targetUserId = "", fallbackMember = null) {
   const cleanId = String(targetUserId || "").trim();
-  const overlay = ensureFederationUniverseProfileModal();
-  const title = document.getElementById("fedUniverseProfileTitle");
-  const body = document.getElementById("fedUniverseProfileBody");
 
   if (!cleanId) {
     return;
   }
 
+  const activeElement = document.activeElement;
+  const overlay = ensureFederationUniverseProfileModal();
+  const title = document.getElementById("fedUniverseProfileTitle");
+  const body = document.getElementById("fedUniverseProfileBody");
+
+  if (
+    activeElement &&
+    activeElement !== document.body &&
+    !overlay.contains(activeElement) &&
+    typeof activeElement.focus === "function"
+  ) {
+    federationUniverseProfileReturnFocus = activeElement;
+  }
+
   if (title) title.textContent = "Loading profile...";
   if (body) body.innerHTML = `<p class="fed-universe-profile-copy">Loading unified YH Universe profile...</p>`;
 
+overlay.removeAttribute("inert");
+overlay.setAttribute("aria-hidden", "false");
   overlay.classList.add("is-open");
-  overlay.setAttribute("aria-hidden", "false");
+
+  window.requestAnimationFrame(() => {
+    const closeButton =
+      overlay.querySelector(".fed-universe-profile-close");
+
+    if (
+      closeButton &&
+      typeof closeButton.focus === "function"
+    ) {
+      closeButton.focus();
+    }
+  });
 
   try {
     const result = await federationConnectFetch(`/api/universe/profile/${encodeURIComponent(cleanId)}`);
@@ -7015,6 +7559,126 @@ function getSafeSectionId(targetId = "") {
 }
 
 
+function getFederationDashboardWorkspaceKey(
+  sectionId = ""
+) {
+  const cleanSection =
+    String(sectionId || "")
+      .replace(/^#/, "")
+      .trim()
+      .toLowerCase();
+
+  const workspaceMap = {
+    command:
+      "federation-command",
+
+    connect:
+      "federation-connect",
+
+    "deal-rooms":
+      "federation-deal-rooms",
+
+    directory:
+      "federation-directory",
+
+    requests:
+      "federation-requests",
+
+    referrals:
+      "federation-referrals",
+
+    status:
+      "federation-access"
+  };
+
+  return (
+    workspaceMap[cleanSection] ||
+    ""
+  );
+}
+
+
+function delegateFederationSectionToDashboard(
+  sectionId = "",
+  options = {}
+) {
+  const workspaceKey =
+    getFederationDashboardWorkspaceKey(
+      sectionId
+    );
+
+  /*
+   * Sections such as Apply or any future
+   * Federation-only internal surface that
+   * does not have a Dashboard child tab
+   * remain locally owned.
+   */
+  if (!workspaceKey) {
+    return false;
+  }
+
+  if (
+    options?.deferDashboardReady ===
+    true
+  ) {
+    return false;
+  }
+
+  try {
+    if (
+      !window.parent ||
+      window.parent === window
+    ) {
+      return false;
+    }
+
+    const parentWindow =
+      window.parent;
+
+    const parentWorkspaceKey =
+      String(
+        parentWindow.document
+          ?.body
+          ?.getAttribute(
+            "data-yh-unified-workspace"
+          ) ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
+    if (
+      parentWorkspaceKey ===
+      workspaceKey
+    ) {
+      return false;
+    }
+
+    if (
+      typeof parentWindow
+        .activateDashboardUnifiedWorkspace !==
+      "function"
+    ) {
+      return false;
+    }
+
+    parentWindow
+      .activateDashboardUnifiedWorkspace(
+        workspaceKey,
+        {
+          animate: false,
+          scroll: false,
+          persist: true
+        }
+      );
+
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+
 function setActiveSection(targetId = "", options = {}) {
   const {
     syncHash = true,
@@ -7023,10 +7687,43 @@ function setActiveSection(targetId = "", options = {}) {
     preserveScroll = false
   } = options || {};
 
-  const nextSectionId = getSafeSectionId(targetId);
-  if (!nextSectionId) return;
+  const nextSectionId =
+    getSafeSectionId(
+      targetId
+    );
 
-  const previousSectionId = activeSectionId || extractSectionId(window.location.hash) || "";
+  if (!nextSectionId) {
+    return;
+  }
+
+  /*
+   * When Federation runs inside the unified
+   * Dashboard, let Dashboard own primary
+   * child-tab navigation.
+   *
+   * This keeps:
+   * - actual Federation content
+   * - desktop sidebar
+   * - mobile selector
+   * - persistent workspace
+   *
+   * on the exact same child tab.
+   */
+  if (
+    delegateFederationSectionToDashboard(
+      nextSectionId,
+      options
+    )
+  ) {
+    return;
+  }
+
+  const previousSectionId =
+    activeSectionId ||
+    extractSectionId(
+      window.location.hash
+    ) ||
+    "";
   const isSameSection = previousSectionId === nextSectionId;
 
   const shouldShowLoader =

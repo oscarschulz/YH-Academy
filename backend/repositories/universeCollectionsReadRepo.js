@@ -1,3 +1,4 @@
+const { firestore } = require('../../config/firebaseAdmin');
 const { yhuSupabaseAdmin } = require('../../config/supabaseAdmin');
 
 const TABLE_NAME = 'yhu_universe_collection_catalog';
@@ -49,36 +50,441 @@ function normalizeStatus(value = '') {
 }
 
 function getViewerId(viewer = {}) {
-    return cleanText(viewer.id || viewer.firebaseUid || viewer.uid);
+    return cleanText(
+        viewer.id ||
+        viewer.firebaseUid ||
+        viewer.uid
+    );
 }
 
-function canViewerSeeItem(item = {}, viewer = {}) {
-    const viewerId = getViewerId(viewer);
-    const ownerId = cleanText(item.createdByUid || item.operatorUid || '');
-    const isOwner = viewerId && ownerId && viewerId === ownerId;
+const COLLECTIONS_ACCESS_LEVELS =
+    new Set([
+        'academy',
+        'plaza',
+        'federation',
+        'all_approved_members',
+        'admin_only'
+    ]);
 
-    if (isOwner) return true;
+function normalizeCollectionsAccessLevel(
+    value = 'all_approved_members'
+) {
+    const clean =
+        cleanLower(
+            value ||
+            'all_approved_members'
+        );
 
-    const visibility = cleanLower(item.visibility || '');
-    if (visibility === 'admin_only') return false;
+    return COLLECTIONS_ACCESS_LEVELS
+        .has(clean)
+            ? clean
+            : 'all_approved_members';
+}
 
-    const reviewStatus = normalizeStatus(item.reviewStatus);
-    const listingStatus = normalizeStatus(item.listingStatus);
+function normalizeCollectionsDivisionScope(
+    value = []
+) {
+    const raw =
+        Array.isArray(value)
+            ? value
+            : String(value || '')
+                .split(',');
+
+    return Array.from(
+        new Set(
+            raw
+                .map((item) =>
+                    cleanLower(item)
+                )
+                .filter((item) =>
+                    [
+                        'academy',
+                        'plaza',
+                        'federation'
+                    ].includes(item)
+                )
+        )
+    );
+}
+
+function normalizeCollectionsResourceUrl(
+    value = '',
+    maxLength = 1200
+) {
+    const clean =
+        cleanText(value)
+            .slice(
+                0,
+                Math.max(
+                    1,
+                    Number(maxLength) || 1200
+                )
+            );
+
+    if (!clean) {
+        return '';
+    }
+
+    if (
+        /[\u0000-\u001F\u007F]/.test(
+            clean
+        )
+    ) {
+        return '';
+    }
+
+    /*
+     * Same-origin absolute path.
+     * Protocol-relative //host is rejected.
+     */
+    if (
+        clean.startsWith('/') &&
+        !clean.startsWith('//')
+    ) {
+        return clean;
+    }
+
+    try {
+        const parsed =
+            new URL(clean);
+
+        if (
+            parsed.protocol !== 'https:' &&
+            parsed.protocol !== 'http:'
+        ) {
+            return '';
+        }
+
+        return parsed
+            .toString()
+            .slice(
+                0,
+                Math.max(
+                    1,
+                    Number(maxLength) || 1200
+                )
+            );
+    } catch (_) {
+        return '';
+    }
+}
+
+function normalizeCollectionsPublicMeta(
+    value = {}
+) {
+    const source =
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value)
+            ? value
+            : {};
+
+    return {
+        ...source,
+
+        resourceUrl:
+            normalizeCollectionsResourceUrl(
+                source.resourceUrl
+            ),
+
+        fileUrl:
+            normalizeCollectionsResourceUrl(
+                source.fileUrl
+            ),
+
+        imageUrl:
+            normalizeCollectionsResourceUrl(
+                source.imageUrl
+            )
+    };
+}
+
+function isApprovedCollectionsMembershipStatus(
+    value = ''
+) {
+    const clean =
+        cleanLower(value)
+            .replace(/\s+/g, '_');
 
     return (
+        clean === 'approved' ||
+        clean === 'active'
+    );
+}
+
+async function resolveCollectionsViewerAccess(
+    viewer = {}
+) {
+    /*
+     * Avoid duplicate Firestore reads when bootstrap
+     * calls both index + Federation inventory.
+     */
+    if (
+        viewer &&
+        viewer.collectionsAccessResolved === true
+    ) {
+        return viewer;
+    }
+
+    const viewerId =
+        getViewerId(viewer);
+
+    const emptyAccess = {
+        academy: false,
+        plaza: false,
+        federation: false,
+        anyApproved: false
+    };
+
+    if (!viewerId) {
+        return {
+            ...viewer,
+            collectionsAccess:
+                emptyAccess,
+            collectionsAccessResolved:
+                true
+        };
+    }
+
+    const snapshot =
+        await firestore
+            .collection('users')
+            .doc(viewerId)
+            .get();
+
+    if (!snapshot.exists) {
+        return {
+            ...viewer,
+            collectionsAccess:
+                emptyAccess,
+            collectionsAccessResolved:
+                true
+        };
+    }
+
+    const userData =
+        snapshot.data() || {};
+
+    const academy =
+        userData.hasAcademyAccess === true ||
+        userData.canEnterAcademy === true ||
+        [
+            userData
+                .academyMembershipStatus,
+            userData
+                .academyApplicationStatus
+        ].some(
+            isApprovedCollectionsMembershipStatus
+        );
+
+    const plaza =
+        userData.hasPlazaAccess === true ||
+        userData.canEnterPlaza === true ||
+        [
+            userData.plazaAccessStatus,
+            userData
+                .plazaMembershipStatus,
+            userData
+                .plazaApplicationStatus
+        ].some(
+            isApprovedCollectionsMembershipStatus
+        );
+
+    const federation =
+        userData.hasFederationAccess === true ||
+        userData.canEnterFederation === true ||
+        [
+            userData
+                .federationMembershipStatus,
+            userData
+                .federationApplicationStatus
+        ].some(
+            isApprovedCollectionsMembershipStatus
+        );
+
+    return {
+        ...viewer,
+
+        collectionsAccess: {
+            academy,
+            plaza,
+            federation,
+            anyApproved:
+                academy ||
+                plaza ||
+                federation
+        },
+
+        collectionsAccessResolved:
+            true
+    };
+}
+
+function viewerHasCollectionsDivision(
+    viewer = {},
+    division = ''
+) {
+    const cleanDivision =
+        cleanLower(division);
+
+    if (
+        ![
+            'academy',
+            'plaza',
+            'federation'
+        ].includes(cleanDivision)
+    ) {
+        return false;
+    }
+
+    return (
+        viewer.collectionsAccess
+            ?.[cleanDivision] === true
+    );
+}
+
+function canViewerUseCollectionsScope(
+    viewer = {},
+    item = {}
+) {
+    const accessLevel =
+        normalizeCollectionsAccessLevel(
+            item.accessLevel
+        );
+
+    if (accessLevel === 'admin_only') {
+        return false;
+    }
+
+    if (
+        accessLevel === 'academy' ||
+        accessLevel === 'plaza' ||
+        accessLevel === 'federation'
+    ) {
+        return viewerHasCollectionsDivision(
+            viewer,
+            accessLevel
+        );
+    }
+
+    const scope =
+        normalizeCollectionsDivisionScope(
+            item.divisionScope
+        );
+
+    if (scope.length) {
+        return scope.some(
+            (division) =>
+                viewerHasCollectionsDivision(
+                    viewer,
+                    division
+                )
+        );
+    }
+
+    return (
+        viewer.collectionsAccess
+            ?.anyApproved === true
+    );
+}
+
+function canViewerSeeItem(
+    item = {},
+    viewer = {}
+) {
+    const viewerId =
+        getViewerId(viewer);
+
+    const ownerId =
+        cleanText(
+            item.createdByUid ||
+            item.operatorUid ||
+            ''
+        );
+
+    const isOwner =
+        Boolean(
+            viewerId &&
+            ownerId &&
+            viewerId === ownerId
+        );
+
+    const visibility =
+        cleanLower(
+            item.visibility ||
+            ''
+        );
+
+    const reviewStatus =
+        normalizeStatus(
+            item.reviewStatus
+        );
+
+    const listingStatus =
+        normalizeStatus(
+            item.listingStatus
+        );
+
+    const approvedOrListed =
         reviewStatus === 'approved' ||
         listingStatus === 'listed' ||
-        listingStatus === 'approved'
+        listingStatus === 'approved';
+
+    /*
+     * Owners may inspect their own non-public
+     * submission while it is still pending,
+     * rejected, archived, etc.
+     */
+    if (
+        isOwner &&
+        !approvedOrListed
+    ) {
+        return true;
+    }
+
+    if (!approvedOrListed) {
+        return false;
+    }
+
+    /*
+     * Never expose admin-only records through
+     * ordinary authenticated Collections reads.
+     */
+    if (visibility === 'admin_only') {
+        return false;
+    }
+
+    if (
+        normalizeCollectionsAccessLevel(
+            item.accessLevel
+        ) === 'admin_only'
+    ) {
+        return false;
+    }
+
+    return canViewerUseCollectionsScope(
+        viewer,
+        item
     );
 }
 
 function mapCatalogRow(row = {}) {
     const data = row.data && typeof row.data === 'object' ? row.data : {};
-    const publicMeta = row.public_meta && typeof row.public_meta === 'object'
-        ? row.public_meta
-        : data.publicMeta && typeof data.publicMeta === 'object'
-            ? data.publicMeta
-            : {};
+    const publicMetaSource =
+        row.public_meta &&
+        typeof row.public_meta ===
+            'object'
+            ? row.public_meta
+            : data.publicMeta &&
+              typeof data.publicMeta ===
+                  'object'
+                ? data.publicMeta
+                : {};
+
+    const publicMeta =
+        normalizeCollectionsPublicMeta(
+            publicMetaSource
+        );
 
     return {
         id: cleanText(row.source_document_id || row.id),
@@ -86,14 +492,37 @@ function mapCatalogRow(row = {}) {
         title: cleanText(row.title || data.title || publicMeta.title || 'Untitled collection item'),
         summary: cleanText(row.summary || data.summary || data.description || publicMeta.summary || ''),
 
-        sourceDivision: cleanLower(row.source_division || data.sourceDivision || 'universe'),
-        targetDivision: cleanLower(row.target_division || data.targetDivision || data.accessLevel || data.sourceDivision || 'universe'),
+        sourceDivision:
+            cleanLower(
+                row.source_division ||
+                data.sourceDivision ||
+                'universe'
+            ),
+
+        targetDivision:
+            cleanLower(
+                row.target_division ||
+                data.targetDivision ||
+                data.accessLevel ||
+                data.sourceDivision ||
+                'universe'
+            ),
+
+        divisionScope:
+            normalizeCollectionsDivisionScope(
+                data.divisionScope
+            ),
         sourceFeature: cleanLower(row.source_feature || data.sourceFeature || 'general'),
         sourceSystem: cleanText(row.source_system || data.sourceSystem || ''),
         sourceRecordId: cleanText(row.source_record_id || data.sourceRecordId || ''),
         sourceRecordPath: cleanText(row.source_record_path || data.sourceRecordPath || row.source_document_path || ''),
 
-        accessLevel: cleanLower(row.access_level || data.accessLevel || 'all_approved_members'),
+        accessLevel:
+            normalizeCollectionsAccessLevel(
+                row.access_level ||
+                data.accessLevel ||
+                'all_approved_members'
+            ),
         visibility: cleanLower(row.visibility || data.visibility || 'division_members'),
         reviewStatus: normalizeStatus(row.review_status || data.reviewStatus),
         listingStatus: normalizeStatus(row.listing_status || data.listingStatus || data.reviewStatus),
@@ -114,9 +543,29 @@ function mapCatalogRow(row = {}) {
         privateMetaAvailable: row.private_meta_available === true || data.privateMetaAvailable === true,
         monetized: row.monetized === true || data.monetized === true || data.saleEnabled === true,
 
-        resourceUrl: cleanText(row.resource_url || data.resourceUrl || publicMeta.resourceUrl || ''),
-        fileUrl: cleanText(row.file_url || data.fileUrl || publicMeta.fileUrl || ''),
-        imageUrl: cleanText(row.image_url || data.imageUrl || publicMeta.imageUrl || ''),
+        resourceUrl:
+            normalizeCollectionsResourceUrl(
+                row.resource_url ||
+                data.resourceUrl ||
+                publicMeta.resourceUrl ||
+                ''
+            ),
+
+        fileUrl:
+            normalizeCollectionsResourceUrl(
+                row.file_url ||
+                data.fileUrl ||
+                publicMeta.fileUrl ||
+                ''
+            ),
+
+        imageUrl:
+            normalizeCollectionsResourceUrl(
+                row.image_url ||
+                data.imageUrl ||
+                publicMeta.imageUrl ||
+                ''
+            ),
 
         buyerPriceAmount: toNumber(row.buyer_price_amount ?? publicMeta.buyerPriceAmount, 0),
         sellerPriceAmount: toNumber(row.seller_price_amount ?? publicMeta.sellerPriceAmount, 0),
@@ -285,9 +734,25 @@ async function fetchCatalogRows(recordSources = [], limit = 300) {
     return Array.isArray(data) ? data : [];
 }
 
-async function listIndexItems(viewer = {}, filters = {}) {
-    const viewerId = getViewerId(viewer);
-    const rows = await fetchCatalogRows(['index', 'resource'], filters.limit || 300);
+async function listIndexItems(
+    viewer = {},
+    filters = {}
+) {
+    const resolvedViewer =
+        await resolveCollectionsViewerAccess(
+            viewer
+        );
+
+    const viewerId =
+        getViewerId(
+            resolvedViewer
+        );
+
+    const rows =
+        await fetchCatalogRows(
+            ['index', 'resource'],
+            filters.limit || 300
+        );
 
     const merged = [
         ...buildAcademyMissionPlaybookCollectionItems(),
@@ -300,28 +765,85 @@ async function listIndexItems(viewer = {}, filters = {}) {
 
     return sortNewestFirst(
         deduped
-            .filter((item) => canViewerSeeItem(item, viewer))
+            .filter(
+                (item) =>
+                    canViewerSeeItem(
+                        item,
+                        resolvedViewer
+                    )
+            )
             .filter((item) => matchesFilters(item, { ...filters, viewerId }))
     ).slice(0, Math.max(1, Math.min(200, Number(filters.limit || 120))));
 }
 
-async function listFederationLeadInventory(viewer = {}, filters = {}) {
-    const viewerId = getViewerId(viewer);
-    const rows = await fetchCatalogRows(['lead_inventory'], filters.limit || 300);
+async function listFederationLeadInventory(
+    viewer = {},
+    filters = {}
+) {
+    const resolvedViewer =
+        await resolveCollectionsViewerAccess(
+            viewer
+        );
+
+    const viewerId =
+        getViewerId(
+            resolvedViewer
+        );
+
+    /*
+     * Federation lead inventory is never readable
+     * by Academy-only / Plaza-only members.
+     */
+    if (
+        !viewerHasCollectionsDivision(
+            resolvedViewer,
+            'federation'
+        )
+    ) {
+        return [];
+    }
+
+    const rows =
+        await fetchCatalogRows(
+            ['lead_inventory'],
+            filters.limit || 300
+        );
 
     return sortNewestFirst(
         rows
             .map(mapCatalogRow)
-            .filter((item) => canViewerSeeItem(item, viewer))
+            .filter(
+                (item) =>
+                    canViewerSeeItem(
+                        item,
+                        resolvedViewer
+                    )
+            )
             .filter((item) => matchesFilters(item, { ...filters, mode: 'leads', viewerId }))
     ).slice(0, Math.max(1, Math.min(200, Number(filters.limit || 80))));
 }
 
-async function getBootstrap(viewer = {}, filters = {}) {
-    const [items, leads] = await Promise.all([
-        listIndexItems(viewer, filters),
-        listFederationLeadInventory(viewer, filters)
-    ]);
+async function getBootstrap(
+    viewer = {},
+    filters = {}
+) {
+    const resolvedViewer =
+        await resolveCollectionsViewerAccess(
+            viewer
+        );
+
+    const [items, leads] =
+        await Promise.all([
+            listIndexItems(
+                resolvedViewer,
+                filters
+            ),
+
+            listFederationLeadInventory(
+                resolvedViewer,
+                filters
+            )
+        ]);
 
     return {
         items,

@@ -1214,6 +1214,244 @@ async function listDirectory(options = {}) {
     );
 }
 
+async function getDirectoryProfileById(
+    id = ''
+) {
+    const cleanId =
+        sanitizeText(id);
+
+    if (!cleanId) {
+        return null;
+    }
+
+    const row =
+        await getExisting(
+            'directory_profile',
+            cleanId
+        );
+
+    if (!row) {
+        return null;
+    }
+
+    const profile =
+        mapDirectoryRow(row);
+
+    /*
+     * Direct lookups must enforce the same
+     * publication boundary as listDirectory().
+     *
+     * An archived, hidden, pending, blocked,
+     * or otherwise unpublished directory record
+     * must not become a valid Business Chat target.
+     */
+    if (
+        !isPublishedStatus(
+            profile.status
+        ) ||
+        !isPublishedStatus(
+            profile.reviewStatus
+        )
+    ) {
+        return null;
+    }
+
+    return profile;
+}
+
+function toPublicDirectoryProfile(
+    profile = {}
+) {
+    const avatarUrl =
+        sanitizeText(
+            profile.avatarUrl ||
+            profile.avatar ||
+            ''
+        );
+
+    const region =
+        sanitizeText(
+            profile.region ||
+            'Global'
+        ) || 'Global';
+
+    /*
+     * Directory listings are member-discovery
+     * surfaces. Authentication identifiers and
+     * private contact fields stay server-side.
+     */
+    return {
+        id:
+            sanitizeText(
+                profile.id
+            ),
+
+        userId:
+            sanitizeText(
+                profile.userId ||
+                profile.id
+            ),
+
+        username:
+            sanitizeText(
+                profile.username
+            ),
+
+        name:
+            sanitizeText(
+                profile.name ||
+                'YH Member'
+            ),
+
+        headline:
+            sanitizeText(
+                profile.headline
+            ),
+
+        bio:
+            sanitizeText(
+                profile.bio
+            ),
+
+        region,
+        location:
+            region,
+
+        avatarUrl,
+        avatar:
+            avatarUrl,
+
+        role:
+            sanitizeText(
+                profile.role
+            ),
+
+        division:
+            sanitizeText(
+                profile.division
+            ),
+
+        source:
+            sanitizeText(
+                profile.source
+            ),
+
+        trust:
+            sanitizeText(
+                profile.trust
+            ),
+
+        focus:
+            sanitizeText(
+                profile.focus
+            ),
+
+        availability:
+            sanitizeText(
+                profile.availability
+            ),
+
+        workMode:
+            sanitizeText(
+                profile.workMode
+            ),
+
+        marketplaceMode:
+            sanitizeText(
+                profile.marketplaceMode
+            ),
+
+        lookingFor:
+            safeArray(
+                profile.lookingFor
+            ),
+
+        canOffer:
+            safeArray(
+                profile.canOffer
+            ),
+
+        skills:
+            safeArray(
+                profile.skills
+            ),
+
+        services:
+            safeArray(
+                profile.services
+            ),
+
+        tags:
+            safeArray(
+                profile.tags
+            ),
+
+        status:
+            normalizeStatus(
+                profile.status ||
+                'active'
+            ),
+
+        reviewStatus:
+            normalizeStatus(
+                profile.reviewStatus ||
+                profile.status ||
+                'active'
+            ),
+
+        createdAt:
+            toIso(
+                profile.createdAt
+            ),
+
+        updatedAt:
+            toIso(
+                profile.updatedAt
+            )
+    };
+}
+
+async function getRegionById(
+    id = ''
+) {
+    const cleanId =
+        sanitizeText(id);
+
+    if (!cleanId) {
+        return null;
+    }
+
+    const row =
+        await getExisting(
+            'region',
+            cleanId
+        );
+
+    if (!row) {
+        return null;
+    }
+
+    const region =
+        mapRegionRow(row);
+
+    /*
+     * Direct region lookups must observe the
+     * same publication boundary as listRegions().
+     */
+    if (
+        !isPublishedStatus(
+            region.status
+        ) ||
+        !isPublishedStatus(
+            region.reviewStatus
+        )
+    ) {
+        return null;
+    }
+
+    return region;
+}
+
 async function listRegions(options = {}) {
     const limit = typeof options === 'number'
         ? options
@@ -1322,6 +1560,9 @@ module.exports = {
     upsertDirectoryProfile,
     createRegion,
     listDirectory,
+    getDirectoryProfileById,
+    getRegionById,
+    toPublicDirectoryProfile,
     listRegions,
     deleteRecord,
     mapDirectoryRow,

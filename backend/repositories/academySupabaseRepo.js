@@ -934,9 +934,72 @@ function mapLeadMissionLeadData(data = {}, id = '') {
             data.saleEnabled ===
             true,
 
+        saleReviewStatus:
+            sanitizeString(
+                data.saleReviewStatus ||
+                'not_listed'
+            ),
+
+        saleStatus:
+            sanitizeString(
+                data.saleStatus ||
+                data.federationListingStatus ||
+                'not_listed'
+            ),
+
+        federationListingStatus:
+            sanitizeString(
+                data.federationListingStatus ||
+                data.saleStatus ||
+                'not_listed'
+            ),
+
+        listingAvailability:
+            sanitizeString(
+                data.listingAvailability ||
+                'lifetime'
+            ),
+
+        unlimitedPurchases:
+            data.unlimitedPurchases !==
+            false,
+
+        purchaseCount:
+            Math.max(
+                0,
+                toNumber(
+                    data.purchaseCount,
+                    0
+                )
+            ),
+
         federationReady:
             data.federationReady ===
             true,
+
+        plazaReady:
+            data.plazaReady ===
+            true,
+
+        accessScopes:
+            Array.isArray(
+                data.accessScopes
+            )
+                ? data.accessScopes
+                : ['academy'],
+
+        networkTags:
+            Array.isArray(
+                data.networkTags
+            )
+                ? data.networkTags
+                : [],
+
+        strategicValue:
+            sanitizeString(
+                data.strategicValue ||
+                'standard'
+            ),
 
         duplicateCreate:
             data.duplicateCreate ===
@@ -2421,6 +2484,59 @@ async function updateLeadMissionLead(
             ...patch
         }),
         options
+    );
+}
+
+async function markLeadMissionPurchasedV1(
+    uid,
+    leadId,
+    options = {}
+) {
+    const purchasedAt =
+        toIso(
+            options.purchasedAt
+        ) ||
+        nowIso();
+
+    const incrementPurchaseCount =
+        options.incrementPurchaseCount !== false;
+
+    return mutateLeadMissionLeadV1(
+        uid,
+        leadId,
+        (currentData) => {
+            const patch = {
+                saleStatus:
+                    'listed',
+
+                federationListingStatus:
+                    'listed',
+
+                listingAvailability:
+                    'lifetime',
+
+                unlimitedPurchases:
+                    true,
+
+                lastPurchasedAt:
+                    purchasedAt
+            };
+
+            if (
+                incrementPurchaseCount
+            ) {
+                patch.purchaseCount =
+                    Math.max(
+                        0,
+                        toNumber(
+                            currentData.purchaseCount,
+                            0
+                        )
+                    ) + 1;
+            }
+
+            return patch;
+        }
     );
 }
 
@@ -13454,6 +13570,7 @@ module.exports = {
     listLeadMissionLeads,
     getLeadMissionLeadById,
     updateLeadMissionLead,
+    markLeadMissionPurchasedV1,
     submitRoutedLeadMissionV1,
     deleteLeadMissionLead,
     listLeadMissionFollowUps,

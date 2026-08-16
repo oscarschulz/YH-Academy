@@ -13,7 +13,12 @@ function parseCookies(req) {
         const value = part.slice(idx + 1).trim();
 
         if (!key) return;
-        out[key] = decodeURIComponent(value);
+
+        try {
+            out[key] = decodeURIComponent(value);
+        } catch (_) {
+            out[key] = value;
+        }
     });
 
     return out;
@@ -182,7 +187,12 @@ module.exports = async (req, res, next) => {
 
         return next();
     } catch (error) {
-        return res.status(400).json({
+        res.setHeader(
+            'Set-Cookie',
+            buildExpiredAuthCookie()
+        );
+
+        return res.status(401).json({
             success: false,
             message: "Invalid or Expired Gate Pass."
         });

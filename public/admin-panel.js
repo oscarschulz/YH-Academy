@@ -1,26 +1,10 @@
 const STORAGE_KEY = 'yh_admin_panel_state_v3_live';
 
-function getAdminTokenFromPath() {
-  const parts = window.location.pathname.split('/').filter(Boolean);
-  const adminIndex = parts.indexOf('admin');
-
-  if (adminIndex === -1) return '';
-  return String(parts[adminIndex + 1] || '').trim();
-}
-
 function buildAdminLoginUrl() {
-  const routeToken = getAdminTokenFromPath();
-  return routeToken ? `/admin/${encodeURIComponent(routeToken)}/login` : '/';
+  return '/admin/login';
 }
 
 function enforceAdminPanelAccess() {
-  const routeToken = getAdminTokenFromPath();
-
-  if (!routeToken) {
-    window.location.replace('/');
-    return false;
-  }
-
   return true;
 }
 

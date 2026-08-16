@@ -82,6 +82,51 @@ function normalizePaymentStatus(value = 'draft') {
     return 'draft';
 }
 
+function resolvePaymentStatusTransition(
+    currentValue = 'draft',
+    requestedValue = 'draft'
+) {
+    const current =
+        normalizePaymentStatus(
+            currentValue || 'draft'
+        );
+
+    const requested =
+        normalizePaymentStatus(
+            requestedValue || current
+        );
+
+    /*
+     * A completed payment is historical fact.
+     * Late/out-of-order provider events must not
+     * regress it back to pending/failed/expired.
+     *
+     * Refund is the only valid post-paid terminal
+     * transition.
+     */
+    if (current === 'paid') {
+        if (
+            requested === 'paid' ||
+            requested === 'refunded'
+        ) {
+            return requested;
+        }
+
+        return 'paid';
+    }
+
+    /*
+     * Once refunded, the original payment record
+     * remains refunded. A later webhook cannot turn
+     * the same transaction back into paid/pending.
+     */
+    if (current === 'refunded') {
+        return 'refunded';
+    }
+
+    return requested;
+}
+
 function normalizePayoutMethod(value = 'local_bank') {
     const raw = cleanLower(value || 'local_bank');
 
@@ -514,16 +559,39 @@ async function upsertPaymentRecord(input = {}) {
         input.sourceRecordId
     );
 
-    const existingRow = await getRow('payment', id).catch(() => null);
-    const existingData = rowData(existingRow);
-
-    const data = mapPaymentDataFromInput(
-        {
-            ...input,
+    const existingRow =
+        await getRow(
+            'payment',
             id
-        },
-        existingData
-    );
+        ).catch(() => null);
+
+    const existingData =
+        rowData(existingRow);
+
+    const requestedStatus =
+        normalizePaymentStatus(
+            input.status ??
+            existingData.status ??
+            'draft'
+        );
+
+    const effectiveStatus =
+        resolvePaymentStatusTransition(
+            existingData.status ||
+            'draft',
+            requestedStatus
+        );
+
+    const data =
+        mapPaymentDataFromInput(
+            {
+                ...input,
+                id,
+                status:
+                    effectiveStatus
+            },
+            existingData
+        );
 
     const saved = await upsertLedgerRow('payment', id, data);
     const payment = mapPaymentRecordRow(saved);
@@ -568,14 +636,35 @@ async function updatePaymentRecordStatus(paymentId = '', input = {}) {
         throw error;
     }
 
-    const current = rowData(row);
+    const current =
+        rowData(row);
+
+    const requestedStatus =
+        normalizePaymentStatus(
+            input.status ??
+            current.status ??
+            'draft'
+        );
+
+    const effectiveStatus =
+        resolvePaymentStatusTransition(
+            current.status ||
+            'draft',
+            requestedStatus
+        );
+
     const nextInput = {
         ...input,
         id: cleanId,
-        status: input.status || current.status || 'draft'
+        status:
+            effectiveStatus
     };
 
-    const data = mapPaymentDataFromInput(nextInput, current);
+    const data =
+        mapPaymentDataFromInput(
+            nextInput,
+            current
+        );
 
     const saved = await upsertLedgerRow('payment', cleanId, data);
     const payment = mapPaymentRecordRow(saved);

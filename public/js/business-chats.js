@@ -76,14 +76,45 @@
     }, 3200);
   }
 
-  function closeInlineDialogHard() {
-    const dialog = $('bcInlineDialog');
-    if (!dialog) return;
+function getInlineDialogFocusableElements(dialog) {
+  if (!dialog) return [];
 
-    dialog.classList.add('hidden-step');
-    dialog.setAttribute('aria-hidden', 'true');
-    dialog.removeAttribute('data-bc-dialog-open');
+  return Array.from(
+    dialog.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter((element) => {
+    if (
+      element.hidden ||
+      element.getAttribute('aria-hidden') === 'true' ||
+      element.closest('.hidden-step')
+    ) {
+      return false;
+    }
+
+    return element.getClientRects().length > 0;
+  });
+}
+
+function closeInlineDialogHard() {
+  const dialog = $('bcInlineDialog');
+  if (!dialog) return;
+
+  const activeElement = document.activeElement;
+
+  if (
+    activeElement &&
+    dialog.contains(activeElement) &&
+    typeof activeElement.blur === 'function'
+  ) {
+    activeElement.blur();
   }
+
+  dialog.setAttribute('inert', '');
+  dialog.classList.add('hidden-step');
+  dialog.setAttribute('aria-hidden', 'true');
+  dialog.removeAttribute('data-bc-dialog-open');
+}
 
   function openInlineDialog(options = {}) {
     return new Promise((resolve) => {
@@ -99,12 +130,29 @@
       const reasonInput = $('bcInlineReasonInput');
       const detailsInput = $('bcInlineDetailsInput');
 
-      if (!dialog || !confirmBtn || !cancelBtn) {
-        resolve({ confirmed: false, reason: '', details: '' });
-        return;
-      }
+if (!dialog || !confirmBtn || !cancelBtn) {
+  resolve({ confirmed: false, reason: '', details: '' });
+  return;
+}
 
-      const needsReason = options.reason === true;
+const activeElementBeforeOpen =
+  document.activeElement;
+
+const returnFocus =
+  options.returnFocus &&
+  options.returnFocus.isConnected &&
+  typeof options.returnFocus.focus === 'function'
+    ? options.returnFocus
+    : (
+        activeElementBeforeOpen &&
+        activeElementBeforeOpen !== document.body &&
+        !dialog.contains(activeElementBeforeOpen) &&
+        typeof activeElementBeforeOpen.focus === 'function'
+          ? activeElementBeforeOpen
+          : null
+      );
+
+const needsReason = options.reason === true;
       const needsDetails = options.details === true;
       const tone = String(options.tone || 'primary').trim().toLowerCase();
 
@@ -131,32 +179,66 @@
       cancelBtn.disabled = false;
       closeBtn && (closeBtn.disabled = false);
 
-      dialog.classList.remove('hidden-step');
+      dialog.removeAttribute('inert');
       dialog.setAttribute('aria-hidden', 'false');
+      dialog.classList.remove('hidden-step');
       dialog.setAttribute('data-bc-dialog-open', 'true');
 
-      window.setTimeout(() => {
-        if (needsReason && reasonInput) {
-          reasonInput.focus();
-          return;
-        }
+const initialFocusTimer =
+  window.setTimeout(() => {
+    if (
+      dialog.getAttribute('data-bc-dialog-open') !== 'true'
+    ) {
+      return;
+    }
 
-        confirmBtn.focus();
-      }, 40);
+    if (needsReason && reasonInput) {
+      reasonInput.focus();
+      return;
+    }
 
-      let resolved = false;
+    confirmBtn.focus();
+  }, 40);
 
-      const cleanup = () => {
-        dialog.classList.add('hidden-step');
-        dialog.setAttribute('aria-hidden', 'true');
-        dialog.removeAttribute('data-bc-dialog-open');
+let resolved = false;
 
-        confirmBtn.removeEventListener('click', onConfirm);
-        cancelBtn.removeEventListener('click', onCancel);
-        closeBtn?.removeEventListener('click', onCancel);
-        dialog.removeEventListener('click', onBackdrop);
-        document.removeEventListener('keydown', onKeydown);
-      };
+const cleanup = () => {
+  window.clearTimeout(initialFocusTimer);
+
+  const activeElement =
+    document.activeElement;
+
+      if (
+        activeElement &&
+        dialog.contains(activeElement) &&
+        typeof activeElement.blur === 'function'
+      ) {
+        activeElement.blur();
+      }
+
+      dialog.setAttribute('inert', '');
+      dialog.classList.add('hidden-step');
+      dialog.setAttribute('aria-hidden', 'true');
+      dialog.removeAttribute('data-bc-dialog-open');
+
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn.removeEventListener('click', onCancel);
+      closeBtn?.removeEventListener('click', onCancel);
+      dialog.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKeydown);
+
+      if (
+        returnFocus &&
+        returnFocus.isConnected &&
+        typeof returnFocus.focus === 'function'
+      ) {
+        window.requestAnimationFrame(() => {
+          try {
+            returnFocus.focus();
+          } catch (_) {}
+        });
+      }
+    };
 
       const done = (payload) => {
         if (resolved) return;
@@ -200,9 +282,55 @@
         if (event.target === dialog) onCancel();
       };
 
-      const onKeydown = (event) => {
-        if (event.key === 'Escape') onCancel();
-      };
+    const onKeydown = (event) => {
+      if (event.key === 'Escape') {
+        onCancel(event);
+        return;
+      }
+
+      if (event.key !== 'Tab') return;
+
+      const focusable =
+        getInlineDialogFocusableElements(dialog);
+
+      if (!focusable.length) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeElement = document.activeElement;
+
+      if (!dialog.contains(activeElement)) {
+        event.preventDefault();
+
+        if (event.shiftKey) {
+          last.focus();
+        } else {
+          first.focus();
+        }
+
+        return;
+      }
+
+      if (
+        event.shiftKey &&
+        activeElement === first
+      ) {
+        event.preventDefault();
+        last.focus();
+        return;
+      }
+
+      if (
+        !event.shiftKey &&
+        activeElement === last
+      ) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
 
       confirmBtn.addEventListener('click', onConfirm);
       cancelBtn.addEventListener('click', onCancel);
@@ -1605,7 +1733,10 @@ if (replyForm) {
     }
   }
 
-  async function runSafetyAction(action = '') {
+  async function runSafetyAction(
+  action = '',
+  returnFocus = null
+) {
     const conversation = getActiveConversation();
     const cleanAction = String(action || '').trim().toLowerCase();
 
@@ -1621,6 +1752,7 @@ if (replyForm) {
 
     if (cleanAction === 'report') {
       const result = await openInlineDialog({
+        returnFocus,
         kicker: 'Safety Report',
         title: 'Report this business chat?',
         message: 'Send this conversation to admin review with a clear reason and optional details.',
@@ -1651,6 +1783,7 @@ if (replyForm) {
       }
 
       const result = await openInlineDialog({
+        returnFocus,
         kicker: 'Close Thread',
         title: 'Close this business chat?',
         message: 'Replies will be disabled after closing this thread. This will not add the member to your Blocked Members list.',
@@ -1670,6 +1803,7 @@ if (replyForm) {
       }
 
       const result = await openInlineDialog({
+        returnFocus,
         kicker: 'Block Member',
         title: 'Block this member?',
         message: 'This will add the member to your Blocked Members list and disable future Business Chat replies with them.',
@@ -1746,6 +1880,7 @@ if (replyForm) {
     }
 
     const result = await openInlineDialog({
+      returnFocus: button,
       kicker: 'Unblock Member',
       title: 'Unblock this member?',
       message: 'This will allow future Business Chats with this member again.',
@@ -1945,9 +2080,32 @@ if (replyForm) {
       unblockMember(button.getAttribute('data-unblock-id') || '', button);
     });
 
-    $('bcReportThread')?.addEventListener('click', () => runSafetyAction('report'));
-    $('bcCloseThread')?.addEventListener('click', () => runSafetyAction('close'));
-    $('bcBlockThread')?.addEventListener('click', () => runSafetyAction('block'));
+    $('bcReportThread')?.addEventListener(
+      'click',
+      (event) =>
+        runSafetyAction(
+          'report',
+          event.currentTarget
+        )
+    );
+
+    $('bcCloseThread')?.addEventListener(
+      'click',
+      (event) =>
+        runSafetyAction(
+          'close',
+          event.currentTarget
+        )
+    );
+
+    $('bcBlockThread')?.addEventListener(
+      'click',
+      (event) =>
+        runSafetyAction(
+          'block',
+          event.currentTarget
+        )
+    );
 
     const disposeBusinessChatsPage = () => {
       state.disposed = true;

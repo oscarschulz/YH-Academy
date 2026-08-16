@@ -1,13 +1,5 @@
-function getAdminTokenFromPath() {
-  const parts = window.location.pathname.split('/').filter(Boolean);
-  const adminIndex = parts.indexOf('admin');
-
-  if (adminIndex === -1) return '';
-  return String(parts[adminIndex + 1] || '').trim();
-}
-
-function buildAdminPanelUrl(routeToken) {
-  return `/admin/${encodeURIComponent(routeToken)}/panel`;
+function buildAdminPanelUrl() {
+  return '/admin/panel';
 }
 
 function setMessage(text, type = '') {
@@ -17,19 +9,7 @@ function setMessage(text, type = '') {
   el.textContent = text;
 }
 
-function disableLoginForm(message) {
-  const userEl = document.getElementById('admin-username');
-  const passEl = document.getElementById('admin-password');
-  const submitEl = document.getElementById('admin-login-submit');
-  const routeStatus = document.getElementById('admin-auth-route-status');
-
-  if (userEl) userEl.disabled = true;
-  if (passEl) passEl.disabled = true;
-  if (submitEl) submitEl.disabled = true;
-  if (routeStatus) routeStatus.textContent = message;
-}
-
-async function checkExistingAdminSession(routeToken) {
+async function checkExistingAdminSession() {
   try {
     const res = await fetch('/api/admin/session', {
       method: 'GET',
@@ -44,7 +24,7 @@ async function checkExistingAdminSession(routeToken) {
     const data = await res.json().catch(() => null);
     if (!data?.success) return false;
 
-    window.location.replace(buildAdminPanelUrl(routeToken));
+    window.location.replace(buildAdminPanelUrl());
     return true;
   } catch {
     return false;
@@ -52,22 +32,16 @@ async function checkExistingAdminSession(routeToken) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const routeToken = getAdminTokenFromPath();
   const form = document.getElementById('admin-login-form');
   const submitEl = document.getElementById('admin-login-submit');
   const routeStatus = document.getElementById('admin-auth-route-status');
 
-  if (!routeToken) {
-    disableLoginForm('Invalid secure route token.');
-    setMessage('Access denied. This route token is not valid.', 'error');
-    return;
-  }
 
   if (routeStatus) {
-    routeStatus.textContent = 'Secure route token detected.';
+    routeStatus.textContent = 'Secure admin access.';
   }
 
-  const alreadyLoggedIn = await checkExistingAdminSession(routeToken);
+  const alreadyLoggedIn = await checkExistingAdminSession();
   if (alreadyLoggedIn) return;
 
   if (!form) return;
@@ -99,7 +73,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          gate: routeToken,
           username,
           password
         })
@@ -113,7 +86,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       setMessage('Access granted. Redirecting to admin panel...', 'success');
-      window.location.replace(data.redirectTo || buildAdminPanelUrl(routeToken));
+      window.location.replace(data.redirectTo || buildAdminPanelUrl());
     } catch (error) {
       setMessage('Network error while signing in. Please try again.', 'error');
     } finally {

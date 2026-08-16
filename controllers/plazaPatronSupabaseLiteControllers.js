@@ -80,6 +80,53 @@ function normalizePatronStatus(application = null) {
     return application ? sanitizeText(application.status || application.reviewStatus || 'Under Review') : 'Not Submitted';
 }
 
+async function getApprovedPatronApplication(
+    viewer = {}
+) {
+    const application =
+        await patronRepo
+            .getApplicationForUser(
+                viewer
+            );
+
+    return cleanStatus(
+        normalizePatronStatus(
+            application
+        )
+    ) === 'approved'
+        ? application
+        : null;
+}
+
+function getPatronAssignment(
+    application = {}
+) {
+    const raw =
+        application?.raw &&
+        typeof application.raw === 'object'
+            ? application.raw
+            : {};
+
+    return {
+        regionId:
+            sanitizeText(
+                raw.regionId ||
+                application.regionId ||
+                ''
+            ),
+
+        region:
+            clampText(
+                raw.region ||
+                raw.regionName ||
+                application.region ||
+                'Global',
+                120,
+                'Global'
+            ) || 'Global'
+    };
+}
+
 async function loadRegions() {
     try {
         if (typeof regionsRepo.listRegions === 'function') {
@@ -270,7 +317,41 @@ exports.getPatronDesk = async (req, res) => {
 
         const application = await patronRepo.getApplicationForUser(viewer);
         const status = normalizePatronStatus(application);
-        const isPatron = cleanStatus(status) === 'approved';
+        const isPatron =
+            cleanStatus(status) ===
+            'approved';
+
+        if (!isPatron) {
+            return res.json({
+                success: true,
+                source:
+                    'supabase',
+                isPatron:
+                    false,
+                patron:
+                    null,
+                application,
+                status,
+                regions:
+                    [],
+                routedRequests:
+                    [],
+                meetups:
+                    [],
+                announcements:
+                    [],
+                recommendations:
+                    [],
+                introOutcomes:
+                    [],
+                payouts:
+                    [],
+                walletPayouts:
+                    [],
+                message:
+                    'Patron Desk unlocks after admin approves your Plaza Patron application.'
+            });
+        }
 
         const [
             regions,
@@ -348,6 +429,24 @@ exports.createPatronAnnouncement = async (req, res) => {
             });
         }
 
+        const patronApplication =
+            await getApprovedPatronApplication(
+                viewer
+            );
+
+        if (!patronApplication) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    'Only approved Plaza Patrons can publish Patron announcements.'
+            });
+        }
+
+        const patronAssignment =
+            getPatronAssignment(
+                patronApplication
+            );
+
         const title = clampText(req.body?.title || req.body?.subject, 180);
         const body = clampText(req.body?.body || req.body?.message || req.body?.description, 2000);
 
@@ -362,7 +461,8 @@ exports.createPatronAnnouncement = async (req, res) => {
             title,
             body,
             summary: clampText(req.body?.summary || body, 600),
-            region: clampText(req.body?.region || 'Global', 120),
+            region:
+                patronAssignment.region,
             category: clampText(req.body?.category || 'announcement', 120),
             authorId: viewer.id,
             authorName: viewer.name,
@@ -389,46 +489,145 @@ exports.createPatronAnnouncement = async (req, res) => {
     }
 };
 
-exports.updatePatronRoutedRequestStatus = async (req, res) => {
+exports.updatePatronRoutedRequestStatus = async (
+    req,
+    res
+) => {
     try {
-        const viewer = getViewerFromRequest(req);
-        const requestId = sanitizeText(req.params?.id);
-        const status = sanitizeText(req.body?.status || req.body?.nextStatus || 'open');
+        const viewer =
+            getViewerFromRequest(req);
+
+        const requestId =
+            sanitizeText(
+                req.params?.id
+            );
 
         if (!viewer.id) {
             return res.status(401).json({
                 success: false,
-                message: 'Missing authenticated user.'
+                message:
+                    'Missing authenticated user.'
             });
         }
 
         if (!requestId) {
             return res.status(400).json({
                 success: false,
-                message: 'Request id is required.'
+                message:
+                    'Request id is required.'
             });
         }
 
-        const request = await requestsRepo.updateRequest(requestId, {
-            status,
-            patronStatus: status,
-            patronUpdatedBy: viewer.id,
-            patronUpdatedByName: viewer.name,
-            patronUpdatedAt: new Date().toISOString()
-        });
+        const patronApplication =
+            await getApprovedPatronApplication(
+                viewer
+            );
+
+        if (!patronApplication) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    'Only approved Plaza Patrons can manage routed requests.'
+            });
+        }
+
+        const current =
+            await requestsRepo
+                .getRequestById(
+                    requestId
+                );
+
+        if (!current) {
+            return res.status(404).json({
+                success: false,
+                message:
+                    'Plaza request not found.'
+            });
+        }
+
+        if (
+            sanitizeText(
+                current.patronUserId
+            ) !== viewer.id &&
+            sanitizeText(
+                current.patronUserId
+            ) !== viewer.firebaseUid
+        ) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    'This Plaza request is not routed to you.'
+            });
+        }
+
+        const expectedUpdatedAt =
+            sanitizeText(
+                req.body
+                    ?.expectedUpdatedAt
+            );
+
+        if (!expectedUpdatedAt) {
+            return res.status(428).json({
+                success: false,
+                message:
+                    'Request version is required. Reload and retry.'
+            });
+        }
+
+        const status =
+            clampText(
+                req.body?.status ||
+                req.body?.nextStatus ||
+                current.status ||
+                'Submitted',
+                80
+            );
+
+        const request =
+            await requestsRepo
+                .updateRequest(
+                    requestId,
+                    {
+                        status,
+                        patronStatus:
+                            status,
+                        patronUpdatedBy:
+                            viewer.id,
+                        patronUpdatedByName:
+                            viewer.name,
+                        patronUpdatedAt:
+                            new Date()
+                                .toISOString()
+                    },
+                    {
+                        expectedUpdatedAt
+                    }
+                );
 
         return res.json({
             success: true,
-            source: 'supabase',
+            source:
+                'supabase',
             request
         });
     } catch (error) {
-        console.error('plazaPatronSupabaseLite.updatePatronRoutedRequestStatus error:', error);
+        console.error(
+            'plazaPatronSupabaseLite.updatePatronRoutedRequestStatus error:',
+            error
+        );
 
-        return res.status(500).json({
+        return res.status(
+            Number(
+                error?.statusCode ||
+                error?.status
+            ) || 500
+        ).json({
             success: false,
-            source: 'supabase',
-            message: error?.message || 'Failed to update routed request status.'
+            source:
+                'supabase',
+            message:
+                error?.message ||
+                'Failed to update routed request status.'
         });
     }
 };
@@ -443,6 +642,24 @@ exports.createPatronFederationRecommendation = async (req, res) => {
                 message: 'Missing authenticated user.'
             });
         }
+
+        const patronApplication =
+            await getApprovedPatronApplication(
+                viewer
+            );
+
+        if (!patronApplication) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    'Only approved Plaza Patrons can submit Federation recommendations.'
+            });
+        }
+
+        const patronAssignment =
+            getPatronAssignment(
+                patronApplication
+            );
 
         const memberId = sanitizeText(req.body?.memberId || req.body?.targetUserId || req.body?.recommendedUserId);
         const memberName = clampText(req.body?.memberName || req.body?.targetUserName || 'Recommended member', 160);
@@ -465,8 +682,11 @@ exports.createPatronFederationRecommendation = async (req, res) => {
             memberName,
             recommendedRole: clampText(req.body?.recommendedRole || req.body?.role || 'Federation candidate', 160),
             proofLink: clampText(req.body?.proofLink || '', 260),
-            regionId: sanitizeText(req.body?.regionId || ''),
-            region: clampText(req.body?.region || 'Global', 120),
+            regionId:
+                patronAssignment.regionId,
+
+            region:
+                patronAssignment.region,
             patronId: viewer.id,
             patronName: viewer.name,
             status: 'pending_admin_review',
@@ -502,6 +722,24 @@ exports.createPatronIntroOutcome = async (req, res) => {
             });
         }
 
+        const patronApplication =
+            await getApprovedPatronApplication(
+                viewer
+            );
+
+        if (!patronApplication) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    'Only approved Plaza Patrons can record Patron intro outcomes.'
+            });
+        }
+
+        const patronAssignment =
+            getPatronAssignment(
+                patronApplication
+            );
+
         const introTitle = clampText(req.body?.introTitle || req.body?.title, 180);
         const introSummary = clampText(req.body?.introSummary || req.body?.summary || req.body?.description, 1600);
 
@@ -514,7 +752,11 @@ exports.createPatronIntroOutcome = async (req, res) => {
 
         const grossAmount = Math.max(0, Number(req.body?.grossAmount || req.body?.dealValue || 0));
         const currency = sanitizeText(req.body?.currency || 'USD').toUpperCase() || 'USD';
-        const commissionRate = Math.max(5, Math.min(15, Number(req.body?.commissionRate || 10)));
+        /*
+         * Patron commission percentage is a
+         * platform-owned economic rule.
+         */
+        const commissionRate = 10;
         const commissionAmount = Math.round((grossAmount * (commissionRate / 100)) * 100) / 100;
 
         const outcome = await patronRepo.createIntroOutcome({
@@ -531,8 +773,11 @@ exports.createPatronIntroOutcome = async (req, res) => {
             currency,
             commissionRate,
             commissionAmount,
-            regionId: sanitizeText(req.body?.regionId || ''),
-            region: clampText(req.body?.region || 'Global', 120),
+            regionId:
+                patronAssignment.regionId,
+
+            region:
+                patronAssignment.region,
             status: 'pending_admin_review',
             reviewStatus: 'pending_admin_review',
             payoutStatus: grossAmount > 0 ? 'eligible_pending_admin_review' : 'no_monetary_value_logged',

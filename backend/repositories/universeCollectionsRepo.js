@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { firestore } = require('../../config/firebaseAdmin');
 const { yhuSupabaseAdmin } = require('../../config/supabaseAdmin');
 
 const TABLE_NAME = 'yhu_universe_collection_catalog';
@@ -104,7 +105,340 @@ function normalizeDivisionScope(value = [], fallbackDivision = 'universe') {
     if (normalized.length) return normalized.slice(0, 4);
 
     const fallback = normalizeDivision(fallbackDivision);
-    return fallback === 'universe' ? ['universe'] : [fallback];
+    return fallback === 'universe'
+        ? ['universe']
+        : [fallback];
+}
+
+/*
+ * Collections resources may use external HTTP(S)
+ * URLs or safe same-origin absolute paths.
+ *
+ * Browser-special/executable schemes are rejected.
+ */
+function normalizeCollectionsResourceUrl(
+    value = '',
+    maxLength = 900
+) {
+    const clean = clampText(
+        value,
+        maxLength
+    );
+
+    if (!clean) {
+        return '';
+    }
+
+    if (
+        /[\u0000-\u001F\u007F]/.test(clean)
+    ) {
+        return '';
+    }
+
+    if (
+        clean.startsWith('/') &&
+        !clean.startsWith('//')
+    ) {
+        return clean;
+    }
+
+    try {
+        const parsed = new URL(clean);
+
+        if (
+            parsed.protocol !== 'https:' &&
+            parsed.protocol !== 'http:'
+        ) {
+            return '';
+        }
+
+        return parsed
+            .toString()
+            .slice(0, maxLength);
+    } catch (_) {
+        return '';
+    }
+}
+
+function requireSafeCollectionsResourceUrl(
+    value = '',
+    label = 'Resource URL'
+) {
+    const raw = clampText(value, 900);
+
+    if (!raw) {
+        return '';
+    }
+
+    const normalized =
+        normalizeCollectionsResourceUrl(
+            raw,
+            900
+        );
+
+    if (!normalized) {
+        const error = new Error(
+            `${label} must use http://, https://, or a safe same-origin path.`
+        );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    return normalized;
+}
+
+function isApprovedCollectionsMembershipStatus(
+    value = ''
+) {
+    const clean = cleanLower(value)
+        .replace(/\s+/g, '_');
+
+    return (
+        clean === 'approved' ||
+        clean === 'active'
+    );
+}
+
+async function resolveCollectionsViewerAccess(
+    viewer = {}
+) {
+    const viewerId = getViewerId(viewer);
+
+    const emptyAccess = {
+        academy: false,
+        plaza: false,
+        federation: false,
+        anyApproved: false
+    };
+
+    if (!viewerId) {
+        return {
+            ...viewer,
+            collectionsAccess: emptyAccess
+        };
+    }
+
+    const snapshot =
+        await firestore
+            .collection('users')
+            .doc(viewerId)
+            .get();
+
+    if (!snapshot.exists) {
+        return {
+            ...viewer,
+            collectionsAccess: emptyAccess
+        };
+    }
+
+    const userData =
+        snapshot.data() || {};
+
+    const academy =
+        userData.hasAcademyAccess === true ||
+        userData.canEnterAcademy === true ||
+        [
+            userData.academyMembershipStatus,
+            userData.academyApplicationStatus
+        ].some(
+            isApprovedCollectionsMembershipStatus
+        );
+
+    const plaza =
+        userData.hasPlazaAccess === true ||
+        userData.canEnterPlaza === true ||
+        [
+            userData.plazaAccessStatus,
+            userData.plazaMembershipStatus,
+            userData.plazaApplicationStatus
+        ].some(
+            isApprovedCollectionsMembershipStatus
+        );
+
+    const federation =
+        userData.hasFederationAccess === true ||
+        userData.canEnterFederation === true ||
+        [
+            userData.federationMembershipStatus,
+            userData.federationApplicationStatus
+        ].some(
+            isApprovedCollectionsMembershipStatus
+        );
+
+    return {
+        ...viewer,
+
+        collectionsAccess: {
+            academy,
+            plaza,
+            federation,
+            anyApproved:
+                academy ||
+                plaza ||
+                federation
+        }
+    };
+}
+
+function viewerHasCollectionsDivision(
+    viewer = {},
+    division = ''
+) {
+    const cleanDivision =
+        normalizeDivision(division);
+
+    if (
+        cleanDivision !== 'academy' &&
+        cleanDivision !== 'plaza' &&
+        cleanDivision !== 'federation'
+    ) {
+        return false;
+    }
+
+    return (
+        viewer.collectionsAccess
+            ?.[cleanDivision] === true
+    );
+}
+
+function canViewerUseCollectionsScope(
+    viewer = {},
+    item = {}
+) {
+    const accessLevel =
+        normalizeAccessLevel(
+            item.accessLevel
+        );
+
+    if (accessLevel === 'admin_only') {
+        return false;
+    }
+
+    if (
+        accessLevel === 'academy' ||
+        accessLevel === 'plaza' ||
+        accessLevel === 'federation'
+    ) {
+        return viewerHasCollectionsDivision(
+            viewer,
+            accessLevel
+        );
+    }
+
+    const scopedDivisions =
+        normalizeDivisionScope(
+            item.divisionScope,
+            item.sourceDivision
+        ).filter(
+            (division) =>
+                division === 'academy' ||
+                division === 'plaza' ||
+                division === 'federation'
+        );
+
+    if (scopedDivisions.length) {
+        return scopedDivisions.some(
+            (division) =>
+                viewerHasCollectionsDivision(
+                    viewer,
+                    division
+                )
+        );
+    }
+
+    return (
+        viewer.collectionsAccess
+            ?.anyApproved === true
+    );
+}
+
+function assertViewerCanSubmitCollectionsScope(
+    viewer = {},
+    {
+        sourceDivision = 'universe',
+        accessLevel = 'all_approved_members',
+        divisionScope = []
+    } = {}
+) {
+    const cleanSourceDivision =
+        normalizeDivision(sourceDivision);
+
+    const cleanAccessLevel =
+        normalizeAccessLevel(accessLevel);
+
+    const cleanScope =
+        normalizeDivisionScope(
+            divisionScope,
+            cleanSourceDivision
+        );
+
+    const requiredDivisions =
+        new Set();
+
+    if (
+        cleanSourceDivision === 'academy' ||
+        cleanSourceDivision === 'plaza' ||
+        cleanSourceDivision === 'federation'
+    ) {
+        requiredDivisions.add(
+            cleanSourceDivision
+        );
+    }
+
+    for (const division of cleanScope) {
+        if (
+            division === 'academy' ||
+            division === 'plaza' ||
+            division === 'federation'
+        ) {
+            requiredDivisions.add(
+                division
+            );
+        }
+    }
+
+    if (
+        cleanAccessLevel === 'academy' ||
+        cleanAccessLevel === 'plaza' ||
+        cleanAccessLevel === 'federation'
+    ) {
+        requiredDivisions.add(
+            cleanAccessLevel
+        );
+    }
+
+    if (
+        !requiredDivisions.size &&
+        viewer.collectionsAccess
+            ?.anyApproved !== true
+    ) {
+        const error = new Error(
+            'Approved YH division membership is required to submit this resource.'
+        );
+
+        error.statusCode = 403;
+        throw error;
+    }
+
+    for (
+        const division
+        of requiredDivisions
+    ) {
+        if (
+            !viewerHasCollectionsDivision(
+                viewer,
+                division
+            )
+        ) {
+            const error = new Error(
+                `Approved ${division} membership is required for this collection scope.`
+            );
+
+            error.statusCode = 403;
+            throw error;
+        }
+    }
 }
 
 function toIso(value) {
@@ -159,9 +493,23 @@ function mapCollectionRow(row = {}) {
         category: cleanText(row.category || data.category),
         tags: Array.isArray(row.tags) ? row.tags : Array.isArray(data.tags) ? data.tags : [],
 
-        resourceUrl: cleanText(row.resource_url || data.resourceUrl),
-        fileUrl: cleanText(row.file_url || data.fileUrl),
-        imageUrl: cleanText(row.image_url || data.imageUrl),
+        resourceUrl:
+            normalizeCollectionsResourceUrl(
+                row.resource_url ||
+                data.resourceUrl
+            ),
+
+        fileUrl:
+            normalizeCollectionsResourceUrl(
+                row.file_url ||
+                data.fileUrl
+            ),
+
+        imageUrl:
+            normalizeCollectionsResourceUrl(
+                row.image_url ||
+                data.imageUrl
+            ),
 
         visibility: cleanText(row.visibility || data.visibility || 'division_members'),
         accessLevel: normalizeAccessLevel(row.access_level || data.accessLevel),
@@ -186,15 +534,57 @@ function mapCollectionRow(row = {}) {
 }
 
 function canViewerSeeItem(item = {}, viewer = {}) {
-    const viewerId = getViewerId(viewer);
-    const isOwner = viewerId && cleanText(item.createdByUid) === viewerId;
-    const status = normalizeReviewStatus(item.reviewStatus);
+    const viewerId =
+        getViewerId(viewer);
 
-    if (isOwner) return true;
-    if (status !== 'approved') return false;
-    if (normalizeAccessLevel(item.accessLevel) === 'admin_only') return false;
+    const isOwner =
+        Boolean(
+            viewerId &&
+            cleanText(
+                item.createdByUid
+            ) === viewerId
+        );
 
-    return true;
+    const status =
+        normalizeReviewStatus(
+            item.reviewStatus
+        );
+
+    const accessLevel =
+        normalizeAccessLevel(
+            item.accessLevel
+        );
+
+    /*
+     * Owners may still inspect their own submission
+     * while it is pending/rejected/archived.
+     *
+     * Once approved, normal division authorization
+     * becomes authoritative.
+     */
+    if (
+        isOwner &&
+        status !== 'approved'
+    ) {
+        return true;
+    }
+
+    if (status !== 'approved') {
+        return false;
+    }
+
+    /*
+     * admin_only must never become an ordinary
+     * member-readable approved resource.
+     */
+    if (accessLevel === 'admin_only') {
+        return false;
+    }
+
+    return canViewerUseCollectionsScope(
+        viewer,
+        item
+    );
 }
 
 function buildResourceData(payload = {}) {
@@ -336,10 +726,67 @@ async function createCollectionItem(viewer = {}, input = {}) {
     }
 
     const itemId = buildId();
-    const sourceDivision = normalizeDivision(input.sourceDivision || input.division || 'universe');
-    const accessLevel = normalizeAccessLevel(input.accessLevel || sourceDivision || 'all_approved_members');
-    const now = new Date().toISOString();
-    const creator = buildCreatorSnapshot(viewer);
+
+    const sourceDivision =
+        normalizeDivision(
+            input.sourceDivision ||
+            input.division ||
+            'universe'
+        );
+
+    const accessLevel =
+        normalizeAccessLevel(
+            input.accessLevel ||
+            sourceDivision ||
+            'all_approved_members'
+        );
+
+    const divisionScope =
+        normalizeDivisionScope(
+            input.divisionScope,
+            sourceDivision
+        );
+
+    const resolvedViewer =
+        await resolveCollectionsViewerAccess(
+            viewer
+        );
+
+    assertViewerCanSubmitCollectionsScope(
+        resolvedViewer,
+        {
+            sourceDivision,
+            accessLevel,
+            divisionScope
+        }
+    );
+
+    const resourceUrl =
+        requireSafeCollectionsResourceUrl(
+            input.resourceUrl ||
+            input.url,
+            'Resource URL'
+        );
+
+    const fileUrl =
+        requireSafeCollectionsResourceUrl(
+            input.fileUrl,
+            'File URL'
+        );
+
+    const imageUrl =
+        requireSafeCollectionsResourceUrl(
+            input.imageUrl,
+            'Image URL'
+        );
+
+    const now =
+        new Date().toISOString();
+
+    const creator =
+        buildCreatorSnapshot(
+            resolvedViewer
+        );
 
     const payload = {
         title,
@@ -347,14 +794,14 @@ async function createCollectionItem(viewer = {}, input = {}) {
 
         resourceType: normalizeResourceType(input.resourceType),
         sourceDivision,
-        divisionScope: normalizeDivisionScope(input.divisionScope, sourceDivision),
+        divisionScope,
 
         category: clampText(input.category, 80),
         tags: normalizeTags(input.tags),
 
-        resourceUrl: clampText(input.resourceUrl || input.url, 900),
-        fileUrl: clampText(input.fileUrl, 900),
-        imageUrl: clampText(input.imageUrl, 900),
+        resourceUrl,
+        fileUrl,
+        imageUrl,
 
         visibility: clampText(input.visibility || 'division_members', 80),
         accessLevel,
@@ -389,7 +836,18 @@ async function createCollectionItem(viewer = {}, input = {}) {
 }
 
 async function listCollections(viewer = {}, filters = {}) {
-    const limit = Math.max(1, Math.min(200, Number(filters.limit || 80)));
+    const resolvedViewer =
+        await resolveCollectionsViewerAccess(
+            viewer
+        );
+
+    const limit = Math.max(
+        1,
+        Math.min(
+            200,
+            Number(filters.limit || 80)
+        )
+    );
 
     const { data, error } = await yhuSupabaseAdmin
         .from(TABLE_NAME)
@@ -409,7 +867,13 @@ async function listCollections(viewer = {}, filters = {}) {
 
     return (Array.isArray(data) ? data : [])
         .map(mapCollectionRow)
-        .filter((item) => canViewerSeeItem(item, viewer))
+        .filter(
+            (item) =>
+                canViewerSeeItem(
+                    item,
+                    resolvedViewer
+                )
+        )
         .filter((item) => !sourceDivision || item.sourceDivision === sourceDivision || item.divisionScope.includes(sourceDivision))
         .filter((item) => !resourceType || item.resourceType === resourceType)
         .filter((item) => !statusFilter || item.reviewStatus === statusFilter)
@@ -434,6 +898,11 @@ async function listCollections(viewer = {}, filters = {}) {
 async function getCollectionItemById(viewer = {}, itemId = '') {
     const cleanId = cleanText(itemId);
 
+    const resolvedViewer =
+        await resolveCollectionsViewerAccess(
+            viewer
+        );
+
     if (!cleanId) {
         const error = new Error('Missing collection item id.');
         error.statusCode = 400;
@@ -450,7 +919,12 @@ async function getCollectionItemById(viewer = {}, itemId = '') {
 
     const item = mapCollectionRow(row);
 
-    if (!canViewerSeeItem(item, viewer)) {
+    if (
+        !canViewerSeeItem(
+            item,
+            resolvedViewer
+        )
+    ) {
         const error = new Error('You do not have access to this collection item.');
         error.statusCode = 403;
         throw error;
@@ -490,9 +964,60 @@ async function updateMyCollectionItem(viewer = {}, itemId = '', input = {}) {
         error.statusCode = 403;
         throw error;
     }
+    const resolvedViewer =
+        await resolveCollectionsViewerAccess(
+            viewer
+        );
+    const sourceDivision =
+        normalizeDivision(
+            input.sourceDivision ||
+            input.division ||
+            current.sourceDivision
+        );
 
-    const sourceDivision = normalizeDivision(input.sourceDivision || input.division || current.sourceDivision);
-    const accessLevel = normalizeAccessLevel(input.accessLevel || current.accessLevel || sourceDivision);
+    const accessLevel =
+        normalizeAccessLevel(
+            input.accessLevel ||
+            current.accessLevel ||
+            sourceDivision
+        );
+
+    const divisionScope =
+        normalizeDivisionScope(
+            input.divisionScope ||
+            current.divisionScope,
+            sourceDivision
+        );
+
+    assertViewerCanSubmitCollectionsScope(
+        resolvedViewer,
+        {
+            sourceDivision,
+            accessLevel,
+            divisionScope
+        }
+    );
+
+    const resourceUrl =
+        requireSafeCollectionsResourceUrl(
+            input.resourceUrl ??
+            current.resourceUrl,
+            'Resource URL'
+        );
+
+    const fileUrl =
+        requireSafeCollectionsResourceUrl(
+            input.fileUrl ??
+            current.fileUrl,
+            'File URL'
+        );
+
+    const imageUrl =
+        requireSafeCollectionsResourceUrl(
+            input.imageUrl ??
+            current.imageUrl,
+            'Image URL'
+        );
 
     const nextTitle = clampText(input.title ?? current.title, 140);
     const nextDescription = clampText(input.description ?? current.description, 1600);
@@ -518,14 +1043,14 @@ async function updateMyCollectionItem(viewer = {}, itemId = '', input = {}) {
 
         resourceType: normalizeResourceType(input.resourceType || current.resourceType),
         sourceDivision,
-        divisionScope: normalizeDivisionScope(input.divisionScope || current.divisionScope, sourceDivision),
+        divisionScope,
 
         category: clampText(input.category ?? current.category, 80),
         tags: normalizeTags(input.tags ?? current.tags),
 
-        resourceUrl: clampText(input.resourceUrl ?? current.resourceUrl, 900),
-        fileUrl: clampText(input.fileUrl ?? current.fileUrl, 900),
-        imageUrl: clampText(input.imageUrl ?? current.imageUrl, 900),
+        resourceUrl,
+        fileUrl,
+        imageUrl,
 
         visibility: clampText(input.visibility ?? current.visibility ?? 'division_members', 80),
         accessLevel,

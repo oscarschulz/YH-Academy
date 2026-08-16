@@ -1,3 +1,7 @@
+const safeRemoteTextFetch =
+    require('./safeRemoteTextFetch');
+
+
 function sanitize(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
     return String(value).trim();
@@ -131,26 +135,55 @@ function buildExcerpt(text = '', maxLength = 320) {
     return `${clean.slice(0, maxLength).trim()}…`;
 }
 
-async function fetchWithTimeout(url, timeoutMs = 18000) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+async function fetchWithTimeout(
+    url,
+    timeoutMs = 18000
+) {
+    const result =
+        await safeRemoteTextFetch
+            .fetchText(
+                url,
+                {
+                    timeoutMs,
+                    maxRedirects: 5,
+                    maxBytes: 2000000,
 
-    try {
-        const response = await fetch(url, {
-            method: 'GET',
-            redirect: 'follow',
-            signal: controller.signal,
+                    userAgent:
+                        'Mozilla/5.0 (compatible; YH-AI-Nurture/1.0)',
+
+                    accept:
+                        'text/html,text/plain;q=0.9,application/xhtml+xml;q=0.8,application/json;q=0.6,*/*;q=0.2'
+                }
+            );
+
+    return {
+        response: {
+            ok:
+                result.ok,
+
+            status:
+                result.status,
+
+            url:
+                result.finalUrl,
+
             headers: {
-                'User-Agent': 'Mozilla/5.0 (compatible; YH-AI-Nurture/1.0)',
-                Accept: 'text/html, text/plain;q=0.9, */*;q=0.8'
+                get(name = '') {
+                    return String(
+                        result.headers?.[
+                            String(
+                                name || ''
+                            ).toLowerCase()
+                        ] ||
+                        ''
+                    );
+                }
             }
-        });
+        },
 
-        const text = await response.text();
-        return { response, text };
-    } finally {
-        clearTimeout(timeout);
-    }
+        text:
+            result.text || ''
+    };
 }
 
 async function extractFromUrl(url, options = {}) {

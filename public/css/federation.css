@@ -426,6 +426,82 @@ textarea {
   max-width: 900px;
 }
 
+
+/* Compact live state strip for Federation Directory */
+.fed-directory-state-strip {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-areas:
+    "kicker title"
+    "copy copy";
+
+  align-items: center;
+
+  column-gap: 12px;
+  row-gap: 4px;
+
+  margin-bottom: 12px;
+  padding: 11px 13px;
+
+  border:
+    1px solid
+    rgba(77, 139, 255, 0.14);
+
+  background:
+    rgba(77, 139, 255, 0.035);
+}
+
+.fed-directory-state-strip .fed-kicker {
+  grid-area: kicker;
+
+  margin: 0;
+
+  font-size: 0.72rem;
+  line-height: 1;
+
+  white-space: nowrap;
+}
+
+.fed-directory-state-strip h3 {
+  grid-area: title;
+
+  margin: 0;
+
+  font-size: 1rem;
+  line-height: 1.2;
+
+  letter-spacing: 0;
+}
+
+.fed-directory-state-strip p {
+  grid-area: copy;
+
+  max-width: none;
+
+  margin: 0;
+
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .fed-directory-state-strip {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "kicker"
+      "title"
+      "copy";
+
+    gap: 4px;
+
+    padding: 10px 11px;
+  }
+
+  .fed-directory-state-strip .fed-kicker {
+    white-space: normal;
+  }
+}
+
 .fed-grid {
   display: grid;
   gap: 16px;
@@ -6003,7 +6079,7 @@ body[data-yh-page="federation"] .fed-member-actions .fed-btn {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: 0;
 }
 
 .fed-strategic-profile-v1 {
