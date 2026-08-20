@@ -35512,6 +35512,11 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
         padding: 12px;
     }
 
+    /*
+     * My Contacts mobile vertical placement is owned by
+     * dashboard-mobile.css.
+     */
+
     body[data-yh-view="hub"][data-yh-page="dashboard"]
         .yh-dashboard-profile-modal.is-dashboard-inline-workspace
         > .yh-dashboard-profile-modal-card {

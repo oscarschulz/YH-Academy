@@ -3375,9 +3375,18 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #universe-hub-view,
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .universe-hub-view {
+        /*
+         * Mobile header:
+         * 56px + safe-area
+         *
+         * Search row:
+         * 42px control + 8px top + 8px bottom
+         *
+         * Leave only a small visual gap below search.
+         */
         padding-top:
             calc(
-                160px +
+                122px +
                 max(
                     8px,
                     env(safe-area-inset-top, 0px)
@@ -3621,14 +3630,90 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="bu
     }
 
     /*
-     * Dashboard overview has a fixed mobile search layer.
-     * Give the first progression surface its own clearance
-     * so its kicker/title can never sit underneath search.
+     * Dashboard overview already reserves the exact
+     * mobile search height at the parent level.
+     *
+     * Do not add a second vertical clearance here.
      */
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"]
         .yh-game-foundation {
-        margin-top: 50px !important;
+        margin-top: 0 !important;
     }
+
+
+    /* ========================================================= */
+    /* MOBILE MY CONTACTS VERTICAL POSITION v3                   */
+    /* ========================================================= */
+
+    /*
+     * My Contacts needs its own deterministic top clearance.
+     *
+     * Mobile Dashboard header:
+     * 56px + safe-area
+     *
+     * Add roughly 12px breathing room below that header.
+     * This prevents the Relationship Database kicker and
+     * the first part of the card from sitting underneath
+     * the fixed Command topbar.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="my-contacts"]
+        #universe-hub-view,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="my-contacts"]
+        .universe-hub-view {
+        padding-top:
+            calc(
+                68px +
+                max(
+                    8px,
+                    env(
+                        safe-area-inset-top,
+                        0px
+                    )
+                )
+            ) !important;
+    }
+
+
+    /*
+     * Do not stack another large top padding inside
+     * the My Contacts workspace. The parent now owns
+     * the mobile top clearance.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="my-contacts"]
+        #yh-dashboard-my-contacts-workspace {
+        padding-top:
+            0 !important;
+    }
+
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="my-contacts"]
+        #yh-dashboard-my-contacts-modal.is-dashboard-inline-workspace {
+        padding-top:
+            0 !important;
+
+        padding-right:
+            0 !important;
+
+        padding-bottom:
+            0 !important;
+
+        padding-left:
+            0 !important;
+    }
+
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="my-contacts"]
+        #yh-dashboard-my-contacts-modal.is-dashboard-inline-workspace
+        > .yh-dashboard-my-contacts-card {
+        margin-top:
+            0 !important;
+
+        margin-bottom:
+            0 !important;
+    }
+
+    /* END MOBILE MY CONTACTS VERTICAL POSITION v3 */
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-game-operator-panel {
         gap: 8px;
