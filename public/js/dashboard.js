@@ -4134,13 +4134,51 @@ function openYHWalletModal() {
     openYHWalletInline();
 }
 
-function closeYHWalletModal() {
-    const modal = document.getElementById('yh-wallet-modal');
+function closeYHWalletModal(options = {}) {
+    const modal =
+        document.getElementById(
+            'yh-wallet-modal'
+        );
+
     if (!modal) return;
 
-    modal.classList.add('hidden-step');
-    modal.setAttribute('aria-hidden', 'true');
-    document.body?.classList.remove('yh-wallet-open');
+    modal.classList.add(
+        'hidden-step'
+    );
+
+    modal.setAttribute(
+        'aria-hidden',
+        'true'
+    );
+
+    document.body?.classList.remove(
+        'yh-wallet-open'
+    );
+
+    const currentWorkspace =
+        String(
+            document.body?.getAttribute(
+                'data-yh-unified-workspace'
+            ) || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    if (
+        options?.navigateToOverview !== false &&
+        currentWorkspace === 'wallet' &&
+        typeof activateDashboardUnifiedWorkspace ===
+            'function'
+    ) {
+        activateDashboardUnifiedWorkspace(
+            'overview',
+            {
+                animate: false,
+                scroll: true,
+                persist: true
+            }
+        );
+    }
 }
 
 async function submitYHWalletWithdrawal(event) {
@@ -4241,8 +4279,284 @@ let yhBusinessChatState = {
     loading: false,
     hydratedOnce: false,
     plazaMembers: [],
-    plazaMembersLoading: false
+    plazaMembersLoading: false,
+    plazaAccessDenied: false
 };
+
+function getYHBusinessChatCurrentUserIdV1() {
+    const authSnapshot =
+        typeof getDashboardAuthUserSnapshot ===
+            'function'
+            ? getDashboardAuthUserSnapshot()
+            : {};
+
+    return (
+        normalizeAcademyFeedId(
+            getStoredUserValue(
+                'yh_user_id',
+                ''
+            )
+        ) ||
+        normalizeAcademyFeedId(
+            getStoredUserValue(
+                'yh_user_uid',
+                ''
+            )
+        ) ||
+        normalizeAcademyFeedId(
+            authSnapshot?.id ||
+            ''
+        )
+    );
+}
+
+function getYHBusinessChatScopedStorageKeyV1(
+    baseKey = ''
+) {
+    const cleanBaseKey =
+        String(
+            baseKey ||
+            ''
+        ).trim();
+
+    const currentUserId =
+        getYHBusinessChatCurrentUserIdV1();
+
+    if (!cleanBaseKey) {
+        return '';
+    }
+
+    return currentUserId
+        ? `${cleanBaseKey}:${currentUserId}`
+        : cleanBaseKey;
+}
+
+function getYHBusinessChatCacheKeyV1() {
+    return getYHBusinessChatScopedStorageKeyV1(
+        YH_BUSINESS_CHAT_CACHE_KEY
+    );
+}
+
+function getYHBusinessChatSeenKeyV1() {
+    return getYHBusinessChatScopedStorageKeyV1(
+        YH_BUSINESS_CHAT_SEEN_KEY
+    );
+}
+
+function isYHBusinessChatPlazaApprovedV1(
+    snapshot = null
+) {
+    const currentSnapshot =
+        snapshot &&
+        typeof snapshot ===
+            'object'
+            ? snapshot
+            : (
+                typeof getPlazaAccessSnapshot ===
+                    'function'
+                    ? getPlazaAccessSnapshot()
+                    : {}
+            );
+
+    const status =
+        typeof normalizePlazaStatus ===
+            'function'
+            ? normalizePlazaStatus(
+                currentSnapshot
+                    ?.applicationStatus ||
+                ''
+            )
+            : String(
+                currentSnapshot
+                    ?.applicationStatus ||
+                ''
+            )
+                .trim()
+                .toLowerCase();
+
+    return (
+        currentSnapshot?.canEnterPlaza ===
+            true ||
+        status === 'approved'
+    );
+}
+
+function syncYHBusinessChatNavigationAccessV1(
+    snapshot = null
+) {
+    const currentSnapshot =
+        snapshot &&
+        typeof snapshot ===
+            'object'
+            ? snapshot
+            : (
+                typeof getPlazaAccessSnapshot ===
+                    'function'
+                    ? getPlazaAccessSnapshot()
+                    : {}
+            );
+
+    const approved =
+        isYHBusinessChatPlazaApprovedV1(
+            currentSnapshot
+        );
+
+    const controls = [
+        document.getElementById(
+            'btn-open-yh-business-chats'
+        ),
+
+        ...document.querySelectorAll(
+            '[data-yh-mobile-command-target="business-chats"]'
+        )
+    ].filter(Boolean);
+
+    controls.forEach(
+        (control) => {
+            control.disabled =
+                !approved;
+
+            control.setAttribute(
+                'aria-disabled',
+                approved
+                    ? 'false'
+                    : 'true'
+            );
+
+            control.setAttribute(
+                'data-yh-business-chats-locked',
+                approved
+                    ? 'false'
+                    : 'true'
+            );
+
+            control.setAttribute(
+                'title',
+                approved
+                    ? 'Open Business Chats'
+                    : 'Business Chats unlock after Plazas approval.'
+            );
+
+            if (approved) {
+                control.removeAttribute(
+                    'tabindex'
+                );
+            } else {
+                control.setAttribute(
+                    'tabindex',
+                    '-1'
+                );
+            }
+        }
+    );
+
+    if (!approved) {
+        const desktopButton =
+            document.getElementById(
+                'btn-open-yh-business-chats'
+            );
+
+        desktopButton?.classList.remove(
+            'has-business-chat-unread'
+        );
+    }
+
+    return approved;
+}
+
+async function getYHBusinessChatPlazaAccessV1(
+    options = {}
+) {
+    let snapshot =
+        typeof getPlazaAccessSnapshot ===
+            'function'
+            ? getPlazaAccessSnapshot()
+            : {};
+
+    /*
+     * Business Chats is a Plazas-protected
+     * feature. Resolve current account access
+     * before touching protected message APIs.
+     */
+    if (
+        typeof refreshPlazaAccessStatusFromBackend ===
+        'function'
+    ) {
+        snapshot =
+            await refreshPlazaAccessStatusFromBackend(
+                options?.forceFresh ===
+                    true
+            );
+    }
+
+    return {
+        allowed:
+            isYHBusinessChatPlazaApprovedV1(
+                snapshot
+            ),
+
+        snapshot:
+            snapshot &&
+            typeof snapshot ===
+                'object'
+                ? snapshot
+                : {}
+    };
+}
+
+function clearYHBusinessChatStateForNoPlazaAccessV1() {
+    yhBusinessChatState.conversations = [];
+    yhBusinessChatState.activeId = '';
+    yhBusinessChatState.loading = false;
+    yhBusinessChatState.hydratedOnce = true;
+    yhBusinessChatState.plazaMembers = [];
+    yhBusinessChatState.plazaMembersLoading = false;
+    yhBusinessChatState.plazaAccessDenied = true;
+
+    try {
+        const scopedCacheKey =
+            getYHBusinessChatCacheKeyV1();
+
+        const scopedSeenKey =
+            getYHBusinessChatSeenKeyV1();
+
+        if (scopedCacheKey) {
+            localStorage.removeItem(
+                scopedCacheKey
+            );
+        }
+
+        if (scopedSeenKey) {
+            localStorage.removeItem(
+                scopedSeenKey
+            );
+        }
+
+        /*
+         * Remove old pre-account-isolation
+         * keys. A recreated account must never
+         * inherit Business Chat state from a
+         * deleted account.
+         */
+        localStorage.removeItem(
+            YH_BUSINESS_CHAT_CACHE_KEY
+        );
+
+        localStorage.removeItem(
+            YH_BUSINESS_CHAT_SEEN_KEY
+        );
+    } catch (_) {}
+
+    syncYHBusinessChatNavigationAccessV1({
+        canEnterPlaza: false,
+        applicationStatus: '',
+        hasApplication: false
+    });
+
+    renderYHBusinessChats();
+
+    return [];
+}
 
 function escapeYHBusinessHtml(value = '') {
     if (typeof escapeYHWalletHtml === 'function') {
@@ -4338,6 +4652,16 @@ function renderYHBusinessPlazaMemberResults() {
 
     if (!resultsEl) return;
 
+    if (
+        yhBusinessChatState
+            .plazaAccessDenied
+    ) {
+        resultsEl.innerHTML =
+            '<div class="yh-business-chat-empty">Plaza approval is required before you can search approved Plaza members.</div>';
+
+        return;
+    }
+
     if (yhBusinessChatState.plazaMembersLoading) {
         resultsEl.innerHTML = '<div class="yh-business-chat-empty">Searching approved Plaza members...</div>';
         return;
@@ -4366,43 +4690,109 @@ function renderYHBusinessPlazaMemberResults() {
                         ${member.headline ? '<p>' + escapeYHBusinessHtml(member.headline) + '</p>' : ''}
                     </div>
                 </div>
-                <button type="button" class="btn-primary yh-business-chat-start-btn" data-yh-start-plaza-business-chat="${escapeYHBusinessHtml(member.id)}">
-                    Open Chat
-                </button>
             </article>
         `;
     }).join('');
 }
 
 async function searchYHBusinessPlazaMembers() {
-    const input = document.getElementById('yh-business-chat-member-search');
-    const query = String(input?.value || '').trim();
+    const input =
+        document.getElementById(
+            'yh-business-chat-member-search'
+        );
 
-    yhBusinessChatState.plazaMembersLoading = true;
+    const query =
+        String(
+            input?.value ||
+            ''
+        ).trim();
+
+    const access =
+        await getYHBusinessChatPlazaAccessV1();
+
+    if (!access.allowed) {
+        clearYHBusinessChatStateForNoPlazaAccessV1();
+        return [];
+    }
+
+    yhBusinessChatState.plazaAccessDenied =
+        false;
+
+    yhBusinessChatState.plazaMembersLoading =
+        true;
+
     renderYHBusinessPlazaMemberResults();
 
     try {
-        const params = new URLSearchParams({
-            division: 'plaza',
-            q: query,
-            limit: '80'
-        });
+        const params =
+            new URLSearchParams({
+                division:
+                    'plaza',
+                q:
+                    query,
+                limit:
+                    '80'
+            });
 
-        const data = await yhBusinessChatApiFetch('/api/plaza/business-members?' + params.toString());
-        const members = Array.isArray(data.members) ? data.members : [];
+        const data =
+            await yhBusinessChatApiFetch(
+                '/api/plaza/business-members?' +
+                params.toString()
+            );
 
-        yhBusinessChatState.plazaMembers = members.map(normalizeYHBusinessPlazaMember);
+        const members =
+            Array.isArray(
+                data.members
+            )
+                ? data.members
+                : [];
+
+        yhBusinessChatState.plazaMembers =
+            members.map(
+                normalizeYHBusinessPlazaMember
+            );
+
         renderYHBusinessPlazaMemberResults();
 
-        return yhBusinessChatState.plazaMembers;
+        return yhBusinessChatState
+            .plazaMembers;
     } catch (error) {
-        console.error('searchYHBusinessPlazaMembers error:', error);
-        yhBusinessChatState.plazaMembers = [];
+        const message =
+            String(
+                error?.message ||
+                ''
+            ).trim();
+
+        if (
+            /plaza access requires admin approval/i.test(
+                message
+            )
+        ) {
+            clearYHBusinessChatStateForNoPlazaAccessV1();
+            return [];
+        }
+
+        console.error(
+            'searchYHBusinessPlazaMembers error:',
+            error
+        );
+
+        yhBusinessChatState.plazaMembers =
+            [];
+
         renderYHBusinessPlazaMemberResults();
-        showToast(error?.message || 'Failed to search Plaza members.', 'error');
+
+        showToast(
+            error?.message ||
+            'Failed to search Plaza members.',
+            'error'
+        );
+
         return [];
     } finally {
-        yhBusinessChatState.plazaMembersLoading = false;
+        yhBusinessChatState.plazaMembersLoading =
+            false;
+
         renderYHBusinessPlazaMemberResults();
     }
 }
@@ -4411,8 +4801,24 @@ async function startYHBusinessChatWithPlazaMember(targetUserId = '') {
     const cleanTargetUserId = String(targetUserId || '').trim();
 
     if (!cleanTargetUserId) {
-        throw new Error('Missing Plaza member.');
+        throw new Error(
+            'Missing Plaza member.'
+        );
     }
+
+    const access =
+        await getYHBusinessChatPlazaAccessV1();
+
+    if (!access.allowed) {
+        clearYHBusinessChatStateForNoPlazaAccessV1();
+
+        throw new Error(
+            'Plaza approval is required before starting a Business Chat.'
+        );
+    }
+
+    yhBusinessChatState.plazaAccessDenied =
+        false;
 
     const data = await yhBusinessChatApiFetch('/api/plaza/messages/from-business-member/' + encodeURIComponent(cleanTargetUserId), {
         method: 'POST',
@@ -4431,7 +4837,7 @@ async function startYHBusinessChatWithPlazaMember(targetUserId = '') {
         ];
 
         yhBusinessChatState.activeId = conversation.id;
-        writeYHJsonCache(YH_BUSINESS_CHAT_CACHE_KEY, {
+        writeYHJsonCache(getYHBusinessChatCacheKeyV1(), {
             conversations: yhBusinessChatState.conversations,
             cachedAt: new Date().toISOString()
         });
@@ -4468,7 +4874,12 @@ function normalizeYHBusinessConversation(item = {}, index = 0) {
 
 function getYHBusinessLastSeenTs() {
     try {
-        return Number(localStorage.getItem(YH_BUSINESS_CHAT_SEEN_KEY) || 0) || 0;
+        return Number(
+            localStorage.getItem(
+                getYHBusinessChatSeenKeyV1()
+            ) ||
+            0
+        ) || 0;
     } catch (_) {
         return 0;
     }
@@ -4476,7 +4887,10 @@ function getYHBusinessLastSeenTs() {
 
 function setYHBusinessLastSeenNow() {
     try {
-        localStorage.setItem(YH_BUSINESS_CHAT_SEEN_KEY, String(Date.now()));
+        localStorage.setItem(
+            getYHBusinessChatSeenKeyV1(),
+            String(Date.now())
+        );
     } catch (_) {}
 }
 
@@ -4504,20 +4918,76 @@ function getYHBusinessUnreadCount() {
 }
 
 function updateYHBusinessChatBadge() {
-    const badge = document.getElementById('yh-business-chat-nav-badge');
-    const button = document.getElementById('btn-open-yh-business-chats');
-    const count = getYHBusinessUnreadCount();
+    const badge =
+        document.getElementById(
+            'yh-business-chat-nav-badge'
+        );
+
+    const button =
+        document.getElementById(
+            'btn-open-yh-business-chats'
+        );
+
+    const count =
+        getYHBusinessUnreadCount();
+
+    const locked =
+        button?.getAttribute(
+            'data-yh-business-chats-locked'
+        ) === 'true';
+
+    if (locked) {
+        if (badge) {
+            badge.textContent =
+                '0';
+
+            badge.classList.add(
+                'hidden-step'
+            );
+        }
+
+        if (button) {
+            button.classList.remove(
+                'has-business-chat-unread'
+            );
+
+            button.setAttribute(
+                'aria-label',
+                'Business Chats locked. Plazas approval required.'
+            );
+        }
+
+        return;
+    }
 
     if (!badge) return;
 
-    badge.textContent = String(Math.min(count, 99));
-    badge.classList.toggle('hidden-step', count <= 0);
+    badge.textContent =
+        String(
+            Math.min(
+                count,
+                99
+            )
+        );
+
+    badge.classList.toggle(
+        'hidden-step',
+        count <= 0
+    );
 
     if (button) {
-        button.classList.toggle('has-business-chat-unread', count > 0);
-        button.setAttribute('aria-label', count > 0
-            ? 'Business Chats, ' + count + ' unread'
-            : 'Business Chats'
+        button.classList.toggle(
+            'has-business-chat-unread',
+            count > 0
+        );
+
+        button.setAttribute(
+            'aria-label',
+            count > 0
+                ? 'Business Chats, ' +
+                    count +
+                    ' unread'
+                : 'Business Chats'
         );
     }
 }
@@ -4563,12 +5033,38 @@ function renderYHBusinessChatList() {
     const countEl = document.getElementById('yh-business-chat-count');
 
     if (countEl) {
-        countEl.textContent = yhBusinessChatState.loading
-            ? 'Loading...'
-            : String(yhBusinessChatState.conversations.length) + ' thread' + (yhBusinessChatState.conversations.length === 1 ? '' : 's');
+        countEl.textContent =
+            yhBusinessChatState.plazaAccessDenied
+                ? 'Locked'
+                : yhBusinessChatState.loading
+                    ? 'Loading...'
+                    : String(
+                        yhBusinessChatState
+                            .conversations
+                            .length
+                    ) +
+                    ' thread' +
+                    (
+                        yhBusinessChatState
+                            .conversations
+                            .length ===
+                        1
+                            ? ''
+                            : 's'
+                    );
     }
 
     if (!listEl) return;
+
+    if (
+        yhBusinessChatState
+            .plazaAccessDenied
+    ) {
+        listEl.innerHTML =
+            '<div class="yh-business-chat-empty">Plaza approval is required before Business Chats can load. Apply to the Plazas or wait for admin approval.</div>';
+
+        return;
+    }
 
     if (yhBusinessChatState.loading && !yhBusinessChatState.conversations.length) {
         listEl.innerHTML = '<div class="yh-business-chat-empty">Loading business conversations...</div>';
@@ -4588,16 +5084,14 @@ function renderYHBusinessChatList() {
         const isUnread = getYHBusinessConversationUpdatedTs(conversation) > lastSeenTs;
 
         return `
-            <button
-                type="button"
+            <article
                 class="yh-business-chat-list-item ${isActive ? 'is-active' : ''} ${isUnread ? 'is-unread' : ''}"
-                data-yh-business-conversation="${escapeYHBusinessHtml(conversation.id)}"
             >
                 <strong>${escapeYHBusinessHtml(conversation.title)}${isUnread ? '<b class="yh-business-chat-unread-dot">New</b>' : ''}</strong>
                 <span>${escapeYHBusinessHtml(getYHBusinessConversationMeta(conversation) || 'Plaza business thread')}</span>
                 <small>${escapeYHBusinessHtml(latestMessage.text || 'No messages yet.')}</small>
                 <em>${escapeYHBusinessHtml(formatYHBusinessDate(conversation.updatedAt || latestMessage.createdAt || conversation.createdAt))}</em>
-            </button>
+            </article>
         `;
     }).join('');
 }
@@ -4719,7 +5213,38 @@ function renderYHBusinessChatThread() {
     const inputEl = document.getElementById('yh-business-chat-reply-input');
     const sendBtn = document.getElementById('yh-business-chat-send');
 
-    const conversation = getYHBusinessActiveConversation();
+    const conversation =
+        getYHBusinessActiveConversation();
+
+    if (
+        yhBusinessChatState
+            .plazaAccessDenied
+    ) {
+        if (titleEl) {
+            titleEl.textContent =
+                'Plaza approval required';
+        }
+
+        if (metaEl) {
+            metaEl.textContent =
+                'Business Chats unlock after Plazas approval.';
+        }
+
+        if (bodyEl) {
+            bodyEl.innerHTML =
+                '<div class="yh-business-chat-empty">This account does not have approved Plazas access yet.</div>';
+        }
+
+        if (inputEl) {
+            inputEl.disabled = true;
+        }
+
+        if (sendBtn) {
+            sendBtn.disabled = true;
+        }
+
+        return;
+    }
 
     if (!conversation) {
         if (titleEl) titleEl.textContent = 'Select a conversation';
@@ -4776,7 +5301,7 @@ function upsertYHBusinessConversation(conversation = {}) {
         ...yhBusinessChatState.conversations.filter((item) => item.id !== normalized.id)
     ];
 
-    writeYHJsonCache(YH_BUSINESS_CHAT_CACHE_KEY, {
+    writeYHJsonCache(getYHBusinessChatCacheKeyV1(), {
         conversations: yhBusinessChatState.conversations,
         cachedAt: new Date().toISOString()
     });
@@ -4852,49 +5377,148 @@ function renderYHBusinessChats() {
     updateYHBusinessChatBadge();
 }
 
-async function refreshYHBusinessChats(forceFresh = false, options = {}) {
+async function refreshYHBusinessChats(
+    forceFresh = false,
+    options = {}
+) {
+    /*
+     * Resolve current-account Plazas access
+     * BEFORE touching protected Business Chat
+     * endpoints.
+     */
+    const access =
+        await getYHBusinessChatPlazaAccessV1();
+
+    if (!access.allowed) {
+        return clearYHBusinessChatStateForNoPlazaAccessV1();
+    }
+
+    yhBusinessChatState.plazaAccessDenied =
+        false;
+
     if (!forceFresh) {
-        const cached = readYHJsonCache(YH_BUSINESS_CHAT_CACHE_KEY, null);
-        if (cached && Array.isArray(cached.conversations)) {
-            yhBusinessChatState.conversations = cached.conversations.map(normalizeYHBusinessConversation);
+        const cached =
+            readYHJsonCache(
+                getYHBusinessChatCacheKeyV1(),
+                null
+            );
+
+        if (
+            cached &&
+            Array.isArray(
+                cached.conversations
+            )
+        ) {
+            yhBusinessChatState.conversations =
+                cached.conversations.map(
+                    normalizeYHBusinessConversation
+                );
+
             renderYHBusinessChats();
         }
     }
 
-    yhBusinessChatState.loading = true;
+    yhBusinessChatState.loading =
+        true;
+
     renderYHBusinessChatList();
 
     try {
-        const data = await yhBusinessChatApiFetch('/api/plaza/messages?limit=160');
-        const conversations = Array.isArray(data.conversations) ? data.conversations : [];
+        const data =
+            await yhBusinessChatApiFetch(
+                '/api/plaza/messages?limit=160'
+            );
 
-        yhBusinessChatState.conversations = conversations.map(normalizeYHBusinessConversation);
-        yhBusinessChatState.hydratedOnce = true;
+        const conversations =
+            Array.isArray(
+                data.conversations
+            )
+                ? data.conversations
+                : [];
+
+        yhBusinessChatState.conversations =
+            conversations.map(
+                normalizeYHBusinessConversation
+            );
+
+        yhBusinessChatState.hydratedOnce =
+            true;
 
         if (
             yhBusinessChatState.activeId &&
-            !yhBusinessChatState.conversations.some((item) => item.id === yhBusinessChatState.activeId)
+            !yhBusinessChatState
+                .conversations
+                .some(
+                    (item) =>
+                        item.id ===
+                        yhBusinessChatState
+                            .activeId
+                )
         ) {
-            yhBusinessChatState.activeId = '';
+            yhBusinessChatState.activeId =
+                '';
         }
 
-        writeYHJsonCache(YH_BUSINESS_CHAT_CACHE_KEY, {
-            conversations: yhBusinessChatState.conversations,
-            cachedAt: new Date().toISOString()
-        });
+        writeYHJsonCache(
+            getYHBusinessChatCacheKeyV1(),
+            {
+                ownerUserId:
+                    getYHBusinessChatCurrentUserIdV1(),
+
+                conversations:
+                    yhBusinessChatState
+                        .conversations,
+
+                cachedAt:
+                    new Date()
+                        .toISOString()
+            }
+        );
 
         renderYHBusinessChats();
         joinAllYHBusinessConversationRooms();
-        return yhBusinessChatState.conversations;
+
+        return yhBusinessChatState
+            .conversations;
     } catch (error) {
-        console.error('refreshYHBusinessChats error:', error);
-        if (!options.silent) {
-            showToast(error?.message || 'Failed to load business chats.', 'error');
+        const message =
+            String(
+                error?.message ||
+                ''
+            ).trim();
+
+        /*
+         * This is an access state, not an
+         * application failure.
+         */
+        if (
+            /plaza access requires admin approval/i.test(
+                message
+            )
+        ) {
+            return clearYHBusinessChatStateForNoPlazaAccessV1();
         }
+
+        console.error(
+            'refreshYHBusinessChats error:',
+            error
+        );
+
+        if (!options.silent) {
+            showToast(
+                error?.message ||
+                'Failed to load business chats.',
+                'error'
+            );
+        }
+
         renderYHBusinessChats();
+
         return [];
     } finally {
-        yhBusinessChatState.loading = false;
+        yhBusinessChatState.loading =
+            false;
+
         renderYHBusinessChatList();
     }
 }
@@ -4999,15 +5623,43 @@ async function submitYHBusinessReply(event) {
 }
 
 function openYHBusinessChatsPage(conversationId = '') {
-    const cleanConversationId = String(conversationId || '').trim();
+    const currentSnapshot =
+        typeof getPlazaAccessSnapshot ===
+            'function'
+            ? getPlazaAccessSnapshot()
+            : {};
+
+    if (
+        !syncYHBusinessChatNavigationAccessV1(
+            currentSnapshot
+        )
+    ) {
+        return false;
+    }
+
+    const cleanConversationId =
+        String(
+            conversationId ||
+            ''
+        ).trim();
 
     if (cleanConversationId) {
         try {
-            sessionStorage.setItem('yh_business_chats_inline_conversation_id_v1', cleanConversationId);
+            sessionStorage.setItem(
+                'yh_business_chats_inline_conversation_id_v1',
+                cleanConversationId
+            );
         } catch (_) {}
     }
 
-    activateDashboardUnifiedWorkspace('business-chats', { animate: false });
+    activateDashboardUnifiedWorkspace(
+        'business-chats',
+        {
+            animate: false
+        }
+    );
+
+    return true;
 }
 
 function bootYHBusinessChatPanel() {
@@ -7064,7 +7716,7 @@ function closeDashboardSettingsModal(options = {}) {
 }
 
 const YH_DASHBOARD_CHANGE_PASSWORD_ENDPOINT =
-    '/api/change-password';
+    '/api/academy/account/password';
 
 function setDashboardChangePasswordError(
     message = ''
@@ -7260,11 +7912,12 @@ async function submitDashboardChangePassword(
         const result = await academyAuthedFetch(
             YH_DASHBOARD_CHANGE_PASSWORD_ENDPOINT,
             {
-                method: 'POST',
+                method: 'PATCH',
                 body: JSON.stringify({
                     currentPassword,
                     newPassword,
-                    confirmNewPassword
+                    confirmPassword:
+                        confirmNewPassword
                 })
             }
         );
@@ -9173,29 +9826,65 @@ async function loadDashboardMyContacts({
     }
 }
 
-async function openDashboardMyContactsModal() {
-    const modal =
+async function openDashboardMyContactsModal(options = {}) {
+    const shouldActivateWorkspace =
+        options?.activateWorkspace !== false;
+
+    const currentWorkspace =
+        String(
+            document.body?.getAttribute(
+                'data-yh-unified-workspace'
+            ) || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    if (
+        shouldActivateWorkspace &&
+        currentWorkspace !== 'my-contacts' &&
+        typeof activateDashboardUnifiedWorkspace ===
+            'function'
+    ) {
+        activateDashboardUnifiedWorkspace(
+            'my-contacts',
+            {
+                animate: false,
+                scroll: true,
+                persist: true
+            }
+        );
+
+        return;
+    }
+
+    const surface =
         document.getElementById(
             'yh-dashboard-my-contacts-modal'
         );
 
-    if (!modal) {
+    if (!surface) {
         showToast(
-            'My Contacts modal is not available.',
+            'My Contacts workspace is not available.',
             'error'
         );
 
         return;
     }
 
-    modal.classList.remove('hidden-step');
+    surface.classList.add(
+        'is-dashboard-inline-workspace'
+    );
 
-    modal.setAttribute(
+    surface.classList.remove(
+        'hidden-step'
+    );
+
+    surface.setAttribute(
         'aria-hidden',
         'false'
     );
 
-    document.body?.classList.add(
+    document.body?.classList.remove(
         'yh-dashboard-my-contacts-open'
     );
 
@@ -9206,17 +9895,48 @@ async function openDashboardMyContactsModal() {
     });
 }
 
-function closeDashboardMyContactsModal() {
-    const modal =
+function closeDashboardMyContactsModal(options = {}) {
+    closeDashboardMyContactsForm();
+
+    const currentWorkspace =
+        String(
+            document.body?.getAttribute(
+                'data-yh-unified-workspace'
+            ) || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    if (
+        options?.navigateToOverview !== false &&
+        currentWorkspace === 'my-contacts' &&
+        typeof activateDashboardUnifiedWorkspace ===
+            'function'
+    ) {
+        activateDashboardUnifiedWorkspace(
+            'overview',
+            {
+                animate: false,
+                scroll: true,
+                persist: true
+            }
+        );
+
+        return;
+    }
+
+    const surface =
         document.getElementById(
             'yh-dashboard-my-contacts-modal'
         );
 
-    if (!modal) return;
+    if (!surface) return;
 
-    modal.classList.add('hidden-step');
+    surface.classList.add(
+        'hidden-step'
+    );
 
-    modal.setAttribute(
+    surface.setAttribute(
         'aria-hidden',
         'true'
     );
@@ -9224,8 +9944,6 @@ function closeDashboardMyContactsModal() {
     document.body?.classList.remove(
         'yh-dashboard-my-contacts-open'
     );
-
-    closeDashboardMyContactsForm();
 }
 
 function readDashboardMyContactsFormPayload() {
@@ -9842,7 +10560,10 @@ function bootDashboardMyContactsModal() {
         (event) => {
             if (
                 event.target?.id ===
-                'yh-dashboard-my-contacts-modal'
+                    'yh-dashboard-my-contacts-modal' &&
+                !modal.classList.contains(
+                    'is-dashboard-inline-workspace'
+                )
             ) {
                 closeDashboardMyContactsModal();
             }
@@ -9880,6 +10601,12 @@ window.closeDashboardMyContactsModal =
 function bootYHWalletPanel() {
     bootDashboardSettingsModal();
     bootDashboardMyContactsModal();
+
+    document.getElementById('btn-open-dashboard-my-contacts')?.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void openDashboardMyContactsModal();
+    });
 
     document.getElementById('btn-open-dashboard-settings')?.addEventListener('click', (event) => {
         event.preventDefault();
@@ -10863,14 +11590,10 @@ function installDashboardProfileWholePageScrollBridge() {
 document.addEventListener('DOMContentLoaded', () => {
     installDashboardProfileWholePageScrollBridge();
 
-    let currentVaultFolder = null; 
-    let selectedVaultIndex = null;
-    let pendingTaskToComplete = null;
     let currentProfileUser = null;
     let currentProfileIcon = null;
     let currentProfileBg = null;
     let pendingGroupMembers = [];
-    let hasLoadedVaultOnce = false;
     const defaultAcademyWelcomeHtml = document.getElementById('chat-welcome-box')?.innerHTML || '';
 
     /*
@@ -10978,30 +11701,93 @@ let plazaAccessStatusLastFetchAt = 0;
 const PLAZA_ACCESS_STATUS_MIN_REFRESH_GAP_MS = 10000;
 
 function getPlazaAccessSnapshot() {
+    const emptySnapshot = {
+        hasApplication: false,
+        canEnterPlaza: false,
+        applicationStatus: '',
+        application: null,
+        divisionOverride: null,
+        member: null
+    };
+
     try {
-        const parsed = JSON.parse(localStorage.getItem(YH_PLAZA_ACCESS_STATUS_CACHE_KEY) || '{}');
+        const parsed =
+            JSON.parse(
+                localStorage.getItem(
+                    YH_PLAZA_ACCESS_STATUS_CACHE_KEY
+                ) ||
+                '{}'
+            );
+
+        const currentUserId =
+            getYHBusinessChatCurrentUserIdV1();
+
+        const ownerUserId =
+            normalizeAcademyFeedId(
+                parsed?.ownerUserId ||
+                parsed?.owner_user_id ||
+                ''
+            );
+
+        /*
+         * Never reuse Plaza access state from
+         * another/deleted account.
+         *
+         * Pre-isolation caches have no owner,
+         * so they intentionally fail closed
+         * and are refreshed from the backend.
+         */
+        if (
+            currentUserId &&
+            ownerUserId !==
+                currentUserId
+        ) {
+            try {
+                localStorage.removeItem(
+                    YH_PLAZA_ACCESS_STATUS_CACHE_KEY
+                );
+            } catch (_) {}
+
+            return emptySnapshot;
+        }
+
         const application =
-            parsed?.application && typeof parsed.application === 'object'
+            parsed?.application &&
+            typeof parsed.application ===
+                'object'
                 ? parsed.application
                 : null;
 
         return {
-            hasApplication: parsed?.hasApplication === true,
-            canEnterPlaza: parsed?.canEnterPlaza === true,
-            applicationStatus: normalizePlazaStatus(parsed?.applicationStatus || ''),
+            hasApplication:
+                parsed?.hasApplication ===
+                true,
+
+            canEnterPlaza:
+                parsed?.canEnterPlaza ===
+                true,
+
+            applicationStatus:
+                normalizePlazaStatus(
+                    parsed
+                        ?.applicationStatus ||
+                    ''
+                ),
+
             application,
-            divisionOverride: parsed?.divisionOverride || application?.divisionOverride || null,
-            member: parsed?.member || null
+
+            divisionOverride:
+                parsed?.divisionOverride ||
+                application
+                    ?.divisionOverride ||
+                null,
+
+            member:
+                parsed?.member ||
+                null
         };
     } catch (_) {
-        return {
-            hasApplication: false,
-            canEnterPlaza: false,
-            applicationStatus: '',
-            application: null,
-            divisionOverride: null,
-            member: null
-        };
+        return emptySnapshot;
     }
 }
 
@@ -11046,6 +11832,9 @@ function writePlazaAccessStatusCache(
             : null;
 
     const cachedSnapshot = {
+        ownerUserId:
+            getYHBusinessChatCurrentUserIdV1(),
+
         hasApplication:
             snapshot?.hasApplication ===
                 true,
@@ -11184,7 +11973,9 @@ function syncPlazaEntryButton(snapshot = null) {
 
     syncDashboardDivisionAccessPolling();
 
-
+    syncYHBusinessChatNavigationAccessV1(
+        currentSnapshot
+    );
 
     return currentSnapshot;
 }
@@ -12013,6 +12804,12 @@ const DASHBOARD_PLAZA_MEMBERSHIP_LABELS = {
         joined: 'What is your current professional or strategic background?',
         learnt: 'What proof, experience, audience, capital, network, or access do you already have?',
         contribution: 'What high-value contribution can you bring into the Plazas?'
+    },
+
+    not_yet: {
+        joined: 'How long have you been part of Young Hustlers or following the community?',
+        learnt: 'What have you learned or observed from Young Hustlers so far?',
+        contribution: 'What can you contribute to the Plazas as a YH member?'
     }
 };
 
@@ -12945,17 +13742,16 @@ function getDashboardPlazaApplicationFlow() {
     const wantsMarketplace = getDashboardPlazaInputValue('plazaAppWantsMarketplace');
     const referredBy = getDashboardPlazaInputValue('plazaAppReferredBy');
 
-    const flow = ['membershipType', 'email'];
-
-    if (membershipType === 'not_yet') {
-        flow.push('stop');
-        return flow;
-    }
+    const flow = [
+        'membershipType',
+        'email'
+    ];
 
     if (
         membershipType !== 'academy' &&
         membershipType !== 'federation' &&
-        membershipType !== 'direct_strategic'
+        membershipType !== 'direct_strategic' &&
+        membershipType !== 'not_yet'
     ) {
         return flow;
     }
@@ -13190,12 +13986,19 @@ function buildDashboardPlazaApplicationPayload() {
                 : ''
         );
 
+    const applicationTrack =
+        membershipType === 'not_yet'
+            ? 'general_review'
+            : progressionGate.track;
+
     return {
         schemaVersion: DASHBOARD_PLAZA_APPLICATION_SCHEMA_VERSION,
         source: 'Dashboard Plaza Application',
 
-        applicationTrack: progressionGate.track,
-        directStrategicApplicant: progressionGate.track === 'direct_strategic',
+        applicationTrack,
+        directStrategicApplicant:
+            applicationTrack ===
+            'direct_strategic',
         academyUnlockRequirement: {
             division: 'plaza',
             requiredScore: progressionGate.requiredScore,
@@ -13291,11 +14094,6 @@ async function submitDashboardPlazaApplication(event) {
     if (progressionGate.locked) {
         showToast(progressionGate.copy, 'error');
         syncPlazaEntryButton(getPlazaAccessSnapshot());
-        return;
-    }
-
-    if (membershipType === 'not_yet') {
-        showToast('Only Academy, Federation, or direct high-value strategic applicants can apply for Plaza access.', 'error');
         return;
     }
 
@@ -13780,6 +14578,19 @@ const dashboardUnifiedWorkspaceCopy = {
         mode: 'Invites + Commissions',
         stage: 'Inline Workspace'
     },
+    'my-contacts': {
+        key: 'my-contacts',
+        division: 'resources',
+        kicker: 'Relationship Database',
+        title: 'MY CONTACTS',
+        intro: 'Review Academy mission contacts and external contacts inside the Dashboard.',
+        eyebrow: 'My Contacts',
+        headline: 'Manage your relationship database without opening a modal.',
+        body: 'Search internal Academy contacts, manage manually added external contacts, and keep contact details organized in one workspace.',
+        focus: 'Internal + External',
+        mode: 'Search + Manage',
+        stage: 'Inline Workspace'
+    },
     settings: {
         key: 'settings',
         division: 'resources',
@@ -13806,6 +14617,20 @@ const dashboardUnifiedWorkspaceCopy = {
         mode: 'Preview + Edit',
         stage: 'Inline Workspace'
     },
+
+    profile: {
+        key: 'profile',
+        division: 'resources',
+        kicker: 'YH Universe',
+        title: 'PROFILE',
+        intro: 'View a YH Universe member profile inside the Dashboard.',
+        eyebrow: 'Member Profile',
+        headline: 'YH Universe member profile.',
+        body: 'Review public identity, social stats, activity, and relationship actions.',
+        focus: 'Member Profile',
+        mode: 'Profile View',
+        stage: 'Inline Workspace'
+    },
     wallet: {
         key: 'wallet',
         division: 'resources',
@@ -13818,6 +14643,22 @@ const dashboardUnifiedWorkspaceCopy = {
         focus: 'Wallet Balance',
         mode: 'Payments + Payouts',
         stage: 'Inline Resource'
+    },
+        messages: {
+        key: 'messages',
+        division: 'resources',
+        kicker: 'YH Direct Messages',
+        title: 'MESSAGES',
+        intro:
+            'Private one-to-one conversations with members across the YH Universe.',
+        eyebrow: 'Direct Messages',
+        headline:
+            'Your YH member inbox is now part of the Dashboard.',
+        body:
+            'Open existing conversations or start a direct message from any member Profile View.',
+        focus: 'Private Inbox',
+        mode: '1-to-1 Messages',
+        stage: 'Realtime Workspace'
     },
     'business-chats': {
         key: 'business-chats',
@@ -14216,6 +15057,2403 @@ function getDashboardUnifiedWorkspaceCopy(key = 'overview') {
     return dashboardUnifiedWorkspaceCopy[cleanKey] || dashboardUnifiedWorkspaceCopy.overview;
 }
 
+/* ========================================================= */
+/* DASHBOARD YH DIRECT MESSAGES v1                           */
+/* ========================================================= */
+
+const dashboardDirectMessagesStateV1 = {
+    rooms: [],
+    activeRoomId: '',
+
+    messagesByRoom:
+        Object.create(null),
+
+    profileByUserId:
+        Object.create(null),
+
+    loadingRooms: false,
+    loadingThread: false,
+    sendPending: false,
+    searchQuery: ''
+};
+
+function dashboardDmEscapeHtmlV1(value = '') {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function getDashboardDmCurrentUserIdV1() {
+    return (
+        normalizeAcademyFeedId(
+            getStoredUserValue(
+                'yh_user_id',
+                ''
+            )
+        ) ||
+        normalizeAcademyFeedId(
+            getStoredUserValue(
+                'yh_user_uid',
+                ''
+            )
+        )
+    );
+}
+
+function normalizeDashboardDmRoomV1(
+    room = {},
+    profile = {}
+) {
+    const safeProfile =
+        profile &&
+        typeof profile === 'object'
+            ? profile
+            : {};
+
+    const recipientId =
+        normalizeAcademyFeedId(
+            safeProfile.id ||
+            safeProfile.uid ||
+            room.recipient_id ||
+            room.recipientId ||
+            ''
+        );
+
+    const name =
+        String(
+            safeProfile.displayName ||
+            safeProfile.display_name ||
+            safeProfile.fullName ||
+            safeProfile.full_name ||
+            safeProfile.name ||
+            room.recipient_name ||
+            room.recipientName ||
+            room.name ||
+            'YH Member'
+        ).trim() ||
+        'YH Member';
+
+    const username =
+        String(
+            safeProfile.username ||
+            safeProfile.userName ||
+            room.recipient_username ||
+            room.recipientUsername ||
+            room.username ||
+            ''
+        )
+            .replace(/^@+/, '')
+            .trim();
+
+    const rawAvatar =
+        String(
+            safeProfile.avatar ||
+            safeProfile.avatar_url ||
+            safeProfile.avatarUrl ||
+            safeProfile.profile_photo ||
+            safeProfile.profilePhoto ||
+            safeProfile.photo_url ||
+            safeProfile.photoURL ||
+            room.avatar ||
+            room.avatar_url ||
+            room.avatarUrl ||
+            ''
+        ).trim();
+
+    const avatar =
+        typeof sharedNormalizeAvatarUrl ===
+        'function'
+            ? String(
+                sharedNormalizeAvatarUrl(
+                    rawAvatar
+                ) ||
+                ''
+            ).trim()
+            : rawAvatar;
+
+    return {
+        ...room,
+
+        id:
+            String(
+                room.id ||
+                room.roomId ||
+                room.room_id ||
+                ''
+            ).trim(),
+
+        roomType:
+            String(
+                room.room_type ||
+                room.roomType ||
+                room.type ||
+                'dm'
+            )
+                .trim()
+                .toLowerCase(),
+
+        recipientId,
+        recipient_id:
+            recipientId,
+
+        name,
+
+        recipientName:
+            name,
+
+        username,
+
+        avatar,
+
+        unreadCount:
+            Math.max(
+                0,
+                Number(
+                    room.unread_count ??
+                    room.unreadCount ??
+                    0
+                ) || 0
+            ),
+
+        lastMessage:
+            String(
+                room.last_message_text ||
+                room.lastMessage ||
+                ''
+            ).trim(),
+
+        lastMessageAt:
+            room.last_message_at ||
+            room.lastMessageAt ||
+            room.updated_at ||
+            room.updatedAt ||
+            ''
+    };
+}
+
+function normalizeDashboardDmMessageV1(
+    message = {}
+) {
+    return {
+        ...message,
+
+        id:
+            String(
+                message.id ||
+                message.messageId ||
+                ''
+            ).trim(),
+
+        roomId:
+            String(
+                message.room ||
+                message.roomId ||
+                message.room_id ||
+                ''
+            ).trim(),
+
+        authorId:
+            normalizeAcademyFeedId(
+                message.authorId ||
+                message.author_id ||
+                message.createdByUserId ||
+                message.created_by_user_id ||
+                ''
+            ),
+
+        author:
+            String(
+                message.author ||
+                'YH Member'
+            ).trim(),
+
+        text:
+            String(
+                message.text ||
+                ''
+            ),
+
+time:
+    message.time ||
+    message.created_at ||
+    message.createdAt ||
+    message.sent_at ||
+    message.sentAt ||
+    message.timestamp ||
+    ''
+    };
+}
+function formatDashboardDmMessageTimestampV1(
+    value = ''
+) {
+    const cleanValue =
+        String(
+            value ||
+            ''
+        ).trim();
+
+    if (!cleanValue) {
+        return {
+            label: '',
+            iso: ''
+        };
+    }
+
+    const date =
+        new Date(
+            cleanValue
+        );
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+        return {
+            label: '',
+            iso: ''
+        };
+    }
+
+    const now =
+        new Date();
+
+    const sameDay =
+        date.getFullYear() ===
+            now.getFullYear() &&
+        date.getMonth() ===
+            now.getMonth() &&
+        date.getDate() ===
+            now.getDate();
+
+    const sameYear =
+        date.getFullYear() ===
+        now.getFullYear();
+
+    const timeLabel =
+        new Intl.DateTimeFormat(
+            undefined,
+            {
+                hour: 'numeric',
+                minute: '2-digit'
+            }
+        ).format(
+            date
+        );
+
+    if (sameDay) {
+        return {
+            label:
+                timeLabel,
+
+            iso:
+                date.toISOString()
+        };
+    }
+
+    const dateLabel =
+        new Intl.DateTimeFormat(
+            undefined,
+            sameYear
+                ? {
+                    month:
+                        'short',
+                    day:
+                        'numeric'
+                }
+                : {
+                    month:
+                        'short',
+                    day:
+                        'numeric',
+                    year:
+                        'numeric'
+                }
+        ).format(
+            date
+        );
+
+    return {
+        label:
+            `${dateLabel}, ${timeLabel}`,
+
+        iso:
+            date.toISOString()
+    };
+}
+function getDashboardDmRoomV1(
+    roomId = ''
+) {
+    const cleanId =
+        String(roomId || '').trim();
+
+    return (
+        dashboardDirectMessagesStateV1
+            .rooms
+            .find(
+                (room) =>
+                    room.id ===
+                    cleanId
+            ) ||
+        null
+    );
+}
+
+function syncDashboardDmUnreadV1() {
+    const total =
+        dashboardDirectMessagesStateV1
+            .rooms
+            .reduce(
+                (sum, room) =>
+                    sum +
+                    Math.max(
+                        0,
+                        Number(
+                            room.unreadCount ||
+                            0
+                        )
+                    ),
+                0
+            );
+
+    document
+        .querySelectorAll(
+            '[data-yh-direct-message-badge]'
+        )
+        .forEach((badge) => {
+            badge.textContent =
+                total > 99
+                    ? '99+'
+                    : String(total);
+
+            badge.classList.toggle(
+                'hidden-step',
+                total <= 0
+            );
+        });
+
+    const summary =
+        document.getElementById(
+            'yh-dashboard-dm-unread-summary'
+        );
+
+    if (summary) {
+        summary.textContent =
+            `${total} unread`;
+    }
+}
+
+function renderDashboardDmRoomsV1() {
+    const list =
+        document.getElementById(
+            'yh-dashboard-dm-room-list'
+        );
+
+    const status =
+        document.getElementById(
+            'yh-dashboard-dm-status'
+        );
+
+    if (!list) return;
+
+    const query =
+        String(
+            dashboardDirectMessagesStateV1
+                .searchQuery ||
+            ''
+        )
+            .trim()
+            .toLowerCase();
+
+    const rooms =
+        dashboardDirectMessagesStateV1
+            .rooms
+            .filter((room) => {
+                if (!query) return true;
+
+                return [
+                    room.name,
+                    room.lastMessage
+                ]
+                    .map(
+                        (value) =>
+                            String(
+                                value ||
+                                ''
+                            )
+                                .toLowerCase()
+                    )
+                    .some(
+                        (value) =>
+                            value.includes(
+                                query
+                            )
+                    );
+            });
+
+    if (status) {
+        status.textContent =
+            dashboardDirectMessagesStateV1
+                .loadingRooms
+                ? 'Loading conversations...'
+                : rooms.length
+                    ? `${rooms.length} conversation${
+                        rooms.length === 1
+                            ? ''
+                            : 's'
+                    }`
+                    : query
+                        ? 'No matching conversations.'
+                        : 'No direct messages yet.';
+    }
+
+    list.innerHTML =
+        rooms
+            .map((room) => {
+                const safeId =
+                    dashboardDmEscapeHtmlV1(
+                        room.id
+                    );
+
+                const safeName =
+                    dashboardDmEscapeHtmlV1(
+                        room.name
+                    );
+
+                const preview =
+                    dashboardDmEscapeHtmlV1(
+                        room.lastMessage ||
+                        'Start the conversation.'
+                    );
+
+                const avatar =
+                    String(
+                        room.avatar ||
+                        ''
+                    ).trim();
+
+                const avatarHtml =
+                    avatar
+                        ? `
+                            <img
+                                src="${dashboardDmEscapeHtmlV1(
+                                    avatar
+                                )}"
+                                alt=""
+                            >
+                        `
+                        : dashboardDmEscapeHtmlV1(
+                            String(
+                                room.name ||
+                                'Y'
+                            )
+                                .charAt(0)
+                                .toUpperCase()
+                        );
+
+                const unread =
+                    Math.max(
+                        0,
+                        Number(
+                            room.unreadCount ||
+                            0
+                        )
+                    );
+
+                const active =
+                    room.id ===
+                    dashboardDirectMessagesStateV1
+                        .activeRoomId;
+
+                return `
+                    <button
+                        type="button"
+                        class="yh-dashboard-dm-room ${
+                            active
+                                ? 'is-active'
+                                : ''
+                        }"
+                        data-yh-dm-room-id="${safeId}"
+                    >
+
+                        <span class="yh-dashboard-dm-room-avatar">
+                            ${avatarHtml}
+                        </span>
+
+                        <span class="yh-dashboard-dm-room-copy">
+                            <strong>${safeName}</strong>
+                            <span>${preview}</span>
+                        </span>
+
+                        ${
+                            unread > 0
+                                ? `
+                                    <span class="yh-dashboard-dm-room-unread">
+                                        ${
+                                            unread > 99
+                                                ? '99+'
+                                                : unread
+                                        }
+                                    </span>
+                                `
+                                : ''
+                        }
+
+                    </button>
+                `;
+            })
+            .join('');
+
+    syncDashboardDmUnreadV1();
+}
+
+function mergeDashboardDmMessageV1(
+    roomId = '',
+    message = {}
+) {
+    const cleanRoomId =
+        String(roomId || '').trim();
+
+    if (!cleanRoomId) return;
+
+    const normalized =
+        normalizeDashboardDmMessageV1(
+            message
+        );
+
+    const previous =
+        Array.isArray(
+            dashboardDirectMessagesStateV1
+                .messagesByRoom[
+                    cleanRoomId
+                ]
+        )
+            ? dashboardDirectMessagesStateV1
+                .messagesByRoom[
+                    cleanRoomId
+                ]
+            : [];
+
+    const next =
+        normalized.id
+            ? [
+                ...previous.filter(
+                    (entry) =>
+                        entry.id !==
+                        normalized.id
+                ),
+                normalized
+            ]
+            : [
+                ...previous,
+                normalized
+            ];
+
+    next.sort(
+        (a, b) =>
+            (
+                Date.parse(
+                    a.time ||
+                    ''
+                ) ||
+                0
+            ) -
+            (
+                Date.parse(
+                    b.time ||
+                    ''
+                ) ||
+                0
+            )
+    );
+
+    dashboardDirectMessagesStateV1
+        .messagesByRoom[
+            cleanRoomId
+        ] = next;
+}
+
+function renderDashboardDmThreadV1() {
+    const workspace =
+        document.getElementById(
+            'yh-dashboard-messages-workspace'
+        );
+
+    const empty =
+        document.getElementById(
+            'yh-dashboard-dm-empty'
+        );
+
+    const active =
+        document.getElementById(
+            'yh-dashboard-dm-active'
+        );
+
+    const list =
+        document.getElementById(
+            'yh-dashboard-dm-message-list'
+        );
+
+    const room =
+        getDashboardDmRoomV1(
+            dashboardDirectMessagesStateV1
+                .activeRoomId
+        );
+
+if (
+    !workspace ||
+    !empty ||
+    !active ||
+    !list ||
+    !room
+) {
+    workspace?.setAttribute(
+        'data-yh-dm-thread-open',
+        'false'
+    );
+
+    document.body?.removeAttribute(
+        'data-yh-dashboard-dm-thread-open'
+    );
+
+    empty?.classList.remove(
+        'hidden-step'
+    );
+
+    active?.classList.add(
+        'hidden-step'
+    );
+
+    if (
+        String(
+            document.body?.getAttribute(
+                'data-yh-unified-workspace'
+            ) ||
+            ''
+        )
+            .trim()
+            .toLowerCase() ===
+        'messages'
+    ) {
+        setDashboardMobileBottomNavScrollStateV1(
+            false,
+            'dashboard-dm-inbox'
+        );
+    }
+
+    return;
+}
+
+workspace.setAttribute(
+    'data-yh-dm-thread-open',
+    'true'
+);
+
+document.body?.setAttribute(
+    'data-yh-dashboard-dm-thread-open',
+    'true'
+);
+
+setDashboardMobileBottomNavScrollStateV1(
+    true,
+    'dashboard-dm-thread-open'
+);
+
+    empty.classList.add(
+        'hidden-step'
+    );
+
+    active.classList.remove(
+        'hidden-step'
+    );
+
+    active.setAttribute(
+        'aria-hidden',
+        'false'
+    );
+
+const name =
+    document.getElementById(
+        'yh-dashboard-dm-thread-name'
+    );
+
+const username =
+    document.getElementById(
+        'yh-dashboard-dm-thread-username'
+    );
+
+const avatar =
+    document.getElementById(
+        'yh-dashboard-dm-thread-avatar'
+    );
+
+if (name) {
+    name.textContent =
+        room.name ||
+        'YH Member';
+}
+
+if (username) {
+    username.textContent =
+        room.username
+            ? `@${room.username}`
+            : 'YH Universe member';
+}
+
+if (avatar) {
+    const initial =
+        String(
+            room.name ||
+            'Y'
+        )
+            .charAt(0)
+            .toUpperCase();
+
+    avatar.textContent =
+        initial;
+
+    const avatarUrl =
+        String(
+            room.avatar ||
+            ''
+        ).trim();
+
+    if (avatarUrl) {
+        const image =
+            document.createElement(
+                'img'
+            );
+
+        image.alt = '';
+        image.decoding =
+            'async';
+
+        image.addEventListener(
+            'load',
+            () => {
+                avatar.replaceChildren(
+                    image
+                );
+            },
+            {
+                once: true
+            }
+        );
+
+        image.addEventListener(
+            'error',
+            () => {
+                avatar.textContent =
+                    initial;
+            },
+            {
+                once: true
+            }
+        );
+
+        image.src =
+            avatarUrl;
+    }
+}
+
+    syncDashboardDmComposerPolicyV2(
+        room
+    );
+
+    const messages =
+        Array.isArray(
+            dashboardDirectMessagesStateV1
+                .messagesByRoom[
+                    room.id
+                ]
+        )
+            ? dashboardDirectMessagesStateV1
+                .messagesByRoom[
+                    room.id
+                ]
+            : [];
+
+    const selfId =
+        getDashboardDmCurrentUserIdV1();
+
+    if (
+        dashboardDirectMessagesStateV1
+            .loadingThread
+    ) {
+        list.innerHTML =
+            '<div class="yh-dashboard-dm-status">Loading messages...</div>';
+
+        return;
+    }
+
+    if (!messages.length) {
+        list.innerHTML =
+            '<div class="yh-dashboard-dm-status">This is the beginning of your conversation.</div>';
+
+        return;
+    }
+
+    list.innerHTML =
+        messages
+            .map((message) => {
+const mine =
+    Boolean(
+        selfId &&
+        message.authorId ===
+            selfId
+    );
+
+const sentAt =
+    formatDashboardDmMessageTimestampV1(
+        message.time
+    );
+
+return `
+                    <article
+                        class="yh-dashboard-dm-message ${
+                            mine
+                                ? 'is-mine'
+                                : ''
+                        }"
+                        data-yh-dm-message-id="${dashboardDmEscapeHtmlV1(
+                            message.id
+                        )}"
+                    >
+                        <p>${dashboardDmEscapeHtmlV1(
+                            message.text
+                        )}</p>
+
+<small class="yh-dashboard-dm-message-meta">
+
+    <span class="yh-dashboard-dm-message-author">
+        ${
+            mine
+                ? 'You'
+                : dashboardDmEscapeHtmlV1(
+                    message.author ||
+                    room.name
+                )
+        }
+    </span>
+
+    ${
+        sentAt.label
+            ? `
+                <time
+                    class="yh-dashboard-dm-message-time"
+                    datetime="${dashboardDmEscapeHtmlV1(
+                        sentAt.iso
+                    )}"
+                >
+                    ${dashboardDmEscapeHtmlV1(
+                        sentAt.label
+                    )}
+                </time>
+            `
+            : ''
+    }
+
+</small>
+                    </article>
+                `;
+            })
+            .join('');
+
+    requestAnimationFrame(
+        () => {
+            requestAnimationFrame(
+                () => {
+                    list.scrollTop =
+                        list.scrollHeight;
+                }
+            );
+        }
+    );
+}
+
+async function loadDashboardDirectMessageRoomsV1(
+    options = {}
+) {
+    if (
+        dashboardDirectMessagesStateV1
+            .loadingRooms &&
+        options.force !== true
+    ) {
+        return (
+            dashboardDirectMessagesStateV1
+                .rooms
+        );
+    }
+
+    dashboardDirectMessagesStateV1
+        .loadingRooms = true;
+
+    renderDashboardDmRoomsV1();
+
+    try {
+        const result =
+            await academyAuthedFetch(
+                '/api/realtime/rooms',
+                {
+                    method: 'GET'
+                }
+            );
+
+        dashboardDirectMessagesStateV1
+            .rooms =
+            (
+                Array.isArray(
+                    result?.rooms
+                )
+                    ? result.rooms
+                    : []
+            )
+                .filter(
+                    (room) =>
+                        String(
+                            room.room_type ||
+                            room.roomType ||
+                            room.type ||
+                            ''
+                        )
+                            .trim()
+                            .toLowerCase() ===
+                        'dm'
+                )
+.map(
+    (room) => {
+        const roomId =
+            String(
+                room.id ||
+                room.roomId ||
+                room.room_id ||
+                ''
+            ).trim();
+
+        const existing =
+            dashboardDirectMessagesStateV1
+                .rooms
+                .find(
+                    (entry) =>
+                        entry.id ===
+                        roomId
+                ) ||
+            {};
+
+        const recipientId =
+            normalizeAcademyFeedId(
+                room.recipient_id ||
+                room.recipientId ||
+                existing.recipientId ||
+                existing.recipient_id ||
+                ''
+            );
+
+        const cachedProfile =
+            recipientId
+                ? dashboardDirectMessagesStateV1
+                    .profileByUserId[
+                        recipientId
+                    ] ||
+                  {}
+                : {};
+
+        return normalizeDashboardDmRoomV1(
+            {
+                ...existing,
+                ...room
+            },
+            cachedProfile
+        );
+    }
+)
+.sort(
+                    (a, b) =>
+                        String(
+                            b.lastMessageAt ||
+                            ''
+                        )
+                            .localeCompare(
+                                String(
+                                    a.lastMessageAt ||
+                                    ''
+                                )
+                            )
+                );
+
+        return (
+            dashboardDirectMessagesStateV1
+                .rooms
+        );
+    } finally {
+        dashboardDirectMessagesStateV1
+            .loadingRooms = false;
+
+        renderDashboardDmRoomsV1();
+        renderDashboardDmThreadV1();
+    }
+}
+
+async function loadDashboardDmHistoryV1(
+    roomId = ''
+) {
+    const cleanRoomId =
+        String(roomId || '').trim();
+
+    if (!cleanRoomId) return;
+
+    dashboardDirectMessagesStateV1
+        .loadingThread = true;
+
+    renderDashboardDmThreadV1();
+
+    try {
+        const result =
+            await academyAuthedFetch(
+                `/api/realtime/rooms/${encodeURIComponent(
+                    cleanRoomId
+                )}/messages?limit=100`,
+                {
+                    method: 'GET'
+                }
+            );
+
+        dashboardDirectMessagesStateV1
+            .messagesByRoom[
+                cleanRoomId
+            ] =
+            (
+                Array.isArray(
+                    result?.messages
+                )
+                    ? result.messages
+                    : []
+            )
+                .map(
+                    normalizeDashboardDmMessageV1
+                )
+                .sort(
+                    (a, b) =>
+                        (
+                            Date.parse(
+                                a.time ||
+                                ''
+                            ) ||
+                            0
+                        ) -
+                        (
+                            Date.parse(
+                                b.time ||
+                                ''
+                            ) ||
+                            0
+                        )
+                );
+    } finally {
+        dashboardDirectMessagesStateV1
+            .loadingThread = false;
+
+        renderDashboardDmThreadV1();
+    }
+}
+
+async function markDashboardDmReadV1(
+    roomId = ''
+) {
+    const cleanRoomId =
+        String(roomId || '').trim();
+
+    if (!cleanRoomId) return;
+
+    await academyAuthedFetch(
+        `/api/realtime/rooms/${encodeURIComponent(
+            cleanRoomId
+        )}/read`,
+        {
+            method: 'POST',
+            body:
+                JSON.stringify({})
+        }
+    ).catch(
+        () => null
+    );
+
+    dashboardDirectMessagesStateV1
+        .rooms =
+        dashboardDirectMessagesStateV1
+            .rooms
+            .map(
+                (room) =>
+                    room.id ===
+                    cleanRoomId
+                        ? {
+                            ...room,
+                            unreadCount: 0
+                        }
+                        : room
+            );
+
+    renderDashboardDmRoomsV1();
+}
+
+async function hydrateDashboardDmRoomProfileV1(
+    roomId = ''
+) {
+    const cleanRoomId =
+        String(
+            roomId ||
+            ''
+        ).trim();
+
+    if (!cleanRoomId) {
+        return null;
+    }
+
+    const room =
+        getDashboardDmRoomV1(
+            cleanRoomId
+        );
+
+    if (
+        !room ||
+        !room.recipientId
+    ) {
+        return null;
+    }
+
+    const recipientId =
+        normalizeAcademyFeedId(
+            room.recipientId
+        );
+
+    if (!recipientId) {
+        return null;
+    }
+
+    let profile =
+        dashboardDirectMessagesStateV1
+            .profileByUserId[
+                recipientId
+            ] ||
+        null;
+
+    if (!profile) {
+        profile =
+            await fetchAcademyMemberProfile(
+                recipientId
+            )
+                .catch(
+                    () => null
+                );
+
+        if (profile) {
+            dashboardDirectMessagesStateV1
+                .profileByUserId[
+                    recipientId
+                ] =
+                profile;
+        }
+    }
+
+    if (!profile) {
+        return null;
+    }
+
+    dashboardDirectMessagesStateV1
+        .rooms =
+        dashboardDirectMessagesStateV1
+            .rooms
+            .map(
+                (entry) =>
+                    entry.id ===
+                    cleanRoomId
+                        ? normalizeDashboardDmRoomV1(
+                            entry,
+                            profile
+                        )
+                        : entry
+            );
+
+    renderDashboardDmRoomsV1();
+    renderDashboardDmThreadV1();
+
+    return profile;
+}
+
+async function selectDashboardDmRoomV1(
+    roomId = ''
+) {
+    const cleanRoomId =
+        String(roomId || '').trim();
+
+    if (!cleanRoomId) return;
+
+    dashboardDirectMessagesStateV1
+        .activeRoomId =
+        cleanRoomId;
+
+renderDashboardDmRoomsV1();
+renderDashboardDmThreadV1();
+
+await hydrateDashboardDmRoomProfileV1(
+    cleanRoomId
+);
+
+if (
+    typeof socket !==
+            'undefined' &&
+        socket?.emit
+    ) {
+        socket.emit(
+            'joinRoom',
+            {
+                roomId:
+                    cleanRoomId
+            }
+        );
+    }
+
+    await Promise.all([
+        loadDashboardDmHistoryV1(
+            cleanRoomId
+        ),
+
+        markDashboardDmReadV1(
+            cleanRoomId
+        )
+    ]);
+
+    requestAnimationFrame(
+        () => {
+            document
+                .getElementById(
+                    'yh-dashboard-dm-input'
+                )
+                ?.focus?.();
+        }
+    );
+}
+
+async function openDashboardDirectMessageRoomV1(
+    roomId = '',
+    options = {}
+) {
+    const cleanRoomId =
+        String(roomId || '').trim();
+
+    if (!cleanRoomId) {
+        throw new Error(
+            'Missing direct message room.'
+        );
+    }
+
+const suppliedProfile =
+    options.profile &&
+    typeof options.profile ===
+        'object'
+        ? options.profile
+        : {};
+
+const suppliedProfileId =
+    normalizeAcademyFeedId(
+        suppliedProfile.id ||
+        suppliedProfile.uid ||
+        ''
+    );
+
+if (suppliedProfileId) {
+    dashboardDirectMessagesStateV1
+        .profileByUserId[
+            suppliedProfileId
+        ] =
+        suppliedProfile;
+}
+
+if (
+    options.room &&
+    typeof options.room ===
+        'object'
+) {
+    const supplied =
+        normalizeDashboardDmRoomV1(
+            options.room,
+            suppliedProfile
+        );
+
+    dashboardDirectMessagesStateV1
+        .rooms = [
+            supplied,
+            ...dashboardDirectMessagesStateV1
+                .rooms
+                .filter(
+                    (room) =>
+                        room.id !==
+                        supplied.id
+                )
+        ];
+}
+
+    activateDashboardUnifiedWorkspace(
+        'messages',
+        {
+            animate: false,
+            scroll: true,
+            persist: true
+        }
+    );
+
+    await loadDashboardDirectMessageRoomsV1();
+
+    await selectDashboardDmRoomV1(
+        cleanRoomId
+    );
+}
+
+async function sendDashboardDirectMessageV1() {
+    const roomId =
+        String(
+            dashboardDirectMessagesStateV1
+                .activeRoomId ||
+            ''
+        ).trim();
+
+    const input =
+        document.getElementById(
+            'yh-dashboard-dm-input'
+        );
+
+    const send =
+        document.getElementById(
+            'yh-dashboard-dm-send'
+        );
+
+    const text =
+        String(
+            input?.value ||
+            ''
+        ).trim();
+
+    if (
+        !roomId ||
+        !text ||
+        dashboardDirectMessagesStateV1
+            .sendPending
+    ) {
+        return;
+    }
+
+    if (
+        typeof socket ===
+            'undefined' ||
+        !socket?.connected
+    ) {
+        throw new Error(
+            'Messaging connection is unavailable.'
+        );
+    }
+
+    dashboardDirectMessagesStateV1
+        .sendPending = true;
+
+    if (send) {
+        send.disabled = true;
+        send.textContent =
+            'Sending...';
+    }
+
+    try {
+        const result =
+            await new Promise(
+                (
+                    resolve,
+                    reject
+                ) => {
+                    const timer =
+                        setTimeout(
+                            () =>
+                                reject(
+                                    new Error(
+                                        'Message send timed out.'
+                                    )
+                                ),
+                            12000
+                        );
+
+                    socket.emit(
+                        'sendMessage',
+                        {
+                            room:
+                                roomId,
+
+                            roomId,
+
+                            text,
+
+                            clientMessageId:
+                                `dashboard_dm_${Date.now()}_${Math.random()
+                                    .toString(36)
+                                    .slice(2, 8)}`
+                        },
+                        (
+                            response = {}
+                        ) => {
+                            clearTimeout(
+                                timer
+                            );
+
+                            if (
+                                response
+                                    ?.success ===
+                                false
+                            ) {
+                                reject(
+                                    new Error(
+                                        response
+                                            ?.message ||
+                                        'Failed to send message.'
+                                    )
+                                );
+
+                                return;
+                            }
+
+                            resolve(
+                                response
+                            );
+                        }
+                    );
+                }
+            );
+
+        if (result?.message) {
+            mergeDashboardDmMessageV1(
+                roomId,
+                result.message
+            );
+        }
+
+        if (input) {
+            input.value = '';
+        }
+
+        renderDashboardDmThreadV1();
+
+        await loadDashboardDirectMessageRoomsV1({
+            force: true
+        });
+    } finally {
+        dashboardDirectMessagesStateV1
+            .sendPending = false;
+
+        if (send) {
+            const activeRoom =
+                getDashboardDmRoomV1(
+                    dashboardDirectMessagesStateV1
+                        .activeRoomId
+                );
+
+            send.disabled =
+                isDashboardDmRoomBlockedV2(
+                    activeRoom
+                );
+
+            send.textContent =
+                'Send';
+        }
+    }
+}
+
+
+/* ========================================================= */
+/* DASHBOARD DM CONVERSATION ACTIONS v2                      */
+/* ========================================================= */
+
+function getDashboardDmActiveRoomV2() {
+    return (
+        getDashboardDmRoomV1(
+            dashboardDirectMessagesStateV1
+                .activeRoomId
+        ) ||
+        null
+    );
+}
+
+
+function isDashboardDmRoomBlockedV2(
+    room = null
+) {
+    if (
+        !room ||
+        typeof room !==
+            'object'
+    ) {
+        return false;
+    }
+
+    const blockedBy =
+        room.blockedBy ||
+        room.blocked_by ||
+        null;
+
+    if (
+        blockedBy &&
+        typeof blockedBy ===
+            'object' &&
+        Object.values(
+            blockedBy
+        ).some(Boolean)
+    ) {
+        return true;
+    }
+
+    if (
+        typeof blockedBy ===
+            'string' &&
+        blockedBy.trim()
+    ) {
+        return true;
+    }
+
+    return Boolean(
+        room.__dashboardBlocked === true ||
+        room.blocked === true ||
+        room.isBlocked === true ||
+        room.is_blocked === true ||
+        room.is_blocked_by_me === true ||
+        room.blockedByMe === true ||
+        room.blocked_by_me === true ||
+        room.currentUserBlocked === true ||
+        room.current_user_blocked === true ||
+        room.currentUserState?.blocked === true ||
+        room.current_user_state?.blocked === true ||
+        room.memberState?.blocked === true ||
+        room.member_state?.blocked === true ||
+        room.policy?.blocked === true ||
+        room.moderation?.blocked === true
+    );
+}
+
+
+function isDashboardDmRoomRestrictedV2(
+    room = null
+) {
+    if (
+        !room ||
+        typeof room !==
+            'object'
+    ) {
+        return false;
+    }
+
+    const currentUserId =
+        getDashboardDmCurrentUserIdV1();
+
+    const restrictedByUserIds =
+        Array.isArray(
+            room.restricted_by_user_ids
+        )
+            ? room.restricted_by_user_ids
+            : Array.isArray(
+                room.restrictedByUserIds
+            )
+                ? room.restrictedByUserIds
+                : [];
+
+    return Boolean(
+        room.__dashboardRestricted === true ||
+        room.restricted === true ||
+        room.isRestricted === true ||
+        room.is_restricted === true ||
+
+        room.is_restricted_by_me === true ||
+        room.restrictedByMe === true ||
+        room.restricted_by_me === true ||
+
+        (
+            currentUserId &&
+            restrictedByUserIds
+                .map(String)
+                .includes(
+                    String(
+                        currentUserId
+                    )
+                )
+        ) ||
+
+        /*
+         * Legacy compatibility:
+         * users restricted using the previous
+         * mute-based frontend still render safely.
+         */
+        room.muted === true ||
+        room.isMuted === true ||
+        room.is_muted === true
+    );
+}
+
+
+function syncDashboardDmComposerPolicyV2(
+    room = null
+) {
+    const input =
+        document.getElementById(
+            'yh-dashboard-dm-input'
+        );
+
+    const send =
+        document.getElementById(
+            'yh-dashboard-dm-send'
+        );
+
+    const blocked =
+        isDashboardDmRoomBlockedV2(
+            room
+        );
+
+    const restricted =
+        isDashboardDmRoomRestrictedV2(
+            room
+        );
+
+    if (input) {
+        input.disabled =
+            blocked;
+
+        input.placeholder =
+            blocked
+                ? 'You blocked this user.'
+                : 'Write a message...';
+    }
+
+    if (send) {
+        send.disabled =
+            blocked ||
+            dashboardDirectMessagesStateV1
+                .sendPending;
+    }
+
+    const blockButton =
+        document.querySelector(
+            '[data-yh-dm-thread-action="block"]'
+        );
+
+    if (blockButton) {
+        blockButton.textContent =
+            blocked
+                ? 'User blocked'
+                : 'Block user';
+
+        blockButton.disabled =
+            blocked;
+    }
+
+    const restrictButton =
+        document.querySelector(
+            '[data-yh-dm-thread-action="restrict"]'
+        );
+
+    if (restrictButton) {
+        restrictButton.textContent =
+            restricted
+                ? 'User restricted'
+                : 'Restrict user';
+
+        restrictButton.disabled =
+            restricted ||
+            blocked;
+    }
+}
+
+
+function closeDashboardDmThreadActionsMenuV2() {
+    const menu =
+        document.getElementById(
+            'yh-dashboard-dm-actions-menu'
+        );
+
+    const toggle =
+        document.getElementById(
+            'yh-dashboard-dm-more-toggle'
+        );
+
+    if (menu) {
+        menu.hidden =
+            true;
+    }
+
+    if (toggle) {
+        toggle.setAttribute(
+            'aria-expanded',
+            'false'
+        );
+    }
+}
+
+
+function toggleDashboardDmThreadActionsMenuV2() {
+    const menu =
+        document.getElementById(
+            'yh-dashboard-dm-actions-menu'
+        );
+
+    const toggle =
+        document.getElementById(
+            'yh-dashboard-dm-more-toggle'
+        );
+
+    if (
+        !menu ||
+        !toggle
+    ) {
+        return;
+    }
+
+    const opening =
+        menu.hidden === true;
+
+    menu.hidden =
+        !opening;
+
+    toggle.setAttribute(
+        'aria-expanded',
+        opening
+            ? 'true'
+            : 'false'
+    );
+}
+
+
+function setDashboardDmThreadActionBusyV2(
+    button = null,
+    busy = false
+) {
+    if (!button) return;
+
+    if (busy) {
+        button.disabled =
+            true;
+
+        button.setAttribute(
+            'aria-busy',
+            'true'
+        );
+
+        return;
+    }
+
+    button.removeAttribute(
+        'aria-busy'
+    );
+
+    syncDashboardDmComposerPolicyV2(
+        getDashboardDmActiveRoomV2()
+    );
+}
+
+
+async function runDashboardDmThreadActionV2(
+    action = '',
+    actionButton = null
+) {
+    const cleanAction =
+        String(
+            action ||
+            ''
+        )
+            .trim()
+            .toLowerCase();
+
+    const room =
+        getDashboardDmActiveRoomV2();
+
+    if (
+        !room?.id ||
+        ![
+            'delete',
+            'block',
+            'restrict'
+        ].includes(
+            cleanAction
+        )
+    ) {
+        return;
+    }
+
+    const memberName =
+        String(
+            room.name ||
+            'this user'
+        ).trim() ||
+        'this user';
+
+    const config =
+        cleanAction ===
+            'delete'
+            ? {
+                endpoint:
+                    'hide',
+
+                body: {
+                    hidden:
+                        true
+                },
+
+                title:
+                    'Delete conversation?',
+
+                message:
+                    `Delete your conversation with ${memberName}? ` +
+                    'This will remove the conversation and its current history for you only. ' +
+                    'The other user will keep their copy.',
+
+                okText:
+                    'Delete',
+
+                tone:
+                    'danger'
+            }
+            : cleanAction ===
+                'block'
+                ? {
+                    endpoint:
+                        'block',
+
+                    body: {
+                        blocked:
+                            true
+                    },
+
+                    title:
+                        'Block user?',
+
+                    message:
+                        `Block ${memberName}? ` +
+                        'Direct messaging between you will be blocked.',
+
+                    okText:
+                        'Block User',
+
+                    tone:
+                        'danger'
+                }
+                : {
+                    endpoint:
+                        'restrict',
+
+                    body: {
+                        restricted:
+                            true
+                    },
+
+                    title:
+                        'Restrict user?',
+
+                    message:
+                        `Restrict ${memberName}? ` +
+                        'They will no longer be able to send you direct messages while restricted.',
+
+                    okText:
+                        'Restrict User',
+
+                    tone:
+                        'default'
+                };
+
+    const confirmed =
+        await openYHConfirmModal({
+            title:
+                config.title,
+
+            message:
+                config.message,
+
+            okText:
+                config.okText,
+
+            cancelText:
+                'Cancel',
+
+            tone:
+                config.tone
+        });
+
+    if (!confirmed) {
+        closeDashboardDmThreadActionsMenuV2();
+        return;
+    }
+
+    setDashboardDmThreadActionBusyV2(
+        actionButton,
+        true
+    );
+
+    try {
+        const result =
+            await academyAuthedFetch(
+                `/api/realtime/rooms/${encodeURIComponent(
+                    room.id
+                )}/${config.endpoint}`,
+                {
+                    method:
+                        'PATCH',
+
+                    body:
+                        JSON.stringify(
+                            config.body
+                        )
+                }
+            );
+
+        if (
+            cleanAction ===
+            'delete'
+        ) {
+            dashboardDirectMessagesStateV1
+                .rooms =
+                dashboardDirectMessagesStateV1
+                    .rooms
+                    .filter(
+                        (entry) =>
+                            entry.id !==
+                            room.id
+                    );
+
+            delete dashboardDirectMessagesStateV1
+                .messagesByRoom[
+                    room.id
+                ];
+
+            dashboardDirectMessagesStateV1
+                .activeRoomId =
+                '';
+
+            document.body?.removeAttribute(
+                'data-yh-dashboard-dm-thread-open'
+            );
+
+            renderDashboardDmRoomsV1();
+            renderDashboardDmThreadV1();
+
+            await loadDashboardDirectMessageRoomsV1({
+                force:
+                    true
+            });
+
+            showToast(
+                result?.message ||
+                    'Conversation deleted for you.',
+                'success'
+            );
+        }
+
+
+        if (
+            cleanAction ===
+            'block'
+        ) {
+            room.__dashboardBlocked =
+                true;
+
+            renderDashboardDmThreadV1();
+
+            await loadDashboardDirectMessageRoomsV1({
+                force:
+                    true
+            });
+
+            syncDashboardDmComposerPolicyV2(
+                getDashboardDmActiveRoomV2()
+            );
+
+            showToast(
+                result?.message ||
+                    `${memberName} has been blocked.`,
+                'success'
+            );
+        }
+
+
+        if (
+            cleanAction ===
+            'restrict'
+        ) {
+            room.__dashboardRestricted =
+                true;
+
+            renderDashboardDmThreadV1();
+
+            await loadDashboardDirectMessageRoomsV1({
+                force:
+                    true
+            });
+
+            syncDashboardDmComposerPolicyV2(
+                getDashboardDmActiveRoomV2()
+            );
+
+            showToast(
+                result?.message ||
+                    `${memberName} has been restricted.`,
+                'success'
+            );
+        }
+
+        closeDashboardDmThreadActionsMenuV2();
+
+    } catch (error) {
+        console.error(
+            'runDashboardDmThreadActionV2 error:',
+            error
+        );
+
+        showToast(
+            error?.message ||
+                'Conversation action failed.',
+            'error'
+        );
+
+    } finally {
+        setDashboardDmThreadActionBusyV2(
+            actionButton,
+            false
+        );
+    }
+}
+
+/* END DASHBOARD DM CONVERSATION ACTIONS v2 */
+
+
+function bootDashboardDirectMessagesV1() {
+    if (
+        window
+            .__yhDashboardDirectMessagesBoundV1
+    ) {
+        return;
+    }
+
+    window
+        .__yhDashboardDirectMessagesBoundV1 =
+        true;
+
+    document
+        .getElementById(
+            'yh-dashboard-dm-room-list'
+        )
+        ?.addEventListener(
+            'click',
+            (event) => {
+                const button =
+                    event.target.closest(
+                        '[data-yh-dm-room-id]'
+                    );
+
+                if (!button) return;
+
+                void selectDashboardDmRoomV1(
+                    button.getAttribute(
+                        'data-yh-dm-room-id'
+                    )
+                );
+            }
+        );
+
+    const search =
+        document.getElementById(
+            'yh-dashboard-dm-search-input'
+        );
+
+    search?.addEventListener(
+        'input',
+        () => {
+            dashboardDirectMessagesStateV1
+                .searchQuery =
+                String(
+                    search.value ||
+                    ''
+                );
+
+            renderDashboardDmRoomsV1();
+        }
+    );
+
+    document
+        .getElementById(
+            'yh-dashboard-dm-search-form'
+        )
+        ?.addEventListener(
+            'submit',
+            (event) =>
+                event.preventDefault()
+        );
+
+document
+    .getElementById(
+        'yh-dashboard-dm-mobile-back'
+    )
+    ?.addEventListener(
+        'click',
+        () => {
+            dashboardDirectMessagesStateV1
+                .activeRoomId =
+                '';
+
+            document.body?.removeAttribute(
+                'data-yh-dashboard-dm-thread-open'
+            );
+
+            renderDashboardDmRoomsV1();
+            renderDashboardDmThreadV1();
+
+            setDashboardMobileBottomNavScrollStateV1(
+                false,
+                'dashboard-dm-back-to-inbox'
+            );
+        }
+    );
+
+    document
+        .getElementById(
+            'yh-dashboard-dm-view-profile'
+        )
+        ?.addEventListener(
+            'click',
+            () => {
+                const room =
+                    getDashboardDmRoomV1(
+                        dashboardDirectMessagesStateV1
+                            .activeRoomId
+                    );
+
+                if (
+                    !room?.recipientId
+                ) {
+                    return;
+                }
+
+                openAcademyMemberProfileView(
+                    room.recipientId
+                );
+            }
+        );
+
+
+    document
+        .getElementById(
+            'yh-dashboard-dm-more-toggle'
+        )
+        ?.addEventListener(
+            'click',
+            (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                toggleDashboardDmThreadActionsMenuV2();
+            }
+        );
+
+
+    document
+        .getElementById(
+            'yh-dashboard-dm-actions-menu'
+        )
+        ?.addEventListener(
+            'click',
+            (event) => {
+                const button =
+                    event.target.closest(
+                        '[data-yh-dm-thread-action]'
+                    );
+
+                if (!button) return;
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                const action =
+                    button.getAttribute(
+                        'data-yh-dm-thread-action'
+                    );
+
+                void runDashboardDmThreadActionV2(
+                    action,
+                    button
+                );
+            }
+        );
+
+
+    document.addEventListener(
+        'click',
+        (event) => {
+            if (
+                event.target.closest(
+                    '.yh-dashboard-dm-thread-more'
+                )
+            ) {
+                return;
+            }
+
+            closeDashboardDmThreadActionsMenuV2();
+        }
+    );
+
+
+    document.addEventListener(
+        'keydown',
+        (event) => {
+            if (
+                event.key ===
+                'Escape'
+            ) {
+                closeDashboardDmThreadActionsMenuV2();
+            }
+        }
+    );
+
+
+    document
+        .getElementById(
+            'yh-dashboard-dm-composer'
+        )
+        ?.addEventListener(
+            'submit',
+            (event) => {
+                event.preventDefault();
+
+                sendDashboardDirectMessageV1()
+                    .catch((error) => {
+                        console.error(
+                            'sendDashboardDirectMessageV1 error:',
+                            error
+                        );
+
+                        showToast(
+                            error?.message ||
+                            'Failed to send message.',
+                            'error'
+                        );
+                    });
+            }
+        );
+
+    document
+        .getElementById(
+            'yh-dashboard-dm-input'
+        )
+        ?.addEventListener(
+            'keydown',
+            (event) => {
+                if (
+                    event.key ===
+                        'Enter' &&
+                    !event.shiftKey
+                ) {
+                    event.preventDefault();
+
+                    document
+                        .getElementById(
+                            'yh-dashboard-dm-composer'
+                        )
+                        ?.requestSubmit?.();
+                }
+            }
+        );
+
+    socket?.on(
+        'receiveMessage',
+        (message = {}) => {
+            const normalized =
+                normalizeDashboardDmMessageV1(
+                    message
+                );
+
+            if (!normalized.roomId) {
+                return;
+            }
+
+            const active =
+                normalized.roomId ===
+                dashboardDirectMessagesStateV1
+                    .activeRoomId;
+
+            const workspaceOpen =
+                String(
+                    document.body
+                        ?.getAttribute(
+                            'data-yh-unified-workspace'
+                        ) ||
+                    ''
+                )
+                    .trim()
+                    .toLowerCase() ===
+                'messages';
+
+            if (active) {
+                mergeDashboardDmMessageV1(
+                    normalized.roomId,
+                    normalized
+                );
+
+                renderDashboardDmThreadV1();
+
+                if (workspaceOpen) {
+                    void markDashboardDmReadV1(
+                        normalized.roomId
+                    );
+                }
+            }
+
+            void loadDashboardDirectMessageRoomsV1({
+                force: true
+            }).catch(
+                () => {}
+            );
+        }
+    );
+
+    socket?.on(
+        'connect',
+        () => {
+            void loadDashboardDirectMessageRoomsV1({
+                force: true
+            }).catch(
+                () => {}
+            );
+        }
+    );
+
+    setTimeout(
+        () => {
+            void loadDashboardDirectMessageRoomsV1({
+                force: true
+            }).catch(
+                () => {}
+            );
+        },
+        900
+    );
+}
+
+if (
+    document.readyState ===
+    'loading'
+) {
+    document.addEventListener(
+        'DOMContentLoaded',
+        bootDashboardDirectMessagesV1,
+        {
+            once: true
+        }
+    );
+} else {
+    bootDashboardDirectMessagesV1();
+}
+
+/* END DASHBOARD YH DIRECT MESSAGES v1 */
+
 const YH_DASHBOARD_PERSISTENT_UI_STATE_KEY = 'yh_dashboard_persistent_ui_state_v1';
 
 function readDashboardPersistentUiState() {
@@ -14541,7 +17779,7 @@ const dashboardUnifiedWorkspaceLaunchMap = {
         kicker: 'Business Chats',
         copy: 'Open the real Business Chats page inside the Dashboard command layer.',
         routeLabel: '/business-chats.html',
-        url: '/business-chats.html?v=20260810-form-stack-v4',
+        url: '/business-chats.html?v=20260817-phase2b-ui-fixes-v1',
         resourceType: 'business-chats',
         buttonText: 'Open Business Chats →',
         loadingLabel: 'Opening Business Chats...'
@@ -19456,7 +22694,7 @@ function forceDashboardInlineFrameContentOnly(frame) {
                 minmax(0, 1fr) !important;
             grid-auto-rows: max-content !important;
             align-content: start !important;
-            gap: 14px !important;
+            gap: 10px !important;
             overflow: visible !important;
         }
 
@@ -19492,7 +22730,7 @@ function forceDashboardInlineFrameContentOnly(frame) {
             flex-direction: column !important;
             align-items: stretch !important;
 
-            gap: 14px !important;
+            gap: 10px !important;
 
             /*
              * Huwag i-clip ang niche content.
@@ -19524,8 +22762,11 @@ function forceDashboardInlineFrameContentOnly(frame) {
             max-width: 100% !important;
             display: grid !important;
             grid-template-columns:
-                minmax(0, 1fr) !important;
-            gap: 8px !important;
+                repeat(
+                    3,
+                    minmax(0, 1fr)
+                ) !important;
+            gap: 5px !important;
             overflow: visible !important;
             box-sizing: border-box !important;
         }
@@ -19536,6 +22777,13 @@ function forceDashboardInlineFrameContentOnly(frame) {
             width: 100% !important;
             min-width: 0 !important;
             max-width: 100% !important;
+            min-height: 30px !important;
+            height: auto !important;
+            padding: 6px 5px !important;
+            justify-content: center !important;
+            font-size: 0.78rem !important;
+            line-height: 1.1 !important;
+            white-space: normal !important;
             box-sizing: border-box !important;
         }
 
@@ -20763,6 +24011,240 @@ body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-activ
             object-position: center !important;
         }
 
+        /*
+         * PHASE 2E-C1:
+         * 3-division mobile child viewport edge lock.
+         *
+         * Dashboard owns the mobile top bar + bottom nav.
+         * Embedded child documents must not reserve their
+         * standalone top/bottom page gutters again.
+         */
+        @media (max-width: 768px) {
+            html.yh-dashboard-inline-embed-root,
+            body.yh-dashboard-inline-embed-body {
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+            }
+
+            /* ==========================================
+             * ACADEMY
+             * ========================================== */
+
+            /*
+             * Every Academy child view fills the entire
+             * iframe provided by the Dashboard.
+             */
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-chat,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-chat,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-feed-view,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-feed-view,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-lead-missions-view,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-lead-missions-view,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #voice-lobby-view,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #voice-lobby-view {
+                width: 100% !important;
+                height: 100% !important;
+                min-height: 0 !important;
+                max-height: 100% !important;
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+                box-sizing: border-box !important;
+            }
+
+            /*
+             * Roadmap, Missions, Community Feed, and Voice
+             * were re-applying standalone vertical page
+             * padding even though Dashboard already owns
+             * the mobile viewport.
+             *
+             * Keep horizontal padding. Remove only the
+             * duplicate top/bottom reserve.
+             */
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-chat[data-chat-mode="home"] #chat-messages,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-chat[data-chat-mode="home"] #chat-messages,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-lead-missions-view .academy-lead-missions-scroll,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-lead-missions-view .academy-lead-missions-scroll,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-feed-view > .chat-messages,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-feed-view > .chat-messages,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #voice-lobby-view .lounge-container,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #voice-lobby-view .lounge-container {
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+                scroll-padding-top: 0 !important;
+                scroll-padding-bottom: 0 !important;
+                box-sizing: border-box !important;
+            }
+
+            /*
+             * Stretch short Academy surfaces to the bottom
+             * instead of ending early and exposing a blank
+             * portion of the iframe.
+             */
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-chat[data-chat-mode="home"] .academy-messages-thread-shell,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-chat[data-chat-mode="home"] .academy-messages-thread-shell,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-chat[data-chat-mode="home"] #dynamic-chat-history,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-chat[data-chat-mode="home"] #dynamic-chat-history,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-chat[data-chat-mode="home"] .academy-home-stack,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-chat[data-chat-mode="home"] .academy-home-stack,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-lead-missions-view .academy-lead-missions-shell,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-lead-missions-view .academy-lead-missions-shell,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-lead-missions-view .academy-lead-missions-workspace,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-lead-missions-view .academy-lead-missions-workspace,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-feed-view .academy-feed-shell,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-feed-view .academy-feed-shell,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #voice-lobby-view .lounge-container,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #voice-lobby-view .lounge-container {
+                min-height: 100% !important;
+                box-sizing: border-box !important;
+            }
+
+            /*
+             * Academy Messages:
+             * standalone mobile CSS gives the inbox sidebar
+             * a fixed 600px height. Embedded mode should use
+             * the real available Dashboard iframe height.
+             */
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"],
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-chat[data-chat-mode="messages"] {
+                display: flex !important;
+                flex-direction: column !important;
+                height: 100% !important;
+                min-height: 0 !important;
+                max-height: 100% !important;
+                overflow: hidden !important;
+            }
+
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] #chat-messages,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-chat[data-chat-mode="messages"] #chat-messages {
+                flex: 1 1 auto !important;
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+                overflow: hidden !important;
+                box-sizing: border-box !important;
+            }
+
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] #academy-messages-inbox,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-chat[data-chat-mode="messages"] #academy-messages-inbox,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-sidebar,
+            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-sidebar {
+                flex: 1 1 auto !important;
+                height: 100% !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+                box-sizing: border-box !important;
+            }
+
+            /* ==========================================
+             * PLAZAS
+             * ========================================== */
+
+            /*
+             * Dashboard already owns device safe areas.
+             * Do not reserve another bottom safe-area
+             * inside the embedded Plazas document.
+             */
+            body.yh-dashboard-inline-embed-body[data-yh-page="plaza"] .yh-plaza-app-grid,
+            body.yh-dashboard-inline-embed-body[data-yh-view="plaza"] .yh-plaza-app-grid {
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+                scroll-padding-top: 0 !important;
+                scroll-padding-bottom: 0 !important;
+            }
+
+            /*
+             * Every active Plaza child screen expands to
+             * the full available embedded viewport.
+             */
+            body.yh-dashboard-inline-embed-body[data-yh-page="plaza"] .yh-plaza-workspace,
+            body.yh-dashboard-inline-embed-body[data-yh-view="plaza"] .yh-plaza-workspace,
+            body.yh-dashboard-inline-embed-body[data-yh-page="plaza"] .yh-plaza-main,
+            body.yh-dashboard-inline-embed-body[data-yh-view="plaza"] .yh-plaza-main,
+            body.yh-dashboard-inline-embed-body[data-yh-page="plaza"] .yh-plaza-content,
+            body.yh-dashboard-inline-embed-body[data-yh-view="plaza"] .yh-plaza-content,
+            body.yh-dashboard-inline-embed-body[data-yh-page="plaza"] .yh-plaza-main-stage,
+            body.yh-dashboard-inline-embed-body[data-yh-view="plaza"] .yh-plaza-main-stage,
+            body.yh-dashboard-inline-embed-body[data-yh-page="plaza"] .yh-plaza-workspace-card,
+            body.yh-dashboard-inline-embed-body[data-yh-view="plaza"] .yh-plaza-workspace-card,
+            body.yh-dashboard-inline-embed-body[data-yh-page="plaza"] .yh-plaza-tab-panels,
+            body.yh-dashboard-inline-embed-body[data-yh-view="plaza"] .yh-plaza-tab-panels,
+            body.yh-dashboard-inline-embed-body[data-yh-page="plaza"] .yh-plaza-screen-stack,
+            body.yh-dashboard-inline-embed-body[data-yh-view="plaza"] .yh-plaza-screen-stack,
+            body.yh-dashboard-inline-embed-body[data-yh-page="plaza"] .yh-plaza-panel.is-active,
+            body.yh-dashboard-inline-embed-body[data-yh-view="plaza"] .yh-plaza-panel.is-active,
+            body.yh-dashboard-inline-embed-body[data-yh-page="plaza"] .yh-plaza-screen-shell,
+            body.yh-dashboard-inline-embed-body[data-yh-view="plaza"] .yh-plaza-screen-shell {
+                min-height: 100% !important;
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+                box-sizing: border-box !important;
+            }
+
+            /*
+             * Preserve Plaza horizontal card padding but
+             * remove standalone top/bottom padding.
+             */
+            body.yh-dashboard-inline-embed-body[data-yh-page="plaza"] .yh-plaza-workspace-card,
+            body.yh-dashboard-inline-embed-body[data-yh-view="plaza"] .yh-plaza-workspace-card,
+            body.yh-dashboard-inline-embed-body[data-yh-page="plaza"] .yh-plaza-screen-shell,
+            body.yh-dashboard-inline-embed-body[data-yh-view="plaza"] .yh-plaza-screen-shell {
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+            }
+
+            /* ==========================================
+             * FEDERATION
+             * ========================================== */
+
+            /*
+             * Federation shell still carries standalone
+             * top padding and a shell gap in embedded mode.
+             */
+            body.yh-dashboard-federation-embed-body .fed-shell,
+            body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-shell,
+            body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-shell {
+                gap: 0 !important;
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+            }
+
+            body.yh-dashboard-federation-embed-body .fed-main,
+            body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main,
+            body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main {
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+                scroll-padding-top: 0 !important;
+                scroll-padding-bottom: 0 !important;
+            }
+
+            /*
+             * Current embedded rule uses min-height:auto
+             * for active Federation panels. Override that
+             * only on mobile embedded views so short tabs
+             * reach the bottom of the viewport.
+             */
+            body.yh-dashboard-federation-embed-body .fed-section.is-active-panel,
+            body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-section.is-active-panel,
+            body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-section.is-active-panel {
+                min-height: 100% !important;
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+                box-sizing: border-box !important;
+            }
+        }
+
 `;
 
     const chromeNodes = [
@@ -20883,7 +24365,39 @@ function setDashboardMobileBottomNavScrollStateV1(
             'data-yh-academy-message-thread-open'
         ) === 'true';
 
-    let isMobile = false;
+    if (
+        workspaceKey !==
+        'academy-voice'
+    ) {
+        body?.removeAttribute(
+            'data-yh-academy-voice-stage-open'
+        );
+    }
+
+const voiceStageLock =
+    workspaceKey ===
+        'academy-voice' &&
+    body?.getAttribute(
+        'data-yh-academy-voice-stage-open'
+    ) === 'true';
+
+if (
+    workspaceKey !==
+    'messages'
+) {
+    body?.removeAttribute(
+        'data-yh-dashboard-dm-thread-open'
+    );
+}
+
+const dashboardDmThreadLock =
+    workspaceKey ===
+        'messages' &&
+    body?.getAttribute(
+        'data-yh-dashboard-dm-thread-open'
+    ) === 'true';
+
+let isMobile = false;
 
     try {
         isMobile =
@@ -20902,9 +24416,13 @@ const supportsScrollHide =
             'business-chats' ||
         workspaceKey ===
             'edit-profile' ||
+        workspaceKey ===
+            'profile' ||
+        workspaceKey ===
+            'messages' ||
         workspaceKey.startsWith(
             'academy-'
-        ) ||
+        )||
         workspaceKey.startsWith(
             'plazas-'
         ) ||
@@ -20912,13 +24430,15 @@ const supportsScrollHide =
             'federation-'
         );
 
-    const shouldHide =
-        isMobile &&
-        supportsScrollHide &&
-        (
-            messageThreadLock ||
-            hidden === true
-        );
+const shouldHide =
+    isMobile &&
+    supportsScrollHide &&
+    (
+        voiceStageLock ||
+        messageThreadLock ||
+        dashboardDmThreadLock ||
+        hidden === true
+    );
 
     nav.classList.toggle(
         'is-scroll-hidden',
@@ -20975,6 +24495,88 @@ const supportsScrollHide =
     return shouldHide;
 }
 
+/* PATCH: Academy Voice stage bottom-nav lock v1 */
+if (
+    window.__yhAcademyVoiceStageBottomNavSyncV1Bound !==
+    true
+) {
+    window.__yhAcademyVoiceStageBottomNavSyncV1Bound =
+        true;
+
+    window.addEventListener(
+        'message',
+        (event) => {
+            if (
+                event.origin !==
+                window.location.origin
+            ) {
+                return;
+            }
+
+            const data =
+                event.data || {};
+
+            if (
+                data.type !==
+                'yh:academy-voice-stage-state'
+            ) {
+                return;
+            }
+
+            const frame =
+                document.getElementById(
+                    'yh-universe-workspace-inline-frame'
+                );
+
+            if (
+                !frame ||
+                event.source !==
+                    frame.contentWindow
+            ) {
+                return;
+            }
+
+            const workspaceKey =
+                String(
+                    getDashboardInlineWorkspaceKeyFromFrame(
+                        frame
+                    ) || ''
+                )
+                    .trim()
+                    .toLowerCase();
+
+            if (
+                workspaceKey !==
+                'academy-voice'
+            ) {
+                return;
+            }
+
+            const stageOpen =
+                data.open === true;
+
+            if (stageOpen) {
+                document.body?.setAttribute(
+                    'data-yh-academy-voice-stage-open',
+                    'true'
+                );
+            } else {
+                document.body?.removeAttribute(
+                    'data-yh-academy-voice-stage-open'
+                );
+            }
+
+            setDashboardMobileBottomNavScrollStateV1(
+                stageOpen,
+                stageOpen
+                    ? 'academy-voice-stage-open'
+                    : 'academy-voice-stage-closed'
+            );
+        }
+    );
+}
+/* END PATCH: Academy Voice stage bottom-nav lock v1 */
+
 /* PATCH: Wallet mobile bottom-nav auto-hide v1 */
 (function installDashboardWalletBottomNavAutoHideV1() {
     if (
@@ -20994,11 +24596,13 @@ const supportsScrollHide =
     let lastTouchY =
         null;
 
-    let wasWalletWorkspace =
-        [
-            'wallet',
-            'edit-profile'
-        ].includes(
+let wasWalletWorkspace =
+    [
+        'wallet',
+        'edit-profile',
+        'profile',
+        'messages'
+    ].includes(
             String(
                 document.body
                     ?.getAttribute(
@@ -21021,10 +24625,12 @@ const supportsScrollHide =
                 .trim()
                 .toLowerCase();
 
-        return (
-            workspaceKey === 'wallet' ||
-            workspaceKey === 'edit-profile'
-        );
+return (
+    workspaceKey === 'wallet' ||
+    workspaceKey === 'edit-profile' ||
+    workspaceKey === 'profile' ||
+    workspaceKey === 'messages'
+);
     };
 
 
@@ -23111,8 +26717,11 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
 
     const isOverview = cleanKey === 'overview';
     const isReferral = cleanKey === 'referral';
+    const isMyContacts = cleanKey === 'my-contacts';
+    const isMessages = cleanKey === 'messages';
     const isSettings = cleanKey === 'settings';
     const isEditProfile = cleanKey === 'edit-profile';
+    const isProfile = cleanKey === 'profile';
     const isAcademyParent = cleanKey === 'academy';
     const isPlazasParent = cleanKey === 'plazas';
     const isFederationParent = cleanKey === 'federation';
@@ -23149,12 +26758,36 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     const referralWorkspaceContent = document.getElementById('yh-dashboard-referral-workspace-content');
     const referralCard = document.getElementById('yh-universe-referral-card');
 
+    const myContactsWorkspace = document.getElementById('yh-dashboard-my-contacts-workspace');
+    const myContactsWorkspaceContent = document.getElementById('yh-dashboard-my-contacts-workspace-content');
+    const myContactsSurface =
+        document.getElementById('yh-dashboard-my-contacts-modal');
+
+    const messagesWorkspace =
+        document.getElementById(
+            'yh-dashboard-messages-workspace'
+        );
+
     const settingsWorkspace = document.getElementById('yh-dashboard-settings-workspace');
     const settingsWorkspaceContent = document.getElementById('yh-dashboard-settings-workspace-content');
     const settingsSurface = document.getElementById('yh-dashboard-settings-modal');
 
     const profileEditorWorkspace = document.getElementById('yh-dashboard-profile-editor-workspace');
     const profileEditorWorkspaceContent = document.getElementById('yh-dashboard-profile-editor-workspace-content');
+        const profileViewWorkspace =
+        document.getElementById(
+            'yh-dashboard-profile-view-workspace'
+        );
+
+    const profileViewWorkspaceContent =
+        document.getElementById(
+            'yh-dashboard-profile-view-workspace-content'
+        );
+
+    const dashboardProfileView =
+        document.getElementById(
+            'academy-profile-view'
+        );
     const profileEditorSurface =
         document.getElementById('yh-dashboard-profile-editor-overlay') ||
         (
@@ -23163,7 +26796,16 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
                 ? ensureDashboardUniverseProfileEditor()
                 : null
         );
-
+    if (
+        profileViewWorkspaceContent &&
+        dashboardProfileView &&
+        dashboardProfileView.parentElement !==
+            profileViewWorkspaceContent
+    ) {
+        profileViewWorkspaceContent.appendChild(
+            dashboardProfileView
+        );
+    }
     const parentIntro = document.getElementById('yh-dashboard-division-parent-intro-v1');
     const academyHero = document.querySelector('.yh-academy-parent-hero-header');
     const academyCommandHero = document.querySelector('.yh-universe-command-hero');
@@ -23192,6 +26834,14 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     }
 
     if (
+        myContactsWorkspaceContent &&
+        myContactsSurface &&
+        myContactsSurface.parentElement !== myContactsWorkspaceContent
+    ) {
+        myContactsWorkspaceContent.appendChild(myContactsSurface);
+    }
+
+    if (
         settingsWorkspaceContent &&
         settingsSurface &&
         settingsSurface.parentElement !== settingsWorkspaceContent
@@ -23207,18 +26857,55 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
         profileEditorWorkspaceContent.appendChild(profileEditorSurface);
     }
 
+    myContactsSurface?.classList.add('is-dashboard-inline-workspace');
     settingsSurface?.classList.add('is-dashboard-inline-workspace');
     profileEditorSurface?.classList.add('is-dashboard-inline-workspace');
+        dashboardProfileView?.classList.add(
+        'is-dashboard-inline-workspace'
+    );
 
     setVisible(commandHead, isOverview, 'grid');
     setVisible(overviewGrid, false, 'grid');
     setVisible(dynamicAccessRow, isOverview, 'grid');
     setVisible(referralWorkspace, isReferral, 'block');
     setVisible(referralCard, isReferral);
-    setVisible(settingsWorkspace, isSettings, 'block');
+    setVisible(
+        myContactsWorkspace,
+        isMyContacts,
+        'block'
+    );
+
+    setVisible(
+        myContactsSurface,
+        isMyContacts,
+        'block'
+    );
+
+    setVisible(
+        messagesWorkspace,
+        isMessages,
+        'block'
+    );
+
+    setVisible(
+        settingsWorkspace,
+        isSettings,
+        'block'
+    );
     setVisible(settingsSurface, isSettings, 'block');
     setVisible(profileEditorWorkspace, isEditProfile, 'block');
     setVisible(profileEditorSurface, isEditProfile, 'block');
+        setVisible(
+        profileViewWorkspace,
+        isProfile,
+        'block'
+    );
+
+    setVisible(
+        dashboardProfileView,
+        isProfile,
+        'block'
+    );
 
     setVisible(parentIntro, isDivisionParent, 'block');
 
@@ -23599,8 +27286,84 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
             : 'workspace-activate'
     );
 
-    const effectiveKey = getDashboardEffectiveUnifiedWorkspaceKey(key);
-    const copy = getDashboardUnifiedWorkspaceCopy(effectiveKey);
+    const effectiveKey =
+        getDashboardEffectiveUnifiedWorkspaceKey(
+            key
+        );
+
+    const copy =
+        getDashboardUnifiedWorkspaceCopy(
+            effectiveKey
+        );
+
+    /*
+     * Business Chats belongs to approved
+     * Plazas members only.
+     *
+     * Block every entry path here:
+     * desktop, mobile, restore, deep-link,
+     * and programmatic workspace activation.
+     */
+    if (
+        copy.key ===
+        'business-chats'
+    ) {
+        const businessChatSnapshot =
+            typeof getPlazaAccessSnapshot ===
+                'function'
+                ? getPlazaAccessSnapshot()
+                : {};
+
+        const businessChatsApproved =
+            syncYHBusinessChatNavigationAccessV1(
+                businessChatSnapshot
+            );
+
+        if (!businessChatsApproved) {
+            if (
+                options.restore ===
+                true
+            ) {
+                writeDashboardPersistentUiState({
+                    type:
+                        'workspace',
+
+                    workspaceKey:
+                        'overview',
+
+                    division:
+                        'overview',
+
+                    profileMode:
+                        '',
+
+                    profileMemberId:
+                        ''
+                });
+
+                return activateDashboardUnifiedWorkspace(
+                    'overview',
+                    {
+                        animate:
+                            false,
+
+                        scroll:
+                            false,
+
+                        persist:
+                            false
+                    }
+                );
+            }
+
+            return getDashboardUnifiedWorkspaceCopy(
+                document.body?.getAttribute(
+                    'data-yh-unified-workspace'
+                ) ||
+                'overview'
+            );
+        }
+    }
 
     const mobileDivisionAccess =
         getDashboardMobileDivisionAccessStateV1(
@@ -23734,6 +27497,45 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
     setDashboardUnifiedWorkspaceSurfaceState(copy.key);
     syncDashboardUnifiedWorkspaceDerivedSurfaces(copy.key, 'activate');
 
+    if (
+        copy.key === 'resources' &&
+        typeof mountYHResourcesInlineView === 'function'
+    ) {
+        mountYHResourcesInlineView();
+    }
+
+    if (copy.key === 'my-contacts') {
+        openDashboardMyContactsModal({
+            activateWorkspace: false
+        }).catch((error) => {
+            console.error(
+                'My Contacts workspace data load failed:',
+                error
+            );
+
+            showToast(
+                error?.message ||
+                    'Failed to load contacts.',
+                'error'
+            );
+        });
+    }
+
+    if (copy.key === 'messages') {
+    loadDashboardDirectMessageRoomsV1()
+        .catch((error) => {
+            console.error(
+                'Direct Messages workspace load failed:',
+                error
+            );
+
+            showToast(
+                error?.message ||
+                'Failed to load direct messages.',
+                'error'
+            );
+        });
+}
     if (copy.key === 'referral') {
         refreshYHUniverseReferralSnapshot(false).catch((error) => {
             console.error('Referral workspace data load failed:', error);
@@ -24066,6 +27868,7 @@ function installDashboardMobileAppShellV1() {
     const titleMap = {
         overview: ['YH Universe', 'Dashboard'],
         referral: ['YH Universe', 'Referral'],
+        'my-contacts': ['Command', 'My Contacts'],
         settings: ['YH Universe', 'Settings'],
         'edit-profile': ['YH Universe', 'Edit Profile'],
         academy: ['YH Universe', 'Academy'],
@@ -24100,9 +27903,11 @@ function installDashboardMobileAppShellV1() {
         'federation-requests': ['Federation', 'Requests'],
         'federation-referrals': ['Federation', 'Referrals'],
 
-        wallet: ['Command', 'Wallet'],
-        'business-chats': ['Command', 'Business Chats'],
-        resources: ['Command', 'Resources']
+    wallet: ['Command', 'Wallet'],
+    messages: ['Command', 'Messages'],
+    'business-chats': ['Command', 'Business Chats'],
+        resources: ['Command', 'Resources'],
+        profile: ['Command', 'Profile View']
     };
 
     function getCurrentWorkspaceKey() {
@@ -24740,13 +28545,33 @@ function installDashboardMobileAppShellV1() {
         if (commandButton) {
             event.preventDefault();
 
-            const target = String(commandButton.getAttribute('data-yh-mobile-command-target') || '').trim().toLowerCase();
+            if (
+                commandButton.disabled ===
+                    true ||
+                commandButton.getAttribute(
+                    'aria-disabled'
+                ) === 'true'
+            ) {
+                return;
+            }
+
+            const target =
+                String(
+                    commandButton.getAttribute(
+                        'data-yh-mobile-command-target'
+                    ) ||
+                    ''
+                )
+                    .trim()
+                    .toLowerCase();
 
             if (
                 target === 'wallet' ||
+                target === 'messages' ||
                 target === 'business-chats' ||
                 target === 'resources' ||
                 target === 'referral' ||
+                target === 'my-contacts' ||
                 target === 'settings' ||
                 target === 'edit-profile'
             ) {
@@ -24978,23 +28803,11 @@ document
         );
     });
 
-document.getElementById('btn-close-plaza-apply')?.addEventListener('click', () => {
-    closePlazaApplicationModal();
-});
+/* PHASE 2E-A: duplicate Plazas close/cancel listeners removed.
+   bindDashboardPlazaApplicationFormEvents() is the single owner. */
 
-document.getElementById('btn-cancel-plaza-apply')?.addEventListener('click', () => {
-    closePlazaApplicationModal();
-});
 
-document.getElementById('btn-open-plaza-typeform')?.addEventListener('click', (event) => {
-    event.preventDefault();
-    openPlazaApplicationModal();
-});
-
-document.getElementById('btn-mark-plaza-typeform-submitted')?.addEventListener('click', (event) => {
-    event.preventDefault();
-    openPlazaApplicationModal();
-});
+/* PHASE 2E-B: obsolete Plaza Typeform bridge controls removed. */
 
 document.getElementById('btn-open-federation-preview')?.addEventListener('click', (event) => {
     handleDashboardFederationAccessIntent(
@@ -25310,86 +29123,41 @@ function openRoom(type, element) {
     const views = {
         'academy-feed-view': document.getElementById('academy-feed-view'),
         'academy-chat': document.getElementById('academy-chat'),
-        'center-stage-view': document.getElementById('center-stage-view'),
-        'announcements-view': document.getElementById('announcements-view'),
-        'voice-lobby-view': document.getElementById('voice-lobby-view'),
-        'video-lobby-view': document.getElementById('video-lobby-view'),
-        'vault-view': document.getElementById('vault-view')
+        'announcements-view': document.getElementById('announcements-view')
     };
 
-    const shouldTabLoad =
-        (type === 'voice-lobby' && views['voice-lobby-view']) ||
-        (type === 'video' && views['video-lobby-view']);
-
-    if (shouldTabLoad) {
-        showAcademyTabLoader(type === 'voice-lobby' ? 'Loading Voice Lounge...' : 'Loading Video Lounge...');
-    }
-
-    Object.values(views).forEach(view => { if (view) view.classList.add('hidden-step'); });
-
-    if (type === 'voice-lobby' && views['voice-lobby-view']) {
-        views['voice-lobby-view'].classList.remove('hidden-step');
-        views['voice-lobby-view'].classList.remove('fade-in');
-        void views['voice-lobby-view'].offsetWidth;
-        views['voice-lobby-view'].classList.add('fade-in');
-
-        saveAcademyViewState('voice'); // persistence (PATCH 5C)
-
-        Promise.resolve()
-            .then(() => loadAcademyVoiceRooms(true))
-            .catch((error) => {
-                console.error('loadAcademyVoiceRooms error:', error);
-                showToast(error?.message || 'Failed to load live voice rooms.', 'error');
-            })
-            .finally(() => {
-                if (shouldTabLoad) hideAcademyTabLoader();
-            });
+    /*
+     * PHASE 2E-B2B1:
+     * Dashboard no longer owns Academy Voice/Video DOM.
+     * Preserve legacy Voice intent by routing it into
+     * the current unified Academy Voice workspace.
+     */
+    if (type === 'voice-lobby') {
+        activateDashboardUnifiedWorkspace(
+            'academy-voice',
+            {
+                animate: false,
+                scroll: true,
+                persist: true
+            }
+        );
 
         return;
     }
 
-if (type === 'video' && views['video-lobby-view']) {
-    views['video-lobby-view'].classList.remove('hidden-step');
-    views['video-lobby-view'].classList.remove('fade-in');
-    void views['video-lobby-view'].offsetWidth;
-    views['video-lobby-view'].classList.add('fade-in');
+    if (type === 'video') {
+        return;
+    }
 
-    Promise.resolve()
-        .then(() => loadAcademyVideoRooms(true))
-        .catch((err) => {
-            console.error(err);
-            showToast('Failed to load video rooms.', 'error');
-        })
-        .finally(() => {
-            if (shouldTabLoad) hideAcademyTabLoader();
-        });
-
-    saveAcademyViewState('video'); // persistence
-
-    return;
-}
+    Object.values(views).forEach(view => {
+        if (view) view.classList.add('hidden-step');
+    });
 
     if (type === 'announcements' && views['announcements-view']) {
         views['announcements-view'].classList.remove('hidden-step');
         views['announcements-view'].classList.remove('fade-in');
         void views['announcements-view'].offsetWidth;
         views['announcements-view'].classList.add('fade-in');
-        return;
-    }
-
-    if (type === 'vault' && views['vault-view']) {
-        views['vault-view'].classList.remove('hidden-step');
-        views['vault-view'].classList.remove('fade-in');
-        void views['vault-view'].offsetWidth;
-        views['vault-view'].classList.add('fade-in');
-
-        Promise.resolve()
-            .then(() => ensureVaultLoaded())
-            .catch((error) => {
-                console.error('ensureVaultLoaded error:', error);
-                showToast(error?.message || 'Failed to load Vault.', 'error');
-            });
-
         return;
     }
 
@@ -25543,8 +29311,14 @@ document.getElementById('nav-voice')?.addEventListener('click', function(event) 
     event?.stopPropagation?.();
     event?.stopImmediatePropagation?.();
 
-    setAcademySidebarActive('nav-voice');
-    openRoom('voice-lobby', this);
+    activateDashboardUnifiedWorkspace(
+        'academy-voice',
+        {
+            animate: false,
+            scroll: true,
+            persist: true
+        }
+    );
 });
 
 document.getElementById('nav-profile')?.addEventListener('click', function(event) {
@@ -25607,19 +29381,26 @@ document.querySelectorAll('.academy-mobile-nav-item').forEach((button) => {
         event.preventDefault();
         event.stopPropagation();
 
-        const targetId = String(button.getAttribute('data-academy-target') || '').trim();
+        const targetId = String(
+            button.getAttribute('data-academy-target') || ''
+        ).trim();
 
         if (targetId === 'nav-chat') {
             openAcademyFeedView();
         } else if (targetId === 'nav-missions') {
             await handleAcademyRoadmapTabIntent();
         } else if (targetId === 'nav-voice') {
-            setAcademySidebarActive('nav-voice');
-            openRoom('voice-lobby', document.getElementById('nav-voice'));
+            activateDashboardUnifiedWorkspace(
+                'academy-voice',
+                {
+                    animate: false,
+                    scroll: true,
+                    persist: true
+                }
+            );
         } else if (targetId === 'nav-profile') {
             openAcademyProfileView();
         } else if (targetId === 'back-universe') {
-            try { stopAcademyLiveMediaStream?.(); } catch (_) {}
             showUniverseHub('academy');
         }
 
@@ -25812,18 +29593,14 @@ document.getElementById('academy-member-browser-modal')?.addEventListener('click
             avatarContent = '';
         }
 
-        const showCommunityActions = getActiveRoomId() === 'YH-community';
-
         const msgHTML = `
             <div class="${bubbleClass} fade-in" data-dbid="${academyFeedEscapeHtml(msg.id || '')}" ${bubbleStyle}>
-                ${isMe ? `<button class="delete-msg-btn" title="Delete Message">🗑️</button>` : ''}
                 <div class="bubble-header">
                     <div class="bubble-avatar interactive-avatar" data-user="${safeAuthor}" data-role="Hustler" style="${avatarStyle} cursor:pointer;">${avatarContent}</div>
                     <span class="bubble-author interactive-avatar" data-user="${safeAuthor}" data-role="Hustler" style="cursor:pointer;"><span ${authorColor}>${safeAuthor}</span> ${roleBadge}</span>
                     <span class="bubble-time">${safeTime}</span>
                 </div>
                 <div class="bubble-body">${safeText}</div>
-                ${showCommunityActions ? `<div class="chat-actions"><button class="upvote-btn" data-id="${academyFeedEscapeHtml(msg.id || '')}" title="Agree with this">🔥 <span class="upvote-count">${msg.upvotes || 0}</span></button></div>` : ''}
             </div>
         `;
 
@@ -26061,50 +29838,6 @@ function academyBuildCoachBubbleHtml(message = {}) {
                     <span class="bubble-time">${academyCoachEscapeHtml(academyCoachTimeLabel(message.createdAt))}</span>
                 </div>
                 <div class="bubble-body" style="white-space:normal;line-height:1.7;">${bubbleBodyHtml}</div>
-            </div>
-        `;
-    }
-
-function academyBuildCoachQuickPromptsHtml(meta = academyCoachUiMeta || getAcademyCoachUiMeta('general')) {
-        const prompts = Array.isArray(meta?.quickPrompts) ? meta.quickPrompts.filter(Boolean) : [];
-        if (!prompts.length) return '';
-
-        return prompts.map((prompt) => `
-            <button
-                type="button"
-                class="yh-universe-feature-chip"
-                data-prompt="${academyCoachEscapeHtml(prompt)}"
-                onclick="academySendCoachMessage(this.dataset.prompt)"
-                style="
-                    cursor:pointer;
-                    border:1px solid rgba(255,255,255,0.12);
-                    background:rgba(255,255,255,0.045);
-                    color:var(--text-main);
-                    transition:transform 0.18s ease, opacity 0.18s ease;
-                "
-            >
-                ${academyCoachEscapeHtml(prompt)}
-            </button>
-        `).join('');
-    }
-
-    function academyRenderCoachPinnedPrompts(target, meta = academyCoachUiMeta || getAcademyCoachUiMeta('general')) {
-        if (!target) return;
-
-        const promptsHtml = academyBuildCoachQuickPromptsHtml(meta);
-        if (!promptsHtml) {
-            target.innerHTML = '';
-            target.style.display = 'none';
-            return;
-        }
-
-        target.style.display = 'block';
-        target.innerHTML = `
-            <div class="academy-home-panel" style="margin-bottom:0;">
-                <div class="academy-home-panel-label">Suggested Prompts</div>
-                <div class="academy-home-chip-row">
-                    ${promptsHtml}
-                </div>
             </div>
         `;
     }
@@ -26494,112 +30227,9 @@ if ((currentRoom || "").includes("Agent")) {
         });
     }
 
-    // --- LEAVE / END CALL LOGIC ---
-const btnLeaveStage = document.getElementById('btn-leave-stage');
-    const btnEndLiveStage = document.getElementById('btn-end-live-stage');
-
-    if (btnLeaveStage) {
-        btnLeaveStage.addEventListener('click', async () => {
-            const activeRoom = academyActiveLiveRoom || {};
-            const roomId = normalizeAcademyLiveRoomId(activeRoom?.id || activeRoom?.roomId || activeRoom?.room_id);
-            const roomType = getAcademyLiveRoomType(activeRoom);
-            const navId = getAcademyLiveLobbyNavId(roomType);
-            const isHost = isAcademyLiveRoomHost(activeRoom);
-
-            stopAcademyLiveMediaStream();
-
-            if (!roomId) {
-                document.getElementById(navId)?.click();
-                showToast(isHost ? 'Returned to the live lounge.' : 'You left the stage.', 'success');
-                return;
-            }
-
-            if (isHost) {
-                document.getElementById(navId)?.click();
-                showToast('Returned to the live lounge. Your live is still active.', 'success');
-                return;
-            }
-
-            const confirmed = await openYHConfirmModal({
-                title: `Leave Live ${roomType.toUpperCase()}`,
-                message: `Leave this live ${roomType} session?`,
-                okText: 'Leave',
-                cancelText: 'Stay',
-                tone: 'danger'
-            });
-
-            if (!confirmed) return;
-
-            try {
-                await academyAuthedFetch(`/api/realtime/live-rooms/${encodeURIComponent(roomId)}/leave`, {
-                    method: 'POST'
-                });
-
-                academyActiveLiveRoom = null;
-
-                if (roomType === 'video') {
-                    await loadAcademyVideoRooms(true);
-                } else {
-                    await loadAcademyVoiceRooms(true);
-                }
-
-                document.getElementById(navId)?.click();
-                showToast('You left the stage.', 'success');
-            } catch (error) {
-                console.error('leave live room error:', error);
-                showToast(error?.message || 'Failed to leave the live room.', 'error');
-            }
-        });
-    }
-
-    if (btnEndLiveStage) {
-        btnEndLiveStage.addEventListener('click', async () => {
-            const activeRoom = academyActiveLiveRoom || {};
-            const roomId = normalizeAcademyLiveRoomId(activeRoom?.id || activeRoom?.roomId || activeRoom?.room_id);
-            const roomType = getAcademyLiveRoomType(activeRoom);
-            const navId = getAcademyLiveLobbyNavId(roomType);
-
-            if (!roomId) {
-                showToast('No active live room to end.', 'error');
-                return;
-            }
-
-            if (!isAcademyLiveRoomHost(activeRoom)) {
-                showToast('Only the live creator can end this session.', 'error');
-                return;
-            }
-
-            const confirmed = await openYHConfirmModal({
-                title: `End Live ${roomType.toUpperCase()}`,
-                message: `End this live ${roomType} session for everyone?`,
-                okText: 'End Live',
-                cancelText: 'Cancel',
-                tone: 'danger'
-            });
-            if (!confirmed) return;
-
-            try {
-                await academyAuthedFetch(`/api/realtime/live-rooms/${encodeURIComponent(roomId)}/end`, {
-                    method: 'POST'
-                });
-
-                stopAcademyLiveMediaStream();
-                academyActiveLiveRoom = null;
-
-                if (roomType === 'video') {
-                    await loadAcademyVideoRooms(true);
-                } else {
-                    await loadAcademyVoiceRooms(true);
-                }
-
-                document.getElementById(navId)?.click();
-                showToast(`Live ${roomType} session ended.`, 'success');
-            } catch (error) {
-                console.error('end live room error:', error);
-                showToast(error?.message || 'Failed to end the live room.', 'error');
-            }
-        });
-    }
+    /* PHASE 2E-B2B1:
+       obsolete Dashboard-local Leave/End Live handlers removed.
+       Academy iframe/runtime owns live-session lifecycle. */
 
     // --- EMOJI, GIF, GIFT LOGIC ---
     const btnGift = document.querySelector('span[title="Send Gift"]');
@@ -26644,468 +30274,19 @@ const btnLeaveStage = document.getElementById('btn-leave-stage');
         });
     }
 
-    // --- STAGE CONTROLS, WEBRTC & INVITE ---
-    let localStream = null;
-    const btnToggleMic = document.getElementById('btn-toggle-mic');
-    const btnToggleCam = document.getElementById('btn-toggle-cam');
-    const btnToggleScreen = document.getElementById('btn-toggle-screen');
+    /* PHASE 2E-B2A:
+       obsolete Dashboard-local Stage/WebRTC controls removed.
+       Academy iframe/runtime is the sole Voice Stage owner. */
 
-    async function toggleCamera() {
-        try {
-            const mySpeakerCard = document.querySelector('.speaker-card.active-speaker'); 
-            const hostAvatarEl = document.getElementById('host-avatar');
-            if (!localStream) {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                if(btnToggleCam) btnToggleCam.classList.remove('toggled-off');
-                if(mySpeakerCard) mySpeakerCard.classList.remove('is-offcam');
-                showToast("Camera & Mic Active", "success");
-            } else {
-                localStream.getVideoTracks().forEach(track => {
-                    track.enabled = !track.enabled;
-                    if (!track.enabled) {
-                        if(btnToggleCam) btnToggleCam.classList.add('toggled-off');
-                        if(mySpeakerCard) mySpeakerCard.classList.add('is-offcam');
-                        if(hostAvatarEl) { hostAvatarEl.innerText = "🚫"; hostAvatarEl.style.background = "#1a1f2e"; }
-                        showToast("Camera disabled", "success");
-                    } else {
-                        if(btnToggleCam) btnToggleCam.classList.remove('toggled-off');
-                        if(mySpeakerCard) mySpeakerCard.classList.remove('is-offcam');
-                        if(hostAvatarEl) { hostAvatarEl.innerText = localStorage.getItem('yh_user_name')?.charAt(0).toUpperCase() || "Y"; hostAvatarEl.style.background = "var(--neon-blue)"; }
-                        showToast("Camera active", "success");
-                    }
-                });
-            }
-        } catch (err) { showToast("Camera/Mic permission denied by browser.", "error"); }
-    }
 
-    if(btnToggleCam) btnToggleCam.addEventListener('click', toggleCamera);
+    /* PHASE 2E-B2A:
+       obsolete Dashboard-local Stage Chat removed.
+       Academy's acknowledged realtime Stage Chat is the sole owner. */
 
-    if(btnToggleMic) {
-        btnToggleMic.addEventListener('click', () => {
-            const mySpeakerCard = document.querySelector('.speaker-card.active-speaker'); 
-            const hostMicIcon = document.getElementById('host-mic');
-            btnToggleMic.classList.toggle('toggled-off');
-            const isMuted = btnToggleMic.classList.contains('toggled-off');
-            
-            if(mySpeakerCard) {
-                if(isMuted) mySpeakerCard.classList.add('is-muted');
-                else mySpeakerCard.classList.remove('is-muted');
-            }
-            if(hostMicIcon) {
-                hostMicIcon.innerText = isMuted ? "🔇" : "🎤";
-                hostMicIcon.style.color = isMuted ? "#ef4444" : "";
-            }
 
-            if(localStream) { localStream.getAudioTracks().forEach(track => { track.enabled = !isMuted; }); }
-            showToast(isMuted ? "Microphone muted." : "Microphone active.", isMuted ? "error" : "success");
-        });
-    }
+    /* PHASE 2E-B2A:
+       obsolete Dashboard Invite-to-Stage share bridge removed. */
 
-    if(btnToggleScreen) {
-        btnToggleScreen.addEventListener('click', async () => {
-            try {
-                const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-                btnToggleScreen.classList.add('toggled-on');
-                showToast("Screen sharing started!", "success");
-                screenStream.getVideoTracks()[0].onended = () => {
-                    btnToggleScreen.classList.remove('toggled-on');
-                    showToast("Screen share stopped.", "error");
-                };
-            } catch (err) { showToast("Screen sharing cancelled.", "error"); }
-        });
-    }
-
-    const stageChatInput = document.getElementById('stage-chat-input');
-    const stageChatHistory = document.getElementById('stage-chat-history');
-    const stageChatSendBtn = document.getElementById('stage-chat-send-btn');
-
-    function sendStageChat() {
-        if(stageChatInput.value.trim() !== '') {
-            const msg = stageChatInput.value.trim();
-            const myName = getStoredUserValue('yh_user_name', "Hustler");
-            const msgHTML = `<div class="stage-chat-msg fade-in"><strong>${myName}:</strong> ${msg}</div>`;
-            stageChatHistory.insertAdjacentHTML('beforeend', msgHTML);
-            stageChatInput.value = '';
-            stageChatHistory.scrollTop = stageChatHistory.scrollHeight;
-        }
-    }
-    if(stageChatInput && stageChatHistory) { stageChatInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') sendStageChat(); }); }
-    if(stageChatSendBtn) { stageChatSendBtn.addEventListener('click', sendStageChat); }
-
-    const btnInviteStage = document.getElementById('btn-invite-to-stage');
-    if (btnInviteStage) {
-        btnInviteStage.addEventListener('click', () => {
-            const stageTitle = document.getElementById('stage-title')?.innerText || "Live Mastermind";
-            const simpleLinkHTML = `Hey! I'm LIVE NOW hosting <strong>${stageTitle}</strong>. <a href="#" onclick="document.getElementById('nav-voice').click(); return false;" style="color: var(--neon-blue); font-weight: bold; text-decoration: underline;">Click here to join my room!</a>`;
-            
-            const shareModal = document.getElementById('share-select-modal');
-            const destList = document.getElementById('share-destinations-list');
-            if (shareModal && destList) {
-    const state = window.dashboardState || window.yhDashboardState || (window.dashboardState = {});
-
-    window.pendingShareHTML = simpleLinkHTML;
-
-    const normalizeRoom = (room, index = 0) => ({
-        id: room.id || room._id || room.roomId || room.room_id || `custom-room-${index + 1}`,
-        name: room.name || room.title || room.roomName || room.room_name || `Room ${index + 1}`,
-        icon: room.icon || room.emoji || room.avatar || room.image || '💬',
-        type: room.type || room.roomType || room.room_type || 'dm',
-        privacy: room.privacy || room.visibility || (room.isPrivate ? 'private' : 'public') || 'public',
-        isPrivate: typeof room.isPrivate === 'boolean'
-            ? room.isPrivate
-            : (room.privacy === 'private' || room.visibility === 'private')
-    });
-
-    let stateRooms = Array.isArray(state.customRooms) ? state.customRooms : [];
-
-    let cachedRooms = [];
-    try {
-        const cached = JSON.parse(localStorage.getItem('yh_custom_rooms_cache') || 'null');
-        cachedRooms = Array.isArray(cached?.rooms) ? cached.rooms : [];
-    } catch (_) {}
-
-    let legacyRooms = [];
-    try {
-        const rawLegacy = JSON.parse(localStorage.getItem('yh_custom_rooms') || '[]');
-        legacyRooms = Array.isArray(rawLegacy) ? rawLegacy : [];
-    } catch (_) {}
-
-    const mergedRooms = [...stateRooms, ...cachedRooms, ...legacyRooms]
-        .map((room, index) => normalizeRoom(room, index))
-        .filter((room, index, arr) => {
-            return arr.findIndex((candidate) => {
-                const sameId = candidate.id && room.id && String(candidate.id) === String(room.id);
-                const sameName = String(candidate.name || '').trim().toLowerCase() === String(room.name || '').trim().toLowerCase();
-                const sameType = String(candidate.type || '').trim().toLowerCase() === String(room.type || '').trim().toLowerCase();
-                return sameId || (sameName && sameType);
-            }) === index;
-        });
-
-    destList.innerHTML = `
-        <button
-            class="btn-secondary share-dest-btn"
-            data-target="main-chat"
-            data-room-id="main-chat"
-            data-room-type="main-chat"
-            data-room-privacy="public"
-            style="padding: 10px; text-align: left;"
-        >💬 YH-community (Public)</button>
-    `;
-
-    mergedRooms.forEach((room) => {
-        destList.insertAdjacentHTML('beforeend', `
-            <button
-                class="btn-secondary share-dest-btn"
-                data-target="${room.name}"
-                data-room-id="${room.id || ''}"
-                data-room-type="${room.type || 'dm'}"
-                data-room-privacy="${room.privacy || (room.isPrivate ? 'private' : 'public')}"
-                style="padding: 10px; text-align: left;"
-            >${room.icon || '💬'} ${room.name}</button>
-        `);
-    });
-
-    shareModal.classList.remove('hidden-step');
-}
-        });
-    }
-
-    // --- THE VAULT & UPLOADS ---
-function formatVaultFileSize(bytes = 0) {
-    const value = Number(bytes || 0);
-    if (!Number.isFinite(value) || value <= 0) return 'Unknown';
-    if (value < 1024) return `${value} B`;
-    if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-    return `${(value / 1024 / 1024).toFixed(2)} MB`;
-}
-
-async function syncVaultCacheFromBackend() {
-    const result = await academyAuthedFetch('/api/realtime/vault', {
-        method: 'GET'
-    });
-
-    const rawItems = Array.isArray(result?.items) ? result.items : [];
-    localStorage.setItem('yh_vault_items_backend', JSON.stringify(rawItems));
-    return rawItems;
-}
-
-function readVaultCache() {
-    try {
-        return JSON.parse(localStorage.getItem('yh_vault_items_backend') || '[]');
-    } catch (_) {
-        return [];
-    }
-}
-
-async function saveVaultItemObj(itemObj) {
-    if (!itemObj || itemObj.type !== 'folder') return;
-
-    await academyAuthedFetch('/api/realtime/vault/folder', {
-        method: 'POST',
-        body: JSON.stringify({
-            name: String(itemObj.name || '').trim(),
-            parentId: currentVaultFolder || ''
-        })
-    });
-
-    await syncVaultCacheFromBackend();
-    await loadVault();
-}
-
-async function saveFileToVault(file, origin) {
-    await academyAuthedFetch('/api/realtime/vault/file', {
-        method: 'POST',
-        body: JSON.stringify({
-            name: file.name,
-            parentId: currentVaultFolder || '',
-            filePath: '',
-            mimeType: file.type || 'application/octet-stream',
-            fileSize: Number(file.size || 0),
-            origin: origin || 'Direct Upload'
-        })
-    });
-
-    await syncVaultCacheFromBackend();
-    await loadVault();
-}
-
-async function loadVault() {
-    const grid = document.getElementById('vault-dynamic-grid');
-    if (!grid) return;
-
-    grid.innerHTML = '';
-
-    let vaultItems = [];
-    try {
-        vaultItems = await syncVaultCacheFromBackend();
-    } catch (_) {
-        vaultItems = readVaultCache();
-    }
-
-    const currentFolder = currentVaultFolder
-        ? vaultItems.find((item) => String(item.id) === String(currentVaultFolder))
-        : null;
-
-    const visibleItems = vaultItems.filter((item) => {
-        return String(item.parent_id || '') === String(currentVaultFolder || '');
-    });
-
-    if (currentVaultFolder && currentFolder) {
-        grid.innerHTML = `
-            <div class="vault-folder-header" id="btn-vault-back">
-                <span>⬅ Back to All Files</span>
-                <span style="color: #fff;">📂 ${currentFolder.name}</span>
-            </div>
-        `;
-        document.getElementById('btn-vault-back').addEventListener('click', () => {
-            currentVaultFolder = currentFolder.parent_id || null;
-            loadVault();
-        });
-    }
-
-    if (visibleItems.length === 0) {
-        grid.insertAdjacentHTML('beforeend', `
-            <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">
-                This location is empty. Upload a file or create a folder.
-            </div>
-        `);
-        return;
-    }
-
-    visibleItems
-        .slice()
-        .sort((a, b) => {
-            const aFolder = a.item_type === 'folder' ? 0 : 1;
-            const bFolder = b.item_type === 'folder' ? 0 : 1;
-            if (aFolder !== bFolder) return aFolder - bFolder;
-            return String(a.name || '').localeCompare(String(b.name || ''));
-        })
-        .forEach((item) => {
-            const isFolder = item.item_type === 'folder';
-            const visualContent = isFolder
-                ? `<div class="vault-icon">📁</div>`
-                : `<div class="vault-icon">📄</div>`;
-
-            const actionText = isFolder ? 'Open Folder' : 'Share to Chat';
-
-            grid.insertAdjacentHTML('beforeend', `
-                <div
-                    class="vault-card fade-in ${isFolder ? 'vault-folder' : ''}"
-                    data-id="${item.id}"
-                    data-name="${item.name}"
-                    data-type="${item.item_type}"
-                >
-                    ${visualContent}
-                    <div class="vault-filename" title="${item.name}">${item.name}</div>
-                    <div class="vault-meta">${isFolder ? 'Folder' : formatVaultFileSize(item.file_size)}</div>
-                    <div class="vault-origin">From: ${item.file_path ? 'Uploaded Path' : 'Server Metadata'}</div>
-                    <button class="btn-vault-action action-vault-btn">${actionText}</button>
-                </div>
-            `);
-        });
-
-    document.querySelectorAll('.action-vault-btn').forEach((btn) => {
-        btn.addEventListener('click', (e) => {
-            const card = e.target.closest('.vault-card');
-            const itemId = card.getAttribute('data-id');
-            const itemType = card.getAttribute('data-type');
-            const itemName = card.getAttribute('data-name');
-
-            if (itemType === 'folder') {
-                currentVaultFolder = itemId;
-                showToast(`Opening folder: ${itemName}`, 'success');
-                loadVault();
-                return;
-            }
-
-            const fullItem = vaultItems.find((item) => String(item.id) === String(itemId));
-            const downloadLink = fullItem?.file_path
-                ? `<a href="${fullItem.file_path}" target="_blank" rel="noopener noreferrer" style="color: var(--neon-blue);">⬇ Open File</a>`
-                : `<span style="color: var(--text-muted);">Metadata only</span>`;
-
-            const shareModal = document.getElementById('share-select-modal');
-            const destList = document.getElementById('share-destinations-list');
-
-            if (shareModal && destList) {
-                const state = window.dashboardState || window.yhDashboardState || (window.dashboardState = {});
-
-                window.pendingShareHTML = `
-                    <div class="chat-attachment" style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; margin-top: 5px;">
-                        <div style="font-size: 2rem; margin-bottom: 8px;">📄</div>
-                        <div>
-                            <strong>${itemName}</strong><br>
-                            ${downloadLink}
-                        </div>
-                    </div>
-                `;
-
-                const normalizeRoom = (room, index = 0) => ({
-                    id: room.id || room._id || room.roomId || room.room_id || `custom-room-${index + 1}`,
-                    name: room.name || room.title || room.roomName || room.room_name || `Room ${index + 1}`,
-                    icon: room.icon || room.emoji || room.avatar || room.image || '💬',
-                    type: room.type || room.roomType || room.room_type || 'dm',
-                    privacy: room.privacy || room.visibility || (room.isPrivate ? 'private' : 'public') || 'public',
-                    isPrivate: typeof room.isPrivate === 'boolean'
-                        ? room.isPrivate
-                        : (room.privacy === 'private' || room.visibility === 'private')
-                });
-
-                let stateRooms = Array.isArray(state.customRooms) ? state.customRooms : [];
-
-                let cachedRooms = [];
-                try {
-                    const cached = JSON.parse(localStorage.getItem('yh_custom_rooms_cache') || 'null');
-                    cachedRooms = Array.isArray(cached?.rooms) ? cached.rooms : [];
-                } catch (_) {}
-
-                let legacyRooms = [];
-                try {
-                    const rawLegacy = JSON.parse(localStorage.getItem('yh_custom_rooms') || '[]');
-                    legacyRooms = Array.isArray(rawLegacy) ? rawLegacy : [];
-                } catch (_) {}
-
-                const mergedRooms = [...stateRooms, ...cachedRooms, ...legacyRooms]
-                    .map((room, index) => normalizeRoom(room, index))
-                    .filter((room, index, arr) => {
-                        return arr.findIndex((candidate) => {
-                            const sameId = candidate.id && room.id && String(candidate.id) === String(room.id);
-                            const sameName = String(candidate.name || '').trim().toLowerCase() === String(room.name || '').trim().toLowerCase();
-                            const sameType = String(candidate.type || '').trim().toLowerCase() === String(room.type || '').trim().toLowerCase();
-                            return sameId || (sameName && sameType);
-                        }) === index;
-                    });
-
-                destList.innerHTML = `
-                    <button
-                        class="btn-secondary share-dest-btn"
-                        data-target="main-chat"
-                        data-room-id="main-chat"
-                        data-room-type="main-chat"
-                        data-room-privacy="public"
-                        style="padding: 10px; text-align: left;"
-                    >💬 YH-community (Public)</button>
-                `;
-
-                mergedRooms.forEach((room) => {
-                    destList.insertAdjacentHTML('beforeend', `
-                        <button
-                            class="btn-secondary share-dest-btn"
-                            data-target="${room.name}"
-                            data-room-id="${room.id || ''}"
-                            data-room-type="${room.type || 'dm'}"
-                            data-room-privacy="${room.privacy || (room.isPrivate ? 'private' : 'public')}"
-                            style="padding: 10px; text-align: left;"
-                        >${room.icon || '💬'} ${room.name}</button>
-                    `);
-                });
-
-                shareModal.classList.remove('hidden-step');
-            }
-        });
-    });
-
-    const contextMenu = document.getElementById('vault-context-menu');
-    document.querySelectorAll('.vault-card').forEach((card) => {
-        const showContext = (pageX, pageY) => {
-            selectedVaultIndex = card.getAttribute('data-id');
-            contextMenu.style.left = `${pageX}px`;
-            contextMenu.style.top = `${pageY}px`;
-            contextMenu.classList.remove('hidden-step');
-        };
-
-        card.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            showContext(e.pageX, e.pageY);
-        });
-    });
-}
-async function ensureVaultLoaded(force = false) {
-    if (hasLoadedVaultOnce && !force) return;
-
-    await loadVault();
-    hasLoadedVaultOnce = true;
-}
-    const btnCreateFolder = document.getElementById('btn-create-folder');
-    if (btnCreateFolder) {
-        btnCreateFolder.addEventListener('click', async () => {
-            const name = document.getElementById('folder-name-input').value.trim();
-            if (!name) return;
-
-            try {
-                await saveVaultItemObj({
-                    type: 'folder',
-                    name
-                });
-
-                document.getElementById('folder-modal').classList.add('hidden-step');
-                document.getElementById('folder-name-input').value = '';
-                showToast(`Folder '${name}' created!`, "success");
-            } catch (error) {
-                showToast(error.message || 'Failed to create folder.', 'error');
-            }
-        });
-    }
-
-    const btnVaultUpload = document.getElementById('btn-vault-upload-trigger');
-    const vaultFileInput = document.getElementById('vault-file-input');
-
-    if (btnVaultUpload && vaultFileInput) {
-        btnVaultUpload.addEventListener('click', () => vaultFileInput.click());
-
-        vaultFileInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            try {
-                await saveFileToVault(file, "Direct Upload");
-                showToast(`${file.name} saved to The Vault.`, "success");
-            } catch (error) {
-                showToast(error.message || 'Failed to save vault file metadata.', 'error');
-            } finally {
-                vaultFileInput.value = '';
-            }
-        });
-    }
 
     document.querySelectorAll('.modal-search').forEach(input => {
     input.addEventListener('input', (e) => {
@@ -27235,63 +30416,6 @@ if (btnCreateGroup && groupNameInput) {
 
     syncGroupCreateButtonState();
 }
-
-    const btnSendTicket = document.getElementById('btn-send-ticket');
-    if(btnSendTicket) {
-        btnSendTicket.addEventListener('click', () => {
-            const subject = document.getElementById('ticket-subject').value; const desc = document.getElementById('ticket-desc').value;
-            if(!subject || !desc) { showToast("Please fill out both subject and description.", "error"); return; }
-            btnSendTicket.innerText = "Submitting..."; setTimeout(() => { showToast("Ticket successfully sent to support@younghustlers.net", "success"); btnSendTicket.innerText = "Submit Ticket ➔"; document.getElementById('ticket-subject').value = ''; document.getElementById('ticket-desc').value = ''; document.getElementById('ticket-modal').classList.add('hidden-step'); }, 1000);
-        });
-    }
-
-    const btnSaveSettings = document.getElementById('btn-save-settings'); const inputDisplayName = document.getElementById('setting-display-name'); const btnSettings = document.getElementById('btn-settings');
-    const avatarInput = document.getElementById('setting-avatar-input'); const avatarWrapper = document.getElementById('settings-avatar-wrapper'); const avatarPreview = document.getElementById('settings-avatar-preview');
-    let tempAvatarData = null;
-    if(btnSaveSettings && inputDisplayName && btnSettings) {
-        btnSettings.addEventListener('click', () => {
-            const savedName = localStorage.getItem('yh_user_name') || ''; const savedAvatar = localStorage.getItem('yh_user_avatar'); inputDisplayName.value = savedName;
-            if (savedAvatar) { avatarPreview.innerText = ''; avatarPreview.style.backgroundImage = `url(${savedAvatar})`; tempAvatarData = savedAvatar; } 
-            else { avatarPreview.innerText = savedName ? savedName.charAt(0).toUpperCase() : 'Y'; avatarPreview.style.backgroundImage = 'none'; tempAvatarData = null; }
-        });
-        if (avatarWrapper && avatarInput) {
-            avatarWrapper.addEventListener('click', () => { avatarInput.click(); });
-            avatarInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    if (file.size > 2 * 1024 * 1024) {
-                        showToast("Image too large. Max 2MB allowed.", "error");
-                        return;
-                    }
-
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        tempAvatarData = event.target.result;
-                        avatarPreview.innerText = '';
-                        avatarPreview.style.backgroundImage = `url(${tempAvatarData})`;
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-
-        btnSaveSettings.addEventListener('click', () => {
-            const newName = inputDisplayName.value.trim();
-            if (!newName) {
-                showToast("Display name cannot be empty.", "error");
-                return;
-            }
-
-            localStorage.setItem('yh_user_name', newName);
-            if (tempAvatarData) {
-                localStorage.setItem('yh_user_avatar', tempAvatarData);
-            }
-
-            updateUserProfile(newName, tempAvatarData);
-            showToast("Profile settings saved!", "success");
-            document.getElementById('settings-modal').classList.add('hidden-step');
-        });
-    }
 
     const sidebarToggle = document.getElementById('sidebar-toggle'); const academySidebar = document.getElementById('academy-sidebar');
     if(sidebarToggle && academySidebar) { sidebarToggle.addEventListener('click', () => { academySidebar.classList.toggle('collapsed'); sidebarToggle.innerHTML = academySidebar.classList.contains('collapsed') ? '❯' : '❮'; }); }
@@ -28585,9 +31709,6 @@ if (resourcesMenu && resourcesMenuBtn && resourcesMenuPanel) {
     }, true);
 }
 
-    const closeMiniProfileBtn = document.getElementById('close-mini-profile'); const miniProfileModal = document.getElementById('mini-profile-modal');
-    if(closeMiniProfileBtn && miniProfileModal) { closeMiniProfileBtn.addEventListener('click', () => miniProfileModal.classList.add('hidden-step')); miniProfileModal.addEventListener('click', (e) => { if(e.target === miniProfileModal) miniProfileModal.classList.add('hidden-step'); }); }
-
     // ==========================================
     // INITIALIZATION RUNNER
     // ==========================================
@@ -29354,8 +32475,7 @@ function renderAcademyHome(homeData = null) {
         'center-stage-view': document.getElementById('center-stage-view'),
         'announcements-view': document.getElementById('announcements-view'),
         'voice-lobby-view': document.getElementById('voice-lobby-view'),
-        'video-lobby-view': document.getElementById('video-lobby-view'),
-        'vault-view': document.getElementById('vault-view')
+        'video-lobby-view': document.getElementById('video-lobby-view')
     };
 
     Object.values(views).forEach((view) => {
@@ -30099,7 +33219,14 @@ if (dynamicChatContainer) {
     });
 
     document.getElementById('academy-home-open-voice')?.addEventListener('click', () => {
-        document.getElementById('nav-voice')?.click();
+        activateDashboardUnifiedWorkspace(
+            'academy-voice',
+            {
+                animate: false,
+                scroll: true,
+                persist: true
+            }
+        );
     });
 
     document.getElementById('academy-home-refresh-roadmap')?.addEventListener('click', async (event) => {
@@ -30268,35 +33395,65 @@ function academyReadVisitedProfileFollowLock() {
     return lock;
 }
 
-function academySetVisitedProfileFollowLock(memberId = '', isLocked = true) {
-    const normalizedMemberId = normalizeAcademyFeedId(memberId);
-    const profileView = document.getElementById('academy-profile-view');
+function academySetVisitedProfileFollowLock(
+    memberId = '',
+    isLocked = true
+) {
+    const normalizedMemberId =
+        normalizeAcademyFeedId(
+            memberId
+        );
 
-    if (!isLocked || !normalizedMemberId) {
-        window.__yhVisitedProfileFollowLockV1 = null;
-        document.documentElement?.classList.remove('yh-profile-follow-freeze');
-        document.body?.classList.remove('yh-profile-follow-freeze');
+    const profileView =
+        document.getElementById(
+            'academy-profile-view'
+        );
 
-        profileView?.removeAttribute('data-follow-toggle-pending');
-        profileView?.removeAttribute('data-profile-follow-overlay-lock');
+    if (
+        !isLocked ||
+        !normalizedMemberId
+    ) {
+        window.__yhVisitedProfileFollowLockV1 =
+            null;
+
+        document.documentElement
+            ?.classList.remove(
+                'yh-profile-follow-freeze'
+            );
+
+        document.body
+            ?.classList.remove(
+                'yh-profile-follow-freeze'
+            );
+
+        profileView?.removeAttribute(
+            'data-follow-toggle-pending'
+        );
+
+        profileView?.removeAttribute(
+            'data-profile-follow-overlay-lock'
+        );
 
         return;
     }
 
     window.__yhVisitedProfileFollowLockV1 = {
-        memberId: normalizedMemberId,
-        until: Date.now() + 9000
+        memberId:
+            normalizedMemberId,
+
+        until:
+            Date.now() + 9000
     };
 
-    document.documentElement?.classList.add('yh-profile-follow-freeze');
-    document.body?.classList.add('yh-profile-follow-freeze');
-    document.body?.classList.add('yh-universe-profile-open');
-
+    /*
+     * Only lock the Follow button/profile state.
+     * Never freeze or black out the Dashboard.
+     */
     if (profileView) {
-        profileView.setAttribute('data-follow-toggle-pending', 'true');
-        profileView.setAttribute('data-profile-follow-overlay-lock', 'true');
-        profileView.classList.remove('hidden-step');
-        profileView.setAttribute('aria-hidden', 'false');
+        profileView.setAttribute(
+            'data-follow-toggle-pending',
+            'true'
+        );
     }
 }
 
@@ -30331,8 +33488,7 @@ function hideAcademyViewsForFeed() {
         'center-stage-view',
         'announcements-view',
         'voice-lobby-view',
-        'video-lobby-view',
-        'vault-view'
+        'video-lobby-view'
     ].forEach((id) => {
         if (id === 'academy-profile-view' && keepProfileVisible) return;
         document.getElementById(id)?.classList.add('hidden-step');
@@ -33509,6 +36665,153 @@ function renderAcademyProfileRecentPosts(posts = [], options = {}) {
     }).join('');
 }
 
+function syncDashboardVisitedProfileFollowPlacementV1() {
+    const profileView =
+        document.getElementById(
+            'academy-profile-view'
+        );
+
+    const followButton =
+        document.getElementById(
+            'academy-profile-primary-action'
+        );
+
+    const messageButton =
+        document.getElementById(
+            'academy-profile-tertiary-action'
+        );
+
+    const headerGroup =
+        document.getElementById(
+            'yh-profile-header-action-group'
+        );
+
+    const actionRow =
+        profileView?.querySelector(
+            '.academy-profile-action-row'
+        );
+
+    if (
+        !profileView ||
+        !followButton ||
+        !messageButton ||
+        !headerGroup ||
+        !actionRow
+    ) {
+        return;
+    }
+
+    const isVisited =
+        profileView.getAttribute(
+            'data-profile-layout'
+        ) === 'visited';
+
+    const isMobile =
+        window.matchMedia(
+            '(max-width: 768px)'
+        ).matches;
+
+    if (
+        isVisited &&
+        isMobile
+    ) {
+        [
+            followButton,
+            messageButton
+        ].forEach(
+            (button) => {
+                if (
+                    button.parentElement !==
+                    headerGroup
+                ) {
+                    headerGroup
+                        .appendChild(
+                            button
+                        );
+                }
+
+                button.classList.remove(
+                    'hidden-step'
+                );
+
+                button.removeAttribute(
+                    'aria-hidden'
+                );
+            }
+        );
+
+        followButton.classList.add(
+            'yh-profile-header-follow-action'
+        );
+
+        messageButton.classList.add(
+            'yh-profile-header-message-action'
+        );
+
+        return;
+    }
+
+    if (
+        followButton.parentElement !==
+        actionRow
+    ) {
+        actionRow.insertBefore(
+            followButton,
+            actionRow.firstChild
+        );
+    }
+
+    if (
+        messageButton.parentElement !==
+        actionRow
+    ) {
+        actionRow.appendChild(
+            messageButton
+        );
+    }
+
+    followButton.classList.remove(
+        'yh-profile-header-follow-action'
+    );
+
+    messageButton.classList.remove(
+        'yh-profile-header-message-action'
+    );
+}
+
+(function bindDashboardProfileFollowResponsivePlacementV1() {
+    if (
+        window.__yhDashboardProfileFollowPlacementBoundV1
+    ) {
+        return;
+    }
+
+    window.__yhDashboardProfileFollowPlacementBoundV1 =
+        true;
+
+    let resizeTimer = 0;
+
+    window.addEventListener(
+        'resize',
+        () => {
+            window.clearTimeout(
+                resizeTimer
+            );
+
+            resizeTimer =
+                window.setTimeout(
+                    () => {
+                        syncDashboardVisitedProfileFollowPlacementV1();
+                    },
+                    80
+                );
+        },
+        {
+            passive: true
+        }
+    );
+})();
+
 function renderAcademyProfileView(profilePayload = null, options = {}) {
     const normalized = normalizeAcademyProfilePayload(
         profilePayload || buildAcademySelfProfilePayload(),
@@ -34225,7 +37528,8 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
             tertiaryAction.classList.add('is-following');
             tertiaryAction.setAttribute('aria-label', 'Message is disabled on your own profile');
         } else {
-            tertiaryAction.innerText = normalized.isFriend ? 'Message Friend' : 'Message';
+            tertiaryAction.innerText =
+                'Message';
             tertiaryAction.dataset.profileAction = 'open-direct-message';
             tertiaryAction.dataset.memberProfileId = normalized.id;
             tertiaryAction.setAttribute('aria-label', `Message ${normalized.displayName}`);
@@ -34240,9 +37544,17 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         }
 
         if (tertiaryAction) {
-            tertiaryAction.classList.add('hidden-step');
-            tertiaryAction.setAttribute('aria-hidden', 'true');
-            tertiaryAction.disabled = true;
+            tertiaryAction.classList.remove(
+                'hidden-step'
+            );
+
+            tertiaryAction.setAttribute(
+                'aria-hidden',
+                'false'
+            );
+
+            tertiaryAction.disabled =
+                false;
         }
     } else {
         if (secondaryAction) {
@@ -34254,8 +37566,19 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         }
     }
 
-    renderYHUniverseProfileSnapshot(normalized);
-    renderAcademyProfileRecentPosts(normalized.recentPosts, { isSelf, profile: normalized });
+    syncDashboardVisitedProfileFollowPlacementV1();
+
+    renderYHUniverseProfileSnapshot(
+        normalized
+    );
+
+    renderAcademyProfileRecentPosts(
+        normalized.recentPosts,
+        {
+            isSelf,
+            profile: normalized
+        }
+    );
 }
 function getDashboardUniverseProfileDraft() {
     const activeProfileMode = String(academyProfileViewState?.mode || '').trim().toLowerCase();
@@ -37262,6 +40585,13 @@ function dashboardCloseProfileWithoutHistoryMutation() {
         );
 
     if (!profileView) return;
+        const persistedProfileState =
+        readDashboardPersistentUiState();
+
+    const returnWorkspace =
+        getDashboardPersistentWorkspaceKey(
+            persistedProfileState.workspaceKey
+        ) || 'overview';
 
     const focusedElement =
         document.activeElement;
@@ -37323,6 +40653,17 @@ function dashboardCloseProfileWithoutHistoryMutation() {
     );
 
     clearDashboardPersistentProfileState();
+
+    activateDashboardUnifiedWorkspace(
+        returnWorkspace === 'profile'
+            ? 'overview'
+            : returnWorkspace,
+        {
+            animate: false,
+            scroll: false,
+            persist: false
+        }
+    );
 }
 
 function closeDashboardUniverseProfileView(options = {}) {
@@ -37368,8 +40709,21 @@ function revealAcademyProfileView() {
         dashboardPushProfileHistoryState();
     }
 
-    document.body?.classList.add(
+    document.body?.classList.remove(
         'yh-universe-profile-open'
+    );
+
+    setDashboardUnifiedShellText(
+        'profile'
+    );
+
+    setDashboardUnifiedWorkspaceSurfaceState(
+        'profile'
+    );
+
+    syncDashboardUnifiedWorkspaceDerivedSurfaces(
+        'profile',
+        'profile-open'
     );
 
     const shouldPreserveVisibleProfile =
@@ -37576,11 +40930,7 @@ function setAcademyProfileMessageOpeningState(isOpening = false, options = {}) {
             }
 
             messageBtn.innerText =
-                phase === 'room'
-                    ? 'Preparing room...'
-                    : phase === 'opening'
-                    ? 'Opening chat...'
-                    : 'Opening...';
+                'Opening...';
         } else {
             messageBtn.removeAttribute('aria-busy');
 
@@ -37671,27 +41021,14 @@ async function academyOpenDirectMessageFromProfile(memberId = '') {
 
         setAcademyProfileMessageOpeningState(true, { phase: 'opening' });
 
-        const roomEntry = academyBuildDirectMessageRoomEntry(room, activeProfile);
-        const state = getDashboardState();
-        const currentRooms = Array.isArray(state.customRooms) ? state.customRooms : [];
-
-        const nextRooms = [
-            roomEntry,
-            ...currentRooms.filter((item) => {
-                const existingId = normalizeRoomKey(item?.id || item?.roomId || item?.room_key);
-                const nextId = normalizeRoomKey(roomEntry.id || roomEntry.roomId);
-                return existingId !== nextId;
-            })
-        ];
-
-        syncCustomRoomsUI(nextRooms);
-        saveAcademyViewState('community');
-
-        const transientRoomElement = academyCreateDirectMessageRoomElement(roomEntry);
-        openRoom('dm', transientRoomElement);
-        markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
-        pulseAcademyRoomEntry(roomEntry.roomId || roomEntry.id);
-        focusAcademyChatComposer();
+        await openDashboardDirectMessageRoomV1(
+            room.id,
+            {
+                room,
+                profile:
+                    activeProfile
+            }
+        );
     } finally {
         setAcademyProfileMessageOpeningState(false);
         hideAcademyTabLoader();
@@ -38220,6 +41557,357 @@ async function requestAcademyMemberSearch(query = '') {
     return members;
 }
 
+function normalizeDashboardUniverseSearchText(value = '') {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function dashboardUniverseIdentityMatchesQuery(
+    member = {},
+    query = ''
+) {
+    const needle =
+        normalizeDashboardUniverseSearchText(
+            query
+        );
+
+    if (!needle) return true;
+
+    /*
+     * Dashboard Universe Search is an identity
+     * search, not a broad recommendation engine.
+     *
+     * "oscar" therefore requires oscar to exist
+     * in the user's name or username.
+     */
+    return [
+        member.display_name,
+        member.displayName,
+        member.fullName,
+        member.full_name,
+        member.name,
+        member.username
+    ]
+        .map(
+            normalizeDashboardUniverseSearchText
+        )
+        .filter(Boolean)
+        .some(
+            (value) =>
+                value.includes(
+                    needle
+                )
+        );
+}
+
+function dashboardUniverseIdentityRank(
+    member = {},
+    query = ''
+) {
+    const needle =
+        normalizeDashboardUniverseSearchText(
+            query
+        );
+
+    const name =
+        normalizeDashboardUniverseSearchText(
+            member.display_name ||
+            member.displayName ||
+            member.fullName ||
+            member.full_name ||
+            member.name
+        );
+
+    const username =
+        normalizeDashboardUniverseSearchText(
+            member.username
+        );
+
+    if (
+        name === needle ||
+        username === needle
+    ) {
+        return 0;
+    }
+
+    if (
+        name.startsWith(
+            needle
+        ) ||
+        username.startsWith(
+            needle
+        )
+    ) {
+        return 1;
+    }
+
+    return 2;
+}
+
+async function requestDashboardUniverseMemberSearch(query = '') {
+    const normalizedQuery =
+        String(query || '').trim();
+
+    if (normalizedQuery.length < 2) return [];
+
+    const params =
+        new URLSearchParams({
+            q: normalizedQuery,
+            division: 'all',
+            limit: '24'
+        });
+
+    const [universeResult, academyResult] =
+        await Promise.allSettled([
+            academyAuthedFetch(
+                '/api/plaza/business-members?' +
+                    params.toString(),
+                {
+                    method: 'GET'
+                }
+            ),
+
+            requestAcademyMemberSearch(
+                normalizedQuery
+            )
+        ]);
+
+    const universeMembers =
+        universeResult.status === 'fulfilled' &&
+        Array.isArray(
+            universeResult.value?.members
+        )
+            ? universeResult.value.members
+            : [];
+
+    const academyMembers =
+        academyResult.status === 'fulfilled' &&
+        Array.isArray(
+            academyResult.value
+        )
+            ? academyResult.value
+            : [];
+
+    const academyById =
+        new Map(
+            academyMembers
+                .map((member) => [
+                    normalizeAcademyFeedId(
+                        member?.id ||
+                        member?.userId ||
+                        member?.uid
+                    ),
+                    member
+                ])
+                .filter(
+                    ([id]) =>
+                        Boolean(id)
+                )
+        );
+
+    const seen = new Set();
+    const merged = [];
+
+    universeMembers.forEach((member) => {
+        /*
+         * IMPORTANT:
+         * canonical account UID beats directory
+         * record ID.
+         */
+        const id =
+            normalizeAcademyFeedId(
+                member?.userId ||
+                member?.firebaseUid ||
+                member?.uid ||
+                member?.id
+            );
+
+        if (
+            !id ||
+            seen.has(id)
+        ) {
+            return;
+        }
+
+        const academyMeta =
+            academyById.get(id) ||
+            {};
+
+        const division =
+            String(
+                member?.division ||
+                academyMeta?.division ||
+                'academy'
+            )
+                .trim()
+                .toLowerCase();
+
+        const normalizedMember = {
+            ...academyMeta,
+            ...member,
+
+            id,
+            userId: id,
+            firebaseUid: id,
+
+            display_name:
+                String(
+                    member?.name ||
+                    member?.display_name ||
+                    member?.fullName ||
+                    academyMeta?.display_name ||
+                    academyMeta?.fullName ||
+                    member?.username ||
+                    'YH Member'
+                ).trim(),
+
+            username:
+                String(
+                    member?.username ||
+                    academyMeta?.username ||
+                    ''
+                )
+                    .replace(/^@+/, '')
+                    .trim(),
+
+            division,
+
+            division_label:
+                String(
+                    member?.divisionLabel ||
+                    member?.division_label ||
+                    division ||
+                    'YH Universe'
+                ).trim(),
+
+            role_label:
+                String(
+                    member?.role ||
+                    academyMeta?.role_label ||
+                    academyMeta?.role ||
+                    'YH Universe Member'
+                ).trim(),
+
+            avatar:
+                String(
+                    member?.avatar ||
+                    academyMeta?.avatar ||
+                    academyMeta?.avatar_url ||
+                    academyMeta?.avatarUrl ||
+                    ''
+                ).trim(),
+
+            followed_by_me:
+                academyMeta?.followed_by_me ===
+                    true ||
+                academyMeta?.followed_by_me ===
+                    1,
+
+            followers_count:
+                Number(
+                    academyMeta?.followers_count ||
+                    0
+                )
+        };
+
+        if (
+            !dashboardUniverseIdentityMatchesQuery(
+                normalizedMember,
+                normalizedQuery
+            )
+        ) {
+            return;
+        }
+
+        merged.push(
+            normalizedMember
+        );
+
+        seen.add(id);
+    });
+
+    academyMembers.forEach((member) => {
+        const id =
+            normalizeAcademyFeedId(
+                member?.id ||
+                member?.userId ||
+                member?.uid
+            );
+
+        if (
+            !id ||
+            seen.has(id)
+        ) {
+            return;
+        }
+
+        const normalizedMember = {
+            ...member,
+
+            id,
+            userId: id,
+            firebaseUid: id,
+
+            division: 'academy',
+            division_label: 'Academy'
+        };
+
+        if (
+            !dashboardUniverseIdentityMatchesQuery(
+                normalizedMember,
+                normalizedQuery
+            )
+        ) {
+            return;
+        }
+
+        merged.push(
+            normalizedMember
+        );
+
+        seen.add(id);
+    });
+
+    return merged
+        .sort((a, b) => {
+            const rankDiff =
+                dashboardUniverseIdentityRank(
+                    a,
+                    normalizedQuery
+                ) -
+                dashboardUniverseIdentityRank(
+                    b,
+                    normalizedQuery
+                );
+
+            if (rankDiff) return rankDiff;
+
+            return String(
+                a.display_name ||
+                a.fullName ||
+                a.username ||
+                ''
+            ).localeCompare(
+                String(
+                    b.display_name ||
+                    b.fullName ||
+                    b.username ||
+                    ''
+                ),
+                undefined,
+                {
+                    sensitivity: 'base'
+                }
+            );
+        })
+        .slice(0, 24);
+}
+
 function academySyncSearchInputs(value = '', sourceInputId = '') {
     const normalizedValue = String(value || '');
     const normalizedTrimmedValue = normalizedValue.trim();
@@ -38563,572 +42251,10 @@ async function applyAcademySearch(query = '', options = {}) {
     }
 }
 
-function normalizeAcademyLiveRoomId(value = '') {
-    return String(value || '').trim();
-}
+/* PHASE 2E-B2B2:
+   isolated Dashboard-local Academy live-room core removed.
+   Current Voice runtime is owned by public/js/academy.js. */
 
-function getAcademyLiveRoomType(room = {}) {
-    const rawType = String(
-        room?.room_type ||
-        room?.roomType ||
-        room?.type ||
-        room?.room_type ||
-        ''
-    ).trim().toLowerCase();
-
-    return rawType === 'video' ? 'video' : 'voice';
-}
-
-function getAcademyLiveLobbyNavId(roomOrType = {}) {
-    const type = typeof roomOrType === 'string'
-        ? String(roomOrType || '').trim().toLowerCase()
-        : getAcademyLiveRoomType(roomOrType);
-
-    return type === 'video' ? 'nav-video' : 'nav-voice';
-}
-
-function stopAcademyLiveMediaStream() {
-    try {
-        if (academyActiveMediaStream && typeof academyActiveMediaStream.getTracks === 'function') {
-            academyActiveMediaStream.getTracks().forEach((track) => {
-                try { track.stop(); } catch (_) {}
-            });
-        }
-    } catch (_) {}
-
-    academyActiveMediaStream = null;
-}
-
-function getAcademyLivePermissionToast(error, roomType = 'video') {
-    const kindLabel = roomType === 'voice' ? 'microphone' : 'camera/microphone';
-    const name = String(error?.name || '').trim();
-    const message = String(error?.message || '').trim();
-
-    if (/NotAllowedError|PermissionDeniedError/i.test(name)) {
-        return `Permission denied. Please allow ${kindLabel} access in your browser site settings and try again.`;
-    }
-    if (/NotFoundError|DevicesNotFoundError/i.test(name)) {
-        return `No ${kindLabel} device detected. Please connect a device and try again.`;
-    }
-    if (/NotReadableError|TrackStartError/i.test(name)) {
-        return `Your ${kindLabel} is currently in use by another app. Close other apps and try again.`;
-    }
-    if (/OverconstrainedError/i.test(name)) {
-        return `Your device cannot satisfy the requested ${kindLabel} settings. Try another device.`;
-    }
-    if (/SecurityError/i.test(name)) {
-        return `Browser blocked ${kindLabel} access. Make sure you're on HTTPS and try again.`;
-    }
-
-    return message || `Failed to request ${kindLabel} permission.`;
-}
-
-async function ensureAcademyLiveMediaPermissions(roomType = 'video') {
-    const normalized = String(roomType || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video';
-    const constraints = normalized === 'voice'
-        ? { audio: true, video: false }
-        : { audio: true, video: true };
-
-    if (!navigator?.mediaDevices?.getUserMedia) {
-        showToast('Your browser does not support camera/microphone access.', 'error');
-        return null;
-    }
-
-    try {
-        stopAcademyLiveMediaStream();
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        academyActiveMediaStream = stream;
-        return stream;
-    } catch (error) {
-        console.warn('ensureAcademyLiveMediaPermissions error:', error);
-        showToast(getAcademyLivePermissionToast(error, normalized), 'error');
-        return null;
-    }
-}
-
-function isAcademyLiveRoomHost(room = {}) {
-    const hostName = String(room?.host_user_name || '').trim().toLowerCase();
-    const currentName = String(myName || '').trim().toLowerCase();
-
-    if (!hostName || !currentName) return false;
-    return hostName === currentName;
-}
-
-function syncAcademyStageActionButtons(room = {}) {
-    const leaveBtn = document.getElementById('btn-leave-stage');
-    const endBtn = document.getElementById('btn-end-live-stage');
-    const isHost = isAcademyLiveRoomHost(room);
-
-    if (leaveBtn) {
-        leaveBtn.textContent = isHost ? '⬅ Back to Lounge' : '📞 Leave Call';
-    }
-
-    if (endBtn) {
-        endBtn.classList.toggle('hidden-step', !isHost);
-    }
-}
-
-function renderAcademyStageFromRoom(room = {}, options = {}) {
-    hideAcademyViewsForFeed();
-
-    const roomType = getAcademyLiveRoomType(room);
-    setAcademySidebarActive(getAcademyLiveLobbyNavId(roomType));
-
-    const stageView = document.getElementById('center-stage-view');
-    if (stageView) {
-        stageView.classList.remove('hidden-step');
-
-        if (options.animate === false) {
-            stageView.classList.remove('fade-in');
-        } else {
-            stageView.classList.remove('fade-in');
-            void stageView.offsetWidth;
-            stageView.classList.add('fade-in');
-        }
-    }
-
-    const defaultTitle = roomType === 'video' ? 'Live Video Room' : 'Live Voice Lounge';
-    const defaultTopic = roomType === 'video'
-        ? 'Live Academy video networking'
-        : 'Live Academy networking';
-
-    const roomTitle = String(room.title || defaultTitle).trim() || defaultTitle;
-    const roomTopic = String(room.topic || defaultTopic).trim() || defaultTopic;
-    const hostName = String(room.host_user_name || myName || 'Host').trim() || 'Host';
-
-    const stageTitle = document.getElementById('stage-title');
-    const hostNameEl = document.getElementById('host-name');
-    const hostAvatar = document.getElementById('host-avatar');
-    const stageTopic = document.querySelector('#center-stage-view .header-topic');
-    const stageIcon = document.getElementById('stage-icon');
-
-    if (stageTitle) stageTitle.innerText = roomTitle;
-    if (hostNameEl) hostNameEl.innerText = hostName;
-    if (hostAvatar) hostAvatar.innerText = hostName.charAt(0).toUpperCase();
-    if (stageTopic) stageTopic.innerText = roomTopic;
-    if (stageIcon) stageIcon.innerText = roomType === 'video' ? '📹' : '🎙️';
-
-    academyActiveLiveRoom = room;
-    syncAcademyStageActionButtons(room);
-}
-
-async function openAcademyStageFromRoom(room = {}) {
-    const roomId = normalizeAcademyLiveRoomId(room?.id || room?.roomId || room?.room_id);
-    const roomType = getAcademyLiveRoomType(room);
-
-    renderAcademyStageFromRoom(room);
-
-    // Video rooms need camera + mic permissions. Voice can be listen-first.
-    if (roomType === 'video') {
-        await ensureAcademyLiveMediaPermissions('video');
-    }
-
-    if (!roomId) {
-        academyActiveLiveRoom = room;
-        return room;
-    }
-
-    try {
-        const result = await academyAuthedFetch(`/api/realtime/live-rooms/${encodeURIComponent(roomId)}/join`, {
-            method: 'POST'
-        });
-
-        const joinedRoom = result?.room && typeof result.room === 'object'
-            ? result.room
-            : room;
-
-        const joinedType = getAcademyLiveRoomType(joinedRoom);
-
-        academyActiveLiveRoom = joinedRoom;
-        renderAcademyStageFromRoom(joinedRoom, { animate: false });
-
-        if (joinedType === 'video') {
-            await loadAcademyVideoRooms(true);
-        } else {
-            await loadAcademyVoiceRooms(true);
-        }
-
-        return joinedRoom;
-    } catch (error) {
-        console.error('openAcademyStageFromRoom join error:', error);
-        showToast(error?.message || 'Failed to join live room.', 'error');
-        throw error;
-    }
-}
-
-function renderAcademyVoiceRooms(rooms = []) {
-    const grid = document.getElementById('lounge-grid');
-    if (!grid) return;
-
-    if (!Array.isArray(rooms) || rooms.length === 0) {
-        grid.innerHTML = `<div class="academy-member-browser-empty" style="padding: 20px 0;">No live lounges yet. Start the first one.</div>`;
-        return;
-    }
-
-    grid.innerHTML = rooms.map((room) => {
-        const roomId = String(room.id || '').trim();
-        const title = String(room.title || 'Live Voice Lounge').trim();
-        const topic = String(room.topic || 'Live Academy networking').trim();
-        const hostName = String(room.host_user_name || 'Host').trim();
-        const participantCount = Number(room.participant_count || 0);
-
-        return `
-            <article
-                class="academy-feed-card"
-                data-live-room-id="${academyFeedEscapeHtml(roomId)}"
-                style="padding:16px;border-radius:18px;"
-            >
-                <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
-                    <div>
-                        <div style="font-size:0.78rem;color:var(--neon-blue);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Live now</div>
-                        <h4 style="margin-top:6px;color:#fff;font-size:1rem;line-height:1.3;">${academyFeedEscapeHtml(title)}</h4>
-                        <p style="margin-top:8px;color:var(--text-muted);line-height:1.5;font-size:0.9rem;">${academyFeedEscapeHtml(topic)}</p>
-                    </div>
-                    <div style="padding:6px 10px;border-radius:999px;background:rgba(14,165,233,0.12);border:1px solid rgba(14,165,233,0.25);color:var(--neon-blue);font-size:0.76rem;font-weight:700;">
-                        ${academyFeedEscapeHtml(String(participantCount || 1))} live
-                    </div>
-                </div>
-
-                <div style="margin-top:12px;color:var(--text-muted);font-size:0.82rem;">
-                    Hosted by ${academyFeedEscapeHtml(hostName)}
-                </div>
-
-                <div style="margin-top:14px;display:flex;justify-content:flex-end;">
-                    <button
-                        type="button"
-                        class="btn-primary academy-join-live-room-btn"
-                        data-live-room-id="${academyFeedEscapeHtml(roomId)}"
-                        style="width:auto;padding:10px 14px;"
-                    >Join Stage</button>
-                </div>
-            </article>
-        `;
-    }).join('');
-}
-
-async function loadAcademyVoiceRooms(forceFresh = false) {
-    const grid = document.getElementById('lounge-grid');
-    if (!grid) return [];
-
-    if (!forceFresh && Array.isArray(academyVoiceRoomsCache) && academyVoiceRoomsCache.length) {
-        renderAcademyVoiceRooms(academyVoiceRoomsCache);
-    } else if (forceFresh) {
-        grid.innerHTML = `<div class="academy-member-browser-empty" style="padding: 20px 0;">Loading live lounges...</div>`;
-    }
-
-const result = await academyAuthedFetch('/api/realtime/live-rooms', { method: 'GET' });
-    const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : [];
-    const rooms = roomsRaw.filter((room) => getAcademyLiveRoomType(room) === 'voice');
-
-    academyVoiceRoomsCache = rooms;
-    renderAcademyVoiceRooms(rooms);
-    return rooms;
-}
-
-function renderAcademyVideoRooms(rooms = []) {
-    const grid = document.getElementById('video-grid');
-    if (!grid) return;
-
-    if (!Array.isArray(rooms) || rooms.length === 0) {
-        grid.innerHTML = `<div class="academy-member-browser-empty" style="padding: 20px 0;">No live video rooms yet. Start the first one.</div>`;
-        return;
-    }
-
-    grid.innerHTML = rooms.map((room) => {
-        const roomId = String(room.id || '').trim();
-        const title = String(room.title || 'Live Video Room').trim();
-        const topic = String(room.topic || 'Live Academy video networking').trim();
-        const hostName = String(room.host_user_name || 'Host').trim();
-        const participantCount = Number(room.participant_count || 0);
-
-        return `
-            <article
-                class="academy-feed-card"
-                data-live-room-id="${academyFeedEscapeHtml(roomId)}"
-                style="padding:16px;border-radius:18px;"
-            >
-                <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
-                    <div>
-                        <div style="font-size:0.78rem;color:var(--neon-blue);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Live now</div>
-                        <h4 style="margin-top:6px;color:#fff;font-size:1rem;line-height:1.3;">${academyFeedEscapeHtml(title)}</h4>
-                        <p style="margin-top:8px;color:var(--text-muted);line-height:1.5;font-size:0.9rem;">${academyFeedEscapeHtml(topic)}</p>
-                    </div>
-                    <div style="padding:6px 10px;border-radius:999px;background:rgba(14,165,233,0.12);border:1px solid rgba(14,165,233,0.25);color:var(--neon-blue);font-size:0.76rem;font-weight:700;">
-                        ${academyFeedEscapeHtml(String(participantCount || 1))} live
-                    </div>
-                </div>
-
-                <div style="margin-top:12px;color:var(--text-muted);font-size:0.82rem;">
-                    Hosted by ${academyFeedEscapeHtml(hostName)}
-                </div>
-
-                <div style="margin-top:14px;display:flex;justify-content:flex-end;">
-                    <button
-                        type="button"
-                        class="btn-primary academy-join-video-room-btn"
-                        data-live-room-id="${academyFeedEscapeHtml(roomId)}"
-                        style="width:auto;padding:10px 14px;"
-                    >Join Room</button>
-                </div>
-            </article>
-        `;
-    }).join('');
-}
-
-async function loadAcademyVideoRooms(forceFresh = false) {
-    const grid = document.getElementById('video-grid');
-    if (!grid) return [];
-
-    if (!forceFresh && Array.isArray(academyVideoRoomsCache) && academyVideoRoomsCache.length) {
-        renderAcademyVideoRooms(academyVideoRoomsCache);
-    } else if (forceFresh) {
-        grid.innerHTML = `<div class="academy-member-browser-empty" style="padding: 20px 0;">Loading live video rooms...</div>`;
-    }
-
-    const result = await academyAuthedFetch('/api/realtime/live-rooms', { method: 'GET' });
-    const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : [];
-    const rooms = roomsRaw.filter((room) => getAcademyLiveRoomType(room) === 'video');
-
-    academyVideoRoomsCache = rooms;
-    renderAcademyVideoRooms(rooms);
-    return rooms;
-}
-
-/**
- * Forever fix: Join Room stays clickable even after leaving / re-rendering video cards.
- * Uses event delegation on #video-grid and binds only once.
- */
-function bindAcademyVideoRoomJoinButtons() {
-    if (window.__yhAcademyVideoJoinBound) return;
-    window.__yhAcademyVideoJoinBound = true;
-
-    const grid = document.getElementById('video-grid');
-    if (!grid) return;
-
-    grid.addEventListener('click', async (event) => {
-        const target = event?.target;
-        const joinBtn = target?.closest?.('.academy-join-video-room-btn');
-        if (!joinBtn) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        const roomId = normalizeAcademyLiveRoomId(joinBtn.getAttribute('data-live-room-id'));
-        if (!roomId) return;
-
-        await runDashboardButtonAction(joinBtn, 'Joining Video Room.', async () => {
-            let room = (Array.isArray(academyVideoRoomsCache) ? academyVideoRoomsCache : [])
-                .find((item) => normalizeAcademyLiveRoomId(item?.id) === roomId);
-
-            if (!room) {
-                const rooms = await loadAcademyVideoRooms(true);
-                room = (Array.isArray(rooms) ? rooms : [])
-                    .find((item) => normalizeAcademyLiveRoomId(item?.id) === roomId);
-            }
-
-            if (!room) {
-                throw new Error('Live room not found.');
-            }
-
-            await openAcademyStageFromRoom(room);
-        });
-    });
-}
-
-bindAcademyVideoRoomJoinButtons();
-
-async function createAcademyVideoRoom(title = '', topic = '') {
-    const cleanTitle = String(title || '').trim();
-    if (!cleanTitle) {
-        throw new Error('Room title is required.');
-    }
-
-    const cleanTopic = String(topic || '').trim();
-
-    const result = await academyAuthedFetch('/api/realtime/live-rooms', {
-        method: 'POST',
-        body: JSON.stringify({
-            roomType: 'video',
-            title: cleanTitle,
-            topic: cleanTopic
-        })
-    });
-
-    const room = result?.room && typeof result.room === 'object'
-        ? result.room
-        : {
-            title: cleanTitle,
-            topic: cleanTopic,
-            host_user_name: myName,
-            room_type: 'video'
-        };
-
-    showToast('Live video room started.', 'success');
-    await loadAcademyVideoRooms(true);
-    openAcademyStageFromRoom(room);
-}
-
-/**
- * Forever fix: Join Stage stays clickable even after leaving / re-rendering lounge cards.
- * Uses event delegation on #lounge-grid and binds only once.
- */
-function bindAcademyVoiceRoomJoinButtons() {
-    if (window.__yhAcademyVoiceJoinBound) return;
-    window.__yhAcademyVoiceJoinBound = true;
-
-    const grid = document.getElementById('lounge-grid');
-    if (!grid) return;
-
-    grid.addEventListener('click', async (event) => {
-        const target = event?.target;
-        const joinBtn = target?.closest?.('.academy-join-live-room-btn');
-        if (!joinBtn) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        const roomId = normalizeAcademyLiveRoomId(joinBtn.getAttribute('data-live-room-id'));
-        if (!roomId) return;
-
-        await runDashboardButtonAction(joinBtn, 'Joining Stage.', async () => {
-            let room = (Array.isArray(academyVoiceRoomsCache) ? academyVoiceRoomsCache : [])
-                .find((item) => normalizeAcademyLiveRoomId(item?.id) === roomId);
-
-            if (!room) {
-                const rooms = await loadAcademyVoiceRooms(true);
-                room = (Array.isArray(rooms) ? rooms : [])
-                    .find((item) => normalizeAcademyLiveRoomId(item?.id) === roomId);
-            }
-
-            if (!room) {
-                throw new Error('Live room not found.');
-            }
-
-            await openAcademyStageFromRoom(room);
-        });
-    });
-}
-
-bindAcademyVoiceRoomJoinButtons();
-// (Removed duplicate VIDEO LOUNGE SYSTEM block – using the event-delegation implementation above.)
-async function createAcademyVoiceRoom(title = '', topic = '') {
-    const cleanTitle = String(title || '').trim();
-    if (!cleanTitle) {
-        throw new Error('Room title is required.');
-    }
-
-    const cleanTopic = String(topic || '').trim();
-
-    const result = await academyAuthedFetch('/api/realtime/live-rooms', {
-        method: 'POST',
-        body: JSON.stringify({
-            roomType: 'voice',
-            title: cleanTitle,
-            topic: cleanTopic
-        })
-    });
-
-    const room = result?.room && typeof result.room === 'object'
-        ? result.room
-        : {
-            title: cleanTitle,
-            topic: cleanTopic,
-            host_user_name: myName
-        };
-
-    showToast('Live voice lounge started.', 'success');
-    await loadAcademyVoiceRooms(true);
-    openAcademyStageFromRoom(room);
-}
-
-function openAcademyLoungeCreateModal(roomType = 'voice') {
-    const modal = document.getElementById('lounge-modal');
-    const titleInput = document.getElementById('lounge-title-input');
-    const topicInput = document.getElementById('lounge-topic-input');
-    const submitBtn = document.getElementById('btn-create-lounge');
-
-    const normalizedType = String(roomType || 'voice').trim().toLowerCase() === 'video' ? 'video' : 'voice';
-
-    if (!modal) return;
-
-    modal.setAttribute('data-room-type', normalizedType);
-
-    if (titleInput) titleInput.value = '';
-
-    if (topicInput) {
-        topicInput.value = normalizedType === 'video'
-            ? 'Live video networking inside The Academy'
-            : 'Live networking inside The Academy';
-    }
-
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.classList.add('btn-disabled');
-        submitBtn.textContent = normalizedType === 'video' ? 'Start Video Call' : 'Start Lounge';
-    }
-
-    modal.classList.remove('hidden-step');
-    setTimeout(() => titleInput?.focus(), 0);
-}
-
-function closeAcademyLoungeCreateModal() {
-    const modal = document.getElementById('lounge-modal');
-    if (modal) {
-        modal.classList.add('hidden-step');
-        modal.removeAttribute('data-room-type');
-    }
-}
-
-function syncAcademyLoungeCreateModalState() {
-    const titleInput = document.getElementById('lounge-title-input');
-    const submitBtn = document.getElementById('btn-create-lounge');
-    if (!submitBtn) return;
-
-    const hasTitle = String(titleInput?.value || '').trim().length > 0;
-
-    submitBtn.disabled = !hasTitle;
-    submitBtn.classList.toggle('btn-disabled', !hasTitle);
-}
-
-async function submitAcademyLoungeCreateModal() {
-    const modal = document.getElementById('lounge-modal');
-    const submitBtn = document.getElementById('btn-create-lounge');
-    const titleInput = document.getElementById('lounge-title-input');
-    const topicInput = document.getElementById('lounge-topic-input');
-
-    const roomType = String(modal?.getAttribute('data-room-type') || 'voice').trim().toLowerCase() === 'video'
-        ? 'video'
-        : 'voice';
-
-    const title = String(titleInput?.value || '').trim();
-    const topic = String(topicInput?.value || '').trim();
-
-    if (!title) {
-        showToast('Room title is required.', 'error');
-        syncAcademyLoungeCreateModalState();
-        return;
-    }
-
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.classList.add('btn-disabled');
-        submitBtn.textContent = 'Starting...';
-    }
-
-    try {
-        if (roomType === 'video') {
-            await createAcademyVideoRoom(title, topic);
-        } else {
-            await createAcademyVoiceRoom(title, topic);
-        }
-        closeAcademyLoungeCreateModal();
-    } catch (error) {
-        showToast(error.message || 'Failed to start live lounge.', 'error');
-    } finally {
-        if (submitBtn) submitBtn.textContent = roomType === 'video' ? 'Start Video Call' : 'Start Lounge';
-        syncAcademyLoungeCreateModalState();
-    }
-}
 
 async function loadAcademyFeed(forceReload = false) {
     const list = document.getElementById('academy-feed-list');
@@ -39427,10 +42553,6 @@ let academyFeedDeleteTargetPostId = '';
 let academyMemberSearchDebounce = null;
 let academyMemberSearchCache = new Map();
 let academyMemberSearchInFlight = null;
-let academyVoiceRoomsCache = [];
-let academyVideoRoomsCache = [];
-let academyActiveLiveRoom = null;
-let academyActiveMediaStream = null;
 
 const ACADEMY_TAG_SEARCH_ALIASES = {
     academy: ['academy', 'the academy', 'yha'],
@@ -40124,18 +43246,48 @@ function academyPatchDashboardOwnedFollowingCount(isFollowing = false, result = 
 /* END PATCH: Dashboard owned/visited follow count sync v1 */
 
 async function academyFeedToggleFollow(targetUserId, options = {}) {
-    const normalizedTargetUserId = normalizeAcademyFeedId(targetUserId);
+    const normalizedTargetUserId =
+        normalizeAcademyFeedId(
+            targetUserId
+        );
 
     if (!normalizedTargetUserId) {
-        showToast('Invalid user target.', 'error');
+        showToast(
+            'Invalid user target.',
+            'error'
+        );
+
         return null;
     }
 
+    const desiredFollowingState =
+        typeof options.following ===
+            'boolean'
+            ? options.following
+            : typeof options.previousFollowing ===
+                'boolean'
+                ? !options.previousFollowing
+                : null;
+
     try {
-        const result = await academyAuthedFetch(`/api/academy/community/members/${encodeURIComponent(normalizedTargetUserId)}/follow`, {
-            method: 'POST',
-            body: JSON.stringify({})
-        });
+        const result =
+            await academyAuthedFetch(
+                `/api/academy/community/members/${encodeURIComponent(normalizedTargetUserId)}/follow`,
+                {
+                    method: 'POST',
+
+                    body:
+                        JSON.stringify(
+                            typeof desiredFollowingState ===
+                                'boolean'
+                                ? {
+                                    following:
+                                        desiredFollowingState
+                                }
+                                : {}
+                        )
+                }
+            );
 
         const isNowFollowing = academyResolveDashboardFollowResultState(
             result,
@@ -40417,7 +43569,6 @@ document.getElementById('btn-academy-back-universe')?.addEventListener('click', 
     event?.preventDefault?.();
     event?.stopPropagation?.();
 
-    try { stopAcademyLiveMediaStream?.(); } catch (_) {}
     showUniverseHub('academy');
 });
 window.addEventListener('resize', () => {
@@ -40541,30 +43692,9 @@ document.getElementById('academy-feed-composer-input')?.addEventListener('keydow
     }
 });
 
-document.getElementById('btn-start-lounge')?.addEventListener('click', () => {
-    openAcademyLoungeCreateModal('voice');
-});
-
-document.getElementById('btn-start-video')?.addEventListener('click', () => {
-    openAcademyLoungeCreateModal('video');
-});
-
-document.getElementById('close-lounge-modal')?.addEventListener('click', () => {
-    closeAcademyLoungeCreateModal();
-});
-
-document.getElementById('lounge-modal')?.addEventListener('click', (event) => {
-    if (event.target?.id === 'lounge-modal') {
-        closeAcademyLoungeCreateModal();
-    }
-});
-
-document.getElementById('lounge-title-input')?.addEventListener('input', syncAcademyLoungeCreateModalState);
-document.getElementById('lounge-topic-input')?.addEventListener('input', syncAcademyLoungeCreateModalState);
-
-document.getElementById('btn-create-lounge')?.addEventListener('click', () => {
-    submitAcademyLoungeCreateModal();
-});
+/* PHASE 2E-B2B1:
+   obsolete Dashboard-local live-room creation bindings removed.
+   Academy iframe/runtime owns Start Lounge and live room creation. */
 
 document.getElementById('academy-search-results-close')?.addEventListener('click', () => {
     closeAcademySearchResultsPanel();
@@ -40924,10 +44054,22 @@ document.getElementById('academy-search-results-panel')?.addEventListener('click
 
     closeAcademySearchResultsPanel();
 
+    if (key === 'voice') {
+        activateDashboardUnifiedWorkspace(
+            'academy-voice',
+            {
+                animate: false,
+                scroll: true,
+                persist: true
+            }
+        );
+
+        return;
+    }
+
     const map = {
         roadmap: 'nav-missions',
         community: 'nav-chat',
-        voice: 'nav-voice',
         academy: 'nav-chat'
     };
 
@@ -40940,15 +44082,41 @@ document.getElementById('academy-search-results-panel')?.addEventListener('click
 let yhDashboardProfileSearchDebounce = null;
 let yhDashboardProfileSearchActiveInputId = 'yh-dashboard-top-search-input';
 
+/*
+ * PHASE 2E-A:
+ * Only the newest Dashboard Universe search
+ * request is allowed to update the UI.
+ */
+let yhDashboardProfileSearchRequestToken = 0;
+
 function setDashboardProfileSearchLoading(isLoading = false) {
     const buttons = [
         document.getElementById('yh-dashboard-profile-search-btn'),
-        document.getElementById('yh-dashboard-top-search-btn')
+        document.getElementById('yh-dashboard-top-search-btn'),
+        document.getElementById('yh-dashboard-mobile-search-btn')
     ].filter(Boolean);
 
     buttons.forEach((button) => {
-        button.disabled = Boolean(isLoading);
-        button.textContent = isLoading ? 'Searching...' : 'Search';
+        const isMobileButton =
+            button.id ===
+            'yh-dashboard-mobile-search-btn';
+
+        button.disabled =
+            Boolean(isLoading);
+
+        button.classList.toggle(
+            'is-searching',
+            Boolean(isLoading)
+        );
+
+        button.textContent =
+            isLoading
+                ? (
+                    isMobileButton
+                        ? 'Searching'
+                        : 'Searching...'
+                )
+                : 'Search';
     });
 }
 
@@ -41036,7 +44204,7 @@ function renderDashboardUniverseSearchDropdown(inputId = '', members = [], query
                     <strong>${safeQuery}</strong>
                 </div>
                 <div class="yh-dashboard-search-dropdown-empty">
-                    No members matched “${safeQuery}”. Try a name, username, role, or tag.
+                    No members matched “${safeQuery}”. Try a name or username.
                 </div>
             </div>
         `;
@@ -41062,10 +44230,49 @@ function renderDashboardUniverseSearchDropdown(inputId = '', members = [], query
                     ).trim();
 
                     const username = String(member.username || '').replace(/^@+/, '').trim();
-                    const roleLabel = String(member.role_label || member.role || member.division || 'YH Member').trim();
-                    const avatar = String(member.avatar || member.avatar_url || member.avatarUrl || '').trim();
-                    const followerCount = Number(member.followers_count || 0);
-                    const isFollowing = member.followed_by_me === true || member.followed_by_me === 1;
+
+                    const divisionKey =
+                        String(
+                            member.division || ''
+                        )
+                            .trim()
+                            .toLowerCase();
+
+                    const divisionLabel =
+                        String(
+                            member.division_label ||
+                            member.divisionLabel ||
+                            member.division ||
+                            'YH Universe'
+                        ).trim();
+
+                    const roleLabel =
+                        String(
+                            member.role_label ||
+                            member.role ||
+                            'YH Member'
+                        ).trim();
+
+                    const avatar =
+                        String(
+                            member.avatar ||
+                            member.avatar_url ||
+                            member.avatarUrl ||
+                            ''
+                        ).trim();
+
+                    const followerCount =
+                        Number(
+                            member.followers_count ||
+                            0
+                        );
+
+                    const isFollowing =
+                        member.followed_by_me === true ||
+                        member.followed_by_me === 1;
+
+                    const canFollow =
+                        divisionKey === 'academy';
 
                     const tags = Array.isArray(member.search_tags)
                         ? member.search_tags.slice(0, 3).map((tag) => `#${String(tag).replace(/^#/, '')}`).join(' • ')
@@ -41087,7 +44294,8 @@ function renderDashboardUniverseSearchDropdown(inputId = '', members = [], query
                                     <strong>${academyFeedEscapeHtml(displayName)}</strong>
                                     <span>
                                         ${username ? `@${academyFeedEscapeHtml(username)} • ` : ''}
-                                        ${academyFeedEscapeHtml(roleLabel)}
+                                        ${academyFeedEscapeHtml(divisionLabel)}
+                                        ${roleLabel ? ` • ${academyFeedEscapeHtml(roleLabel)}` : ''}
                                         ${followerCount ? ` • ${academyFeedEscapeHtml(String(followerCount))} followers` : ''}
                                     </span>
                                     ${tags ? `<small>${academyFeedEscapeHtml(tags)}</small>` : ''}
@@ -41101,11 +44309,13 @@ function renderDashboardUniverseSearchDropdown(inputId = '', members = [], query
                                     data-yh-search-profile-id="${academyFeedEscapeHtml(member.id)}"
                                 >View</button>
 
-                                <button
-                                    type="button"
-                                    class="yh-dashboard-search-small-btn ${isFollowing ? 'is-following' : ''}"
-                                    data-yh-search-follow-id="${academyFeedEscapeHtml(member.id)}"
-                                >${isFollowing ? 'Following' : 'Follow'}</button>
+                                ${canFollow ? `
+                                    <button
+                                        type="button"
+                                        class="yh-dashboard-search-small-btn ${isFollowing ? 'is-following' : ''}"
+                                        data-yh-search-follow-id="${academyFeedEscapeHtml(member.id)}"
+                                    >${isFollowing ? 'Following' : 'Follow'}</button>
+                                ` : ''}
                             </div>
                         </article>
                     `;
@@ -41116,70 +44326,282 @@ function renderDashboardUniverseSearchDropdown(inputId = '', members = [], query
 }
 
 async function openDashboardUniverseProfileSearch(query = '', options = {}) {
-    const cleanQuery = String(query || '').trim();
-    const sourceInputId = String(options?.sourceInputId || yhDashboardProfileSearchActiveInputId || 'yh-dashboard-top-search-input').trim();
+    const cleanQuery =
+        String(
+            query ||
+            ''
+        ).trim();
+
+    const sourceInputId =
+        String(
+            options?.sourceInputId ||
+            yhDashboardProfileSearchActiveInputId ||
+            'yh-dashboard-top-search-input'
+        ).trim();
+
+    const requestToken =
+        Number(
+            options?.requestToken ||
+            ++yhDashboardProfileSearchRequestToken
+        );
 
     const searchInputs = [
-        document.getElementById('academy-member-browser-search-input'),
-        document.getElementById('yh-dashboard-top-search-input')
+        document.getElementById(
+            'academy-member-browser-search-input'
+        ),
+        document.getElementById(
+            'yh-dashboard-top-search-input'
+        ),
+        document.getElementById(
+            'yh-dashboard-mobile-search-input'
+        )
     ].filter(Boolean);
 
-    searchInputs.forEach((input) => {
-        if (input.value !== cleanQuery) {
-            input.value = cleanQuery;
+    searchInputs.forEach(
+        (input) => {
+            if (
+                input.value !==
+                cleanQuery
+            ) {
+                input.value =
+                    cleanQuery;
+            }
         }
-    });
+    );
 
     if (!cleanQuery) {
-        closeDashboardUniverseSearchDropdown();
+        if (
+            requestToken ===
+            yhDashboardProfileSearchRequestToken
+        ) {
+            closeDashboardUniverseSearchDropdown();
+            setDashboardProfileSearchLoading(false);
+        }
+
         return;
     }
 
-    if (cleanQuery.length < 2) {
-        renderDashboardUniverseSearchDropdownState(sourceInputId, 'Type at least 2 characters to search YH members.', cleanQuery);
+    if (
+        cleanQuery.length <
+        2
+    ) {
+        if (
+            requestToken ===
+            yhDashboardProfileSearchRequestToken
+        ) {
+            renderDashboardUniverseSearchDropdownState(
+                sourceInputId,
+                'Type at least 2 characters to search YH members.',
+                cleanQuery
+            );
+
+            setDashboardProfileSearchLoading(false);
+        }
+
         return;
     }
 
-    setDashboardProfileSearchLoading(true);
-    renderDashboardUniverseSearchDropdownState(sourceInputId, 'Searching members...', cleanQuery);
+    /*
+     * Do not allow a superseded request
+     * to start mutating the active UI.
+     */
+    if (
+        requestToken !==
+        yhDashboardProfileSearchRequestToken
+    ) {
+        return;
+    }
+
+    setDashboardProfileSearchLoading(
+        true
+    );
+
+    renderDashboardUniverseSearchDropdownState(
+        sourceInputId,
+        'Searching members...',
+        cleanQuery
+    );
 
     try {
-        const members = await requestAcademyMemberSearch(cleanQuery);
-        renderDashboardUniverseSearchDropdown(sourceInputId, members, cleanQuery);
+        const members =
+            await requestDashboardUniverseMemberSearch(
+                cleanQuery
+            );
+
+        /*
+         * CRITICAL:
+         * User may already have typed another keyword
+         * while this request was in flight.
+         */
+        if (
+            requestToken !==
+            yhDashboardProfileSearchRequestToken
+        ) {
+            return;
+        }
+
+        const activeInput =
+            document.getElementById(
+                sourceInputId
+            );
+
+        const liveQuery =
+            String(
+                activeInput?.value ||
+                ''
+            ).trim();
+
+        if (
+            liveQuery !==
+            cleanQuery
+        ) {
+            return;
+        }
+
+        renderDashboardUniverseSearchDropdown(
+            sourceInputId,
+            members,
+            cleanQuery
+        );
     } catch (error) {
-        console.error('openDashboardUniverseProfileSearch error:', error);
-        renderDashboardUniverseSearchDropdownState(sourceInputId, error?.message || 'Failed to search YH members.', cleanQuery);
-        showToast(error?.message || 'Failed to search YH members.', 'error');
+        if (
+            requestToken !==
+            yhDashboardProfileSearchRequestToken
+        ) {
+            return;
+        }
+
+        console.error(
+            'openDashboardUniverseProfileSearch error:',
+            error
+        );
+
+        renderDashboardUniverseSearchDropdownState(
+            sourceInputId,
+            error?.message ||
+                'Failed to search YH members.',
+            cleanQuery
+        );
+
+        showToast(
+            error?.message ||
+                'Failed to search YH members.',
+            'error'
+        );
     } finally {
-        setDashboardProfileSearchLoading(false);
+        /*
+         * An old request must never clear the
+         * loading state of a newer request.
+         */
+        if (
+            requestToken ===
+            yhDashboardProfileSearchRequestToken
+        ) {
+            setDashboardProfileSearchLoading(
+                false
+            );
+        }
     }
 }
 
 function scheduleDashboardUniverseProfileSearch(query = '', options = {}) {
-    const cleanQuery = String(query || '').trim();
-    const immediate = options?.immediate === true;
-    const sourceInputId = String(options?.sourceInputId || yhDashboardProfileSearchActiveInputId || 'yh-dashboard-top-search-input').trim();
+    const cleanQuery =
+        String(
+            query ||
+            ''
+        ).trim();
 
-    yhDashboardProfileSearchActiveInputId = sourceInputId;
+    const immediate =
+        options?.immediate ===
+        true;
 
-    if (yhDashboardProfileSearchDebounce) {
-        clearTimeout(yhDashboardProfileSearchDebounce);
-        yhDashboardProfileSearchDebounce = null;
+    const sourceInputId =
+        String(
+            options?.sourceInputId ||
+            yhDashboardProfileSearchActiveInputId ||
+            'yh-dashboard-top-search-input'
+        ).trim();
+
+    yhDashboardProfileSearchActiveInputId =
+        sourceInputId;
+
+    if (
+        yhDashboardProfileSearchDebounce
+    ) {
+        clearTimeout(
+            yhDashboardProfileSearchDebounce
+        );
+
+        yhDashboardProfileSearchDebounce =
+            null;
     }
+
+    /*
+     * Every new keystroke invalidates
+     * every older in-flight request.
+     */
+    const requestToken =
+        ++yhDashboardProfileSearchRequestToken;
 
     if (!cleanQuery) {
-        closeDashboardUniverseSearchDropdown(sourceInputId);
+        closeDashboardUniverseSearchDropdown(
+            sourceInputId
+        );
+
+        setDashboardProfileSearchLoading(
+            false
+        );
+
         return;
     }
 
-    if (!immediate && cleanQuery.length > 0 && cleanQuery.length < 2) {
-        renderDashboardUniverseSearchDropdownState(sourceInputId, 'Type at least 2 characters to search YH members.', cleanQuery);
+    if (
+        cleanQuery.length <
+        2
+    ) {
+        renderDashboardUniverseSearchDropdownState(
+            sourceInputId,
+            'Type at least 2 characters to search YH members.',
+            cleanQuery
+        );
+
+        setDashboardProfileSearchLoading(
+            false
+        );
+
         return;
     }
 
-    yhDashboardProfileSearchDebounce = window.setTimeout(() => {
-        openDashboardUniverseProfileSearch(cleanQuery, { sourceInputId });
-    }, immediate ? 0 : 320);
+    /*
+     * Immediately replace results from the
+     * previous keyword. Never leave "oscar"
+     * visible while the input already says "aries".
+     */
+    renderDashboardUniverseSearchDropdownState(
+        sourceInputId,
+        'Searching members...',
+        cleanQuery
+    );
+
+    setDashboardProfileSearchLoading(
+        true
+    );
+
+    yhDashboardProfileSearchDebounce =
+        window.setTimeout(
+            () => {
+                openDashboardUniverseProfileSearch(
+                    cleanQuery,
+                    {
+                        sourceInputId,
+                        requestToken
+                    }
+                );
+            },
+            immediate
+                ? 0
+                : 120
+        );
 }
 
 function bindDashboardUniverseSearchForm(formId = '', inputId = '') {
@@ -41263,8 +44685,14 @@ function bootDashboardUniverseSearchDropdownBridge() {
                 const activeSearch = String(activeInput?.value || '').trim();
 
                 if (activeSearch.length >= 2) {
-                    return requestAcademyMemberSearch(activeSearch).then((members) => {
-                        renderDashboardUniverseSearchDropdown(yhDashboardProfileSearchActiveInputId, members, activeSearch);
+                    return requestDashboardUniverseMemberSearch(
+                        activeSearch
+                    ).then((members) => {
+                        renderDashboardUniverseSearchDropdown(
+                            yhDashboardProfileSearchActiveInputId,
+                            members,
+                            activeSearch
+                        );
                     });
                 }
 
@@ -41290,12 +44718,47 @@ function bootDashboardUniverseSearchDropdownBridge() {
         closeDashboardUniverseSearchDropdown();
     });
 
-    window.addEventListener('scroll', () => {
+    window.addEventListener('scroll', (event) => {
+        const scrollTarget =
+            event.target instanceof Element
+                ? event.target
+                : null;
+
+        /*
+         * Scrolling the actual search results must
+         * never close the search panel.
+         *
+         * Only scrolling outside the search UI
+         * should dismiss it.
+         */
+        if (
+            scrollTarget &&
+            (
+                scrollTarget.closest(
+                    '.yh-dashboard-search-dropdown'
+                ) ||
+                scrollTarget.closest(
+                    '.yh-dashboard-profile-search'
+                )
+            )
+        ) {
+            return;
+        }
+
         closeDashboardUniverseSearchDropdown();
     }, true);
 }
 
-bindDashboardUniverseSearchForm('yh-dashboard-top-search-form', 'yh-dashboard-top-search-input');
+bindDashboardUniverseSearchForm(
+    'yh-dashboard-top-search-form',
+    'yh-dashboard-top-search-input'
+);
+
+bindDashboardUniverseSearchForm(
+    'yh-dashboard-mobile-search-form',
+    'yh-dashboard-mobile-search-input'
+);
+
 bootDashboardUniverseSearchDropdownBridge();
 
 document.getElementById('academy-member-browser-close')?.addEventListener('click', () => {
@@ -41308,40 +44771,11 @@ document.getElementById('academy-member-browser-modal')?.addEventListener('click
     }
 });
 
-document.getElementById('academy-member-browser-search-input')?.addEventListener('input', (event) => {
-    const nextValue = String(event.target?.value || '');
-    const academySearchInput = document.getElementById('academy-global-search-input');
+/* PHASE 2E-A: legacy duplicate Dashboard Academy search listeners removed.
+   scheduleAcademySearch() above is the sole direct input owner. */
+/* PHASE 2E-A: duplicate Share close/cancel listeners removed.
+   academyFeedCloseShareModal() is the single close-state owner. */
 
-    if (academySearchInput && academySearchInput.value !== nextValue) {
-        academySearchInput.value = nextValue;
-    }
-
-    clearTimeout(academyMemberSearchDebounce);
-    academyMemberSearchDebounce = setTimeout(() => {
-        applyAcademySearch(nextValue);
-    }, 320);
-});
-
-document.getElementById('academy-global-search-input')?.addEventListener('input', (event) => {
-    const nextValue = String(event.target?.value || '');
-    const browserInput = document.getElementById('academy-member-browser-search-input');
-
-    if (browserInput && browserInput.value !== nextValue) {
-        browserInput.value = nextValue;
-    }
-
-    clearTimeout(academyMemberSearchDebounce);
-    academyMemberSearchDebounce = setTimeout(() => {
-        applyAcademySearch(nextValue);
-    }, 320);
-});
-document.getElementById('academy-feed-share-cancel')?.addEventListener('click', () => {
-    document.getElementById('academy-feed-share-modal')?.classList.add('hidden-step');
-});
-
-document.getElementById('academy-feed-share-close')?.addEventListener('click', () => {
-    document.getElementById('academy-feed-share-modal')?.classList.add('hidden-step');
-});
 
 /* Share submit is wired once below via academyFeedSubmitShare. */
 document.getElementById('academy-feed-share-close')?.addEventListener('click', academyFeedCloseShareModal);
@@ -41455,15 +44889,8 @@ document.getElementById('academy-feed-list')?.addEventListener('click', async (e
         return;
     }
 
-    const joinLiveRoomBtn = event.target.closest('.academy-join-live-room-btn');
-    if (joinLiveRoomBtn) {
-        const roomId = normalizeAcademyFeedId(joinLiveRoomBtn.getAttribute('data-live-room-id'));
-        const targetRoom = academyVoiceRoomsCache.find((room) => normalizeAcademyFeedId(room?.id) === roomId);
-
-        if (targetRoom) {
-            openAcademyStageFromRoom(targetRoom);
-        }
-    }
+    /* PHASE 2E-B2B1:
+       obsolete Dashboard document-level Voice Join fallback removed. */
 });
 const btnOpenApply = document.getElementById('btn-open-academy-apply');
 const applyModal = document.getElementById('academy-apply-modal');
@@ -41525,6 +44952,7 @@ function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel 
     const idleLabel = String(
         button.dataset.idleLabel ||
         button.getAttribute('aria-label') ||
+        button.dataset.label ||
         button.textContent ||
         ''
     ).trim();
@@ -41595,40 +45023,8 @@ function resolveAcademyLaunchTarget(event) {
     return null;
 }
 
-function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel = 'Loading.') {
-    if (!button) return;
-
-    const idleLabel = String(
-        button.dataset.idleLabel ||
-        button.getAttribute('aria-label') ||
-        button.dataset.label ||
-        button.textContent ||
-        ''
-    ).trim();
-
-    if (idleLabel) {
-        button.dataset.idleLabel = idleLabel;
-    }
-
-    if (isLoading) {
-        button.dataset.loading = 'true';
-        button.disabled = true;
-        button.setAttribute('aria-disabled', 'true');
-        button.setAttribute('aria-busy', 'true');
-        button.style.cursor = 'wait';
-        button.style.opacity = '0.92';
-        setDashboardButtonLabel(button, loadingLabel);
-        return;
-    }
-
-    button.dataset.loading = 'false';
-    button.disabled = false;
-    button.setAttribute('aria-disabled', 'false');
-    button.setAttribute('aria-busy', 'false');
-    button.style.cursor = 'pointer';
-    button.style.opacity = '1';
-    setDashboardButtonLabel(button, button.dataset.idleLabel || idleLabel);
-}
+/* PHASE 2E-A: duplicate setDashboardButtonLoadingState declaration removed.
+   The canonical helper is declared above runDashboardButtonAction(). */
 
 /* PATCH: Academy state toast below right v96 */
 function ensureDashboardAcademyStateToastV96(stateBadge) {
@@ -46101,7 +49497,6 @@ try {
 
 const roadmapForm = document.getElementById('form-academy-roadmap');
 const roadmapContinueBtn = document.getElementById('btn-roadmap-continue');
-const roadmapBackBtn = document.getElementById('btn-roadmap-back');
 
 closeRoadmapBtn?.addEventListener('click', closeRoadmapIntake);
 
@@ -46142,10 +49537,6 @@ roadmapContinueBtn?.addEventListener('click', () => {
     document.querySelector('#roadmap-scope-questions .input-field')?.focus();
 });
 
-roadmapBackBtn?.addEventListener('click', () => {
-    setRoadmapIntakePhase(1);
-    document.getElementById('roadmap-focus-area')?.focus();
-});
 
 if (roadmapForm) {
     roadmapForm.addEventListener('submit', async (e) => {

@@ -11997,8 +11997,20 @@ function normalizeDivisionApplicationTrack(value = '', fallback = 'academy_progr
         return 'direct_strategic';
     }
 
-    if (raw === 'academy_progression' || raw === 'academy progression' || raw === 'academy') {
+    if (
+        raw === 'academy_progression' ||
+        raw === 'academy progression' ||
+        raw === 'academy'
+    ) {
         return 'academy_progression';
+    }
+
+    if (
+        raw === 'general_review' ||
+        raw === 'general review' ||
+        raw === 'general'
+    ) {
+        return 'general_review';
     }
 
     return fallback;
@@ -12064,7 +12076,32 @@ function buildServerAcademyUnlockRequirement({
             copy: 'Application is open. This applicant is not moving through Academy progression yet, so admin should review them as direct strategic.'
         };
     }
+    if (
+        normalizedTrack ===
+        'general_review'
+    ) {
+        return {
+            division:
+                normalizedDivision,
 
+            track:
+                normalizedTrack,
+
+            requiredScore,
+            currentScore,
+
+            unlocked:
+                true,
+
+            ready,
+
+            label:
+                'General YH Review',
+
+            copy:
+                'Application is open. Academy and Federation signals are review context only and do not block submission.'
+        };
+    }
     const label = normalizedDivision === 'federation'
         ? ready
             ? 'Federation-ready'
@@ -12117,9 +12154,14 @@ function resolveServerDivisionApplicationTrack({
     membershipType = '',
     user = {}
 } = {}) {
-    const fallback = membershipType === 'direct_strategic'
-        ? 'direct_strategic'
-        : 'academy_progression';
+    const fallback =
+        membershipType ===
+            'direct_strategic'
+            ? 'direct_strategic'
+            : membershipType ===
+                'not_yet'
+                ? 'general_review'
+                : 'academy_progression';
 
     const normalizedTrack = normalizeDivisionApplicationTrack(incomingTrack, fallback);
 
@@ -12298,21 +12340,15 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
         const body = req.body || {};
         const membershipType = normalizePlazaMembershipType(body.membershipType);
 
-        if (membershipType === 'not_yet') {
-            return res.status(403).json({
-                success: false,
-                message: 'There is nothing to check here yet, come back when you are already a member.'
-            });
-        }
-
         if (
             membershipType !== 'academy' &&
             membershipType !== 'federation' &&
-            membershipType !== 'direct_strategic'
+            membershipType !== 'direct_strategic' &&
+            membershipType !== 'not_yet'
         ) {
             return res.status(400).json({
                 success: false,
-                message: 'Select whether you are in The Academy, The Federation, or applying as a direct strategic applicant.'
+                message: 'Select your Young Hustlers membership or application path.'
             });
         }
 
@@ -12402,9 +12438,16 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
         if (!applicationData.learntSoFar) missingFields.push(`What you have learnt so far in ${applicationData.membershipDivisionLabel}`);
         if (!applicationData.contribution) {
             missingFields.push(
-                membershipType === 'direct_strategic'
+                membershipType ===
+                    'direct_strategic'
                     ? 'What high-value contribution you can bring into Plaza'
-                    : `What you can contribute as a ${membershipType === 'academy' ? 'Academy' : 'Federation'} member`
+                    : membershipType ===
+                        'academy'
+                        ? 'What you can contribute as an Academy member'
+                        : membershipType ===
+                            'federation'
+                            ? 'What you can contribute as a Federation member'
+                            : 'What you can contribute as a YH member'
             );
         }
 
@@ -12577,11 +12620,6 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
             message: 'Failed to submit Plaza application.'
         });
     }
-});
-
-app.post('/api/plaza/applications', requireApiUser, async (req, res, next) => {
-    req.url = '/api/plaza/application';
-    next();
 });
 
 function parseAdminEmailList(value = '') {
@@ -13112,7 +13150,7 @@ function buildDashboardSelfProfilePayload(userId = '', user = {}, requestUser = 
     };
 }
 
-app.get(['/api/server-legacy/universe/profile', '/api/academy/profile'], requireApiUser, async (req, res) => {
+app.get('/api/server-legacy/universe/profile', requireApiUser, async (req, res) => {
     try {
         const userId = sanitizeText(req.user?.id || req.user?.firebaseUid);
 
@@ -13314,41 +13352,6 @@ const yhLiveRoomAutoEndTimer = setInterval(() => {
 if (typeof yhLiveRoomAutoEndTimer.unref === 'function') {
     yhLiveRoomAutoEndTimer.unref();
 }
-
-/* PATCH: Academy server-backed follow/unfollow route v1 */
-app.post('/api/academy/community/members/:targetUserId/follow', requireApiUser, async (req, res) => {
-    try {
-        const viewerId = sanitizeText(req.user?.id || req.user?.firebaseUid);
-        const targetUserId = sanitizeText(req.params.targetUserId);
-
-        if (!viewerId || !targetUserId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Missing follow target.'
-            });
-        }
-
-        const result = await academyCommunityRepo.toggleMemberFollow({
-            viewerId,
-            targetUserId
-        });
-
-        return res.json({
-            success: true,
-            ...result,
-            followed_by_me: result.following === true,
-            followedByMe: result.following === true
-        });
-    } catch (error) {
-        console.error('academy community follow toggle error:', error);
-
-        return res.status(500).json({
-            success: false,
-            message: error?.message || 'Failed to update follow status.'
-        });
-    }
-});
-/* END PATCH: Academy server-backed follow/unfollow route v1 */
 
 app.get('/api/academy/membership-status', requireApiUser, async (req, res, next) => {
     try {

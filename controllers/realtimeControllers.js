@@ -98,6 +98,75 @@ exports.getRooms = async (req, res) => {
     }
 };
 
+exports.getRoomMessages =
+    async (req, res) => {
+        try {
+            const viewer =
+                getViewerFromRequest(
+                    req
+                );
+
+            const roomId =
+                sanitizeText(
+                    req.params?.id
+                );
+
+            const limit =
+                Math.max(
+                    1,
+                    Math.min(
+                        200,
+                        Number(
+                            req.query?.limit
+                        ) ||
+                        100
+                    )
+                );
+
+            if (
+                !viewer.id ||
+                !roomId
+            ) {
+                return sendError(
+                    res,
+                    null,
+                    'Room and user are required.',
+                    400
+                );
+            }
+
+            const messages =
+                await realtimeRepo
+                    .listChatMessages(
+                        roomId,
+                        viewer.id,
+                        limit
+                    );
+
+            return res.json({
+                success: true,
+                roomId,
+                messages
+            });
+        } catch (error) {
+            console.error(
+                'getRoomMessages error:',
+                error
+            );
+
+            return sendError(
+                res,
+                error,
+                'Failed to load direct messages.',
+                Number(
+                    error?.statusCode ||
+                    error?.status ||
+                    500
+                )
+            );
+        }
+    };
+    
 exports.createRoom = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);
@@ -253,78 +322,6 @@ exports.blockRoom = async (req, res) => {
         );
     }
 };
-
-exports.getVaultItems = async (req, res) => {
-    try {
-        const viewer = getViewerFromRequest(req);
-        const items = await realtimeRepo.getVaultItems(viewer.id);
-        return res.json({ success: true, items });
-    } catch (error) {
-        console.error('getVaultItems error:', error);
-        return sendError(res, error, 'Failed to load vault items.');
-    }
-};
-
-exports.createVaultFolder = async (req, res) => {
-    try {
-        const viewer = getViewerFromRequest(req);
-
-        const parentId = sanitizeText(req.body?.parentId);
-        const name = sanitizeText(req.body?.name);
-
-        const item = await realtimeRepo.createVaultFolder({
-            userId: viewer.id,
-            parentId,
-            name
-        });
-
-        return res.status(201).json({ success: true, item });
-    } catch (error) {
-        console.error('createVaultFolder error:', error);
-
-        const badRequest = /required|invalid parent/i.test(error?.message || '');
-        return sendError(
-            res,
-            error,
-            'Failed to create vault folder.',
-            badRequest ? 400 : 500
-        );
-    }
-};
-
-exports.createVaultFile = async (req, res) => {
-    try {
-        const viewer = getViewerFromRequest(req);
-
-        const parentId = sanitizeText(req.body?.parentId);
-        const name = sanitizeText(req.body?.name || req.body?.fileName);
-        const filePath = sanitizeText(req.body?.filePath);
-        const mimeType = sanitizeText(req.body?.mimeType);
-        const fileSize = req.body?.fileSize;
-
-        const item = await realtimeRepo.createVaultFile({
-            userId: viewer.id,
-            parentId,
-            name,
-            filePath,
-            mimeType,
-            fileSize
-        });
-
-        return res.status(201).json({ success: true, item });
-    } catch (error) {
-        console.error('createVaultFile error:', error);
-
-        const badRequest = /required|invalid parent/i.test(error?.message || '');
-        return sendError(
-            res,
-            error,
-            'Failed to create vault file metadata.',
-            badRequest ? 400 : 500
-        );
-    }
-};
-
 
 exports.getLiveRooms = async (req, res) => {
     try {

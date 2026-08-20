@@ -8,6 +8,7 @@ const academyLeadSupabaseRepo = require('../backend/repositories/academyLeadSupa
 const adminBroadcastSupabaseRepo = require('../backend/repositories/adminBroadcastSupabaseRepo');
 const universeCollectionMirrorRepo = require('../backend/repositories/universeCollectionMirrorRepo');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
+const plazaPatronSupabaseRepo = require('../backend/repositories/plazaPatronSupabaseRepo');
 const verifiedBadgeSupabaseRepo = require('../backend/repositories/verifiedBadgeSupabaseRepo');
 const adminPlazaSupabaseRepo = require('../backend/repositories/adminPlazaSupabaseRepo');
 const adminPlazaSupabaseWriteRepo = require('../backend/repositories/adminPlazaSupabaseWriteRepo');
@@ -3190,151 +3191,647 @@ apiRouter.get('/api/admin/plaza/requests', requireAdminSession, async (req, res)
 
 apiRouter.post('/api/admin/economy/payouts/:payoutId/status', requireAdminSession, async (req, res) => {
   try {
-    const payoutId = cleanText(req.params.payoutId);
-    const status = cleanText(req.body?.status);
-    const adminNote = cleanText(req.body?.adminNote || '');
-    const provider = cleanText(req.body?.provider || '');
-    const method = cleanText(req.body?.method || '');
-    const providerPaymentId = cleanText(
-      req.body?.providerPaymentId ||
-      req.body?.transferReference ||
-      req.body?.adminDisbursementReference ||
-      ''
-    );
-    const providerStatus = cleanText(req.body?.providerStatus || req.body?.disbursementStatus || '');
+    const payoutId =
+      cleanText(
+        req.params.payoutId
+      );
 
-    if (!payoutId || !status) {
+    const requestedStatus =
+      cleanText(
+        req.body?.status
+      ).toLowerCase();
+
+    const adminNote =
+      cleanText(
+        req.body?.adminNote ||
+        ''
+      );
+
+    const provider =
+      cleanText(
+        req.body?.provider ||
+        ''
+      );
+
+    const method =
+      cleanText(
+        req.body?.method ||
+        ''
+      );
+
+    const providerPaymentId =
+      cleanText(
+        req.body?.providerPaymentId ||
+        req.body?.transferReference ||
+        req.body?.adminDisbursementReference ||
+        ''
+      );
+
+    const providerStatus =
+      cleanText(
+        req.body?.providerStatus ||
+        req.body?.disbursementStatus ||
+        ''
+      );
+
+    if (
+      !payoutId ||
+      !requestedStatus
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'Missing payout id or status.'
+        message:
+          'Missing payout id or status.'
       });
     }
 
-    const updatedPayout = await paymentLedgerRepo.updatePayoutRecordStatus(payoutId, {
-      status,
-      adminNote,
-      provider,
-      method,
-      providerPaymentId,
-      providerStatus,
-      metadata: {
-        adminUpdatedBy: cleanText(req.adminSession?.username || 'admin'),
-        adminUpdatedAt: new Date().toISOString(),
-        adminDisbursementReference: providerPaymentId
-      }
-    });
+    const validStatuses =
+      new Set([
+        'pending_review',
+        'approved',
+        'processing',
+        'paid',
+        'rejected',
+        'failed'
+      ]);
 
-    const sourceDivision = cleanText(updatedPayout.sourceDivision).toLowerCase();
-    const sourceFeature = cleanText(updatedPayout.sourceFeature).toLowerCase();
-    const normalizedStatus = cleanText(updatedPayout.status).toLowerCase();
+    if (
+      !validStatuses.has(
+        requestedStatus
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Invalid payout status.'
+      });
+    }
+
+    const currentPayout =
+      await paymentLedgerRepo
+        .getPayoutRecordById(
+          payoutId
+        );
+
+    const sourceDivision =
+      cleanText(
+        currentPayout.sourceDivision
+      ).toLowerCase();
+
+    const sourceFeature =
+      cleanText(
+        currentPayout.sourceFeature
+      ).toLowerCase();
+
+    const isPatronCommission =
+      sourceDivision ===
+        'plaza' &&
+      sourceFeature ===
+        'plaza_patron_commission';
+
+    const currentMetadata =
+      currentPayout.metadata &&
+      typeof currentPayout.metadata ===
+        'object'
+        ? currentPayout.metadata
+        : {};
+
+    const adminUsername =
+      cleanText(
+        req.adminSession?.username ||
+        'admin'
+      );
+
+    const adminUpdatedAt =
+      new Date()
+        .toISOString();
+
+    const verificationMetadata = {};
+
+    if (isPatronCommission) {
+      const patronId =
+        cleanText(
+          currentMetadata.patronId
+        );
+
+      const patronPayoutRecordId =
+        cleanText(
+          currentMetadata
+            .patronPayoutRecordId
+        );
+
+      const outcomeId =
+        cleanText(
+          currentMetadata.outcomeId ||
+          currentPayout.sourceRecordId
+        );
+
+      const recommendationId =
+        cleanText(
+          currentMetadata
+            .recommendationId
+        );
+
+      if (
+        !patronId ||
+        !patronPayoutRecordId ||
+        !outcomeId ||
+        !recommendationId
+      ) {
+        return res.status(409).json({
+          success: false,
+          message:
+            'Patron payout verification metadata is incomplete. Do not approve this payout.'
+        });
+      }
+
+      if (
+        patronId !==
+        cleanText(
+          currentPayout.receiverUid
+        )
+      ) {
+        return res.status(409).json({
+          success: false,
+          message:
+            'Patron payout receiver does not match the verified Patron claim.'
+        });
+      }
+
+      /*
+       * Canonical Patron commission rule.
+       *
+       * Never trust a client-supplied commission
+       * amount or percentage at admin approval.
+       */
+      const canonicalCommissionRate =
+        10;
+
+      const reportedGrossAmount =
+        Math.max(
+          0,
+          toNumber(
+            currentMetadata
+              .reportedGrossAmount,
+            0
+          )
+        );
+
+      const reportedCurrency =
+        cleanText(
+          currentMetadata
+            .reportedCurrency ||
+          currentPayout.currency ||
+          'USD'
+        )
+          .toUpperCase();
+
+      const canonicalCommissionAmount =
+        Number(
+          (
+            reportedGrossAmount *
+            (
+              canonicalCommissionRate /
+              100
+            )
+          ).toFixed(2)
+        );
+
+      const recordedPayoutAmount =
+        Number(
+          toNumber(
+            currentPayout.amount,
+            0
+          ).toFixed(2)
+        );
+
+      if (
+        requestedStatus ===
+          'approved'
+      ) {
+        if (
+          reportedGrossAmount <= 0 ||
+          canonicalCommissionAmount <= 0
+        ) {
+          return res.status(409).json({
+            success: false,
+            message:
+              'Patron payout has no valid monetary outcome to approve.'
+          });
+        }
+
+        if (
+          Math.abs(
+            recordedPayoutAmount -
+            canonicalCommissionAmount
+          ) > 0.009
+        ) {
+          return res.status(409).json({
+            success: false,
+            message:
+              'Patron payout amount does not match the canonical commission calculation.'
+          });
+        }
+
+        if (
+          reportedCurrency !==
+          cleanText(
+            currentPayout.currency
+          ).toUpperCase()
+        ) {
+          return res.status(409).json({
+            success: false,
+            message:
+              'Patron payout currency does not match the recorded monetary outcome.'
+          });
+        }
+
+        verificationMetadata
+          .amountVerificationStatus =
+            'verified_by_admin';
+
+        verificationMetadata
+          .verifiedGrossAmount =
+            reportedGrossAmount;
+
+        verificationMetadata
+          .verifiedCommissionRate =
+            canonicalCommissionRate;
+
+        verificationMetadata
+          .verifiedCommissionAmount =
+            canonicalCommissionAmount;
+
+        verificationMetadata
+          .verifiedCurrency =
+            reportedCurrency;
+
+        verificationMetadata
+          .verifiedBy =
+            adminUsername;
+
+        verificationMetadata
+          .verifiedAt =
+            adminUpdatedAt;
+      }
+
+      if (
+        (
+          requestedStatus ===
+            'processing' ||
+          requestedStatus ===
+            'paid'
+        ) &&
+        cleanText(
+          currentMetadata
+            .amountVerificationStatus
+        ) !==
+          'verified_by_admin'
+      ) {
+        return res.status(409).json({
+          success: false,
+          message:
+            'Patron payout must be admin-verified before processing or payment.'
+        });
+      }
+    }
+
+    const updatedPayout =
+      await paymentLedgerRepo
+        .updatePayoutRecordStatus(
+          payoutId,
+          {
+            status:
+              requestedStatus,
+
+            adminNote,
+            provider,
+            method,
+            providerPaymentId,
+            providerStatus,
+
+            metadata: {
+              adminUpdatedBy:
+                adminUsername,
+
+              adminUpdatedAt,
+
+              adminDisbursementReference:
+                providerPaymentId,
+
+              ...verificationMetadata
+            }
+          }
+        );
+
+    const normalizedStatus =
+      cleanText(
+        updatedPayout.status
+      ).toLowerCase();
 
     let patronPayoutSync = null;
 
-    if (sourceDivision === 'plaza' && sourceFeature === 'plaza_patron_commission') {
-      const metadata = updatedPayout.metadata && typeof updatedPayout.metadata === 'object'
-        ? updatedPayout.metadata
-        : {};
+    /*
+     * Supabase is the current Patron source of truth.
+     * Do not write Patron payout state back into the
+     * legacy Firestore Patron collections.
+     */
+    if (isPatronCommission) {
+      const metadata =
+        updatedPayout.metadata &&
+        typeof updatedPayout.metadata ===
+          'object'
+          ? updatedPayout.metadata
+          : {};
 
-      const patronPayoutRecordId = cleanText(metadata.patronPayoutRecordId);
-      const outcomeId = cleanText(metadata.outcomeId || updatedPayout.sourcePaymentId || updatedPayout.sourceRecordId);
+      const patronPayoutRecordId =
+        cleanText(
+          metadata
+            .patronPayoutRecordId
+        );
+
+      const outcomeId =
+        cleanText(
+          metadata.outcomeId ||
+          updatedPayout.sourceRecordId
+        );
+
+      const syncUpdatedAt =
+        new Date()
+          .toISOString();
 
       const patronPayoutUpdate = {
-        payoutLedgerId: updatedPayout.id,
-        payoutLedgerStatus: updatedPayout.status,
-        status: updatedPayout.status,
+        payoutLedgerId:
+          updatedPayout.id,
+
+        payoutLedgerStatus:
+          updatedPayout.status,
+
+        status:
+          updatedPayout.status,
+
+        reviewStatus:
+          updatedPayout.status,
+
         adminNote,
-        provider: cleanText(updatedPayout.provider || provider || 'manual'),
-        providerPaymentId: cleanText(updatedPayout.providerPaymentId || providerPaymentId || ''),
-        updatedAt: Timestamp.now()
+
+        provider:
+          cleanText(
+            updatedPayout.provider ||
+            provider ||
+            'manual'
+          ),
+
+        providerPaymentId:
+          cleanText(
+            updatedPayout
+              .providerPaymentId ||
+            providerPaymentId ||
+            ''
+          ),
+
+        amountVerificationStatus:
+          cleanText(
+            metadata
+              .amountVerificationStatus
+          ),
+
+        verifiedGrossAmount:
+          toNumber(
+            metadata
+              .verifiedGrossAmount,
+            0
+          ),
+
+        verifiedCommissionRate:
+          toNumber(
+            metadata
+              .verifiedCommissionRate,
+            0
+          ),
+
+        verifiedCommissionAmount:
+          toNumber(
+            metadata
+              .verifiedCommissionAmount,
+            0
+          ),
+
+        verifiedCurrency:
+          cleanText(
+            metadata
+              .verifiedCurrency
+          ),
+
+        updatedAt:
+          syncUpdatedAt
       };
 
-      if (normalizedStatus === 'approved') {
-        patronPayoutUpdate.approvedAt = Timestamp.now();
+      if (
+        normalizedStatus ===
+        'approved'
+      ) {
+        patronPayoutUpdate
+          .approvedAt =
+            syncUpdatedAt;
       }
 
-      if (normalizedStatus === 'processing') {
-        patronPayoutUpdate.processingAt = Timestamp.now();
+      if (
+        normalizedStatus ===
+        'processing'
+      ) {
+        patronPayoutUpdate
+          .processingAt =
+            syncUpdatedAt;
       }
 
-      if (normalizedStatus === 'paid') {
-        patronPayoutUpdate.paidAt = Timestamp.now();
+      if (
+        normalizedStatus ===
+        'paid'
+      ) {
+        patronPayoutUpdate
+          .paidAt =
+            syncUpdatedAt;
       }
 
-      if (normalizedStatus === 'rejected') {
-        patronPayoutUpdate.rejectedAt = Timestamp.now();
+      if (
+        normalizedStatus ===
+        'rejected'
+      ) {
+        patronPayoutUpdate
+          .rejectedAt =
+            syncUpdatedAt;
+      }
+
+      if (
+        normalizedStatus ===
+        'failed'
+      ) {
+        patronPayoutUpdate
+          .failedAt =
+            syncUpdatedAt;
       }
 
       if (patronPayoutRecordId) {
-        await firestore
-          .collection('plazaPatronPayouts')
-          .doc(patronPayoutRecordId)
-          .set(patronPayoutUpdate, { merge: true });
-
-        patronPayoutSync = {
-          id: patronPayoutRecordId,
-          ...patronPayoutUpdate
-        };
+        patronPayoutSync =
+          await plazaPatronSupabaseRepo
+            .updatePayoutRecord(
+              patronPayoutRecordId,
+              patronPayoutUpdate
+            );
       }
 
       if (outcomeId) {
-        await firestore
-          .collection('plazaPatronIntroOutcomes')
-          .doc(outcomeId)
-          .set({
-            payoutLedgerId: updatedPayout.id,
-            payoutStatus: updatedPayout.status,
-            updatedAt: Timestamp.now()
-          }, { merge: true });
+        await plazaPatronSupabaseRepo
+          .updateIntroOutcomeRecord(
+            outcomeId,
+            {
+              payoutLedgerId:
+                updatedPayout.id,
+
+              payoutStatus:
+                updatedPayout.status,
+
+              amountVerificationStatus:
+                cleanText(
+                  metadata
+                    .amountVerificationStatus
+                ),
+
+              verifiedGrossAmount:
+                toNumber(
+                  metadata
+                    .verifiedGrossAmount,
+                  0
+                ),
+
+              verifiedCommissionRate:
+                toNumber(
+                  metadata
+                    .verifiedCommissionRate,
+                  0
+                ),
+
+              verifiedCommissionAmount:
+                toNumber(
+                  metadata
+                    .verifiedCommissionAmount,
+                  0
+                ),
+
+              verifiedCurrency:
+                cleanText(
+                  metadata
+                    .verifiedCurrency
+                )
+            }
+          );
       }
     }
 
-    const receiverUid = cleanText(updatedPayout.receiverUid);
+    const receiverUid =
+      cleanText(
+        updatedPayout.receiverUid
+      );
 
     if (receiverUid) {
       const payoutStatusCopy = {
-        approved: 'Your payout has been approved and is waiting for processing.',
-        processing: 'Your payout is now processing.',
-        paid: 'Your payout has been marked as paid.',
-        rejected: 'Your payout request was rejected.',
-        failed: 'Your payout attempt failed.'
+        approved:
+          'Your payout has been approved and is waiting for processing.',
+
+        processing:
+          'Your payout is now processing.',
+
+        paid:
+          'Your payout has been marked as paid.',
+
+        rejected:
+          'Your payout request was rejected.',
+
+        failed:
+          'Your payout attempt failed.'
       };
 
-      const copy = payoutStatusCopy[normalizedStatus] || `Your payout status is now ${updatedPayout.status}.`;
+      const copy =
+        payoutStatusCopy[
+          normalizedStatus
+        ] ||
+        `Your payout status is now ${updatedPayout.status}.`;
 
-      await appendAdminEconomyNotificationToUser(receiverUid, {
-        id: `payout_${updatedPayout.status}_${updatedPayout.id}`,
-        title: sourceFeature === 'plaza_patron_commission'
-          ? 'Plaza Patron payout updated'
-          : 'Payout status updated',
-        text: `${copy}${adminNote ? ` Admin note: ${adminNote}` : ''}`,
-        target: 'wallet',
-        targetId: updatedPayout.id,
-        color: normalizedStatus === 'paid'
-          ? 'var(--green)'
-          : normalizedStatus === 'rejected' || normalizedStatus === 'failed'
-            ? 'var(--red)'
-            : 'var(--blue)',
-        avatarStr: '₿',
-        sourceDivision: updatedPayout.sourceDivision || 'wallet',
-        amount: updatedPayout.amount,
-        currency: updatedPayout.currency
-      });
+      await appendAdminEconomyNotificationToUser(
+        receiverUid,
+        {
+          id:
+            `payout_${updatedPayout.status}_${updatedPayout.id}`,
+
+          title:
+            sourceFeature ===
+              'plaza_patron_commission'
+              ? 'Plaza Patron payout updated'
+              : 'Payout status updated',
+
+          text:
+            `${copy}${adminNote ? ` Admin note: ${adminNote}` : ''}`,
+
+          target:
+            'wallet',
+
+          targetId:
+            updatedPayout.id,
+
+          color:
+            normalizedStatus ===
+              'paid'
+              ? 'var(--green)'
+              : normalizedStatus ===
+                    'rejected' ||
+                  normalizedStatus ===
+                    'failed'
+                ? 'var(--red)'
+                : 'var(--blue)',
+
+          avatarStr:
+            '₿',
+
+          sourceDivision:
+            updatedPayout
+              .sourceDivision ||
+            'wallet',
+
+          amount:
+            updatedPayout.amount,
+
+          currency:
+            updatedPayout.currency
+        }
+      );
     }
 
     return res.json({
       success: true,
-      payout: updatedPayout,
+      payout:
+        updatedPayout,
       patronPayoutSync
     });
   } catch (error) {
-    console.error('admin payout status update error:', error);
+    console.error(
+      'admin payout status update error:',
+      error
+    );
 
-    return res.status(error.statusCode || 500).json({
+    return res.status(
+      error.statusCode ||
+      error.status ||
+      500
+    ).json({
       success: false,
-      message: error.message || 'Failed to update payout request.'
+      message:
+        error.message ||
+        'Failed to update payout request.'
     });
   }
 });
+
 
 const USER_REVIEW_NOTIFICATION_LIMIT = 40;
 

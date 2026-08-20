@@ -70,14 +70,13 @@
       </div>
 
       <div class="fed-sidebar-card">
-        <div class="fed-sidebar-card-label">Beta State</div>
-        <div class="fed-sidebar-card-title">Local Federation Flow</div>
+        <div class="fed-sidebar-card-label">Account State</div>
+        <div class="fed-sidebar-card-title">Server Synced</div>
         <p>
-          Applications, reviews, member approvals, and current-user state are
-          stored locally for beta testing on this device.
+          Federation access, applications, approvals, and member state sync
+          automatically from the signed-in YH account.
         </p>
-      </div>
-    </aside>
+      </div>    </aside>
 
     <main class="fed-main" id="fedMain">
             <header class="fed-topbar">
@@ -344,7 +343,7 @@
             <div class="fed-info-title" id="sectorInsightTitle">All strategic lanes</div>
             <p id="sectorInsightText">
               Select a sector to see how it contributes to the Federation, what kind of people fit,
-              and how much approved or pending density already exists in the current beta state.
+              and how much approved or pending density already exists across the current Federation network.
             </p>
           </div>
 
@@ -646,21 +645,14 @@
 
           <aside class="fed-session-side">
             <article class="fed-sidebar-card">
-              <div class="fed-sidebar-card-label">Resume Session</div>
-              <div class="fed-sidebar-card-title">Load by Email</div>
-              <form id="sessionLookupForm" class="fed-session-lookup" novalidate>
-                <div class="fed-input-wrap">
-                  <label for="sessionEmail">Email Address</label>
-                  <input id="sessionEmail" name="sessionEmail" type="email" placeholder="Enter your application email" />
-                </div>
-                <div class="fed-form-actions">
-                  <button type="submit" class="fed-btn fed-btn-secondary">Load My State</button>
-                  <button type="button" class="fed-btn fed-btn-secondary" id="clearSessionBtn">Clear Session</button>
-                </div>
-                <div class="fed-form-feedback" id="sessionFeedback" aria-live="polite"></div>
-              </form>
+              <div class="fed-sidebar-card-label">Account State</div>
+              <div class="fed-sidebar-card-title">Automatically Synced</div>
+              <p>
+                No manual session loading is required.
+                This panel follows the authenticated YH account
+                and refreshes from the Federation server state.
+              </p>
             </article>
-
           </aside>
                 </div>
             </section>
@@ -1857,7 +1849,7 @@
     </aside>
   </div>
 
-<script src="/js/federation.js?v=20260806-inline-network-retry-v1"></script>
+<script src="/js/federation.js?v=20260818-phase2d-b-control-responses-v1"></script>
 <script src="/js/yh-division-tutorials.js?v=20260806-embedded-ready-trigger-v4"></script>
 </body>
 </html>

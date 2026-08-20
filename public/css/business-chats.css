@@ -53,19 +53,13 @@ a {
 }
 
 /*
- * Mobile first-paint guard.
- * Do not expose the raw/native Business Chats form before
- * the custom mobile controls have been installed.
+ * Mobile Business Chats must remain visible even while
+ * enhanced controls are still initializing. Native controls
+ * provide the safe fallback instead of blanking the page.
  */
 @media (max-width: 720px) {
-  body[data-yh-view="business-chats"]:not([data-bc-ui-ready="true"]) .bc-shell,
-  body[data-yh-page="business-chats"]:not([data-bc-ui-ready="true"]) .bc-shell {
-    visibility: hidden;
-    pointer-events: none;
-  }
-
-  body[data-yh-view="business-chats"][data-bc-ui-ready="true"] .bc-shell,
-  body[data-yh-page="business-chats"][data-bc-ui-ready="true"] .bc-shell {
+  body[data-yh-view="business-chats"] .bc-shell,
+  body[data-yh-page="business-chats"] .bc-shell {
     visibility: visible;
     pointer-events: auto;
   }

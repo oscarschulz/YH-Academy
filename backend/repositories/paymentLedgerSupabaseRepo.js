@@ -751,6 +751,45 @@ async function listAdminPayoutRecords(limit = 300) {
         .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
 }
 
+async function getPayoutRecordById(
+    payoutId = ''
+) {
+    const cleanId =
+        cleanText(
+            payoutId
+        );
+
+    if (!cleanId) {
+        const error =
+            new Error(
+                'Missing payout id.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const row =
+        await getRow(
+            'payout',
+            cleanId
+        );
+
+    if (!row) {
+        const error =
+            new Error(
+                'Payout request not found.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    return mapPayoutRecordRow(
+        row
+    );
+}
+
 async function updatePayoutRecordStatus(payoutId = '', input = {}) {
     const cleanId = cleanText(payoutId);
 
@@ -766,9 +805,114 @@ async function updatePayoutRecordStatus(payoutId = '', input = {}) {
         throw error;
     }
 
-    const current = rowData(row);
-    const now = nowIso();
-    const status = normalizePayoutStatus(input.status || current.status || 'pending_review');
+    const current =
+        rowData(row);
+
+    const now =
+        nowIso();
+
+    const requestedStatus =
+        cleanLower(
+            input.status ||
+            current.status ||
+            'pending_review'
+        );
+
+    const validStatuses =
+        new Set([
+            'pending_review',
+            'approved',
+            'processing',
+            'paid',
+            'rejected',
+            'failed'
+        ]);
+
+    if (
+        !validStatuses.has(
+            requestedStatus
+        )
+    ) {
+        const error =
+            new Error(
+                'Invalid payout status.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const currentStatus =
+        normalizePayoutStatus(
+            current.status ||
+            'pending_review'
+        );
+
+    const status =
+        normalizePayoutStatus(
+            requestedStatus
+        );
+
+    /*
+     * Payout state machine.
+     *
+     * Prevent direct jumps such as:
+     * pending_review -> paid
+     *
+     * and terminal regressions such as:
+     * paid -> pending_review
+     */
+    const allowedTransitions = {
+        pending_review: [
+            'pending_review',
+            'approved',
+            'rejected'
+        ],
+
+        approved: [
+            'approved',
+            'processing',
+            'rejected'
+        ],
+
+        processing: [
+            'processing',
+            'paid',
+            'failed'
+        ],
+
+        failed: [
+            'failed',
+            'processing',
+            'rejected'
+        ],
+
+        paid: [
+            'paid'
+        ],
+
+        rejected: [
+            'rejected'
+        ]
+    };
+
+    if (
+        !(
+            allowedTransitions[
+                currentStatus
+            ] || []
+        ).includes(
+            status
+        )
+    ) {
+        const error =
+            new Error(
+                `Invalid payout transition: ${currentStatus} -> ${status}.`
+            );
+
+        error.statusCode = 409;
+        throw error;
+    }
 
     const patch = {
         ...input,
@@ -798,7 +942,20 @@ async function updatePayoutRecordStatus(payoutId = '', input = {}) {
             adminDisbursementUpdatedAt: now
         }
     };
+    if (
+        status === 'paid' &&
+        !cleanText(
+            patch.providerPaymentId
+        )
+    ) {
+        const error =
+            new Error(
+                'A payment reference is required before a payout can be marked paid.'
+            );
 
+        error.statusCode = 400;
+        throw error;
+    }
     if (status === 'approved') patch.approvedAt = current.approvedAt || now;
     if (status === 'processing') patch.processingAt = current.processingAt || now;
     if (status === 'paid') patch.paidAt = current.paidAt || now;
@@ -1022,6 +1179,7 @@ module.exports = {
     createPayoutRequest,
     listPayoutsForUser,
     listAdminPayoutRecords,
+    getPayoutRecordById,
     updatePayoutRecordStatus,
     maybeCreateUniverseReferralCommissionForPayment,
     mapPaymentRecordDoc,

@@ -711,17 +711,26 @@ exports.getBridge = async (req, res) => {
                     cursor
                 });
 
+        const publicBridge =
+            page.items.map(
+                (bridge) =>
+                    bridgeRequestsRepo
+                        .toPublicBridge(
+                            bridge
+                        )
+            );
+
         return res.json({
             success: true,
             source: 'supabase',
             bridge:
-                page.items,
+                publicBridge,
             paths:
-                page.items,
+                publicBridge,
             bridgePaths:
-                page.items,
+                publicBridge,
             bridgeCount:
-                page.items.length,
+                publicBridge.length,
             hasMore:
                 page.hasMore === true,
             nextCursor:
@@ -786,6 +795,12 @@ exports.createBridge = async (req, res) => {
 
         const bridge = result.bridge;
 
+        const publicBridge =
+            bridgeRequestsRepo
+                .toPublicBridge(
+                    bridge
+                );
+
         const published =
             [
                 'active',
@@ -824,9 +839,10 @@ exports.createBridge = async (req, res) => {
             published,
             pendingReview:
                 !published,
-            bridge,
+            bridge:
+                publicBridge,
             bridgePath:
-                bridge
+                publicBridge
         });
     } catch (error) {
         console.error('plazaBridgeRequestsSupabaseLite.createBridge error:', error);
@@ -878,13 +894,23 @@ exports.getRequests = async (req, res) => {
                         viewer.id
                 });
 
+        const viewerRequests =
+            page.items.map(
+                (request) =>
+                    bridgeRequestsRepo
+                        .toViewerRequest(
+                            request,
+                            viewer
+                        )
+            );
+
         return res.json({
             success: true,
             source: 'supabase',
             requests:
-                page.items,
+                viewerRequests,
             requestCount:
-                page.items.length,
+                viewerRequests.length,
             hasMore:
                 page.hasMore === true,
             nextCursor:
@@ -963,7 +989,11 @@ exports.createRequest = async (req, res) => {
             promoted:
                 result.promoted === true,
             request:
-                result.request
+                bridgeRequestsRepo
+                    .toViewerRequest(
+                        result.request,
+                        viewer
+                    )
         });
     } catch (error) {
         console.error(
@@ -1097,7 +1127,12 @@ exports.updateRequest = async (req, res) => {
         return res.json({
             success: true,
             source: 'supabase',
-            request
+            request:
+                bridgeRequestsRepo
+                    .toViewerRequest(
+                        request,
+                        viewer
+                    )
         });
     } catch (error) {
         console.error(
@@ -1317,7 +1352,12 @@ exports.advanceRequestStatus = async (req, res) => {
         return res.json({
             success: true,
             source: 'supabase',
-            request
+            request:
+                bridgeRequestsRepo
+                    .toViewerRequest(
+                        request,
+                        viewer
+                    )
         });
     } catch (error) {
         console.error(
@@ -1428,7 +1468,12 @@ exports.deleteRequest = async (req, res) => {
             source: 'supabase',
             deletedId:
                 requestId,
-            request
+            request:
+                bridgeRequestsRepo
+                    .toViewerRequest(
+                        request,
+                        viewer
+                    )
         });
     } catch (error) {
         console.error(

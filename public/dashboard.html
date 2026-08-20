@@ -8,10 +8,10 @@
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" href="/css/style.css?v=20260815-css-sync-v1">
-<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260815-css-sync-v1">
+<link rel="stylesheet" href="/css/style.css?v=20260820-business-chats-access-lock-v3">
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260817-phase2c-contacts-feed-voice-v1">
 <link rel="stylesheet" href="/css/yhu-game-system.css?v=20260815-css-sync-v1">
-<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260815-css-sync-v1">
+<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260820-phase2e-c2-3division-parent-padding-v1">
 <link rel="stylesheet" href="/css/yh-division-tutorials.css?v=20260815-css-sync-v1">
 
 <!-- PATCH: Dashboard state owner early paint v3 -->
@@ -50,8 +50,11 @@
 
   body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #yh-universe-academy-strip,
   body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="referral"] #yh-dashboard-referral-workspace,
-  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="settings"] #yh-dashboard-settings-workspace,
-  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="edit-profile"] #yh-dashboard-profile-editor-workspace {
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="my-contacts"] #yh-dashboard-my-contacts-workspace,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"] #yh-dashboard-messages-workspace,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="settings"] #yh-dashboard-settings-workspace,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="edit-profile"] #yh-dashboard-profile-editor-workspace,
+  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="profile"] #yh-dashboard-profile-view-workspace {
     display: block;
     visibility: visible;
     opacity: 1;
@@ -59,11 +62,13 @@
   }
 
   /*
-   * Universe Profile is an explicit overlay.
-   * It remains hidden until the Profile open
-   * controller adds yh-universe-profile-open.
+   * Universe Profile now belongs to the inline
+   * Dashboard Profile workspace. Keep it hidden
+   * only when Profile is not the active workspace
+   * or the view itself is explicitly closed.
    */
-  body[data-yh-view="hub"][data-yh-page="dashboard"]:not(.yh-universe-profile-open) #academy-profile-view,
+  body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="profile"]) #academy-profile-view,
+  body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view.hidden-step,
   body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view[aria-hidden="true"] {
     display: none !important;
     visibility: hidden !important;
@@ -266,6 +271,35 @@
             </button>
         </header>
 
+        <div
+            class="yh-mobile-dashboard-search"
+            id="yh-mobile-dashboard-search"
+        >
+            <form
+                class="yh-dashboard-profile-search yh-mobile-dashboard-search-form"
+                id="yh-dashboard-mobile-search-form"
+                autocomplete="off"
+                role="search"
+            >
+                <input
+                    type="search"
+                    id="yh-dashboard-mobile-search-input"
+                    class="yh-mobile-dashboard-search-input"
+                    placeholder="Search across YH Universe..."
+                    aria-label="Search YH Universe members"
+                    enterkeyhint="search"
+                >
+
+                <button
+                    type="submit"
+                    class="yh-mobile-dashboard-search-btn"
+                    id="yh-dashboard-mobile-search-btn"
+                >
+                    Search
+                </button>
+            </form>
+        </div>
+
         <nav class="yh-mobile-app-subtabs" id="yh-mobile-app-subtabs" aria-label="Section tabs">
             <div class="yh-mobile-subnav-group" data-yh-mobile-subnav-group="academy">
                 <button type="button" data-yh-mobile-subtab="academy-roadmap">Roadmap</button>
@@ -342,8 +376,24 @@
 
                 <div class="yh-mobile-command-grid">
                     <button type="button" data-yh-mobile-command-target="wallet">Wallet</button>
-                    <button type="button" data-yh-mobile-command-target="business-chats">Business Chats</button>
+            <button type="button" data-yh-mobile-command-target="messages">
+                <span>Messages</span>
+                <span
+                    class="yh-direct-message-nav-badge hidden-step"
+                    data-yh-direct-message-badge
+                >0</span>
+            </button>
+
+            <button
+                type="button"
+                data-yh-mobile-command-target="business-chats"
+                data-yh-business-chats-locked="true"
+                aria-disabled="true"
+                title="Business Chats unlock after Plazas approval."
+                disabled
+            >Business Chats</button>
                     <button type="button" data-yh-mobile-command-target="referral">Referral</button>
+                    <button type="button" data-yh-mobile-command-target="my-contacts">My Contacts</button>
                     <button type="button" data-yh-mobile-command-target="resources">Resources</button>
                     <button type="button" data-yh-mobile-command-target="settings">Settings</button>
                     <button type="button" data-yh-mobile-command-target="edit-profile">Edit Profile</button>
@@ -651,11 +701,38 @@
             </button>
 
             <button
+                class="btn-secondary yh-direct-messages-open-btn yh-sidebar-command-link yh-sidebar-primary-link"
+                id="btn-open-yh-messages"
+                type="button"
+                data-yh-dashboard-shell="messages"
+                aria-label="Direct Messages"
+            >
+                <span class="yh-sidebar-command-icon">
+                    <img
+                        src="/assets/academy/icons/academy-icon-messages.png"
+                        alt=""
+                        class="yh-sidebar-command-icon-img"
+                    >
+                </span>
+
+                <span>Messages</span>
+
+                <span
+                    class="yh-direct-message-nav-badge hidden-step"
+                    data-yh-direct-message-badge
+                >0</span>
+            </button>
+
+            <button
                 class="btn-secondary yh-business-chat-open-btn yh-sidebar-command-link yh-sidebar-primary-link"
                 id="btn-open-yh-business-chats"
                 type="button"
-            
-            data-yh-dashboard-shell="business-chats">
+                data-yh-dashboard-shell="business-chats"
+                data-yh-business-chats-locked="true"
+                aria-disabled="true"
+                title="Business Chats unlock after Plazas approval."
+                disabled
+            >
                 <span class="yh-sidebar-command-icon">
                     <img src="/assets/dashboard/business-chats.png" alt="" class="yh-sidebar-command-icon-img">
                 </span>
@@ -676,6 +753,17 @@
                     >
                 </span>
                 <span>Referral</span>
+            </button>
+
+            <button
+                type="button"
+                class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
+                id="btn-open-dashboard-my-contacts"
+                aria-label="My Contacts"
+                data-yh-dashboard-shell="my-contacts"
+            >
+                <span class="yh-sidebar-command-icon" aria-hidden="true">◎</span>
+                <span>My Contacts</span>
             </button>
 
             <div class="yh-resources-menu yh-sidebar-resources-menu" id="yh-resources-menu">
@@ -1120,6 +1208,234 @@
 </section>
 
 <section
+    id="yh-dashboard-my-contacts-workspace"
+    class="yh-dashboard-system-workspace hidden-step"
+    aria-label="My Contacts workspace"
+    aria-hidden="true">
+    <div id="yh-dashboard-my-contacts-workspace-content" class="yh-dashboard-system-workspace-content"></div>
+</section>
+
+<section
+    id="yh-dashboard-messages-workspace"
+    class="yh-dashboard-system-workspace hidden-step"
+    aria-label="Direct Messages workspace"
+    aria-hidden="true"
+    data-yh-dm-thread-open="false"
+>
+    <div class="yh-dashboard-system-workspace-content">
+
+        <section
+            class="yh-dashboard-dm-shell"
+            aria-label="YH Direct Messages"
+        >
+
+            <header class="yh-dashboard-dm-head">
+                <div>
+                    <small>YH DIRECT MESSAGES</small>
+                    <h2>Messages</h2>
+                    <p>
+                        Private one-to-one conversations
+                        with YH Universe members.
+                    </p>
+                </div>
+
+                <span
+                    class="yh-dashboard-dm-unread-summary"
+                    id="yh-dashboard-dm-unread-summary"
+                >
+                    0 unread
+                </span>
+            </header>
+
+            <div class="yh-dashboard-dm-layout">
+
+                <aside
+                    class="yh-dashboard-dm-inbox"
+                    id="yh-dashboard-dm-inbox"
+                >
+                    <form
+                        class="yh-dashboard-dm-search"
+                        id="yh-dashboard-dm-search-form"
+                        role="search"
+                    >
+                        <input
+                            type="search"
+                            id="yh-dashboard-dm-search-input"
+                            placeholder="Search conversations..."
+                            aria-label="Search conversations"
+                            autocomplete="off"
+                        >
+                    </form>
+
+                    <div
+                        class="yh-dashboard-dm-status"
+                        id="yh-dashboard-dm-status"
+                    >
+                        Loading conversations...
+                    </div>
+
+                    <div
+                        class="yh-dashboard-dm-room-list"
+                        id="yh-dashboard-dm-room-list"
+                    ></div>
+                </aside>
+
+                <section
+                    class="yh-dashboard-dm-thread"
+                    id="yh-dashboard-dm-thread"
+                    aria-label="Active direct message"
+                >
+                <div
+                    class="yh-dashboard-dm-empty"
+                    id="yh-dashboard-dm-empty"
+                >
+                        <strong>Select a conversation</strong>
+
+                        <span>
+                            Open a member profile and tap
+                            Message, or choose an existing
+                            conversation.
+                        </span>
+                    </div>
+
+                    <div
+                        class="yh-dashboard-dm-active hidden-step"
+                        id="yh-dashboard-dm-active"
+                        aria-hidden="true"
+                    >
+
+            <header class="yh-dashboard-dm-thread-head">
+
+                <button
+                    type="button"
+                    class="btn-secondary yh-dashboard-dm-mobile-back"
+                    id="yh-dashboard-dm-mobile-back"
+                    aria-label="Back to Messages inbox"
+                >
+                    ←
+                </button>
+
+                <div class="yh-dashboard-dm-thread-person">
+
+                                <div
+                                    class="yh-dashboard-dm-thread-avatar"
+                                    id="yh-dashboard-dm-thread-avatar"
+                                >
+                                    Y
+                                </div>
+
+                                <div>
+                                    <strong id="yh-dashboard-dm-thread-name">
+                                        YH Member
+                                    </strong>
+
+                                    <span id="yh-dashboard-dm-thread-username">
+                                        Direct message
+                                    </span>
+                                </div>
+
+                            </div>
+
+                            <div class="yh-dashboard-dm-thread-actions">
+
+                                <button
+                                    type="button"
+                                    class="btn-secondary yh-dashboard-dm-view-profile-btn"
+                                    id="yh-dashboard-dm-view-profile"
+                                >
+                                    View Profile
+                                </button>
+
+                                <div class="yh-dashboard-dm-thread-more">
+
+                                    <button
+                                        type="button"
+                                        class="yh-dashboard-dm-more-toggle"
+                                        id="yh-dashboard-dm-more-toggle"
+                                        aria-label="Conversation options"
+                                        aria-haspopup="menu"
+                                        aria-expanded="false"
+                                    >
+                                        <span aria-hidden="true">•••</span>
+                                    </button>
+
+                                    <div
+                                        class="yh-dashboard-dm-actions-menu"
+                                        id="yh-dashboard-dm-actions-menu"
+                                        role="menu"
+                                        hidden
+                                    >
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            class="is-danger"
+                                            data-yh-dm-thread-action="delete"
+                                        >
+                                            Delete conversation
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            class="is-danger"
+                                            data-yh-dm-thread-action="block"
+                                        >
+                                            Block user
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            data-yh-dm-thread-action="restrict"
+                                        >
+                                            Restrict user
+                                        </button>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </header>
+
+                        <div
+                            class="yh-dashboard-dm-message-list"
+                            id="yh-dashboard-dm-message-list"
+                        ></div>
+
+                        <form
+                            class="yh-dashboard-dm-composer"
+                            id="yh-dashboard-dm-composer"
+                        >
+                            <textarea
+                                id="yh-dashboard-dm-input"
+                                rows="1"
+                                maxlength="1600"
+                                placeholder="Write a message..."
+                                aria-label="Write a direct message"
+                            ></textarea>
+
+                            <button
+                                type="submit"
+                                class="btn-primary"
+                                id="yh-dashboard-dm-send"
+                            >
+                                Send
+                            </button>
+                        </form>
+
+                    </div>
+
+                </section>
+
+            </div>
+
+        </section>
+
+    </div>
+</section>
+
+<section
     id="yh-dashboard-settings-workspace"
     class="yh-dashboard-system-workspace hidden-step"
     aria-label="Settings workspace"
@@ -1133,6 +1449,17 @@
     aria-label="Edit Profile workspace"
     aria-hidden="true">
     <div id="yh-dashboard-profile-editor-workspace-content" class="yh-dashboard-system-workspace-content"></div>
+</section>
+
+<section
+    id="yh-dashboard-profile-view-workspace"
+    class="yh-dashboard-system-workspace hidden-step"
+    aria-label="YH Universe Profile"
+    aria-hidden="true">
+    <div
+        id="yh-dashboard-profile-view-workspace-content"
+        class="yh-dashboard-system-workspace-content"
+    ></div>
 </section>
 
 <div class="yh-universe-stage-nav yh-academy-parent-shell yh-academy-parent-vision-scope hidden-step" aria-hidden="true">
@@ -2000,7 +2327,7 @@
                         <option value="academy">Yes, in The Academy</option>
                         <option value="federation">Yes, in The Federation</option>
                         <option value="direct_strategic">Not in Academy yet — apply as a high-value strategic person</option>
-                        <option value="not_yet">Not yet, am just looking around</option>
+                        <option value="not_yet">Not in Academy or Federation yet — apply for general YH review</option>
                     </select>
                 </label>
                 <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
@@ -2331,10 +2658,16 @@
                 type="button"
                 class="btn-secondary yh-dashboard-profile-close"
                 id="academy-profile-dashboard-close"
-                aria-label="Close YH Universe profile"
+                aria-label="Back from YH Universe profile"
             >
-                ✕
+                ← Back
             </button>
+
+            <div
+                class="yh-profile-header-action-group"
+                id="yh-profile-header-action-group"
+                aria-label="Member actions"
+            ></div>
         </div>
     </header>
 
@@ -2584,8 +2917,8 @@
 <div
     id="yh-dashboard-my-contacts-modal"
     class="yh-dashboard-profile-modal hidden-step"
-    role="dialog"
-    aria-modal="true"
+    role="region"
+    aria-modal="false"
     aria-hidden="true"
     aria-labelledby="yh-dashboard-my-contacts-title"
 >
@@ -2608,11 +2941,18 @@
 
             <button
                 type="button"
-                class="yh-dashboard-profile-modal-close"
+                class="yh-dashboard-profile-modal-close yh-dashboard-my-contacts-close-btn"
                 id="yh-dashboard-my-contacts-close"
-                aria-label="Close My Contacts"
+                aria-label="Back to Dashboard"
+                title="Back to Dashboard"
             >
-                ✕
+                <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                >
+                    <path d="M6 6L18 18M18 6L6 18"></path>
+                </svg>
             </button>
         </div>
 
@@ -2836,7 +3176,7 @@
                 class="btn-secondary"
                 id="yh-dashboard-my-contacts-close-footer"
             >
-                Close
+                Back to Dashboard
             </button>
         </div>
     </div>
@@ -4037,7 +4377,7 @@
 <script src="/js/yh-shared-runtime.js?v=20260721-phase3c5a-lifecycle-v1"></script>
 
 
-<script src="/js/dashboard.js?v=20260810-edit-profile-scroll-nav-v1"></script>
+<script src="/js/dashboard.js?v=20260820-phase2e-c1-3division-child-edge-lock-v1"></script>
 <script src="/js/yh-division-tutorials.js?v=20260809-wallet-tutorial-v1"></script>
 
 <script src="/js/yhu-game-core.js?v=20260806-access-gated-game-data-v1"></script>

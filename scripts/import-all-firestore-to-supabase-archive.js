@@ -50,7 +50,6 @@ const DEFAULT_FIRESTORE_ROOT_COLLECTIONS = [
   'academyUserFollows',
   'userFollows',
   'chatRooms',
-  'vaultItems',
   'liveRooms',
   'notifications',
   'yhPaymentLedger',

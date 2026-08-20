@@ -68,100 +68,133 @@ const yhTText = (text, options = {}) => (
     typeof window.yhTText === 'function' ? window.yhTText(text, options) : text
 );
 
-function showToast(message, type = "success") {
-    const toast = document.getElementById('toast-notification');
-    const toastMsg = document.getElementById('toast-message');
-    const toastIcon = document.getElementById('toast-icon');
+function showToast(
+    message,
+    type = 'success'
+) {
+    const toast =
+        document.getElementById(
+            'toast-notification'
+        );
 
-    if (!toast || !toastMsg || !toastIcon) return;
+    const toastMsg =
+        document.getElementById(
+            'toast-message'
+        );
 
-    const isError = String(type || '').toLowerCase() === 'error';
+    const toastIcon =
+        document.getElementById(
+            'toast-icon'
+        );
 
-    toast.classList.toggle('error-toast', isError);
-    toast.classList.toggle('success-toast', !isError);
+    if (
+        !toast ||
+        !toastMsg ||
+        !toastIcon
+    ) {
+        return;
+    }
 
-    toastMsg.textContent = yhTText(message);
-    toastIcon.textContent = isError ? '⚠️' : '✓';
+    const cleanType =
+        String(
+            type ||
+            'success'
+        )
+            .trim()
+            .toLowerCase();
 
-    Object.assign(toast.style, {
-        position: 'fixed',
-        left: '50%',
-        right: 'auto',
-        top: '50%',
-        bottom: 'auto',
-        zIndex: '2147483600',
-        width: 'max-content',
-        inlineSize: 'max-content',
-        maxWidth: 'min(calc(100vw - 32px), 360px)',
-        minWidth: '0',
-        padding: '7px 11px',
-        borderRadius: '999px',
-        fontSize: '0.82rem',
-        lineHeight: '1.15',
-        textAlign: 'center',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '7px',
-        boxSizing: 'border-box',
-        whiteSpace: 'nowrap',
-        wordBreak: 'normal',
-        overflowWrap: 'normal',
-        overflow: 'hidden',
-        pointerEvents: 'auto',
-        visibility: 'visible',
-        opacity: '0',
-        transform: 'translate(-50%, -50%) scale(0.96)'
-    });
+    const isError =
+        cleanType ===
+        'error';
 
-    Object.assign(toastMsg.style, {
-        display: 'inline-block',
-        width: 'auto',
-        minWidth: '0',
-        maxWidth: 'min(calc(100vw - 74px), 290px)',
-        lineHeight: '1.15',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        overflowWrap: 'normal',
-        wordBreak: 'normal',
-        textOverflow: 'ellipsis',
-        textAlign: 'center'
-    });
+    const isWarning =
+        cleanType ===
+        'warning';
 
-    Object.assign(toastIcon.style, {
-        display: 'inline-grid',
-        placeItems: 'center',
-        width: '14px',
-        minWidth: '14px',
-        maxWidth: '14px',
-        height: '14px',
-        lineHeight: '1',
-        flex: '0 0 14px',
-        fontSize: '0.8rem'
-    });
+    const isSuccess =
+        !isError &&
+        !isWarning;
 
-    toast.classList.remove('show');
+
+    /*
+     * CSS owns layout and positioning.
+     * JS owns only content and state.
+     */
+    toast.removeAttribute(
+        'style'
+    );
+
+    toastMsg.removeAttribute(
+        'style'
+    );
+
+    toastIcon.removeAttribute(
+        'style'
+    );
+
+
+    toast.classList.toggle(
+        'error-toast',
+        isError
+    );
+
+    toast.classList.toggle(
+        'warning-toast',
+        isWarning
+    );
+
+    toast.classList.toggle(
+        'success-toast',
+        isSuccess
+    );
+
+
+    toastMsg.textContent =
+        yhTText(
+            String(
+                message ||
+                'Notification'
+            )
+        );
+
+
+    toastIcon.textContent =
+        (
+            isError ||
+            isWarning
+        )
+            ? '⚠'
+            : '✓';
+
+
+    /*
+     * Restart animation cleanly.
+     */
+    toast.classList.remove(
+        'show'
+    );
+
     void toast.offsetWidth;
 
-    toast.classList.add('show');
-    requestAnimationFrame(() => {
-        toast.style.opacity = '1';
-        toast.style.transform = 'translate(-50%, -50%) scale(1)';
-    });
+    toast.classList.add(
+        'show'
+    );
 
-    clearTimeout(window.__yhToastTimer);
-    window.__yhToastTimer = setTimeout(() => {
-        toast.classList.remove('show');
-        toast.style.opacity = '0';
-        toast.style.transform = 'translate(-50%, -50%) scale(0.96)';
-        toast.style.pointerEvents = 'none';
 
-        window.setTimeout(() => {
-            if (!toast.classList.contains('show')) {
-                toast.style.visibility = 'hidden';
-            }
-        }, 240);
-    }, 3000);
+    clearTimeout(
+        window.__yhToastTimer
+    );
+
+
+    window.__yhToastTimer =
+        window.setTimeout(
+            () => {
+                toast.classList.remove(
+                    'show'
+                );
+            },
+            3200
+        );
 }
 const YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY = 'yh_post_login_dashboard_bootstrap_v1';
 const YH_UNIVERSE_REFERRAL_CODE_KEY = 'yh_universe_referral_code_v1';
@@ -3169,7 +3202,7 @@ async function handleLoginSubmit() {
 
             setTimeout(() => {
                 window.location.href = '/dashboard';
-            }, 250);
+            }, 900);
 
             return;
         }
@@ -3725,7 +3758,7 @@ if (formRegisterSimple) {
 
                     setTimeout(() => {
                         window.location.assign(`/dashboard?auth=${Date.now()}`);
-                    }, 450);
+                    }, 900);
                 } else if (result.otpExpired) {
                     showToast(result.message || "Verification code expired. Please request a new code.", "error");
                     setOTPExpiredState(result.message || 'Verification code expired. Please request a new code.');

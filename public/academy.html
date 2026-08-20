@@ -7,9 +7,9 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260815-css-sync-v1">
-<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260815-css-sync-v1">
-<link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260815-css-sync-v1">
+<link rel="stylesheet" href="/css/style.css?v=20260820-community-feed-mobile-space-v1">
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260817-phase2c-contacts-feed-voice-v1">
+<link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260817-phase2c-voice-scroll-v2">
 <link rel="stylesheet" href="/css/yh-division-tutorials.css?v=20260815-css-sync-v1">
 </head>
 <body data-yh-view="academy" data-yh-page="academy" class="academy-startup-booting academy-standalone-shell-pending">
@@ -1567,23 +1567,6 @@
             </div>
             </main>
 
-            <main class="yh-main-chat hide-scrollbar hidden-step fade-in vault-main" id="vault-view">
-                <header class="chat-header"><div class="header-left"><span class="hash-big">🗄️</span><h3>The Vault</h3><div class="header-divider"></div><p class="header-topic">Your personal library of shared files, media, and links.</p></div></header>
-                <div class="vault-container hide-scrollbar">
-                    <div class="vault-filters">
-                        <div class="flex-row gap-10">
-                            <button class="vault-filter active">All</button><button class="vault-filter">📄 Docs</button><button class="vault-filter">🖼️ Media</button>
-                        </div>
-                        <div class="flex-row gap-10">
-                            <button class="btn-secondary vault-btn-action" id="btn-open-folder-modal">+ Folder</button>
-                            <button class="btn-primary vault-btn-action" id="btn-vault-upload-trigger">+ Upload</button>
-                            <input type="file" id="vault-file-input" style="display: none;">
-                        </div>
-                    </div>
-                    <div class="vault-grid" id="vault-dynamic-grid"></div>
-                </div>
-            </main>
-
             <main class="yh-main-chat hide-scrollbar hidden-step announcements-main" id="announcements-view">
                 <header class="chat-header"><div class="header-left"><span class="hash-big">📢</span><h3>announcements</h3><div class="header-divider"></div><p class="header-topic">HQ Bulletins and Community Polls</p></div></header>
                 <div class="chat-messages hide-scrollbar"><div id="dynamic-announcements-history"><div class="announcement-empty">No new announcements from HQ.</div></div></div>
@@ -1843,7 +1826,16 @@
 </main>
 
             <main class="yh-main-chat hide-scrollbar hidden-step stage-main" id="center-stage-view">
-                <header class="chat-header"><div class="header-left"><span class="hash-big" id="stage-icon">🎙️</span><h3 id="stage-title">Live Call</h3><div class="header-divider"></div><p class="header-topic">Live Call Stage</p></div></header>
+                <header class="chat-header academy-live-stage-header">
+                    <div class="header-left academy-live-stage-header-left">
+                        <span class="hash-big academy-live-stage-header-icon" id="stage-icon">🎙️</span>
+
+                        <div class="academy-live-stage-heading">
+                            <h3 id="stage-title">Live Call</h3>
+                            <p class="header-topic" id="stage-topic">Live Call Stage</p>
+                        </div>
+                    </div>
+                </header>
 
                 <div class="stage-controls-bar stage-controls-bar-top">
                     <button class="control-btn toggle-btn" id="btn-toggle-mic" title="Toggle Mic">🎤</button>
@@ -2344,7 +2336,6 @@
         </div>
     </div>
 
-    <div id="task-confirm-modal" class="modal-overlay hidden-step fade-in"><div class="modal-card modal-center"><div class="modal-body"><h3 class="modal-title-text">Complete Task?</h3><div class="flex-row gap-10"><button class="btn-secondary flex-1" id="btn-cancel-task">No</button><button class="btn-primary flex-1 btn-success-action" id="btn-confirm-task">Yes</button></div></div></div></div>
     <div id="mission-modal" class="modal-overlay hidden-step fade-in"><div class="modal-card"><div class="modal-header"><h3>🎯 Set a New Goal</h3><span id="close-mission-modal" class="close-btn" title="Close">✖</span></div><div class="modal-body"><input type="text" id="mission-title-input" placeholder="What's your next task?" class="input-field-compact"></div><div class="modal-footer"><button class="btn-primary w-full" id="btn-save-mission">Lock in Mission</button></div></div></div>
 
 <div id="academy-checkin-modal" class="modal-overlay hidden-step fade-in">
@@ -2727,50 +2718,6 @@
     </div>
 </div>
 
-<div
-    id="mini-profile-modal"
-    class="modal-overlay hidden-step fade-in"
-    onclick="if(event.target===this)this.classList.add('hidden-step')"
->
-    <div class="modal-card" style="max-width: 460px; width: calc(100% - 32px);">
-        <div class="modal-header">
-            <h3>👤 Profile</h3>
-            <span
-                class="close-btn"
-                title="Close"
-                onclick="document.getElementById('mini-profile-modal').classList.add('hidden-step')"
-            >✖</span>
-        </div>
-
-        <div class="modal-body" style="text-align:center;">
-            <div
-                id="mp-avatar"
-                class="member-avatar"
-                style="width:72px; height:72px; margin:0 auto 14px auto; font-size:1.35rem; display:flex; align-items:center; justify-content:center; background:var(--neon-blue);"
-            >Y</div>
-
-            <div id="mp-name" style="font-size:1.15rem; font-weight:700; color:#fff; margin-bottom:8px;">User</div>
-            <div id="mp-role" style="margin-bottom:16px;"></div>
-
-            <div class="profile-stats" style="display:flex; justify-content:center; gap:12px; margin-bottom:18px; flex-wrap:wrap;">
-                <div style="min-width:110px; padding:12px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);">
-                    <div style="font-size:0.72rem; color:var(--text-muted);">Followers</div>
-                    <div id="mp-followers" style="font-size:1rem; font-weight:700; color:#fff;">0</div>
-                </div>
-                <div style="min-width:110px; padding:12px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);">
-                    <div style="font-size:0.72rem; color:var(--text-muted);">REP</div>
-                    <div id="mp-rep" style="font-size:1rem; font-weight:700; color:#fff;">0</div>
-                </div>
-            </div>
-
-        <div id="mp-action-row" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-            <button id="btn-mp-browse-hustlers" class="btn-primary academy-mini-profile-browse-btn" type="button">
-                Check out on other Hustlers
-            </button>
-        </div>
-        </div>
-    </div>
-</div>
 <div id="academy-feed-share-modal" class="modal-overlay academy-feed-share-modal hidden-step fade-in">
     <div class="modal-content hide-scrollbar academy-feed-share-modal-content">
         <button type="button" id="academy-feed-share-close" class="academy-feed-share-close">✕</button>
@@ -3016,7 +2963,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260627-yh-live-cache-v4"></script>
 <script src="/js/yh-shared-runtime.js?v=20260721-phase3c5a-lifecycle-v1"></script>
-<script src="/js/academy.js?v=20260809-roadmap-focus-change-v1"></script>
+<script src="/js/academy.js?v=20260820-phase2e-b2a-voice-ownership-v1"></script>
 <script src="/js/yh-division-tutorials.js?v=20260809-tutorial-cache-fix-v1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"

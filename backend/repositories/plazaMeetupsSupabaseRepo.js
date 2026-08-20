@@ -469,12 +469,6 @@ function toPublicMeetup(
                 meetup.createdAt
             ),
 
-        version:
-            toIso(
-                meetup.version ||
-                meetup.updatedAt
-            ),
-
         updatedAt:
             toIso(
                 meetup.updatedAt

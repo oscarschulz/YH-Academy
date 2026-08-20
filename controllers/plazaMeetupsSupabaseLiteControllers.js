@@ -115,15 +115,6 @@ function toViewerMeetup(
     };
 }
 
-function getExpectedMeetupVersion(
-    req = {}
-) {
-    return sanitizeText(
-        req.body?.expectedVersion ||
-        req.body?.expectedUpdatedAt
-    );
-}
-
 function buildMeetupPayloadFromRequest(
     req = {},
     viewer = {}
@@ -480,18 +471,16 @@ exports.updateMeetup = async (
             });
         }
 
+        /*
+         * Concurrency token is server-owned.
+         * The client does not decide which Meetup
+         * version may be written.
+         */
         const expectedUpdatedAt =
-            getExpectedMeetupVersion(
-                req
+            sanitizeText(
+                currentMeetup.version ||
+                currentMeetup.updatedAt
             );
-
-        if (!expectedUpdatedAt) {
-            return res.status(428).json({
-                success: false,
-                message:
-                    'Meetup version is required. Reload and retry.'
-            });
-        }
 
         const requestedRegionId =
             sanitizeText(
@@ -730,18 +719,15 @@ exports.deleteMeetup = async (
             });
         }
 
+        /*
+         * Use the version of the Meetup that was
+         * loaded and ownership-checked on the server.
+         */
         const expectedUpdatedAt =
             sanitizeText(
-                req.body?.expectedUpdatedAt
+                currentMeetup.version ||
+                currentMeetup.updatedAt
             );
-
-        if (!expectedUpdatedAt) {
-            return res.status(428).json({
-                success: false,
-                message:
-                    'Meetup version is required. Reload and retry.'
-            });
-        }
 
         await meetupsRepo
             .softDeleteMeetup(

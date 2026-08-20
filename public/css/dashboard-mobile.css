@@ -1378,6 +1378,265 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         pointer-events: auto !important;
     }
 
+    /* ========================================================= */
+    /* MOBILE DASHBOARD UNIVERSE SEARCH v1                      */
+    /* ========================================================= */
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-mobile-dashboard-search {
+        display: none !important;
+        position: fixed !important;
+        top:
+            calc(
+                56px +
+                max(
+                    8px,
+                    env(safe-area-inset-top, 0px)
+                )
+            ) !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 245 !important;
+
+        padding:
+            8px
+            max(
+                10px,
+                env(safe-area-inset-right, 0px)
+            )
+            8px
+            max(
+                10px,
+                env(safe-area-inset-left, 0px)
+            ) !important;
+
+        border-bottom:
+            1px solid
+            rgba(147, 197, 253, 0.12) !important;
+
+        background:
+            linear-gradient(
+                180deg,
+                rgba(2, 6, 23, 0.96),
+                rgba(2, 6, 23, 0.9)
+            ) !important;
+
+        backdrop-filter:
+            blur(14px)
+            saturate(1.04) !important;
+
+        -webkit-backdrop-filter:
+            blur(14px)
+            saturate(1.04) !important;
+
+        pointer-events: auto !important;
+    }
+
+    /*
+     * Search belongs to the main Dashboard overview.
+     * Division child workspaces keep their existing
+     * compact mobile header.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"]
+        .yh-mobile-dashboard-search {
+        display: block !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-mobile-dashboard-search-form {
+        position: relative !important;
+        z-index: 246 !important;
+
+        width: 100% !important;
+        max-width: none !important;
+        min-width: 0 !important;
+
+        display: grid !important;
+        grid-template-columns:
+            minmax(0, 1fr)
+            68px !important;
+
+        align-items: center !important;
+        gap: 8px !important;
+
+        margin: 0 !important;
+        overflow: visible !important;
+
+        pointer-events: auto !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-mobile-dashboard-search-input {
+        width: 100% !important;
+        min-width: 0 !important;
+
+        height: 42px !important;
+        min-height: 42px !important;
+
+        margin: 0 !important;
+        padding: 0 14px !important;
+
+        border:
+            1px solid
+            rgba(103, 232, 249, 0.24) !important;
+
+        border-radius: 14px !important;
+
+        outline: none !important;
+
+        background:
+            rgba(
+                7,
+                16,
+                31,
+                0.9
+            ) !important;
+
+        color: #f8fbff !important;
+
+        font-size: 0.86rem !important;
+        line-height: 1 !important;
+
+        appearance: none !important;
+        -webkit-appearance: none !important;
+
+        pointer-events: auto !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-mobile-dashboard-search-input:focus {
+        border-color:
+            rgba(
+                56,
+                189,
+                248,
+                0.72
+            ) !important;
+
+        box-shadow:
+            0 0 0 3px
+            rgba(
+                56,
+                189,
+                248,
+                0.1
+            ) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-mobile-dashboard-search-btn {
+        width: 68px !important;
+        min-width: 68px !important;
+        max-width: 68px !important;
+
+        height: 42px !important;
+        min-height: 42px !important;
+
+        margin: 0 !important;
+        padding: 0 8px !important;
+
+        border:
+            1px solid
+            rgba(
+                56,
+                189,
+                248,
+                0.46
+            ) !important;
+
+        border-radius: 14px !important;
+
+        background:
+            rgba(
+                14,
+                165,
+                233,
+                0.16
+            ) !important;
+
+        color: #dff7ff !important;
+
+        font-size: 0.76rem !important;
+        font-weight: 800 !important;
+
+        cursor: pointer !important;
+        pointer-events: auto !important;
+
+        -webkit-tap-highlight-color:
+            transparent !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-mobile-dashboard-search-btn.is-searching {
+        padding-left: 3px !important;
+        padding-right: 3px !important;
+        font-size: 0.56rem !important;
+        letter-spacing: -0.02em !important;
+        white-space: nowrap !important;
+    }
+
+    /*
+     * Search results stay anchored to the mobile
+     * search field and own their vertical scrolling.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-mobile-dashboard-search-form
+        .yh-dashboard-search-dropdown {
+        top: calc(100% + 7px) !important;
+        left: 0 !important;
+        right: 0 !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+
+        max-height:
+            min(
+                58dvh,
+                500px
+            ) !important;
+
+        z-index: 7000 !important;
+
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-mobile-dashboard-search-form
+        .yh-dashboard-search-dropdown-shell {
+        max-height:
+            min(
+                58dvh,
+                500px
+            ) !important;
+
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-mobile-dashboard-search-form
+        .yh-dashboard-search-dropdown-list {
+        max-height:
+            min(
+                48dvh,
+                410px
+            ) !important;
+
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+
+        -webkit-overflow-scrolling:
+            touch !important;
+
+        overscroll-behavior:
+            contain !important;
+
+        touch-action:
+            pan-y !important;
+    }
+
+    /* END MOBILE DASHBOARD UNIVERSE SEARCH v1 */
+
     body[data-yh-view="hub"][data-yh-page="dashboard"]
         .yh-mobile-app-profile {
         width: 42px !important;
@@ -1652,115 +1911,176 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         text-overflow: ellipsis !important;
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"].yh-universe-profile-open {
-        overflow: hidden !important;
-    }
-
     body[data-yh-view="hub"][data-yh-page="dashboard"]
         #academy-profile-view.yh-dashboard-universe-profile-host {
-        position: fixed !important;
-        inset: 0 !important;
-        z-index: 1800 !important;
-        width: 100vw !important;
-        min-width: 0 !important;
-        max-width: none !important;
-        height: 100vh !important;
-        min-height: 100vh !important;
-        height: 100dvh !important;
-        min-height: 100dvh !important;
-        margin: 0 !important;
-        padding:
-            max(8px, env(safe-area-inset-top, 0px))
-            max(8px, env(safe-area-inset-right, 0px))
-            max(8px, env(safe-area-inset-bottom, 0px))
-            max(8px, env(safe-area-inset-left, 0px)) !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: stretch !important;
-        overflow: hidden !important;
-        isolation: isolate !important;
-        overscroll-behavior: contain !important;
-        background:
-            radial-gradient(
-                circle at 14% 0%,
-                rgba(56, 189, 248, 0.16),
-                transparent 34%
-            ),
-            linear-gradient(
-                180deg,
-                rgba(2, 6, 23, 0.97),
-                rgba(2, 8, 23, 0.985)
-            ) !important;
-        backdrop-filter: blur(18px) saturate(1.08) !important;
-        -webkit-backdrop-filter: blur(18px) saturate(1.08) !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-universe-profile-header {
-        position: absolute !important;
-        top: 8px !important;
-        right: max(8px, env(safe-area-inset-right, 0px)) !important;
-        z-index: 40 !important;
-        width: 34px !important;
-        height: 34px !important;
-        min-height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        display: block !important;
-        border: 0 !important;
-        border-radius: 0 !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        overflow: visible !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-header-right {
-        position: static !important;
-        z-index: 41 !important;
-        width: 34px !important;
-        height: 34px !important;
-        display: block !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-profile-close {
         position: relative !important;
-        z-index: 33 !important;
-        width: 34px !important;
-        min-width: 34px !important;
-        max-width: 34px !important;
-        height: 34px !important;
-        min-height: 34px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        display: inline-grid !important;
-        place-items: center !important;
-        border-radius: 999px !important;
-        font-size: 0.92rem !important;
-        font-weight: 800 !important;
-        line-height: 1 !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-    }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-universe-profile-scroll {
-        flex: 1 1 auto !important;
+        inset: auto !important;
+
+        z-index: auto !important;
+
         width: 100% !important;
         min-width: 0 !important;
         max-width: 100% !important;
+
+        height: auto !important;
         min-height: 0 !important;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-        overscroll-behavior: contain !important;
-        -webkit-overflow-scrolling: touch !important;
-        scrollbar-width: none !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        display: block !important;
+
+        overflow: visible !important;
+
+        background: transparent !important;
+
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-dashboard-universe-profile-header {
+        position: relative !important;
+
+        top: auto !important;
+        right: auto !important;
+
+        z-index: auto !important;
+
+        width: 100% !important;
+        height: auto !important;
+        min-height: 42px !important;
+
+        margin: 0 0 10px !important;
+        padding: 0 !important;
+
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .academy-profile-header-right {
+        position: static !important;
+
+        width: 100% !important;
+        height: auto !important;
+
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+    }
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-profile-header-action-group {
+    margin-left: auto !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+
+    gap: 6px !important;
+
+    min-width: 0 !important;
+}
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-dashboard-profile-close {
+        position: relative !important;
+
+        width: auto !important;
+        min-width: 88px !important;
+        max-width: none !important;
+
+        height: 40px !important;
+        min-height: 40px !important;
+
+        margin: 0 !important;
+        padding: 0 13px !important;
+
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+
+        border-radius: 12px !important;
+
+        font-size: 0.78rem !important;
+        font-weight: 800 !important;
+
+        white-space: nowrap !important;
+    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+    #academy-profile-view[data-profile-layout="visited"]
+    .yh-profile-header-action-group
+    #academy-profile-primary-action.yh-profile-header-follow-action,
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+    #academy-profile-view[data-profile-layout="visited"]
+    .yh-profile-header-action-group
+    #academy-profile-tertiary-action.yh-profile-header-message-action {
+    width: 92px !important;
+    min-width: 92px !important;
+    max-width: 92px !important;
+
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+
+    margin: 0 !important;
+    padding: 0 8px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    flex: 0 0 92px !important;
+    order: 0 !important;
+
+    border-radius: 12px !important;
+
+    font-size: 0.7rem !important;
+    font-weight: 850 !important;
+    line-height: 1 !important;
+
+    white-space: nowrap !important;
+}
+
+    /*
+     * The visited Profile's real Follow button
+     * now lives in the header on mobile.
+     * Friend / Message are intentionally hidden
+     * by the existing visited-profile behavior.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        #academy-profile-view[data-profile-layout="visited"]
+        .academy-profile-hero-actions {
+        display: none !important;
+        margin: 0 !important;
+    }
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-dashboard-universe-profile-scroll {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+
+        height: auto !important;
+        min-height: 0 !important;
+
+        overflow: visible !important;
+
+        overscroll-behavior: auto !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-shell {
         width: min(100%, 300px) !important;
         max-width: calc(100vw - 36px) !important;
         margin: 0 auto !important;
-        padding: 0 0 calc(108px + env(safe-area-inset-bottom, 0px)) !important;
+        padding: 0 0 calc(18px + env(safe-area-inset-bottom, 0px)) !important;
         display: grid !important;
         gap: 12px !important;
         overflow: visible !important;
@@ -1947,7 +2267,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         width: min(100%, 320px) !important;
         max-width: calc(100vw - 32px) !important;
         margin: 0 auto !important;
-        padding: 0 0 calc(108px + env(safe-area-inset-bottom, 0px)) !important;
+        padding: 0 0 calc(18px + env(safe-area-inset-bottom, 0px)) !important;
         display: grid !important;
         gap: 13px !important;
         overflow: visible !important;
@@ -2982,11 +3302,87 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         overflow: visible !important;
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="academy"]) #universe-hub-view,
-    body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="academy"]) .universe-hub-view {
-        padding: calc(70px + max(8px, env(safe-area-inset-top, 0px))) 12px calc(104px + env(safe-area-inset-bottom, 0px)) !important;
+    /*
+     * PHASE 2E-C2:
+     * Generic Dashboard workspaces may reserve mobile
+     * header/navbar spacing, but embedded division child
+     * workspaces own a dedicated edge-to-edge viewport.
+     *
+     * Exclude Academy, Plazas, and Federation child routes
+     * so they can use the dedicated padding:0 rule below.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :not([data-yh-unified-workspace="academy"])
+    :not([data-yh-unified-workspace="profile"])
+    :not([data-yh-unified-workspace^="academy-"])
+    :not([data-yh-unified-workspace^="plazas-"])
+    :not([data-yh-unified-workspace^="federation-"])
+    #universe-hub-view,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :not([data-yh-unified-workspace="academy"])
+    :not([data-yh-unified-workspace="profile"])
+    :not([data-yh-unified-workspace^="academy-"])
+    :not([data-yh-unified-workspace^="plazas-"])
+    :not([data-yh-unified-workspace^="federation-"])
+    .universe-hub-view {
+        padding:
+            calc(
+                70px +
+                max(
+                    8px,
+                    env(
+                        safe-area-inset-top,
+                        0px
+                    )
+                )
+            )
+            12px
+            calc(
+                104px +
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            ) !important;
+
+        align-items:
+            stretch !important;
+
+        justify-content:
+            flex-start !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="profile"] #universe-hub-view,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="profile"] .universe-hub-view {
+        padding:
+            calc(
+                70px +
+                max(
+                    8px,
+                    env(safe-area-inset-top, 0px)
+                )
+            )
+            12px
+            calc(
+                18px +
+                env(safe-area-inset-bottom, 0px)
+            ) !important;
+
         align-items: stretch !important;
         justify-content: flex-start !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #universe-hub-view,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .universe-hub-view {
+        padding-top:
+            calc(
+                160px +
+                max(
+                    8px,
+                    env(safe-area-inset-top, 0px)
+                )
+            ) !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #universe-hub-view,
@@ -3222,6 +3618,16 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="bu
         margin: 0 auto 12px;
         padding: 0 0 8px;
         gap: 8px;
+    }
+
+    /*
+     * Dashboard overview has a fixed mobile search layer.
+     * Give the first progression surface its own clearance
+     * so its kicker/title can never sit underneath search.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"]
+        .yh-game-foundation {
+        margin-top: 50px !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-game-operator-panel {
@@ -3903,13 +4309,21 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="bu
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-top-search,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-profile-search {
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-dashboard-profile-search:not(.yh-mobile-dashboard-search-form) {
         grid-template-columns: minmax(0, 1fr) !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-top-search-btn,
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
         display: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+        .yh-mobile-dashboard-search-form {
+        grid-template-columns:
+            minmax(0, 1fr)
+            68px !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-top-live-chip {
@@ -4626,3 +5040,1304 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="bu
 }
 
 /* END PATCH: Wallet mobile refresh button alignment v199 */
+/* ========================================================= */
+/* MOBILE DASHBOARD DIRECT MESSAGES v1                       */
+/* ========================================================= */
+
+@media (max-width: 768px) {
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+#yh-dashboard-messages-workspace {
+    width:
+        100% !important;
+
+    min-height:
+        0 !important;
+
+    padding:
+        10px
+        10px
+        calc(
+            104px +
+            env(
+                safe-area-inset-bottom,
+                0px
+            )
+        ) !important;
+
+    overflow:
+        visible !important;
+}
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-head {
+    display:
+        none !important;
+}
+/*
+ * Active DM thread owns one fixed mobile viewport.
+ * Only the message history is scrollable.
+ */
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"][data-yh-dashboard-dm-thread-open="true"] {
+    width:
+        100% !important;
+
+    height:
+        100dvh !important;
+
+    min-height:
+        100dvh !important;
+
+    max-height:
+        100dvh !important;
+
+    overflow:
+        hidden !important;
+
+    overscroll-behavior:
+        none !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"][data-yh-dashboard-dm-thread-open="true"]
+.dashboard-layout {
+    height:
+        100dvh !important;
+
+    min-height:
+        100dvh !important;
+
+    max-height:
+        100dvh !important;
+
+    overflow:
+        hidden !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"][data-yh-dashboard-dm-thread-open="true"]
+#universe-hub-view,
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"][data-yh-dashboard-dm-thread-open="true"]
+.universe-hub-view {
+    width:
+        100% !important;
+
+    height:
+        100dvh !important;
+
+    min-height:
+        0 !important;
+
+    max-height:
+        100dvh !important;
+
+    box-sizing:
+        border-box !important;
+
+    display:
+        flex !important;
+
+    flex-direction:
+        column !important;
+
+    padding:
+        calc(
+            70px +
+            max(
+                8px,
+                env(
+                    safe-area-inset-top,
+                    0px
+                )
+            )
+        )
+        10px
+        calc(
+            8px +
+            env(
+                safe-area-inset-bottom,
+                0px
+            )
+        ) !important;
+
+    overflow:
+        hidden !important;
+
+    overscroll-behavior:
+        none !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"][data-yh-dashboard-dm-thread-open="true"]
+.yh-universe-hub-shell,
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"][data-yh-dashboard-dm-thread-open="true"]
+.yh-universe-carousel-shell {
+    width:
+        100% !important;
+
+    height:
+        100% !important;
+
+    min-height:
+        0 !important;
+
+    max-height:
+        100% !important;
+
+    flex:
+        1 1 0 !important;
+
+    display:
+        flex !important;
+
+    flex-direction:
+        column !important;
+
+    margin:
+        0 !important;
+
+    padding-top:
+        0 !important;
+
+    overflow:
+        hidden !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"][data-yh-dashboard-dm-thread-open="true"]
+#yh-dashboard-messages-workspace {
+    width:
+        100% !important;
+
+    height:
+        100% !important;
+
+    min-height:
+        0 !important;
+
+    max-height:
+        100% !important;
+
+    flex:
+        1 1 0 !important;
+
+    display:
+        flex !important;
+
+    flex-direction:
+        column !important;
+
+    padding:
+        0 !important;
+
+    overflow:
+        hidden !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"][data-yh-dashboard-dm-thread-open="true"]
+.yh-dashboard-system-workspace-content,
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"][data-yh-dashboard-dm-thread-open="true"]
+.yh-dashboard-dm-shell {
+    width:
+        100% !important;
+
+    height:
+        100% !important;
+
+    min-height:
+        0 !important;
+
+    max-height:
+        100% !important;
+
+    flex:
+        1 1 0 !important;
+
+    display:
+        flex !important;
+
+    flex-direction:
+        column !important;
+
+    overflow:
+        hidden !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"][data-yh-dashboard-dm-thread-open="true"]
+.yh-dashboard-dm-layout {
+    width:
+        100% !important;
+
+    height:
+        100% !important;
+
+    min-height:
+        0 !important;
+
+    max-height:
+        100% !important;
+
+    flex:
+        1 1 0 !important;
+
+    display:
+        flex !important;
+
+    flex-direction:
+        column !important;
+
+    overflow:
+        hidden !important;
+}
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-dm-head {
+        align-items:
+            flex-start !important;
+
+        padding:
+            14px !important;
+    }
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-dm-unread-summary {
+    width:
+        auto !important;
+
+    min-width:
+        82px !important;
+
+    height:
+        38px !important;
+
+    min-height:
+        38px !important;
+
+    padding:
+        0 11px !important;
+
+    display:
+        inline-flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        center !important;
+
+    flex:
+        0 0 auto !important;
+
+    white-space:
+        nowrap !important;
+
+    line-height:
+        1 !important;
+
+    text-align:
+        center !important;
+
+    font-size:
+        0.7rem !important;
+}
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-dm-head > div {
+    min-width:
+        0 !important;
+
+    flex:
+        1 1 auto !important;
+}
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-dm-head p {
+        font-size:
+            0.76rem !important;
+
+        line-height:
+            1.35 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-dm-layout {
+        display:
+            block !important;
+
+        min-height:
+            0 !important;
+
+        border-radius:
+            18px !important;
+
+        overflow:
+            visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-dm-inbox {
+        padding:
+            10px !important;
+
+        border-right:
+            0 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-dm-room-list {
+        max-height:
+            none !important;
+
+        overflow:
+            visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-dm-thread {
+        display:
+            none !important;
+
+        padding:
+            10px !important;
+    }
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+    #yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+    .yh-dashboard-dm-inbox {
+        display:
+            none !important;
+    }
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-thread {
+    width:
+        100% !important;
+
+    height:
+        100% !important;
+
+    min-height:
+        0 !important;
+
+    max-height:
+        100% !important;
+
+    flex:
+        1 1 0 !important;
+
+    display:
+        flex !important;
+
+    flex-direction:
+        column !important;
+
+    padding:
+        10px !important;
+
+    overflow:
+        hidden !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-composer {
+    position:
+        relative !important;
+
+    left:
+        auto !important;
+
+    right:
+        auto !important;
+
+    bottom:
+        auto !important;
+
+    transform:
+        none !important;
+
+    z-index:
+        25 !important;
+
+    width:
+        100% !important;
+
+    margin:
+        0 !important;
+
+    flex:
+        0 0 auto !important;
+
+    padding:
+        3px 0 0 !important;
+
+    border:
+        0 !important;
+
+    border-top:
+        1px solid
+        rgba(
+            56,
+            189,
+            248,
+            0.18
+        ) !important;
+
+    border-radius:
+        0 !important;
+
+    background:
+        rgba(
+            2,
+            8,
+            23,
+            0.98
+        ) !important;
+
+    box-shadow:
+        none !important;
+
+    backdrop-filter:
+        blur(14px) !important;
+
+    -webkit-backdrop-filter:
+        blur(14px) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-dm-mobile-back {
+    width:
+        38px !important;
+
+    min-width:
+        38px !important;
+
+    max-width:
+        38px !important;
+
+    height:
+        38px !important;
+
+    min-height:
+        38px !important;
+
+    padding:
+        0 !important;
+
+    margin:
+        0 !important;
+
+    display:
+        inline-flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        center !important;
+
+    flex:
+        0 0 38px !important;
+
+    border-radius:
+        11px !important;
+
+    font-size:
+        1rem !important;
+}
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-thread-head {
+    width:
+        100% !important;
+
+    display:
+        grid !important;
+
+    grid-template-columns:
+        38px
+        minmax(0, 1fr)
+        auto !important;
+
+    align-items:
+        center !important;
+
+    gap:
+        9px !important;
+
+    padding:
+        8px 0
+        12px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-thread-person {
+    min-width:
+        0 !important;
+
+    display:
+        flex !important;
+
+    align-items:
+        center !important;
+
+    gap:
+        9px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-thread-avatar {
+    width:
+        40px !important;
+
+    min-width:
+        40px !important;
+
+    height:
+        40px !important;
+
+    min-height:
+        40px !important;
+}
+
+
+/* ========================================================= */
+/* MOBILE DM THREAD HEADER ACTIONS v1                        */
+/* ========================================================= */
+
+/*
+ * Mobile shows display name only.
+ * Username remains available on desktop.
+ */
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+#yh-dashboard-dm-thread-username {
+    display:
+        none !important;
+}
+
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-thread-person {
+    min-width:
+        0 !important;
+
+    overflow:
+        hidden !important;
+}
+
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-thread-person
+> div:last-child {
+    min-width:
+        0 !important;
+
+    overflow:
+        hidden !important;
+}
+
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+#yh-dashboard-dm-thread-name {
+    display:
+        block !important;
+
+    max-width:
+        100% !important;
+
+    overflow:
+        hidden !important;
+
+    white-space:
+        nowrap !important;
+
+    text-overflow:
+        ellipsis !important;
+
+    font-size:
+        0.94rem !important;
+
+    line-height:
+        1.1 !important;
+}
+
+
+/* Right-side View Profile + three dots */
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-thread-actions {
+    position:
+        relative !important;
+
+    min-width:
+        0 !important;
+
+    margin-left:
+        0 !important;
+
+    display:
+        inline-flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        flex-end !important;
+
+    gap:
+        6px !important;
+
+    flex:
+        0 0 auto !important;
+}
+
+
+/* More compact View Profile on phones */
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-view-profile-btn {
+    width:
+        auto !important;
+
+    min-width:
+        82px !important;
+
+    max-width:
+        88px !important;
+
+    height:
+        36px !important;
+
+    min-height:
+        36px !important;
+
+    padding:
+        0 9px !important;
+
+    display:
+        inline-flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        center !important;
+
+    border-radius:
+        10px !important;
+
+    font-size:
+        0.62rem !important;
+
+    line-height:
+        1 !important;
+
+    white-space:
+        nowrap !important;
+}
+
+
+/* style.css hides this by default.
+ * Mobile explicitly enables it here.
+ */
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-thread-more {
+    position:
+        relative !important;
+
+    display:
+        block !important;
+
+    flex:
+        0 0 auto !important;
+}
+
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-more-toggle {
+    width:
+        36px !important;
+
+    min-width:
+        36px !important;
+
+    max-width:
+        36px !important;
+
+    height:
+        36px !important;
+
+    min-height:
+        36px !important;
+
+    padding:
+        0 !important;
+
+    display:
+        inline-flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        center !important;
+
+    border:
+        1px solid
+        rgba(
+            56,
+            189,
+            248,
+            0.28
+        ) !important;
+
+    border-radius:
+        10px !important;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(
+                18,
+                51,
+                96,
+                0.84
+            ),
+            rgba(
+                5,
+                20,
+                47,
+                0.96
+            )
+        ) !important;
+
+    color:
+        #dff7ff !important;
+
+    font-size:
+        0.82rem !important;
+
+    font-weight:
+        900 !important;
+
+    line-height:
+        1 !important;
+
+    cursor:
+        pointer !important;
+
+    touch-action:
+        manipulation !important;
+}
+
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-more-toggle[aria-expanded="true"] {
+    border-color:
+        rgba(
+            56,
+            189,
+            248,
+            0.58
+        ) !important;
+
+    background:
+        rgba(
+            14,
+            165,
+            233,
+            0.18
+        ) !important;
+}
+
+
+/* Mobile conversation menu */
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-actions-menu {
+    position:
+        absolute !important;
+
+    top:
+        calc(
+            100% + 7px
+        ) !important;
+
+    right:
+        0 !important;
+
+    left:
+        auto !important;
+
+    z-index:
+        500 !important;
+
+    width:
+        max-content !important;
+
+    min-width:
+        205px !important;
+
+    max-width:
+        calc(
+            100vw - 32px
+        ) !important;
+
+    display:
+        grid !important;
+
+    gap:
+        4px !important;
+
+    padding:
+        7px !important;
+
+    border:
+        1px solid
+        rgba(
+            125,
+            211,
+            252,
+            0.24
+        ) !important;
+
+    border-radius:
+        13px !important;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(
+                8,
+                24,
+                49,
+                0.99
+            ),
+            rgba(
+                3,
+                11,
+                27,
+                0.99
+            )
+        ) !important;
+
+    box-shadow:
+        0 20px 48px
+            rgba(
+                0,
+                0,
+                0,
+                0.56
+            ),
+        inset 0 1px 0
+            rgba(
+                255,
+                255,
+                255,
+                0.055
+            ) !important;
+
+    backdrop-filter:
+        blur(18px) !important;
+
+    -webkit-backdrop-filter:
+        blur(18px) !important;
+}
+
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-actions-menu[hidden] {
+    display:
+        none !important;
+}
+
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-actions-menu
+button {
+    width:
+        100% !important;
+
+    min-height:
+        40px !important;
+
+    padding:
+        10px 12px !important;
+
+    display:
+        flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        flex-start !important;
+
+    border:
+        0 !important;
+
+    border-radius:
+        9px !important;
+
+    background:
+        transparent !important;
+
+    color:
+        rgba(
+            231,
+            243,
+            255,
+            0.94
+        ) !important;
+
+    font-size:
+        0.76rem !important;
+
+    font-weight:
+        600 !important;
+
+    text-align:
+        left !important;
+
+    white-space:
+        nowrap !important;
+
+    cursor:
+        pointer !important;
+
+    touch-action:
+        manipulation !important;
+}
+
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-actions-menu
+button.is-danger {
+    color:
+        #fda4af !important;
+}
+
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-actions-menu
+button:disabled {
+    opacity:
+        0.52 !important;
+
+    cursor:
+        default !important;
+}
+
+
+/* END MOBILE DM THREAD HEADER ACTIONS v1 */
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-active {
+    width:
+        100% !important;
+
+    height:
+        100% !important;
+
+    min-height:
+        0 !important;
+
+    max-height:
+        100% !important;
+
+    flex:
+        1 1 0 !important;
+
+    display:
+        grid !important;
+
+    grid-template-rows:
+        auto
+        minmax(0, 1fr)
+        auto !important;
+
+    overflow:
+        hidden !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-message-list {
+    width:
+        100% !important;
+
+    height:
+        100% !important;
+
+    min-height:
+        0 !important;
+
+    max-height:
+        none !important;
+
+    display:
+        flex !important;
+
+    flex-direction:
+        column !important;
+
+    align-items:
+        stretch !important;
+
+    justify-content:
+        flex-start !important;
+
+    gap:
+        8px !important;
+
+    padding:
+        14px 4px
+        1px !important;
+
+    overflow-x:
+        hidden !important;
+
+    overflow-y:
+        auto !important;
+
+    -webkit-overflow-scrolling:
+        touch !important;
+
+    overscroll-behavior:
+        contain !important;
+
+    touch-action:
+        pan-y !important;
+
+    scroll-padding-bottom:
+        6px !important;
+}
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-message-list
+> .yh-dashboard-dm-message:first-child {
+    margin-top:
+        auto !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+.yh-dashboard-dm-message {
+    flex:
+        0 0 auto !important;
+}
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-dm-message {
+        max-width:
+            84% !important;
+    }
+
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-dashboard-dm-composer textarea {
+        resize:
+            none !important;
+    }
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-mobile-command-grid
+[data-yh-mobile-command-target="messages"] {
+    position: relative !important;
+
+    display:
+        flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        center !important;
+
+    gap:
+        0 !important;
+
+    text-align:
+        center !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-mobile-command-grid
+[data-yh-mobile-command-target="messages"]
+> span:first-child {
+    width:
+        100% !important;
+
+    display:
+        block !important;
+
+    text-align:
+        center !important;
+
+    font-family:
+        var(
+            --yh-font-header,
+            "Rajdhani",
+            sans-serif
+        ) !important;
+
+    font-size:
+        1rem !important;
+
+    font-weight:
+        700 !important;
+
+    line-height:
+        1 !important;
+
+    letter-spacing:
+        0.01em !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-mobile-command-grid
+[data-yh-mobile-command-target="messages"]
+.yh-direct-message-nav-badge {
+    position:
+        absolute !important;
+
+    top:
+        50% !important;
+
+    right:
+        10px !important;
+
+    margin:
+        0 !important;
+
+    transform:
+        translateY(-50%) !important;
+}
+
+/*
+ * Active Dashboard DM thread:
+ * bottom navbar must remain hidden while
+ * an actual conversation is open.
+ */
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"][data-yh-dashboard-dm-thread-open="true"]
+#yh-mobile-app-shell
+.yh-mobile-bottom-nav {
+    transform:
+        translateY(
+            calc(
+                100% +
+                24px +
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            )
+        ) !important;
+
+    opacity:
+        0 !important;
+
+    visibility:
+        hidden !important;
+
+    pointer-events:
+        none !important;
+}
+
+}
+
+/* END MOBILE DASHBOARD DIRECT MESSAGES v1 */
+/* PATCH: Mobile Business Chats approved-Plazas access lock v3 */
+
+@media (max-width: 768px) {
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-mobile-command-grid
+    [data-yh-mobile-command-target="business-chats"][data-yh-business-chats-locked="true"] {
+        position:
+            relative !important;
+
+        opacity:
+            0.46 !important;
+
+        cursor:
+            not-allowed !important;
+
+        pointer-events:
+            none !important;
+
+        filter:
+            saturate(0.42) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-mobile-command-grid
+    [data-yh-mobile-command-target="business-chats"][data-yh-business-chats-locked="true"]::after {
+        content:
+            "Locked";
+
+        position:
+            absolute;
+
+        top:
+            5px;
+
+        right:
+            7px;
+
+        padding:
+            2px
+            6px;
+
+        border:
+            1px solid
+            rgba(
+                250,
+                204,
+                21,
+                0.30
+            );
+
+        border-radius:
+            999px;
+
+        color:
+            #fde68a;
+
+        background:
+            rgba(
+                120,
+                53,
+                15,
+                0.25
+            );
+
+        font-size:
+            0.52rem;
+
+        font-weight:
+            800;
+
+        line-height:
+            1;
+
+        letter-spacing:
+            0.04em;
+
+        text-transform:
+            uppercase;
+    }
+}
+
+/* END PATCH: Mobile Business Chats approved-Plazas access lock v3 */

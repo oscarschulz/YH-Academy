@@ -500,6 +500,257 @@ async function createPayout(payload = {}) {
     return importPayout(payload.id || buildId('plaza_patron_payout'), payload);
 }
 
+function buildRecommendationPayoutId(
+    patronId = '',
+    recommendationId = ''
+) {
+    const cleanPatronId =
+        sanitizeText(patronId);
+
+    const cleanRecommendationId =
+        sanitizeText(recommendationId);
+
+    if (
+        !cleanPatronId ||
+        !cleanRecommendationId
+    ) {
+        throw new Error(
+            'Patron and recommendation are required for payout creation.'
+        );
+    }
+
+    const digest =
+        crypto
+            .createHash('sha256')
+            .update(
+                `${cleanPatronId}:${cleanRecommendationId}`
+            )
+            .digest('hex')
+            .slice(0, 40);
+
+    return `plaza_patron_payout_${digest}`;
+}
+
+async function getRecommendationById(
+    id = ''
+) {
+    const cleanId =
+        sanitizeText(id);
+
+    if (!cleanId) {
+        return null;
+    }
+
+    const row =
+        await getExisting(
+            'patron_recommendation',
+            cleanId
+        );
+
+    return row
+        ? mapRow(row)
+        : null;
+}
+
+async function createPayoutForRecommendation(
+    payload = {}
+) {
+    const patronId =
+        sanitizeText(
+            payload.patronId
+        );
+
+    const recommendationId =
+        sanitizeText(
+            payload.recommendationId
+        );
+
+    const payoutId =
+        buildRecommendationPayoutId(
+            patronId,
+            recommendationId
+        );
+
+    const existing =
+        await getExisting(
+            'patron_payout',
+            payoutId
+        );
+
+    if (existing) {
+        return {
+            created: false,
+            payout:
+                mapRow(existing)
+        };
+    }
+
+    const row =
+        buildPayoutRow({
+            ...payload,
+            id:
+                payoutId,
+            patronId,
+            recommendationId
+        });
+
+    const {
+        data,
+        error
+    } =
+        await yhuSupabaseAdmin
+            .from(TABLE)
+            .insert(row)
+            .select('*')
+            .single();
+
+    if (error) {
+        if (
+            error.code === '23505' ||
+            /duplicate|unique/i.test(
+                error.message || ''
+            )
+        ) {
+            const duplicate =
+                await getExisting(
+                    'patron_payout',
+                    payoutId
+                );
+
+            if (duplicate) {
+                return {
+                    created: false,
+                    payout:
+                        mapRow(
+                            duplicate
+                        )
+                };
+            }
+        }
+
+        throw new Error(
+            'Plaza patron payout insert failed: ' +
+            error.message
+        );
+    }
+
+    return {
+        created: true,
+        payout:
+            mapRow(data)
+    };
+}
+
+async function updateIntroOutcomeRecord(
+    id = '',
+    patch = {}
+) {
+    const cleanId =
+        sanitizeText(id);
+
+    if (!cleanId) {
+        const error =
+            new Error(
+                'Patron intro outcome id is required.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const existing =
+        await getExisting(
+            'patron_intro_outcome',
+            cleanId
+        );
+
+    if (!existing) {
+        const error =
+            new Error(
+                'Patron intro outcome not found.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const current =
+        existing.data &&
+        typeof existing.data ===
+            'object'
+            ? existing.data
+            : {};
+
+    return importIntroOutcome(
+        cleanId,
+        {
+            ...current,
+            ...patch,
+
+            id:
+                cleanId,
+
+            updatedAt:
+                nowIso()
+        }
+    );
+}
+
+async function updatePayoutRecord(
+    id = '',
+    patch = {}
+) {
+    const cleanId =
+        sanitizeText(id);
+
+    if (!cleanId) {
+        const error =
+            new Error(
+                'Patron payout id is required.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const existing =
+        await getExisting(
+            'patron_payout',
+            cleanId
+        );
+
+    if (!existing) {
+        const error =
+            new Error(
+                'Patron payout not found.'
+            );
+
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const current =
+        existing.data &&
+        typeof existing.data ===
+            'object'
+            ? existing.data
+            : {};
+
+    return importPayout(
+        cleanId,
+        {
+            ...current,
+            ...patch,
+
+            id:
+                cleanId,
+
+            updatedAt:
+                nowIso()
+        }
+    );
+}
+
 async function listByType(recordType = '', limit = 100) {
     const safeLimit = Math.max(1, Math.min(Number(limit || 100), 250));
 
@@ -601,6 +852,8 @@ module.exports = {
     createRecommendation,
     createIntroOutcome,
     createPayout,
+    getRecommendationById,
+    createPayoutForRecommendation,
     listApplications,
     listAnnouncements,
     listRecommendations,
@@ -608,5 +861,7 @@ module.exports = {
     listPayouts,
     getApplicationForUser,
     updateApplicationStatus,
+    updateIntroOutcomeRecord,
+    updatePayoutRecord,
     deleteRecord
 };

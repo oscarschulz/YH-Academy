@@ -876,6 +876,14 @@ const PLAZA_MEMBERSHIP_LABELS = {
     joined: "When did you join The Federation approximately?",
     learnt: "What have you learnt so far in The Federation?",
     contribution: "What can you contribute as a Federation member?"
+  },
+
+  not_yet: {
+    title: "Young Hustlers",
+    memberLabel: "YH member",
+    joined: "How long have you been part of Young Hustlers or following the community?",
+    learnt: "What have you learned or observed from Young Hustlers so far?",
+    contribution: "What can you contribute to the Plazas as a YH member?"
   }
 };
 function safeArray(value) {
@@ -3837,34 +3845,14 @@ async function updatePlazaMeetup(
     );
   }
 
-  const current =
-    plazaServerMeetups.find(
-      (item) =>
-        item.id === cleanId
-    ) || null;
-
-  const expectedVersion =
-    String(
-      current?.version ||
-      current?.updatedAt ||
-      ""
-    ).trim();
-
-  if (!expectedVersion) {
-    throw new Error(
-      "Meetup version is missing. Reload Meetups and retry."
-    );
-  }
-
   const result =
     await plazaApiFetch(
       `/api/plaza/meetups/${encodeURIComponent(cleanId)}`,
       {
         method: "PATCH",
-        body: JSON.stringify({
-          ...payload,
-          expectedVersion
-        })
+        body: JSON.stringify(
+          payload
+        )
       }
     );
 
@@ -3905,30 +3893,10 @@ async function deletePlazaMeetup(
     return false;
   }
 
-  const current =
-    plazaServerMeetups.find(
-      (item) =>
-        item.id === cleanId
-    ) || null;
-
-  const expectedUpdatedAt =
-    String(
-      current?.updatedAt || ""
-    ).trim();
-
-  if (!expectedUpdatedAt) {
-    throw new Error(
-      "Meetup version is missing. Reload Meetups and retry."
-    );
-  }
-
   await plazaApiFetch(
     `/api/plaza/meetups/${encodeURIComponent(cleanId)}`,
     {
-      method: "DELETE",
-      body: JSON.stringify({
-        expectedVersion
-      })
+      method: "DELETE"
     }
   );
 
@@ -7464,14 +7432,41 @@ function buildObjectiveOptions(selectedObjective) {
   `).join("");
 }
 
-function showToast(message) {
+function showToast(
+  message,
+  options = {}
+) {
   if (!plazaToast) return;
-  plazaToast.textContent = message;
-  plazaToast.classList.add("is-visible");
-  window.clearTimeout(showToast.timer);
-  showToast.timer = window.setTimeout(() => {
-    plazaToast.classList.remove("is-visible");
-  }, 2200);
+
+  const centered =
+    options.centered === true;
+
+  plazaToast.textContent =
+    message;
+
+  plazaToast.classList.toggle(
+    "is-centered",
+    centered
+  );
+
+  plazaToast.classList.add(
+    "is-visible"
+  );
+
+  window.clearTimeout(
+    showToast.timer
+  );
+
+  showToast.timer =
+    window.setTimeout(() => {
+      plazaToast.classList.remove(
+        "is-visible"
+      );
+
+      plazaToast.classList.remove(
+        "is-centered"
+      );
+    }, 2200);
 }
 
 function openModal({ kicker, title, bodyHtml }) {
@@ -11947,33 +11942,209 @@ function syncPlazaConversationSafetyUi(item = {}) {
   if (submitBtn) submitBtn.disabled = locked;
 }
 
-async function runPlazaConversationSafetyAction(action = "", button = null) {
-  const conversation = getActivePlazaConversationItem();
-  const cleanAction = String(action || "").trim().toLowerCase();
+function openPlazaConversationSafetyModal(
+  action = ""
+) {
+  const conversation =
+    getActivePlazaConversationItem();
 
-  if (!conversation || !conversation.id) {
-    showToast("Open a Plaza conversation first.");
+  const cleanAction =
+    String(action || "")
+      .trim()
+      .toLowerCase();
+
+  if (
+    !conversation ||
+    !conversation.id
+  ) {
+    showToast(
+      "Open a Plaza conversation first."
+    );
+
     return;
   }
 
-  let body = {};
-
   if (cleanAction === "report") {
-    const reason = window.prompt("Why are you reporting this business chat?", "Spam, abuse, unsafe request, or misuse");
-    if (!reason) return;
+    openModal({
+      kicker:
+        "Conversation Safety",
 
-    const details = window.prompt("Add optional details for admin review.", "") || "";
-    body = { reason, details };
+      title:
+        "Report Business Chat",
+
+      bodyHtml: `
+        <form
+          id="plazaConversationReportForm"
+          data-conversation-id="${escapeHtml(
+            conversation.id
+          )}"
+        >
+          <label class="yh-plaza-conversation-field">
+            <span>Reason</span>
+
+            <select
+              name="reason"
+              required
+            >
+              <option value="">
+                Select a reason
+              </option>
+
+              <option value="Spam or unwanted promotion">
+                Spam or unwanted promotion
+              </option>
+
+              <option value="Abuse or harassment">
+                Abuse or harassment
+              </option>
+
+              <option value="Unsafe or inappropriate request">
+                Unsafe or inappropriate request
+              </option>
+
+              <option value="Fraud, scam, or misleading activity">
+                Fraud, scam, or misleading activity
+              </option>
+
+              <option value="Other policy or safety concern">
+                Other policy or safety concern
+              </option>
+            </select>
+          </label>
+
+          <label class="yh-plaza-conversation-field">
+            <span>
+              Optional details
+            </span>
+
+            <textarea
+              name="details"
+              placeholder="Add context that will help admin review this report."
+            ></textarea>
+          </label>
+
+          <div class="yh-plaza-form-actions">
+            <button
+              type="button"
+              class="yh-plaza-btn yh-plaza-btn-secondary"
+              data-close-modal
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              class="yh-plaza-btn yh-plaza-btn-danger"
+            >
+              Submit Report
+            </button>
+          </div>
+        </form>
+      `
+    });
+
+    return;
   }
 
   if (cleanAction === "close") {
-    if (!window.confirm("Close this Plaza business chat? Replies will be disabled.")) return;
-    body = { note: "Closed from Plaza conversation screen." };
+    openModal({
+      kicker:
+        "Conversation Safety",
+
+      title:
+        "Close Business Chat",
+
+      bodyHtml: `
+        <div class="yh-plaza-modal-copy">
+          Closing this conversation disables
+          further replies. The conversation
+          remains available for history and
+          admin review.
+        </div>
+
+        <div class="yh-plaza-form-actions">
+          <button
+            type="button"
+            class="yh-plaza-btn yh-plaza-btn-secondary"
+            data-close-modal
+          >
+            Keep Open
+          </button>
+
+          <button
+            type="button"
+            class="yh-plaza-btn yh-plaza-btn-danger"
+            data-confirm-plaza-conversation-safety="close"
+          >
+            Close Business Chat
+          </button>
+        </div>
+      `
+    });
+
+    return;
   }
 
   if (cleanAction === "block") {
-    if (!window.confirm("Block this member across future Business Chats? Replies and future Business Chat starts between you will be disabled.")) return;
-    body = { note: "Blocked from Plaza conversation screen.", scope: "user" };
+    openModal({
+      kicker:
+        "Conversation Safety",
+
+      title:
+        "Block Member",
+
+      bodyHtml: `
+        <div class="yh-plaza-modal-copy">
+          Blocking this member disables replies
+          and prevents future Business Chats
+          between both accounts. Use this for
+          serious safety or trust issues.
+        </div>
+
+        <div class="yh-plaza-form-actions">
+          <button
+            type="button"
+            class="yh-plaza-btn yh-plaza-btn-secondary"
+            data-close-modal
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            class="yh-plaza-btn yh-plaza-btn-danger"
+            data-confirm-plaza-conversation-safety="block"
+          >
+            Block Member
+          </button>
+        </div>
+      `
+    });
+  }
+}
+
+async function runPlazaConversationSafetyAction(
+  action = "",
+  button = null,
+  payload = {}
+) {
+  const conversation =
+    getActivePlazaConversationItem();
+
+  const cleanAction =
+    String(action || "")
+      .trim()
+      .toLowerCase();
+
+  if (
+    !conversation ||
+    !conversation.id
+  ) {
+    showToast(
+      "Open a Plaza conversation first."
+    );
+
+    return;
   }
 
   const endpoint =
@@ -11987,32 +12158,109 @@ async function runPlazaConversationSafetyAction(action = "", button = null) {
 
   if (!endpoint) return;
 
-  await runLockedButtonAction(
-    "conversation-safety:" + conversation.id + ":" + endpoint,
-    button,
-    endpoint === "report" ? "Reporting..." : endpoint === "close" ? "Closing..." : "Blocking...",
-    async () => {
-      const result = await plazaApiFetch("/api/plaza/messages/" + encodeURIComponent(conversation.id) + "/" + endpoint, {
-        method: "POST",
-        body: JSON.stringify(body)
-      });
+  const body = {
+    ...(
+      payload &&
+      typeof payload === "object"
+        ? payload
+        : {}
+    )
+  };
 
-      const updated = result.conversation ? normalizeServerConversationItem(result.conversation) : null;
+  if (
+    endpoint === "close" &&
+    !body.note
+  ) {
+    body.note =
+      "Closed from Plaza conversation screen.";
+  }
+
+  if (endpoint === "block") {
+    if (!body.note) {
+      body.note =
+        "Blocked from Plaza conversation screen.";
+    }
+
+    if (!body.scope) {
+      body.scope = "user";
+    }
+  }
+
+  await runLockedButtonAction(
+    "conversation-safety:" +
+      conversation.id +
+      ":" +
+      endpoint,
+
+    button,
+
+    endpoint === "report"
+      ? "Reporting..."
+      : endpoint === "close"
+        ? "Closing..."
+        : "Blocking...",
+
+    async () => {
+      const result =
+        await plazaApiFetch(
+          "/api/plaza/messages/" +
+            encodeURIComponent(
+              conversation.id
+            ) +
+            "/" +
+            endpoint,
+          {
+            method: "POST",
+            body:
+              JSON.stringify(body)
+          }
+        );
+
+      const updated =
+        result.conversation
+          ? normalizeServerConversationItem(
+              result.conversation
+            )
+          : null;
 
       if (updated) {
         plazaServerMessages = [
           updated,
-          ...plazaServerMessages.filter((item) => item.id !== updated.id)
+          ...plazaServerMessages.filter(
+            (item) =>
+              item.id !== updated.id
+          )
         ];
-        plazaServerMessagesLoaded = true;
+
+        plazaServerMessagesLoaded =
+          true;
 
         renderMessagesScreen();
-        renderConversationScreen(updated);
+
+        renderConversationScreen(
+          updated
+        );
       }
 
-      if (endpoint === "report") showToast("Business chat reported for admin review.");
-      if (endpoint === "close") showToast("Business chat closed.");
-      if (endpoint === "block") showToast("Member blocked across future Business Chats.");
+      closeModal();
+
+      if (endpoint === "report") {
+        showToast(
+          "Business chat reported for admin review."
+        );
+      }
+
+      if (endpoint === "close") {
+        showToast(
+          "Business chat closed."
+        );
+      }
+
+      if (endpoint === "block") {
+        showToast(
+          "Member blocked across future Business Chats."
+        );
+      }
     }
   );
 }
@@ -13630,21 +13878,78 @@ function bindEvents() {
       return;
     }
 
-    const plazaConversationReportBtn = target.closest("[data-plaza-conversation-report]");
-    if (plazaConversationReportBtn instanceof HTMLButtonElement) {
-      void runPlazaConversationSafetyAction("report", plazaConversationReportBtn);
+    const plazaConversationReportBtn =
+      target.closest(
+        "[data-plaza-conversation-report]"
+      );
+
+    if (
+      plazaConversationReportBtn instanceof
+      HTMLButtonElement
+    ) {
+      openPlazaConversationSafetyModal(
+        "report"
+      );
+
       return;
     }
 
-    const plazaConversationCloseBtn = target.closest("[data-plaza-conversation-close]");
-    if (plazaConversationCloseBtn instanceof HTMLButtonElement) {
-      void runPlazaConversationSafetyAction("close", plazaConversationCloseBtn);
+    const plazaConversationCloseBtn =
+      target.closest(
+        "[data-plaza-conversation-close]"
+      );
+
+    if (
+      plazaConversationCloseBtn instanceof
+      HTMLButtonElement
+    ) {
+      openPlazaConversationSafetyModal(
+        "close"
+      );
+
       return;
     }
 
-    const plazaConversationBlockBtn = target.closest("[data-plaza-conversation-block]");
-    if (plazaConversationBlockBtn instanceof HTMLButtonElement) {
-      void runPlazaConversationSafetyAction("block", plazaConversationBlockBtn);
+    const plazaConversationBlockBtn =
+      target.closest(
+        "[data-plaza-conversation-block]"
+      );
+
+    if (
+      plazaConversationBlockBtn instanceof
+      HTMLButtonElement
+    ) {
+      openPlazaConversationSafetyModal(
+        "block"
+      );
+
+      return;
+    }
+
+    const plazaConversationSafetyConfirmBtn =
+      target.closest(
+        "[data-confirm-plaza-conversation-safety]"
+      );
+
+    if (
+      plazaConversationSafetyConfirmBtn instanceof
+      HTMLButtonElement
+    ) {
+      const action =
+        String(
+          plazaConversationSafetyConfirmBtn
+            .getAttribute(
+              "data-confirm-plaza-conversation-safety"
+            ) || ""
+        )
+          .trim()
+          .toLowerCase();
+
+      void runPlazaConversationSafetyAction(
+        action,
+        plazaConversationSafetyConfirmBtn
+      );
+
       return;
     }
 
@@ -13985,7 +14290,10 @@ function bindEvents() {
           renderMeetupsScreen();
 
           showToast(
-            "Plaza meetup deleted."
+            "Plaza meetup deleted.",
+            {
+              centered: true
+            }
           );
         }
       ).catch((error) => {
@@ -14291,9 +14599,75 @@ if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
     }
   });
 
-  document.addEventListener("submit", async (event) => {
-    const form = event.target;
-    if (!(form instanceof HTMLFormElement)) return;
+  document.addEventListener(
+    "submit",
+    async (event) => {
+      const form =
+        event.target;
+
+      if (
+        !(
+          form instanceof
+          HTMLFormElement
+        )
+      ) {
+        return;
+      }
+
+      if (
+        form.id ===
+        "plazaConversationReportForm"
+      ) {
+        event.preventDefault();
+
+        const data =
+          new FormData(form);
+
+        const reason =
+          String(
+            data.get("reason") ||
+            ""
+          ).trim();
+
+        const details =
+          String(
+            data.get("details") ||
+            ""
+          ).trim();
+
+        const submitButton =
+          event.submitter instanceof
+          HTMLButtonElement
+            ? event.submitter
+            : form.querySelector(
+                "button[type='submit']"
+              );
+
+        if (!reason) {
+          showToast(
+            "Choose a report reason first."
+          );
+
+          form
+            .querySelector(
+              "[name='reason']"
+            )
+            ?.focus();
+
+          return;
+        }
+
+        await runPlazaConversationSafetyAction(
+          "report",
+          submitButton,
+          {
+            reason,
+            details
+          }
+        );
+
+        return;
+      }
 
     if (form.id === "plazaBusinessMemberSearchForm") {
       event.preventDefault();
@@ -15190,7 +15564,10 @@ async function submitPlazaMeetupComposer(event) {
       );
 
       showToast(
-        "Plaza meetup updated."
+        "Plaza meetup updated.",
+        {
+          centered: true
+        }
       );
     } else {
       await createPlazaMeetup(
@@ -16005,14 +16382,16 @@ function getPlazaApplicationFlow() {
   const wantsMarketplace = getPlazaInputValue(plazaAppWantsMarketplace);
   const referredBy = getPlazaInputValue(plazaAppReferredBy);
 
-  const flow = ["membershipType", "email"];
+  const flow = [
+    "membershipType",
+    "email"
+  ];
 
-  if (membershipType === "not_yet") {
-    flow.push("stop");
-    return flow;
-  }
-
-  if (membershipType !== "academy" && membershipType !== "federation") {
+  if (
+    membershipType !== "academy" &&
+    membershipType !== "federation" &&
+    membershipType !== "not_yet"
+  ) {
     return flow;
   }
 
@@ -16255,7 +16634,13 @@ function buildPlazaApplicationPayload() {
   const wantsMarketplace = getPlazaInputValue(plazaAppWantsMarketplace);
 
   return {
-    schemaVersion: PLAZA_APPLICATION_SCHEMA_VERSION,
+    schemaVersion:
+      PLAZA_APPLICATION_SCHEMA_VERSION,
+
+    applicationTrack:
+      membershipType === "not_yet"
+        ? "general_review"
+        : "academy_progression",
 
     membershipType,
     email: getPlazaInputValue(plazaAppEmail),
@@ -16364,13 +16749,6 @@ async function submitPlazaApplication(event) {
   syncPlazaApplicationRequiredState();
 
   const payload = buildPlazaApplicationPayload();
-
-  if (payload.membershipType === "not_yet") {
-    if (typeof showToast === "function") {
-      showToast("The Plazas are only open to Academy or Federation members.", "error");
-    }
-    return;
-  }
 
   if (!payload.referredBy && !payload.howHeard) {
     if (typeof showToast === "function") {

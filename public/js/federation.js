@@ -457,18 +457,224 @@ function renderFederationTelegramGroupAccess(member = {}, state = {}) {
   `;
 }
 function chooseFederationVerifiedBadgeProvider() {
-  const selected = window.prompt(
-    'Choose payment method:\n\nType "stripe" for Card / Bank.\nType "oxapay" for Crypto.\nType "manual" for admin-confirmed fallback.',
-    'stripe'
-  );
+  const existing =
+    document.getElementById(
+      "fedBadgeProviderModal"
+    );
 
-  const clean = String(selected || '').trim().toLowerCase();
-
-  if (clean === 'stripe' || clean === 'oxapay' || clean === 'manual') {
-    return clean;
+  if (existing) {
+    existing.remove();
   }
 
-  return '';
+  const returnFocus =
+    document.activeElement &&
+    document.activeElement !==
+      document.body &&
+    typeof document.activeElement.focus ===
+      "function"
+      ? document.activeElement
+      : null;
+
+  const overlay =
+    document.createElement("div");
+
+  overlay.id =
+    "fedBadgeProviderModal";
+
+  overlay.className =
+    "fed-universe-profile-modal";
+
+  overlay.setAttribute(
+    "aria-hidden",
+    "false"
+  );
+
+  overlay.innerHTML = `
+    <div
+      class="fed-universe-profile-backdrop"
+      data-fed-badge-provider-cancel
+    ></div>
+
+    <div
+      class="fed-universe-profile-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="fedBadgeProviderTitle"
+    >
+      <div class="fed-universe-profile-headbar">
+        <div>
+          <span class="fed-sidebar-card-label">
+            YHF Badge
+          </span>
+
+          <h3 id="fedBadgeProviderTitle">
+            Choose Payment Method
+          </h3>
+        </div>
+
+        <button
+          type="button"
+          class="fed-universe-profile-close"
+          data-fed-badge-provider-cancel
+          aria-label="Close payment method chooser"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="fed-universe-profile-body">
+        <p>
+          Choose how you want to continue.
+          Card / Bank opens Stripe,
+          Crypto opens OxaPay,
+          and Manual Review creates an
+          admin-confirmed payment ledger.
+        </p>
+
+        <div class="fed-form-actions">
+          <button
+            type="button"
+            class="fed-btn fed-btn-secondary"
+            data-fed-badge-provider="stripe"
+          >
+            Card / Bank
+          </button>
+
+          <button
+            type="button"
+            class="fed-btn fed-btn-secondary"
+            data-fed-badge-provider="oxapay"
+          >
+            Crypto
+          </button>
+        </div>
+
+        <div class="fed-form-actions">
+          <button
+            type="button"
+            class="fed-btn fed-btn-secondary"
+            data-fed-badge-provider-cancel
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            class="fed-btn fed-btn-primary"
+            data-fed-badge-provider="manual"
+          >
+            Manual Review
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(
+    overlay
+  );
+
+  overlay.classList.add(
+    "is-open"
+  );
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const finish = (
+      provider = ""
+    ) => {
+      if (settled) return;
+
+      settled = true;
+
+      document.removeEventListener(
+        "keydown",
+        onKeyDown,
+        true
+      );
+
+      overlay.remove();
+
+      if (
+        returnFocus?.isConnected
+      ) {
+        window.requestAnimationFrame(
+          () => {
+            try {
+              returnFocus.focus({
+                preventScroll: true
+              });
+            } catch (_) {
+              returnFocus.focus();
+            }
+          }
+        );
+      }
+
+      resolve(provider);
+    };
+
+    const onKeyDown = (event) => {
+      if (
+        event.key !== "Escape"
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      finish("");
+    };
+
+    overlay.addEventListener(
+      "click",
+      (event) => {
+        const providerButton =
+          event.target.closest(
+            "[data-fed-badge-provider]"
+          );
+
+        if (providerButton) {
+          finish(
+            String(
+              providerButton.getAttribute(
+                "data-fed-badge-provider"
+              ) || ""
+            )
+              .trim()
+              .toLowerCase()
+          );
+
+          return;
+        }
+
+        if (
+          event.target.closest(
+            "[data-fed-badge-provider-cancel]"
+          )
+        ) {
+          finish("");
+        }
+      }
+    );
+
+    document.addEventListener(
+      "keydown",
+      onKeyDown,
+      true
+    );
+
+    window.requestAnimationFrame(
+      () => {
+        overlay
+          .querySelector(
+            '[data-fed-badge-provider="stripe"]'
+          )
+          ?.focus();
+      }
+    );
+  });
 }
 
 function getFederationBadgePaymentMethodForProvider(provider = '') {
@@ -481,8 +687,20 @@ function getFederationBadgePaymentMethodForProvider(provider = '') {
   return 'unselected';
 }
 
-async function createFederationVerifiedBadgeLedger(button = null, options = {}) {
-  const provider = String(options.provider || chooseFederationVerifiedBadgeProvider() || '').trim().toLowerCase();
+async function createFederationVerifiedBadgeLedger(
+  button = null,
+  options = {}
+) {
+  const selectedProvider =
+    options.provider ||
+    await chooseFederationVerifiedBadgeProvider();
+
+  const provider =
+    String(
+      selectedProvider || ""
+    )
+      .trim()
+      .toLowerCase();
 
   if (!provider) return null;
 

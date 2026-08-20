@@ -2,6 +2,7 @@ const patronRepo = require('../backend/repositories/plazaPatronSupabaseRepo');
 const regionsRepo = require('../backend/repositories/plazaDirectoryRegionsSupabaseRepo');
 const requestsRepo = require('../backend/repositories/plazaBridgeRequestsSupabaseRepo');
 const meetupsRepo = require('../backend/repositories/plazaMeetupsSupabaseRepo');
+const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
 
 function sanitizeText(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
@@ -672,6 +673,22 @@ exports.createPatronFederationRecommendation = async (req, res) => {
             });
         }
 
+        if (
+            [
+                viewer.id,
+                viewer.firebaseUid
+            ]
+                .map(sanitizeText)
+                .filter(Boolean)
+                .includes(memberId)
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'You cannot submit a Federation recommendation for yourself.'
+            });
+        }
+
         const recommendation = await patronRepo.createRecommendation({
             title: `Federation recommendation: ${memberName}`,
             body: reason,
@@ -740,81 +757,480 @@ exports.createPatronIntroOutcome = async (req, res) => {
                 patronApplication
             );
 
-        const introTitle = clampText(req.body?.introTitle || req.body?.title, 180);
-        const introSummary = clampText(req.body?.introSummary || req.body?.summary || req.body?.description, 1600);
+        const introTitle =
+            clampText(
+                req.body?.introTitle ||
+                req.body?.title,
+                180
+            );
+
+        const introSummary =
+            clampText(
+                req.body?.introSummary ||
+                req.body?.summary ||
+                req.body?.description,
+                1600
+            );
 
         if (!introTitle || !introSummary) {
             return res.status(400).json({
                 success: false,
-                message: 'Intro title and summary are required.'
+                message:
+                    'Intro title and summary are required.'
             });
         }
 
-        const grossAmount = Math.max(0, Number(req.body?.grossAmount || req.body?.dealValue || 0));
-        const currency = sanitizeText(req.body?.currency || 'USD').toUpperCase() || 'USD';
+        const recommendationId =
+            sanitizeText(
+                req.body?.recommendationId ||
+                req.body?.introId
+            );
+
+        const rawGrossAmount =
+            Number(
+                req.body?.grossAmount ||
+                req.body?.dealValue ||
+                0
+            );
+
+        const grossAmount =
+            Number.isFinite(
+                rawGrossAmount
+            )
+                ? Math.max(
+                    0,
+                    rawGrossAmount
+                )
+                : 0;
+
+        const currency =
+            sanitizeText(
+                req.body?.currency ||
+                'USD'
+            )
+                .toUpperCase()
+                .slice(0, 8) ||
+            'USD';
+
+        if (
+            !/^[A-Z]{3,8}$/.test(
+                currency
+            )
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Currency code is invalid.'
+            });
+        }
+
+        if (
+            grossAmount > 0 &&
+            !recommendationId
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'A linked Patron recommendation is required before logging a monetary intro outcome.'
+            });
+        }
+
+        let recommendation = null;
+
+        if (recommendationId) {
+            recommendation =
+                await patronRepo
+                    .getRecommendationById(
+                        recommendationId
+                    );
+
+            if (!recommendation) {
+                return res.status(404).json({
+                    success: false,
+                    message:
+                        'Linked Patron recommendation was not found.'
+                });
+            }
+
+            if (
+                !userMatches(
+                    recommendation,
+                    viewer
+                )
+            ) {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'You cannot attach an outcome to another Patron\'s recommendation.'
+                });
+            }
+        }
+
         /*
-         * Patron commission percentage is a
-         * platform-owned economic rule.
+         * Commission rate is platform-owned.
+         *
+         * grossAmount remains Patron-reported until
+         * the admin payout review independently
+         * verifies the monetary claim.
          */
         const commissionRate = 10;
-        const commissionAmount = Math.round((grossAmount * (commissionRate / 100)) * 100) / 100;
 
-        const outcome = await patronRepo.createIntroOutcome({
-            title: introTitle,
-            outcome: introSummary,
-            body: introSummary,
-            recommendationId: sanitizeText(req.body?.recommendationId || req.body?.introId || ''),
-            requesterId: viewer.id,
-            targetUserId: sanitizeText(req.body?.targetUserId || ''),
-            patronId: viewer.id,
-            patronName: viewer.name,
-            connectedParties: safeArray(req.body?.connectedParties),
-            grossAmount,
-            currency,
-            commissionRate,
-            commissionAmount,
-            regionId:
-                patronAssignment.regionId,
+        const commissionAmount =
+            Math.round(
+                (
+                    grossAmount *
+                    (
+                        commissionRate /
+                        100
+                    )
+                ) *
+                100
+            ) /
+            100;
 
-            region:
-                patronAssignment.region,
-            status: 'pending_admin_review',
-            reviewStatus: 'pending_admin_review',
-            payoutStatus: grossAmount > 0 ? 'eligible_pending_admin_review' : 'no_monetary_value_logged',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        });
+        const targetUserId =
+            sanitizeText(
+                recommendation?.targetUserId ||
+                recommendation?.raw
+                    ?.targetUserId ||
+                recommendation?.raw
+                    ?.recommendedUserId ||
+                ''
+            );
+
+        const outcome =
+            await patronRepo
+                .createIntroOutcome({
+                    title:
+                        introTitle,
+
+                    outcome:
+                        introSummary,
+
+                    body:
+                        introSummary,
+
+                    recommendationId,
+
+                    requesterId:
+                        viewer.id,
+
+                    /*
+                     * Never accept the target identity
+                     * directly from request JSON.
+                     */
+                    targetUserId,
+
+                    patronId:
+                        viewer.id,
+
+                    patronName:
+                        viewer.name,
+
+                    connectedParties:
+                        safeArray(
+                            req.body
+                                ?.connectedParties
+                        ),
+
+                    grossAmount,
+
+                    reportedGrossAmount:
+                        grossAmount,
+
+                    currency,
+
+                    reportedCurrency:
+                        currency,
+
+                    commissionRate,
+
+                    commissionAmount,
+
+                    amountVerificationStatus:
+                        grossAmount > 0
+                            ? 'pending_admin_verification'
+                            : 'not_applicable',
+
+                    regionId:
+                        patronAssignment.regionId,
+
+                    region:
+                        patronAssignment.region,
+
+                    status:
+                        'pending_admin_review',
+
+                    reviewStatus:
+                        'pending_admin_review',
+
+                    payoutStatus:
+                        grossAmount > 0
+                            ? 'eligible_pending_admin_review'
+                            : 'no_monetary_value_logged',
+
+                    createdAt:
+                        new Date()
+                            .toISOString(),
+
+                    updatedAt:
+                        new Date()
+                            .toISOString()
+                });
 
         let payout = null;
+        let payoutCreated = false;
+        let payoutLedger = null;
 
-        if (commissionAmount > 0) {
-            payout = await patronRepo.createPayout({
-                patronId: viewer.id,
-                patronName: viewer.name,
-                patronEmail: viewer.email,
-                amount: commissionAmount,
-                currency,
-                note: `Commission eligibility from intro outcome: ${introTitle}`,
-                status: 'pending_admin_review',
-                reviewStatus: 'pending_admin_review',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            });
+        if (
+            commissionAmount > 0 &&
+            recommendationId
+        ) {
+            const payoutResult =
+                await patronRepo
+                    .createPayoutForRecommendation({
+                        recommendationId,
+
+                        introOutcomeId:
+                            outcome.id,
+
+                        patronId:
+                            viewer.id,
+
+                        patronName:
+                            viewer.name,
+
+                        patronEmail:
+                            viewer.email,
+
+                        amount:
+                            commissionAmount,
+
+                        reportedAmount:
+                            commissionAmount,
+
+                        reportedGrossAmount:
+                            grossAmount,
+
+                        commissionRate,
+
+                        currency,
+
+                        amountVerificationStatus:
+                            'pending_admin_verification',
+
+                        note:
+                            `Commission eligibility from intro outcome: ${introTitle}`,
+
+                        status:
+                            'pending_admin_review',
+
+                        reviewStatus:
+                            'pending_admin_review',
+
+                        createdAt:
+                            new Date()
+                                .toISOString(),
+
+                        updatedAt:
+                            new Date()
+                                .toISOString()
+                    });
+
+            payout =
+                payoutResult.payout;
+
+            payoutCreated =
+                payoutResult.created ===
+                true;
+
+            if (payout?.id) {
+                const payoutLedgerId =
+                    (
+                        `plaza_patron_commission_${payout.id}`
+                    )
+                        .replace(
+                            /[^a-zA-Z0-9_-]+/g,
+                            '_'
+                        )
+                        .slice(
+                            0,
+                            220
+                        );
+
+                /*
+                 * Recovery-safe:
+                 *
+                 * If Patron payout creation succeeded
+                 * but the canonical ledger write failed,
+                 * a retry can restore the missing ledger.
+                 *
+                 * Existing ledgers are never recreated or
+                 * reset to pending_review.
+                 */
+                payoutLedger =
+                    await paymentLedgerRepo
+                        .getPayoutRecordById(
+                            payoutLedgerId
+                        )
+                        .catch(
+                            (error) => {
+                                if (
+                                    Number(
+                                        error?.statusCode ||
+                                        error?.status
+                                    ) === 404
+                                ) {
+                                    return null;
+                                }
+
+                                throw error;
+                            }
+                        );
+
+                if (!payoutLedger) {
+                    payoutLedger =
+                        await paymentLedgerRepo
+                            .createPayoutRequest({
+                                id:
+                                    payoutLedgerId,
+
+                                receiverUid:
+                                    viewer.id,
+
+                                receiverEmail:
+                                    viewer.email,
+
+                                receiverName:
+                                    viewer.name,
+
+                                sourceDivision:
+                                    'plaza',
+
+                                sourceFeature:
+                                    'plaza_patron_commission',
+
+                                sourceRecordId:
+                                    outcome.id,
+
+                                sourcePaymentId:
+                                    outcome.id,
+
+                                method:
+                                    'manual',
+
+                                provider:
+                                    'manual',
+
+                                providerStatus:
+                                    'pending_admin_verification',
+
+                                amount:
+                                    commissionAmount,
+
+                                currency,
+
+                                status:
+                                    'pending_review',
+
+                                adminNote:
+                                    'Patron commission claim pending independent admin review.',
+
+                                metadata: {
+                                    patronId:
+                                        viewer.id,
+
+                                    patronPayoutRecordId:
+                                        payout.id,
+
+                                    outcomeId:
+                                        outcome.id,
+
+                                    recommendationId,
+
+                                    reportedGrossAmount:
+                                        grossAmount,
+
+                                    reportedCommissionRate:
+                                        commissionRate,
+
+                                    reportedCommissionAmount:
+                                        commissionAmount,
+
+                                    reportedCurrency:
+                                        currency,
+
+                                    amountVerificationStatus:
+                                        'pending_admin_verification'
+                                }
+                            });
+                }
+
+                const verificationStatus =
+                    sanitizeText(
+                        payoutLedger
+                            ?.metadata
+                            ?.amountVerificationStatus ||
+                        'pending_admin_verification'
+                    );
+
+                await patronRepo
+                    .updatePayoutRecord(
+                        payout.id,
+                        {
+                            payoutLedgerId:
+                                payoutLedger.id,
+
+                            payoutLedgerStatus:
+                                payoutLedger.status,
+
+                            amountVerificationStatus:
+                                verificationStatus
+                        }
+                    );
+
+                await patronRepo
+                    .updateIntroOutcomeRecord(
+                        outcome.id,
+                        {
+                            payoutLedgerId:
+                                payoutLedger.id,
+
+                            payoutStatus:
+                                payoutLedger.status,
+
+                            amountVerificationStatus:
+                                verificationStatus
+                        }
+                    );
+            }
         }
 
         return res.status(201).json({
             success: true,
             source: 'supabase',
             outcome,
-            payout
+            payout,
+            payoutCreated,
+            payoutLedger
         });
     } catch (error) {
-        console.error('plazaPatronSupabaseLite.createPatronIntroOutcome error:', error);
+        console.error(
+            'plazaPatronSupabaseLite.createPatronIntroOutcome error:',
+            error
+        );
 
-        return res.status(500).json({
+        return res.status(
+            Number(
+                error?.statusCode ||
+                error?.status
+            ) || 500
+        ).json({
             success: false,
             source: 'supabase',
-            message: error?.message || 'Failed to create Patron intro outcome.'
+            message:
+                error?.message ||
+                'Failed to create Patron intro outcome.'
         });
     }
 };

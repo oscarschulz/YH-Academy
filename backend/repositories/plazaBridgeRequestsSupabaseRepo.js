@@ -752,6 +752,120 @@ function mapRequestRow(row = {}) {
     };
 }
 
+function toPublicBridge(
+    bridge = {}
+) {
+    const {
+        authorId,
+        authorEmail,
+        clientCreateId,
+        ...safeBridge
+    } = bridge;
+
+    return {
+        ...safeBridge,
+
+        authorName:
+            sanitizeText(
+                bridge.authorName ||
+                'YH Member'
+            )
+    };
+}
+
+function toViewerRequest(
+    request = {},
+    viewer = {}
+) {
+    const viewerIds =
+        new Set(
+            [
+                viewer.id,
+                viewer.firebaseUid
+            ]
+                .map(sanitizeText)
+                .filter(Boolean)
+        );
+
+    const ownerIds =
+        [
+            request.authorId,
+            request.authorFirebaseUid
+        ]
+            .map(sanitizeText)
+            .filter(Boolean);
+
+    const isOwner =
+        ownerIds.some(
+            (id) =>
+                viewerIds.has(id)
+        );
+
+    const {
+        authorId,
+        authorFirebaseUid,
+        authorEmail,
+        assignedTo,
+        targetUserId,
+        clientRequestId,
+        deletedAt,
+        deletedBy,
+        deletedByName,
+        deleteReason,
+        updatedBy,
+        patronHandledBy,
+        ...safeRequest
+    } = request;
+
+    return {
+        ...safeRequest,
+
+        /*
+         * Only the original request owner needs
+         * the browser idempotency key.
+         */
+        clientRequestId:
+            isOwner
+                ? sanitizeText(
+                    clientRequestId
+                )
+                : '',
+
+        /*
+         * Preserve the useful lifecycle timeline
+         * without exposing internal user ids.
+         */
+        statusHistory:
+            safeArray(
+                request.statusHistory
+            ).map(
+                (entry) => ({
+                    from:
+                        sanitizeText(
+                            entry?.from
+                        ),
+
+                    to:
+                        sanitizeText(
+                            entry?.to
+                        ),
+
+                    at:
+                        toIso(
+                            entry?.at
+                        ),
+
+                    byName:
+                        sanitizeText(
+                            entry?.byName
+                        )
+                })
+            ),
+
+        isOwner
+    };
+}
+
 async function importBridge(id = '', payload = {}) {
     const row = buildBridgeRow({
         ...payload,
@@ -1550,5 +1664,7 @@ module.exports = {
     softDeleteRequest,
     deleteRecord,
     mapBridgeRow,
-    mapRequestRow
+    mapRequestRow,
+    toPublicBridge,
+    toViewerRequest
 };

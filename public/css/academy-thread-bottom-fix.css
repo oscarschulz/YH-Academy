@@ -1195,7 +1195,10 @@ body[data-yh-view="academy"]
     padding: 18px 14px calc(118px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
-  body[data-yh-view="academy"] #voice-lobby-view .lounge-container,
+  body[data-yh-view="academy"] #voice-lobby-view .lounge-container {
+    padding: 14px 14px calc(118px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
   body[data-yh-view="academy"] #video-lobby-view .lounge-container {
     padding: 14px 14px calc(118px + env(safe-area-inset-bottom, 0px)) !important;
   }
@@ -1242,8 +1245,7 @@ body[data-yh-view="academy"]
 
   body[data-yh-view="academy"] .academy-home-stat-grid,
   body[data-yh-view="academy"] .academy-profile-content-grid,
-  body[data-yh-view="academy"] .lounge-grid,
-  body[data-yh-view="academy"] .vault-grid {
+  body[data-yh-view="academy"] .lounge-grid {
     grid-template-columns: 1fr !important;
   }
 
@@ -2281,10 +2283,44 @@ body[data-yh-view="academy"]
     padding: 12px !important;
   }
 
+  body[data-yh-view="academy"] #center-stage-view .academy-live-stage-header {
+    min-height: 60px !important;
+    height: auto !important;
+    padding: 10px 12px !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .academy-live-stage-header-left {
+    width: 100% !important;
+    min-width: 0 !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view .academy-live-stage-heading {
+    min-width: 0 !important;
+    display: grid !important;
+    gap: 3px !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view #stage-title {
+    font-size: 1.05rem !important;
+    font-weight: 900 !important;
+    line-height: 1.08 !important;
+  }
+
+  body[data-yh-view="academy"] #center-stage-view #stage-topic {
+    margin: 0 !important;
+    font-size: 0.82rem !important;
+    line-height: 1.25 !important;
+  }
+
   body[data-yh-view="academy"] #academy-chat .chat-messages,
   body[data-yh-view="academy"] #academy-profile-view .chat-messages,
-  body[data-yh-view="academy"] #voice-lobby-view .lounge-container,
   body[data-yh-view="academy"] #video-lobby-view .lounge-container {
+    padding: 10px 10px calc(116px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  body[data-yh-view="academy"] #voice-lobby-view .lounge-container {
     padding: 10px 10px calc(116px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
@@ -2300,12 +2336,12 @@ body[data-yh-view="academy"]
   }
 
   body[data-yh-view="academy"] #center-stage-view .speaker-card {
-    min-height: clamp(220px, 58vw, 290px) !important;
+    min-height: clamp(180px, 48vw, 220px) !important;
   }
 
   body[data-yh-view="academy"] #center-stage-view .stage-chat-panel {
-    min-height: 350px !important;
-    height: clamp(350px, 54dvh, 430px) !important;
+    min-height: 260px !important;
+    height: clamp(260px, 34dvh, 300px) !important;
     border-radius: 14px !important;
   }
 
@@ -2318,6 +2354,9 @@ body[data-yh-view="academy"]
   }
 
   body[data-yh-view="academy"] #center-stage-view .stage-chat-input-wrapper {
+    position: sticky !important;
+    bottom: 0 !important;
+    z-index: 2 !important;
     padding: 9px !important;
   }
 
@@ -2354,22 +2393,22 @@ body[data-yh-view="academy"]
   }
 
   body[data-yh-view="academy"] #academy-feed-view .academy-feed-composer-card {
-    padding: 16px !important;
+    padding: 10px !important;
     overflow: hidden !important;
   }
 
   body[data-yh-view="academy"] #academy-feed-view .academy-feed-composer-top {
     display: flex !important;
-    flex-wrap: wrap !important;
-    align-items: stretch !important;
-    gap: 10px !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
   }
 
   body[data-yh-view="academy"] #academy-feed-view .academy-feed-composer-bottom {
     display: flex !important;
     flex-wrap: nowrap !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 7px !important;
   }
 
   body[data-yh-view="academy"] #academy-feed-view .academy-feed-composer-top > *,
@@ -2378,20 +2417,20 @@ body[data-yh-view="academy"]
   }
 
   body[data-yh-view="academy"] #academy-feed-view .academy-feed-gallery-btn {
-    width: 40px !important;
-    height: 40px !important;
-    min-width: 40px !important;
-    min-height: 40px !important;
-    flex: 0 0 40px !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    flex: 0 0 36px !important;
   }
 
   body[data-yh-view="academy"] #academy-feed-view .academy-feed-post-submit-btn {
     min-width: 0 !important;
     width: auto !important;
     flex: 1 1 auto !important;
-    padding: 12px 16px !important;
-    min-height: 40px !important;
-    font-size: 1.03rem !important;
+    padding: 9px 12px !important;
+    min-height: 36px !important;
+    font-size: 0.92rem !important;
   }
 }
 

@@ -1,6 +1,7 @@
 const businessRepo = require('../backend/repositories/plazaBusinessMessagesSupabaseRepo');
 const directoryRepo = require('../backend/repositories/plazaDirectoryRegionsSupabaseRepo');
 const bridgeRequestsRepo = require('../backend/repositories/plazaBridgeRequestsSupabaseRepo');
+const yhuUsersSupabaseRepo = require('../backend/repositories/yhuUsersSupabaseRepo');
 
 function sanitizeText(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
@@ -26,6 +27,38 @@ function safeArray(value = []) {
 function normalizeStatus(value = '', fallback = 'active') {
     const clean = sanitizeText(value || fallback).toLowerCase();
     return clean || fallback;
+}
+
+function isDiscoverableBusinessMemberAccount(row = {}) {
+    if (!row || typeof row !== 'object') return false;
+
+    const isDeleted =
+        row.is_deleted === true ||
+        ['true', '1', 'yes'].includes(
+            sanitizeText(row.is_deleted).toLowerCase()
+        );
+
+    if (isDeleted) return false;
+
+    const status =
+        sanitizeText(
+            row.account_status ||
+            row.status ||
+            ''
+        )
+            .toLowerCase()
+            .replace(/\s+/g, '_');
+
+    return ![
+        'deleted',
+        'disabled',
+        'deactivated',
+        'removed',
+        'archived',
+        'banned',
+        'suspended',
+        'blocked'
+    ].includes(status);
 }
 
 function getViewerFromRequest(req = {}) {
@@ -332,6 +365,31 @@ exports.getBusinessMembers = async (req, res) => {
             });
         }
 
+        const normalizedQuery =
+            sanitizeText(
+                req.query?.q ||
+                req.query?.query ||
+                req.query?.search ||
+                ''
+            )
+                .toLowerCase()
+                .normalize('NFKD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+        const requestedLimit =
+            Math.max(
+                1,
+                Math.min(
+                    Number.parseInt(
+                        req.query?.limit,
+                        10
+                    ) || 24,
+                    60
+                )
+            );
+
         const directoryResult =
             await directoryRepo.listDirectory(160);
 
@@ -342,43 +400,225 @@ exports.getBusinessMembers = async (req, res) => {
                     ? directoryResult.items
                     : [];
 
-        const members =
+        const normalizeSearchText =
+            (value = '') =>
+                sanitizeText(value)
+                    .toLowerCase()
+                    .normalize('NFKD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+        const matchesQuery = (member = {}) => {
+            if (!normalizedQuery) return true;
+
+            return [
+                member.name,
+                member.username,
+                member.headline,
+                member.role,
+                member.focus,
+                member.region,
+                ...safeArray(member.tags),
+                ...safeArray(member.skills),
+                ...safeArray(member.services)
+            ]
+                .map(normalizeSearchText)
+                .filter(Boolean)
+                .some(
+                    (value) =>
+                        value.includes(
+                            normalizedQuery
+                        )
+                );
+        };
+
+        const rankFor = (member = {}) => {
+            if (!normalizedQuery) return 0;
+
+            const name =
+                normalizeSearchText(
+                    member.name
+                );
+
+            const username =
+                normalizeSearchText(
+                    member.username
+                );
+
+            if (
+                name === normalizedQuery ||
+                username === normalizedQuery
+            ) {
+                return 0;
+            }
+
+            if (
+                name.startsWith(normalizedQuery) ||
+                username.startsWith(normalizedQuery)
+            ) {
+                return 1;
+            }
+
+            if (
+                name.includes(normalizedQuery) ||
+                username.includes(normalizedQuery)
+            ) {
+                return 2;
+            }
+
+            return 3;
+        };
+
+        const candidates =
             directory
                 .filter((member) => {
-                    const id =
+                    const canonicalUserId =
                         sanitizeText(
-                            member.id ||
                             member.userId ||
-                            member.firebaseUid
+                            member.firebaseUid ||
+                            member.id
                         );
 
                     return (
-                        id &&
-                        id !== viewer.id &&
-                        id !==
-                            viewer.firebaseUid
+                        canonicalUserId &&
+                        canonicalUserId !== viewer.id &&
+                        canonicalUserId !== viewer.firebaseUid &&
+                        matchesQuery(member)
                     );
                 })
-                .map((member) =>
-                    directoryRepo
-                        .toPublicDirectoryProfile(
-                            member
+                .sort((a, b) => {
+                    const rankDiff =
+                        rankFor(a) -
+                        rankFor(b);
+
+                    if (rankDiff) return rankDiff;
+
+                    return String(
+                        a.name ||
+                        a.username ||
+                        ''
+                    ).localeCompare(
+                        String(
+                            b.name ||
+                            b.username ||
+                            ''
+                        ),
+                        undefined,
+                        {
+                            sensitivity: 'base'
+                        }
+                    );
+                })
+                .slice(
+                    0,
+                    normalizedQuery
+                        ? Math.max(
+                            requestedLimit * 2,
+                            24
                         )
+                        : requestedLimit
+                );
+
+        const checkedMembers =
+            await Promise.all(
+                candidates.map(
+                    async (member) => {
+                        const canonicalUserId =
+                            sanitizeText(
+                                member.userId ||
+                                member.firebaseUid ||
+                                member.id
+                            );
+
+                        /*
+                         * Keep the existing no-query
+                         * Business Chats listing behavior.
+                         *
+                         * Strict canonical validation is
+                         * required for actual searches.
+                         */
+                        if (!normalizedQuery) {
+                            return directoryRepo
+                                .toPublicDirectoryProfile(
+                                    member
+                                );
+                        }
+
+                        const canonicalAccount =
+                            await yhuUsersSupabaseRepo
+                                .getByUid(
+                                    canonicalUserId
+                                )
+                                .catch(
+                                    () => null
+                                );
+
+                        if (
+                            !isDiscoverableBusinessMemberAccount(
+                                canonicalAccount
+                            )
+                        ) {
+                            return null;
+                        }
+
+                        const publicProfile =
+                            directoryRepo
+                                .toPublicDirectoryProfile(
+                                    member
+                                );
+
+                        /*
+                         * Directory record ID is preserved
+                         * separately. Public member ID is
+                         * now the actual YHU account UID.
+                         */
+                        return {
+                            ...publicProfile,
+
+                            directoryProfileId:
+                                publicProfile.id,
+
+                            id:
+                                canonicalUserId,
+
+                            userId:
+                                canonicalUserId,
+
+                            firebaseUid:
+                                canonicalUserId
+                        };
+                    }
+                )
+            );
+
+        const members =
+            checkedMembers
+                .filter(Boolean)
+                .slice(
+                    0,
+                    requestedLimit
                 );
 
         return res.json({
             success: true,
             source: 'supabase',
+            query: normalizedQuery,
             members,
             businessMembers: members
         });
     } catch (error) {
-        console.error('plazaBusinessMessagesSupabaseLite.getBusinessMembers error:', error);
+        console.error(
+            'plazaBusinessMessagesSupabaseLite.getBusinessMembers error:',
+            error
+        );
 
         return res.status(500).json({
             success: false,
             source: 'supabase',
-            message: error?.message || 'Failed to load Plaza business members.'
+            message:
+                error?.message ||
+                'Failed to load Plaza business members.'
         });
     }
 };

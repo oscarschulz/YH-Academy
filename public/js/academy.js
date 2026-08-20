@@ -2009,14 +2009,10 @@ function hideDashboardBootstrapLoader() {
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
 
-    let currentVaultFolder = null; 
-    let selectedVaultIndex = null;
-    let pendingTaskToComplete = null;
     let currentProfileUser = null;
     let currentProfileIcon = null;
     let currentProfileBg = null;
     let pendingGroupMembers = [];
-    let hasLoadedVaultOnce = false;
     let academyCanonicalIdentityHydrationPromiseV4 = null;
     const defaultAcademyWelcomeHtml = document.getElementById('chat-welcome-box')?.innerHTML || '';
 
@@ -2385,8 +2381,7 @@ function openRoom(type, element) {
         'center-stage-view': document.getElementById('center-stage-view'),
         'announcements-view': document.getElementById('announcements-view'),
         'voice-lobby-view': document.getElementById('voice-lobby-view'),
-        'video-lobby-view': document.getElementById('video-lobby-view'),
-        'vault-view': document.getElementById('vault-view')
+        'video-lobby-view': document.getElementById('video-lobby-view')
     };
 
     const shouldTabLoad =
@@ -2452,22 +2447,6 @@ if (type === 'video' && views['video-lobby-view']) {
         views['announcements-view'].classList.remove('fade-in');
         void views['announcements-view'].offsetWidth;
         views['announcements-view'].classList.add('fade-in');
-        return;
-    }
-
-    if (type === 'vault' && views['vault-view']) {
-        views['vault-view'].classList.remove('hidden-step');
-        views['vault-view'].classList.remove('fade-in');
-        void views['vault-view'].offsetWidth;
-        views['vault-view'].classList.add('fade-in');
-
-        Promise.resolve()
-            .then(() => ensureVaultLoaded())
-            .catch((error) => {
-                console.error('ensureVaultLoaded error:', error);
-                showToast(error?.message || 'Failed to load Vault.', 'error');
-            });
-
         return;
     }
 
@@ -2949,6 +2928,7 @@ function initAcademyMobileBottomNavAutoHide() {
         const profileView = document.getElementById('academy-profile-view');
         const voiceView = document.getElementById('voice-lobby-view');
         const videoView = document.getElementById('video-lobby-view');
+        const stageView = document.getElementById('center-stage-view');
         const leadMissionsView = document.getElementById('academy-lead-missions-view');
 
         const chatMode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
@@ -2960,6 +2940,37 @@ function initAcademyMobileBottomNavAutoHide() {
         const isLeadMissionsVisible = isNodeVisible(leadMissionsView);
         const isVoiceVisible = isNodeVisible(voiceView);
         const isVideoVisible = isNodeVisible(videoView);
+        const isStageVisible = isNodeVisible(stageView);
+
+        const voiceStageState =
+            isStageVisible
+                ? 'open'
+                : 'closed';
+
+        if (
+            window.__yhAcademyVoiceStageStateV1 !==
+            voiceStageState
+        ) {
+            window.__yhAcademyVoiceStageStateV1 =
+                voiceStageState;
+
+            try {
+                if (
+                    window.parent &&
+                    window.parent !== window
+                ) {
+                    window.parent.postMessage(
+                        {
+                            type:
+                                'yh:academy-voice-stage-state',
+                            open:
+                                isStageVisible
+                        },
+                        window.location.origin
+                    );
+                }
+            } catch (_) {}
+        }
 
         const isMessagesVisible =
             isNodeVisible(academyChat) &&
@@ -2988,6 +2999,7 @@ function initAcademyMobileBottomNavAutoHide() {
         const shouldShowBottomNav =
             isTabletOrPhoneViewport() &&
             isAnyPrimaryAcademyTabVisible &&
+            !isStageVisible &&
             !isSingleActionThread &&
             !isAiCoachOpen;
 
@@ -3074,6 +3086,7 @@ function initAcademyMobileBottomNavAutoHide() {
         document.getElementById('academy-profile-view'),
         document.getElementById('academy-lead-missions-view'),
         document.getElementById('voice-lobby-view'),
+        document.getElementById('center-stage-view'),
         document.getElementById('video-lobby-view')
     ].filter(Boolean).forEach((node) => {
         observer.observe(node, {
@@ -5438,41 +5451,8 @@ return true;
         closeAcademyComposerMenu();
     });
 
-    // --- STAGE CONTROLS, WEBRTC & INVITE ---
-    let localStream = null;
+    // --- STAGE CONTROLS ---
     const btnToggleMic = document.getElementById('btn-toggle-mic');
-    const btnToggleCam = document.getElementById('btn-toggle-cam');
-    const btnToggleScreen = document.getElementById('btn-toggle-screen');
-
-    async function toggleCamera() {
-        try {
-            const mySpeakerCard = document.querySelector('.speaker-card.active-speaker'); 
-            const hostAvatarEl = document.getElementById('host-avatar');
-            if (!localStream) {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                if(btnToggleCam) btnToggleCam.classList.remove('toggled-off');
-                if(mySpeakerCard) mySpeakerCard.classList.remove('is-offcam');
-                showToast("Camera & Mic Active", "success");
-            } else {
-                localStream.getVideoTracks().forEach(track => {
-                    track.enabled = !track.enabled;
-                    if (!track.enabled) {
-                        if(btnToggleCam) btnToggleCam.classList.add('toggled-off');
-                        if(mySpeakerCard) mySpeakerCard.classList.add('is-offcam');
-                        if(hostAvatarEl) { hostAvatarEl.innerText = "🚫"; hostAvatarEl.style.background = "#1a1f2e"; }
-                        showToast("Camera disabled", "success");
-                    } else {
-                        if(btnToggleCam) btnToggleCam.classList.remove('toggled-off');
-                        if(mySpeakerCard) mySpeakerCard.classList.remove('is-offcam');
-                        if(hostAvatarEl) { hostAvatarEl.innerText = localStorage.getItem('yh_user_name')?.charAt(0).toUpperCase() || "Y"; hostAvatarEl.style.background = "var(--neon-blue)"; }
-                        showToast("Camera active", "success");
-                    }
-                });
-            }
-        } catch (err) { showToast("Camera/Mic permission denied by browser.", "error"); }
-    }
-
-    if(btnToggleCam) btnToggleCam.addEventListener('click', toggleCamera);
 
     if (btnToggleMic) {
         btnToggleMic.addEventListener('click', () => {
@@ -5483,19 +5463,6 @@ return true;
         });
     }
 
-    if(btnToggleScreen) {
-        btnToggleScreen.addEventListener('click', async () => {
-            try {
-                const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-                btnToggleScreen.classList.add('toggled-on');
-                showToast("Screen sharing started!", "success");
-                screenStream.getVideoTracks()[0].onended = () => {
-                    btnToggleScreen.classList.remove('toggled-on');
-                    showToast("Screen share stopped.", "error");
-                };
-            } catch (err) { showToast("Screen sharing cancelled.", "error"); }
-        });
-    }
 
 const stageChatInput = document.getElementById('stage-chat-input');
 const stageChatHistory = document.getElementById('stage-chat-history');
@@ -6006,380 +5973,10 @@ if (stageChatSendBtn) {
     );
 }
 
-    const btnInviteStage = document.getElementById('btn-invite-to-stage');
-    if (btnInviteStage) {
-        btnInviteStage.addEventListener('click', () => {
-            const stageTitle = document.getElementById('stage-title')?.innerText || "Live Mastermind";
-            const simpleLinkHTML = `Hey! I'm LIVE NOW hosting <strong>${stageTitle}</strong>. <a href="#" onclick="document.getElementById('nav-voice').click(); return false;" style="color: var(--neon-blue); font-weight: bold; text-decoration: underline;">Click here to join my room!</a>`;
-            
-            const shareModal = document.getElementById('share-select-modal');
-            const destList = document.getElementById('share-destinations-list');
-            if (shareModal && destList) {
-    const state = window.dashboardState || window.yhDashboardState || (window.dashboardState = {});
+/* PHASE 2E-B2A:
+   obsolete Stage invite/share control removed.
+   No current Stage Invite DOM exists. */
 
-    window.pendingShareHTML = simpleLinkHTML;
-
-    const normalizeRoom = (room, index = 0) => ({
-        id: room.id || room._id || room.roomId || room.room_id || `custom-room-${index + 1}`,
-        name: room.name || room.title || room.roomName || room.room_name || `Room ${index + 1}`,
-        icon: room.icon || room.emoji || room.avatar || room.image || '💬',
-        type: room.type || room.roomType || room.room_type || 'dm',
-        privacy: room.privacy || room.visibility || (room.isPrivate ? 'private' : 'public') || 'public',
-        isPrivate: typeof room.isPrivate === 'boolean'
-            ? room.isPrivate
-            : (room.privacy === 'private' || room.visibility === 'private')
-    });
-
-    let stateRooms = Array.isArray(state.customRooms) ? state.customRooms : [];
-
-    let cachedRooms = [];
-    try {
-        const cached = JSON.parse(localStorage.getItem('yh_custom_rooms_cache') || 'null');
-        cachedRooms = Array.isArray(cached?.rooms) ? cached.rooms : [];
-    } catch (_) {}
-
-    let legacyRooms = [];
-    try {
-        const rawLegacy = JSON.parse(localStorage.getItem('yh_custom_rooms') || '[]');
-        legacyRooms = Array.isArray(rawLegacy) ? rawLegacy : [];
-    } catch (_) {}
-
-    const mergedRooms = [...stateRooms, ...cachedRooms, ...legacyRooms]
-        .map((room, index) => normalizeRoom(room, index))
-        .filter((room, index, arr) => {
-            return arr.findIndex((candidate) => {
-                const sameId = candidate.id && room.id && String(candidate.id) === String(room.id);
-                const sameName = String(candidate.name || '').trim().toLowerCase() === String(room.name || '').trim().toLowerCase();
-                const sameType = String(candidate.type || '').trim().toLowerCase() === String(room.type || '').trim().toLowerCase();
-                return sameId || (sameName && sameType);
-            }) === index;
-        });
-
-    destList.innerHTML = `
-        <button
-            class="btn-secondary share-dest-btn"
-            data-target="main-chat"
-            data-room-id="main-chat"
-            data-room-type="main-chat"
-            data-room-privacy="public"
-            style="padding: 10px; text-align: left;"
-        >💬 YH-community (Public)</button>
-    `;
-
-    mergedRooms.forEach((room) => {
-        destList.insertAdjacentHTML('beforeend', `
-            <button
-                class="btn-secondary share-dest-btn"
-                data-target="${room.name}"
-                data-room-id="${room.id || ''}"
-                data-room-type="${room.type || 'dm'}"
-                data-room-privacy="${room.privacy || (room.isPrivate ? 'private' : 'public')}"
-                style="padding: 10px; text-align: left;"
-            >${room.icon || '💬'} ${room.name}</button>
-        `);
-    });
-
-    shareModal.classList.remove('hidden-step');
-}
-        });
-    }
-
-    // --- THE VAULT & UPLOADS ---
-function formatVaultFileSize(bytes = 0) {
-    const value = Number(bytes || 0);
-    if (!Number.isFinite(value) || value <= 0) return 'Unknown';
-    if (value < 1024) return `${value} B`;
-    if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-    return `${(value / 1024 / 1024).toFixed(2)} MB`;
-}
-
-async function syncVaultCacheFromBackend() {
-    const result = await academyAuthedFetch('/api/realtime/vault', {
-        method: 'GET'
-    });
-
-    const rawItems = Array.isArray(result?.items) ? result.items : [];
-    localStorage.setItem('yh_vault_items_backend', JSON.stringify(rawItems));
-    return rawItems;
-}
-
-function readVaultCache() {
-    try {
-        return JSON.parse(localStorage.getItem('yh_vault_items_backend') || '[]');
-    } catch (_) {
-        return [];
-    }
-}
-
-async function saveVaultItemObj(itemObj) {
-    if (!itemObj || itemObj.type !== 'folder') return;
-
-    await academyAuthedFetch('/api/realtime/vault/folder', {
-        method: 'POST',
-        body: JSON.stringify({
-            name: String(itemObj.name || '').trim(),
-            parentId: currentVaultFolder || ''
-        })
-    });
-
-    await syncVaultCacheFromBackend();
-    await loadVault();
-}
-
-async function saveFileToVault(file, origin) {
-    await academyAuthedFetch('/api/realtime/vault/file', {
-        method: 'POST',
-        body: JSON.stringify({
-            name: file.name,
-            parentId: currentVaultFolder || '',
-            filePath: '',
-            mimeType: file.type || 'application/octet-stream',
-            fileSize: Number(file.size || 0),
-            origin: origin || 'Direct Upload'
-        })
-    });
-
-    await syncVaultCacheFromBackend();
-    await loadVault();
-}
-
-async function loadVault() {
-    const grid = document.getElementById('vault-dynamic-grid');
-    if (!grid) return;
-
-    grid.innerHTML = '';
-
-    let vaultItems = [];
-    try {
-        vaultItems = await syncVaultCacheFromBackend();
-    } catch (_) {
-        vaultItems = readVaultCache();
-    }
-
-    const currentFolder = currentVaultFolder
-        ? vaultItems.find((item) => String(item.id) === String(currentVaultFolder))
-        : null;
-
-    const visibleItems = vaultItems.filter((item) => {
-        return String(item.parent_id || '') === String(currentVaultFolder || '');
-    });
-
-    if (currentVaultFolder && currentFolder) {
-        grid.innerHTML = `
-            <div class="vault-folder-header" id="btn-vault-back">
-                <span>⬅ Back to All Files</span>
-                <span style="color: #fff;">📂 ${currentFolder.name}</span>
-            </div>
-        `;
-        document.getElementById('btn-vault-back').addEventListener('click', () => {
-            currentVaultFolder = currentFolder.parent_id || null;
-            loadVault();
-        });
-    }
-
-    if (visibleItems.length === 0) {
-        grid.insertAdjacentHTML('beforeend', `
-            <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">
-                This location is empty. Upload a file or create a folder.
-            </div>
-        `);
-        return;
-    }
-
-    visibleItems
-        .slice()
-        .sort((a, b) => {
-            const aFolder = a.item_type === 'folder' ? 0 : 1;
-            const bFolder = b.item_type === 'folder' ? 0 : 1;
-            if (aFolder !== bFolder) return aFolder - bFolder;
-            return String(a.name || '').localeCompare(String(b.name || ''));
-        })
-        .forEach((item) => {
-            const isFolder = item.item_type === 'folder';
-            const visualContent = isFolder
-                ? `<div class="vault-icon">📁</div>`
-                : `<div class="vault-icon">📄</div>`;
-
-            const actionText = isFolder ? 'Open Folder' : 'Share to Chat';
-
-            grid.insertAdjacentHTML('beforeend', `
-                <div
-                    class="vault-card fade-in ${isFolder ? 'vault-folder' : ''}"
-                    data-id="${item.id}"
-                    data-name="${item.name}"
-                    data-type="${item.item_type}"
-                >
-                    ${visualContent}
-                    <div class="vault-filename" title="${item.name}">${item.name}</div>
-                    <div class="vault-meta">${isFolder ? 'Folder' : formatVaultFileSize(item.file_size)}</div>
-                    <div class="vault-origin">From: ${item.file_path ? 'Uploaded Path' : 'Server Metadata'}</div>
-                    <button class="btn-vault-action action-vault-btn">${actionText}</button>
-                </div>
-            `);
-        });
-
-    document.querySelectorAll('.action-vault-btn').forEach((btn) => {
-        btn.addEventListener('click', (e) => {
-            const card = e.target.closest('.vault-card');
-            const itemId = card.getAttribute('data-id');
-            const itemType = card.getAttribute('data-type');
-            const itemName = card.getAttribute('data-name');
-
-            if (itemType === 'folder') {
-                currentVaultFolder = itemId;
-                showToast(`Opening folder: ${itemName}`, 'success');
-                loadVault();
-                return;
-            }
-
-            const fullItem = vaultItems.find((item) => String(item.id) === String(itemId));
-            const downloadLink = fullItem?.file_path
-                ? `<a href="${fullItem.file_path}" target="_blank" rel="noopener noreferrer" style="color: var(--neon-blue);">⬇ Open File</a>`
-                : `<span style="color: var(--text-muted);">Metadata only</span>`;
-
-            const shareModal = document.getElementById('share-select-modal');
-            const destList = document.getElementById('share-destinations-list');
-
-            if (shareModal && destList) {
-                const state = window.dashboardState || window.yhDashboardState || (window.dashboardState = {});
-
-                window.pendingShareHTML = `
-                    <div class="chat-attachment" style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; margin-top: 5px;">
-                        <div style="font-size: 2rem; margin-bottom: 8px;">📄</div>
-                        <div>
-                            <strong>${itemName}</strong><br>
-                            ${downloadLink}
-                        </div>
-                    </div>
-                `;
-
-                const normalizeRoom = (room, index = 0) => ({
-                    id: room.id || room._id || room.roomId || room.room_id || `custom-room-${index + 1}`,
-                    name: room.name || room.title || room.roomName || room.room_name || `Room ${index + 1}`,
-                    icon: room.icon || room.emoji || room.avatar || room.image || '💬',
-                    type: room.type || room.roomType || room.room_type || 'dm',
-                    privacy: room.privacy || room.visibility || (room.isPrivate ? 'private' : 'public') || 'public',
-                    isPrivate: typeof room.isPrivate === 'boolean'
-                        ? room.isPrivate
-                        : (room.privacy === 'private' || room.visibility === 'private')
-                });
-
-                let stateRooms = Array.isArray(state.customRooms) ? state.customRooms : [];
-
-                let cachedRooms = [];
-                try {
-                    const cached = JSON.parse(localStorage.getItem('yh_custom_rooms_cache') || 'null');
-                    cachedRooms = Array.isArray(cached?.rooms) ? cached.rooms : [];
-                } catch (_) {}
-
-                let legacyRooms = [];
-                try {
-                    const rawLegacy = JSON.parse(localStorage.getItem('yh_custom_rooms') || '[]');
-                    legacyRooms = Array.isArray(rawLegacy) ? rawLegacy : [];
-                } catch (_) {}
-
-                const mergedRooms = [...stateRooms, ...cachedRooms, ...legacyRooms]
-                    .map((room, index) => normalizeRoom(room, index))
-                    .filter((room, index, arr) => {
-                        return arr.findIndex((candidate) => {
-                            const sameId = candidate.id && room.id && String(candidate.id) === String(room.id);
-                            const sameName = String(candidate.name || '').trim().toLowerCase() === String(room.name || '').trim().toLowerCase();
-                            const sameType = String(candidate.type || '').trim().toLowerCase() === String(room.type || '').trim().toLowerCase();
-                            return sameId || (sameName && sameType);
-                        }) === index;
-                    });
-
-                destList.innerHTML = `
-                    <button
-                        class="btn-secondary share-dest-btn"
-                        data-target="main-chat"
-                        data-room-id="main-chat"
-                        data-room-type="main-chat"
-                        data-room-privacy="public"
-                        style="padding: 10px; text-align: left;"
-                    >💬 YH-community (Public)</button>
-                `;
-
-                mergedRooms.forEach((room) => {
-                    destList.insertAdjacentHTML('beforeend', `
-                        <button
-                            class="btn-secondary share-dest-btn"
-                            data-target="${room.name}"
-                            data-room-id="${room.id || ''}"
-                            data-room-type="${room.type || 'dm'}"
-                            data-room-privacy="${room.privacy || (room.isPrivate ? 'private' : 'public')}"
-                            style="padding: 10px; text-align: left;"
-                        >${room.icon || '💬'} ${room.name}</button>
-                    `);
-                });
-
-                shareModal.classList.remove('hidden-step');
-            }
-        });
-    });
-
-    const contextMenu = document.getElementById('vault-context-menu');
-    document.querySelectorAll('.vault-card').forEach((card) => {
-        const showContext = (pageX, pageY) => {
-            selectedVaultIndex = card.getAttribute('data-id');
-            contextMenu.style.left = `${pageX}px`;
-            contextMenu.style.top = `${pageY}px`;
-            contextMenu.classList.remove('hidden-step');
-        };
-
-        card.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            showContext(e.pageX, e.pageY);
-        });
-    });
-}
-async function ensureVaultLoaded(force = false) {
-    if (hasLoadedVaultOnce && !force) return;
-
-    await loadVault();
-    hasLoadedVaultOnce = true;
-}
-    const btnCreateFolder = document.getElementById('btn-create-folder');
-    if (btnCreateFolder) {
-        btnCreateFolder.addEventListener('click', async () => {
-            const name = document.getElementById('folder-name-input').value.trim();
-            if (!name) return;
-
-            try {
-                await saveVaultItemObj({
-                    type: 'folder',
-                    name
-                });
-
-                document.getElementById('folder-modal').classList.add('hidden-step');
-                document.getElementById('folder-name-input').value = '';
-                showToast(`Folder '${name}' created!`, "success");
-            } catch (error) {
-                showToast(error.message || 'Failed to create folder.', 'error');
-            }
-        });
-    }
-
-    const btnVaultUpload = document.getElementById('btn-vault-upload-trigger');
-    const vaultFileInput = document.getElementById('vault-file-input');
-
-    if (btnVaultUpload && vaultFileInput) {
-        btnVaultUpload.addEventListener('click', () => vaultFileInput.click());
-
-        vaultFileInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            try {
-                await saveFileToVault(file, "Direct Upload");
-                showToast(`${file.name} saved to The Vault.`, "success");
-            } catch (error) {
-                showToast(error.message || 'Failed to save vault file metadata.', 'error');
-            } finally {
-                vaultFileInput.value = '';
-            }
-        });
-    }
 
     let academyDmSelectedMemberId = '';
     let academyDmDirectoryMembers = [];
@@ -7001,63 +6598,6 @@ async function ensureVaultLoaded(force = false) {
         });
 
         syncGroupCreateButtonState();
-    }
-
-    const btnSendTicket = document.getElementById('btn-send-ticket');
-    if(btnSendTicket) {
-        btnSendTicket.addEventListener('click', () => {
-            const subject = document.getElementById('ticket-subject').value; const desc = document.getElementById('ticket-desc').value;
-            if(!subject || !desc) { showToast("Please fill out both subject and description.", "error"); return; }
-            btnSendTicket.innerText = "Submitting..."; setTimeout(() => { showToast("Ticket successfully sent to support@younghustlers.net", "success"); btnSendTicket.innerText = "Submit Ticket ➔"; document.getElementById('ticket-subject').value = ''; document.getElementById('ticket-desc').value = ''; document.getElementById('ticket-modal').classList.add('hidden-step'); }, 1000);
-        });
-    }
-
-    const btnSaveSettings = document.getElementById('btn-save-settings'); const inputDisplayName = document.getElementById('setting-display-name'); const btnSettings = document.getElementById('btn-settings');
-    const avatarInput = document.getElementById('setting-avatar-input'); const avatarWrapper = document.getElementById('settings-avatar-wrapper'); const avatarPreview = document.getElementById('settings-avatar-preview');
-    let tempAvatarData = null;
-    if(btnSaveSettings && inputDisplayName && btnSettings) {
-        btnSettings.addEventListener('click', () => {
-            const savedName = localStorage.getItem('yh_user_name') || ''; const savedAvatar = localStorage.getItem('yh_user_avatar'); inputDisplayName.value = savedName;
-            if (savedAvatar) { avatarPreview.innerText = ''; avatarPreview.style.backgroundImage = `url(${savedAvatar})`; tempAvatarData = savedAvatar; } 
-            else { avatarPreview.innerText = savedName ? savedName.charAt(0).toUpperCase() : 'Y'; avatarPreview.style.backgroundImage = 'none'; tempAvatarData = null; }
-        });
-        if (avatarWrapper && avatarInput) {
-            avatarWrapper.addEventListener('click', () => { avatarInput.click(); });
-            avatarInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    if (file.size > 2 * 1024 * 1024) {
-                        showToast("Image too large. Max 2MB allowed.", "error");
-                        return;
-                    }
-
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        tempAvatarData = event.target.result;
-                        avatarPreview.innerText = '';
-                        avatarPreview.style.backgroundImage = `url(${tempAvatarData})`;
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-
-        btnSaveSettings.addEventListener('click', () => {
-            const newName = inputDisplayName.value.trim();
-            if (!newName) {
-                showToast("Display name cannot be empty.", "error");
-                return;
-            }
-
-            localStorage.setItem('yh_user_name', newName);
-            if (tempAvatarData) {
-                localStorage.setItem('yh_user_avatar', tempAvatarData);
-            }
-
-            updateUserProfile(newName, tempAvatarData);
-            showToast("Profile settings saved!", "success");
-            document.getElementById('settings-modal').classList.add('hidden-step');
-        });
     }
 
     const academySidebar = document.getElementById('academy-sidebar');
@@ -8169,9 +7709,6 @@ if (resourcesMenu && resourcesMenuBtn && resourcesMenuPanel) {
     }, true);
 }
 
-    const closeMiniProfileBtn = document.getElementById('close-mini-profile'); const miniProfileModal = document.getElementById('mini-profile-modal');
-    if(closeMiniProfileBtn && miniProfileModal) { closeMiniProfileBtn.addEventListener('click', () => miniProfileModal.classList.add('hidden-step')); miniProfileModal.addEventListener('click', (e) => { if(e.target === miniProfileModal) miniProfileModal.classList.add('hidden-step'); }); }
-
     // ==========================================
     // INITIALIZATION RUNNER
     // ==========================================
@@ -8227,9 +7764,6 @@ if (getStoredUserValue('yh_user_loggedIn') === 'true') {
     if (typeof renderLeaderboard === 'function') {
         renderLeaderboard();
     }
-
-    // Keep Vault loading lazy.
-    // First live backend fetch now happens only when the Vault view is actually opened.
 
     if (typeof resolveAcademyAccessState === 'function') {
         resolveAcademyAccessState().catch(() => {});
@@ -9035,8 +8569,7 @@ function academyRenderFoundationMissionBoard(missions = [], system = {}) {
                 : status || 'pending';
 
         return `
-            <button
-                type="button"
+            <article
                 class="roadmap-mission-day-card is-${academyFeedEscapeHtml(displayStatus)}"
                 data-roadmap-day="${academyFeedEscapeHtml(day)}"
                 data-roadmap-mission-id="${academyFeedEscapeHtml(mission.id || '')}"
@@ -9044,7 +8577,7 @@ function academyRenderFoundationMissionBoard(missions = [], system = {}) {
                 <span class="roadmap-mission-day-number">Sprint ${academyFeedEscapeHtml(String(day).padStart(2, '0'))}</span>
                 <strong>${academyFeedEscapeHtml(mission.title || `Foundation Sprint ${day}`)}</strong>
                 <small>${academyFeedEscapeHtml(mission.description || 'Take one focused action today.').slice(0, 120)}</small>
-            </button>
+            </article>
         `;
     }).join('');
 }
@@ -11963,8 +11496,7 @@ function renderAcademyHome(homeData = null) {
         'center-stage-view': document.getElementById('center-stage-view'),
         'announcements-view': document.getElementById('announcements-view'),
         'voice-lobby-view': document.getElementById('voice-lobby-view'),
-        'video-lobby-view': document.getElementById('video-lobby-view'),
-        'vault-view': document.getElementById('vault-view')
+        'video-lobby-view': document.getElementById('video-lobby-view')
     };
 
     Object.values(views).forEach((view) => {
@@ -13245,8 +12777,7 @@ function hideAcademyViewsForFeed() {
         'center-stage-view',
         'announcements-view',
         'voice-lobby-view',
-        'video-lobby-view',
-        'vault-view'
+        'video-lobby-view'
     ].forEach((id) => {
         if (id === 'academy-profile-view' && keepProfileVisible) return;
         document.getElementById(id)?.classList.add('hidden-step');
@@ -16510,19 +16041,226 @@ function academyRenderVerifiedBadgeAvailButton(profile = {}, division = 'academy
     `;
 }
 
-function academyChooseVerifiedBadgeProvider() {
-    const selected = window.prompt(
-        'Choose payment method:\n\nType "stripe" for Card / Bank.\nType "oxapay" for Crypto.\nType "manual" for admin-confirmed fallback.',
-        'stripe'
-    );
+function academyChooseVerifiedBadgeProvider(
+    division = 'academy'
+) {
+    const cleanDivision =
+        division === 'federation'
+            ? 'federation'
+            : 'academy';
 
-    const clean = String(selected || '').trim().toLowerCase();
+    const badgeLabel =
+        cleanDivision === 'federation'
+            ? 'YHF'
+            : 'YHA';
 
-    if (clean === 'stripe' || clean === 'oxapay' || clean === 'manual') {
-        return clean;
+    const existing =
+        document.getElementById(
+            'yh-badge-provider-overlay'
+        );
+
+    if (existing) {
+        existing.remove();
     }
 
-    return '';
+    const returnFocus =
+        document.activeElement &&
+        document.activeElement !== document.body &&
+        typeof document.activeElement.focus ===
+            'function'
+            ? document.activeElement
+            : null;
+
+    const overlay =
+        document.createElement('div');
+
+    overlay.id =
+        'yh-badge-provider-overlay';
+
+    overlay.className =
+        'yh-confirm-overlay';
+
+    overlay.setAttribute(
+        'role',
+        'dialog'
+    );
+
+    overlay.setAttribute(
+        'aria-modal',
+        'true'
+    );
+
+    overlay.setAttribute(
+        'aria-labelledby',
+        'yh-badge-provider-title'
+    );
+
+    overlay.innerHTML = `
+        <div class="yh-confirm-card">
+            <div class="yh-confirm-header">
+                <div
+                    class="yh-confirm-title"
+                    id="yh-badge-provider-title"
+                >
+                    Choose ${badgeLabel} Badge Payment
+                </div>
+
+                <button
+                    type="button"
+                    class="yh-confirm-x"
+                    data-yh-badge-provider-cancel
+                    aria-label="Close"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <div class="yh-confirm-message">
+                Choose how you want to continue.
+                Card / Bank opens Stripe,
+                Crypto opens OxaPay,
+                and Manual Review creates an
+                admin-confirmed payment ledger.
+            </div>
+
+            <div class="yh-confirm-actions">
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    data-yh-badge-provider="stripe"
+                >
+                    Card / Bank
+                </button>
+
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    data-yh-badge-provider="oxapay"
+                >
+                    Crypto
+                </button>
+            </div>
+
+            <div class="yh-confirm-actions">
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    data-yh-badge-provider-cancel
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="button"
+                    class="btn-primary"
+                    data-yh-badge-provider="manual"
+                >
+                    Manual Review
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    return new Promise((resolve) => {
+        let settled = false;
+
+        const finish = (
+            provider = ''
+        ) => {
+            if (settled) return;
+
+            settled = true;
+
+            document.removeEventListener(
+                'keydown',
+                onKeyDown,
+                true
+            );
+
+            overlay.remove();
+
+            if (
+                returnFocus?.isConnected
+            ) {
+                window.requestAnimationFrame(
+                    () => {
+                        try {
+                            returnFocus.focus({
+                                preventScroll: true
+                            });
+                        } catch (_) {
+                            returnFocus.focus();
+                        }
+                    }
+                );
+            }
+
+            resolve(provider);
+        };
+
+        const onKeyDown = (event) => {
+            if (
+                event.key !== 'Escape'
+            ) {
+                return;
+            }
+
+            event.preventDefault();
+
+            finish('');
+        };
+
+        overlay.addEventListener(
+            'click',
+            (event) => {
+                const providerButton =
+                    event.target.closest(
+                        '[data-yh-badge-provider]'
+                    );
+
+                if (providerButton) {
+                    finish(
+                        String(
+                            providerButton
+                                .getAttribute(
+                                    'data-yh-badge-provider'
+                                ) || ''
+                        )
+                            .trim()
+                            .toLowerCase()
+                    );
+
+                    return;
+                }
+
+                if (
+                    event.target.closest(
+                        '[data-yh-badge-provider-cancel]'
+                    )
+                ) {
+                    finish('');
+                }
+            }
+        );
+
+        document.addEventListener(
+            'keydown',
+            onKeyDown,
+            true
+        );
+
+        window.requestAnimationFrame(
+            () => {
+                overlay
+                    .querySelector(
+                        '[data-yh-badge-provider="stripe"]'
+                    )
+                    ?.focus();
+            }
+        );
+    });
 }
 
 function academyGetBadgePaymentMethodForProvider(provider = '') {
@@ -16536,8 +16274,23 @@ function academyGetBadgePaymentMethodForProvider(provider = '') {
 }
 
 async function academyCreateVerifiedBadgeLedger(division = 'academy', button = null, options = {}) {
-    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
-    const provider = String(options.provider || academyChooseVerifiedBadgeProvider() || '').trim().toLowerCase();
+    const cleanDivision =
+        division === 'federation'
+            ? 'federation'
+            : 'academy';
+
+    const selectedProvider =
+        options.provider ||
+        await academyChooseVerifiedBadgeProvider(
+            cleanDivision
+        );
+
+    const provider =
+        String(
+            selectedProvider || ''
+        )
+            .trim()
+            .toLowerCase();
 
     if (!provider) return null;
 
@@ -26946,7 +26699,7 @@ function renderAcademyStageFromRoom(room = {}, options = {}) {
     const defaultTitle = roomType === 'video' ? 'Live Video Room' : 'Live Voice Lounge';
     const defaultTopic = roomType === 'video'
         ? 'Live Academy video networking'
-        : 'Live Academy networking';
+        : 'Live networking inside The Academy';
 
     const roomTitle = String(room.title || defaultTitle).trim() || defaultTitle;
     const roomTopic = String(room.topic || defaultTopic).trim() || defaultTopic;
@@ -26958,7 +26711,7 @@ function renderAcademyStageFromRoom(room = {}, options = {}) {
     const stageTitle = document.getElementById('stage-title');
     const hostNameEl = document.getElementById('host-name');
     const hostAvatar = document.getElementById('host-avatar');
-    const stageTopic = document.querySelector('#center-stage-view .header-topic');
+    const stageTopic = document.getElementById('stage-topic');
     const stageIcon = document.getElementById('stage-icon');
 
     if (stageTitle) stageTitle.innerText = roomTitle;
@@ -33462,13 +33215,9 @@ document.getElementById('academy-member-browser-modal')?.addEventListener('click
 
 /* Legacy duplicate Academy search listeners removed.
    Search is now handled only by scheduleAcademySearch() above. */
-document.getElementById('academy-feed-share-cancel')?.addEventListener('click', () => {
-    document.getElementById('academy-feed-share-modal')?.classList.add('hidden-step');
-});
+/* PHASE 2E-A: duplicate Share close/cancel listeners removed.
+   academyFeedCloseShareModal() is the single close-state owner. */
 
-document.getElementById('academy-feed-share-close')?.addEventListener('click', () => {
-    document.getElementById('academy-feed-share-modal')?.classList.add('hidden-step');
-});
 
 /* Share submit is wired once below via academyFeedSubmitShare. */
 document.getElementById('academy-feed-share-close')?.addEventListener('click', academyFeedCloseShareModal);
@@ -33736,15 +33485,10 @@ if (menuBtn) {
         return;
     }
 
-    const joinLiveRoomBtn = event.target.closest('.academy-join-live-room-btn');
-    if (joinLiveRoomBtn) {
-        const roomId = normalizeAcademyFeedId(joinLiveRoomBtn.getAttribute('data-live-room-id'));
-        const targetRoom = academyVoiceRoomsCache.find((room) => normalizeAcademyFeedId(room?.id) === roomId);
+    /* PHASE 2E-B2A:
+       duplicate document-level Voice Join fallback removed.
+       bindAcademyVoiceRoomJoinButtons() is the sole delegated owner. */
 
-        if (targetRoom) {
-            openAcademyStageFromRoom(targetRoom);
-        }
-    }
 });
 const btnOpenApply = document.getElementById('btn-open-academy-apply');
 const applyModal = document.getElementById('academy-apply-modal');
@@ -44849,61 +44593,7 @@ function openAcademyYhaBadgePaymentModalFromLearnFrom() {
 /* END PATCH: Academy pinned conversation visible marker v2 */
 
 
-/* PATCH: Academy top action buttons removed v20 */
-(function disableAcademyTopActionButtonsV20() {
-    if (window.__academyTopActionButtonsRemovedV20Installed) return;
-    window.__academyTopActionButtonsRemovedV20Installed = true;
-
-    function cleanupAcademyTopActions() {
-        if (document.body?.getAttribute('data-yh-page') !== 'academy') return;
-
-        document.getElementById('academy-notification-modal-overlay')?.remove();
-        document.getElementById('academy-resources-modal-overlay')?.remove();
-
-        const notifBell = document.getElementById('notif-bell');
-        const resourcesMenu = document.getElementById('yh-resources-menu');
-        const strip = document.querySelector('body[data-yh-page="academy"] .desktop-user-strip');
-
-        if (notifBell) notifBell.remove();
-        if (resourcesMenu) resourcesMenu.remove();
-
-        if (strip) {
-            strip.remove();
-        }
-
-        document.body.classList.remove(
-            'yh-notif-menu-open',
-            'yh-resources-menu-open',
-            'academy-top-action-modal-open',
-            'academy-top-action-dropdown-open-v3'
-        );
-    }
-
-    cleanupAcademyTopActions();
-
-    window.addEventListener('pageshow', cleanupAcademyTopActions);
-    window.addEventListener('load', cleanupAcademyTopActions);
-
-    window.openAcademyNotificationsModal = function noopAcademyNotificationsRemoved() {};
-    window.openAcademyResourcesModal = function noopAcademyResourcesRemoved() {};
-    window.closeAcademyTopActionModals = cleanupAcademyTopActions;
-    window.closeAcademyTopActionDropdownCardsV3 = cleanupAcademyTopActions;
-})();
-/* END PATCH: Academy top action buttons removed v20 */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/* PHASE 2E-B: obsolete Academy top-action compatibility shim removed. */
 
 /* PATCH: Academy search autofill blocker + interaction safety v5 */
 (function installAcademySearchAutofillBlockerAndInteractionSafetyV5() {

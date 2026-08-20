@@ -31,7 +31,6 @@ function collectionPathFor(recordType, roomId = '') {
     if (recordType === 'user_profile') return 'users';
     if (recordType === 'chat_room') return 'chatRooms';
     if (recordType === 'chat_message') return roomId ? 'chatRooms/' + roomId + '/messages' : 'chatMessages';
-    if (recordType === 'vault_item') return 'vaultItems';
     if (recordType === 'live_room') return 'liveRooms';
     if (recordType === 'live_room_participant') return 'liveRooms/' + roomId + '/participants';
     if (recordType === 'notification') return 'notifications';
@@ -43,7 +42,6 @@ function sourcePathFor(recordType, docId, roomId = '') {
     if (recordType === 'user_profile') return 'users/' + docId;
     if (recordType === 'chat_room') return 'chatRooms/' + docId;
     if (recordType === 'chat_message') return roomId ? 'chatRooms/' + roomId + '/messages/' + docId : 'chatMessages/' + docId;
-    if (recordType === 'vault_item') return 'vaultItems/' + docId;
     if (recordType === 'live_room') return 'liveRooms/' + docId;
     if (recordType === 'live_room_participant') return 'liveRooms/' + roomId + '/participants/' + docId;
     if (recordType === 'notification') return 'notifications/' + docId;
@@ -603,6 +601,63 @@ async function deleteRecord(recordType, docId) {
 
     if (error) throw new Error('Realtime Supabase delete failed: ' + error.message);
     return true;
+}
+
+function isRealtimeMessagingCanonicalAccountV1(
+    row = {}
+) {
+    if (
+        !row ||
+        typeof row !==
+            'object'
+    ) {
+        return false;
+    }
+
+    const deleted =
+        row.is_deleted ===
+            true ||
+        [
+            'true',
+            '1',
+            'yes'
+        ].includes(
+            sanitizeText(
+                row.is_deleted
+            )
+                .toLowerCase()
+        );
+
+    if (deleted) {
+        return false;
+    }
+
+    const status =
+        sanitizeText(
+            row.account_status ||
+            row.status ||
+            row.public_meta
+                ?.accountStatus ||
+            ''
+        )
+            .toLowerCase()
+            .replace(
+                /[\s-]+/g,
+                '_'
+            );
+
+    return ![
+        'deleted',
+        'disabled',
+        'deactivated',
+        'removed',
+        'archived',
+        'banned',
+        'suspended',
+        'blocked'
+    ].includes(
+        status
+    );
 }
 
 async function getUserDoc(userId) {
@@ -1548,20 +1603,10 @@ async function getBootstrap(userId) {
     ]);
 
     const [
-        vaultItems,
         liveRooms,
         notifications,
         leaderboard
     ] = await Promise.all([
-        safeBootstrapSection(
-            'vaultItems',
-            () =>
-                getVaultItems(
-                    normalizedUserId
-                ),
-            []
-        ),
-
         safeBootstrapSection(
             'liveRooms',
             () =>
@@ -1589,10 +1634,6 @@ async function getBootstrap(userId) {
                 ? rooms
                 : [],
 
-        vaultItems:
-            Array.isArray(vaultItems)
-                ? vaultItems
-                : [],
 
         liveRooms:
             Array.isArray(liveRooms)
@@ -1658,23 +1699,6 @@ async function enrichRoomForViewer(room = {}, viewerId = '') {
         ...room,
         member_names: participantNames,
         participantNames
-    };
-}
-
-function mapVaultRow(row = {}) {
-    const data = rowData(row);
-
-    return {
-        id: row.source_document_id,
-        user_id: sanitizeText(data.user_id || data.userId || row.owner_user_id),
-        parent_id: sanitizeText(data.parent_id || data.parentId),
-        item_type: sanitizeText(data.item_type || data.itemType || 'folder'),
-        name: sanitizeText(data.name),
-        file_path: sanitizeText(data.file_path || data.filePath),
-        mime_type: sanitizeText(data.mime_type || data.mimeType),
-        file_size: toInt(data.file_size || data.fileSize, 0),
-        created_at: mapTimestamp(data.created_at || data.createdAt || row.created_at_source),
-        updated_at: mapTimestamp(data.updated_at || data.updatedAt || row.updated_at_source)
     };
 }
 
@@ -2428,6 +2452,26 @@ async function createRoom({
             );
         }
 
+        const canonicalTarget =
+            await yhuUsersSupabaseRepo
+                .getByUid(
+                    target
+                )
+                .catch(
+                    () => null
+                );
+
+        if (
+            !isRealtimeMessagingCanonicalAccountV1(
+                canonicalTarget
+            )
+        ) {
+            throw realtimeHttpErrorV1(
+                'Target user is unavailable.',
+                404
+            );
+        }
+
         const targetUser =
             await getUserDoc(
                 target
@@ -2879,14 +2923,129 @@ async function hideRoomForUser({
     roomId,
     hidden = true
 } = {}) {
-    return updateRoomArray({
-        userId,
-        roomId,
-        field:
-            'hidden_for_user_ids',
-        enabled:
-            hidden !== false
-    });
+    const normalizedUserId =
+        normalizeUserId(
+            userId
+        );
+
+    const cleanRoomId =
+        sanitizeText(
+            roomId
+        );
+
+    if (
+        !normalizedUserId ||
+        !cleanRoomId
+    ) {
+        throw realtimeHttpErrorV1(
+            'Room and user are required.',
+            400
+        );
+    }
+
+    /*
+     * Verify that the current user is actually
+     * a member of this private conversation.
+     */
+    await getChatRoomActionContextV1(
+        normalizedUserId,
+        cleanRoomId
+    );
+
+    const shouldHide =
+        hidden !== false;
+
+    const clearedAt =
+        nowIso();
+
+    const saved =
+        await mutateChatRoomDataV1(
+            cleanRoomId,
+            (data) => {
+                const hiddenForUserIds =
+                    new Set(
+                        normalizeStringArray(
+                            data.hidden_for_user_ids ||
+                            data.hiddenForUserIds
+                        )
+                    );
+
+                /*
+                 * Per-user delete-history boundary.
+                 *
+                 * We do NOT delete the actual messages
+                 * because the other participant must
+                 * continue seeing their complete copy.
+                 */
+                const historyClearedAtByUserId =
+                    (
+                        data.history_cleared_at_by_user_id &&
+                        typeof data.history_cleared_at_by_user_id ===
+                            'object' &&
+                        !Array.isArray(
+                            data.history_cleared_at_by_user_id
+                        )
+                    )
+                        ? {
+                            ...data.history_cleared_at_by_user_id
+                        }
+                        : (
+                            data.historyClearedAtByUserId &&
+                            typeof data.historyClearedAtByUserId ===
+                                'object' &&
+                            !Array.isArray(
+                                data.historyClearedAtByUserId
+                            )
+                        )
+                            ? {
+                                ...data.historyClearedAtByUserId
+                            }
+                            : {};
+
+                if (shouldHide) {
+                    hiddenForUserIds.add(
+                        normalizedUserId
+                    );
+
+                    /*
+                     * Everything at or before this point
+                     * is permanently deleted for THIS
+                     * user only.
+                     */
+                    historyClearedAtByUserId[
+                        normalizedUserId
+                    ] =
+                        clearedAt;
+
+                } else {
+                    /*
+                     * Reopening the DM only restores the
+                     * room itself. It intentionally does
+                     * NOT remove the history cutoff.
+                     */
+                    hiddenForUserIds.delete(
+                        normalizedUserId
+                    );
+                }
+
+                return {
+                    ...data,
+
+                    hidden_for_user_ids:
+                        [
+                            ...hiddenForUserIds
+                        ],
+
+                    history_cleared_at_by_user_id:
+                        historyClearedAtByUserId
+                };
+            }
+        );
+
+    return mapRoomRow(
+        saved,
+        normalizedUserId
+    );
 }
 
 async function setRoomMuted({
@@ -3935,13 +4094,62 @@ async function listChatMessages(
 
     if (!cleanRoomId) return [];
 
+    let roomContext =
+        null;
+
     if (cleanViewerId) {
-        await getChatSendRoomContextV2(
-            cleanViewerId,
-            cleanRoomId,
-            options.allowUnregisteredRoom === true
-        );
+        roomContext =
+            await getChatSendRoomContextV2(
+                cleanViewerId,
+                cleanRoomId,
+                options.allowUnregisteredRoom ===
+                    true
+            );
     }
+
+    const roomData =
+        roomContext?.roomData &&
+        typeof roomContext.roomData ===
+            'object'
+            ? roomContext.roomData
+            : {};
+
+    const historyClearedAtByUserId =
+        (
+            roomData.history_cleared_at_by_user_id &&
+            typeof roomData.history_cleared_at_by_user_id ===
+                'object' &&
+            !Array.isArray(
+                roomData.history_cleared_at_by_user_id
+            )
+        )
+            ? roomData.history_cleared_at_by_user_id
+            : (
+                roomData.historyClearedAtByUserId &&
+                typeof roomData.historyClearedAtByUserId ===
+                    'object' &&
+                !Array.isArray(
+                    roomData.historyClearedAtByUserId
+                )
+            )
+                ? roomData.historyClearedAtByUserId
+                : {};
+
+    const historyClearedAt =
+        cleanViewerId
+            ? sanitizeText(
+                historyClearedAtByUserId[
+                    cleanViewerId
+                ]
+            )
+            : '';
+
+    const historyClearedAtMs =
+        Date.parse(
+            historyClearedAt ||
+            ''
+        ) ||
+        0;
 
     const safeLimit = Math.max(
         1,
@@ -3967,12 +4175,59 @@ async function listChatMessages(
                     cleanViewerId
                 )
             )
-            .filter((message) =>
-                !cleanViewerId ||
-                !message.hidden_for_user_ids.includes(
+        .filter((message) => {
+            /*
+             * Existing per-message "remove for me"
+             * behavior remains intact.
+             */
+            if (
+                cleanViewerId &&
+                message.hidden_for_user_ids.includes(
                     cleanViewerId
                 )
-            )
+            ) {
+                return false;
+            }
+
+            /*
+             * No conversation deletion boundary:
+             * keep normal history behavior.
+             */
+            if (
+                !cleanViewerId ||
+                !historyClearedAtMs
+            ) {
+                return true;
+            }
+
+            const messageTimeMs =
+                Date.parse(
+                    message.time ||
+                    message.created_at ||
+                    message.createdAt ||
+                    ''
+                ) ||
+                0;
+
+            /*
+             * If a legacy message has no reliable
+             * timestamp, do not resurrect it after
+             * the user deleted the conversation.
+             */
+            if (!messageTimeMs) {
+                return false;
+            }
+
+            /*
+             * Only messages created AFTER the user's
+             * most recent Delete conversation action
+             * are visible to that user.
+             */
+            return (
+                messageTimeMs >
+                historyClearedAtMs
+            );
+        })
             .sort((a, b) => {
                 const aTime =
                     Date.parse(a.time || '') ||
@@ -4837,74 +5092,6 @@ async function deleteChatMessage({
 }
 /* END PATCH: Realtime Supabase canonical message authority v2 */
 
-async function getVaultItems(userId) {
-    const normalizedUserId = normalizeUserId(userId);
-    const rows = await listRecords('vault_item', 500);
-
-    return rows
-        .filter((row) => sanitizeText(row.owner_user_id || rowData(row).user_id || rowData(row).userId) === normalizedUserId)
-        .map(mapVaultRow)
-        .sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
-}
-
-async function createVaultFolder({ userId, parentId = '', name = '' } = {}) {
-    const normalizedUserId = normalizeUserId(userId);
-    const cleanName = sanitizeText(name);
-    if (!normalizedUserId || !cleanName) throw new Error('Folder name is required.');
-
-    const docId = makeRecordId('vault');
-    const now = nowIso();
-
-    const row = await upsertRecord({
-        recordType: 'vault_item',
-        docId,
-        ownerUserId: normalizedUserId,
-        data: {
-            user_id: normalizedUserId,
-            parent_id: sanitizeText(parentId),
-            item_type: 'folder',
-            name: cleanName,
-            file_path: '',
-            mime_type: '',
-            file_size: 0,
-            created_at: now,
-            updated_at: now
-        }
-    });
-
-    return mapVaultRow(row);
-}
-
-async function createVaultFile({ userId, parentId = '', name = '', filePath = '', mimeType = '', fileSize = 0 } = {}) {
-    const normalizedUserId = normalizeUserId(userId);
-    const cleanName = sanitizeText(name);
-    const cleanFilePath = sanitizeText(filePath);
-
-    if (!normalizedUserId || !cleanName || !cleanFilePath) throw new Error('File name and path are required.');
-
-    const docId = makeRecordId('vault');
-    const now = nowIso();
-
-    const row = await upsertRecord({
-        recordType: 'vault_item',
-        docId,
-        ownerUserId: normalizedUserId,
-        data: {
-            user_id: normalizedUserId,
-            parent_id: sanitizeText(parentId),
-            item_type: 'file',
-            name: cleanName,
-            file_path: cleanFilePath,
-            mime_type: sanitizeText(mimeType),
-            file_size: toInt(fileSize, 0),
-            created_at: now,
-            updated_at: now
-        }
-    });
-
-    return mapVaultRow(row);
-}
-
 async function getLiveRooms() {
     const rows = await listRecords('live_room', 300);
 
@@ -5553,9 +5740,6 @@ module.exports = {
     setRoomMuted,
     setRoomRestricted,
     setRoomBlocked,
-    getVaultItems,
-    createVaultFolder,
-    createVaultFile,
     getLiveRooms,
     createLiveRoom,
     joinLiveRoom,

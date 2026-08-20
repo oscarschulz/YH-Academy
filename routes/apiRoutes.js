@@ -572,17 +572,27 @@ router.get(
 // ==========================================
 
 router.get('/realtime/bootstrap', auth, realtimeControllers.getBootstrap);
-router.get('/realtime/rooms', auth, realtimeControllers.getRooms);
-router.post('/realtime/rooms', auth, realtimeControllers.createRoom);
+router.get(
+    '/realtime/rooms',
+    auth,
+    realtimeControllers.getRooms
+);
+
+router.get(
+    '/realtime/rooms/:id/messages',
+    auth,
+    realtimeControllers.getRoomMessages
+);
+
+router.post(
+    '/realtime/rooms',
+    auth,
+    realtimeControllers.createRoom
+);
 router.delete('/realtime/rooms/:id', auth, realtimeControllers.deleteRoom);
 router.patch('/realtime/rooms/:id/hide', auth, realtimeControllers.hideRoom);
 router.patch('/realtime/rooms/:id/mute', auth, realtimeControllers.muteRoom);
 router.patch('/realtime/rooms/:id/block', auth, realtimeControllers.blockRoom);
-
-router.get('/realtime/vault', auth, realtimeControllers.getVaultItems);
-router.post('/realtime/vault/folder', auth, realtimeControllers.createVaultFolder);
-router.post('/realtime/vault/file', auth, realtimeControllers.createVaultFile);
-
 
 router.get('/realtime/live-rooms', auth, realtimeControllers.getLiveRooms);
 router.post('/realtime/live-rooms', auth, realtimeControllers.createLiveRoom);

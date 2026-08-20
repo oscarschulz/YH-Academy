@@ -4009,6 +4009,38 @@ async function hidePostCommentForViewer({ viewerId, postId, commentId }) {
     };
 }
 
+function isDiscoverableAcademySearchAccount(row = {}) {
+    if (!row || typeof row !== 'object') return false;
+
+    const isDeleted =
+        row.is_deleted === true ||
+        ['true', '1', 'yes'].includes(
+            sanitizeText(row.is_deleted).toLowerCase()
+        );
+
+    if (isDeleted) return false;
+
+    const status =
+        sanitizeText(
+            row.account_status ||
+            row.status ||
+            ''
+        )
+            .toLowerCase()
+            .replace(/\s+/g, '_');
+
+    return ![
+        'deleted',
+        'disabled',
+        'deactivated',
+        'removed',
+        'archived',
+        'banned',
+        'suspended',
+        'blocked'
+    ].includes(status);
+}
+
 async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedLimit = Math.max(1, Math.min(toInt(limit, 100), 200));
@@ -4100,14 +4132,48 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
         }
 
         const members = await Promise.all(
-            Array.from(matchedByUser.values()).map(async (member) => ({
-                ...member,
-                followers_count: await getAcademyFollowerCount(member.id)
-            }))
+            Array.from(matchedByUser.values())
+                .map(async (member) => {
+                    const canonicalAccount =
+                        await yhuUsersSupabaseRepo
+                            .getByUid(
+                                member.id
+                            )
+                            .catch(
+                                () => null
+                            );
+
+                    if (
+                        !isDiscoverableAcademySearchAccount(
+                            canonicalAccount
+                        )
+                    ) {
+                        return null;
+                    }
+
+                    return {
+                        ...member,
+                        followers_count:
+                            await getAcademyFollowerCount(
+                                member.id
+                            )
+                    };
+                })
         );
 
         return members
-            .sort((a, b) => Number(b.matched_posts_count || 0) - Number(a.matched_posts_count || 0))
+            .filter(Boolean)
+            .sort(
+                (a, b) =>
+                    Number(
+                        b.matched_posts_count ||
+                        0
+                    ) -
+                    Number(
+                        a.matched_posts_count ||
+                        0
+                    )
+            )
             .slice(0, normalizedLimit);
     }
 
@@ -4140,26 +4206,82 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
                 display_name: profile.display_name,
                 username: profile.username,
                 avatar: profile.avatar,
-                role_label: profile.role_label || 'Academy Member',
-                followers_count: await getAcademyFollowerCount(userId),
-                followed_by_me: followedIds.has(userId),
-                search_tags: profile.search_tags || [],
+                role_label:
+                    profile.role_label ||
+                    'Academy Member',
+
+                /*
+                 * Expensive count is intentionally
+                 * deferred until after matching.
+                 */
+                followers_count: 0,
+
+                followed_by_me:
+                    followedIds.has(userId),
+
+                search_tags:
+                    profile.search_tags ||
+                    [],
+
                 matched_hashtags: [],
                 matched_posts_count: 0,
                 matched_post_preview: ''
             };
 
-            if (!normalizedQuery) return member;
+            if (normalizedQuery) {
+                const haystack = [
+                    member.display_name,
+                    member.fullName,
+                    member.username,
+                    member.role_label,
+                    member.search_tags.join(' ')
+                ]
+                    .map(
+                        (value) =>
+                            sanitizeText(value)
+                                .toLowerCase()
+                    )
+                    .join(' ');
 
-            const haystack = [
-                member.display_name,
-                member.fullName,
-                member.username,
-                member.role_label,
-                member.search_tags.join(' ')
-            ].map((value) => sanitizeText(value).toLowerCase()).join(' ');
+                if (
+                    !haystack.includes(
+                        normalizedQuery
+                    )
+                ) {
+                    return null;
+                }
 
-            return haystack.includes(normalizedQuery) ? member : null;
+                /*
+                 * A search result is discoverable
+                 * only if its canonical YHU account
+                 * still exists and is usable.
+                 */
+                const canonicalAccount =
+                    await yhuUsersSupabaseRepo
+                        .getByUid(
+                            userId
+                        )
+                        .catch(
+                            () => null
+                        );
+
+                if (
+                    !isDiscoverableAcademySearchAccount(
+                        canonicalAccount
+                    )
+                ) {
+                    return null;
+                }
+            }
+
+            return {
+                ...member,
+
+                followers_count:
+                    await getAcademyFollowerCount(
+                        userId
+                    )
+            };
         })
     );
 
@@ -4363,7 +4485,10 @@ async function toggleMemberFollow({
                 existing.data
             );
 
-    if (desiredFollowingState) {
+    if (
+        desiredFollowingState &&
+        !existing.data
+    ) {
         const now =
             nowIso();
 
@@ -4378,50 +4503,64 @@ async function toggleMemberFollow({
                 .from(
                     'yhu_academy_user_follows'
                 )
-                .upsert(
-                    {
-                        firebase_app:
-                            'supabase',
+                .insert({
+                    firebase_app:
+                        'supabase',
 
-                        source_collection_path:
-                            'academyUserFollows',
+                    source_collection_path:
+                        'academyUserFollows',
 
-                        follow_id:
-                            followId,
+                    follow_id:
+                        followId,
 
-                        source_document_path:
-                            `academyUserFollows/${followId}`,
+                    source_document_path:
+                        `academyUserFollows/${followId}`,
 
-                        follower_id:
+                    follower_id:
+                        normalizedViewerId,
+
+                    following_id:
+                        normalizedTargetUserId,
+
+                    created_at_source:
+                        now,
+
+                    data: {
+                        followerId:
                             normalizedViewerId,
 
-                        following_id:
+                        followingId:
                             normalizedTargetUserId,
 
-                        created_at_source:
-                            now,
-
-                        data: {
-                            followerId:
-                                normalizedViewerId,
-                            followingId:
-                                normalizedTargetUserId,
-                            createdAt:
-                                now
-                        }
-                    },
-                    {
-                        onConflict:
-                            'follow_id'
+                        createdAt:
+                            now
                     }
-                );
+                });
 
-        if (error) {
+        /*
+         * 23505 means another identical Follow
+         * request won a very small race.
+         *
+         * The UNIQUE relationship constraint
+         * guarantees there is still only one row,
+         * so that state is already correct.
+         */
+        if (
+            error &&
+            String(
+                error.code || ''
+            ) !== '23505'
+        ) {
             throw new Error(
                 `Follow failed: ${error.message}`
             );
         }
-    } else {
+    }
+
+    if (
+        !desiredFollowingState &&
+        existing.data
+    ) {
         const { error } =
             await yhuSupabaseAdmin
                 .from(
@@ -4463,13 +4602,42 @@ async function toggleMemberFollow({
         followed_by_me:
             desiredFollowingState,
 
+        followedByMe:
+            desiredFollowingState,
+
         targetUserId:
             normalizedTargetUserId,
 
+        target_user_id:
+            normalizedTargetUserId,
+
+        /*
+         * Target member:
+         * how many accounts follow this member.
+         */
         followers_count:
             followersCount,
 
+        followersCount:
+            followersCount,
+
+        followerCount:
+            followersCount,
+
+        targetFollowerCount:
+            followersCount,
+
+        /*
+         * Current/viewing user:
+         * how many accounts this user follows.
+         */
         viewer_following_count:
+            followingCount,
+
+        viewerFollowingCount:
+            followingCount,
+
+        currentUserFollowingCount:
             followingCount
     };
 }

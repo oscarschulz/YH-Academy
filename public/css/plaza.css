@@ -1570,6 +1570,21 @@ gap: 8px;
   transform: translateX(-50%) translateY(0);
 }
 
+.yh-plaza-toast.is-centered {
+  top: 50%;
+  bottom: auto;
+  text-align: center;
+  transform:
+    translateX(-50%)
+    translateY(calc(-50% + 18px));
+}
+
+.yh-plaza-toast.is-centered.is-visible {
+  transform:
+    translateX(-50%)
+    translateY(-50%);
+}
+
 .yh-plaza-modal,
 .yh-plaza-drawer {
   position: fixed;
