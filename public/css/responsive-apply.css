@@ -1549,3 +1549,42 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-controls
         height: clamp(216px, 31vh, 258px);
     }
 }
+/* =========================================================
+   LANDING LOGIN INPUT ZOOM GUARD v1
+   Prevent iOS Safari focus auto-zoom.
+   ========================================================= */
+
+@media (max-width: 820px) {
+    body[data-yh-page="apply"]
+    #step-1.yh-landing-step
+    #yh-auth-section
+    #login-email,
+
+    body[data-yh-page="apply"]
+    #step-1.yh-landing-step
+    #yh-auth-section
+    #login-password {
+        /*
+         * iOS Safari auto-zooms focused inputs whose
+         * computed text size is below 16px.
+         *
+         * Explicit px value is intentional here so this
+         * guard does not depend on root/rem scaling.
+         */
+        font-size: 16px !important;
+
+        /*
+         * Preserve normal browser text sizing without
+         * introducing any transform/scale workaround.
+         */
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+
+        /*
+         * Keep touch interaction native.
+         */
+        touch-action: manipulation;
+    }
+}
+
+/* END LANDING LOGIN INPUT ZOOM GUARD v1 */
