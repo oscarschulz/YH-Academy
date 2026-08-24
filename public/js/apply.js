@@ -70,7 +70,8 @@ const yhTText = (text, options = {}) => (
 
 function showToast(
     message,
-    type = 'success'
+    type = 'success',
+    variant = ''
 ) {
     const toast =
         document.getElementById(
@@ -146,6 +147,14 @@ function showToast(
     toast.classList.toggle(
         'success-toast',
         isSuccess
+    );
+
+    toast.classList.toggle(
+        'yh-login-success-toast',
+        String(variant || '')
+            .trim()
+            .toLowerCase() ===
+            'login-success'
     );
 
 
@@ -3185,7 +3194,11 @@ async function handleLoginSubmit() {
         if (result.success) {
             await scanPromise;
 
-            showToast(result.message, "success");
+            showToast(
+                result.message,
+                "success",
+                "login-success"
+            );
             clearPendingVerifyEmail();
             clearAcademyClientStateForFreshAuth();
 
