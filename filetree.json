@@ -4,31 +4,27 @@
   "type": "directory",
   "children": [
     {
-      "name": "backend",
+      "name": "assets",
       "type": "folder",
       "children": [
         {
-          "name": "admin-panel",
-          "type": "folder",
-          "children": [
-            {
-              "name": "admin-login.js",
-              "type": "file"
-            },
-            {
-              "name": "admin-panel.css",
-              "type": "file"
-            },
-            {
-              "name": "admin-panel.html",
-              "type": "file"
-            },
-            {
-              "name": "admin-panel.js",
-              "type": "file"
-            }
-          ]
+          "name": "icon-only.png",
+          "type": "file"
         },
+        {
+          "name": "splash-dark.png",
+          "type": "file"
+        },
+        {
+          "name": "splash.png",
+          "type": "file"
+        }
+      ]
+    },
+    {
+      "name": "backend",
+      "type": "folder",
+      "children": [
         {
           "name": "middlewares",
           "type": "folder",
@@ -72,6 +68,10 @@
               "type": "file"
             },
             {
+              "name": "adminOperationalSettingsSupabaseRepo.js",
+              "type": "file"
+            },
+            {
               "name": "adminPatronApplicationsSupabaseRepo.js",
               "type": "file"
             },
@@ -81,6 +81,10 @@
             },
             {
               "name": "adminPlazaSupabaseWriteRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "adminSupportTicketsSupabaseRepo.js",
               "type": "file"
             },
             {
@@ -144,6 +148,10 @@
               "type": "file"
             },
             {
+              "name": "supportTicketsSupabaseRepo.js",
+              "type": "file"
+            },
+            {
               "name": "universeCollectionMirrorRepo.js",
               "type": "file"
             },
@@ -203,6 +211,10 @@
             },
             {
               "name": "geocodingService.js",
+              "type": "file"
+            },
+            {
+              "name": "safeRemoteTextFetch.js",
               "type": "file"
             },
             {
@@ -322,7 +334,22 @@
     {
       "name": "mobile-src",
       "type": "folder",
-      "children": []
+      "children": [
+        {
+          "name": "js",
+          "type": "folder",
+          "children": [
+            {
+              "name": "yh-native-runtime.js",
+              "type": "file"
+            },
+            {
+              "name": "yh-native-session.js",
+              "type": "file"
+            }
+          ]
+        }
+      ]
     },
     {
       "name": "private",
@@ -1079,6 +1106,18 @@
                 {
                   "name": "1783777924197_n18nylvoitfyden0ciot_cover_f4467cbf642c_cover-cover-cropped-asd2.png",
                   "type": "file"
+                },
+                {
+                  "name": "1786699065231_ydcnjo9ezlglp8aifkbn_cover_ab5b4c9db765_cover-cover-cropped-2812.jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "1786780547829_zdx8gw3outqorxk64ewo_cover_0d940df19930_cover-cover-cropped-referral-icon.png",
+                  "type": "file"
+                },
+                {
+                  "name": "1786789511993_gf2feeuxtoda3cgevnrw_cover_b25ace39a3bb_cover-cover-cropped-2812.jpg",
+                  "type": "file"
                 }
               ]
             }
@@ -1163,6 +1202,10 @@
       "type": "folder",
       "children": [
         {
+          "name": "audit-frontend-controls.js",
+          "type": "file"
+        },
+        {
           "name": "build-mobile-public.js",
           "type": "file"
         },
@@ -1181,6 +1224,62 @@
         {
           "name": "import-yhu-firebase-users-to-supabase.js",
           "type": "file"
+        },
+        {
+          "name": "prepare-ios-assets.js",
+          "type": "file"
+        }
+      ]
+    },
+    {
+      "name": "supabase",
+      "type": "folder",
+      "children": [
+        {
+          "name": ".temp",
+          "type": "folder",
+          "children": [
+            {
+              "name": "gotrue-version",
+              "type": "file"
+            },
+            {
+              "name": "linked-project.json",
+              "type": "file"
+            },
+            {
+              "name": "pooler-url",
+              "type": "file"
+            },
+            {
+              "name": "postgres-version",
+              "type": "file"
+            },
+            {
+              "name": "project-ref",
+              "type": "file"
+            },
+            {
+              "name": "rest-version",
+              "type": "file"
+            },
+            {
+              "name": "storage-migration",
+              "type": "file"
+            },
+            {
+              "name": "storage-version",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": ".gitignore",
+          "type": "file"
+        },
+        {
+          "name": "config.toml",
+          "type": "file"
         }
       ]
     },
@@ -1197,6 +1296,10 @@
       "type": "file"
     },
     {
+      "name": "auth-session-invalidation-test.js",
+      "type": "file"
+    },
+    {
       "name": "capacitor.config.json",
       "type": "file"
     },
@@ -1205,11 +1308,11 @@
       "type": "file"
     },
     {
-      "name": "filetree.json",
+      "name": "codemagic.yaml",
       "type": "file"
     },
     {
-      "name": "nothing",
+      "name": "filetree.json",
       "type": "file"
     },
     {
@@ -1225,10 +1328,6 @@
       "type": "file"
     },
     {
-      "name": "push-future-patches.sh",
-      "type": "file"
-    },
-    {
       "name": "server.js",
       "type": "file"
     },
@@ -1238,7 +1337,7 @@
     }
   ],
   "metadata": {
-    "generated": "2026-08-10T11:15:53.442Z",
+    "generated": "2026-08-24T11:55:04.194Z",
     "generator": "YH custom filetree generator",
     "version": "1.0.0"
   }

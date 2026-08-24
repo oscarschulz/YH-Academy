@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { firestore } = require('../config/firebaseAdmin');
 const publicLandingEventsRepo = require('../backend/repositories/publicLandingEventsRepo');
 const yhuSupabaseMirrorRepo = require('../backend/repositories/yhuSupabaseMirrorRepo');
+const yhuUsersSupabaseRepo = require('../backend/repositories/yhuUsersSupabaseRepo');
 const geocodingService = require('../backend/services/geocodingService');
 
 const USERS_COLLECTION = 'users';
@@ -2114,6 +2115,13 @@ exports.changePassword = async (req, res) => {
             updatedAt: changedAt
         });
 
+        await yhuUsersSupabaseRepo.syncFromFirestoreUserRef(
+            userRef,
+            {
+                source: 'auth_change_password'
+            }
+        );
+
         clearAuthCookie(res);
 
         return res.json({
@@ -2481,7 +2489,10 @@ exports.resetPassword = async (req, res) => {
 
         const changedAt = nowIso();
 
-        await usersCollection().doc(user.id).update({
+        const resetUserRef =
+            usersCollection().doc(user.id);
+
+        await resetUserRef.update({
             password: hashedPassword,
             authSessionVersion:
                 currentAuthSessionVersion + 1,
@@ -2491,6 +2502,13 @@ exports.resetPassword = async (req, res) => {
             passwordResetVerifiedAt: null,
             updatedAt: changedAt
         });
+
+        await yhuUsersSupabaseRepo.syncFromFirestoreUserRef(
+            resetUserRef,
+            {
+                source: 'auth_reset_password'
+            }
+        );
 
         clearAuthCookie(res);
 

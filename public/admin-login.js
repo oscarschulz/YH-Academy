@@ -1,5 +1,43 @@
+function getAdminRouteKeyFromLoginPath() {
+  const match =
+    window.location.pathname.match(
+      /^\/admin\/([A-Za-z0-9_-]{32,128})\/login\/?$/
+    );
+
+  return match?.[1] || '';
+}
+
 function buildAdminPanelUrl() {
-  return '/admin/panel';
+  const routeKey =
+    getAdminRouteKeyFromLoginPath();
+
+  if (!routeKey) {
+    return '/';
+  }
+
+  return `/admin/${encodeURIComponent(routeKey)}/panel`;
+}
+
+function buildAdminLoginApiUrl() {
+  const routeKey =
+    getAdminRouteKeyFromLoginPath();
+
+  if (!routeKey) {
+    return '';
+  }
+
+  return `/api/admin/${encodeURIComponent(routeKey)}/login`;
+}
+
+function buildAdminSessionApiUrl() {
+  const routeKey =
+    getAdminRouteKeyFromLoginPath();
+
+  if (!routeKey) {
+    return '';
+  }
+
+  return `/api/admin/${encodeURIComponent(routeKey)}/session`;
 }
 
 function setMessage(text, type = '') {
@@ -11,7 +49,15 @@ function setMessage(text, type = '') {
 
 async function checkExistingAdminSession() {
   try {
-    const res = await fetch('/api/admin/session', {
+    const sessionUrl =
+      buildAdminSessionApiUrl();
+
+    if (!sessionUrl) {
+      return false;
+    }
+
+    const res =
+      await fetch(sessionUrl, {
       method: 'GET',
       credentials: 'include',
       headers: {
@@ -65,7 +111,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     setMessage('Verifying admin credentials...');
 
     try {
-      const res = await fetch('/api/admin/login', {
+      const loginUrl =
+        buildAdminLoginApiUrl();
+
+      if (!loginUrl) {
+        setMessage(
+          'Invalid admin access route.',
+          'error'
+        );
+
+        return;
+      }
+
+      const res =
+        await fetch(loginUrl, {
         method: 'POST',
         credentials: 'include',
         headers: {

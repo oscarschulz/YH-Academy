@@ -2596,10 +2596,26 @@ async function loadPlazaDirectoryFromServer(options = {}) {
 
     return plazaServerDirectory;
   } catch (error) {
-    console.error(
-      "loadPlazaDirectoryFromServer error:",
-      error
-    );
+    const expectedInlineFailure =
+      isExpectedPlazaInlineFetchFailure(
+        error
+      );
+
+    if (!expectedInlineFailure) {
+      console.error(
+        "loadPlazaDirectoryFromServer error:",
+        error
+      );
+    }
+
+    if (expectedInlineFailure) {
+      if (plazaServerDirectoryLoaded) {
+        populateRegionFilter();
+        renderDirectory();
+      }
+
+      return plazaServerDirectory;
+    }
 
     if (plazaDirectoryGrid) {
       plazaDirectoryGrid.innerHTML =
@@ -2783,10 +2799,25 @@ async function loadPlazaRegionsFromServer(options = {}) {
 
     return plazaServerRegions;
   } catch (error) {
-    console.error(
-      "loadPlazaRegionsFromServer error:",
-      error
-    );
+    const expectedInlineFailure =
+      isExpectedPlazaInlineFetchFailure(
+        error
+      );
+
+    if (!expectedInlineFailure) {
+      console.error(
+        "loadPlazaRegionsFromServer error:",
+        error
+      );
+    }
+
+    if (expectedInlineFailure) {
+      if (plazaServerRegionsLoaded) {
+        renderRegionDependents();
+      }
+
+      return plazaServerRegions;
+    }
 
     if (plazaRegionGrid) {
       plazaRegionGrid.innerHTML =
@@ -2953,10 +2984,31 @@ async function loadPlazaBridgeFromServer(options = {}) {
 
     return plazaServerBridge;
   } catch (error) {
-    console.error(
-      "loadPlazaBridgeFromServer error:",
-      error
-    );
+    if (
+      !isExpectedPlazaInlineFetchFailure(
+        error
+      )
+    ) {
+      console.error(
+        "loadPlazaBridgeFromServer error:",
+        error
+      );
+    }
+
+    if (
+      isExpectedPlazaInlineFetchFailure(
+        error
+      )
+    ) {
+      if (plazaServerBridgeLoaded) {
+        renderBridge();
+      } else if (plazaBridgeGrid) {
+        plazaBridgeGrid.innerHTML =
+          `<div class="yh-plaza-empty">Plaza bridge is reconnecting. Please retry.</div>`;
+      }
+
+      return plazaServerBridge;
+    }
 
     if (plazaBridgeGrid) {
       plazaBridgeGrid.innerHTML =
@@ -3175,10 +3227,31 @@ async function loadPlazaRequestsFromServer(options = {}) {
 
     return plazaServerRequests;
   } catch (error) {
-    console.error(
-      "loadPlazaRequestsFromServer error:",
-      error
-    );
+    if (
+      !isExpectedPlazaInlineFetchFailure(
+        error
+      )
+    ) {
+      console.error(
+        "loadPlazaRequestsFromServer error:",
+        error
+      );
+    }
+
+    if (
+      isExpectedPlazaInlineFetchFailure(
+        error
+      )
+    ) {
+      if (plazaServerRequestsLoaded) {
+        renderRequestDependents();
+      } else if (plazaRequestsScreenList) {
+        plazaRequestsScreenList.innerHTML =
+          `<div class="yh-plaza-empty">Plaza requests are reconnecting. Please retry.</div>`;
+      }
+
+      return plazaServerRequests;
+    }
 
     if (plazaRequestsScreenList) {
       plazaRequestsScreenList.innerHTML =
@@ -9758,12 +9831,29 @@ async function loadPlazaReputationFromServerV1(
         return snapshot;
       })
       .catch((error) => {
-        console.error(
-          "loadPlazaReputationFromServerV1 error:",
-          error
-        );
+        if (
+          !isExpectedPlazaInlineFetchFailure(
+            error
+          )
+        ) {
+          console.error(
+            "loadPlazaReputationFromServerV1 error:",
+            error
+          );
+        }
 
-        return readPlazaReputationCacheV1();
+        const cached =
+          readPlazaReputationCacheV1();
+
+        if (
+          isExpectedPlazaInlineFetchFailure(
+            error
+          )
+        ) {
+          renderPlazaExplorerScreenV1();
+        }
+
+        return cached;
       })
       .finally(() => {
         plazaReputationLoadPromiseV1 =
@@ -10626,10 +10716,29 @@ async function loadPlazaPatronApplicationStatus(options = {}) {
 
     return plazaMyPatronApplication;
   } catch (error) {
-    console.error("loadPlazaPatronApplicationStatus error:", error);
+    if (
+      isExpectedPlazaInlineFetchFailure(
+        error
+      )
+    ) {
+      renderPlazaPatronApplicationStatus();
+      return plazaMyPatronApplication;
+    }
 
-    if (options.silent !== true && typeof showToast === "function") {
-      showToast(error.message || "Could not load Patron application status.", "error");
+    console.error(
+      "loadPlazaPatronApplicationStatus error:",
+      error
+    );
+
+    if (
+      options.silent !== true &&
+      typeof showToast === "function"
+    ) {
+      showToast(
+        error.message ||
+          "Could not load Patron application status.",
+        "error"
+      );
     }
 
     return null;

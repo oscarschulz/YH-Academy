@@ -15,6 +15,7 @@ const academyMemberProfileSupabaseRepo = require('./backend/repositories/academy
 const academySupabaseRepo = require('./backend/repositories/academySupabaseRepo');
 const yhuSupabaseMirrorRepo = require('./backend/repositories/yhuSupabaseMirrorRepo');
 const yhuUsersSupabaseRepo = require('./backend/repositories/yhuUsersSupabaseRepo');
+const supportTicketsSupabaseRepo = require('./backend/repositories/supportTicketsSupabaseRepo');
 
 const ACADEMY_UPLOADS_ROOT = path.resolve(
     String(process.env.PERSISTENT_UPLOADS_DIR || '').trim() || path.join(__dirname, 'public', 'uploads')
@@ -10810,22 +10811,15 @@ exports.deleteCurrentAccount = async (req, res) => {
             reason: 'not_started'
         };
 
-        try {
-            supabaseCleanupResult = await cleanupYHUSupabaseAccountArtifacts({
-                uid,
-                email
-            });
-        } catch (cleanupError) {
-            console.warn('deleteCurrentAccount Supabase cleanup skipped:', cleanupError?.message || cleanupError);
+        supabaseCleanupResult = await cleanupYHUSupabaseAccountArtifacts({
+            uid,
+            email
+        });
 
-            supabaseCleanupResult = {
-                cleaned: false,
-                skipped: true,
-                warning: cleanupError?.message || String(cleanupError || 'Supabase cleanup failed')
-            };
-        }
-
-        const deletionResult = await hardDeleteUserAccountFromFirestore(userRef);
+        const deletionResult =
+            await hardDeleteUserAccountFromFirestore(
+                userRef
+            );
 
         res.setHeader('Set-Cookie', buildExpiredAuthCookie());
 
@@ -13051,6 +13045,9 @@ function buildDashboardBasicAssistantMessages(payload = {}) {
                 'Use the issue category as routing context: Platform Guide, Billing, Academy, Federation, Plazas, Profile, Login, Subscriptions, Verification Badge, Messages, Applications, Technical Bug, Uploads, Referrals, or Other.',
                 'If the issue sounds like it needs admin or developer action, tell the user it should be escalated as a support ticket.',
                 'Do not claim you approved access, changed billing, fixed bugs, revealed protected contacts, or completed backend/admin work unless the system actually performed that action.',
+                'You do not control Support Ticket status. A human admin controls ticket progression and resolution.',
+                'Never say or imply that you will mark, close, resolve, reopen, escalate, or otherwise change a Support Ticket status.',
+                'If a user asks you to ignore, cancel, close, or resolve a ticket, explain that the request has been recorded and a human admin can review or update its status.',
                 'Keep answers concise. Use 1 to 4 short paragraphs or a short numbered list only when useful.',
                 'Division Knowledge Guide:',
                 JSON.stringify(DASHBOARD_ASSISTANT_DIVISION_KNOWLEDGE),
@@ -13100,6 +13097,52 @@ function buildLocalDashboardAssistantFallback(payload = {}, error = null) {
 }
 
 
+
+function guardDashboardSupportStatusClaims(
+    reply = '',
+    supportTicket = null
+) {
+    const cleanReply =
+        sanitize(reply || '').trim();
+
+    if (!cleanReply) {
+        return cleanReply;
+    }
+
+    const falseStatusClaim =
+        /(?:\b(?:i|we)(?:'ll|’ll| will| have| have now)?\s+(?:mark|set|change|update|move|close|resolve|reopen|escalate)\b.{0,80}\b(?:ticket|support request|status)\b)|(?:\b(?:ticket|support request)\b.{0,80}\b(?:has been|is now|will be)\s+(?:resolved|closed|reopened|escalated)\b)/i;
+
+    if (
+        !falseStatusClaim.test(
+            cleanReply
+        )
+    ) {
+        return cleanReply;
+    }
+
+    const ticketCode =
+        sanitize(
+            supportTicket?.ticketCode ||
+            ''
+        ).trim();
+
+    const status =
+        sanitize(
+            supportTicket?.status ||
+            'Open'
+        ).trim() ||
+        'Open';
+
+    return [
+        ticketCode
+            ? `Your support request has been recorded as ${ticketCode}.`
+            : 'Your support request has been recorded.',
+
+        `Its current status is ${status}.`,
+
+        'A human admin can review the request and update or resolve its status.'
+    ].join(' ');
+}
 
 async function requestGeminiDashboardBasicAssistant(payload = {}) {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -13221,6 +13264,7 @@ exports.chatWithDashboardAssistant = async (req, res) => {
         const contextHint = sanitize(req.body?.contextHint || 'dashboard_ticket');
         const issueCategory = sanitize(req.body?.issueCategory || req.body?.category || '');
         const issueCategoryLabel = sanitize(req.body?.issueCategoryLabel || '');
+        const ticketDetails = sanitize(req.body?.ticketDetails || req.body?.issueDetails || '');
 
         if (!message) {
             return res.status(400).json({
@@ -13233,6 +13277,49 @@ exports.chatWithDashboardAssistant = async (req, res) => {
             academyFirestoreRepo.getCurrentProfile(uid).catch(() => ({})),
             academyFirestoreRepo.listCoachMessages(uid, conversationId, 12)
         ]);
+
+        let supportTicket = null;
+
+        if (
+            contextHint
+                .toLowerCase()
+                .startsWith('dashboard_ticket')
+        ) {
+            const reporterName = sanitize(
+                profileDoc?.displayName ||
+                profileDoc?.display_name ||
+                profileDoc?.fullName ||
+                profileDoc?.full_name ||
+                profileDoc?.name ||
+                req.user?.fullName ||
+                req.user?.name ||
+                req.user?.username ||
+                ''
+            );
+
+            const reporterEmail = sanitize(
+                profileDoc?.email ||
+                req.user?.email ||
+                ''
+            ).toLowerCase();
+
+            supportTicket =
+                await supportTicketsSupabaseRepo
+                    .createOrAppendUserSupportTicket({
+                        userId: uid,
+                        reporterName,
+                        reporterEmail,
+                        conversationId,
+                        category:
+                            issueCategory ||
+                            'general',
+                        categoryLabel:
+                            issueCategoryLabel,
+                        latestMessage:
+                            ticketDetails ||
+                            message
+                    });
+        }
 
         await academyFirestoreRepo.createCoachMessage(uid, {
             conversationId,
@@ -13267,6 +13354,19 @@ exports.chatWithDashboardAssistant = async (req, res) => {
             };
         }
 
+        if (
+            supportTicket &&
+            contextHint
+                .toLowerCase()
+                .startsWith('dashboard_ticket')
+        ) {
+            aiResult.reply =
+                guardDashboardSupportStatusClaims(
+                    aiResult.reply,
+                    supportTicket
+                );
+        }
+
         await academyFirestoreRepo.createCoachMessage(uid, {
             conversationId,
             role: 'assistant',
@@ -13296,7 +13396,8 @@ exports.chatWithDashboardAssistant = async (req, res) => {
             model: aiResult.model,
             replyFormat: 'dashboard_basic',
             responseStyleVersion: 'dashboard-assistant-v1',
-            fallback: aiResult.fallback === true
+            fallback: aiResult.fallback === true,
+            supportTicket
         });
     } catch (error) {
         console.error('chatWithDashboardAssistant error:', error);

@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { firestore } = require('../../config/firebaseAdmin');
+const { getByUid: getYhuUserByUid } = require('./yhuUsersSupabaseRepo');
 const { yhuSupabaseAdmin } = require('../../config/supabaseAdmin');
 
 const TABLE_NAME = 'yhu_universe_collection_catalog';
@@ -188,6 +188,42 @@ function requireSafeCollectionsResourceUrl(
     return normalized;
 }
 
+function getCollectionsUserSource(
+    row = {}
+) {
+    const rawData =
+        row.raw_data &&
+        typeof row.raw_data === 'object' &&
+        !Array.isArray(row.raw_data)
+            ? row.raw_data
+            : {};
+
+    const data =
+        row.data &&
+        typeof row.data === 'object' &&
+        !Array.isArray(row.data)
+            ? row.data
+            : {};
+
+    const publicMeta =
+        row.public_meta &&
+        typeof row.public_meta === 'object' &&
+        !Array.isArray(row.public_meta)
+            ? row.public_meta
+            : {};
+
+    /*
+     * Match the verified parity diagnostic:
+     * public_meta wins over data, which wins over
+     * legacy raw_data.
+     */
+    return {
+        ...rawData,
+        ...data,
+        ...publicMeta
+    };
+}
+
 function isApprovedCollectionsMembershipStatus(
     value = ''
 ) {
@@ -219,13 +255,10 @@ async function resolveCollectionsViewerAccess(
         };
     }
 
-    const snapshot =
-        await firestore
-            .collection('users')
-            .doc(viewerId)
-            .get();
+    const userRow =
+        await getYhuUserByUid(viewerId);
 
-    if (!snapshot.exists) {
+    if (!userRow) {
         return {
             ...viewer,
             collectionsAccess: emptyAccess
@@ -233,7 +266,7 @@ async function resolveCollectionsViewerAccess(
     }
 
     const userData =
-        snapshot.data() || {};
+        getCollectionsUserSource(userRow);
 
     const academy =
         userData.hasAcademyAccess === true ||

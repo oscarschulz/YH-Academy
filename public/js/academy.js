@@ -6630,39 +6630,8 @@ if (stageChatSendBtn) {
         });
     });
 
-    const pollOptions = document.querySelectorAll('.poll-option');
-    if (pollOptions.length > 0) {
-        const savedVote = localStorage.getItem('yh_poll_vote');
-
-        if (savedVote) {
-            const selectedOpt = document.querySelector(`.poll-option[data-vote="${savedVote}"]`);
-            if (selectedOpt) selectedOpt.classList.add('voted');
-
-            const votesLabel = document.getElementById('poll-total-votes');
-            if (votesLabel) votesLabel.innerText = yhTText('1,249 Votes');
-        }
-
-        pollOptions.forEach(opt => {
-            opt.addEventListener('click', () => {
-                if (localStorage.getItem('yh_poll_vote')) {
-                    showToast("You have already voted!", "error");
-                    return;
-                }
-
-                opt.classList.add('voted');
-                localStorage.setItem('yh_poll_vote', opt.getAttribute('data-vote'));
-                showToast("Vote cast successfully!", "success");
-
-                const votesLabel = document.getElementById('poll-total-votes');
-                if (votesLabel) votesLabel.innerText = yhTText('1,249 Votes');
-
-                const bg = opt.querySelector('.poll-option-bg');
-                const percent = opt.querySelector('.poll-percent');
-                if (bg) bg.style.width = "55%";
-                if (percent) percent.innerText = "55%";
-            });
-        });
-    }
+    /* Legacy local-only Academy poll voting removed.
+       No active poll UI exists in the current Academy interface. */
 
 const notifBell = document.getElementById('notif-bell');
 const notifDropdown = document.getElementById('notif-dropdown');
@@ -14366,10 +14335,40 @@ function academyHydrateCanonicalIdentityV4(
             allowCachedFallback: true
         })
             .catch((error) => {
-                console.warn(
-                    'Academy identity hydration skipped:',
-                    error?.message || error
-                );
+                const message =
+                    String(
+                        error?.message ||
+                        error ||
+                        ''
+                    )
+                        .trim()
+                        .toLowerCase();
+
+                const expectedInlineNetworkFailure =
+                    isAcademyDashboardEmbedContext() &&
+                    (
+                        error instanceof TypeError ||
+                        error?.name === 'AbortError' ||
+                        message.includes(
+                            'failed to fetch'
+                        ) ||
+                        message.includes(
+                            'networkerror'
+                        ) ||
+                        message.includes(
+                            'network error'
+                        ) ||
+                        message.includes(
+                            'load failed'
+                        )
+                    );
+
+                if (!expectedInlineNetworkFailure) {
+                    console.warn(
+                        'Academy identity hydration skipped:',
+                        error?.message || error
+                    );
+                }
 
                 return readAcademyProfileCache();
             })

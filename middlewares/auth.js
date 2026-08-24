@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
-const { firestore } = require('../config/firebaseAdmin');
+const {
+    getByUid: getYhuUserByUid
+} = require('../backend/repositories/yhuUsersSupabaseRepo');
 
 function parseCookies(req) {
     const raw = req.headers.cookie || '';
@@ -31,6 +33,66 @@ function cleanText(value = '') {
 
 function normalizeStatus(value = '') {
     return cleanText(value).toLowerCase().replace(/\s+/g, '_');
+}
+
+function objectValue(value) {
+    return (
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value)
+    )
+        ? value
+        : {};
+}
+
+function getSupabaseAuthUser(row = {}) {
+    if (!row || typeof row !== 'object') {
+        return {};
+    }
+
+    const rawData =
+        objectValue(row.raw_data);
+
+    const data =
+        objectValue(row.data);
+
+    const publicMeta =
+        objectValue(row.public_meta);
+
+    const merged = {
+        ...rawData,
+        ...data,
+        ...publicMeta
+    };
+
+    return {
+        ...merged,
+
+        accountStatus:
+            cleanText(
+                row.account_status ||
+                merged.accountStatus ||
+                merged.userStatus ||
+                merged.status ||
+                ''
+            ),
+
+        isDeleted:
+            (
+                row.is_deleted === true ||
+                merged.isDeleted === true
+            ),
+
+        authSessionVersion:
+            (
+                merged.authSessionVersion !==
+                    undefined &&
+                merged.authSessionVersion !==
+                    null
+            )
+                ? merged.authSessionVersion
+                : 0
+    };
 }
 
 function isDeletedAccountRecord(user = {}) {
@@ -138,25 +200,31 @@ module.exports = async (req, res, next) => {
         }
 
         if (uid !== 'local-superdev') {
-            const userSnapshot =
-                await firestore
-                    .collection('users')
-                    .doc(uid)
-                    .get();
+            const userRow =
+                await getYhuUserByUid(
+                    uid
+                );
 
-            if (
-                !userSnapshot.exists ||
-                isDeletedAccountRecord(
-                    userSnapshot.data() || {}
-                )
-            ) {
+            if (!userRow) {
                 return sendDeletedAccountResponse(
                     res
                 );
             }
 
             const user =
-                userSnapshot.data() || {};
+                getSupabaseAuthUser(
+                    userRow
+                );
+
+            if (
+                isDeletedAccountRecord(
+                    user
+                )
+            ) {
+                return sendDeletedAccountResponse(
+                    res
+                );
+            }
 
             const tokenAuthSessionVersion =
                 normalizeAuthSessionVersion(

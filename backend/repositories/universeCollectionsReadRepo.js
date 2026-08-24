@@ -1,4 +1,4 @@
-const { firestore } = require('../../config/firebaseAdmin');
+const { getByUid: getYhuUserByUid } = require('./yhuUsersSupabaseRepo');
 const { yhuSupabaseAdmin } = require('../../config/supabaseAdmin');
 
 const TABLE_NAME = 'yhu_universe_collection_catalog';
@@ -199,12 +199,47 @@ function normalizeCollectionsPublicMeta(
     };
 }
 
+function getCollectionsUserSource(
+    row = {}
+) {
+    const rawData =
+        row.raw_data &&
+        typeof row.raw_data === 'object' &&
+        !Array.isArray(row.raw_data)
+            ? row.raw_data
+            : {};
+
+    const data =
+        row.data &&
+        typeof row.data === 'object' &&
+        !Array.isArray(row.data)
+            ? row.data
+            : {};
+
+    const publicMeta =
+        row.public_meta &&
+        typeof row.public_meta === 'object' &&
+        !Array.isArray(row.public_meta)
+            ? row.public_meta
+            : {};
+
+    /*
+     * Match the verified parity diagnostic:
+     * public_meta wins over data, which wins over
+     * legacy raw_data.
+     */
+    return {
+        ...rawData,
+        ...data,
+        ...publicMeta
+    };
+}
+
 function isApprovedCollectionsMembershipStatus(
     value = ''
 ) {
-    const clean =
-        cleanLower(value)
-            .replace(/\s+/g, '_');
+    const clean = cleanLower(value)
+        .replace(/\s+/g, '_');
 
     return (
         clean === 'approved' ||
@@ -216,8 +251,8 @@ async function resolveCollectionsViewerAccess(
     viewer = {}
 ) {
     /*
-     * Avoid duplicate Firestore reads when bootstrap
-     * calls both index + Federation inventory.
+     * Avoid duplicate Supabase user reads when the
+     * same resolved viewer is reused during bootstrap.
      */
     if (
         viewer &&
@@ -226,8 +261,7 @@ async function resolveCollectionsViewerAccess(
         return viewer;
     }
 
-    const viewerId =
-        getViewerId(viewer);
+    const viewerId = getViewerId(viewer);
 
     const emptyAccess = {
         academy: false,
@@ -239,40 +273,33 @@ async function resolveCollectionsViewerAccess(
     if (!viewerId) {
         return {
             ...viewer,
-            collectionsAccess:
-                emptyAccess,
+            collectionsAccess: emptyAccess,
             collectionsAccessResolved:
                 true
         };
     }
 
-    const snapshot =
-        await firestore
-            .collection('users')
-            .doc(viewerId)
-            .get();
+    const userRow =
+        await getYhuUserByUid(viewerId);
 
-    if (!snapshot.exists) {
+    if (!userRow) {
         return {
             ...viewer,
-            collectionsAccess:
-                emptyAccess,
+            collectionsAccess: emptyAccess,
             collectionsAccessResolved:
                 true
         };
     }
 
     const userData =
-        snapshot.data() || {};
+        getCollectionsUserSource(userRow);
 
     const academy =
         userData.hasAcademyAccess === true ||
         userData.canEnterAcademy === true ||
         [
-            userData
-                .academyMembershipStatus,
-            userData
-                .academyApplicationStatus
+            userData.academyMembershipStatus,
+            userData.academyApplicationStatus
         ].some(
             isApprovedCollectionsMembershipStatus
         );
@@ -282,10 +309,8 @@ async function resolveCollectionsViewerAccess(
         userData.canEnterPlaza === true ||
         [
             userData.plazaAccessStatus,
-            userData
-                .plazaMembershipStatus,
-            userData
-                .plazaApplicationStatus
+            userData.plazaMembershipStatus,
+            userData.plazaApplicationStatus
         ].some(
             isApprovedCollectionsMembershipStatus
         );
@@ -294,10 +319,8 @@ async function resolveCollectionsViewerAccess(
         userData.hasFederationAccess === true ||
         userData.canEnterFederation === true ||
         [
-            userData
-                .federationMembershipStatus,
-            userData
-                .federationApplicationStatus
+            userData.federationMembershipStatus,
+            userData.federationApplicationStatus
         ].some(
             isApprovedCollectionsMembershipStatus
         );

@@ -2,9 +2,9 @@
   "name": "yh",
   "version": "1.0.0",
   "description": "",
-  "main": "app.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npm run audit:buttons",
     "start": "node server.js",
     "mobile:build": "node scripts/build-mobile-public.js",
     "ios:add": "npm run mobile:build && npx cap add ios --packagemanager SPM",
@@ -12,7 +12,8 @@
     "ios:open": "npx cap open ios",
     "filetree": "node scripts/generate-filetree.js",
     "tw:build": "tailwindcss -i ./public/css/yh-tailwind.input.css -o ./public/css/yh-tailwind.css --minify",
-    "tw:watch": "tailwindcss -i ./public/css/yh-tailwind.input.css -o ./public/css/yh-tailwind.css --watch"
+    "tw:watch": "tailwindcss -i ./public/css/yh-tailwind.input.css -o ./public/css/yh-tailwind.css --watch",
+    "audit:buttons": "node scripts/audit-frontend-controls.js"
   },
   "keywords": [],
   "author": "",

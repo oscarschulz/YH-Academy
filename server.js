@@ -16,10 +16,13 @@ const verifiedBadgeSupabaseRepo = require('./backend/repositories/verifiedBadgeS
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
 const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const yhuSupabaseMirrorRepo = require('./backend/repositories/yhuSupabaseMirrorRepo');
+const yhuUsersSupabaseRepo = require('./backend/repositories/yhuUsersSupabaseRepo');
 const federationConnectSupabaseRepo = require('./backend/repositories/federationConnectSupabaseRepo');
 const federationInfluenceSupabaseRepo = require('./backend/repositories/federationInfluenceSupabaseRepo');
 const adminBroadcastSupabaseRepo = require('./backend/repositories/adminBroadcastSupabaseRepo');
 const userNotificationsSupabaseRepo = require('./backend/repositories/userNotificationsSupabaseRepo');
+const adminOperationalSettingsSupabaseRepo = require('./backend/repositories/adminOperationalSettingsSupabaseRepo');
+const aiNurtureGate = require('./backend/middlewares/aiNurtureGate');
 const { yhuSupabaseAdmin } = require('./config/supabaseAdmin');
 const app = express();
 app.set('trust proxy', 1);
@@ -251,15 +254,54 @@ async function emitPublicLandingSnapshotToClients(limit = 24) {
 
 global.yhEmitPublicLandingSnapshot = emitPublicLandingSnapshotToClients;
 
-publicLandingNamespace.on('connection', (socket) => {
-    console.log('🌍 Public landing socket connected:', socket.id);
-    emitPublicLandingSnapshotToClients().catch((error) => {
-        console.error('public landing initial snapshot error:', error);
-    });
+publicLandingNamespace.on('connection', async (socket) => {
+    try {
+        const maintenanceMode =
+            await adminOperationalSettingsSupabaseRepo
+                .isMaintenanceModeEnabled();
 
-    socket.on('disconnect', () => {
-        console.log('🌍 Public landing socket disconnected:', socket.id);
-    });
+        if (maintenanceMode) {
+            socket.emit(
+                'maintenanceMode',
+                {
+                    enabled: true,
+                    message:
+                        'Young Hustlers Universe is temporarily under maintenance.'
+                }
+            );
+
+            socket.disconnect(true);
+            return;
+        }
+    } catch (error) {
+        console.error(
+            'Public landing socket maintenance check failed open:',
+            error
+        );
+    }
+
+    console.log(
+        '🌍 Public landing socket connected:',
+        socket.id
+    );
+
+    emitPublicLandingSnapshotToClients()
+        .catch((error) => {
+            console.error(
+                'public landing initial snapshot error:',
+                error
+            );
+        });
+
+    socket.on(
+        'disconnect',
+        () => {
+            console.log(
+                '🌍 Public landing socket disconnected:',
+                socket.id
+            );
+        }
+    );
 });
 
 /*
@@ -565,44 +607,104 @@ function buildActiveYHVerifiedBadgePayload(plan = {}, payment = {}, context = {}
     };
 }
 
-async function appendYHVerifiedBadgePaymentNotification(payerUid = '', notification = {}) {
-    const cleanPayerUid = sanitizeText(payerUid);
-    if (!cleanPayerUid) return null;
+async function appendYHVerifiedBadgePaymentNotification(
+    payerUid = '',
+    notification = {}
+) {
+    const cleanPayerUid =
+        sanitizeText(
+            payerUid
+        );
 
-    const userRef = firestore.collection('users').doc(cleanPayerUid);
-    const userSnap = await userRef.get();
-    const userData = userSnap.exists ? (userSnap.data() || {}) : {};
+    if (!cleanPayerUid) {
+        return null;
+    }
 
-    const current = await listServerUserInProductNotifications(cleanPayerUid, userData);
+    const current =
+        await listServerUserInProductNotifications(
+            cleanPayerUid,
+            {}
+        );
 
-    const nowIso = new Date().toISOString();
-    const id = sanitizeText(notification.id || `badge_payment_${Date.now()}`);
+    const nowIso =
+        new Date().toISOString();
+
+    const id =
+        sanitizeText(
+            notification.id ||
+            `badge_payment_${Date.now()}`
+        );
 
     const nextNotification = {
         id,
-        title: sanitizeText(notification.title || 'Badge payment confirmed'),
-        text: sanitizeText(notification.text || 'Your verification badge payment was confirmed.'),
-        target: sanitizeText(notification.target || 'profile'),
-        targetId: sanitizeText(notification.targetId || ''),
-        color: sanitizeText(notification.color || 'var(--blue)'),
-        avatarStr: sanitizeText(notification.avatarStr || 'YH'),
-        sourceDivision: sanitizeText(notification.sourceDivision || ''),
-        amount: roundYHMoney(notification.amount || 0),
-        currency: sanitizeText(notification.currency || 'USD').toUpperCase() || 'USD',
-        createdAt: nowIso,
-        created_at: nowIso,
-        isRead: false,
-        is_read: false,
-        read: false,
-        readAt: '',
-        read_at: ''
+        title:
+            sanitizeText(
+                notification.title ||
+                'Badge payment confirmed'
+            ),
+        text:
+            sanitizeText(
+                notification.text ||
+                'Your verification badge payment was confirmed.'
+            ),
+        target:
+            sanitizeText(
+                notification.target ||
+                'profile'
+            ),
+        targetId:
+            sanitizeText(
+                notification.targetId ||
+                ''
+            ),
+        color:
+            sanitizeText(
+                notification.color ||
+                'var(--blue)'
+            ),
+        avatarStr:
+            sanitizeText(
+                notification.avatarStr ||
+                'YH'
+            ),
+        sourceDivision:
+            sanitizeText(
+                notification.sourceDivision ||
+                ''
+            ),
+        amount:
+            roundYHMoney(
+                notification.amount ||
+                0
+            ),
+        currency:
+            sanitizeText(
+                notification.currency ||
+                'USD'
+            ).toUpperCase() ||
+            'USD',
+        createdAt:
+            nowIso,
+        created_at:
+            nowIso,
+        isRead:
+            false,
+        is_read:
+            false,
+        read:
+            false,
+        readAt:
+            '',
+        read_at:
+            ''
     };
 
     const existingNotification =
         current.find(
             (item) =>
-                sanitizeText(item?.id) ===
-                id
+                sanitizeText(
+                    item?.id
+                ) === id
         ) ||
         null;
 
@@ -612,32 +714,24 @@ async function appendYHVerifiedBadgePaymentNotification(payerUid = '', notificat
         );
 
     /*
-     * A duplicate payment webhook must not reset an
-     * existing notification from read back to unread.
+     * Duplicate payment webhooks must preserve the
+     * persisted notification, especially its read state.
      */
     const persistedNotification =
         existingNotification ||
         nextNotification;
 
-    const next = [
-        persistedNotification,
-        ...current.filter(
-            (item) =>
-                sanitizeText(item?.id) !==
-                id
-        )
-    ].slice(0, 40);
-
-    await userRef.set({
-        inProductReviewNotifications: next,
-        updatedAt: nowIso
-    }, { merge: true });
-        /* PATCH: User Notifications Supabase sync after Firestore write */
-        await syncServerUserInProductNotifications(userRef.id, next, 'server:user-notification-write');
-        /* END PATCH: User Notifications Supabase sync after Firestore write */
-        /* PATCH: yhu_users Supabase safe write sync */
-        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
-        /* END PATCH: yhu_users Supabase safe write sync */
+    await userNotificationsSupabaseRepo
+        .upsertNotification(
+            cleanPayerUid,
+            persistedNotification,
+            {
+                source:
+                    'server:payment-notification',
+                sourceField:
+                    'inProductReviewNotifications'
+            }
+        );
 
     if (!alreadyExists) {
         emitRealtimeNotificationV2(
@@ -2765,6 +2859,103 @@ function normalizeServerAuthSessionVersion(
         : 0;
 }
 
+function getServerObjectValue(value) {
+    return (
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value)
+    )
+        ? value
+        : {};
+}
+
+function getServerSupabaseAuthUser(row = {}) {
+    if (
+        !row ||
+        typeof row !== 'object'
+    ) {
+        return {};
+    }
+
+    const rawData =
+        getServerObjectValue(
+            row.raw_data
+        );
+
+    const data =
+        getServerObjectValue(
+            row.data
+        );
+
+    const publicMeta =
+        getServerObjectValue(
+            row.public_meta
+        );
+
+    const merged = {
+        ...row,
+        ...rawData,
+        ...data,
+        ...publicMeta
+    };
+
+    return {
+        ...merged,
+
+        accountStatus:
+            sanitizeText(
+                row.account_status ||
+                merged.accountStatus ||
+                merged.userStatus ||
+                merged.status ||
+                ''
+            ),
+
+        isDeleted:
+            (
+                row.is_deleted === true ||
+                merged.isDeleted === true
+            ),
+
+        authSessionVersion:
+            (
+                merged.authSessionVersion !==
+                    undefined &&
+                merged.authSessionVersion !==
+                    null
+            )
+                ? merged.authSessionVersion
+                : 0,
+
+        email:
+            sanitizeText(
+                row.email ||
+                merged.email ||
+                merged.emailLower ||
+                merged.userEmail ||
+                ''
+            ),
+
+        username:
+            sanitizeText(
+                row.username ||
+                merged.username ||
+                merged.userName ||
+                merged.handle ||
+                ''
+            ),
+
+        fullName:
+            sanitizeText(
+                row.full_name ||
+                merged.fullName ||
+                merged.displayName ||
+                merged.name ||
+                ''
+            )
+    };
+}
+
 function isDeletedServerAccountRecord(userData = {}) {
     if (!userData || typeof userData !== 'object') return false;
 
@@ -2804,14 +2995,20 @@ async function resolveActiveServerAuthUserFromToken(token = '') {
             };
         }
 
-        const userSnapshot = await firestore.collection('users').doc(uid).get();
+        const userRow =
+            await yhuUsersSupabaseRepo
+                .getByUid(
+                    uid
+                );
 
-        if (!userSnapshot.exists) {
+        if (!userRow) {
             return null;
         }
 
         const userData =
-            userSnapshot.data() || {};
+            getServerSupabaseAuthUser(
+                userRow
+            );
 
         if (
             isDeletedServerAccountRecord(
@@ -4334,7 +4531,33 @@ global.yhEmitPlazaBusinessConversationUpdated = emitBusinessChatConversationById
 // ⚡ REAL-TIME SOCKET.IO LOGIC
 // ==========================================
 io.on('connection', async (socket) => {
-    const socketUser = await verifySocketUser(socket);
+    try {
+        const maintenanceMode =
+            await adminOperationalSettingsSupabaseRepo
+                .isMaintenanceModeEnabled();
+
+        if (maintenanceMode) {
+            socket.emit(
+                'maintenanceMode',
+                {
+                    enabled: true,
+                    message:
+                        'Young Hustlers Universe is temporarily under maintenance.'
+                }
+            );
+
+            socket.disconnect(true);
+            return;
+        }
+    } catch (error) {
+        console.error(
+            'Socket maintenance mode check failed open:',
+            error
+        );
+    }
+
+    const socketUser =
+        await verifySocketUser(socket);
 
 
     if (!socketUser?.id) {
@@ -7774,6 +7997,283 @@ if (
     next();
 });
 
+const YH_MAINTENANCE_ADMIN_ASSET_PATHS =
+    new Set([
+        '/admin-login.css',
+        '/admin-login.js',
+        '/admin-panel.css',
+        '/admin-panel.js',
+        '/images/logo.png'
+    ]);
+
+let yhMaintenanceReadErrorLoggedAt = 0;
+
+function isYHMaintenanceBypassRequest(req = {}) {
+    const method =
+        String(
+            req.method || 'GET'
+        )
+            .trim()
+            .toUpperCase();
+
+    const pathName =
+        String(
+            req.path || ''
+        )
+            .replace(/\/+$/, '') ||
+        '/';
+
+    if (method === 'OPTIONS') {
+        return true;
+    }
+
+    if (
+        pathName === '/admin' ||
+        pathName.startsWith(
+            '/admin/'
+        )
+    ) {
+        return true;
+    }
+
+    if (
+        pathName === '/api/admin' ||
+        pathName.startsWith(
+            '/api/admin/'
+        )
+    ) {
+        return true;
+    }
+
+    if (
+        YH_MAINTENANCE_ADMIN_ASSET_PATHS
+            .has(pathName)
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+function sendYHMaintenanceResponse(
+    req,
+    res
+) {
+    const method =
+        String(
+            req.method || 'GET'
+        )
+            .trim()
+            .toUpperCase();
+
+    const pathName =
+        String(
+            req.path || ''
+        );
+
+    const accept =
+        String(
+            req.headers?.accept ||
+            ''
+        )
+            .toLowerCase();
+
+    const wantsJson =
+        pathName === '/api' ||
+        pathName.startsWith(
+            '/api/'
+        ) ||
+        accept.includes(
+            'application/json'
+        ) ||
+        ![
+            'GET',
+            'HEAD'
+        ].includes(method);
+
+    sendPrivateNoStoreHeaders(
+        res
+    );
+
+    res.setHeader(
+        'Retry-After',
+        '300'
+    );
+
+    if (wantsJson) {
+        return res
+            .status(503)
+            .json({
+                success: false,
+                code:
+                    'maintenance_mode',
+                maintenanceMode:
+                    true,
+                message:
+                    'Young Hustlers Universe is temporarily under maintenance. Please try again shortly.'
+            });
+    }
+
+    return res
+        .status(503)
+        .type('html')
+        .send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+  <title>YH Universe Maintenance</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #030712;
+      color: #e5eef8;
+      font-family: Arial, Helvetica, sans-serif;
+      padding: 24px;
+    }
+
+    .card {
+      width: min(560px, 100%);
+      padding: 34px 28px;
+      border: 1px solid #16324c;
+      border-radius: 24px;
+      background: #07111f;
+      text-align: center;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #38bdf8;
+      font-weight: 800;
+    }
+
+    .mark {
+      width: 64px;
+      height: 64px;
+      margin: 18px auto;
+      border-radius: 20px;
+      display: grid;
+      place-items: center;
+      background: #0b2238;
+      border: 1px solid #1c567f;
+      font-size: 30px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 30px;
+    }
+
+    p {
+      margin: 0;
+      color: #9fb0c8;
+      line-height: 1.75;
+    }
+
+    .status {
+      margin-top: 22px;
+      padding: 12px;
+      border-radius: 14px;
+      background: #030712;
+      border: 1px solid #16324c;
+      color: #7dd3fc;
+      font-size: 13px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="card">
+    <div class="eyebrow">
+      Young Hustlers Universe
+    </div>
+
+    <div class="mark">
+      ⚙
+    </div>
+
+    <h1>
+      We’ll be back shortly.
+    </h1>
+
+    <p>
+      YH Universe is temporarily under maintenance while we make an operational update. Please try again in a few minutes.
+    </p>
+
+    <div class="status">
+      Maintenance mode is currently active.
+    </div>
+  </main>
+</body>
+</html>`);
+}
+
+app.use(
+    async (
+        req,
+        res,
+        next
+    ) => {
+        if (
+            isYHMaintenanceBypassRequest(
+                req
+            )
+        ) {
+            return next();
+        }
+
+        try {
+            const maintenanceMode =
+                await adminOperationalSettingsSupabaseRepo
+                    .isMaintenanceModeEnabled();
+
+            if (
+                !maintenanceMode
+            ) {
+                return next();
+            }
+
+            return sendYHMaintenanceResponse(
+                req,
+                res
+            );
+        } catch (error) {
+            const now =
+                Date.now();
+
+            if (
+                now -
+                yhMaintenanceReadErrorLoggedAt >
+                30000
+            ) {
+                yhMaintenanceReadErrorLoggedAt =
+                    now;
+
+                console.error(
+                    'Maintenance mode read failed open:',
+                    error
+                );
+            }
+
+            return next();
+        }
+    }
+);
+
 app.use('/uploads/academy/profile', express.static(ACADEMY_PROFILE_UPLOAD_DIR, {
     etag: true,
     lastModified: true,
@@ -8083,6 +8583,80 @@ app.use(async (req, res, next) => {
     return next();
 });
 
+const YH_AI_NURTURE_STATIC_ASSET_PATHS = new Set([
+    '/internal/ai-nurture.html',
+    '/internal/ai-nurture.css',
+    '/internal/ai-nurture.js'
+]);
+
+app.use((req, res, next) => {
+    const pathName =
+        String(req.path || '')
+            .replace(/\/+$/, '') ||
+        '/';
+
+    /*
+     * Only protect the physical AI Nurture files here.
+     *
+     * Do NOT intercept the clean:
+     *   /internal/ai-nurture
+     *
+     * route, because that route intentionally shows
+     * the access form when there is no valid session.
+     */
+    if (
+        !YH_AI_NURTURE_STATIC_ASSET_PATHS
+            .has(pathName)
+    ) {
+        return next();
+    }
+
+    if (
+        !aiNurtureGate
+            .isGateEnabled() ||
+        !aiNurtureGate
+            .hasValidSession(req)
+    ) {
+        return res
+            .status(404)
+            .send('Not Found');
+    }
+
+    /*
+     * Sensitive internal-console resources should
+     * never be cached by browsers/proxies.
+     */
+    sendPrivateNoStoreHeaders(res);
+
+    return next();
+});
+
+/*
+ * Browser fallback favicon.
+ *
+ * Most YHU pages explicitly use /images/logo.avif,
+ * but browsers and private/internal pages may still
+ * request /favicon.ico automatically.
+ *
+ * Reuse the existing YHU PNG logo rather than keeping
+ * a separate duplicate favicon asset.
+ */
+app.get('/favicon.ico', (req, res) => {
+    res.setHeader(
+        'Cache-Control',
+        'public, max-age=86400'
+    );
+
+    return res.sendFile(
+        path.join(
+            __dirname,
+            'public',
+            'images',
+            'logo.png'
+        )
+    );
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
     etag: true,
     lastModified: true,
@@ -8288,26 +8862,43 @@ const apiRoutes = require('./routes/apiRoutes');
 const { createAdminRouters } = require('./routes/admin-auth-routes');
 const { startAiNurtureWorker } = require('./backend/services/aiNurtureWorker');
 const academyMemberProfileSupabaseRepo = require('./backend/repositories/academyMemberProfileSupabaseRepo');
-const yhuUsersSupabaseRepo = require('./backend/repositories/yhuUsersSupabaseRepo');
 
 const { pageRouter: adminPageRouter, apiRouter: adminApiRouter } = createAdminRouters({
-    privateAdminDir: path.join(__dirname, 'private', 'admin')
+    privateAdminDir: path.join(__dirname, 'private', 'admin'),
+
+    onMaintenanceModeChanged: async (enabled) => {
+        if (!enabled) {
+            return;
+        }
+
+        io.of('/').emit(
+            'maintenanceMode',
+            {
+                enabled: true,
+                message:
+                    'Young Hustlers Universe is temporarily under maintenance.'
+            }
+        );
+
+        publicLandingNamespace.emit(
+            'maintenanceMode',
+            {
+                enabled: true,
+                message:
+                    'Young Hustlers Universe is temporarily under maintenance.'
+            }
+        );
+
+        io.of('/')
+            .disconnectSockets(true);
+
+        publicLandingNamespace
+            .disconnectSockets(true);
+    }
 });
 
 app.use(adminApiRouter);
 app.use(adminPageRouter);
-
-async function sendYHProtectedPage(req, res, fileName = 'dashboard.html', redirectKey = 'dashboard') {
-    const user = await verifyRequestUser(req);
-
-    if (!user?.id) {
-        return res.redirect(`/?redirect=${encodeURIComponent(redirectKey)}`);
-    }
-
-    sendPrivateNoStoreHeaders(res);
-
-    return res.sendFile(path.join(__dirname, 'public', fileName));
-}
 
 function sendYHSoftProtectedShell(req, res, fileName = 'dashboard.html') {
     sendPrivateNoStoreHeaders(res);
@@ -8324,6 +8915,10 @@ app.get(['/academy-embed', '/academy-embed/'], (req, res) => {
 
 app.get(['/academy', '/academy/'], (req, res) => {
     return sendYHSoftProtectedShell(req, res, 'academy.html');
+});
+
+app.get(['/federation', '/federation/'], (req, res) => {
+    return sendYHSoftProtectedShell(req, res, 'federation.html');
 });
 
 app.use('/', viewRoutes);
@@ -9040,9 +9635,18 @@ app.post('/api/academy/lead-missions/operator-profile', requireApiUser, async (r
         });
     }
 });
-function mapFederationMemberUserDoc(docSnap) {
-    const user = docSnap.data() || {};
-    const userId = sanitizeText(docSnap.id);
+function mapFederationMemberUserRecord(rawUserId = '', rawUser = {}) {
+    const user =
+        rawUser &&
+        typeof rawUser === 'object' &&
+        !Array.isArray(rawUser)
+            ? rawUser
+            : {};
+
+    const userId =
+        sanitizeText(
+            rawUserId
+        );
 
     const application =
         user.federationApplication && typeof user.federationApplication === 'object'
@@ -9086,6 +9690,10 @@ function mapFederationMemberUserDoc(docSnap) {
         role,
         badge: sanitizeText(user.federationBadge || application.badge || 'Verified'),
         verificationBadges: buildYHVerificationBadges(user),
+        referralCode: sanitizeText(
+            user.federationReferralCode ||
+            ''
+        ),
         category,
         country,
         city,
@@ -9135,6 +9743,24 @@ function mapFederationMemberUserDoc(docSnap) {
         source: 'server'
     };
 }
+
+function mapFederationMemberUserDoc(docSnap) {
+    if (
+        !docSnap ||
+        typeof docSnap.data !== 'function'
+    ) {
+        return mapFederationMemberUserRecord(
+            '',
+            {}
+        );
+    }
+
+    return mapFederationMemberUserRecord(
+        docSnap.id,
+        docSnap.data() || {}
+    );
+}
+
 function normalizePlazaAccessStatus(value = '') {
     const raw = sanitizeText(value).toLowerCase();
 
@@ -9205,8 +9831,18 @@ async function getPlazaAccessSnapshotForUser(userId = '', requestUser = {}) {
         };
     }
 
-    const snap = await firestore.collection('users').doc(normalizedUserId).get();
-    const user = snap.exists ? (snap.data() || {}) : {};
+    const userRow =
+        await yhuUsersSupabaseRepo
+            .getByUid(
+                normalizedUserId
+            );
+
+    const user =
+        userRow
+            ? getServerSupabaseAuthUser(
+                userRow
+            )
+            : {};
 
     const application =
         user.plazaApplication && typeof user.plazaApplication === 'object'
@@ -9279,8 +9915,12 @@ function buildFederationReferralCode(userId = '', name = '') {
 }
 
 async function getFederationUserState(req) {
-    const userId = sanitizeText(req.user?.id);
-    const userRef = firestore.collection('users').doc(userId);
+    const userId =
+        sanitizeText(
+            req.user?.id
+        );
+
+    let userRef = null;
 
     if (isLocalSuperdevIdentity({ ...(req.user || {}), id: userId, firebaseUid: userId })) {
         const application = buildLocalSuperdevApplicationSnapshot({
@@ -9319,33 +9959,75 @@ async function getFederationUserState(req) {
         };
     }
 
-    const userSnap = await userRef.get();
-    const user = userSnap.exists ? (userSnap.data() || {}) : {};
+    const userRow =
+        await yhuUsersSupabaseRepo
+            .getByUid(
+                userId
+            );
+
+    const user =
+        userRow
+            ? getServerSupabaseAuthUser(
+                userRow
+            )
+            : {};
 
     const application =
         user.federationApplication && typeof user.federationApplication === 'object'
             ? user.federationApplication
             : null;
 
-    const approved = isFederationApprovedServerUser(user);
-    let member = approved ? mapFederationMemberUserDoc(userSnap) : null;
+    const approved =
+        isFederationApprovedServerUser(
+            user
+        );
 
-    if (approved && member && !member.referralCode) {
-        const nextCode = buildFederationReferralCode(userId, member.name);
+    let member =
+        approved
+            ? mapFederationMemberUserRecord(
+                userId,
+                user
+            )
+            : null;
 
-        await userRef.set({
-            federationReferralCode: nextCode,
-            updatedAt: new Date().toISOString()
-        }, { merge: true });
-        /* PATCH: yhu_users Supabase safe write sync */
-        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
-        /* END PATCH: yhu_users Supabase safe write sync */
+if (approved && member && !member.referralCode) {
+    const nextCode =
+        buildFederationReferralCode(
+            userId,
+            member.name
+        );
 
-        member = {
-            ...member,
-            referralCode: nextCode
-        };
-    }
+    const nowIso =
+        new Date().toISOString();
+
+    await yhuUsersSupabaseRepo
+        .patchByUid(
+            userId,
+            {
+                federationReferralCode:
+                    nextCode,
+
+                updatedAt:
+                    nowIso
+            },
+            {
+                source:
+                    'server:federation-referral-code'
+            }
+        );
+
+    user.federationReferralCode =
+        nextCode;
+
+    user.updatedAt =
+        nowIso;
+
+    member = {
+        ...member,
+        referralCode:
+            nextCode
+    };
+}
 
     return {
         userId,
@@ -9481,51 +10163,161 @@ function mapFederationDealRoomDoc(docSnap) {
     };
 }
 
+async function listCanonicalServerUserRecords() {
+    const canonicalUsers =
+        await yhuUsersSupabaseRepo
+            .listCanonicalUsers({
+                limit: 5000
+            });
+
+    return canonicalUsers
+        .map((item) => {
+            const uid =
+                sanitizeText(
+                    item?.uid
+                );
+
+            const user =
+                item?.row
+                    ? getServerSupabaseAuthUser(
+                        item.row
+                    )
+                    : {};
+
+            return {
+                uid,
+                user
+            };
+        })
+        .filter(
+            item =>
+                Boolean(item.uid)
+        );
+}
+
 async function getFederationReferralSnapshot(member = {}) {
     const referralCode = sanitizeText(member.referralCode).toUpperCase();
     const memberEmail = sanitizeText(member.email).toLowerCase();
     const memberUserId = sanitizeText(member.userId || member.id);
 
-    const usersSnap = await firestore.collection('users').limit(500).get();
+    const canonicalUsers =
+        await listCanonicalServerUserRecords();
+
     const referredApplications = [];
 
-    usersSnap.forEach((docSnap) => {
-        const user = docSnap.data() || {};
-        const app =
-            user.federationApplication && typeof user.federationApplication === 'object'
-                ? user.federationApplication
-                : null;
+    canonicalUsers
+        .slice(0, 500)
+        .forEach(({ uid, user }) => {
+            const app =
+                user.federationApplication &&
+                typeof user.federationApplication === 'object'
+                    ? user.federationApplication
+                    : null;
 
-        if (!app) return;
+            if (!app) return;
 
-        const byCode =
-            referralCode &&
-            sanitizeText(app.referralCodeUsed || app.referredByCode).toUpperCase() === referralCode;
+            const byCode =
+                referralCode &&
+                sanitizeText(
+                    app.referralCodeUsed ||
+                    app.referredByCode
+                ).toUpperCase() === referralCode;
 
-        const byEmail =
-            memberEmail &&
-            sanitizeText(app.referredByEmail).toLowerCase() === memberEmail;
+            const byEmail =
+                memberEmail &&
+                sanitizeText(
+                    app.referredByEmail
+                ).toLowerCase() === memberEmail;
 
-        const byMemberId =
-            memberUserId &&
-            sanitizeText(app.referredByMemberId || app.referredByUserId) === memberUserId;
+            const byMemberId =
+                memberUserId &&
+                sanitizeText(
+                    app.referredByMemberId ||
+                    app.referredByUserId
+                ) === memberUserId;
 
-        if (!byCode && !byEmail && !byMemberId) return;
+            if (
+                !byCode &&
+                !byEmail &&
+                !byMemberId
+            ) {
+                return;
+            }
 
-        referredApplications.push({
-            id: sanitizeText(app.id || `FED-APP-${docSnap.id}`),
-            userId: docSnap.id,
-            fullName: sanitizeText(app.fullName || app.name || user.fullName || user.name || 'Federation Applicant'),
-            email: sanitizeText(app.email || user.email || '').toLowerCase(),
-            role: sanitizeText(app.role || app.profession || ''),
-            primaryCategory: sanitizeText(app.primaryCategory || ''),
-            country: sanitizeText(app.country || user.country || ''),
-            city: sanitizeText(app.city || user.city || ''),
-            status: sanitizeText(app.status || user.federationApplicationStatus || 'Under Review'),
-            createdAt: mapFederationConnectTimestamp(app.createdAt || app.submittedAt || user.createdAt),
-            submittedAt: mapFederationConnectTimestamp(app.submittedAt || app.createdAt)
+            referredApplications.push({
+                id:
+                    sanitizeText(
+                        app.id ||
+                        `FED-APP-${uid}`
+                    ),
+
+                userId:
+                    uid,
+
+                fullName:
+                    sanitizeText(
+                        app.fullName ||
+                        app.name ||
+                        user.fullName ||
+                        user.name ||
+                        'Federation Applicant'
+                    ),
+
+                email:
+                    sanitizeText(
+                        app.email ||
+                        user.email ||
+                        ''
+                    ).toLowerCase(),
+
+                role:
+                    sanitizeText(
+                        app.role ||
+                        app.profession ||
+                        ''
+                    ),
+
+                primaryCategory:
+                    sanitizeText(
+                        app.primaryCategory ||
+                        ''
+                    ),
+
+                country:
+                    sanitizeText(
+                        app.country ||
+                        user.country ||
+                        ''
+                    ),
+
+                city:
+                    sanitizeText(
+                        app.city ||
+                        user.city ||
+                        ''
+                    ),
+
+                status:
+                    sanitizeText(
+                        app.status ||
+                        user.federationApplicationStatus ||
+                        'Under Review'
+                    ),
+
+                createdAt:
+                    mapFederationConnectTimestamp(
+                        app.createdAt ||
+                        app.submittedAt ||
+                        user.createdAt
+                    ),
+
+                submittedAt:
+                    mapFederationConnectTimestamp(
+                        app.submittedAt ||
+                        app.createdAt
+                    )
+            });
         });
-    });
 
     referredApplications.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 
@@ -9598,17 +10390,23 @@ app.get('/api/federation/me', requireApiUser, async (req, res) => {
 
 app.get('/api/federation/directory', requireApiUser, requireFederationApiAccess, async (req, res) => {
     try {
-        const snap = await firestore
-            .collection('users')
-            .where('hasFederationAccess', '==', true)
-            .limit(200)
-            .get();
+        const canonicalUsers =
+            await listCanonicalServerUserRecords();
 
-        const members = [];
-
-        snap.forEach((docSnap) => {
-            members.push(mapFederationMemberUserDoc(docSnap));
-        });
+        const members =
+            canonicalUsers
+                .filter(
+                    ({ user }) =>
+                        user.hasFederationAccess === true
+                )
+                .slice(0, 200)
+                .map(
+                    ({ uid, user }) =>
+                        mapFederationMemberUserRecord(
+                            uid,
+                            user
+                        )
+                );
 
         members.sort((a, b) => {
             return String(a.name || '').localeCompare(String(b.name || ''));
@@ -9912,14 +10710,23 @@ app.get('/api/federation/command', requireApiUser, requireFederationApiAccess, a
             });
         }
 
-        const membersSnap = await firestore
-            .collection('users')
-            .where('hasFederationAccess', '==', true)
-            .limit(300)
-            .get();
+        const canonicalUsers =
+            await listCanonicalServerUserRecords();
 
-        const members = [];
-        membersSnap.forEach((docSnap) => members.push(mapFederationMemberUserDoc(docSnap)));
+        const members =
+            canonicalUsers
+                .filter(
+                    ({ user }) =>
+                        user.hasFederationAccess === true
+                )
+                .slice(0, 300)
+                .map(
+                    ({ uid, user }) =>
+                        mapFederationMemberUserRecord(
+                            uid,
+                            user
+                        )
+                );
 
         const requests = await listFederationMergedRequestsForUser(fedState.userId, 100);
 
@@ -11317,8 +12124,18 @@ app.get('/api/federation/application-status', requireApiUser, async (req, res) =
             });
         }
 
-        const snap = await firestore.collection('users').doc(userId).get();
-        const user = snap.exists ? (snap.data() || {}) : {};
+        const userRow =
+            await yhuUsersSupabaseRepo
+                .getByUid(
+                    userId
+                );
+
+        const user =
+            userRow
+                ? getServerSupabaseAuthUser(
+                    userRow
+                )
+                : {};
 
         const application =
             user.federationApplication && typeof user.federationApplication === 'object'
@@ -11396,9 +12213,22 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
             });
         }
 
-        const userRef = firestore.collection('users').doc(userId);
-        const userSnap = await userRef.get();
-        const user = userSnap.exists ? (userSnap.data() || {}) : {};
+        const userRow =
+            await yhuUsersSupabaseRepo
+                .getByUid(
+                    userId
+                );
+
+        if (!userRow) {
+            throw new Error(
+                'Canonical Federation user record is unavailable.'
+            );
+        }
+
+        const user =
+            getServerSupabaseAuthUser(
+                userRow
+            );
 
         const existingApplication =
             user.federationApplication && typeof user.federationApplication === 'object'
@@ -11543,20 +12373,47 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
                 : ['Submitted through Dashboard Federation gate.']
         };
 
-        await userRef.set({
-            federationApplication: application,
-            federationProfileMap: profileMap,
-            federationTags: profileMap.tags,
-            federationScore: profileMap.score,
-            federationTier: profileMap.tier,
-            federationApplicationStatus: 'Under Review',
-            federationMembershipStatus: 'under review',
-            hasFederationAccess: false,
-            updatedAt: nowIso
-        }, { merge: true });
-        /* PATCH: yhu_users Supabase safe write sync */
-        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
-        /* END PATCH: yhu_users Supabase safe write sync */
+await yhuUsersSupabaseRepo
+    .patchByUid(
+        userId,
+        {
+            federationApplication:
+                application,
+
+            federationProfileMap:
+                profileMap,
+
+            federationTags:
+                profileMap.tags,
+
+            federationScore:
+                profileMap.score,
+
+            federationTier:
+                profileMap.tier,
+
+            federationApplicationStatus:
+                'Under Review',
+
+            federationMembershipStatus:
+                'under review',
+
+            hasFederationAccess:
+                false,
+
+            updatedAt:
+                nowIso
+        },
+        {
+            source:
+                'server:federation-application',
+
+            publicMetaPatch: {
+                hasFederationAccess:
+                    false
+            }
+        }
+    );
 
         return res.status(201).json({
             success: true,
@@ -11744,70 +12601,69 @@ async function appendUserInProductNotification(
     user = {},
     notification = {}
 ) {
+    const userId =
+        sanitizeText(
+            userRef?.id
+        );
+
+    if (!userId) {
+        throw new Error(
+            'Notification user id is required.'
+        );
+    }
+
     const normalizedNotification =
         normalizeUserInProductNotification(
             notification
         );
 
+    if (!normalizedNotification.id) {
+        throw new Error(
+            'Notification id is required.'
+        );
+    }
+
     const current =
         await listServerUserInProductNotifications(
-            userRef.id,
+            userId,
             user
         );
 
     const alreadyExists =
         current.some(
             (item) =>
-                sanitizeText(item?.id) ===
+                sanitizeText(
+                    item?.id
+                ) ===
                 sanitizeText(
                     normalizedNotification.id
                 )
         );
 
-    const next = [
-        normalizedNotification,
-        ...current.filter(
-            (item) =>
-                sanitizeText(item?.id) !==
-                sanitizeText(
-                    normalizedNotification.id
-                )
-        )
-    ].slice(
-        0,
-        USER_IN_PRODUCT_NOTIFICATION_LIMIT
-    );
+    await userNotificationsSupabaseRepo
+        .upsertNotification(
+            userId,
+            normalizedNotification,
+            {
+                source:
+                    'server:user-notification-create',
+                sourceField:
+                    'inProductReviewNotifications'
+            }
+        );
 
-    await userRef.set({
-        inProductReviewNotifications:
-            next,
-        updatedAt:
-            new Date().toISOString()
-    }, {
-        merge: true
-    });
-
-    /* PATCH: User Notifications Supabase sync after Firestore write */
-    await syncServerUserInProductNotifications(
-        userRef.id,
-        next,
-        'server:user-notification-write'
-    );
-    /* END PATCH: User Notifications Supabase sync after Firestore write */
-
-    /* PATCH: yhu_users Supabase safe write sync */
-    await syncServerYhuUserToSupabase(
-        userRef,
-        'server:userRef-write'
-    );
-    /* END PATCH: yhu_users Supabase safe write sync */
+    const next =
+        await listServerUserInProductNotifications(
+            userId,
+            user
+        );
 
     if (
         !alreadyExists &&
         normalizedNotification.id
     ) {
         emitRealtimeNotificationV2(
-            userRef.id,
+            userId,
             normalizedNotification
         );
     }
@@ -11818,16 +12674,38 @@ async function appendUserInProductNotification(
 
 app.get('/api/member/system-notifications', requireApiUser, async (req, res) => {
     try {
-        const userRef = firestore.collection('users').doc(req.user.id);
-        const userSnap = await userRef.get();
-        const user = userSnap.exists ? (userSnap.data() || {}) : {};
+        const userId =
+            sanitizeText(
+                req.user?.id
+            );
+
+        const userRow =
+            await yhuUsersSupabaseRepo
+                .getByUid(
+                    userId
+                );
+
+        const user =
+            userRow
+                ? getServerSupabaseAuthUser(
+                    userRow
+                )
+                : {};
 
         return res.json({
             success: true,
-            notifications: await listServerUserInProductNotifications(req.user.id, user)
+            notifications:
+                await listServerUserInProductNotifications(
+                    userId,
+                    user
+                )
         });
     } catch (error) {
-        console.error('member system notifications error:', error);
+        console.error(
+            'member system notifications error:',
+            error
+        );
+
         return res.status(500).json({
             success: false,
             message: 'Failed to load member notifications.'
@@ -11837,7 +12715,16 @@ app.get('/api/member/system-notifications', requireApiUser, async (req, res) => 
 
 app.post('/api/member/system-notifications/:id/read', requireApiUser, async (req, res) => {
     try {
-        const notificationId = sanitizeText(req.params.id);
+        const userId =
+            sanitizeText(
+                req.user?.id
+            );
+
+        const notificationId =
+            sanitizeText(
+                req.params.id
+            );
+
         if (!notificationId) {
             return res.status(400).json({
                 success: false,
@@ -11845,42 +12732,32 @@ app.post('/api/member/system-notifications/:id/read', requireApiUser, async (req
             });
         }
 
-        const userRef = firestore.collection('users').doc(req.user.id);
-        const userSnap = await userRef.get();
-        const user = userSnap.exists ? (userSnap.data() || {}) : {};
-        const current = await listServerUserInProductNotifications(userRef.id, user);
-        const nowIso = new Date().toISOString();
+        const nowIso =
+            new Date().toISOString();
 
-        const next = current.map((item) => {
-            if (sanitizeText(item.id) !== notificationId) return item;
+        await userNotificationsSupabaseRepo
+            .markNotificationRead(
+                userId,
+                notificationId,
+                nowIso
+            );
 
-            return {
-                ...item,
-                isRead: true,
-                is_read: true,
-                read: true,
-                readAt: nowIso,
-                read_at: nowIso
-            };
-        });
-
-        await userRef.set({
-            inProductReviewNotifications: next,
-            updatedAt: nowIso
-        }, { merge: true });
-        /* PATCH: User Notifications Supabase sync after Firestore write */
-        await syncServerUserInProductNotifications(userRef.id, next, 'server:user-notification-write');
-        /* END PATCH: User Notifications Supabase sync after Firestore write */
-        /* PATCH: yhu_users Supabase safe write sync */
-        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
-        /* END PATCH: yhu_users Supabase safe write sync */
+        const notifications =
+            await listServerUserInProductNotifications(
+                userId,
+                {}
+            );
 
         return res.json({
             success: true,
-            notifications: next
+            notifications
         });
     } catch (error) {
-        console.error('member system notification read error:', error);
+        console.error(
+            'member system notification read error:',
+            error
+        );
+
         return res.status(500).json({
             success: false,
             message: 'Failed to mark member notification as read.'
@@ -11890,38 +12767,36 @@ app.post('/api/member/system-notifications/:id/read', requireApiUser, async (req
 
 app.post('/api/member/system-notifications/read-all', requireApiUser, async (req, res) => {
     try {
-        const userRef = firestore.collection('users').doc(req.user.id);
-        const userSnap = await userRef.get();
-        const user = userSnap.exists ? (userSnap.data() || {}) : {};
-        const current = await listServerUserInProductNotifications(userRef.id, user);
-        const nowIso = new Date().toISOString();
+        const userId =
+            sanitizeText(
+                req.user?.id
+            );
 
-        const next = current.map((item) => ({
-            ...item,
-            isRead: true,
-            is_read: true,
-            read: true,
-            readAt: nowIso,
-            read_at: nowIso
-        }));
+        const nowIso =
+            new Date().toISOString();
 
-        await userRef.set({
-            inProductReviewNotifications: next,
-            updatedAt: nowIso
-        }, { merge: true });
-        /* PATCH: User Notifications Supabase sync after Firestore write */
-        await syncServerUserInProductNotifications(userRef.id, next, 'server:user-notification-write');
-        /* END PATCH: User Notifications Supabase sync after Firestore write */
-        /* PATCH: yhu_users Supabase safe write sync */
-        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
-        /* END PATCH: yhu_users Supabase safe write sync */
+        await userNotificationsSupabaseRepo
+            .markAllNotificationsRead(
+                userId,
+                nowIso
+            );
+
+        const notifications =
+            await listServerUserInProductNotifications(
+                userId,
+                {}
+            );
 
         return res.json({
             success: true,
-            notifications: next
+            notifications
         });
     } catch (error) {
-        console.error('member system notifications read-all error:', error);
+        console.error(
+            'member system notifications read-all error:',
+            error
+        );
+
         return res.status(500).json({
             success: false,
             message: 'Failed to mark all member notifications as read.'
@@ -12181,8 +13056,18 @@ async function buildServerDivisionGatePayloadForUser({
     let userRecord = {};
 
     try {
-        const userSnap = await firestore.collection('users').doc(userId).get();
-        userRecord = userSnap.exists ? (userSnap.data() || {}) : {};
+        const userRow =
+            await yhuUsersSupabaseRepo
+                .getByUid(
+                    userId
+                );
+
+        userRecord =
+            userRow
+                ? getServerSupabaseAuthUser(
+                    userRow
+                )
+                : {};
     } catch (error) {
         console.error('buildServerDivisionGatePayloadForUser user override error:', error);
         userRecord = {};
@@ -12302,10 +13187,28 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
             });
         }
 
-        const userRef = firestore.collection('users').doc(userId);
-        const snap = await userRef.get();
-        const user = snap.exists ? (snap.data() || {}) : {};
-        const existingSnapshot = await getPlazaAccessSnapshotForUser(userId, req.user);
+const userRow =
+    await yhuUsersSupabaseRepo
+        .getByUid(
+            userId
+        );
+
+if (!userRow) {
+    throw new Error(
+        'Canonical Plaza user record is unavailable.'
+    );
+}
+
+const user =
+    getServerSupabaseAuthUser(
+        userRow
+    );
+
+const existingSnapshot =
+    await getPlazaAccessSnapshotForUser(
+        userId,
+        req.user
+    );
 
         if (existingSnapshot.canEnterPlaza === true) {
             return res.json({
@@ -12592,18 +13495,41 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
             ]
         };
 
-        await userRef.set({
-            plazaApplication: application,
-            plazaApplicationStatus: 'Under Review',
-            plazaMembershipStatus: 'under review',
-            plazaAccessStatus: 'under review',
-            plazaApplicationTags: application.tags,
-            hasPlazaAccess: false,
-            updatedAt: nowIso
-        }, { merge: true });
-        /* PATCH: yhu_users Supabase safe write sync */
-        await syncServerYhuUserToSupabase(userRef, 'server:userRef-write');
-        /* END PATCH: yhu_users Supabase safe write sync */
+await yhuUsersSupabaseRepo
+    .patchByUid(
+        userId,
+        {
+            plazaApplication:
+                application,
+
+            plazaApplicationStatus:
+                'Under Review',
+
+            plazaMembershipStatus:
+                'under review',
+
+            plazaAccessStatus:
+                'under review',
+
+            plazaApplicationTags:
+                application.tags,
+
+            hasPlazaAccess:
+                false,
+
+            updatedAt:
+                nowIso
+        },
+        {
+            source:
+                'server:plaza-application',
+
+            publicMetaPatch: {
+                hasPlazaAccess:
+                    false
+            }
+        }
+    );
 
         return res.status(201).json({
             success: true,
@@ -12644,20 +13570,57 @@ async function isPlazaAdminReviewer(req) {
     if (!requestUserId) return false;
 
     try {
-        const userSnap = await firestore.collection('users').doc(requestUserId).get();
-        if (!userSnap.exists) return false;
+        const userRow =
+            await yhuUsersSupabaseRepo
+                .getByUid(
+                    requestUserId
+                );
 
-        const user = userSnap.data() || {};
-        const role = sanitizeText(user.role || user.accountRole || user.userRole).toLowerCase();
-        const accountType = sanitizeText(user.accountType || user.type).toLowerCase();
+        if (!userRow) {
+            return false;
+        }
 
-        const permissions = Array.isArray(user.permissions)
-            ? user.permissions.map((item) => sanitizeText(item).toLowerCase())
-            : [];
+        const user =
+            getServerSupabaseAuthUser(
+                userRow
+            );
 
-        const adminRoles = Array.isArray(user.adminRoles)
-            ? user.adminRoles.map((item) => sanitizeText(item).toLowerCase())
-            : [];
+        const role =
+            sanitizeText(
+                user.role ||
+                user.accountRole ||
+                user.userRole
+            ).toLowerCase();
+
+        const accountType =
+            sanitizeText(
+                user.accountType ||
+                user.type
+            ).toLowerCase();
+
+        const permissions =
+            Array.isArray(
+                user.permissions
+            )
+                ? user.permissions.map(
+                    (item) =>
+                        sanitizeText(
+                            item
+                        ).toLowerCase()
+                )
+                : [];
+
+        const adminRoles =
+            Array.isArray(
+                user.adminRoles
+            )
+                ? user.adminRoles.map(
+                    (item) =>
+                        sanitizeText(
+                            item
+                        ).toLowerCase()
+                )
+                : [];
 
         return (
             user.isAdmin === true ||
@@ -12673,7 +13636,11 @@ async function isPlazaAdminReviewer(req) {
             adminRoles.includes('superadmin')
         );
     } catch (error) {
-        console.error('isPlazaAdminReviewer error:', error);
+        console.error(
+            'isPlazaAdminReviewer error:',
+            error
+        );
+
         return false;
     }
 }
@@ -12716,78 +13683,247 @@ function getPlazaAdminStatusLabel(status = '') {
     return 'Under Review';
 }
 
-function mapPlazaAdminApplicationUserDoc(docSnap) {
-    const user = docSnap.data() || {};
+function mapPlazaAdminApplicationUserRecord(
+    rawUserId = '',
+    rawUser = {}
+) {
+    const userId =
+        sanitizeText(
+            rawUserId
+        );
+
+    const user =
+        rawUser &&
+        typeof rawUser === 'object'
+            ? rawUser
+            : {};
+
     const application =
-        user.plazaApplication && typeof user.plazaApplication === 'object'
+        user.plazaApplication &&
+        typeof user.plazaApplication === 'object'
             ? user.plazaApplication
             : null;
 
-    if (!application) return null;
+    if (!application) {
+        return null;
+    }
 
-    const status = normalizePlazaAccessStatus(
-        user.plazaApplicationStatus ||
-        user.plazaAccessStatus ||
-        user.plazaMembershipStatus ||
-        application.status ||
-        'under review'
-    );
+    const status =
+        normalizePlazaAccessStatus(
+            user.plazaApplicationStatus ||
+            user.plazaAccessStatus ||
+            user.plazaMembershipStatus ||
+            application.status ||
+            'under review'
+        );
 
     return {
-        id: sanitizeText(application.id || `plaza_${docSnap.id}`),
-        userId: docSnap.id,
-        fullName: sanitizeText(application.fullName || application.name || user.fullName || user.name || 'Plaza Applicant'),
-        email: sanitizeText(application.email || user.email || '').toLowerCase(),
-        membershipType: sanitizeText(application.membershipType),
-        country: sanitizeText(application.country || user.country),
-        wantsPatron: sanitizeText(application.wantsPatron),
-        wantsMarketplace: sanitizeText(application.wantsMarketplace),
-        status: getPlazaAdminStatusLabel(status),
-        normalizedStatus: status || 'under review',
-        canEnterPlaza: user.hasPlazaAccess === true || status === 'approved',
-        tags: Array.isArray(application.tags) ? application.tags : [],
-        submittedAt: application.submittedAt || application.createdAt || null,
-        updatedAt: application.updatedAt || user.updatedAt || null,
-        reviewedAt: application.reviewedAt || '',
-        reviewedBy: application.reviewedBy || '',
+        id:
+            sanitizeText(
+                application.id ||
+                `plaza_${userId}`
+            ),
+
+        userId,
+
+        fullName:
+            sanitizeText(
+                application.fullName ||
+                application.name ||
+                user.fullName ||
+                user.name ||
+                'Plaza Applicant'
+            ),
+
+        email:
+            sanitizeText(
+                application.email ||
+                user.email ||
+                ''
+            ).toLowerCase(),
+
+        membershipType:
+            sanitizeText(
+                application.membershipType
+            ),
+
+        country:
+            sanitizeText(
+                application.country ||
+                user.country
+            ),
+
+        wantsPatron:
+            sanitizeText(
+                application.wantsPatron
+            ),
+
+        wantsMarketplace:
+            sanitizeText(
+                application.wantsMarketplace
+            ),
+
+        status:
+            getPlazaAdminStatusLabel(
+                status
+            ),
+
+        normalizedStatus:
+            status ||
+            'under review',
+
+        canEnterPlaza:
+            user.hasPlazaAccess === true ||
+            status === 'approved',
+
+        tags:
+            Array.isArray(
+                application.tags
+            )
+                ? application.tags
+                : [],
+
+        submittedAt:
+            application.submittedAt ||
+            application.createdAt ||
+            null,
+
+        updatedAt:
+            application.updatedAt ||
+            user.updatedAt ||
+            null,
+
+        reviewedAt:
+            application.reviewedAt ||
+            '',
+
+        reviewedBy:
+            application.reviewedBy ||
+            '',
+
         application
     };
 }
 
-app.get('/api/admin/plaza/applications', requireApiUser, requirePlazaAdminReviewer, async (req, res) => {
-    try {
-        const usersSnap = await firestore.collection('users').limit(1000).get();
-        const applications = [];
-
-        usersSnap.forEach((docSnap) => {
-            const mapped = mapPlazaAdminApplicationUserDoc(docSnap);
-            if (mapped) applications.push(mapped);
-        });
-
-        applications.sort((a, b) => {
-            return String(b.submittedAt || b.updatedAt || '').localeCompare(String(a.submittedAt || a.updatedAt || ''));
-        });
-
-        return res.json({
-            success: true,
-            applications,
-            stats: {
-                total: applications.length,
-                pending: applications.filter((item) =>
-                    ['under review', 'screening', 'shortlisted', 'waitlisted'].includes(item.normalizedStatus)
-                ).length,
-                approved: applications.filter((item) => item.normalizedStatus === 'approved').length,
-                rejected: applications.filter((item) => item.normalizedStatus === 'rejected').length
-            }
-        });
-    } catch (error) {
-        console.error('admin plaza applications list error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to load Plaza applications.'
-        });
+function mapPlazaAdminApplicationUserDoc(
+    docSnap
+) {
+    if (
+        !docSnap ||
+        typeof docSnap.data !== 'function'
+    ) {
+        return null;
     }
-});
+
+    return mapPlazaAdminApplicationUserRecord(
+        docSnap.id,
+        docSnap.data() || {}
+    );
+}
+
+app.get(
+    '/api/admin/plaza/applications',
+    requireApiUser,
+    requirePlazaAdminReviewer,
+    async (req, res) => {
+        try {
+const canonicalUsers =
+    await listCanonicalServerUserRecords();
+
+const applications =
+    [];
+
+canonicalUsers.forEach(
+    ({
+        uid,
+        user
+    }) => {
+        const mapped =
+            mapPlazaAdminApplicationUserRecord(
+                uid,
+                user
+            );
+
+        if (mapped) {
+            applications.push(
+                mapped
+            );
+        }
+    }
+);
+
+            applications.sort(
+                (a, b) => {
+                    return String(
+                        b.submittedAt ||
+                        b.updatedAt ||
+                        ''
+                    ).localeCompare(
+                        String(
+                            a.submittedAt ||
+                            a.updatedAt ||
+                            ''
+                        )
+                    );
+                }
+            );
+
+            return res.json({
+                success:
+                    true,
+
+                applications,
+
+                stats: {
+                    total:
+                        applications.length,
+
+                    pending:
+                        applications.filter(
+                            (item) =>
+                                [
+                                    'under review',
+                                    'screening',
+                                    'shortlisted',
+                                    'waitlisted'
+                                ].includes(
+                                    item.normalizedStatus
+                                )
+                        ).length,
+
+                    approved:
+                        applications.filter(
+                            (item) =>
+                                item.normalizedStatus ===
+                                'approved'
+                        ).length,
+
+                    rejected:
+                        applications.filter(
+                            (item) =>
+                                item.normalizedStatus ===
+                                'rejected'
+                        ).length
+                }
+            });
+        } catch (error) {
+            console.error(
+                'admin plaza applications list error:',
+                error
+            );
+
+            return res
+                .status(500)
+                .json({
+                    success:
+                        false,
+
+                    message:
+                        'Failed to load Plaza applications.'
+                });
+        }
+    }
+);
 
 app.patch('/api/admin/plaza/applications/:id/status', requireApiUser, requirePlazaAdminReviewer, async (req, res) => {
     try {
@@ -12808,43 +13944,57 @@ app.patch('/api/admin/plaza/applications/:id/status', requireApiUser, requirePla
             });
         }
 
-        let targetRef = firestore.collection('users').doc(applicationId);
-        let targetSnap = await targetRef.get();
+const canonicalUsers =
+    await listCanonicalServerUserRecords();
 
-        if (!targetSnap.exists || !(targetSnap.data() || {}).plazaApplication) {
-            const usersSnap = await firestore.collection('users').limit(1000).get();
+const targetEntry =
+    canonicalUsers.find(
+        ({
+            uid,
+            user: candidateUser
+        }) => {
+            const candidateApplication =
+                candidateUser?.plazaApplication &&
+                typeof candidateUser.plazaApplication === 'object'
+                    ? candidateUser.plazaApplication
+                    : null;
 
-            targetRef = null;
-            targetSnap = null;
+            if (!candidateApplication) {
+                return false;
+            }
 
-            usersSnap.forEach((docSnap) => {
-                if (targetRef) return;
-
-                const user = docSnap.data() || {};
-                const application =
-                    user.plazaApplication && typeof user.plazaApplication === 'object'
-                        ? user.plazaApplication
-                        : null;
-
-                if (sanitizeText(application?.id) === applicationId) {
-                    targetRef = docSnap.ref;
-                    targetSnap = docSnap;
-                }
-            });
+            return (
+                sanitizeText(uid) === applicationId ||
+                sanitizeText(
+                    candidateApplication.id
+                ) === applicationId
+            );
         }
+    );
 
-        if (!targetRef || !targetSnap?.exists) {
-            return res.status(404).json({
-                success: false,
-                message: 'Plaza application not found.'
-            });
-        }
+if (!targetEntry) {
+    return res.status(404).json({
+        success: false,
+        message: 'Plaza application not found.'
+    });
+}
 
-        const user = targetSnap.data() || {};
-        const existingApplication =
-            user.plazaApplication && typeof user.plazaApplication === 'object'
-                ? user.plazaApplication
-                : {};
+const targetUserId =
+    sanitizeText(
+        targetEntry.uid
+    );
+
+const user =
+    targetEntry.user &&
+    typeof targetEntry.user === 'object'
+        ? targetEntry.user
+        : {};
+
+const existingApplication =
+    user.plazaApplication &&
+    typeof user.plazaApplication === 'object'
+        ? user.plazaApplication
+        : {};
 
         const nextLabel = getPlazaAdminStatusLabel(requestedStatus);
         const approved = requestedStatus === 'approved';
@@ -12886,11 +14036,52 @@ app.patch('/api/admin/plaza/applications/:id/status', requireApiUser, requirePla
             updatePayload.plazaRejectedAt = nowIso;
         }
 
-        await targetRef.set(updatePayload, { merge: true });
+await yhuUsersSupabaseRepo
+    .patchByUid(
+        targetUserId,
+        updatePayload,
+        {
+            source:
+                'server:admin-plaza-review',
 
-        const freshSnap = await targetRef.get();
-        const freshUser = freshSnap.exists ? (freshSnap.data() || {}) : {};
-        const mapped = mapPlazaAdminApplicationUserDoc(freshSnap);
+            publicMetaPatch: {
+                plazaApplicationStatus:
+                    nextLabel,
+
+                plazaMembershipStatus:
+                    requestedStatus,
+
+                plazaAccessStatus:
+                    requestedStatus,
+
+                hasPlazaAccess:
+                    approved
+            }
+        }
+    );
+
+const freshRow =
+    await yhuUsersSupabaseRepo
+        .getByUid(
+            targetUserId
+        );
+
+if (!freshRow) {
+    throw new Error(
+        'Updated canonical Plaza user record is unavailable.'
+    );
+}
+
+const freshUser =
+    getServerSupabaseAuthUser(
+        freshRow
+    );
+
+const mapped =
+    mapPlazaAdminApplicationUserRecord(
+        targetUserId,
+        freshUser
+    );
 
         let plazaReviewText = `Your Plaza application is now ${nextLabel}.`;
 
@@ -12909,7 +14100,7 @@ app.patch('/api/admin/plaza/applications/:id/status', requireApiUser, requirePla
         }
 
         await appendUserInProductNotification(
-            targetRef,
+            { id: targetUserId },
             freshUser,
             buildInProductReviewNotification({
                 title: `Plaza Application ${nextLabel}`,
@@ -12930,7 +14121,7 @@ app.patch('/api/admin/plaza/applications/:id/status', requireApiUser, requirePla
             canEnterPlaza: approved,
             applicationStatus: nextLabel,
             member: approved
-                ? buildPlazaMemberSnapshot(freshSnap.id, freshUser, req.user)
+                ? buildPlazaMemberSnapshot(targetUserId, freshUser, req.user)
                 : null
         });
     } catch (error) {

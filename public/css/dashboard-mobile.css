@@ -3304,27 +3304,21 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 
     /*
      * PHASE 2E-C2:
-     * Generic Dashboard workspaces may reserve mobile
-     * header/navbar spacing, but embedded division child
-     * workspaces own a dedicated edge-to-edge viewport.
+     * Generic Dashboard workspaces reserve the mobile
+     * header/navbar clearance on the outer hub viewport.
      *
-     * Exclude Academy, Plazas, and Federation child routes
-     * so they can use the dedicated padding:0 rule below.
+     * IMPORTANT:
+     * The :not() conditions belong to BODY itself.
+     * They must not be separated from body by whitespace,
+     * otherwise CSS treats them as descendant selectors.
+     *
+     * Academy, Plazas, and Federation child workspaces
+     * keep their own dedicated edge-to-edge viewport rules.
      */
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
-    :not([data-yh-unified-workspace="academy"])
-    :not([data-yh-unified-workspace="profile"])
-    :not([data-yh-unified-workspace^="academy-"])
-    :not([data-yh-unified-workspace^="plazas-"])
-    :not([data-yh-unified-workspace^="federation-"])
+    body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="academy"]):not([data-yh-unified-workspace="profile"]):not([data-yh-unified-workspace^="academy-"]):not([data-yh-unified-workspace^="plazas-"]):not([data-yh-unified-workspace^="federation-"])
     #universe-hub-view,
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
-    :not([data-yh-unified-workspace="academy"])
-    :not([data-yh-unified-workspace="profile"])
-    :not([data-yh-unified-workspace^="academy-"])
-    :not([data-yh-unified-workspace^="plazas-"])
-    :not([data-yh-unified-workspace^="federation-"])
+    body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="academy"]):not([data-yh-unified-workspace="profile"]):not([data-yh-unified-workspace^="academy-"]):not([data-yh-unified-workspace^="plazas-"]):not([data-yh-unified-workspace^="federation-"])
     .universe-hub-view {
         padding:
             calc(
@@ -3376,17 +3370,17 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] #universe-hub-view,
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .universe-hub-view {
         /*
-         * Mobile header:
-         * 56px + safe-area
+         * Mobile Dashboard overview owns both:
+         * - fixed 56px app header + safe area
+         * - fixed 42px search row with 8px vertical padding
          *
-         * Search row:
-         * 42px control + 8px top + 8px bottom
-         *
-         * Leave only a small visual gap below search.
+         * Keep additional breathing room below the fixed
+         * search surface so the operator panel never begins
+         * underneath its border/background.
          */
         padding-top:
             calc(
-                122px +
+                138px +
                 max(
                     8px,
                     env(safe-area-inset-top, 0px)
@@ -3630,14 +3624,17 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="bu
     }
 
     /*
-     * Dashboard overview already reserves the exact
-     * mobile search height at the parent level.
+     * Dashboard overview content needs its own clearance
+     * below the fixed mobile search surface.
      *
-     * Do not add a second vertical clearance here.
+     * Keep the outer overview viewport responsible for
+     * the app-header/search positioning, then move only
+     * the actual game foundation far enough down for the
+     * complete Operator Progression panel to remain visible.
      */
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"]
         .yh-game-foundation {
-        margin-top: 0 !important;
+        margin-top: 55px !important;
     }
 
 

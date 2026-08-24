@@ -532,8 +532,6 @@
     </div>
 
     <script>
-        const pathParts = window.location.pathname.split('/').filter(Boolean);
-        const gate = pathParts[pathParts.length - 1];
         const output = document.getElementById('output');
         const responseSummary = document.getElementById('response-summary');
         const responseStatusPill = document.getElementById('response-status-pill');
@@ -636,7 +634,7 @@
         }
 
         async function request(path, options = {}) {
-            const response = await fetch(`/api/internal/ai-nurture/${gate}${path}`, {
+            const response = await fetch(`/api/internal/ai-nurture${path}`, {
                 ...options,
                 headers: {
                     'Content-Type': 'application/json',

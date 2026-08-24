@@ -18,6 +18,8 @@ const { sendSystemMail } = require('../controllers/authControllers');
 const academyMemberProfileSupabaseRepo = require('../backend/repositories/academyMemberProfileSupabaseRepo');
 const yhuUsersSupabaseRepo = require('../backend/repositories/yhuUsersSupabaseRepo');
 const userNotificationsSupabaseRepo = require('../backend/repositories/userNotificationsSupabaseRepo');
+const adminOperationalSettingsSupabaseRepo = require('../backend/repositories/adminOperationalSettingsSupabaseRepo');
+const adminSupportTicketsSupabaseRepo = require('../backend/repositories/adminSupportTicketsSupabaseRepo');
 
 const ADMIN_SESSION_COOKIE = 'yh_admin_session';
 const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
@@ -336,6 +338,38 @@ async function deleteAdminSession(sessionId = '') {
 function createAdminRouters(options = {}) {
   const privateAdminDir =
     options.privateAdminDir || path.join(process.cwd(), 'private', 'admin');
+
+  const onMaintenanceModeChanged =
+    typeof options.onMaintenanceModeChanged === 'function'
+      ? options.onMaintenanceModeChanged
+      : null;
+
+  const adminRouteKey =
+    String(
+      process.env.ADMIN_ROUTE_KEY || ''
+    ).trim();
+
+  if (
+    !/^[A-Za-z0-9_-]{32,128}$/.test(
+      adminRouteKey
+    )
+  ) {
+    throw new Error(
+      'ADMIN_ROUTE_KEY is missing or invalid. Use a 32-128 character URL-safe secret.'
+    );
+  }
+
+  const adminLoginPath =
+    `/admin/${adminRouteKey}/login`;
+
+  const adminPanelPath =
+    `/admin/${adminRouteKey}/panel`;
+
+  const adminLoginApiPath =
+    `/api/admin/${adminRouteKey}/login`;
+
+  const adminSessionApiPath =
+    `/api/admin/${adminRouteKey}/session`;
 
   const pageRouter = express.Router();
   const apiRouter = express.Router();
@@ -2033,45 +2067,39 @@ const applications = users.flatMap((user) => {
       return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
     });
 
-  const federationCandidates = users
-    .filter((user) => user.federationApplication && typeof user.federationApplication === 'object')
-    .map((user) => {
-      const app = user.federationApplication || {};
-      const status = cleanText(app.status || user.federationApplicationStatus || 'Under Review');
-
-      return {
-        id: cleanText(app.id || `FED-${user.id}`),
-        userId: cleanText(user.id),
-        sourceApplicationId: cleanText(app.id || `FED-APP-${user.id}`),
-        name: cleanText(app.fullName || app.name || user.fullName || user.name || user.username || 'Federation Applicant'),
-        email: cleanText(app.email || user.email || ''),
-        profession: cleanText(app.profession || app.role || 'Operator'),
-        region: cleanText(app.region || [app.city, app.country].filter(Boolean).join(', ')),
-        status,
-        influence: toNumber(app.influence, 0),
-        tag: cleanText(app.primaryCategory || 'Operator'),
-        createdAt: toIso(app.createdAt) || cleanText(app.createdAt || ''),
-        updatedAt: toIso(app.updatedAt) || cleanText(app.updatedAt || '')
-      };
-    });
-
   const economySummary = buildAdminEconomySummary(paymentLedger, payoutLedger);
   const plazaRoutingDesk = await buildAdminPlazaRoutingDeskSnapshot(120);
   const businessChatReports = await buildAdminBusinessChatReportsSnapshot(160);
   const businessChatAnalytics = await buildAdminBusinessChatAnalyticsSnapshot();
+
+  let supportTickets = [];
+  try {
+    supportTickets = await adminSupportTicketsSupabaseRepo.listAdminSupportTickets(300);
+  } catch (error) {
+    console.error('admin support tickets read failed:', error);
+    supportTickets = [];
+  }
+
+  let operationalSettings = {
+    ...adminOperationalSettingsSupabaseRepo.DEFAULT_OPERATIONAL_SETTINGS
+  };
+
+  try {
+    operationalSettings =
+      await adminOperationalSettingsSupabaseRepo.readOperationalSettings();
+  } catch (error) {
+    console.error(
+      'admin operational settings read failed:',
+      error
+    );
+  }
 
   return {
     ui: {
       currentView: 'overview',
       globalSearch: ''
     },
-    settings: {
-      allowAutoApproveAcademy: false,
-      requireFederationManualReview: true,
-      requirePlazaListingReview: true,
-      enableAiNudges: true,
-      maintenanceMode: false
-    },
+    settings: operationalSettings,
     roles: [],
     applications,
     members,
@@ -2089,7 +2117,7 @@ const applications = users.flatMap((user) => {
     plazaRoutingDesk,
     businessChatReports,
     businessChatAnalytics,
-    support: [],
+    support: supportTickets,
     broadcasts,
     analytics: {
       finance: {
@@ -2117,12 +2145,12 @@ const applications = users.flatMap((user) => {
   };
 }
 
-  pageRouter.get('/admin/login', async (req, res) => {
+  pageRouter.get(adminLoginPath, async (req, res) => {
     try {
       const session = await readSessionFromRequest(req);
 
       if (session) {
-        return res.redirect('/admin/panel');
+        return res.redirect(adminPanelPath);
       }
 
       return res.sendFile(path.join(privateAdminDir, 'admin-login.html'));
@@ -2132,12 +2160,12 @@ const applications = users.flatMap((user) => {
     }
   });
 
-  pageRouter.get('/admin/panel', async (req, res) => {
+  pageRouter.get(adminPanelPath, async (req, res) => {
     try {
       const session = await readSessionFromRequest(req);
 
       if (!session) {
-        return res.redirect('/admin/login');
+        return res.redirect(adminLoginPath);
       }
 
       return res.sendFile(path.join(privateAdminDir, 'admin-panel.html'));
@@ -2148,7 +2176,7 @@ const applications = users.flatMap((user) => {
   });
 
 
-  apiRouter.post('/api/admin/login', async (req, res) => {
+  apiRouter.post(adminLoginApiPath, async (req, res) => {
     const { username, password } = req.body || {};
     const env = getEnvConfig();
 
@@ -2179,7 +2207,7 @@ const applications = users.flatMap((user) => {
 
       return res.json({
         success: true,
-        redirectTo: '/admin/panel',
+        redirectTo: adminPanelPath,
         user: {
           username: env.username,
           role: 'Super Admin'
@@ -2195,7 +2223,7 @@ const applications = users.flatMap((user) => {
     }
   });
 
-  apiRouter.get('/api/admin/session', async (req, res) => {
+  apiRouter.get(adminSessionApiPath, async (req, res) => {
     const env = getEnvConfig();
 
     try {
@@ -3153,6 +3181,101 @@ apiRouter.get('/api/admin/bootstrap', requireAdminSession, async (req, res) => {
       success: false,
       message: 'Failed to load admin bootstrap data.'
     });
+  }
+});
+
+apiRouter.post('/api/admin/support/:ticketCode/status', requireAdminSession, async (req, res) => {
+  try {
+    const ticket = await adminSupportTicketsSupabaseRepo.updateSupportTicketStatus(
+      req.params.ticketCode,
+      req.body || {},
+      req.adminSession?.username || 'admin'
+    );
+
+    return res.json({ success: true, source: 'supabase', ticket });
+  } catch (error) {
+    console.error('admin support ticket status update error:', error);
+    return res.status(error?.statusCode || 500).json({
+      success: false,
+      source: 'supabase',
+      message: error?.message || 'Failed to update support ticket.'
+    });
+  }
+});
+
+apiRouter.post('/api/admin/settings/maintenance-mode', requireAdminSession, async (req, res) => {
+  try {
+    const enabled =
+      req.body?.enabled;
+
+    if (
+      typeof enabled !==
+      'boolean'
+    ) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message:
+            'Maintenance mode must be true or false.'
+        });
+    }
+
+    const settings =
+      await adminOperationalSettingsSupabaseRepo
+        .updateMaintenanceMode(
+          enabled,
+          {
+            updatedBy:
+              req.adminSession
+                .username
+          }
+        );
+
+    if (
+      onMaintenanceModeChanged
+    ) {
+      try {
+        await onMaintenanceModeChanged(
+          settings
+            .maintenanceMode ===
+            true
+        );
+      } catch (
+        callbackError
+      ) {
+        console.error(
+          'maintenance mode runtime sync error:',
+          callbackError
+        );
+      }
+    }
+
+    return res.json({
+      success: true,
+      settings,
+      maintenanceMode:
+        settings
+          .maintenanceMode ===
+        true
+    });
+  } catch (error) {
+    console.error(
+      'admin maintenance mode update error:',
+      error
+    );
+
+    return res
+      .status(
+        error?.statusCode ||
+        500
+      )
+      .json({
+        success: false,
+        message:
+          error?.message ||
+          'Failed to update maintenance mode.'
+      });
   }
 });
 
@@ -7434,7 +7557,7 @@ apiRouter.post('/api/admin/logout', async (req, res) => {
 
     return res.json({
       success: true,
-      redirectTo: '/admin/login'
+      redirectTo: adminLoginPath
     });
   } catch (error) {
     console.error('Admin session logout error:', error);
@@ -7442,7 +7565,7 @@ apiRouter.post('/api/admin/logout', async (req, res) => {
 
     return res.status(503).json({
       success: false,
-      redirectTo: '/admin/login',
+      redirectTo: adminLoginPath,
       message: 'Admin session could not be fully revoked.'
     });
   }

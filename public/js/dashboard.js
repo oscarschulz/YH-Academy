@@ -28423,17 +28423,106 @@ function installDashboardMobileAppShellV1() {
         syncProfileInitial();
     }
 
+    const mobileCommandWorkspaceKeys = new Set([
+        'overview',
+        'wallet',
+        'messages',
+        'business-chats',
+        'referral',
+        'contacts',
+        'my-contacts',
+        'resources',
+        'settings',
+        'edit-profile'
+    ]);
+
+    function resetMobileCommandWorkspaceTop(key = '') {
+        const cleanKey = String(key || '').trim().toLowerCase();
+
+        if (
+            !mobileCommandWorkspaceKeys.has(cleanKey) ||
+            window.innerWidth > 768
+        ) {
+            return;
+        }
+
+        const resetScrollPosition = () => {
+            const scrollTargets = [
+                document.scrollingElement,
+                document.getElementById('universe-hub-view'),
+                document.querySelector('.universe-hub-view'),
+                document.getElementById('yh-universe-workspace-inline-host'),
+                document.getElementById('yh-universe-workspace-frame-shell'),
+                document.getElementById('yh-resources-inline-view'),
+                document.getElementById('yh-wallet-modal'),
+                document.querySelector('#yh-wallet-modal .yh-wallet-dialog'),
+                document.getElementById('yh-dashboard-referral-workspace'),
+                document.getElementById('yh-dashboard-settings-workspace'),
+                document.getElementById('yh-dashboard-profile-editor-workspace'),
+                document.getElementById('yh-dashboard-messages-workspace')
+            ];
+
+            const seen = new Set();
+
+            scrollTargets.forEach((target) => {
+                if (!target || seen.has(target)) return;
+
+                seen.add(target);
+
+                try {
+                    if (typeof target.scrollTo === 'function') {
+                        target.scrollTo({
+                            top: 0,
+                            left: 0,
+                            behavior: 'auto'
+                        });
+                    }
+                } catch (_) {}
+
+                try {
+                    target.scrollTop = 0;
+                    target.scrollLeft = 0;
+                } catch (_) {}
+            });
+
+            try {
+                window.scrollTo({
+                    top: 0,
+                    left: 0,
+                    behavior: 'auto'
+                });
+            } catch (_) {
+                try {
+                    window.scrollTo(0, 0);
+                } catch (_) {}
+            }
+        };
+
+        /*
+         * Reset immediately, then again after the workspace
+         * has mounted. Wallet and Resources are inserted into
+         * the inline host during workspace activation.
+         */
+        resetScrollPosition();
+
+        window.requestAnimationFrame(() => {
+            resetScrollPosition();
+
+            window.requestAnimationFrame(() => {
+                resetScrollPosition();
+            });
+        });
+
+        window.setTimeout(resetScrollPosition, 80);
+        window.setTimeout(resetScrollPosition, 240);
+    }
+
     function navigateMobileWorkspace(key = 'overview', options = {}) {
         const cleanKey = String(key || 'overview').trim().toLowerCase() || 'overview';
         const shouldPush = options.push !== false;
         const currentKey = getCurrentWorkspaceKey();
 
         closeCommandSheet();
-
-        setDashboardMobileBottomNavScrollStateV1(
-            false,
-            'workspace-navigation'
-        );
 
         if (shouldPush && currentKey && currentKey !== cleanKey) {
             appBackStack.push(currentKey);
@@ -28449,6 +28538,8 @@ function installDashboardMobileAppShellV1() {
             document.querySelector('[data-yh-dashboard-shell="' + cleanKey + '"]')?.click();
             document.querySelector('[data-yh-sidebar-child="' + cleanKey + '"]')?.click();
         }
+
+        resetMobileCommandWorkspaceTop(cleanKey);
 
         window.setTimeout(syncMobileAppState, 40);
         window.setTimeout(syncMobileAppState, 180);
@@ -30443,39 +30534,8 @@ if (btnCreateGroup && groupNameInput) {
         });
     });
 
-    const pollOptions = document.querySelectorAll('.poll-option');
-    if (pollOptions.length > 0) {
-        const savedVote = localStorage.getItem('yh_poll_vote');
-
-        if (savedVote) {
-            const selectedOpt = document.querySelector(`.poll-option[data-vote="${savedVote}"]`);
-            if (selectedOpt) selectedOpt.classList.add('voted');
-
-            const votesLabel = document.getElementById('poll-total-votes');
-            if (votesLabel) votesLabel.innerText = yhTText('1,249 Votes');
-        }
-
-        pollOptions.forEach(opt => {
-            opt.addEventListener('click', () => {
-                if (localStorage.getItem('yh_poll_vote')) {
-                    showToast("You have already voted!", "error");
-                    return;
-                }
-
-                opt.classList.add('voted');
-                localStorage.setItem('yh_poll_vote', opt.getAttribute('data-vote'));
-                showToast("Vote cast successfully!", "success");
-
-                const votesLabel = document.getElementById('poll-total-votes');
-                if (votesLabel) votesLabel.innerText = yhTText('1,249 Votes');
-
-                const bg = opt.querySelector('.poll-option-bg');
-                const percent = opt.querySelector('.poll-percent');
-                if (bg) bg.style.width = "55%";
-                if (percent) percent.innerText = "55%";
-            });
-        });
-    }
+    /* Legacy local-only Academy poll voting removed.
+       No active poll UI exists in the current Academy interface. */
 
 const notifBell = document.getElementById('notif-bell');
 const notifDropdown = document.getElementById('notif-dropdown');
@@ -40191,11 +40251,32 @@ async function sendDashboardBasicAssistantMessage() {
             body: JSON.stringify({
                 conversationId: YH_DASHBOARD_BASIC_ASSISTANT_CONVERSATION_ID,
                 message: ticketMessage,
+                ticketDetails: text,
                 issueCategory: issueCategory.value,
                 issueCategoryLabel: issueCategory.label,
                 contextHint: `dashboard_ticket:${issueCategory.value}`
             })
         });
+
+        const supportTicket =
+            result?.supportTicket &&
+            typeof result.supportTicket === 'object'
+                ? result.supportTicket
+                : null;
+
+        if (
+            supportTicket?.ticketCode
+        ) {
+            showToast(
+                'Support ticket ' +
+                supportTicket.ticketCode +
+                (
+                    supportTicket.created === true
+                        ? ' created.'
+                        : ' updated.'
+                )
+            );
+        }
 
         const refreshedMessages = await loadDashboardBasicAssistantMessages().catch(() => []);
 
@@ -44761,15 +44842,8 @@ bindDashboardUniverseSearchForm(
 
 bootDashboardUniverseSearchDropdownBridge();
 
-document.getElementById('academy-member-browser-close')?.addEventListener('click', () => {
-    document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
-});
-
-document.getElementById('academy-member-browser-modal')?.addEventListener('click', (event) => {
-    if (event.target?.id === 'academy-member-browser-modal') {
-        document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
-    }
-});
+/* Dashboard member-browser close/backdrop handling is bound once
+   earlier through closeDashboardMemberBrowserModal(). */
 
 /* PHASE 2E-A: legacy duplicate Dashboard Academy search listeners removed.
    scheduleAcademySearch() above is the sole direct input owner. */

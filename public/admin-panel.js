@@ -1,7 +1,23 @@
 const STORAGE_KEY = 'yh_admin_panel_state_v3_live';
 
+function getAdminRouteKeyFromPanelPath() {
+  const match =
+    window.location.pathname.match(
+      /^\/admin\/([A-Za-z0-9_-]{32,128})\/panel\/?$/
+    );
+
+  return match?.[1] || '';
+}
+
 function buildAdminLoginUrl() {
-  return '/admin/login';
+  const routeKey =
+    getAdminRouteKeyFromPanelPath();
+
+  if (!routeKey) {
+    return '/';
+  }
+
+  return `/admin/${encodeURIComponent(routeKey)}/login`;
 }
 
 function enforceAdminPanelAccess() {
@@ -30,7 +46,6 @@ const defaultState = () => ({
     globalSearch: ''
   },
   settings: {
-    allowAutoApproveAcademy: false,
     requireFederationManualReview: true,
     requirePlazaListingReview: true,
     enableAiNudges: true,
@@ -2132,6 +2147,10 @@ function openAdminMobileMoreMenu() {
   backdrop.hidden = false;
   sheet.setAttribute('aria-hidden', 'false');
 
+  if ('inert' in sheet) {
+    sheet.inert = false;
+  }
+
   if (toggle) {
     toggle.setAttribute('aria-expanded', 'true');
   }
@@ -2140,7 +2159,35 @@ function openAdminMobileMoreMenu() {
 function closeAdminMobileMoreMenu() {
   const { toggle, sheet, backdrop } = getAdminMobileMoreMenuParts();
 
+  /*
+   * A focused nav button can still be inside the More sheet
+   * when closing it. Move focus outside first so the browser
+   * never applies aria-hidden to an ancestor of focused content.
+   */
+  const activeElement = document.activeElement;
+  const focusIsInsideSheet =
+    Boolean(
+      sheet &&
+      activeElement &&
+      activeElement !== document.body &&
+      sheet.contains(activeElement)
+    );
+
+  if (
+    focusIsInsideSheet &&
+    toggle &&
+    typeof toggle.focus === 'function'
+  ) {
+    toggle.focus({
+      preventScroll: true
+    });
+  }
+
   if (sheet) {
+    if ('inert' in sheet) {
+      sheet.inert = true;
+    }
+
     sheet.hidden = true;
     sheet.setAttribute('aria-hidden', 'true');
   }
@@ -2542,12 +2589,8 @@ function renderOverview() {
       state.settings.maintenanceMode
         ? 'Maintenance mode is enabled.'
         : 'System stable. No maintenance mode active.',
-      state.settings.requirePlazaListingReview
-        ? 'Plazas manual listing review is ON.'
-        : 'Plazas listings are auto-publishing.',
-      state.settings.requireFederationManualReview
-        ? 'Federation manual review is enforced.'
-        : 'Federation auto-routing is active.'
+      'Plazas manual listing review control is pending backend enforcement.',
+      'Federation manual review control is pending backend enforcement.'
     ];
 
     systemAlertsEl.innerHTML = alerts.map(text => `
@@ -3647,6 +3690,20 @@ function renderBusinessChatReports() {
   }).join('') || makeEmptyRow(8, 'No Business Chat reports match the current filters.');
 }
 
+async function updateSupportTicketStatus(ticketId = '', status = '', adminNote = '') {
+  const cleanTicketId = String(ticketId || '').trim();
+  const cleanStatus = String(status || '').trim();
+  if (!cleanTicketId || !cleanStatus) throw new Error('Missing support ticket id or status.');
+
+  await adminFetchJson('/api/admin/support/' + encodeURIComponent(cleanTicketId) + '/status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: cleanStatus, adminNote })
+  });
+
+  await loadAdminBootstrap();
+}
+
 async function updateBusinessChatReportStatus(reportId = '', status = '', adminNote = '') {
   const cleanReportId = String(reportId || '').trim();
   const cleanStatus = String(status || '').trim();
@@ -3703,8 +3760,14 @@ function renderSupport() {
       ${makeCell('Actions', `
         <div class="table-actions">
           <button data-open="support" data-id="${item.id}">Open</button>
-          <button data-action="support-progress" data-id="${item.id}">Progress</button>
-          <button data-action="support-resolve" data-id="${item.id}">Resolve</button>
+          ${
+            String(item.status || '').trim() === 'Resolved'
+              ? '<span class="muted">Resolved</span>'
+              : `
+                  <button data-action="support-progress" data-id="${item.id}">Progress</button>
+                  <button data-action="support-resolve" data-id="${item.id}">Resolve</button>
+                `
+          }
         </div>
       `)}
     </tr>
@@ -4026,26 +4089,66 @@ document.getElementById('roles-list').innerHTML = state.roles.length
     `).join('')
   : `<div class="stack-item"><p class="muted">No live roles loaded yet.</p></div>`;
 
-  const labels = {
-    allowAutoApproveAcademy: 'Allow Academy auto-approval',
-    requireFederationManualReview: 'Require Federation manual review',
-    requirePlazaListingReview: 'Require Plazas manual listing review',
-    enableAiNudges: 'Enable AI nudges',
-    maintenanceMode: 'Maintenance mode'
+  const settingMeta = {
+    requireFederationManualReview: {
+      label: 'Require Federation manual review',
+      active: false,
+      copy: 'Backend enforcement is not active yet. This control will be enabled in the next settings patches.'
+    },
+
+    requirePlazaListingReview: {
+      label: 'Require Plazas manual listing review',
+      active: false,
+      copy: 'Backend enforcement is not active yet. This control will be enabled in the next settings patches.'
+    },
+
+    enableAiNudges: {
+      label: 'Enable AI nudges',
+      active: false,
+      copy: 'Backend enforcement is not active yet. This control will be enabled in the next settings patches.'
+    },
+
+    maintenanceMode: {
+      label: 'Maintenance mode',
+      active: true,
+      copy: 'Temporarily blocks normal member pages and APIs while keeping Admin access available.'
+    }
   };
 
-  document.getElementById('settings-form').innerHTML = Object.entries(state.settings).map(([key, value]) => `
-    <div class="toggle-item switch-row">
-      <div>
-        <strong>${escapeHtml(labels[key])}</strong>
-        <p>Toggle this operational rule for the current admin environment.</p>
-      </div>
-      <label class="switch">
-        <input type="checkbox" data-setting="${key}" ${value ? 'checked' : ''} />
-        <span></span>
-      </label>
-    </div>
-  `).join('');
+  document.getElementById('settings-form').innerHTML =
+    Object.entries(state.settings)
+      .map(([key, value]) => {
+        const meta =
+          settingMeta[key] || {
+            label: key,
+            active: false,
+            copy: 'This setting is not currently available.'
+          };
+
+        return `
+          <div class="toggle-item switch-row">
+            <div>
+              <strong>${escapeHtml(meta.label)}</strong>
+              <p>${escapeHtml(meta.copy)}</p>
+            </div>
+
+            <label
+              class="switch"
+              ${meta.active ? '' : 'title="Backend enforcement pending"'}
+            >
+              <input
+                type="checkbox"
+                data-setting="${key}"
+                ${value ? 'checked' : ''}
+                ${meta.active ? '' : 'disabled'}
+              />
+
+              <span></span>
+            </label>
+          </div>
+        `;
+      })
+      .join('');
 }
 function formatAdminApplicationTrackLabel(value = '', directStrategic = false) {
   const raw = String(value || '').trim().toLowerCase();
@@ -4970,32 +5073,6 @@ if (type === 'application') {
       </div>
     `;
   }
-  if (type === 'federation') {
-    return `
-      <div class="drawer-section">
-        <h4>Candidate Intelligence</h4>
-        <div class="kv-grid">
-          <div class="kv"><span>Name</span><strong>${escapeHtml(record.name)}</strong></div>
-          <div class="kv"><span>Profession</span><strong>${escapeHtml(record.profession)}</strong></div>
-          <div class="kv"><span>Region</span><strong>${escapeHtml(record.region)}</strong></div>
-          <div class="kv"><span>Status</span>${formatBadge(record.status)}</div>
-          <div class="kv"><span>Tag</span>${formatBadge(record.tag)}</div>
-          <div class="kv"><span>Influence</span><strong>${record.influence}</strong></div>
-        </div>
-      </div>
-      <div class="drawer-section">
-        <h4>Strategic Notes</h4>
-        <p><strong>Referred By:</strong> ${escapeHtml(record.referredBy)}</p>
-        <p><strong>Strategic Value:</strong> ${escapeHtml(record.strategicValue)}</p>
-        <div class="stack-list"><div class="stack-item"><p>${escapeHtml(record.notes[0] || record.notes)}</p></div></div>
-        <div class="inline-actions">
-          <button class="badge-btn" data-action="federation-verify" data-id="${record.id}">Verify</button>
-          <button class="badge-btn" data-action="federation-priority" data-id="${record.id}">Make Priority</button>
-        </div>
-      </div>
-    `;
-  }
-
   if (type === 'plazas') {
     return `
       <div class="drawer-section">
@@ -5109,8 +5186,14 @@ if (type === 'application') {
         <h4>Ticket Notes</h4>
         <div class="stack-list"><div class="stack-item"><p>${escapeHtml(record.notes[0] || record.notes)}</p></div></div>
         <div class="inline-actions">
-          <button class="badge-btn" data-action="support-progress" data-id="${record.id}">Move Progress</button>
-          <button class="badge-btn" data-action="support-resolve" data-id="${record.id}">Resolve</button>
+          ${
+            String(record.status || '').trim() === 'Resolved'
+              ? '<span class="muted">This ticket is resolved. No further status actions are available.</span>'
+              : `
+                  <button class="badge-btn" data-action="support-progress" data-id="${record.id}">Move Progress</button>
+                  <button class="badge-btn" data-action="support-resolve" data-id="${record.id}">Resolve</button>
+                `
+          }
         </div>
       </div>
     `;
@@ -7024,26 +7107,6 @@ case 'federation-request-status-rejected': {
   }
   break;
 }
-    case 'federation-verify': {
-      const record = findById('federation', id);
-      if (!record) return;
-      record.status = 'Verified';
-      record.notes.unshift('Verified by admin.');
-      saveState();
-      renderApp();
-      showToast(`${record.name} verified.`);
-      break;
-    }
-    case 'federation-priority': {
-      const record = findById('federation', id);
-      if (!record) return;
-      record.status = 'Strategic Priority';
-      record.notes.unshift('Elevated to strategic priority.');
-      saveState();
-      renderApp();
-      showToast(`${record.name} is now strategic priority.`);
-      break;
-    }
     case 'plazas-approve': {
       try {
         const record = findById('plazas', id);
@@ -7171,25 +7234,43 @@ case 'federation-request-status-rejected': {
     }
 
     case 'support-progress': {
-      const record = findById('support', id);
-      if (!record) return;
-      record.status = record.status === 'Open' ? 'In Progress' : 'Waiting on User';
-      record.updatedAt = 'Just now';
-      record.notes.unshift(`Ticket moved to ${record.status}.`);
-      saveState();
-      renderApp();
-      showToast(`Ticket ${record.id} updated.`);
+      try {
+        const record = findById('support', id);
+        if (!record) throw new Error('Support ticket not found.');
+
+        if (
+          String(record.status || '').trim() === 'Resolved'
+        ) {
+          throw new Error(
+            'Resolved tickets cannot be moved back into progress.'
+          );
+        }
+
+        const currentStatus = String(record.status || 'Open').trim();
+        const nextStatus = currentStatus === 'Open'
+          ? 'In Progress'
+          : currentStatus === 'In Progress'
+            ? 'Waiting on User'
+            : 'In Progress';
+
+        await updateSupportTicketStatus(id, nextStatus, 'Ticket moved to ' + nextStatus + '.');
+        showToast('Ticket ' + id + ' updated.');
+      } catch (error) {
+        if (error?.message !== 'No active admin session.') {
+          showToast(error?.message || 'Failed to update support ticket.');
+        }
+      }
       break;
     }
     case 'support-resolve': {
-      const record = findById('support', id);
-      if (!record) return;
-      record.status = 'Resolved';
-      record.updatedAt = 'Just now';
-      record.notes.unshift('Resolved by admin.');
-      saveState();
-      renderApp();
-      showToast(`Ticket ${record.id} resolved.`);
+      try {
+        await updateSupportTicketStatus(id, 'Resolved', 'Resolved by admin.');
+        showToast('Ticket ' + id + ' resolved.');
+      } catch (error) {
+        if (error?.message !== 'No active admin session.') {
+          showToast(error?.message || 'Failed to resolve support ticket.');
+        }
+      }
       break;
     }
     default:
@@ -7429,14 +7510,102 @@ if (broadcastTemplate) {
     });
   }
 
-  document.body.addEventListener('change', (e) => {
-    const toggle = e.target.closest('[data-setting]');
+  document.body.addEventListener('change', async (e) => {
+    const toggle =
+      e.target.closest(
+        '[data-setting]'
+      );
+
     if (!toggle) return;
 
-    state.settings[toggle.dataset.setting] = toggle.checked;
-    saveState();
-    renderOverview();
-    showToast('Operational setting updated.');
+    const settingKey =
+      String(
+        toggle.dataset.setting ||
+        ''
+      ).trim();
+
+    if (
+      settingKey !==
+      'maintenanceMode'
+    ) {
+      toggle.checked =
+        Boolean(
+          state.settings[
+            settingKey
+          ]
+        );
+
+      showToast(
+        'This operational setting is not active yet.'
+      );
+
+      return;
+    }
+
+    const previousValue =
+      Boolean(
+        state.settings
+          .maintenanceMode
+      );
+
+    const nextValue =
+      Boolean(
+        toggle.checked
+      );
+
+    toggle.disabled = true;
+
+    try {
+      const { data } =
+        await adminFetchJson(
+          '/api/admin/settings/maintenance-mode',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type':
+                'application/json'
+            },
+            body:
+              JSON.stringify({
+                enabled:
+                  nextValue
+              })
+          }
+        );
+
+      state.settings = {
+        ...state.settings,
+        ...(data.settings || {}),
+        maintenanceMode:
+          data
+            .maintenanceMode ===
+          true
+      };
+
+      saveState();
+      renderOverview();
+
+      showToast(
+        state.settings
+          .maintenanceMode
+          ? 'Maintenance mode enabled.'
+          : 'Maintenance mode disabled.'
+      );
+    } catch (error) {
+      state.settings
+        .maintenanceMode =
+        previousValue;
+
+      toggle.checked =
+        previousValue;
+
+      showToast(
+        error.message ||
+        'Failed to update maintenance mode.'
+      );
+    } finally {
+      toggle.disabled = false;
+    }
   });
 
 

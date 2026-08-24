@@ -200,6 +200,250 @@ async function getByUid(uid = '') {
     return null;
 }
 
+function getCanonicalUidFromRow(row = {}) {
+    if (
+        !row ||
+        typeof row !== 'object'
+    ) {
+        return '';
+    }
+
+    const rawData =
+        row.raw_data &&
+        typeof row.raw_data === 'object' &&
+        !Array.isArray(row.raw_data)
+            ? row.raw_data
+            : {};
+
+    const data =
+        row.data &&
+        typeof row.data === 'object' &&
+        !Array.isArray(row.data)
+            ? row.data
+            : {};
+
+    const publicMeta =
+        row.public_meta &&
+        typeof row.public_meta === 'object' &&
+        !Array.isArray(row.public_meta)
+            ? row.public_meta
+            : {};
+
+    return cleanText(
+        row.user_id ||
+        row.firebase_uid ||
+        row.source_document_id ||
+        row.firebase_document_id ||
+
+        rawData.uid ||
+        rawData.firebaseUid ||
+        rawData.userId ||
+
+        data.uid ||
+        data.firebaseUid ||
+        data.userId ||
+
+        publicMeta.uid ||
+        publicMeta.firebaseUid ||
+        publicMeta.userId ||
+        ''
+    );
+}
+
+function getCanonicalUidPriority(
+    row = {},
+    uid = ''
+) {
+    const cleanUid =
+        cleanText(uid);
+
+    if (!cleanUid) {
+        return 99;
+    }
+
+    if (
+        cleanText(
+            row.user_id
+        ) === cleanUid
+    ) {
+        return 0;
+    }
+
+    if (
+        cleanText(
+            row.firebase_uid
+        ) === cleanUid
+    ) {
+        return 1;
+    }
+
+    if (
+        cleanText(
+            row.source_document_id
+        ) === cleanUid
+    ) {
+        return 2;
+    }
+
+    if (
+        cleanText(
+            row.firebase_document_id
+        ) === cleanUid
+    ) {
+        return 3;
+    }
+
+    return (
+        getCanonicalUidFromRow(
+            row
+        ) === cleanUid
+    )
+        ? 4
+        : 99;
+}
+
+async function listCanonicalUsers(
+    {
+        limit = 5000
+    } = {}
+) {
+    const safeLimit =
+        Math.max(
+            1,
+            Math.min(
+                5000,
+                Math.trunc(
+                    Number(limit) ||
+                    5000
+                )
+            )
+        );
+
+    const {
+        data,
+        error
+    } =
+        await yhuSupabaseAdmin
+            .from(TABLE)
+            .select('*')
+            .limit(safeLimit);
+
+    if (error) {
+        throw new Error(
+            error.message ||
+            error.details ||
+            String(error)
+        );
+    }
+
+    const rows =
+        Array.isArray(data)
+            ? data
+            : [];
+
+    const grouped =
+        new Map();
+
+    rows.forEach((row) => {
+        const uid =
+            getCanonicalUidFromRow(
+                row
+            );
+
+        if (!uid) {
+            return;
+        }
+
+        if (!grouped.has(uid)) {
+            grouped.set(
+                uid,
+                []
+            );
+        }
+
+        grouped
+            .get(uid)
+            .push(row);
+    });
+
+    const canonicalUsers =
+        [];
+
+    for (
+        const [
+            uid,
+            candidates
+        ] of grouped.entries()
+    ) {
+        const ranked =
+            candidates
+                .map((row) => ({
+                    row,
+                    priority:
+                        getCanonicalUidPriority(
+                            row,
+                            uid
+                        )
+                }))
+                .filter(
+                    item =>
+                        item.priority < 99
+                )
+                .sort(
+                    (a, b) =>
+                        a.priority -
+                        b.priority
+                );
+
+        if (!ranked.length) {
+            continue;
+        }
+
+        const bestPriority =
+            ranked[0].priority;
+
+        const bestCandidates =
+            ranked.filter(
+                item =>
+                    item.priority ===
+                    bestPriority
+            );
+
+        /*
+         * Never silently choose between two rows
+         * that claim the same canonical UID at the
+         * same priority level.
+         *
+         * If this ever triggers, the identity data
+         * must be reconciled first.
+         */
+        if (
+            bestCandidates.length !== 1
+        ) {
+            throw new Error(
+                `Ambiguous canonical yhu_users rows for UID at priority ${bestPriority}.`
+            );
+        }
+
+        canonicalUsers.push({
+            uid,
+            row:
+                bestCandidates[0]
+                    .row
+        });
+    }
+
+    canonicalUsers.sort(
+        (a, b) =>
+            String(a.uid)
+                .localeCompare(
+                    String(b.uid)
+                )
+    );
+
+    return canonicalUsers;
+}
+
 async function deleteByColumn(column = '', value = '') {
     const cleanColumn = cleanText(column);
     const cleanValue = cleanText(value);
@@ -262,6 +506,181 @@ async function deleteByUidAndEmail({ uid = '', email = '' } = {}) {
         deleted: results.reduce((sum, item) => sum + Number(item.deleted || 0), 0),
         results
     };
+}
+
+async function patchByUid(
+    uid = '',
+    patch = {},
+    context = {}
+) {
+    const cleanUid =
+        cleanText(uid);
+
+    if (!cleanUid) {
+        return null;
+    }
+
+    const existing =
+        await getByUid(
+            cleanUid
+        );
+
+    if (!existing?.id) {
+        throw new Error(
+            'Canonical yhu_users record was not found.'
+        );
+    }
+
+    const safePatch =
+        stripSensitiveUserFields(
+            patch &&
+            typeof patch === 'object'
+                ? patch
+                : {}
+        );
+
+    const currentRaw =
+        existing.raw_data &&
+        typeof existing.raw_data === 'object' &&
+        !Array.isArray(existing.raw_data)
+            ? existing.raw_data
+            : {};
+
+    const currentData =
+        existing.data &&
+        typeof existing.data === 'object' &&
+        !Array.isArray(existing.data)
+            ? existing.data
+            : {};
+
+    const currentPublicMeta =
+        existing.public_meta &&
+        typeof existing.public_meta === 'object' &&
+        !Array.isArray(existing.public_meta)
+            ? existing.public_meta
+            : {};
+
+    const currentPrivateMeta =
+        existing.private_meta &&
+        typeof existing.private_meta === 'object' &&
+        !Array.isArray(existing.private_meta)
+            ? existing.private_meta
+            : {};
+
+    const publicMetaPatch =
+        context.publicMetaPatch &&
+        typeof context.publicMetaPatch === 'object' &&
+        !Array.isArray(context.publicMetaPatch)
+            ? context.publicMetaPatch
+            : {};
+
+    const privateMetaPatch =
+        context.privateMetaPatch &&
+        typeof context.privateMetaPatch === 'object' &&
+        !Array.isArray(context.privateMetaPatch)
+            ? context.privateMetaPatch
+            : {};
+
+    const nowIso =
+        new Date().toISOString();
+
+    const source =
+        cleanText(
+            context.source ||
+            'yhu_users_patch'
+        );
+
+    const mergedRaw = {
+        ...currentRaw,
+        ...safePatch,
+        yhuMirrorContext: {
+            ...(
+                currentRaw.yhuMirrorContext &&
+                typeof currentRaw.yhuMirrorContext === 'object'
+                    ? currentRaw.yhuMirrorContext
+                    : {}
+            ),
+            source,
+            syncedAt:
+                nowIso
+        }
+    };
+
+    const mergedData = {
+        ...currentData,
+        ...safePatch,
+        yhuMirrorContext: {
+            ...(
+                currentData.yhuMirrorContext &&
+                typeof currentData.yhuMirrorContext === 'object'
+                    ? currentData.yhuMirrorContext
+                    : {}
+            ),
+            source,
+            syncedAt:
+                nowIso
+        }
+    };
+
+    const payload = {
+        raw_data:
+            mergedRaw,
+
+        data:
+            mergedData,
+
+        public_meta: {
+            ...currentPublicMeta,
+            ...publicMetaPatch
+        },
+
+        private_meta: {
+            ...currentPrivateMeta,
+            ...privateMetaPatch
+        },
+
+        data_hash:
+            hashJson(
+                mergedRaw
+            ),
+
+        updated_at_source:
+            normalizeDate(
+                safePatch.updatedAt ||
+                safePatch.updated_at ||
+                nowIso
+            ),
+
+        synced_at:
+            nowIso,
+
+        updated_at:
+            nowIso
+    };
+
+    const {
+        data,
+        error
+    } =
+        await yhuSupabaseAdmin
+            .from(TABLE)
+            .update(payload)
+            .eq(
+                'id',
+                existing.id
+            )
+            .select('*')
+            .single();
+
+    if (error) {
+        throw new Error(
+            error.message ||
+            error.details ||
+            String(error)
+        );
+    }
+
+    return data;
 }
 
 async function upsertFromFirestoreUser(uid = '', user = {}, context = {}) {
@@ -328,7 +747,9 @@ module.exports = {
     buildPayloadFromFirestoreUser,
     countUsers,
     getByUid,
+    listCanonicalUsers,
     deleteByUidAndEmail,
+    patchByUid,
     stripSensitiveUserFields,
     syncFromFirestoreUserRef,
     upsertFromFirestoreUser
