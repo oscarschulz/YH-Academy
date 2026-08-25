@@ -43235,6 +43235,77 @@ function openAcademyYhaBadgePaymentModalFromLearnFrom() {
                     'error'
                 );
 
+                const activePaymentModal =
+                    document.getElementById(
+                        'academy-yha-badge-payment-method-modal'
+                    );
+
+                if (activePaymentModal) {
+                    let appleErrorBox =
+                        activePaymentModal.querySelector(
+                            '[data-academy-yha-apple-error]'
+                        );
+
+                    if (!appleErrorBox) {
+                        appleErrorBox =
+                            document.createElement('div');
+
+                        appleErrorBox.setAttribute(
+                            'data-academy-yha-apple-error',
+                            'true'
+                        );
+
+                        appleErrorBox.setAttribute(
+                            'role',
+                            'alert'
+                        );
+
+                        appleErrorBox.style.cssText = [
+                            'margin:16px 22px 0',
+                            'padding:13px 14px',
+                            'border:1px solid rgba(248,113,113,.55)',
+                            'border-radius:14px',
+                            'background:rgba(127,29,29,.32)',
+                            'color:#fecaca',
+                            'font-size:.95rem',
+                            'font-weight:700',
+                            'line-height:1.45',
+                            'white-space:normal',
+                            'overflow-wrap:anywhere'
+                        ].join(';');
+
+                        const actions =
+                            activePaymentModal.querySelector(
+                                '.yh-dashboard-settings-badge-payment-actions'
+                            );
+
+                        if (actions?.parentNode) {
+                            actions.parentNode.insertBefore(
+                                appleErrorBox,
+                                actions
+                            );
+                        } else {
+                            activePaymentModal.appendChild(
+                                appleErrorBox
+                            );
+                        }
+                    }
+
+                    appleErrorBox.textContent =
+                        'App Store error: ' + message;
+
+                    appleErrorBox.hidden = false;
+
+                    window.requestAnimationFrame(() => {
+                        try {
+                            appleErrorBox.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'center'
+                            });
+                        } catch (_) {}
+                    });
+                }
+
                 if (typeof showToast === 'function') {
                     showToast(
                         message,

@@ -7119,6 +7119,374 @@ summary: 'For approved Federation members who want the YHF verification symbol o
 })();
 /* END PATCH: Settings-owned badge payment modal dependency guards */
 
+/*
+ * Native iOS Dashboard Settings badge purchases.
+ * Academy -> yha_offering
+ * Federation -> yhf_offering
+ */
+let dashboardSettingsRevenueCatCatalog = {
+    academy: null,
+    federation: null
+};
+
+let dashboardSettingsRevenueCatCatalogPromise = {
+    academy: null,
+    federation: null
+};
+
+function dashboardSettingsIsRevenueCatIosApp() {
+    try {
+        const runtime =
+            window.YHNativeRuntime;
+
+        return (
+            runtime?.getPlatform?.() === 'ios' &&
+            runtime?.revenueCat?.isAvailable?.() === true
+        );
+    } catch (_) {
+        return false;
+    }
+}
+
+function dashboardSettingsNormalizeRevenueCatDivision(
+    division = 'academy'
+) {
+    return String(
+        division || ''
+    )
+        .trim()
+        .toLowerCase() === 'federation'
+        ? 'federation'
+        : 'academy';
+}
+
+function dashboardSettingsGetRevenueCatPackage(
+    division = 'academy',
+    billingPlan = 'monthly'
+) {
+    const cleanDivision =
+        dashboardSettingsNormalizeRevenueCatDivision(
+            division
+        );
+
+    const offering =
+        dashboardSettingsRevenueCatCatalog[
+            cleanDivision
+        ];
+
+    if (!offering) {
+        return null;
+    }
+
+    const cleanBillingPlan =
+        dashboardNormalizeBadgeBillingPlan(
+            billingPlan
+        );
+
+    if (cleanBillingPlan === 'monthly') {
+        return (
+            offering.monthly ||
+            offering.availablePackages?.find(
+                (item) =>
+                    item?.identifier ===
+                    '$rc_monthly'
+            ) ||
+            null
+        );
+    }
+
+    if (cleanBillingPlan === 'one_time') {
+        const packageIdentifier =
+            cleanDivision === 'federation'
+                ? 'yhf_30day'
+                : 'yha_30day';
+
+        return (
+            offering.availablePackages?.find(
+                (item) =>
+                    item?.identifier ===
+                    packageIdentifier
+            ) ||
+            null
+        );
+    }
+
+    if (cleanBillingPlan === 'lifetime') {
+        return (
+            offering.lifetime ||
+            offering.availablePackages?.find(
+                (item) =>
+                    item?.identifier ===
+                    '$rc_lifetime'
+            ) ||
+            null
+        );
+    }
+
+    return null;
+}
+
+async function dashboardSettingsLoadRevenueCatCatalog(
+    division = 'academy'
+) {
+    if (!dashboardSettingsIsRevenueCatIosApp()) {
+        return null;
+    }
+
+    const cleanDivision =
+        dashboardSettingsNormalizeRevenueCatDivision(
+            division
+        );
+
+    if (
+        dashboardSettingsRevenueCatCatalog[
+            cleanDivision
+        ]
+    ) {
+        return dashboardSettingsRevenueCatCatalog[
+            cleanDivision
+        ];
+    }
+
+    if (
+        dashboardSettingsRevenueCatCatalogPromise[
+            cleanDivision
+        ]
+    ) {
+        return dashboardSettingsRevenueCatCatalogPromise[
+            cleanDivision
+        ];
+    }
+
+    const revenueCat =
+        window.YHNativeRuntime?.revenueCat;
+
+    if (
+        !revenueCat ||
+        typeof revenueCat.getOfferings !==
+            'function'
+    ) {
+        throw new Error(
+            'Apple in-app purchase catalog is unavailable.'
+        );
+    }
+
+    const offeringIdentifier =
+        cleanDivision === 'federation'
+            ? 'yhf_offering'
+            : 'yha_offering';
+
+    dashboardSettingsRevenueCatCatalogPromise[
+        cleanDivision
+    ] =
+        revenueCat
+            .getOfferings()
+            .then((offerings) => {
+                const offering =
+                    offerings?.all?.[
+                        offeringIdentifier
+                    ] ||
+                    null;
+
+                if (!offering) {
+                    throw new Error(
+                        cleanDivision ===
+                            'federation'
+                            ? 'YHF App Store offering is unavailable.'
+                            : 'YHA App Store offering is unavailable.'
+                    );
+                }
+
+                dashboardSettingsRevenueCatCatalog[
+                    cleanDivision
+                ] =
+                    offering;
+
+                return offering;
+            })
+            .catch((error) => {
+                dashboardSettingsRevenueCatCatalogPromise[
+                    cleanDivision
+                ] =
+                    null;
+
+                throw error;
+            });
+
+    return dashboardSettingsRevenueCatCatalogPromise[
+        cleanDivision
+    ];
+}
+
+function dashboardSettingsGetRevenueCatPriceString(
+    division = 'academy',
+    billingPlan = 'monthly'
+) {
+    const revenueCatPackage =
+        dashboardSettingsGetRevenueCatPackage(
+            division,
+            billingPlan
+        );
+
+    return String(
+        revenueCatPackage?.product?.priceString ||
+        ''
+    ).trim();
+}
+
+function dashboardSettingsIsRevenueCatUserCancelled(
+    error = null
+) {
+    return (
+        error?.userCancelled === true ||
+        error?.userCanceled === true ||
+        error?.userInfo?.userCancelled === true ||
+        error?.userInfo?.userCanceled === true ||
+        error?.details?.userCancelled === true ||
+        error?.details?.userCanceled === true
+    );
+}
+
+async function dashboardSettingsSyncRevenueCatBadge(
+    division = 'academy'
+) {
+    const cleanDivision =
+        dashboardSettingsNormalizeRevenueCatDivision(
+            division
+        );
+
+    const result =
+        await academyAuthedFetch(
+            `/api/payments/badges/${encodeURIComponent(
+                cleanDivision
+            )}/revenuecat-sync`,
+            {
+                method: 'POST',
+                body: JSON.stringify({})
+            }
+        );
+
+    if (
+        result?.success !== true ||
+        result?.badge?.active !== true
+    ) {
+        throw new Error(
+            cleanDivision === 'federation'
+                ? 'Apple confirmed the purchase, but YHF access could not be verified yet.'
+                : 'Apple confirmed the purchase, but YHA access could not be verified yet.'
+        );
+    }
+
+    return result;
+}
+
+function dashboardSettingsClearRevenueCatError(
+    modal = null
+) {
+    const root =
+        modal ||
+        document.getElementById(
+            'yh-dashboard-settings-badge-payment-modal'
+        );
+
+    const errorBox =
+        root?.querySelector?.(
+            '[data-yh-settings-badge-apple-error]'
+        );
+
+    if (!errorBox) {
+        return;
+    }
+
+    errorBox.hidden = true;
+    errorBox.textContent = '';
+}
+
+function dashboardSettingsShowRevenueCatError(
+    message = ''
+) {
+    const modal =
+        document.getElementById(
+            'yh-dashboard-settings-badge-payment-modal'
+        );
+
+    if (!modal) {
+        return;
+    }
+
+    let errorBox =
+        modal.querySelector(
+            '[data-yh-settings-badge-apple-error]'
+        );
+
+    if (!errorBox) {
+        errorBox =
+            document.createElement('div');
+
+        errorBox.setAttribute(
+            'data-yh-settings-badge-apple-error',
+            'true'
+        );
+
+        errorBox.setAttribute(
+            'role',
+            'alert'
+        );
+
+        errorBox.setAttribute(
+            'aria-live',
+            'assertive'
+        );
+
+        errorBox.style.cssText = [
+            'margin:16px 0 0',
+            'padding:13px 14px',
+            'border:1px solid rgba(248,113,113,.55)',
+            'border-radius:14px',
+            'background:rgba(127,29,29,.32)',
+            'color:#fecaca',
+            'font-size:.95rem',
+            'font-weight:700',
+            'line-height:1.45',
+            'white-space:normal',
+            'overflow-wrap:anywhere'
+        ].join(';');
+
+        const body =
+            modal.querySelector(
+                '.yh-dashboard-settings-badge-payment-body'
+            );
+
+        if (body) {
+            body.appendChild(
+                errorBox
+            );
+        } else {
+            modal.appendChild(
+                errorBox
+            );
+        }
+    }
+
+    errorBox.textContent =
+        'App Store error: ' +
+        (
+            String(message || '').trim() ||
+            'The App Store purchase could not be completed.'
+        );
+
+    errorBox.hidden = false;
+
+    window.requestAnimationFrame(() => {
+        try {
+            errorBox.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+        } catch (_) {}
+    });
+}
+
 let dashboardSettingsBadgePaymentModalState = {
     division: 'academy',
     button: null,
@@ -7271,7 +7639,10 @@ function ensureDashboardSettingsBadgePaymentModal() {
                     </div>
                 </section>
 
-                <section class="yh-dashboard-settings-badge-payment-section">
+                <section
+                    class="yh-dashboard-settings-badge-payment-section"
+                    id="yh-dashboard-settings-badge-web-provider-section"
+                >
                     <h4>Choose payment method</h4>
                     <p>Select how you want to pay for the selected billing option.</p>
 
@@ -7301,11 +7672,73 @@ function ensureDashboardSettingsBadgePaymentModal() {
                         </button>
                     </div>
                 </section>
+
+                <section
+                    class="yh-dashboard-settings-badge-payment-section"
+                    id="yh-dashboard-settings-badge-apple-section"
+                    hidden
+                    aria-hidden="true"
+                >
+                    <h4>App Store Purchase</h4>
+
+                    <p id="yh-dashboard-settings-badge-apple-copy">
+                        Your purchase will be processed securely by Apple.
+                    </p>
+
+                    <p
+                        id="yh-dashboard-settings-badge-apple-renewal-copy"
+                        hidden
+                    >
+                        This subscription automatically renews monthly unless canceled at least 24 hours before the end of the current billing period. Your Apple Account may be charged within 24 hours before renewal. You can manage or cancel the subscription in your Apple Account settings.
+                    </p>
+
+                    <p>
+                        <a
+                            href="https://www.younghustlersuniverse.com/terms.html"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Terms
+                        </a>
+                        ·
+                        <a
+                            href="https://www.younghustlersuniverse.com/privacy.html"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Privacy
+                        </a>
+                        ·
+                        <a
+                            href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Apple Standard EULA
+                        </a>
+                    </p>
+                </section>
             </div>
 
             <div class="yh-dashboard-settings-badge-payment-actions">
                 <button type="button" class="btn-secondary" data-yh-settings-badge-payment-close>Cancel</button>
-                <button type="button" class="btn-primary" id="yh-dashboard-settings-badge-payment-confirm">Continue to Selected Payment</button>
+
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    data-yh-settings-badge-restore
+                    hidden
+                >
+                    Restore Purchases
+                </button>
+
+                <button
+                    type="button"
+                    class="btn-primary"
+                    id="yh-dashboard-settings-badge-payment-confirm"
+                >
+                    Continue to Selected Payment
+                </button>
             </div>
         </div>
     `;
@@ -7326,12 +7759,30 @@ function ensureDashboardSettingsBadgePaymentModal() {
         if (billingButton) {
             event.preventDefault();
 
-            dashboardSettingsBadgePaymentModalState.billingPlan = dashboardNormalizeBadgeBillingPlan(
-                billingButton.getAttribute('data-yh-settings-badge-billing-plan') || 'monthly'
+            dashboardSettingsBadgePaymentModalState.billingPlan =
+                dashboardNormalizeBadgeBillingPlan(
+                    billingButton.getAttribute(
+                        'data-yh-settings-badge-billing-plan'
+                    ) ||
+                    'monthly'
+                );
+
+            dashboardSettingsClearRevenueCatError(
+                modal
             );
 
-            dashboardSettingsPickValidBadgeProvider(dashboardSettingsBadgePaymentModalState.provider || 'stripe');
+            if (
+                !dashboardSettingsIsRevenueCatIosApp()
+            ) {
+                dashboardSettingsPickValidBadgeProvider(
+                    dashboardSettingsBadgePaymentModalState
+                        .provider ||
+                    'stripe'
+                );
+            }
+
             syncDashboardSettingsBadgePaymentModalUi();
+
             return;
         }
 
@@ -7363,11 +7814,48 @@ function ensureDashboardSettingsBadgePaymentModal() {
     modal.querySelector('#yh-dashboard-settings-badge-payment-confirm')?.addEventListener('click', (event) => {
         event.preventDefault();
 
-        dashboardSubmitSettingsBadgePayment(event.currentTarget).catch((error) => {
-            console.error('dashboard settings badge payment error:', error);
-            showToast(error?.message || 'Failed to start badge payment.', 'error');
+        dashboardSubmitSettingsBadgePayment(
+            event.currentTarget
+        ).catch((error) => {
+            console.error(
+                'dashboard settings badge payment error:',
+                error
+            );
+
+            if (
+                dashboardSettingsIsRevenueCatIosApp()
+            ) {
+                dashboardSettingsShowRevenueCatError(
+                    error?.message ||
+                    'Failed to start App Store purchase.'
+                );
+            }
+
+            showToast(
+                error?.message ||
+                'Failed to start badge payment.',
+                'error'
+            );
         });
     });
+
+    modal.querySelector(
+        '[data-yh-settings-badge-restore]'
+    )?.addEventListener(
+        'click',
+        (event) => {
+            event.preventDefault();
+
+            dashboardSettingsRestoreRevenueCatPurchases(
+                event.currentTarget
+            ).catch((error) => {
+                console.error(
+                    'dashboard settings restore purchases error:',
+                    error
+                );
+            });
+        }
+    );
 
     return modal;
 }
@@ -7416,92 +7904,478 @@ function closeDashboardSettingsBadgePaymentModal() {
     }
 }
 function syncDashboardSettingsBadgePaymentModalUi() {
-    const modal = ensureDashboardSettingsBadgePaymentModal();
-    const plan = dashboardGetVerifiedBadgePlanMeta(dashboardSettingsBadgePaymentModalState.division || 'academy');
-    const billingPlan = dashboardNormalizeBadgeBillingPlan(dashboardSettingsBadgePaymentModalState.billingPlan || 'monthly');
+    const modal =
+        ensureDashboardSettingsBadgePaymentModal();
 
-    if (!dashboardSettingsIsBadgeProviderAllowed(dashboardSettingsBadgePaymentModalState.provider || 'stripe')) {
-        dashboardSettingsPickValidBadgeProvider(dashboardSettingsBadgePaymentModalState.provider || 'stripe');
+    const plan =
+        dashboardGetVerifiedBadgePlanMeta(
+            dashboardSettingsBadgePaymentModalState
+                .division ||
+            'academy'
+        );
+
+    const billingPlan =
+        dashboardNormalizeBadgeBillingPlan(
+            dashboardSettingsBadgePaymentModalState
+                .billingPlan ||
+            'monthly'
+        );
+
+    const isRevenueCatIos =
+        dashboardSettingsIsRevenueCatIosApp();
+
+    /*
+     * Web still uses the existing provider selection.
+     * Native iOS bypasses web providers completely.
+     */
+    if (
+        !isRevenueCatIos &&
+        !dashboardSettingsIsBadgeProviderAllowed(
+            dashboardSettingsBadgePaymentModalState
+                .provider ||
+            'stripe'
+        )
+    ) {
+        dashboardSettingsPickValidBadgeProvider(
+            dashboardSettingsBadgePaymentModalState
+                .provider ||
+            'stripe'
+        );
     }
 
-    const iconWrap = modal.querySelector('#yh-dashboard-settings-badge-payment-icon-wrap');
-    const icon = modal.querySelector('#yh-dashboard-settings-badge-payment-icon');
-    const title = modal.querySelector('#yh-dashboard-settings-badge-payment-title');
-    const summary = modal.querySelector('#yh-dashboard-settings-badge-payment-summary');
-    const amount = modal.querySelector('#yh-dashboard-settings-badge-payment-amount');
-    const billingCopy = modal.querySelector('#yh-dashboard-settings-badge-payment-billing-copy');
-    const telegramFeature = modal.querySelector('#yh-dashboard-settings-badge-yhf-telegram-feature');
+    const iconWrap =
+        modal.querySelector(
+            '#yh-dashboard-settings-badge-payment-icon-wrap'
+        );
+
+    const icon =
+        modal.querySelector(
+            '#yh-dashboard-settings-badge-payment-icon'
+        );
+
+    const title =
+        modal.querySelector(
+            '#yh-dashboard-settings-badge-payment-title'
+        );
+
+    const summary =
+        modal.querySelector(
+            '#yh-dashboard-settings-badge-payment-summary'
+        );
+
+    const amount =
+        modal.querySelector(
+            '#yh-dashboard-settings-badge-payment-amount'
+        );
+
+    const billingCopy =
+        modal.querySelector(
+            '#yh-dashboard-settings-badge-payment-billing-copy'
+        );
+
+    const telegramFeature =
+        modal.querySelector(
+            '#yh-dashboard-settings-badge-yhf-telegram-feature'
+        );
+
+    const webProviderSection =
+        modal.querySelector(
+            '#yh-dashboard-settings-badge-web-provider-section'
+        );
+
+    const appleSection =
+        modal.querySelector(
+            '#yh-dashboard-settings-badge-apple-section'
+        );
+
+    const appleCopy =
+        modal.querySelector(
+            '#yh-dashboard-settings-badge-apple-copy'
+        );
+
+    const appleRenewalCopy =
+        modal.querySelector(
+            '#yh-dashboard-settings-badge-apple-renewal-copy'
+        );
+
+    const restoreButton =
+        modal.querySelector(
+            '[data-yh-settings-badge-restore]'
+        );
+
+    const confirmButton =
+        modal.querySelector(
+            '#yh-dashboard-settings-badge-payment-confirm'
+        );
+
+    const monthlyBillingButton =
+        modal.querySelector(
+            '[data-yh-settings-badge-billing-plan="monthly"]'
+        );
+
+    const monthlyBillingSmall =
+        monthlyBillingButton?.querySelector(
+            'small'
+        );
+
+    const monthlyBillingStatus =
+        monthlyBillingButton?.querySelector(
+            'em'
+        );
 
     if (telegramFeature) {
-        telegramFeature.classList.toggle('hidden-step', plan.division !== 'federation');
+        telegramFeature.classList.toggle(
+            'hidden-step',
+            plan.division !== 'federation'
+        );
     }
 
     if (iconWrap) {
-        iconWrap.classList.remove('is-academy', 'is-federation');
-        iconWrap.classList.add(plan.accentClass);
+        iconWrap.classList.remove(
+            'is-academy',
+            'is-federation'
+        );
+
+        iconWrap.classList.add(
+            plan.accentClass
+        );
     }
 
     if (icon) {
-        icon.src = plan.asset;
-        icon.alt = `${plan.code} badge`;
+        icon.src =
+            plan.asset;
+
+        icon.alt =
+            `${plan.code} badge`;
     }
 
-    if (title) title.textContent = `${plan.code} Payment Method`;
-    if (summary) summary.textContent = plan.summary;
-    if (amount) amount.textContent = dashboardFormatBadgeBillingAmount(plan, billingPlan);
-
-    if (billingCopy) {
-        billingCopy.textContent =
-            billingPlan === 'lifetime'
-                ? `${plan.code} Lifetime gives permanent badge access${plan.division === 'academy' ? ' and permanent Academy Learn From access.' : plan.division === 'federation' ? ' and permanent Federation Telegram group access through @younghustlersteam.' : '.'}`
-                : billingPlan === 'one_time'
-                    ? `${plan.code} One-Time gives 30 days of badge access${plan.division === 'academy' ? ' and Learn From access for the same period.' : plan.division === 'federation' ? ' and Federation Telegram group access through @younghustlersteam for the same period.' : '.'}`
-                    : plan.division === 'federation'
-                        ? `${plan.code} Monthly renews through Stripe when Stripe is selected and includes Federation Telegram group access through @younghustlersteam while active.`
-                        : `${plan.code} Monthly renews through Stripe when Stripe is selected.`;
+    if (title) {
+        title.textContent =
+            `${plan.code} Payment Method`;
     }
 
-    modal.querySelectorAll('[data-yh-settings-badge-billing-plan]').forEach((button) => {
-        const active = button.getAttribute('data-yh-settings-badge-billing-plan') === billingPlan;
-        button.classList.toggle('is-selected', active);
-        button.setAttribute('aria-pressed', active ? 'true' : 'false');
-    });
+    if (summary) {
+        summary.textContent =
+            plan.summary;
+    }
 
-    modal.querySelectorAll('[data-yh-settings-badge-provider]').forEach((button) => {
-        const provider = String(button.getAttribute('data-yh-settings-badge-provider') || '').trim().toLowerCase();
-        const config = dashboardGetBadgeProviderConfig(provider);
-        const providerStatus = normalizeDashboardBadgeProviderStatus(config?.status || '');
-        const blockedByBilling = billingPlan === 'monthly' && provider === 'oxapay';
-        const selectable = dashboardSettingsCanSelectBadgeProvider(provider);
-        const configured = dashboardSettingsIsBadgeProviderConfigured(provider);
-        const active = dashboardSettingsBadgePaymentModalState.provider === provider;
-        const statusEl = button.querySelector(`[data-yh-settings-badge-provider-status="${provider}"]`);
+    if (amount) {
+        let amountText =
+            dashboardFormatBadgeBillingAmount(
+                plan,
+                billingPlan
+            );
 
-        button.classList.toggle('is-selected', active);
-        button.classList.toggle('is-disabled', !selectable);
-        button.classList.toggle('is-setup-required', selectable && !configured && provider !== 'manual');
-        button.disabled = !selectable;
-        button.setAttribute('aria-disabled', selectable ? 'false' : 'true');
-        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        if (isRevenueCatIos) {
+            const localizedPrice =
+                dashboardSettingsGetRevenueCatPriceString(
+                    plan.division,
+                    billingPlan
+                );
 
-        button.title = !selectable && blockedByBilling
-            ? 'OxaPay is available only for one-time or lifetime badge payments.'
-            : selectable && !configured && provider !== 'manual'
-                ? `${config?.label || 'This provider'} is selectable, but it still needs provider setup before checkout can start.`
-                : '';
-
-        if (statusEl) {
-            if (blockedByBilling) {
-                statusEl.textContent = 'One-Time / Lifetime';
-            } else if (providerStatus === 'setup_required' && provider !== 'manual') {
-                statusEl.textContent = 'Setup Required';
-            } else if (providerStatus === 'fallback' || provider === 'manual') {
-                statusEl.textContent = 'Fallback';
-            } else {
-                statusEl.textContent = 'Active';
+            if (localizedPrice) {
+                if (
+                    billingPlan === 'lifetime'
+                ) {
+                    amountText =
+                        `${localizedPrice} lifetime`;
+                } else if (
+                    billingPlan === 'one_time'
+                ) {
+                    amountText =
+                        `${localizedPrice} one-time / 30 days`;
+                } else {
+                    amountText =
+                        `${localizedPrice}/month`;
+                }
             }
         }
-    });
+
+        amount.textContent =
+            amountText;
+    }
+
+    if (billingCopy) {
+        if (isRevenueCatIos) {
+            billingCopy.textContent =
+                billingPlan === 'lifetime'
+                    ? `${plan.code} Lifetime is a one-time App Store purchase for permanent badge access${plan.division === 'academy'
+                        ? ' and permanent Academy Learn From access.'
+                        : ' and permanent Federation Telegram access while the membership remains available.'}`
+                    : billingPlan === 'one_time'
+                        ? `${plan.code} 30-Day Access is a non-renewing App Store purchase that provides access for 30 days.`
+                        : `${plan.code} Monthly is billed through the App Store and automatically renews monthly until canceled.`;
+        } else {
+            billingCopy.textContent =
+                billingPlan === 'lifetime'
+                    ? `${plan.code} Lifetime gives permanent badge access${plan.division === 'academy'
+                        ? ' and permanent Academy Learn From access.'
+                        : plan.division === 'federation'
+                            ? ' and permanent Federation Telegram group access through @younghustlersteam.'
+                            : '.'}`
+                    : billingPlan === 'one_time'
+                        ? `${plan.code} One-Time gives 30 days of badge access${plan.division === 'academy'
+                            ? ' and Learn From access for the same period.'
+                            : plan.division === 'federation'
+                                ? ' and Federation Telegram group access through @younghustlersteam for the same period.'
+                                : '.'}`
+                        : plan.division === 'federation'
+                            ? `${plan.code} Monthly renews through Stripe when Stripe is selected and includes Federation Telegram group access through @younghustlersteam while active.`
+                            : `${plan.code} Monthly renews through Stripe when Stripe is selected.`;
+        }
+    }
+
+    if (monthlyBillingSmall) {
+        monthlyBillingSmall.textContent =
+            isRevenueCatIos
+                ? 'Auto-renewing monthly App Store subscription.'
+                : 'Recurring monthly billing. Stripe only.';
+    }
+
+    if (monthlyBillingStatus) {
+        monthlyBillingStatus.textContent =
+            isRevenueCatIos
+                ? 'Apple'
+                : 'Stripe';
+    }
+
+    if (webProviderSection) {
+        webProviderSection.hidden =
+            isRevenueCatIos;
+
+        webProviderSection.style.display =
+            isRevenueCatIos
+                ? 'none'
+                : '';
+
+        webProviderSection.setAttribute(
+            'aria-hidden',
+            isRevenueCatIos
+                ? 'true'
+                : 'false'
+        );
+    }
+
+    if (appleSection) {
+        appleSection.hidden =
+            !isRevenueCatIos;
+
+        appleSection.style.display =
+            isRevenueCatIos
+                ? ''
+                : 'none';
+
+        appleSection.setAttribute(
+            'aria-hidden',
+            isRevenueCatIos
+                ? 'false'
+                : 'true'
+        );
+    }
+
+    if (
+        appleCopy &&
+        isRevenueCatIos
+    ) {
+        appleCopy.textContent =
+            billingPlan === 'lifetime'
+                ? `${plan.code} Lifetime is a one-time App Store purchase. The localized price shown above will be charged to your Apple Account when you confirm the purchase.`
+                : billingPlan === 'one_time'
+                    ? `${plan.code} 30-Day Access is a non-renewing App Store purchase. The localized price shown above will be charged to your Apple Account when you confirm the purchase.`
+                    : `${plan.code} Monthly is a one-month auto-renewing App Store subscription. The localized price shown above will be charged to your Apple Account when you confirm the subscription.`;
+    }
+
+    if (appleRenewalCopy) {
+        const showRenewal =
+            isRevenueCatIos &&
+            billingPlan === 'monthly';
+
+        appleRenewalCopy.hidden =
+            !showRenewal;
+
+        appleRenewalCopy.style.display =
+            showRenewal
+                ? ''
+                : 'none';
+
+        appleRenewalCopy.setAttribute(
+            'aria-hidden',
+            showRenewal
+                ? 'false'
+                : 'true'
+        );
+    }
+
+    if (restoreButton) {
+        restoreButton.hidden =
+            !isRevenueCatIos;
+
+        restoreButton.style.display =
+            isRevenueCatIos
+                ? ''
+                : 'none';
+
+        restoreButton.setAttribute(
+            'aria-hidden',
+            isRevenueCatIos
+                ? 'false'
+                : 'true'
+        );
+    }
+
+    if (confirmButton) {
+        confirmButton.textContent =
+            isRevenueCatIos
+                ? 'Continue with Apple'
+                : 'Continue to Selected Payment';
+    }
+
+    modal
+        .querySelectorAll(
+            '[data-yh-settings-badge-billing-plan]'
+        )
+        .forEach((button) => {
+            const active =
+                button.getAttribute(
+                    'data-yh-settings-badge-billing-plan'
+                ) === billingPlan;
+
+            button.classList.toggle(
+                'is-selected',
+                active
+            );
+
+            button.setAttribute(
+                'aria-pressed',
+                active
+                    ? 'true'
+                    : 'false'
+            );
+        });
+
+    /*
+     * Provider state only matters on the web.
+     */
+    if (!isRevenueCatIos) {
+        modal
+            .querySelectorAll(
+                '[data-yh-settings-badge-provider]'
+            )
+            .forEach((button) => {
+                const provider =
+                    String(
+                        button.getAttribute(
+                            'data-yh-settings-badge-provider'
+                        ) ||
+                        ''
+                    )
+                        .trim()
+                        .toLowerCase();
+
+                const config =
+                    dashboardGetBadgeProviderConfig(
+                        provider
+                    );
+
+                const providerStatus =
+                    normalizeDashboardBadgeProviderStatus(
+                        config?.status ||
+                        ''
+                    );
+
+                const blockedByBilling =
+                    billingPlan === 'monthly' &&
+                    provider === 'oxapay';
+
+                const selectable =
+                    dashboardSettingsCanSelectBadgeProvider(
+                        provider
+                    );
+
+                const configured =
+                    dashboardSettingsIsBadgeProviderConfigured(
+                        provider
+                    );
+
+                const active =
+                    dashboardSettingsBadgePaymentModalState
+                        .provider ===
+                    provider;
+
+                const statusEl =
+                    button.querySelector(
+                        `[data-yh-settings-badge-provider-status="${provider}"]`
+                    );
+
+                button.classList.toggle(
+                    'is-selected',
+                    active
+                );
+
+                button.classList.toggle(
+                    'is-disabled',
+                    !selectable
+                );
+
+                button.classList.toggle(
+                    'is-setup-required',
+                    selectable &&
+                    !configured &&
+                    provider !== 'manual'
+                );
+
+                button.disabled =
+                    !selectable;
+
+                button.setAttribute(
+                    'aria-disabled',
+                    selectable
+                        ? 'false'
+                        : 'true'
+                );
+
+                button.setAttribute(
+                    'aria-pressed',
+                    active
+                        ? 'true'
+                        : 'false'
+                );
+
+                button.title =
+                    !selectable &&
+                    blockedByBilling
+                        ? 'OxaPay is available only for one-time or lifetime badge payments.'
+                        : selectable &&
+                            !configured &&
+                            provider !== 'manual'
+                            ? `${config?.label || 'This provider'} is selectable, but it still needs provider setup before checkout can start.`
+                            : '';
+
+                if (statusEl) {
+                    if (blockedByBilling) {
+                        statusEl.textContent =
+                            'One-Time / Lifetime';
+                    } else if (
+                        providerStatus ===
+                            'setup_required' &&
+                        provider !== 'manual'
+                    ) {
+                        statusEl.textContent =
+                            'Setup Required';
+                    } else if (
+                        providerStatus ===
+                            'fallback' ||
+                        provider === 'manual'
+                    ) {
+                        statusEl.textContent =
+                            'Fallback';
+                    } else {
+                        statusEl.textContent =
+                            'Active';
+                    }
+                }
+            });
+    }
 }
 
 function openDashboardSettingsBadgePaymentModalFromButton(button = null) {
@@ -7530,14 +8404,39 @@ function openDashboardSettingsBadgePaymentModalFromButton(button = null) {
         resumePendingCheckout
     };
 
-    const modal = ensureDashboardSettingsBadgePaymentModal();
-    dashboardSettingsPickValidBadgeProvider('stripe');
+    const modal =
+        ensureDashboardSettingsBadgePaymentModal();
+
+    dashboardSettingsClearRevenueCatError(
+        modal
+    );
+
+    if (
+        !dashboardSettingsIsRevenueCatIosApp()
+    ) {
+        dashboardSettingsPickValidBadgeProvider(
+            'stripe'
+        );
+    }
+
     syncDashboardSettingsBadgePaymentModalUi();
 
-    modal.removeAttribute('inert');
-    modal.setAttribute('aria-hidden', 'false');
-    modal.classList.remove('hidden-step');
-    modal.classList.add('is-open');
+    modal.removeAttribute(
+        'inert'
+    );
+
+    modal.setAttribute(
+        'aria-hidden',
+        'false'
+    );
+
+    modal.classList.remove(
+        'hidden-step'
+    );
+
+    modal.classList.add(
+        'is-open'
+    );
 
     window.requestAnimationFrame(() => {
         const closeButton =
@@ -7547,20 +8446,56 @@ function openDashboardSettingsBadgePaymentModalFromButton(button = null) {
 
         if (
             closeButton &&
-            typeof closeButton.focus === 'function'
+            typeof closeButton.focus ===
+                'function'
         ) {
             closeButton.focus();
         }
     });
 
-    hydrateDashboardBadgePaymentProviderConfig()
-        .then(() => {
-            dashboardSettingsPickValidBadgeProvider(dashboardSettingsBadgePaymentModalState.provider || 'stripe');
-            syncDashboardSettingsBadgePaymentModalUi();
-        })
-        .catch(() => {
-            syncDashboardSettingsBadgePaymentModalUi();
-        });
+    if (
+        dashboardSettingsIsRevenueCatIosApp()
+    ) {
+        dashboardSettingsLoadRevenueCatCatalog(
+            dashboardSettingsBadgePaymentModalState
+                .division
+        )
+            .then(() => {
+                dashboardSettingsClearRevenueCatError(
+                    modal
+                );
+
+                syncDashboardSettingsBadgePaymentModalUi();
+            })
+            .catch((error) => {
+                console.warn(
+                    'Dashboard Settings RevenueCat catalog load failed:',
+                    error?.message ||
+                    error
+                );
+
+                syncDashboardSettingsBadgePaymentModalUi();
+
+                dashboardSettingsShowRevenueCatError(
+                    error?.message ||
+                    'The App Store purchase catalog could not be loaded.'
+                );
+            });
+    } else {
+        hydrateDashboardBadgePaymentProviderConfig()
+            .then(() => {
+                dashboardSettingsPickValidBadgeProvider(
+                    dashboardSettingsBadgePaymentModalState
+                        .provider ||
+                    'stripe'
+                );
+
+                syncDashboardSettingsBadgePaymentModalUi();
+            })
+            .catch(() => {
+                syncDashboardSettingsBadgePaymentModalUi();
+            });
+    }
 
     if (resumePendingCheckout) {
         showToast('Settings payment options reopened. You can generate a new checkout tab.', 'success');
@@ -7573,10 +8508,427 @@ function dashboardOpenSettingsBadgeAvailModalFromButton(button = null) {
     return openDashboardSettingsBadgePaymentModalFromButton(button);
 }
 
+async function dashboardSettingsRunRevenueCatPurchase(
+    confirmButton = null
+) {
+    const plan =
+        dashboardGetVerifiedBadgePlanMeta(
+            dashboardSettingsBadgePaymentModalState
+                .division ||
+            'academy'
+        );
+
+    const billingPlan =
+        dashboardNormalizeBadgeBillingPlan(
+            dashboardSettingsBadgePaymentModalState
+                .billingPlan ||
+            'monthly'
+        );
+
+    const revenueCat =
+        window.YHNativeRuntime?.revenueCat;
+
+    if (
+        !dashboardSettingsIsRevenueCatIosApp() ||
+        !revenueCat ||
+        typeof revenueCat.purchasePackage !==
+            'function'
+    ) {
+        throw new Error(
+            'Apple In-App Purchase is unavailable.'
+        );
+    }
+
+    const modal =
+        document.getElementById(
+            'yh-dashboard-settings-badge-payment-modal'
+        );
+
+    dashboardSettingsClearRevenueCatError(
+        modal
+    );
+
+    if (confirmButton) {
+        confirmButton.disabled =
+            true;
+
+        confirmButton.setAttribute(
+            'aria-busy',
+            'true'
+        );
+
+        confirmButton.dataset.originalText =
+            confirmButton.textContent ||
+            '';
+
+        confirmButton.textContent =
+            'Opening Apple Purchase...';
+    }
+
+    try {
+        await dashboardSettingsLoadRevenueCatCatalog(
+            plan.division
+        );
+
+        syncDashboardSettingsBadgePaymentModalUi();
+
+        const revenueCatPackage =
+            dashboardSettingsGetRevenueCatPackage(
+                plan.division,
+                billingPlan
+            );
+
+        if (!revenueCatPackage) {
+            throw new Error(
+                `This ${plan.code} App Store plan is unavailable right now.`
+            );
+        }
+
+        if (
+            confirmButton &&
+            typeof confirmButton.blur ===
+                'function'
+        ) {
+            confirmButton.blur();
+        }
+
+        if (modal) {
+            modal.setAttribute(
+                'data-apple-purchase-suspended',
+                'true'
+            );
+
+            modal.style.setProperty(
+                'visibility',
+                'hidden'
+            );
+
+            modal.style.setProperty(
+                'pointer-events',
+                'none'
+            );
+        }
+
+        let purchaseResult =
+            null;
+
+        try {
+            purchaseResult =
+                await revenueCat.purchasePackage(
+                    revenueCatPackage
+                );
+        } finally {
+            if (modal) {
+                modal.style.removeProperty(
+                    'visibility'
+                );
+
+                modal.style.removeProperty(
+                    'pointer-events'
+                );
+
+                modal.removeAttribute(
+                    'data-apple-purchase-suspended'
+                );
+            }
+        }
+
+        if (
+            dashboardSettingsIsRevenueCatUserCancelled(
+                purchaseResult
+            )
+        ) {
+            return null;
+        }
+
+        const syncResult =
+            await dashboardSettingsSyncRevenueCatBadge(
+                plan.division
+            );
+
+        await loadDashboardSettingsSubscriptions({
+            silent: true
+        }).catch((error) => {
+            console.warn(
+                'settings refresh after App Store purchase failed:',
+                error?.message ||
+                error
+            );
+        });
+
+        if (
+            typeof hydrateDashboardSelfUniverseProfile ===
+            'function'
+        ) {
+            await hydrateDashboardSelfUniverseProfile()
+                .catch(() => null);
+        }
+
+        closeDashboardSettingsBadgePaymentModal();
+
+        showToast(
+            `${plan.code} activated successfully through the App Store.`,
+            'success'
+        );
+
+        return syncResult;
+    } catch (error) {
+        if (
+            dashboardSettingsIsRevenueCatUserCancelled(
+                error
+            )
+        ) {
+            dashboardSettingsClearRevenueCatError(
+                modal
+            );
+
+            return null;
+        }
+
+        dashboardSettingsShowRevenueCatError(
+            error?.message ||
+            'Failed to complete App Store purchase.'
+        );
+
+        throw error;
+    } finally {
+        if (confirmButton) {
+            confirmButton.disabled =
+                false;
+
+            confirmButton.removeAttribute(
+                'aria-busy'
+            );
+
+            if (
+                confirmButton.dataset.originalText
+            ) {
+                confirmButton.textContent =
+                    confirmButton.dataset.originalText;
+
+                delete confirmButton.dataset.originalText;
+            } else {
+                confirmButton.textContent =
+                    'Continue with Apple';
+            }
+        }
+    }
+}
+
+async function dashboardSettingsRestoreRevenueCatPurchases(
+    restoreButton = null
+) {
+    const plan =
+        dashboardGetVerifiedBadgePlanMeta(
+            dashboardSettingsBadgePaymentModalState
+                .division ||
+            'academy'
+        );
+
+    const revenueCat =
+        window.YHNativeRuntime?.revenueCat;
+
+    if (
+        !dashboardSettingsIsRevenueCatIosApp() ||
+        !revenueCat ||
+        typeof revenueCat.restorePurchases !==
+            'function'
+    ) {
+        throw new Error(
+            'App Store purchase restoration is unavailable.'
+        );
+    }
+
+    const modal =
+        document.getElementById(
+            'yh-dashboard-settings-badge-payment-modal'
+        );
+
+    dashboardSettingsClearRevenueCatError(
+        modal
+    );
+
+    if (restoreButton) {
+        restoreButton.disabled =
+            true;
+
+        restoreButton.setAttribute(
+            'aria-busy',
+            'true'
+        );
+
+        restoreButton.dataset.originalText =
+            restoreButton.textContent ||
+            '';
+
+        restoreButton.textContent =
+            'Restoring...';
+    }
+
+    try {
+        if (
+            restoreButton &&
+            typeof restoreButton.blur ===
+                'function'
+        ) {
+            restoreButton.blur();
+        }
+
+        if (modal) {
+            modal.setAttribute(
+                'data-apple-purchase-suspended',
+                'true'
+            );
+
+            modal.style.setProperty(
+                'visibility',
+                'hidden'
+            );
+
+            modal.style.setProperty(
+                'pointer-events',
+                'none'
+            );
+        }
+
+        try {
+            await revenueCat.restorePurchases();
+        } finally {
+            if (modal) {
+                modal.style.removeProperty(
+                    'visibility'
+                );
+
+                modal.style.removeProperty(
+                    'pointer-events'
+                );
+
+                modal.removeAttribute(
+                    'data-apple-purchase-suspended'
+                );
+            }
+        }
+
+        const cleanDivision =
+            dashboardSettingsNormalizeRevenueCatDivision(
+                plan.division
+            );
+
+        const syncResult =
+            await academyAuthedFetch(
+                `/api/payments/badges/${encodeURIComponent(
+                    cleanDivision
+                )}/revenuecat-sync`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({})
+                }
+            );
+
+        if (
+            syncResult?.success !== true ||
+            syncResult?.badge?.active !== true
+        ) {
+            throw new Error(
+                `No active ${plan.code} App Store purchase was found to restore.`
+            );
+        }
+
+        await loadDashboardSettingsSubscriptions({
+            silent: true
+        }).catch((error) => {
+            console.warn(
+                'settings refresh after App Store restore failed:',
+                error?.message ||
+                error
+            );
+        });
+
+        if (
+            typeof hydrateDashboardSelfUniverseProfile ===
+            'function'
+        ) {
+            await hydrateDashboardSelfUniverseProfile()
+                .catch(() => null);
+        }
+
+        closeDashboardSettingsBadgePaymentModal();
+
+        showToast(
+            `${plan.code} App Store purchase restored successfully.`,
+            'success'
+        );
+
+        return syncResult;
+    } catch (error) {
+        dashboardSettingsShowRevenueCatError(
+            error?.message ||
+            'Failed to restore App Store purchases.'
+        );
+
+        throw error;
+    } finally {
+        if (restoreButton) {
+            restoreButton.disabled =
+                false;
+
+            restoreButton.removeAttribute(
+                'aria-busy'
+            );
+
+            if (
+                restoreButton.dataset.originalText
+            ) {
+                restoreButton.textContent =
+                    restoreButton.dataset.originalText;
+
+                delete restoreButton.dataset.originalText;
+            } else {
+                restoreButton.textContent =
+                    'Restore Purchases';
+            }
+        }
+    }
+}
+
 async function dashboardSubmitSettingsBadgePayment(confirmButton = null) {
-    const plan = dashboardGetVerifiedBadgePlanMeta(dashboardSettingsBadgePaymentModalState.division || 'academy');
-    const provider = String(dashboardSettingsBadgePaymentModalState.provider || 'stripe').trim().toLowerCase();
-    const billingPlan = dashboardNormalizeBadgeBillingPlan(dashboardSettingsBadgePaymentModalState.billingPlan || 'monthly');
+    const plan =
+        dashboardGetVerifiedBadgePlanMeta(
+            dashboardSettingsBadgePaymentModalState
+                .division ||
+            'academy'
+        );
+
+    const provider =
+        String(
+            dashboardSettingsBadgePaymentModalState
+                .provider ||
+            'stripe'
+        )
+            .trim()
+            .toLowerCase();
+
+    const billingPlan =
+        dashboardNormalizeBadgeBillingPlan(
+            dashboardSettingsBadgePaymentModalState
+                .billingPlan ||
+            'monthly'
+        );
+
+    /*
+     * Native iOS digital badge purchases always go
+     * through Apple / RevenueCat.
+     *
+     * Stripe, OxaPay and manual remain untouched below
+     * for the website.
+     */
+    if (
+        dashboardSettingsIsRevenueCatIosApp()
+    ) {
+        return dashboardSettingsRunRevenueCatPurchase(
+            confirmButton
+        );
+    }
 
     if (!dashboardSettingsCanSelectBadgeProvider(provider)) {
         showToast('Choose an available payment method first.', 'warning');
