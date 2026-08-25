@@ -41967,6 +41967,128 @@ function lockBotToVisibleBottom() {
         paymentMethod: 'card_bank_wallet'
     };
 
+    let academyYhaRevenueCatCatalog = null;
+
+    let academyYhaRevenueCatCatalogPromise = null;
+
+    function academyIsRevenueCatIosApp() {
+        try {
+            const runtime =
+                window.YHNativeRuntime;
+
+            return (
+                runtime?.getPlatform?.() === 'ios' &&
+                runtime?.revenueCat?.isAvailable?.() === true
+            );
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function getAcademyYhaRevenueCatPackage(
+        billingPlan = 'monthly'
+    ) {
+        const offering =
+            academyYhaRevenueCatCatalog;
+
+        if (!offering) {
+            return null;
+        }
+
+        const cleanBillingPlan =
+            normalizeAcademyYhaBadgeBillingPlan(
+                billingPlan
+            );
+
+        if (cleanBillingPlan === 'monthly') {
+            return (
+                offering.monthly ||
+                offering.availablePackages?.find(
+                    (item) =>
+                        item?.identifier === '$rc_monthly'
+                ) ||
+                null
+            );
+        }
+
+        if (cleanBillingPlan === 'one_time') {
+            return (
+                offering.availablePackages?.find(
+                    (item) =>
+                        item?.identifier === 'yha_30day'
+                ) ||
+                null
+            );
+        }
+
+        if (cleanBillingPlan === 'lifetime') {
+            return (
+                offering.lifetime ||
+                offering.availablePackages?.find(
+                    (item) =>
+                        item?.identifier === '$rc_lifetime'
+                ) ||
+                null
+            );
+        }
+
+        return null;
+    }
+
+    async function loadAcademyYhaRevenueCatCatalog() {
+        if (!academyIsRevenueCatIosApp()) {
+            return null;
+        }
+
+        if (academyYhaRevenueCatCatalog) {
+            return academyYhaRevenueCatCatalog;
+        }
+
+        if (academyYhaRevenueCatCatalogPromise) {
+            return academyYhaRevenueCatCatalogPromise;
+        }
+
+        const revenueCat =
+            window.YHNativeRuntime?.revenueCat;
+
+        if (
+            !revenueCat ||
+            typeof revenueCat.getOfferings !== 'function'
+        ) {
+            throw new Error(
+                'Apple in-app purchase catalog is unavailable.'
+            );
+        }
+
+        academyYhaRevenueCatCatalogPromise =
+            revenueCat
+                .getOfferings()
+                .then((offerings) => {
+                    const offering =
+                        offerings?.all?.yha_offering ||
+                        null;
+
+                    if (!offering) {
+                        throw new Error(
+                            'YHA App Store offering is unavailable.'
+                        );
+                    }
+
+                    academyYhaRevenueCatCatalog =
+                        offering;
+
+                    return offering;
+                })
+                .catch((error) => {
+                    academyYhaRevenueCatCatalogPromise =
+                        null;
+
+                    throw error;
+                });
+
+        return academyYhaRevenueCatCatalogPromise;
+    }
+
     function normalizeAcademyYhaBadgeBillingPlan(value = 'monthly') {
         const clean = String(value || '').trim().toLowerCase();
 
@@ -42002,6 +42124,32 @@ function lockBotToVisibleBottom() {
 
     function formatAcademyYhaBadgeBillingAmount(billingPlan = 'monthly') {
         const cleanBillingPlan = normalizeAcademyYhaBadgeBillingPlan(billingPlan);
+
+        if (academyIsRevenueCatIosApp()) {
+            const revenueCatPackage =
+                getAcademyYhaRevenueCatPackage(
+                    cleanBillingPlan
+                );
+
+            const localizedPrice =
+                String(
+                    revenueCatPackage?.product?.priceString ||
+                    ''
+                ).trim();
+
+            if (localizedPrice) {
+                if (cleanBillingPlan === 'lifetime') {
+                    return `${localizedPrice} lifetime`;
+                }
+
+                if (cleanBillingPlan === 'one_time') {
+                    return `${localizedPrice} one-time / 30 days`;
+                }
+
+                return `${localizedPrice}/month`;
+            }
+        }
+
         const amount = getAcademyYhaBadgeBillingAmount(cleanBillingPlan).toFixed(2);
 
         if (cleanBillingPlan === 'lifetime') return `$${amount} lifetime`;
@@ -42241,7 +42389,7 @@ function lockBotToVisibleBottom() {
                         </div>
                     </section>
 
-                    <section class="yh-dashboard-settings-badge-payment-section">
+                    <section class="yh-dashboard-settings-badge-payment-section" data-academy-yha-provider-section>
                         <h4>Choose payment method</h4>
                         <p>Select how you want to pay for the selected YHA billing option.</p>
 
@@ -42271,10 +42419,58 @@ function lockBotToVisibleBottom() {
                             </button>
                         </div>
                     </section>
+
+                    <section
+                        class="yh-dashboard-settings-badge-payment-section"
+                        data-academy-yha-apple-legal
+                        hidden
+                        aria-hidden="true"
+                    >
+                        <h4>App Store purchase information</h4>
+
+                        <p data-academy-yha-apple-legal-copy>
+                            Purchase details are provided by the App Store.
+                        </p>
+
+                        <p
+                            data-academy-yha-apple-renewal-copy
+                            hidden
+                            aria-hidden="true"
+                        >
+                            This subscription automatically renews every month
+                            unless canceled at least 24 hours before the end of
+                            the current period. Your Apple Account may be charged
+                            within 24 hours before renewal. You can manage or
+                            cancel subscriptions in your Apple Account settings.
+                        </p>
+
+                        <p>
+                            By continuing, you agree to the
+                            <a
+                                href="https://www.younghustlersuniverse.com/terms.html"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >Terms of Use</a>
+                            and acknowledge the
+                            <a
+                                href="https://www.younghustlersuniverse.com/privacy.html"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >Privacy Policy</a>.
+                            Apple's
+                            <a
+                                href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >Standard EULA</a>
+                            also applies to the iOS app.
+                        </p>
+                    </section>
                 </div>
 
                 <div class="yh-dashboard-settings-badge-payment-actions">
                     <button type="button" class="btn-secondary" data-academy-yha-payment-close>Cancel</button>
+                    <button type="button" class="btn-secondary" data-academy-yha-restore hidden>Restore Purchases</button>
                     <button type="button" class="btn-primary" id="academy-yha-badge-payment-confirm">Continue to Selected Payment</button>
                 </div>
             </div>
@@ -42345,8 +42541,133 @@ function lockBotToVisibleBottom() {
             });
         });
 
+        modal.querySelector('[data-academy-yha-restore]')?.addEventListener('click', (event) => {
+            event.preventDefault();
+
+            restoreAcademyYhaAppStorePurchases(
+                event.currentTarget
+            ).catch((error) => {
+                console.error(
+                    'Academy YHA restore purchases error:',
+                    error
+                );
+            });
+        });
+
         return modal;
     }
+
+async function restoreAcademyYhaAppStorePurchases(
+    restoreButton = null
+) {
+    if (!academyIsRevenueCatIosApp()) {
+        return;
+    }
+
+    const revenueCat =
+        window.YHNativeRuntime?.revenueCat;
+
+    if (
+        !revenueCat ||
+        typeof revenueCat.restorePurchases !== 'function'
+    ) {
+        throw new Error(
+            'App Store purchase restoration is unavailable.'
+        );
+    }
+
+    if (restoreButton) {
+        restoreButton.disabled = true;
+        restoreButton.setAttribute(
+            'aria-busy',
+            'true'
+        );
+
+        restoreButton.dataset.originalText =
+            restoreButton.textContent || '';
+
+        restoreButton.textContent =
+            'Restoring...';
+    }
+
+    setLearnFromPayStatus(
+        'Checking your App Store purchases...',
+        'success'
+    );
+
+    try {
+        await revenueCat.restorePurchases();
+
+        const syncResult =
+            await coachFetch(
+                '/api/payments/badges/academy/revenuecat-sync',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({})
+                }
+            );
+
+        if (
+            syncResult?.success !== true ||
+            syncResult?.badge?.active !== true
+        ) {
+            throw new Error(
+                'No active YHA App Store purchase was found to restore.'
+            );
+        }
+
+        closeAcademyYhaBadgePaymentModal();
+
+        await refreshAcademyLearnFromAccess()
+            .catch(() => null);
+
+        setLearnFromPayStatus(
+            'Your YHA App Store purchase was restored.',
+            'success'
+        );
+
+        if (typeof showToast === 'function') {
+            showToast(
+                'YHA purchases restored successfully.',
+                'success'
+            );
+        }
+    } catch (error) {
+        const message =
+            error?.message ||
+            'Failed to restore App Store purchases.';
+
+        setLearnFromPayStatus(
+            message,
+            'error'
+        );
+
+        if (typeof showToast === 'function') {
+            showToast(
+                message,
+                'error'
+            );
+        }
+
+        throw error;
+    } finally {
+        if (restoreButton) {
+            restoreButton.disabled = false;
+            restoreButton.removeAttribute(
+                'aria-busy'
+            );
+
+            if (
+                restoreButton.dataset.originalText
+            ) {
+                restoreButton.textContent =
+                    restoreButton.dataset.originalText;
+
+                delete restoreButton.dataset.originalText;
+            }
+        }
+    }
+}
 
 function closeAcademyYhaBadgePaymentModal() {
     const modal = document.getElementById(
@@ -42404,22 +42725,168 @@ function closeAcademyYhaBadgePaymentModal() {
 
         const amount = modal.querySelector('#academy-yha-badge-payment-amount');
         const billingCopy = modal.querySelector('#academy-yha-badge-payment-billing-copy');
+        const providerSection = modal.querySelector('[data-academy-yha-provider-section]');
+        const restoreButton = modal.querySelector('[data-academy-yha-restore]');
+        const confirmButton = modal.querySelector('#academy-yha-badge-payment-confirm');
+        const appleLegalSection = modal.querySelector('[data-academy-yha-apple-legal]');
+        const appleLegalCopy = modal.querySelector('[data-academy-yha-apple-legal-copy]');
+        const appleRenewalCopy = modal.querySelector('[data-academy-yha-apple-renewal-copy]');
+        const isRevenueCatIos = academyIsRevenueCatIosApp();
 
-        if (amount) amount.textContent = formatAcademyYhaBadgeBillingAmount(billingPlan);
+        if (amount) {
+            amount.textContent =
+                formatAcademyYhaBadgeBillingAmount(
+                    billingPlan
+                );
+        }
 
         if (billingCopy) {
-            billingCopy.textContent =
+            if (isRevenueCatIos) {
+                billingCopy.textContent =
+                    billingPlan === 'lifetime'
+                        ? 'YHA Lifetime is a one-time App Store purchase for permanent badge and Learn From access.'
+                        : billingPlan === 'one_time'
+                            ? 'YHA 30-Day Access is a non-renewing App Store purchase that provides access for 30 days.'
+                            : 'YHA Monthly is billed through the App Store and automatically renews monthly until canceled.';
+            } else {
+                billingCopy.textContent =
+                    billingPlan === 'lifetime'
+                        ? 'YHA Lifetime gives permanent badge access and permanent Learn From access.'
+                        : billingPlan === 'one_time'
+                            ? 'YHA One-Time gives 30 days of badge access and Learn From access for the same period.'
+                            : 'YHA Monthly renews through Stripe when Stripe is selected.';
+            }
+        }
+
+        if (providerSection) {
+            providerSection.hidden =
+                isRevenueCatIos;
+
+            providerSection.setAttribute(
+                'aria-hidden',
+                isRevenueCatIos
+                    ? 'true'
+                    : 'false'
+            );
+        }
+
+        if (appleLegalSection) {
+            appleLegalSection.hidden =
+                !isRevenueCatIos;
+
+            appleLegalSection.setAttribute(
+                'aria-hidden',
+                isRevenueCatIos
+                    ? 'false'
+                    : 'true'
+            );
+        }
+
+        if (
+            appleLegalCopy &&
+            isRevenueCatIos
+        ) {
+            appleLegalCopy.textContent =
                 billingPlan === 'lifetime'
-                    ? 'YHA Lifetime gives permanent badge access and permanent Learn From access.'
+                    ? 'YHA Lifetime is a one-time App Store purchase. The localized price shown above will be charged to your Apple Account when you confirm the purchase.'
                     : billingPlan === 'one_time'
-                        ? 'YHA One-Time gives 30 days of badge access and Learn From access for the same period.'
-                        : 'YHA Monthly renews through Stripe when Stripe is selected.';
+                        ? 'YHA 30-Day Access is a non-renewing App Store purchase that provides 30 days of access. The localized price shown above will be charged to your Apple Account when you confirm the purchase.'
+                        : 'YHA Monthly is a one-month auto-renewing subscription. The localized App Store price shown above will be charged to your Apple Account when you confirm the subscription.';
+        }
+
+        if (appleRenewalCopy) {
+            const showMonthlyRenewal =
+                isRevenueCatIos &&
+                billingPlan === 'monthly';
+
+            appleRenewalCopy.hidden =
+                !showMonthlyRenewal;
+
+            appleRenewalCopy.setAttribute(
+                'aria-hidden',
+                showMonthlyRenewal
+                    ? 'false'
+                    : 'true'
+            );
+        }
+
+        if (restoreButton) {
+            restoreButton.hidden =
+                !isRevenueCatIos;
+
+            restoreButton.setAttribute(
+                'aria-hidden',
+                isRevenueCatIos
+                    ? 'false'
+                    : 'true'
+            );
+        }
+
+        if (confirmButton) {
+            confirmButton.textContent =
+                isRevenueCatIos
+                    ? 'Continue with Apple'
+                    : 'Continue to Selected Payment';
         }
 
         modal.querySelectorAll('[data-academy-yha-billing-plan]').forEach((button) => {
-            const active = button.getAttribute('data-academy-yha-billing-plan') === billingPlan;
-            button.classList.toggle('is-selected', active);
-            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+            const buttonPlan =
+                button.getAttribute(
+                    'data-academy-yha-billing-plan'
+                );
+
+            const active =
+                buttonPlan === billingPlan;
+
+            button.classList.toggle(
+                'is-selected',
+                active
+            );
+
+            button.setAttribute(
+                'aria-pressed',
+                active ? 'true' : 'false'
+            );
+
+            if (isRevenueCatIos) {
+                const description =
+                    button.querySelector('small');
+
+                const badge =
+                    button.querySelector('em');
+
+                if (buttonPlan === 'monthly') {
+                    if (description) {
+                        description.textContent =
+                            'Auto-renewing monthly subscription through the App Store.';
+                    }
+
+                    if (badge) {
+                        badge.textContent =
+                            'App Store';
+                    }
+                } else if (buttonPlan === 'one_time') {
+                    if (description) {
+                        description.textContent =
+                            'Non-renewing App Store purchase for 30 days of access.';
+                    }
+
+                    if (badge) {
+                        badge.textContent =
+                            '30 Days';
+                    }
+                } else if (buttonPlan === 'lifetime') {
+                    if (description) {
+                        description.textContent =
+                            'One-time App Store purchase for permanent access.';
+                    }
+
+                    if (badge) {
+                        badge.textContent =
+                            'Lifetime';
+                    }
+                }
+            }
         });
 
         modal.querySelectorAll('[data-academy-yha-provider]').forEach((button) => {
@@ -42504,6 +42971,19 @@ function openAcademyYhaBadgePaymentModalFromLearnFrom() {
                 syncAcademyYhaBadgePaymentModalUi();
             });
 
+        if (academyIsRevenueCatIosApp()) {
+            loadAcademyYhaRevenueCatCatalog()
+                .then(() => {
+                    syncAcademyYhaBadgePaymentModalUi();
+                })
+                .catch((error) => {
+                    console.warn(
+                        'YHA RevenueCat catalog load failed:',
+                        error?.message || error
+                    );
+                });
+        }
+
         return true;
     }
 
@@ -42585,6 +43065,147 @@ function openAcademyYhaBadgePaymentModalFromLearnFrom() {
     async function submitAcademyYhaBadgePayment(confirmButton = null) {
         const provider = String(academyYhaBadgePaymentModalState.provider || 'stripe').trim().toLowerCase();
         const billingPlan = normalizeAcademyYhaBadgeBillingPlan(academyYhaBadgePaymentModalState.billingPlan || 'monthly');
+
+        /*
+         * Native iOS digital purchases must use Apple IAP.
+         * Web checkout providers remain unchanged below.
+         */
+        if (academyIsRevenueCatIosApp()) {
+            const runtime =
+                window.YHNativeRuntime;
+
+            if (confirmButton) {
+                confirmButton.disabled = true;
+                confirmButton.setAttribute('aria-busy', 'true');
+                confirmButton.dataset.originalText =
+                    confirmButton.textContent || '';
+                confirmButton.textContent =
+                    'Opening Apple Purchase...';
+            }
+
+            setLearnFromPayStatus(
+                'Preparing secure App Store purchase...',
+                'success'
+            );
+
+            try {
+                await loadAcademyYhaRevenueCatCatalog();
+
+                const revenueCatPackage =
+                    getAcademyYhaRevenueCatPackage(
+                        billingPlan
+                    );
+
+                if (!revenueCatPackage) {
+                    throw new Error(
+                        'This YHA App Store plan is unavailable right now.'
+                    );
+                }
+
+                if (
+                    !runtime?.revenueCat?.purchasePackage
+                ) {
+                    throw new Error(
+                        'Apple In-App Purchase is unavailable.'
+                    );
+                }
+
+                await runtime.revenueCat.purchasePackage(
+                    revenueCatPackage
+                );
+
+                /*
+                 * Never unlock from client purchase data alone.
+                 * The authenticated backend verifies yha_access
+                 * directly against RevenueCat before activating YHA.
+                 */
+                const syncResult =
+                    await coachFetch(
+                        '/api/payments/badges/academy/revenuecat-sync',
+                        {
+                            method: 'POST',
+                            body: JSON.stringify({})
+                        }
+                    );
+
+                if (
+                    syncResult?.success !== true ||
+                    syncResult?.badge?.active !== true
+                ) {
+                    throw new Error(
+                        'Your App Store purchase was received, but YHA access could not be verified yet.'
+                    );
+                }
+
+                closeAcademyYhaBadgePaymentModal();
+
+                await refreshAcademyLearnFromAccess()
+                    .catch(() => null);
+
+                setLearnFromPayStatus(
+                    'YHA is active through your App Store purchase.',
+                    'success'
+                );
+
+                if (typeof showToast === 'function') {
+                    showToast(
+                        'YHA activated successfully.',
+                        'success'
+                    );
+                }
+
+                return;
+            } catch (error) {
+                const userCancelled =
+                    error?.userCancelled === true ||
+                    error?.userCanceled === true ||
+                    error?.userInfo?.userCancelled === true ||
+                    error?.userInfo?.userCanceled === true;
+
+                if (userCancelled) {
+                    setLearnFromPayStatus(
+                        'App Store purchase cancelled.',
+                        ''
+                    );
+
+                    return;
+                }
+
+                const message =
+                    error?.message ||
+                    'Failed to complete App Store purchase.';
+
+                setLearnFromPayStatus(
+                    message,
+                    'error'
+                );
+
+                if (typeof showToast === 'function') {
+                    showToast(
+                        message,
+                        'error'
+                    );
+                }
+
+                throw error;
+            } finally {
+                if (confirmButton) {
+                    confirmButton.disabled = false;
+                    confirmButton.removeAttribute(
+                        'aria-busy'
+                    );
+
+                    if (
+                        confirmButton.dataset.originalText
+                    ) {
+                        confirmButton.textContent =
+                            confirmButton.dataset.originalText;
+
+                        delete confirmButton.dataset.originalText;
+                    }
+                }
+            }
+        }
 
         if (!academyCanSelectYhaProvider(provider)) {
             setLearnFromPayStatus('Choose an available YHA payment method first.', 'error');

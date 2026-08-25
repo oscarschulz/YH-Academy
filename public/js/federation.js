@@ -456,6 +456,780 @@ function renderFederationTelegramGroupAccess(member = {}, state = {}) {
     </div>
   `;
 }
+let federationYhfRevenueCatCatalog = null;
+let federationYhfRevenueCatCatalogPromise = null;
+
+function federationIsRevenueCatIosApp() {
+  try {
+    const runtime =
+      window.YHNativeRuntime;
+
+    return (
+      runtime?.getPlatform?.() === 'ios' &&
+      runtime?.revenueCat?.isAvailable?.() === true
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+function normalizeFederationYhfBillingPlan(
+  value = 'monthly'
+) {
+  const clean =
+    String(value || '')
+      .trim()
+      .toLowerCase();
+
+  if (
+    clean === 'lifetime' ||
+    clean === 'life_time' ||
+    clean === 'forever'
+  ) {
+    return 'lifetime';
+  }
+
+  if (
+    clean === 'one_time' ||
+    clean === 'one-time' ||
+    clean === 'onetime' ||
+    clean === 'single'
+  ) {
+    return 'one_time';
+  }
+
+  return 'monthly';
+}
+
+function getFederationYhfPlanMeta() {
+  return {
+    division: 'federation',
+    code: 'YHF',
+    name: 'Federation Verification Badge',
+    amountMonthly: 28.12,
+    amountOneTime: 28.12,
+    amountLifetime: 281.20,
+    currency: 'USD'
+  };
+}
+
+function getFederationYhfBillingAmount(
+  billingPlan = 'monthly'
+) {
+  const plan =
+    getFederationYhfPlanMeta();
+
+  const cleanBillingPlan =
+    normalizeFederationYhfBillingPlan(
+      billingPlan
+    );
+
+  if (cleanBillingPlan === 'lifetime') {
+    return Number(
+      plan.amountLifetime || 0
+    );
+  }
+
+  if (cleanBillingPlan === 'one_time') {
+    return Number(
+      plan.amountOneTime || 0
+    );
+  }
+
+  return Number(
+    plan.amountMonthly || 0
+  );
+}
+
+function getFederationYhfRevenueCatPackage(
+  billingPlan = 'monthly'
+) {
+  const offering =
+    federationYhfRevenueCatCatalog;
+
+  if (!offering) {
+    return null;
+  }
+
+  const cleanBillingPlan =
+    normalizeFederationYhfBillingPlan(
+      billingPlan
+    );
+
+  if (cleanBillingPlan === 'monthly') {
+    return (
+      offering.monthly ||
+      offering.availablePackages?.find(
+        (item) =>
+          item?.identifier === '$rc_monthly'
+      ) ||
+      null
+    );
+  }
+
+  if (cleanBillingPlan === 'one_time') {
+    return (
+      offering.availablePackages?.find(
+        (item) =>
+          item?.identifier === 'yhf_30day'
+      ) ||
+      null
+    );
+  }
+
+  if (cleanBillingPlan === 'lifetime') {
+    return (
+      offering.lifetime ||
+      offering.availablePackages?.find(
+        (item) =>
+          item?.identifier === '$rc_lifetime'
+      ) ||
+      null
+    );
+  }
+
+  return null;
+}
+
+async function loadFederationYhfRevenueCatCatalog() {
+  if (!federationIsRevenueCatIosApp()) {
+    return null;
+  }
+
+  if (federationYhfRevenueCatCatalog) {
+    return federationYhfRevenueCatCatalog;
+  }
+
+  if (federationYhfRevenueCatCatalogPromise) {
+    return federationYhfRevenueCatCatalogPromise;
+  }
+
+  const revenueCat =
+    window.YHNativeRuntime?.revenueCat;
+
+  if (
+    !revenueCat ||
+    typeof revenueCat.getOfferings !== 'function'
+  ) {
+    throw new Error(
+      'Apple in-app purchase catalog is unavailable.'
+    );
+  }
+
+  federationYhfRevenueCatCatalogPromise =
+    revenueCat
+      .getOfferings()
+      .then((offerings) => {
+        const offering =
+          offerings?.all?.yhf_offering ||
+          null;
+
+        if (!offering) {
+          throw new Error(
+            'YHF App Store offering is unavailable.'
+          );
+        }
+
+        federationYhfRevenueCatCatalog =
+          offering;
+
+        return offering;
+      })
+      .catch((error) => {
+        federationYhfRevenueCatCatalogPromise =
+          null;
+
+        throw error;
+      });
+
+  return federationYhfRevenueCatCatalogPromise;
+}
+
+function formatFederationYhfBillingAmount(
+  billingPlan = 'monthly'
+) {
+  const cleanBillingPlan =
+    normalizeFederationYhfBillingPlan(
+      billingPlan
+    );
+
+  if (federationIsRevenueCatIosApp()) {
+    const revenueCatPackage =
+      getFederationYhfRevenueCatPackage(
+        cleanBillingPlan
+      );
+
+    const localizedPrice =
+      String(
+        revenueCatPackage?.product?.priceString ||
+        ''
+      ).trim();
+
+    if (localizedPrice) {
+      if (cleanBillingPlan === 'lifetime') {
+        return `${localizedPrice} lifetime`;
+      }
+
+      if (cleanBillingPlan === 'one_time') {
+        return `${localizedPrice} one-time / 30 days`;
+      }
+
+      return `${localizedPrice}/month`;
+    }
+  }
+
+  const amount =
+    getFederationYhfBillingAmount(
+      cleanBillingPlan
+    ).toFixed(2);
+
+  if (cleanBillingPlan === 'lifetime') {
+    return `$${amount} lifetime`;
+  }
+
+  if (cleanBillingPlan === 'one_time') {
+    return `$${amount} one-time / 30 days`;
+  }
+
+  return `$${amount}/month`;
+}
+
+function chooseFederationYhfAppStorePlan() {
+  const existing =
+    document.getElementById(
+      'fedYhfAppStoreModal'
+    );
+
+  if (existing) {
+    existing.remove();
+  }
+
+  const returnFocus =
+    document.activeElement &&
+    document.activeElement !== document.body &&
+    typeof document.activeElement.focus === 'function'
+      ? document.activeElement
+      : null;
+
+  const overlay =
+    document.createElement('div');
+
+  overlay.id =
+    'fedYhfAppStoreModal';
+
+  overlay.className =
+    'fed-universe-profile-modal';
+
+  overlay.setAttribute(
+    'aria-hidden',
+    'false'
+  );
+
+  overlay.innerHTML = `
+    <div
+      class="fed-universe-profile-backdrop"
+      data-fed-yhf-apple-cancel
+    ></div>
+
+    <div
+      class="fed-universe-profile-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="fedYhfAppStoreTitle"
+    >
+      <div class="fed-universe-profile-headbar">
+        <div>
+          <span class="fed-sidebar-card-label">
+            YHF Badge
+          </span>
+
+          <h3 id="fedYhfAppStoreTitle">
+            Choose Your Plan
+          </h3>
+        </div>
+
+        <button
+          type="button"
+          class="fed-universe-profile-close"
+          data-fed-yhf-apple-cancel
+          aria-label="Close YHF purchase"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="fed-universe-profile-body">
+        <p>
+          Choose your YHF Federation Verification Badge plan.
+          Payment is processed securely by Apple.
+        </p>
+
+        <div class="fed-form-actions">
+          <button
+            type="button"
+            class="fed-btn fed-btn-primary"
+            data-fed-yhf-apple-plan="monthly"
+            aria-pressed="true"
+          >
+            Monthly · ${formatFederationYhfBillingAmount('monthly')}
+          </button>
+
+          <button
+            type="button"
+            class="fed-btn fed-btn-secondary"
+            data-fed-yhf-apple-plan="one_time"
+            aria-pressed="false"
+          >
+            30-Day · ${formatFederationYhfBillingAmount('one_time')}
+          </button>
+        </div>
+
+        <div class="fed-form-actions">
+          <button
+            type="button"
+            class="fed-btn fed-btn-secondary"
+            data-fed-yhf-apple-plan="lifetime"
+            aria-pressed="false"
+          >
+            Lifetime · ${formatFederationYhfBillingAmount('lifetime')}
+          </button>
+        </div>
+
+        <div
+          data-fed-yhf-apple-plan-copy
+          style="margin-top: 14px;"
+        >
+          Monthly YHF access for
+          ${formatFederationYhfBillingAmount('monthly')}.
+        </div>
+
+        <p
+          data-fed-yhf-apple-renewal-copy
+          style="margin-top: 10px;"
+        >
+          This subscription automatically renews every month
+          unless canceled at least 24 hours before the end of
+          the current period. Your Apple Account may be charged
+          within 24 hours before renewal. You can manage or cancel
+          subscriptions in your Apple Account settings.
+        </p>
+
+        <p style="margin-top: 10px;">
+          <a
+            href="https://www.younghustlersuniverse.com/terms.html"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Terms of Use</a>
+          ·
+          <a
+            href="https://www.younghustlersuniverse.com/privacy.html"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Privacy Policy</a>
+          ·
+          <a
+            href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Apple Standard EULA</a>
+        </p>
+
+        <div class="fed-form-actions">
+          <button
+            type="button"
+            class="fed-btn fed-btn-secondary"
+            data-fed-yhf-apple-restore
+          >
+            Restore Purchases
+          </button>
+
+          <button
+            type="button"
+            class="fed-btn fed-btn-primary"
+            data-fed-yhf-apple-continue
+          >
+            Continue with Apple
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(
+    overlay
+  );
+
+  overlay.classList.add(
+    'is-open'
+  );
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let billingPlan = 'monthly';
+
+    const planCopy =
+      overlay.querySelector(
+        '[data-fed-yhf-apple-plan-copy]'
+      );
+
+    const renewalCopy =
+      overlay.querySelector(
+        '[data-fed-yhf-apple-renewal-copy]'
+      );
+
+    const syncSelectionUi = () => {
+      overlay
+        .querySelectorAll(
+          '[data-fed-yhf-apple-plan]'
+        )
+        .forEach((button) => {
+          const selected =
+            button.getAttribute(
+              'data-fed-yhf-apple-plan'
+            ) === billingPlan;
+
+          button.classList.toggle(
+            'fed-btn-primary',
+            selected
+          );
+
+          button.classList.toggle(
+            'fed-btn-secondary',
+            !selected
+          );
+
+          button.setAttribute(
+            'aria-pressed',
+            selected ? 'true' : 'false'
+          );
+        });
+
+      if (planCopy) {
+        if (billingPlan === 'lifetime') {
+          planCopy.textContent =
+            `Lifetime YHF access for ${formatFederationYhfBillingAmount('lifetime')}. This is a one-time App Store purchase.`;
+        } else if (billingPlan === 'one_time') {
+          planCopy.textContent =
+            `YHF access for 30 days for ${formatFederationYhfBillingAmount('one_time')}. This purchase does not automatically renew.`;
+        } else {
+          planCopy.textContent =
+            `Monthly YHF access for ${formatFederationYhfBillingAmount('monthly')}.`;
+        }
+      }
+
+      if (renewalCopy) {
+        renewalCopy.hidden =
+          billingPlan !== 'monthly';
+      }
+    };
+
+    const finish = (result = null) => {
+      if (settled) return;
+
+      settled = true;
+
+      document.removeEventListener(
+        'keydown',
+        onKeyDown,
+        true
+      );
+
+      overlay.remove();
+
+      if (returnFocus?.isConnected) {
+        window.requestAnimationFrame(
+          () => {
+            try {
+              returnFocus.focus({
+                preventScroll: true
+              });
+            } catch (_) {
+              returnFocus.focus();
+            }
+          }
+        );
+      }
+
+      resolve(result);
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      event.preventDefault();
+      finish(null);
+    };
+
+    overlay.addEventListener(
+      'click',
+      (event) => {
+        const planButton =
+          event.target.closest(
+            '[data-fed-yhf-apple-plan]'
+          );
+
+        if (planButton) {
+          billingPlan =
+            normalizeFederationYhfBillingPlan(
+              planButton.getAttribute(
+                'data-fed-yhf-apple-plan'
+              )
+            );
+
+          syncSelectionUi();
+          return;
+        }
+
+        if (
+          event.target.closest(
+            '[data-fed-yhf-apple-restore]'
+          )
+        ) {
+          finish({
+            action: 'restore',
+            billingPlan
+          });
+
+          return;
+        }
+
+        if (
+          event.target.closest(
+            '[data-fed-yhf-apple-continue]'
+          )
+        ) {
+          finish({
+            action: 'purchase',
+            billingPlan
+          });
+
+          return;
+        }
+
+        if (
+          event.target.closest(
+            '[data-fed-yhf-apple-cancel]'
+          )
+        ) {
+          finish(null);
+        }
+      }
+    );
+
+    document.addEventListener(
+      'keydown',
+      onKeyDown,
+      true
+    );
+
+    syncSelectionUi();
+
+    window.requestAnimationFrame(
+      () => {
+        overlay
+          .querySelector(
+            '[data-fed-yhf-apple-plan="monthly"]'
+          )
+          ?.focus();
+      }
+    );
+  });
+}
+
+function federationYhfPurchaseWasCancelled(
+  error = {}
+) {
+  return (
+    error?.userCancelled === true ||
+    error?.userCanceled === true ||
+    error?.userInfo?.userCancelled === true ||
+    error?.userInfo?.userCanceled === true ||
+    error?.details?.userCancelled === true ||
+    error?.details?.userCanceled === true
+  );
+}
+
+async function runFederationYhfRevenueCatFlow(
+  button = null
+) {
+  const originalText =
+    button?.textContent || '';
+
+  const setBusy = (
+    busy = false,
+    text = ''
+  ) => {
+    if (!button) return;
+
+    button.disabled = busy;
+
+    if (busy) {
+      button.setAttribute(
+        'aria-busy',
+        'true'
+      );
+
+      if (text) {
+        button.textContent = text;
+      }
+    } else {
+      button.removeAttribute(
+        'aria-busy'
+      );
+
+      button.textContent =
+        originalText;
+    }
+  };
+
+  try {
+    setBusy(
+      true,
+      'Loading App Store...'
+    );
+
+    await loadFederationYhfRevenueCatCatalog();
+
+    setBusy(false);
+
+    const selection =
+      await chooseFederationYhfAppStorePlan();
+
+    if (!selection) {
+      return null;
+    }
+
+    const revenueCat =
+      window.YHNativeRuntime?.revenueCat;
+
+    if (!revenueCat) {
+      throw new Error(
+        'Apple in-app purchases are unavailable.'
+      );
+    }
+
+    if (selection.action === 'restore') {
+      if (
+        typeof revenueCat.restorePurchases !==
+        'function'
+      ) {
+        throw new Error(
+          'Restore Purchases is unavailable.'
+        );
+      }
+
+      setBusy(
+        true,
+        'Restoring Purchases...'
+      );
+
+      await revenueCat.restorePurchases();
+    } else {
+      const revenueCatPackage =
+        getFederationYhfRevenueCatPackage(
+          selection.billingPlan
+        );
+
+      if (!revenueCatPackage) {
+        throw new Error(
+          'The selected YHF App Store product is unavailable.'
+        );
+      }
+
+      if (
+        typeof revenueCat.purchasePackage !==
+        'function'
+      ) {
+        throw new Error(
+          'Apple purchase service is unavailable.'
+        );
+      }
+
+      setBusy(
+        true,
+        'Opening Apple Purchase...'
+      );
+
+      const purchaseResult =
+        await revenueCat.purchasePackage(
+          revenueCatPackage
+        );
+
+      if (
+        purchaseResult?.userCancelled === true ||
+        purchaseResult?.userCanceled === true
+      ) {
+        return null;
+      }
+    }
+
+    setBusy(
+      true,
+      'Verifying Purchase...'
+    );
+
+    const syncResult =
+      await federationConnectFetch(
+        '/api/payments/badges/federation/revenuecat-sync',
+        {
+          method: 'POST',
+          body: JSON.stringify({})
+        }
+      );
+
+    if (
+      syncResult?.success !== true ||
+      syncResult?.badge?.active !== true
+    ) {
+      throw new Error(
+        selection.action === 'restore'
+          ? 'No active YHF App Store purchase was found to restore.'
+          : 'Apple confirmed the purchase, but YHF access could not be verified yet.'
+      );
+    }
+
+    await loadFederationServerState({
+      force: true
+    }).catch(() => null);
+
+    renderAll();
+
+    showToast(
+      selection.action === 'restore'
+        ? 'YHF App Store purchase restored successfully.'
+        : 'YHF Badge activated successfully.',
+      'success'
+    );
+
+    return syncResult;
+  } catch (error) {
+    if (
+      federationYhfPurchaseWasCancelled(
+        error
+      )
+    ) {
+      return null;
+    }
+
+    console.error(
+      'YHF RevenueCat purchase error:',
+      error
+    );
+
+    showToast(
+      error?.message ||
+        'Failed to complete YHF App Store purchase.',
+      'error'
+    );
+
+    throw error;
+  } finally {
+    setBusy(false);
+  }
+}
+
 function chooseFederationVerifiedBadgeProvider() {
   const existing =
     document.getElementById(
@@ -691,6 +1465,12 @@ async function createFederationVerifiedBadgeLedger(
   button = null,
   options = {}
 ) {
+  if (federationIsRevenueCatIosApp()) {
+    return runFederationYhfRevenueCatFlow(
+      button
+    );
+  }
+
   const selectedProvider =
     options.provider ||
     await chooseFederationVerifiedBadgeProvider();

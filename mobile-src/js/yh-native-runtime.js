@@ -1193,6 +1193,236 @@ body[data-yh-page="apply"] #yh-world-map canvas {
         return yhNativeSplashHidePromise;
     }
 
+
+    /* ===================================================== */
+    /* REVENUECAT / APPLE IAP BRIDGE                        */
+    /* ===================================================== */
+
+    const YH_REVENUECAT_IOS_API_KEY =
+        'appl_VJasMTbfQHoEvoPdOEmHVydkvmT';
+
+    let yhRevenueCatPurchasesPlugin =
+        null;
+
+    let yhRevenueCatConfigurePromise =
+        null;
+
+    function isRevenueCatIosAvailable() {
+        return (
+            isNativeApp() &&
+            getCapacitorPlatform() === 'ios'
+        );
+    }
+
+    function getRevenueCatAppUserId() {
+        try {
+            return String(
+                localStorage.getItem('yh_user_id') ||
+                localStorage.getItem('yh_user_uid') ||
+                sessionStorage.getItem('yh_user_id') ||
+                sessionStorage.getItem('yh_user_uid') ||
+                ''
+            ).trim();
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function getRevenueCatPurchasesPlugin() {
+        if (!isRevenueCatIosAvailable()) {
+            return null;
+        }
+
+        if (yhRevenueCatPurchasesPlugin) {
+            return yhRevenueCatPurchasesPlugin;
+        }
+
+        try {
+            const capacitor =
+                window.Capacitor;
+
+            if (!capacitor) {
+                return null;
+            }
+
+            const existingPlugin =
+                capacitor.Plugins
+                    ?.Purchases;
+
+            if (
+                existingPlugin &&
+                typeof existingPlugin.configure ===
+                    'function'
+            ) {
+                yhRevenueCatPurchasesPlugin =
+                    existingPlugin;
+
+                return yhRevenueCatPurchasesPlugin;
+            }
+
+            if (
+                typeof capacitor.registerPlugin ===
+                    'function'
+            ) {
+                yhRevenueCatPurchasesPlugin =
+                    capacitor.registerPlugin(
+                        'Purchases'
+                    );
+
+                return yhRevenueCatPurchasesPlugin;
+            }
+        } catch (_) {}
+
+        return null;
+    }
+
+    async function ensureRevenueCatConfigured(
+        appUserId = ''
+    ) {
+        if (!isRevenueCatIosAvailable()) {
+            throw new Error(
+                'Apple in-app purchases are only available in the YHU iOS app.'
+            );
+        }
+
+        const purchases =
+            getRevenueCatPurchasesPlugin();
+
+        if (
+            !purchases ||
+            typeof purchases.configure !==
+                'function'
+        ) {
+            throw new Error(
+                'RevenueCat Purchases plugin is unavailable.'
+            );
+        }
+
+        const cleanAppUserId =
+            String(
+                appUserId ||
+                getRevenueCatAppUserId() ||
+                ''
+            ).trim();
+
+        if (!cleanAppUserId) {
+            throw new Error(
+                'Your YHU account ID is not available yet. Please sign in again and retry.'
+            );
+        }
+
+        if (!yhRevenueCatConfigurePromise) {
+            yhRevenueCatConfigurePromise =
+                (async () => {
+                    let alreadyConfigured =
+                        false;
+
+                    if (
+                        typeof purchases.isConfigured ===
+                            'function'
+                    ) {
+                        try {
+                            const status =
+                                await purchases.isConfigured();
+
+                            alreadyConfigured =
+                                status?.isConfigured ===
+                                true;
+                        } catch (_) {}
+                    }
+
+                    if (!alreadyConfigured) {
+                        await purchases.configure({
+                            apiKey:
+                                YH_REVENUECAT_IOS_API_KEY,
+
+                            appUserID:
+                                cleanAppUserId
+                        });
+                    }
+
+                    return true;
+                })()
+                    .catch((error) => {
+                        yhRevenueCatConfigurePromise =
+                            null;
+
+                        throw error;
+                    });
+        }
+
+        await yhRevenueCatConfigurePromise;
+
+        if (
+            typeof purchases.getAppUserID ===
+                'function' &&
+            typeof purchases.logIn ===
+                'function'
+        ) {
+            try {
+                const current =
+                    await purchases.getAppUserID();
+
+                const currentAppUserId =
+                    String(
+                        current?.appUserID ||
+                        ''
+                    ).trim();
+
+                if (
+                    currentAppUserId &&
+                    currentAppUserId !==
+                        cleanAppUserId
+                ) {
+                    await purchases.logIn({
+                        appUserID:
+                            cleanAppUserId
+                    });
+                }
+            } catch (_) {}
+        }
+
+        return purchases;
+    }
+
+    async function getRevenueCatOfferings() {
+        const purchases =
+            await ensureRevenueCatConfigured();
+
+        return purchases.getOfferings();
+    }
+
+    async function purchaseRevenueCatPackage(
+        aPackage
+    ) {
+        if (!aPackage) {
+            throw new Error(
+                'RevenueCat purchase package is missing.'
+            );
+        }
+
+        const purchases =
+            await ensureRevenueCatConfigured();
+
+        return purchases.purchasePackage({
+            aPackage
+        });
+    }
+
+    async function restoreRevenueCatPurchases() {
+        const purchases =
+            await ensureRevenueCatConfigured();
+
+        return purchases.restorePurchases();
+    }
+
+    async function getRevenueCatCustomerInfo() {
+        const purchases =
+            await ensureRevenueCatConfigured();
+
+        return purchases.getCustomerInfo();
+    }
+
     const api = {
         productionOrigin:
             YH_PRODUCTION_ORIGIN,
@@ -1213,6 +1443,29 @@ body[data-yh-page="apply"] #yh-world-map canvas {
         rewriteNativeSrcset,
 
         rewriteNativeMediaTree,
+
+        revenueCat: {
+            isAvailable:
+                isRevenueCatIosAvailable,
+
+            getAppUserId:
+                getRevenueCatAppUserId,
+
+            configure:
+                ensureRevenueCatConfigured,
+
+            getOfferings:
+                getRevenueCatOfferings,
+
+            purchasePackage:
+                purchaseRevenueCatPackage,
+
+            restorePurchases:
+                restoreRevenueCatPurchases,
+
+            getCustomerInfo:
+                getRevenueCatCustomerInfo
+        },
 
         hideNativeSplashScreen
     };

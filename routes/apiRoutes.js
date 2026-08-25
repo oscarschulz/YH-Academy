@@ -391,6 +391,7 @@ router.post('/payments/academy/learn-from-access/unsubscribe', auth, paymentCont
 router.post('/payments/academy/learn-from-access/stripe-checkout-session', auth, paymentControllers.createAcademyLearnFromStripeCheckoutSession);
 router.post('/payments/academy/learn-from-access/oxapay-invoice', auth, paymentControllers.createAcademyLearnFromOxaPayInvoice);
 router.post('/payments/badges/:division/ledger', auth, paymentControllers.createVerifiedBadgePaymentLedger);
+router.post('/payments/badges/:division/revenuecat-sync', auth, paymentControllers.syncVerifiedBadgeRevenueCat);
 router.post('/payments/badges/:division/checkout-session', auth, paymentControllers.createVerifiedBadgeStripeCheckoutSession);
 router.post('/payments/badges/:division/oxapay-invoice', auth, paymentControllers.createVerifiedBadgeOxaPayInvoice);
 router.post('/payments/badges/:division/unsubscribe', auth, paymentControllers.unsubscribeVerifiedBadge);

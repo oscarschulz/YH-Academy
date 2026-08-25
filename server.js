@@ -470,7 +470,13 @@ function getYHBadgeExpiresAt(billingPlan = 'monthly') {
     if (cleanBillingPlan === 'lifetime') return '';
 
     const expiresAt = new Date();
-    expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+    if (cleanBillingPlan === 'one_time') {
+        expiresAt.setUTCDate(expiresAt.getUTCDate() + 30);
+        return expiresAt.toISOString();
+    }
+
+    expiresAt.setUTCMonth(expiresAt.getUTCMonth() + 1);
     return expiresAt.toISOString();
 }
 
@@ -573,7 +579,7 @@ function buildActiveYHVerifiedBadgePayload(plan = {}, payment = {}, context = {}
     const amount = getYHBadgeBillingAmount(plan, billingPlan);
     const explicitExpiresAt = sanitizeText(context.expiresAt || '');
     const expiresAt =
-        billingPlan === 'monthly' && explicitExpiresAt
+        billingPlan !== 'lifetime' && explicitExpiresAt
             ? explicitExpiresAt
             : getYHBadgeExpiresAt(billingPlan);
 

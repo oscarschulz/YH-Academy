@@ -281,7 +281,13 @@ function getVerifiedBadgeAccessExpiresAt(billingPlan = 'monthly') {
     if (cleanBillingPlan === 'lifetime') return '';
 
     const expiresAt = new Date();
-    expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+    if (cleanBillingPlan === 'one_time') {
+        expiresAt.setUTCDate(expiresAt.getUTCDate() + 30);
+        return expiresAt.toISOString();
+    }
+
+    expiresAt.setUTCMonth(expiresAt.getUTCMonth() + 1);
     return expiresAt.toISOString();
 }
 
@@ -450,6 +456,20 @@ function isAcademyVerifiedBadgeObjectActiveForLearnFrom(badge = {}) {
 
     if (cancelled) return false;
 
+    const inactive =
+        status === 'inactive' ||
+        status === 'expired' ||
+        status === 'refunded' ||
+        subscriptionStatus === 'inactive' ||
+        subscriptionStatus === 'expired' ||
+        subscriptionStatus === 'refunded';
+
+    if (inactive) return false;
+
+    if (isVerifiedBadgeExpired(badge)) {
+        return false;
+    }
+
     return (
         badge.active === true ||
         status === 'active' ||
@@ -507,6 +527,15 @@ function getAcademyVerifiedBadgePaymentForLearnFrom(payments = []) {
         const status = cleanLower(payment.status || payment.paymentStatus || '');
         const providerStatus = cleanLower(payment.providerStatus || '');
         const provider = cleanLower(payment.provider || metadata.provider || '');
+
+        /*
+         * Apple access is authoritative through RevenueCat.
+         * A historical paid App Store transaction must not
+         * independently unlock access after entitlement loss.
+         */
+        if (provider === 'apple') {
+            return false;
+        }
 
         const isAcademyYhaBadge =
             sourceFeature === 'verified_badge' &&
@@ -1288,6 +1317,797 @@ async function createOrRefreshVerifiedBadgePayment(viewer = {}, plan = {}, optio
         billingPlan,
         amount
     };
+}
+
+
+const REVENUECAT_VERIFIED_BADGE_CONFIG = Object.freeze({
+    academy: {
+        entitlementId: 'yha_access',
+        products: {
+            'com.younghustlersuniverse.yha.monthly': 'monthly',
+            'com.younghustlersuniverse.yha.30day': 'one_time',
+            'com.younghustlersuniverse.yha.lifetime': 'lifetime'
+        }
+    },
+    federation: {
+        entitlementId: 'yhf_access',
+        products: {
+            'com.younghustlersuniverse.yhf.monthly': 'monthly',
+            'com.younghustlersuniverse.yhf.30day': 'one_time',
+            'com.younghustlersuniverse.yhf.lifetime': 'lifetime'
+        }
+    }
+});
+
+function getRevenueCatVerifiedBadgeConfig(division = '') {
+    const cleanDivision = normalizeVerifiedBadgeDivision(division);
+    return cleanDivision
+        ? REVENUECAT_VERIFIED_BADGE_CONFIG[cleanDivision] || null
+        : null;
+}
+
+function getRevenueCatEntitlementExpiry(
+    entitlement = {},
+    subscription = {}
+) {
+    /*
+     * RevenueCat may expose grace-period state on the
+     * matching subscription object. Use the latest valid
+     * entitlement/subscription expiry so access remains
+     * active through an App Store billing grace period.
+     */
+    const candidates = [
+        cleanText(entitlement.grace_period_expires_date || ''),
+        cleanText(subscription.grace_period_expires_date || ''),
+        cleanText(entitlement.expires_date || ''),
+        cleanText(subscription.expires_date || '')
+    ]
+        .filter(Boolean)
+        .map((value) => ({
+            value,
+            ms: Date.parse(value)
+        }))
+        .filter((item) => Number.isFinite(item.ms))
+        .sort((a, b) => b.ms - a.ms);
+
+    return candidates[0]?.value || '';
+}
+
+function isRevenueCatEntitlementActive(
+    entitlement = {},
+    revenueCatConfig = {},
+    subscriber = {}
+) {
+    const productIdentifier =
+        cleanText(entitlement.product_identifier || '');
+
+    if (!productIdentifier) {
+        return false;
+    }
+
+    const billingPlan =
+        revenueCatConfig?.products?.[
+            productIdentifier
+        ] ||
+        '';
+
+    if (!billingPlan) {
+        return false;
+    }
+
+    const subscription =
+        subscriber?.subscriptions?.[
+            productIdentifier
+        ] &&
+        typeof subscriber.subscriptions[
+            productIdentifier
+        ] === 'object'
+            ? subscriber.subscriptions[
+                productIdentifier
+            ]
+            : {};
+
+    /*
+     * A refunded subscription must not continue granting
+     * access even if stale expiry information is present.
+     * Cancellation alone does NOT deactivate access early;
+     * the customer keeps access until expiry.
+     */
+    if (
+        cleanText(
+            subscription.refunded_at || ''
+        )
+    ) {
+        return false;
+    }
+
+    const expiresAt =
+        getRevenueCatEntitlementExpiry(
+            entitlement,
+            subscription
+        );
+
+    /*
+     * Only the explicitly configured lifetime product
+     * may remain active without an expiration date.
+     */
+    if (!expiresAt) {
+        return billingPlan === 'lifetime';
+    }
+
+    const expiresMs =
+        Date.parse(expiresAt);
+
+    return (
+        Number.isFinite(expiresMs) &&
+        expiresMs > Date.now()
+    );
+}
+
+function getRevenueCatPurchaseDetails(
+    subscriber = {},
+    productIdentifier = ''
+) {
+    const cleanProductIdentifier =
+        cleanText(productIdentifier);
+
+    const subscription =
+        subscriber?.subscriptions?.[cleanProductIdentifier] &&
+        typeof subscriber.subscriptions[cleanProductIdentifier] === 'object'
+            ? subscriber.subscriptions[cleanProductIdentifier]
+            : null;
+
+    const nonSubscriptions =
+        Array.isArray(
+            subscriber?.non_subscriptions?.[cleanProductIdentifier]
+        )
+            ? subscriber.non_subscriptions[cleanProductIdentifier]
+            : [];
+
+    const latestNonSubscription =
+        nonSubscriptions
+            .slice()
+            .sort((a, b) => {
+                const aMs =
+                    Date.parse(
+                        cleanText(a?.purchase_date || '')
+                    ) || 0;
+
+                const bMs =
+                    Date.parse(
+                        cleanText(b?.purchase_date || '')
+                    ) || 0;
+
+                return bMs - aMs;
+            })[0] ||
+        null;
+
+    const purchase =
+        subscription ||
+        latestNonSubscription ||
+        {};
+
+    return {
+        providerPaymentId: cleanText(
+            purchase.store_transaction_id ||
+            purchase.id ||
+            ''
+        ),
+        purchaseDate: cleanText(
+            purchase.purchase_date ||
+            purchase.original_purchase_date ||
+            ''
+        ),
+        store: cleanLower(
+            purchase.store ||
+            'app_store'
+        ),
+        isSandbox:
+            purchase.is_sandbox === true,
+        ownershipType: cleanText(
+            purchase.ownership_type ||
+            ''
+        ),
+        periodType: cleanText(
+            purchase.period_type ||
+            ''
+        ),
+        expiresAt: cleanText(
+            purchase.expires_date ||
+            ''
+        ),
+        gracePeriodExpiresAt: cleanText(
+            purchase.grace_period_expires_date ||
+            ''
+        ),
+        billingIssueDetectedAt: cleanText(
+            purchase.billing_issues_detected_at ||
+            ''
+        ),
+        unsubscribeDetectedAt: cleanText(
+            purchase.unsubscribe_detected_at ||
+            ''
+        ),
+        refundedAt: cleanText(
+            purchase.refunded_at ||
+            ''
+        )
+    };
+}
+
+async function fetchRevenueCatSubscriber(appUserId = '') {
+    const cleanAppUserId =
+        cleanText(appUserId);
+
+    const secretKey =
+        cleanText(
+            process.env.REVENUECAT_SECRET_API_KEY
+        );
+
+    if (!secretKey) {
+        const error =
+            new Error(
+                'RevenueCat backend verification is not configured.'
+            );
+
+        error.statusCode = 503;
+        throw error;
+    }
+
+    if (!cleanAppUserId) {
+        const error =
+            new Error(
+                'RevenueCat App User ID is required.'
+            );
+
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const response =
+        await fetch(
+            `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(cleanAppUserId)}`,
+            {
+                method: 'GET',
+                headers: {
+                    Authorization:
+                        `Bearer ${secretKey}`,
+                    Accept:
+                        'application/json'
+                }
+            }
+        );
+
+    const data =
+        await response
+            .json()
+            .catch(() => ({}));
+
+    if (!response.ok) {
+        const error =
+            new Error(
+                cleanText(
+                    data?.message ||
+                    'RevenueCat verification request failed.'
+                )
+            );
+
+        error.statusCode = 502;
+        throw error;
+    }
+
+    return data;
+}
+
+async function syncVerifiedBadgeRevenueCat(req, res) {
+    try {
+        const viewer =
+            getViewer(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const plan =
+            getVerifiedBadgePlan(
+                req.params.division ||
+                req.body?.division
+            );
+
+        if (!plan) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Invalid badge division. Use academy or federation.'
+            });
+        }
+
+        const revenueCatConfig =
+            getRevenueCatVerifiedBadgeConfig(
+                plan.division
+            );
+
+        if (!revenueCatConfig) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'RevenueCat badge configuration is unavailable.'
+            });
+        }
+
+        /*
+         * SECURITY:
+         * Never trust a client-supplied RevenueCat user ID.
+         * The authenticated YHU user ID is the RevenueCat App User ID.
+         */
+        const revenueCatData =
+            await fetchRevenueCatSubscriber(
+                viewer.id
+            );
+
+        const subscriber =
+            revenueCatData?.subscriber &&
+            typeof revenueCatData.subscriber === 'object'
+                ? revenueCatData.subscriber
+                : {};
+
+        const entitlement =
+            subscriber?.entitlements?.[
+                revenueCatConfig.entitlementId
+            ] &&
+            typeof subscriber.entitlements[
+                revenueCatConfig.entitlementId
+            ] === 'object'
+                ? subscriber.entitlements[
+                    revenueCatConfig.entitlementId
+                ]
+                : null;
+
+        if (
+            !entitlement ||
+            !isRevenueCatEntitlementActive(
+                entitlement,
+                revenueCatConfig,
+                subscriber
+            )
+        ) {
+            const userRef =
+                firestore
+                    .collection('users')
+                    .doc(viewer.id);
+
+            const userSnap =
+                await userRef.get();
+
+            if (!userSnap.exists) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User account not found.'
+                });
+            }
+
+            const userData =
+                userSnap.data() || {};
+
+            const badges =
+                userData.verificationBadges &&
+                typeof userData.verificationBadges === 'object'
+                    ? userData.verificationBadges
+                    : {};
+
+            const currentBadge =
+                badges[plan.division] &&
+                typeof badges[plan.division] === 'object'
+                    ? badges[plan.division]
+                    : {};
+
+            const currentProvider =
+                cleanLower(
+                    currentBadge.provider ||
+                    currentBadge.paymentProvider ||
+                    ''
+                );
+
+            let badge =
+                currentBadge;
+
+            /*
+             * Do not deactivate Stripe/OxaPay/manual access merely
+             * because there is no matching App Store entitlement.
+             */
+            if (
+                currentProvider === 'apple' ||
+                cleanLower(currentBadge.verifiedBy || '')
+                    .startsWith('revenuecat')
+            ) {
+                const nowIso =
+                    new Date().toISOString();
+
+                const revenueCatExpiresAt =
+                    entitlement
+                        ? getRevenueCatEntitlementExpiry(
+                            entitlement
+                        )
+                        : '';
+
+                badge = {
+                    ...currentBadge,
+                    active: false,
+                    status: 'inactive',
+                    subscriptionStatus: 'inactive',
+                    division: plan.division,
+                    code: plan.code,
+                    provider: 'apple',
+                    providerStatus:
+                        'revenuecat_entitlement_inactive',
+                    expiresAt:
+                        revenueCatExpiresAt ||
+                        cleanText(
+                            currentBadge.expiresAt ||
+                            ''
+                        ),
+                    deactivatedAt: nowIso,
+                    updatedAt: nowIso,
+                    verifiedBy: 'revenuecat-v1'
+                };
+
+                await userRef.set({
+                    verificationBadges: {
+                        [plan.division]:
+                            badge
+                    },
+                    updatedAt:
+                        nowIso
+                }, { merge: true });
+
+                await syncVerifiedBadgeStatusToSupabase({
+                    userId:
+                        viewer.id,
+                    userData,
+                    viewer,
+                    division:
+                        plan.division,
+                    badge
+                });
+            }
+
+            return res.status(409).json({
+                success: false,
+                code: 'revenuecat_entitlement_inactive',
+                message:
+                    `${plan.code} App Store entitlement is not active.`,
+                badge
+            });
+        }
+
+        const productIdentifier =
+            cleanText(
+                entitlement.product_identifier
+            );
+
+        const billingPlan =
+            revenueCatConfig.products[
+                productIdentifier
+            ];
+
+        if (!billingPlan) {
+            return res.status(409).json({
+                success: false,
+                code: 'revenuecat_product_unrecognized',
+                message:
+                    `RevenueCat returned an unrecognized ${plan.code} product.`
+            });
+        }
+
+        const billingMeta =
+            buildVerifiedBadgeBillingMetadata(
+                plan,
+                billingPlan
+            );
+
+        const amount =
+            getVerifiedBadgeBillingAmount(
+                plan,
+                billingPlan
+            );
+
+        const purchase =
+            getRevenueCatPurchaseDetails(
+                subscriber,
+                productIdentifier
+            );
+
+        const entitlementExpiresAt =
+            billingPlan === 'lifetime'
+                ? ''
+                : (
+                    getRevenueCatEntitlementExpiry(
+                        entitlement,
+                        subscriber?.subscriptions?.[
+                            productIdentifier
+                        ] || {}
+                    ) ||
+                    getVerifiedBadgeAccessExpiresAt(
+                        billingPlan
+                    )
+                );
+
+        const nowIso =
+            new Date().toISOString();
+
+        const userRef =
+            firestore
+                .collection('users')
+                .doc(viewer.id);
+
+        const userSnap =
+            await userRef.get();
+
+        if (!userSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'User account not found.'
+            });
+        }
+
+        const userData =
+            userSnap.data() || {};
+
+        const recordId =
+            getVerifiedBadgePaymentRecordId(
+                viewer.id,
+                plan.division
+            );
+
+        const payment =
+            await paymentLedgerRepo
+                .upsertPaymentRecord({
+                    id: recordId,
+                    sourceDivision:
+                        plan.division,
+                    sourceFeature:
+                        plan.sourceFeature,
+                    sourceRecordId:
+                        `${viewer.id}_${plan.division}`,
+
+                    payerUid:
+                        viewer.id,
+                    payerEmail:
+                        viewer.email,
+                    payerName:
+                        viewer.name,
+
+                    provider:
+                        'apple',
+                    providerOptions: [
+                        'apple',
+                        'stripe',
+                        'oxapay',
+                        'manual'
+                    ],
+                    providerPaymentId:
+                        purchase.providerPaymentId,
+                    providerCheckoutUrl:
+                        '',
+                    providerStatus:
+                        'revenuecat_entitlement_active',
+
+                    status:
+                        'paid',
+                    paymentMethod:
+                        'apple_iap',
+
+                    amount,
+                    currency:
+                        plan.currency,
+
+                    platformCommissionAmount:
+                        amount,
+                    operatorPayoutAmount:
+                        0,
+
+                    metadata: {
+                        badgeDivision:
+                            plan.division,
+                        badgeCode:
+                            plan.code,
+                        badgeAsset:
+                            plan.asset,
+                        badgePublicName:
+                            billingPlan === 'lifetime'
+                                ? (
+                                    plan.lifetimePublicName ||
+                                    plan.publicName
+                                )
+                                : plan.publicName,
+
+                        userId:
+                            viewer.id,
+                        userEmail:
+                            viewer.email,
+                        userName:
+                            viewer.name,
+
+                        provider:
+                            'apple',
+                        revenueCatAppUserId:
+                            viewer.id,
+                        revenueCatEntitlementId:
+                            revenueCatConfig.entitlementId,
+                        revenueCatProductIdentifier:
+                            productIdentifier,
+                        revenueCatPurchaseDate:
+                            cleanText(
+                                entitlement.purchase_date ||
+                                purchase.purchaseDate
+                            ),
+                        revenueCatExpiresAt:
+                            entitlementExpiresAt,
+                        revenueCatStore:
+                            purchase.store,
+                        revenueCatIsSandbox:
+                            purchase.isSandbox,
+                        revenueCatOwnershipType:
+                            purchase.ownershipType,
+                        revenueCatPeriodType:
+                            purchase.periodType,
+                        revenueCatGracePeriodExpiresAt:
+                            purchase.gracePeriodExpiresAt,
+                        revenueCatBillingIssueDetectedAt:
+                            purchase.billingIssueDetectedAt,
+                        revenueCatUnsubscribeDetectedAt:
+                            purchase.unsubscribeDetectedAt,
+                        revenueCatRefundedAt:
+                            purchase.refundedAt,
+
+                        ...billingMeta
+                    }
+                });
+
+        const badge = {
+            active: true,
+            status: 'active',
+            code: plan.code,
+            division: plan.division,
+
+            amountMonthly:
+                toNumber(
+                    plan.amountMonthly,
+                    0
+                ),
+            amount,
+            currency:
+                cleanText(
+                    plan.currency ||
+                    'USD'
+                ).toUpperCase() ||
+                'USD',
+
+            interval:
+                getVerifiedBadgeBillingInterval(
+                    billingPlan
+                ),
+            billingPlan,
+            billingLabel:
+                getVerifiedBadgeBillingLabel(
+                    billingPlan
+                ),
+            lifetimeAccess:
+                billingPlan === 'lifetime',
+
+            asset:
+                cleanText(plan.asset),
+
+            paymentLedgerId:
+                payment.id,
+            paymentStatus:
+                'paid',
+
+            provider:
+                'apple',
+            providerStatus:
+                'revenuecat_entitlement_active',
+            paymentMethod:
+                'apple_iap',
+            providerPaymentId:
+                purchase.providerPaymentId,
+            providerSubscriptionId:
+                billingPlan === 'monthly'
+                    ? purchase.providerPaymentId
+                    : '',
+
+            subscriptionStatus:
+                billingPlan === 'monthly'
+                    ? 'active'
+                    : '',
+
+            activatedAt:
+                cleanText(
+                    entitlement.purchase_date ||
+                    purchase.purchaseDate ||
+                    nowIso
+                ),
+            approvedAt:
+                nowIso,
+            expiresAt:
+                entitlementExpiresAt,
+
+            verifiedBy:
+                'revenuecat-v1',
+            updatedAt:
+                nowIso,
+
+            ...(plan.division === 'academy'
+                ? {
+                    unlocksLearnFrom: true,
+                    learnFromAccess: true,
+                    learnFromAccessCopy:
+                        'Access to Learn From Big Figures and the Greatest Philosophers is unlocked inside the Academy AI Coach.'
+                }
+                : {})
+        };
+
+        await userRef.set({
+            verificationBadges: {
+                [plan.division]:
+                    badge
+            },
+            updatedAt:
+                nowIso
+        }, { merge: true });
+
+        await syncVerifiedBadgeStatusToSupabase({
+            userId:
+                viewer.id,
+            userData,
+            viewer,
+            division:
+                plan.division,
+            badge
+        });
+
+        return res.json({
+            success: true,
+            provider: 'apple',
+            providerLabel: 'Apple App Store',
+            verifiedBy: 'revenuecat',
+            division:
+                plan.division,
+            entitlementId:
+                revenueCatConfig.entitlementId,
+            productIdentifier,
+            billingPlan,
+            billingLabel:
+                getVerifiedBadgeBillingLabel(
+                    billingPlan
+                ),
+            expiresAt:
+                entitlementExpiresAt,
+            badge,
+            paymentLedgerId:
+                payment.id
+        });
+    } catch (error) {
+        console.error(
+            'RevenueCat verified badge sync error:',
+            error?.message || error
+        );
+
+        return res
+            .status(
+                error.statusCode ||
+                500
+            )
+            .json({
+                success: false,
+                message:
+                    error?.message ||
+                    'Failed to verify App Store purchase.'
+            });
+    }
 }
 
 async function createVerifiedBadgeStripeCheckoutSession(req, res) {
@@ -3313,6 +4133,7 @@ module.exports = {
     createAcademyLearnFromStripeCheckoutSession,
     createAcademyLearnFromOxaPayInvoice,
     createVerifiedBadgePaymentLedger,
+    syncVerifiedBadgeRevenueCat,
     createVerifiedBadgeStripeCheckoutSession,
     createVerifiedBadgeOxaPayInvoice,
     unsubscribeVerifiedBadge,

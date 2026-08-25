@@ -63,6 +63,13 @@ function normalizePaymentProvider(value = 'unselected') {
     if (raw === 'stripe') return 'stripe';
     if (raw === 'oxapay') return 'oxapay';
     if (raw === 'manual') return 'manual';
+    if (
+        raw === 'apple' ||
+        raw === 'apple_iap' ||
+        raw === 'app_store'
+    ) {
+        return 'apple';
+    }
 
     return 'unselected';
 }
