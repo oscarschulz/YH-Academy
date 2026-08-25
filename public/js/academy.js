@@ -42762,6 +42762,11 @@ function closeAcademyYhaBadgePaymentModal() {
             providerSection.hidden =
                 isRevenueCatIos;
 
+            providerSection.style.display =
+                isRevenueCatIos
+                    ? 'none'
+                    : '';
+
             providerSection.setAttribute(
                 'aria-hidden',
                 isRevenueCatIos
@@ -42773,6 +42778,11 @@ function closeAcademyYhaBadgePaymentModal() {
         if (appleLegalSection) {
             appleLegalSection.hidden =
                 !isRevenueCatIos;
+
+            appleLegalSection.style.display =
+                isRevenueCatIos
+                    ? ''
+                    : 'none';
 
             appleLegalSection.setAttribute(
                 'aria-hidden',
@@ -43110,9 +43120,54 @@ function openAcademyYhaBadgePaymentModalFromLearnFrom() {
                     );
                 }
 
-                await runtime.revenueCat.purchasePackage(
-                    revenueCatPackage
-                );
+                const paymentModal =
+                    document.getElementById(
+                        'academy-yha-badge-payment-method-modal'
+                    );
+
+                if (
+                    confirmButton &&
+                    typeof confirmButton.blur === 'function'
+                ) {
+                    confirmButton.blur();
+                }
+
+                if (paymentModal) {
+                    paymentModal.setAttribute(
+                        'data-apple-purchase-suspended',
+                        'true'
+                    );
+
+                    paymentModal.style.setProperty(
+                        'visibility',
+                        'hidden'
+                    );
+
+                    paymentModal.style.setProperty(
+                        'pointer-events',
+                        'none'
+                    );
+                }
+
+                try {
+                    await runtime.revenueCat.purchasePackage(
+                        revenueCatPackage
+                    );
+                } finally {
+                    if (paymentModal) {
+                        paymentModal.style.removeProperty(
+                            'visibility'
+                        );
+
+                        paymentModal.style.removeProperty(
+                            'pointer-events'
+                        );
+
+                        paymentModal.removeAttribute(
+                            'data-apple-purchase-suspended'
+                        );
+                    }
+                }
 
                 /*
                  * Never unlock from client purchase data alone.
