@@ -43,6 +43,31 @@ workflows:
         script: |
           npx cap sync ios
 
+      - name: Make iOS build iPhone only
+        script: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("ios/App/App.xcodeproj/project.pbxproj")
+          text = path.read_text()
+
+          text, count = re.subn(
+              r'TARGETED_DEVICE_FAMILY\s*=\s*[^;]+;',
+              'TARGETED_DEVICE_FAMILY = 1;',
+              text
+          )
+
+          if count == 0:
+              raise SystemExit("ERROR: TARGETED_DEVICE_FAMILY was not found")
+
+          path.write_text(text)
+
+          print(f"Updated {count} TARGETED_DEVICE_FAMILY setting(s) to iPhone only.")
+          PY
+
+          grep "TARGETED_DEVICE_FAMILY" ios/App/App.xcodeproj/project.pbxproj
+
       - name: Apply YHU code signing
         script: |
           xcode-project use-profiles \
