@@ -19131,7 +19131,7 @@ const dashboardUnifiedWorkspaceLaunchMap = {
         kicker: 'Business Chats',
         copy: 'Open the real Business Chats page inside the Dashboard command layer.',
         routeLabel: '/business-chats.html',
-        url: '/business-chats.html?v=20260817-phase2b-ui-fixes-v1',
+        url: '/business-chats.html?v=20260827-business-chats-mobile-v1',
         resourceType: 'business-chats',
         buttonText: 'Open Business Chats →',
         loadingLabel: 'Opening Business Chats...'
@@ -25249,28 +25249,38 @@ body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-main-grid
     min-height: 0;
 
     margin: 0;
-    padding-bottom: 0;
+
+    padding-bottom:
+        calc(
+            18px +
+            env(
+                safe-area-inset-bottom,
+                0px
+            )
+        );
 
     overflow: visible;
 }
 
 body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="overview"] .bc-start-panel,
 body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="overview"] .bc-start-panel {
-    min-height:
-        calc(
-            100dvh + 84px
-        );
+    width: 100%;
+    min-width: 0;
 
+    min-height: 0;
     height: auto;
 
-    display: flex;
-    flex-direction: column;
+    display: block;
 }
 
 body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="overview"] .bc-member-results,
 body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="overview"] .bc-member-results {
-    flex: 1 0 auto;
+    min-height: 0;
+    max-height: none;
+
     align-content: start;
+
+    overflow: visible;
 }
 
     body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-conversation-shell,

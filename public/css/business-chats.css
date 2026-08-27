@@ -769,85 +769,418 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
   }
 }
 
+/* ========================================================= */
+/* BUSINESS CHATS — MOBILE REBUILD v1                        */
+/* One clear vertical document flow.                         */
+/* Dashboard iframe owns viewport; this page owns scrolling. */
+/* ========================================================= */
+
 @media (max-width: 720px) {
-  .bc-shell {
-    width: min(100vw - 16px, 1480px);
-    padding-top: 10px;
+
+  html,
+  body[data-yh-view="business-chats"],
+  body[data-yh-page="business-chats"] {
+    width: 100%;
+    min-width: 0;
+
+    min-height: 100%;
+
+    overflow-x: hidden;
   }
 
-  .bc-view-tabs {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  /* ------------------------------------------------------- */
+  /* PAGE SHELL                                              */
+  /* ------------------------------------------------------- */
+
+  .bc-shell {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+
+    margin: 0;
+
+    padding:
+      8px
+      8px
+      calc(
+        20px +
+        env(safe-area-inset-bottom, 0px)
+      );
+
+    overflow: visible;
   }
+
+
+  /* ------------------------------------------------------- */
+  /* TOP SECTION / MOBILE TABS                               */
+  /* ------------------------------------------------------- */
+
+  .bc-topnav {
+    position: sticky;
+
+    top: 0;
+    z-index: 40;
+
+    width: 100%;
+    min-width: 0;
+
+    min-height: 0;
+
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr);
+
+    justify-items: stretch;
+    align-items: stretch;
+
+    gap: 8px;
+
+    margin: 0 0 10px;
+    padding: 6px;
+  }
+
+
+  .bc-brand {
+    width: 100%;
+    min-width: 0;
+
+    justify-content: flex-start;
+
+    gap: 10px;
+  }
+
+
+  .bc-brand img {
+    width: 36px;
+    height: 36px;
+
+    flex: 0 0 36px;
+  }
+
+
+  .bc-brand > div {
+    min-width: 0;
+  }
+
+
+  .bc-brand strong,
+  .bc-brand span {
+    max-width: 100%;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+
+  .bc-actions {
+    width: 100%;
+
+    display: grid;
+
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 6px;
+
+    order: 3;
+  }
+
+
+  .bc-view-tabs {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+
+    display: grid;
+
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+
+    gap: 6px;
+
+    margin: 0;
+    padding: 6px;
+
+    order: 2;
+  }
+
 
   .bc-view-tab {
     width: 100%;
-    padding-inline: 8px;
+    min-width: 0;
+
+    min-height: 44px;
+
+    padding: 7px 5px;
+
+    font-size: 0.74rem;
+    line-height: 1.15;
+
+    white-space: normal;
+    overflow-wrap: anywhere;
+
+    text-align: center;
   }
 
-  .bc-topnav,
-  .bc-thread-head,
-  .bc-member-card,
-  .bc-block-card {
-    align-items: stretch;
+
+  /* ------------------------------------------------------- */
+  /* OVERVIEW                                                */
+  /* ------------------------------------------------------- */
+
+  .bc-hero {
+    width: 100%;
+    min-width: 0;
+
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr);
+
+    gap: 10px;
+
+    margin: 0 0 12px;
+  }
+
+
+  .bc-hero-card {
+    width: 100%;
+    min-width: 0;
+
+    padding: 16px;
+  }
+
+
+  .bc-hero-card h1 {
+    margin: 5px 0 8px;
+
+    font-size: clamp(
+      1.7rem,
+      8vw,
+      2.5rem
+    );
+
+    line-height: 1;
+  }
+
+
+  .bc-hero-card p {
+    width: 100%;
+    max-width: none;
+
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+
+
+  /* Four stats = clean 2 x 2 mobile grid */
+
+  .bc-stat-grid {
+    width: 100%;
+    min-width: 0;
+
+    display: grid;
+
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 8px;
+  }
+
+
+  .bc-stat-card {
+    width: 100%;
+    min-width: 0;
+
+    min-height: 82px;
+
+    padding: 12px;
+
+    display: grid;
+
+    grid-template-rows:
+      auto
+      auto;
+
+    align-content: center;
+    justify-items: start;
+
+    gap: 7px;
+  }
+
+
+  .bc-stat-card span {
+    width: 100%;
+    min-width: 0;
+
+    font-size: 0.78rem;
+    line-height: 1.05;
+
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+
+    overflow-wrap: anywhere;
+  }
+
+
+  .bc-stat-card strong {
+    margin: 0;
+
+    font-size: 1.7rem;
+    line-height: 1;
+  }
+
+
+  /* ------------------------------------------------------- */
+  /* MAIN CONTENT                                            */
+  /* ------------------------------------------------------- */
+
+  .bc-main-grid {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr);
+
+    gap: 12px;
+
+    align-items: start;
+
+    margin: 0;
+
+    overflow: visible;
+  }
+
+
+  .bc-left-stack {
+    width: 100%;
+    min-width: 0;
+
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr);
+
+    gap: 12px;
+  }
+
+
+  .bc-start-panel,
+  .bc-blocked-panel,
+  .bc-panel,
+  .bc-thread-panel {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+
+  /* ------------------------------------------------------- */
+  /* START BUSINESS CHAT                                     */
+  /* ------------------------------------------------------- */
+
+  .bc-panel-head {
+    width: 100%;
+    min-width: 0;
+
+    display: flex;
     flex-direction: column;
+
+    align-items: stretch;
+
+    gap: 6px;
+
+    padding: 14px;
   }
 
-.bc-actions {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr;
-}
 
-.bc-safety-actions {
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
+  .bc-panel-head > div {
+    min-width: 0;
+  }
 
-.bc-ghost-btn,
-.bc-primary-btn,
-.bc-danger-btn,
-.bc-primary-small,
-.bc-ghost-small {
-  width: 100%;
-}
 
-#bcReportThread,
-#bcCloseThread,
-#bcBlockThread {
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
-  height: 44px;
-  padding: 9px 10px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  line-height: 1;
-}
+  .bc-panel-head strong {
+    font-size: 1rem;
+    line-height: 1.15;
+  }
 
-  /* ===================================================== */
-  /* BUSINESS CHAT MOBILE FORM CONTROLS                    */
-  /* ===================================================== */
+
+  .bc-panel-head span {
+    margin-top: 4px;
+
+    font-size: 0.82rem;
+    line-height: 1.4;
+
+    white-space: normal;
+
+    overflow-wrap: anywhere;
+  }
+
+
+  .bc-start-panel form {
+    width: 100%;
+    min-width: 0;
+
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr);
+
+    grid-auto-flow: row;
+
+    gap: 13px;
+
+    padding: 14px;
+  }
+
+
+  .bc-form-row,
+  .bc-form-grid {
+    width: 100%;
+    min-width: 0;
+
+    grid-column: 1 / -1;
+
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr);
+
+    gap: 7px;
+  }
+
+
+  .bc-form-row label {
+    font-size: 0.82rem;
+    line-height: 1.2;
+  }
+
 
   #bcMemberSearch {
     width: 100%;
     min-width: 0;
-    min-height: 50px;
+
     height: 50px;
+    min-height: 50px;
+
     padding: 11px 14px;
+
     font-size: 1rem;
     line-height: 1.2;
   }
 
-  /* Opening Message — larger mobile composer */
+
   #bcOpeningMessage {
     width: 100%;
     min-width: 0;
 
-    min-height: 118px;
-    height: 118px;
+    height: 120px;
+    min-height: 120px;
 
     padding: 13px 14px;
 
@@ -857,7 +1190,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     resize: vertical;
   }
 
-  /* Search Members — larger mobile action */
+
   #bcSearchMembers {
     width: 100%;
 
@@ -867,18 +1200,370 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     padding: 11px 16px;
 
     display: inline-flex;
+
     align-items: center;
     justify-content: center;
 
     font-size: 1rem;
     font-weight: 700;
+
     line-height: 1;
   }
 
-  /* ===================================================== */
-  /* CUSTOM MOBILE SELECTS                                 */
-  /* Division + Business Purpose                           */
-  /* ===================================================== */
+
+  /* ------------------------------------------------------- */
+  /* MEMBER / BLOCKED RESULTS                                */
+  /* ------------------------------------------------------- */
+
+  .bc-member-results,
+  .bc-blocked-list,
+  .bc-conversation-list {
+    width: 100%;
+    min-width: 0;
+
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr);
+
+    align-content: start;
+
+    gap: 9px;
+
+    padding: 12px;
+
+    max-height: none;
+
+    overflow: visible;
+  }
+
+
+  .bc-member-card,
+  .bc-block-card {
+    width: 100%;
+    min-width: 0;
+
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr);
+
+    align-items: stretch;
+
+    gap: 12px;
+
+    padding: 13px;
+  }
+
+
+  .bc-member-main {
+    width: 100%;
+    min-width: 0;
+
+    display: grid;
+
+    grid-template-columns:
+      42px
+      minmax(0, 1fr);
+
+    align-items: start;
+
+    gap: 10px;
+  }
+
+
+  .bc-member-main > div:last-child {
+    min-width: 0;
+  }
+
+
+  .bc-member-main strong,
+  .bc-member-main span,
+  .bc-member-main p,
+  .bc-block-card strong,
+  .bc-block-card span {
+    max-width: 100%;
+
+    white-space: normal;
+
+    overflow-wrap: anywhere;
+  }
+
+
+  .bc-member-card
+  .bc-primary-small,
+  .bc-block-card
+  .bc-primary-small,
+  .bc-block-card
+  .bc-ghost-small {
+    width: 100%;
+
+    min-height: 44px;
+    height: 44px;
+  }
+
+
+  /* ------------------------------------------------------- */
+  /* CONVERSATIONS                                           */
+  /* ------------------------------------------------------- */
+
+  body[data-bc-active-view="conversations"]
+  .bc-main-grid {
+    width: 100%;
+
+    grid-template-columns:
+      minmax(0, 1fr);
+  }
+
+
+  body[data-bc-active-view="conversations"]
+  .bc-conversation-shell {
+    width: 100%;
+    min-width: 0;
+
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr);
+
+    gap: 12px;
+  }
+
+
+  .bc-conversation-list {
+    max-height: none;
+  }
+
+
+  .bc-thread-card {
+    width: 100%;
+    min-width: 0;
+
+    min-height: 88px;
+
+    padding: 12px;
+
+    gap: 5px;
+  }
+
+
+  .bc-thread-card-top {
+    width: 100%;
+    min-width: 0;
+  }
+
+
+  .bc-thread-card-top strong,
+  .bc-thread-card p,
+  .bc-thread-card small,
+  .bc-thread-card em {
+    min-width: 0;
+    max-width: 100%;
+
+    overflow-wrap: anywhere;
+  }
+
+
+  /* ------------------------------------------------------- */
+  /* ACTIVE THREAD                                           */
+  /* ------------------------------------------------------- */
+
+  .bc-thread-panel {
+    min-height: 520px;
+
+    display: grid;
+
+    grid-template-rows:
+      auto
+      minmax(320px, 1fr)
+      auto;
+  }
+
+
+  .bc-thread-head {
+    width: 100%;
+    min-width: 0;
+
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr);
+
+    gap: 10px;
+
+    align-items: stretch;
+
+    padding: 13px;
+  }
+
+
+  .bc-thread-head > div:first-child {
+    min-width: 0;
+  }
+
+
+  .bc-thread-head strong,
+  .bc-thread-head span {
+    max-width: 100%;
+
+    white-space: normal;
+
+    overflow-wrap: anywhere;
+  }
+
+
+  .bc-safety-actions {
+    width: 100%;
+
+    display: grid;
+
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+
+    gap: 6px;
+  }
+
+
+  #bcReportThread,
+  #bcCloseThread,
+  #bcBlockThread {
+    width: 100%;
+    min-width: 0;
+
+    min-height: 42px;
+    height: 42px;
+
+    padding: 8px 5px;
+
+    font-size: 0.78rem;
+    line-height: 1;
+  }
+
+
+  .bc-thread-body {
+    width: 100%;
+    min-width: 0;
+
+    min-height: 320px;
+    max-height: 58dvh;
+
+    padding: 13px;
+
+    display: grid;
+
+    align-content: start;
+    justify-items: start;
+
+    gap: 10px;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+
+  .bc-message {
+    width: min(
+      92%,
+      620px
+    );
+
+    max-width: 92%;
+
+    padding:
+      12px
+      14px;
+
+    gap: 4px;
+  }
+
+
+  .bc-message.is-system {
+    width: 100%;
+    max-width: 100%;
+  }
+
+
+  .bc-message p,
+  .bc-message strong,
+  .bc-message span {
+    max-width: 100%;
+
+    overflow-wrap: anywhere;
+  }
+
+
+  .bc-reply-form {
+    width: 100%;
+    min-width: 0;
+
+    position: sticky;
+
+    bottom: 0;
+    z-index: 20;
+
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1fr);
+
+    align-items: stretch;
+
+    gap: 8px;
+
+    padding: 10px 12px;
+  }
+
+
+  .bc-reply-form textarea {
+    width: 100%;
+    min-width: 0;
+
+    min-height: 74px;
+    height: 74px;
+    max-height: 140px;
+
+    padding: 10px 12px;
+
+    line-height: 1.35;
+
+    resize: vertical;
+  }
+
+
+  #bcSendReply {
+    width: 100%;
+
+    min-height: 46px;
+    height: 46px;
+
+    padding: 10px 14px;
+
+    font-size: 0.95rem;
+    font-weight: 700;
+
+    line-height: 1;
+  }
+
+
+  /* ------------------------------------------------------- */
+  /* GENERAL MOBILE ACTION BUTTONS                           */
+  /* ------------------------------------------------------- */
+
+  .bc-ghost-btn,
+  .bc-primary-btn,
+  .bc-danger-btn,
+  .bc-primary-small,
+  .bc-ghost-small {
+    max-width: 100%;
+  }
+
+
+  /* ------------------------------------------------------- */
+  /* CUSTOM MOBILE SELECTS                                   */
+  /* ------------------------------------------------------- */
 
   .bc-mobile-select-shell {
     position: relative;
@@ -888,11 +1573,9 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     max-width: 100%;
   }
 
-  /*
-   * Keep the real select as the underlying value source,
-   * but remove its native visual popup on mobile.
-   */
-  .bc-mobile-select-shell > select {
+
+  .bc-mobile-select-shell
+  > select {
     position: absolute;
 
     width: 1px;
@@ -905,10 +1588,12 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     padding: 0;
 
     opacity: 0;
+
     pointer-events: none;
 
     overflow: hidden;
   }
+
 
   .bc-mobile-select-trigger {
     width: 100%;
@@ -919,7 +1604,11 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     height: 50px;
 
     display: grid;
-    grid-template-columns: minmax(0, 1fr) max-content;
+
+    grid-template-columns:
+      minmax(0, 1fr)
+      max-content;
+
     align-items: center;
 
     gap: 10px;
@@ -931,18 +1620,21 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     font-size: 1rem;
     line-height: 1.2;
 
-    box-sizing: border-box;
     overflow: hidden;
   }
 
-  .bc-mobile-select-trigger > span:first-child {
+
+  .bc-mobile-select-trigger
+  > span:first-child {
     min-width: 0;
     max-width: 100%;
 
     overflow: hidden;
+
     white-space: nowrap;
     text-overflow: ellipsis;
   }
+
 
   .bc-mobile-select-arrow {
     flex: 0 0 auto;
@@ -953,12 +1645,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     pointer-events: none;
   }
 
-  /*
-   * CRITICAL:
-   * left:0 + right:0 + width:100% means the opened
-   * options card can never become wider than its
-   * closed dropdown field.
-   */
+
   .bc-mobile-select-menu {
     position: absolute;
 
@@ -966,14 +1653,17 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     left: 0;
     right: 0;
 
+    z-index: 100;
+
     width: 100%;
     min-width: 100%;
     max-width: 100%;
 
-    z-index: 100;
-
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+
+    grid-template-columns:
+      minmax(0, 1fr);
+
     align-content: start;
 
     max-height: 260px;
@@ -981,10 +1671,9 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     overflow-x: hidden;
     overflow-y: auto;
 
-    box-sizing: border-box;
-
     -webkit-overflow-scrolling: touch;
   }
+
 
   .bc-mobile-select-option {
     width: 100%;
@@ -996,51 +1685,22 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     padding: 10px 14px;
 
     display: flex;
+
     align-items: center;
 
     text-align: left;
 
     white-space: normal;
-    overflow-wrap: anywhere;
-    word-break: normal;
 
-    box-sizing: border-box;
+    overflow-wrap: anywhere;
   }
 
-  /*
-   * Original selects still maintain 100% width internally.
-   * This also protects layout while the JS custom control
-   * is being initialized.
-   */
+
   #bcDivisionFilter,
   #bcBusinessPurpose {
     width: 100%;
     min-width: 0;
     max-width: 100%;
-  }
-
-  /* Existing Conversations reply button */
-  #bcSendReply {
-    width: 100%;
-
-    min-height: 46px;
-    height: 46px;
-
-    padding: 10px 14px;
-
-    font-size: 0.95rem;
-    font-weight: 700;
-    line-height: 1;
-  }
-
-  body[data-bc-active-view="conversations"] .bc-conversation-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .bc-member-results,
-  .bc-blocked-list,
-  .bc-conversation-list {
-    max-height: none;
   }
 }
 
@@ -1064,6 +1724,20 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 
 @media (max-width: 460px) {
   .bc-view-tabs {
-    grid-template-columns: 1fr;
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+
+    gap: 4px;
+  }
+
+  .bc-view-tab {
+    min-height: 44px;
+
+    padding:
+      6px
+      3px;
+
+    font-size: 0.66rem;
+    line-height: 1.1;
   }
 }
