@@ -1494,13 +1494,21 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
 
         color: #f8fbff !important;
 
-        font-size: 0.86rem !important;
+        /*
+         * iOS / WebKit focus-zoom guard.
+         * Keep form controls at 16px minimum so focusing
+         * the search field does not zoom the Dashboard.
+         */
+        font-size: 16px !important;
         line-height: 1 !important;
 
         appearance: none !important;
         -webkit-appearance: none !important;
 
         pointer-events: auto !important;
+
+        -webkit-text-size-adjust: 100% !important;
+        text-size-adjust: 100% !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"]
