@@ -5387,7 +5387,9 @@ async function refreshYHBusinessChats(
      * endpoints.
      */
     const access =
-        await getYHBusinessChatPlazaAccessV1();
+        await getYHBusinessChatPlazaAccessV1({
+            forceFresh
+        });
 
     if (!access.allowed) {
         return clearYHBusinessChatStateForNoPlazaAccessV1();
@@ -5668,6 +5670,23 @@ function bootYHBusinessChatPanel() {
     businessChatButton?.addEventListener('click', (event) => {
         event.preventDefault();
         openYHBusinessChatsPage();
+    });
+
+    /*
+     * Resolve the live Plaza approval immediately.
+     * The HTML intentionally starts Business Chats locked,
+     * so the backend must be authoritative on every boot.
+     */
+    refreshYHBusinessChats(
+        true,
+        {
+            silent: true
+        }
+    ).catch((error) => {
+        console.warn(
+            'Initial Business Chats access refresh failed:',
+            error
+        );
     });
 
     startYHBusinessChatAutoRefresh();

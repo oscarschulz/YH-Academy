@@ -3123,16 +3123,23 @@ async function requireApiUser(req, res, next) {
 
     req.user = user;
 
-    yhuSupabaseMirrorRepo.mirrorUser(user.id, {
-        ...user,
-        accountStatus: 'active',
-        sourceFeature: 'api-auth-guard',
-        lastSeenAt: new Date().toISOString()
-    }, {
-        source: 'requireApiUser',
-        path: req.originalUrl || req.url || ''
-    }).catch((mirrorError) => {
-        console.error('YHU Supabase user mirror error:', mirrorError?.message || mirrorError);
+    yhuUsersSupabaseRepo.patchByUid(
+        user.id,
+        {
+            accountStatus: 'active',
+            lastSeenAt: new Date().toISOString()
+        },
+        {
+            source: 'requireApiUser',
+            publicMetaPatch: {
+                accountStatus: 'active'
+            }
+        }
+    ).catch((patchError) => {
+        console.error(
+            'YHU Supabase auth activity patch error:',
+            patchError?.message || patchError
+        );
     });
 
     return next();
@@ -14507,28 +14514,21 @@ async function autoEndExpiredYHLiveRooms(reason = 'scheduled') {
     }
 }
 
-function isCrossDivisionPlazaMessageParticipantRoute(req) {
-    const method = sanitizeText(req.method).toUpperCase();
-    const urlPath = sanitizeText(req.path || req.url || '').split('?')[0];
-
-    if (method === 'GET' && urlPath === '/messages') return true;
-    if (method === 'GET' && urlPath === '/business-members') return true;
-    if (method === 'GET' && urlPath === '/business-blocks') return true;
-    if (method === 'DELETE' && /^\/business-blocks\/[^/]+$/.test(urlPath)) return true;
-    if (method === 'POST' && /^\/messages\/from-business-member\/[^/]+$/.test(urlPath)) return true;
-    if (method === 'POST' && /^\/messages\/[^/]+\/replies$/.test(urlPath)) return true;
-    if (method === 'POST' && /^\/messages\/[^/]+\/(report|close|block)$/.test(urlPath)) return true;
-
-    return false;
-}
-
-app.use('/api/plaza', requireApiUser, (req, res, next) => {
-    if (isCrossDivisionPlazaMessageParticipantRoute(req)) {
-        return next();
-    }
-
-    return requirePlazaApiAccess(req, res, next);
-});
+/*
+ * Canonical Plaza API gate.
+ *
+ * Every operational /api/plaza/* route registered after
+ * the public application/status routes requires the same
+ * approved Plaza access authority.
+ *
+ * Business Chats do not maintain a second unlock flag:
+ * approved Plaza access is the unlock.
+ */
+app.use(
+    '/api/plaza',
+    requireApiUser,
+    requirePlazaApiAccess
+);
 
 
 app.use('/api/realtime/live-rooms', requireApiUser, async (req, res, next) => {
@@ -14593,22 +14593,6 @@ app.get('/api/academy/membership-status', requireApiUser, async (req, res, next)
     }
 });
 
-
-/*
- * Plaza operational APIs are division-gated.
- *
- * Plaza application/status routes are registered
- * above this point so authenticated users can still
- * apply and check approval state before access.
- *
- * Every remaining /api/plaza/* request must belong
- * to an authenticated, approved Plaza member.
- */
-app.use(
-    '/api/plaza',
-    requireApiUser,
-    requirePlazaApiAccess
-);
 
 app.use('/api', apiRoutes);
 
