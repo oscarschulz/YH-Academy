@@ -53,7 +53,6 @@
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="my-contacts"] #yh-dashboard-my-contacts-workspace,
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"] #yh-dashboard-messages-workspace,
     body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="settings"] #yh-dashboard-settings-workspace,
-  body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="edit-profile"] #yh-dashboard-profile-editor-workspace,
   body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="profile"] #yh-dashboard-profile-view-workspace {
     display: block;
     visibility: visible;
@@ -266,9 +265,24 @@
                 </div>
             </div>
 
-            <button type="button" class="yh-mobile-app-profile" id="yh-mobile-app-profile" aria-label="Open profile">
-                <span id="yh-mobile-app-profile-initial">Y</span>
-            </button>
+<div class="yh-mobile-app-actions">
+    <div
+        class="yh-mobile-notification-host"
+        id="yh-mobile-notification-host"
+        aria-label="Notifications"
+    ></div>
+
+    <button
+        type="button"
+        class="yh-mobile-app-profile"
+        id="yh-mobile-app-profile"
+        aria-label="Open profile"
+    >
+        <span id="yh-mobile-app-profile-initial">
+            Y
+        </span>
+    </button>
+</div>
         </header>
 
         <div
@@ -384,14 +398,15 @@
                 >0</span>
             </button>
 
-            <button
-                type="button"
-                data-yh-mobile-command-target="business-chats"
-                data-yh-business-chats-locked="true"
-                aria-disabled="true"
-                title="Business Chats unlock after Plazas approval."
-                disabled
-            >Business Chats</button>
+                    <button
+                        type="button"
+                        data-yh-mobile-command-target="business-chats"
+                        data-yh-business-chats-locked="pending"
+                        aria-disabled="true"
+                        aria-busy="true"
+                        title="Checking Plazas access..."
+                        disabled
+                    >Business Chats</button>
                     <button type="button" data-yh-mobile-command-target="referral">Referral</button>
                     <button type="button" data-yh-mobile-command-target="my-contacts">My Contacts</button>
                     <button type="button" data-yh-mobile-command-target="resources">Resources</button>
@@ -723,16 +738,17 @@
                 >0</span>
             </button>
 
-            <button
-                class="btn-secondary yh-business-chat-open-btn yh-sidebar-command-link yh-sidebar-primary-link"
-                id="btn-open-yh-business-chats"
-                type="button"
-                data-yh-dashboard-shell="business-chats"
-                data-yh-business-chats-locked="true"
-                aria-disabled="true"
-                title="Business Chats unlock after Plazas approval."
-                disabled
-            >
+                <button
+                    class="btn-secondary yh-business-chat-open-btn yh-sidebar-command-link yh-sidebar-primary-link"
+                    id="btn-open-yh-business-chats"
+                    type="button"
+                    data-yh-dashboard-shell="business-chats"
+                    data-yh-business-chats-locked="pending"
+                    aria-disabled="true"
+                    aria-busy="true"
+                    title="Checking Plazas access..."
+                    disabled
+                >
                 <span class="yh-sidebar-command-icon">
                     <img src="/assets/dashboard/business-chats.png" alt="" class="yh-sidebar-command-icon-img">
                 </span>
@@ -907,18 +923,6 @@
                     <span>Settings</span>
                 </button>
 
-                <button
-                    class="btn-secondary yh-dashboard-top-edit-btn yh-sidebar-command-link yh-sidebar-primary-link"
-                    id="btn-open-dashboard-profile-editor"
-                    type="button"
-                    data-yh-dashboard-shell="edit-profile"
-                    aria-label="Edit Profile"
-                >
-                    <span class="yh-sidebar-command-icon">
-                        <img src="/assets/dashboard/edit-profile.png" alt="" class="yh-sidebar-command-icon-img">
-                    </span>
-                    <span>Edit Profile</span>
-                </button>
 
                 <button class="btn-logout yh-sidebar-command-link yh-sidebar-primary-link" onclick="logoutUser()">
                     <span class="yh-sidebar-command-icon">
@@ -1443,13 +1447,6 @@
     <div id="yh-dashboard-settings-workspace-content" class="yh-dashboard-system-workspace-content"></div>
 </section>
 
-<section
-    id="yh-dashboard-profile-editor-workspace"
-    class="yh-dashboard-system-workspace hidden-step"
-    aria-label="Edit Profile workspace"
-    aria-hidden="true">
-    <div id="yh-dashboard-profile-editor-workspace-content" class="yh-dashboard-system-workspace-content"></div>
-</section>
 
 <section
     id="yh-dashboard-profile-view-workspace"
@@ -2673,142 +2670,144 @@
 
     <div class="chat-messages hide-scrollbar yh-dashboard-universe-profile-scroll">
         <div class="academy-profile-shell">
-            <section class="academy-profile-hero-card academy-profile-cover-card">
-                <div class="academy-profile-cover-band"></div>
+<section class="academy-profile-hero-card academy-profile-cover-card">
+    <div class="academy-profile-cover-band"></div>
 
-                <div class="academy-profile-cover-body">
-                    <div class="academy-profile-cover-left">
-                        <div class="academy-profile-avatar-wrap">
-                            <div class="academy-profile-avatar" id="academy-profile-avatar">Y</div>
-                        </div>
-
-                        <div class="academy-profile-identity-block">
-                            <div class="academy-profile-name" id="academy-profile-name">Hustler</div>
-                            <div class="academy-profile-username" id="academy-profile-username">@yhmember</div>
-
-                            <div class="academy-profile-subline">
-                                <div class="academy-profile-role" id="academy-profile-role">YH Universe Member</div>
-                                <div class="academy-profile-pill" id="academy-profile-view-mode">Unified profile</div>
-                            </div>
-
-                            <div class="academy-profile-tag-list" id="academy-profile-tag-list"></div>
-                        </div>
-                    </div>
-
-                    <div class="academy-profile-hero-actions">
-                        <div class="academy-profile-action-row">
-                            <button
-                                type="button"
-                                class="btn-secondary academy-profile-action-btn academy-profile-action-btn-follow"
-                                id="academy-profile-primary-action"
-                                data-profile-action="toggle-follow"
-                            >Follow</button>
-
-                            <button
-                                type="button"
-                                class="btn-secondary academy-profile-action-btn academy-profile-action-btn-friend"
-                                id="academy-profile-secondary-action"
-                                data-profile-action="send-friend-request"
-                            >Add Friend</button>
-
-                            <button
-                                type="button"
-                                class="btn-primary academy-profile-action-btn academy-profile-action-btn-message"
-                                id="academy-profile-tertiary-action"
-                                data-profile-action="open-direct-message"
-                            >Message</button>
-                        </div>
-                    </div>
+    <div class="academy-profile-cover-body">
+        <div class="academy-profile-cover-left">
+            <div class="academy-profile-avatar-wrap">
+                <div
+                    class="academy-profile-avatar"
+                    id="academy-profile-avatar"
+                >
+                    Y
                 </div>
-            </section>
+            </div>
 
-            <!-- PHASE 2E-C3: profile statistics card strip removed. -->
-
-            <section class="academy-profile-content-grid">
-                <div class="academy-profile-main-column">
-                    <section class="academy-profile-card academy-profile-intro-card">
-                        <div class="academy-profile-intro-header">
-                            <div class="academy-profile-intro-heading">
-                                <div class="academy-profile-card-kicker" id="academy-profile-intro-kicker">About</div>
-                                <h4 class="academy-profile-card-title" id="academy-profile-intro-title">Universe identity summary</h4>
-                            </div>
-
-                            <div class="academy-profile-intro-visibility-badge" id="academy-profile-intro-visibility-badge">
-                                Unified profile
-                            </div>
-                        </div>
-
-                        <div class="academy-profile-bio academy-profile-bio-inline" id="academy-profile-bio">
-                            Focused on building discipline, momentum, and long-term growth inside YH Universe.
-                        </div>
-
-                        <div class="academy-profile-visit-note-panel">
-                            <div class="academy-profile-visit-note-title" id="academy-profile-visit-note-title">Profile summary</div>
-                            <div class="academy-profile-visit-note" id="academy-profile-visit-note">
-                                This is the unified YH Universe profile hub.
-                            </div>
-                        </div>
-
-                        <div class="academy-profile-intro-facts">
-                            <div class="academy-profile-intro-fact">
-                                <span>Role</span>
-                                <strong id="academy-profile-intro-role">YH Universe Member</strong>
-                            </div>
-
-                            <div class="academy-profile-intro-fact">
-                                <span>Username</span>
-                                <strong id="academy-profile-intro-username">@yhmember</strong>
-                            </div>
-
-                            <div class="academy-profile-intro-fact">
-                                <span>Profile mode</span>
-                                <strong id="academy-profile-intro-mode">Unified profile</strong>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="academy-profile-card academy-profile-recent-card">
-                        <div class="academy-profile-card-kicker" id="academy-profile-recent-kicker">Recent Activity</div>
-                        <h4 class="academy-profile-card-title" id="academy-profile-recent-title">Latest profile posts</h4>
-                        <div class="academy-profile-post-list" id="academy-profile-recent-posts">
-                            <div class="academy-profile-empty-state">No recent activity yet.</div>
-                        </div>
-                    </section>
+            <div class="academy-profile-identity-block">
+                <div
+                    class="academy-profile-name"
+                    id="academy-profile-name"
+                >
+                    Hustler
                 </div>
 
-                <aside class="academy-profile-side-column">
-                    <section class="academy-profile-card academy-profile-context-card">
-                        <div class="academy-profile-card-kicker" id="academy-profile-context-kicker">Profile Context</div>
-                        <h4 class="academy-profile-card-title" id="academy-profile-context-title">Membership & identity details</h4>
+                <div
+                    class="academy-profile-username"
+                    id="academy-profile-username"
+                >
+                    @yhmember
+                </div>
 
-                        <div class="academy-profile-context-summary" id="academy-profile-context-summary">
-                            This profile represents the user’s unified identity across Academy, the Plazas, and Federation.
-                        </div>
+                <div class="academy-profile-subline">
+                    <div
+                        class="academy-profile-role"
+                        id="academy-profile-role"
+                    >
+                        YH Universe Member
+                    </div>
 
-                        <div class="academy-profile-stat-list">
-                            <div class="academy-profile-stat-row">
-                                <span>Member ID</span>
-                                <strong id="academy-profile-member-id">Not available yet</strong>
-                            </div>
+                    <div
+                        class="academy-profile-pill"
+                        id="academy-profile-view-mode"
+                    >
+                        Unified profile
+                    </div>
+                </div>
 
-                            <div class="academy-profile-stat-row academy-profile-hidden-row">
-                                <span>Saved hidden posts</span>
-                                <strong id="academy-profile-hidden-count">0</strong>
-                            </div>
+                <div
+                    class="academy-profile-social-summary"
+                    aria-label="Profile social statistics"
+                >
+                    <span class="academy-profile-social-summary-item">
+                        <strong id="academy-profile-follower-count">0</strong>
+                        <span>Followers</span>
+                    </span>
 
-                            <div class="academy-profile-stat-row academy-profile-relationship-row">
-                                <span>Relationship</span>
-                                <strong id="academy-profile-relationship-summary">Your own profile</strong>
-                            </div>
+                    <span
+                        class="academy-profile-social-summary-divider"
+                        aria-hidden="true"
+                    >
+                        ·
+                    </span>
 
-                            <div class="academy-profile-stat-row academy-profile-context-note-row">
-                                <span>Profile visibility</span>
-                                <strong id="academy-profile-context-note">Visible inside YH Universe</strong>
-                            </div>
-                        </div>
-                    </section>
-                </aside>
-            </section>
+                    <span class="academy-profile-social-summary-item">
+                        <strong id="academy-profile-following-count">0</strong>
+                        <span>Following</span>
+                    </span>
+                </div>
+
+                <div
+                    class="academy-profile-bio academy-profile-hero-bio"
+                    id="academy-profile-bio"
+                >
+                    Focused on building discipline, momentum, and long-term growth inside YH Universe.
+                </div>
+
+                <div
+                    class="academy-profile-tag-list"
+                    id="academy-profile-tag-list"
+                ></div>
+            </div>
+        </div>
+
+        <div class="academy-profile-hero-actions">
+            <div class="academy-profile-action-row">
+                <button
+                    type="button"
+                    class="btn-primary academy-profile-action-btn academy-profile-action-btn-follow"
+                    id="academy-profile-primary-action"
+                    data-profile-action="toggle-follow"
+                >
+                    Follow
+                </button>
+
+                <button
+                    type="button"
+                    class="btn-secondary academy-profile-action-btn academy-profile-action-btn-friend"
+                    id="academy-profile-secondary-action"
+                    data-profile-action="send-friend-request"
+                >
+                    Add Friend
+                </button>
+
+                <button
+                    type="button"
+                    class="btn-primary academy-profile-action-btn academy-profile-action-btn-message"
+                    id="academy-profile-tertiary-action"
+                    data-profile-action="open-direct-message"
+                >
+                    Message
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="academy-profile-card academy-profile-recent-card academy-profile-posts-section">
+    <div
+        class="academy-profile-card-kicker"
+        id="academy-profile-recent-kicker"
+    >
+        Posts
+    </div>
+
+    <h4
+        class="academy-profile-card-title"
+        id="academy-profile-recent-title"
+    >
+        Shared posts
+    </h4>
+
+    <div
+        class="academy-profile-post-list"
+        id="academy-profile-recent-posts"
+    >
+        <div class="academy-profile-empty-state">
+            No posts yet.
+        </div>
+    </div>
+</section>
         </div>
     </div>
 </main>

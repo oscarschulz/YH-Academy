@@ -15507,26 +15507,390 @@ body > #academy-search-results-panel:not(.hidden-step),
 }
 
 /*
- * Dashboard own-profile modal:
- * remove the entire action region so the social
- * stats follow the identity hero immediately.
+ * Dashboard social profile authority
+ * Facebook-style cover + overlapping avatar
  */
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-shell {
+    width: min(1180px, 100%);
+    max-width: 1180px;
+    margin: 0 auto;
+    gap: 20px;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-cover-card {
+    overflow: hidden;
+    border-radius: 20px;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-cover-band {
+    width: 100%;
+    aspect-ratio: 8 / 3;
+    min-height: 260px;
+    max-height: 440px;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-cover-body {
+    min-height: 0;
+    margin-top: -72px;
+    padding: 0 32px 30px;
+
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+
+    gap: 28px;
+    flex-wrap: nowrap;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-cover-left {
+    min-width: 0;
+    flex: 1 1 auto;
+
+    display: flex;
+    align-items: flex-end;
+
+    gap: 22px;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-avatar-wrap {
+    flex: 0 0 auto;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-avatar {
+    width: 148px;
+    height: 148px;
+
+    min-width: 148px;
+    min-height: 148px;
+
+    border-radius: 50%;
+
+    border:
+        5px solid
+        rgba(3, 8, 20, 0.98);
+
+    box-shadow:
+        0 18px 42px rgba(0, 0, 0, 0.42),
+        0 0 0 2px rgba(56, 189, 248, 0.38);
+
+    font-size: 2.2rem;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-identity-block {
+    min-width: 0;
+    flex: 1 1 auto;
+
+    padding-bottom: 8px;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-name {
+    font-size: clamp(1.65rem, 2.2vw, 2.25rem);
+    line-height: 1.02;
+    font-weight: 850;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-username {
+    margin-top: 7px;
+    font-size: 0.98rem;
+    color: rgba(226, 232, 240, 0.82);
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-subline {
+    margin-top: 9px;
+    gap: 9px;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-social-summary {
+    margin-top: 10px;
+
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    gap: 8px;
+
+    color: rgba(226, 232, 240, 0.86);
+    font-size: 0.9rem;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-social-summary-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-social-summary-item strong {
+    color: #ffffff;
+    font-weight: 850;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-social-summary-divider {
+    color: rgba(148, 163, 184, 0.72);
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-hero-bio {
+    max-width: 680px;
+
+    margin-top: 9px;
+
+    color: rgba(226, 232, 240, 0.92);
+
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-tag-list {
+    margin-top: 11px;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-tag-chip {
+    font-size: 0.78rem;
+    padding: 6px 10px;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-hero-actions {
+    display: flex;
+
+    flex: 0 0 auto;
+
+    min-width: 170px;
+    max-width: 360px;
+
+    margin-left: auto;
+    padding: 0 0 8px;
+
+    align-items: flex-end;
+    justify-content: flex-end;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-action-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+
+    gap: 9px;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-action-btn {
+    width: auto;
+    min-width: 126px;
+
+    padding: 0 16px;
+
+    min-height: 42px;
+
+    font-size: 0.84rem;
+}
+
 body[data-yh-page="dashboard"]
 #academy-profile-view[data-profile-layout="self"]
 .academy-profile-hero-actions {
-    display: none !important;
+    display: flex;
 }
 
 body[data-yh-page="dashboard"]
-#academy-profile-view[data-profile-layout="self"]
-.academy-profile-hero-card {
-    min-height: 0 !important;
+#academy-profile-view
+.academy-profile-posts-section {
+    width: min(760px, 100%);
+    max-width: 760px;
+
+    margin: 0 auto;
+
+    padding: 20px;
 }
 
 body[data-yh-page="dashboard"]
-#academy-profile-view[data-profile-layout="self"]
-.academy-profile-cover-body {
-    min-height: 0 !important;
+#academy-profile-view
+.academy-profile-post-list {
+    width: 100%;
+
+    display: grid;
+    grid-template-columns: 1fr;
+
+    gap: 14px;
+
+    margin-top: 14px;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.yh-profile-shared-post {
+    width: 100%;
+    min-height: 0;
+
+    display: grid;
+    gap: 16px;
+
+    padding: 18px;
+
+    border:
+        1px solid
+        rgba(125, 211, 252, 0.16);
+
+    border-radius: 16px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(7, 18, 38, 0.84),
+            rgba(3, 8, 20, 0.8)
+        );
+
+    box-shadow:
+        0 16px 34px rgba(0, 0, 0, 0.18);
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-author {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-author-avatar {
+    width: 44px;
+    height: 44px;
+
+    min-width: 44px;
+
+    display: grid;
+    place-items: center;
+
+    overflow: hidden;
+
+    border-radius: 50%;
+
+    border:
+        1px solid
+        rgba(125, 211, 252, 0.24);
+
+    background:
+        rgba(56, 189, 248, 0.12);
+
+    color: #ffffff;
+    font-weight: 850;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-author-avatar img {
+    width: 100%;
+    height: 100%;
+
+    display: block;
+
+    object-fit: cover;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-author-copy {
+    min-width: 0;
+
+    display: grid;
+    gap: 2px;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-author-copy strong {
+    color: #ffffff;
+    font-size: 0.9rem;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-author-copy span {
+    color: rgba(148, 163, 184, 0.88);
+    font-size: 0.76rem;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.yh-profile-shared-post
+.academy-profile-post-body p {
+    margin: 0;
+
+    color: rgba(238, 244, 255, 0.94);
+
+    font-size: 0.92rem;
+    line-height: 1.62;
+
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-stats {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    color: rgba(148, 163, 184, 0.88);
+
+    font-size: 0.78rem;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-actions
+button {
+    width: auto;
+    min-width: 118px;
 }
 
 #academy-profile-view .academy-profile-social-strip {
@@ -21974,7 +22338,20 @@ body[data-yh-view="hub"] .desktop-user-strip-left {
     padding: 22px 24px 20px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
+.yh-dashboard-profile-modal-head--menu-only {
+    min-height: 0;
+    padding: 12px 18px 8px;
+    border-bottom: 0;
 
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.yh-dashboard-profile-modal-head--menu-only
+.yh-dashboard-profile-head-menu-wrap {
+    margin-left: auto;
+}
 .yh-dashboard-profile-modal-kicker {
     color: var(--neon-blue);
     font-size: 0.95rem;
@@ -21999,6 +22376,80 @@ body[data-yh-view="hub"] .desktop-user-strip-left {
     color: var(--text-muted);
     line-height: 1.6;
     font-size: 1.03rem;
+}
+
+.yh-dashboard-profile-modal-head-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.yh-dashboard-profile-modal-head-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 6px;
+}
+
+.yh-dashboard-profile-head-menu-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.yh-dashboard-profile-head-menu-toggle {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.yh-dashboard-profile-head-menu-toggle i {
+    font-size: 1rem;
+}
+
+.yh-dashboard-profile-head-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 50;
+    min-width: 160px;
+    padding: 8px;
+    border: 1px solid rgba(125, 211, 252, 0.16);
+    border-radius: 14px;
+    background:
+        linear-gradient(
+            180deg,
+            rgba(10, 20, 40, 0.96),
+            rgba(3, 8, 20, 0.96)
+        );
+    box-shadow:
+        0 18px 40px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.yh-dashboard-profile-head-menu-item {
+    width: 100%;
+    min-height: 40px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #f8fbff;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: left;
+}
+
+.yh-dashboard-profile-head-menu-item:hover {
+    background: rgba(56, 189, 248, 0.1);
 }
 
 .yh-dashboard-profile-modal-close {
@@ -22188,13 +22639,13 @@ body[data-yh-view="hub"] .desktop-user-strip-left {
     height: auto;
     min-height: 0;
 
-    /*
-     * Canonical YH Universe cover ratio.
-     *
-     * This is the exact same 5:4 frame
-     * used by the image cropper.
-     */
-    aspect-ratio: 5 / 4;
+/*
+ * Canonical YH Universe cover ratio.
+ *
+ * The cropper, saved image, editor,
+ * and profile preview all use 8:3.
+ */
+aspect-ratio: 8 / 3;
 
     display: flex;
     align-items: flex-end;
@@ -22239,22 +22690,25 @@ body[data-yh-view="hub"] .desktop-user-strip-left {
     pointer-events: none;
 }
 
+/*
+ * Profile preview cover:
+ * uploaded image must render exactly as the source.
+ * No UI tint, gradient, dark overlay, blend, or opacity.
+ */
 .yh-dashboard-profile-preview-cover::after {
-    content: '';
+    content: none !important;
+    display: none !important;
+}
 
-    position: absolute;
-    inset: 0;
+.yh-dashboard-profile-preview-cover[data-has-cover="true"] {
+    background: transparent !important;
+    box-shadow: none !important;
+}
 
-    z-index: 1;
-
-    pointer-events: none;
-
-    background:
-        linear-gradient(
-            180deg,
-            rgba(5, 12, 28, 0.06),
-            rgba(5, 12, 28, 0.48)
-        );
+.yh-dashboard-profile-preview-cover-image {
+    opacity: 1 !important;
+    filter: none !important;
+    mix-blend-mode: normal !important;
 }
 
 .yh-dashboard-profile-preview-cover
@@ -22312,13 +22766,19 @@ body[data-yh-view="hub"] .desktop-user-strip-left {
 .yh-dashboard-profile-preview-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 8px;
+}
+
+.yh-dashboard-profile-preview-grid--details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
 }
 
 .yh-dashboard-profile-preview-item,
 .yh-dashboard-profile-preview-pills {
-    padding: 14px;
-    border-radius: 15px;
+    min-height: 92px;
+    padding: 12px 13px;
+    border-radius: 14px;
     border: 1px solid rgba(148, 163, 184, 0.12);
     background: rgba(15, 23, 42, 0.26);
 }
@@ -22326,36 +22786,38 @@ body[data-yh-view="hub"] .desktop-user-strip-left {
 .yh-dashboard-profile-preview-item span,
 .yh-dashboard-profile-preview-pills > div:first-child {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 5px;
     color: #7dd3fc;
-    font-size: 0.91rem;
+    font-size: 0.78rem;
     font-weight: 900;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
 }
 
 .yh-dashboard-profile-preview-item strong {
     color: #f8fbff;
-    font-size: 1rem;
+    font-size: 0.95rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
 }
 
 .yh-dashboard-profile-preview-pills > div:last-child {
     display: flex;
     flex-wrap: wrap;
-    gap: 7px;
+    gap: 6px;
 }
 
 .yh-dashboard-profile-preview-pills span,
 .yh-dashboard-profile-preview-pills em {
     display: inline-flex;
     align-items: center;
-    min-height: 24px;
-    padding: 0 10.5px;
+    min-height: 22px;
+    padding: 0 9px;
     border-radius: 999px;
     border: 1px solid rgba(56, 189, 248, 0.20);
     background: rgba(56, 189, 248, 0.08);
     color: #bae6fd;
-    font-size: 0.95rem;
+    font-size: 0.82rem;
     font-style: normal;
     font-weight: 800;
 }
@@ -24090,11 +24552,11 @@ body[data-yh-view="academy"] #academy-feed-view {
     width: 100%;
     height: auto;
 
-    /*
-     * Same dimensions as the crop viewport.
-     */
-    aspect-ratio: 5 / 4;
-    min-height: 0;
+/*
+ * Exact same ratio as the crop viewport.
+ */
+aspect-ratio: 8 / 3;
+min-height: 0;
 
     border-radius: 18px;
     border: 1px solid rgba(148, 163, 184, 0.18);
@@ -24644,7 +25106,7 @@ body[data-yh-view="academy"] #academy-feed-view {
 
         min-height: 0;
 
-        aspect-ratio: 5 / 4;
+        aspect-ratio: 8 / 3;
 
         padding: 12px;
     }
@@ -25559,7 +26021,11 @@ body[data-yh-page="dashboard"] #academy-profile-view .hash-big-profile-img {
     height: auto;
     min-height: 0;
 
-    aspect-ratio: 5 / 4;
+    /*
+     * Exact same ratio as the final
+     * YH Universe profile cover.
+     */
+    aspect-ratio: 8 / 3;
 
     padding: 0;
 
@@ -25590,10 +26056,9 @@ body[data-yh-page="dashboard"] #academy-profile-view .hash-big-profile-img {
     width: min(82vw, 610px);
 
     /*
-     * Must match the final rendered
-     * YH Universe cover format exactly.
+     * Exact final profile-cover ratio.
      */
-    aspect-ratio: 5 / 4;
+    aspect-ratio: 8 / 3;
 
     border-radius: 18px;
 }
@@ -25611,7 +26076,7 @@ body[data-yh-page="dashboard"] #academy-profile-view .hash-big-profile-img {
     width: 100%;
     max-width: none;
 
-    aspect-ratio: 5 / 4;
+    aspect-ratio: 8 / 3;
 
     border-radius: inherit;
 
@@ -25758,7 +26223,7 @@ body.yh-dashboard-profile-cropper-open {
 
         min-height: 0;
 
-        aspect-ratio: 5 / 4;
+        aspect-ratio: 8 / 3;
 
         padding: 0;
     }
@@ -29480,9 +29945,7 @@ body[data-yh-page="academy"] .academy-messages-thread-header.is-pinned-thread-v2
 
 /* PATCH: Hide Academy notification/resources strip v20 */
 body[data-yh-page="academy"] .desktop-user-strip,
-body[data-yh-view="academy"] .desktop-user-strip,
 body[data-yh-page="academy"] #notif-bell,
-body[data-yh-view="academy"] #notif-bell,
 body[data-yh-page="academy"] #yh-resources-menu,
 body[data-yh-view="academy"] #yh-resources-menu,
 body[data-yh-page="academy"] #academy-notification-modal-overlay,
@@ -35433,8 +35896,6 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="me
     #yh-dashboard-messages-workspace,
 body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="settings"]
     #yh-dashboard-settings-workspace,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="edit-profile"]
-    #yh-dashboard-profile-editor-workspace,
 body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="profile"]
     #yh-dashboard-profile-view-workspace {
     display: block;
@@ -35468,22 +35929,610 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 body[data-yh-view="hub"][data-yh-page="dashboard"]
     .yh-dashboard-profile-modal.is-dashboard-inline-workspace
     > .yh-dashboard-profile-modal-card {
-    width: min(1120px, 100%);
+    width: min(1180px, 100%);
     max-height: none;
     min-height: 0;
+
     margin: 0 auto;
+
     overflow: visible;
-    border-radius: 22px;
+
+    border-radius: 20px;
+
     background:
-        radial-gradient(circle at 8% 0%, rgba(56, 189, 248, 0.12), transparent 34%),
-        linear-gradient(180deg, rgba(7, 20, 39, 0.94), rgba(2, 8, 23, 0.9));
+        radial-gradient(
+            circle at 8% 0%,
+            rgba(56, 189, 248, 0.1),
+            transparent 34%
+        ),
+        linear-gradient(
+            180deg,
+            rgba(7, 20, 39, 0.96),
+            rgba(2, 8, 23, 0.94)
+        );
+
     box-shadow:
         0 24px 64px rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.055);
+
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
 }
 
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-social-editor {
+    padding: 0 0 22px;
+
+    gap: 0;
+
+    border: 0;
+    border-radius: 18px;
+
+    background:
+        rgba(3, 8, 20, 0.34);
+
+    overflow: visible;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-social-editor
+.yh-dashboard-profile-cover-preview {
+    width: 100%;
+    aspect-ratio: 8 / 3;
+
+    min-height: 260px;
+
+    padding: 18px;
+
+    border-radius: 18px 18px 0 0;
+
+    overflow: hidden;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-social-editor
+.yh-dashboard-profile-cover-preview[
+    data-has-cover="true"
+]
+> .yh-dashboard-profile-cover-btn {
+    top: auto;
+    left: auto;
+    right: 18px;
+    bottom: 18px;
+
+    width: auto;
+    min-width: 154px;
+
+    transform: none;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-social-editor
+.yh-dashboard-profile-cover-preview[
+    data-has-cover="true"
+]
+> .yh-dashboard-profile-cover-btn:hover {
+    transform: translateY(-1px);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-social-editor
+.yh-dashboard-profile-cover-preview:not(
+    [data-has-cover="true"]
+)
+> .yh-dashboard-profile-cover-btn {
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+
+    transform:
+        translate(-50%, -50%);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-identity-row {
+    position: relative;
+    z-index: 4;
+
+    width: 100%;
+
+    margin-top: -62px;
+
+    padding: 0 28px 10px;
+
+    display: grid;
+
+    grid-template-columns:
+        138px
+        minmax(0, 1fr);
+
+    align-items: end;
+
+    gap: 22px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-identity-row
+.yh-dashboard-profile-avatar-preview-wrap {
+    position: relative;
+
+    width: 138px;
+    height: 138px;
+
+    min-width: 138px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-identity-row
+.yh-dashboard-profile-avatar-preview {
+    width: 138px;
+    height: 138px;
+
+    border-radius: 50%;
+
+    border:
+        5px solid
+        rgba(3, 8, 20, 0.98);
+
+    box-shadow:
+        0 18px 42px rgba(0, 0, 0, 0.44),
+        0 0 0 2px rgba(56, 189, 248, 0.34);
+
+    font-size: 2rem;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-avatar-camera {
+    position: absolute;
+
+    right: 3px;
+    bottom: 5px;
+
+    z-index: 8;
+
+    width: 36px;
+    height: 36px;
+
+    display: grid;
+    place-items: center;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.16);
+
+    border-radius: 50%;
+
+    background:
+        rgba(7, 18, 38, 0.96);
+
+    color: #ffffff;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 8px 20px rgba(0, 0, 0, 0.36);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-identity-copy {
+    min-width: 0;
+
+    padding:
+        68px
+        0
+        8px;
+
+    display: grid;
+    gap: 5px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-identity-copy
+> strong {
+    color: #ffffff;
+
+    font-size:
+        clamp(
+            1.45rem,
+            2vw,
+            2rem
+        );
+
+    line-height: 1.05;
+    font-weight: 850;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-profile-editor-username {
+    color:
+        rgba(
+            203,
+            213,
+            225,
+            0.9
+        );
+
+    font-size: 0.9rem;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-role {
+    color: #38bdf8;
+
+    font-size: 0.84rem;
+    font-weight: 750;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-social {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    gap: 7px;
+
+    color:
+        rgba(
+            226,
+            232,
+            240,
+            0.86
+        );
+
+    font-size: 0.82rem;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-social
+strong {
+    color: #ffffff;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-profile-editor-bio {
+    max-width: 700px;
+
+    margin: 3px 0 0;
+
+    color:
+        rgba(
+            226,
+            232,
+            240,
+            0.86
+        );
+
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-edit-fields {
+    gap: 18px;
+}
+
+/*
+ * Unified Profile preview — desktop authority
+ *
+ * Do not let the saved 5:4 source image dictate
+ * the rendered desktop cover height.
+ */
+@media (min-width: 769px) {
+    #yh-dashboard-profile-editor-overlay
+    .yh-dashboard-profile-preview-cover {
+        width: 100% !important;
+
+        height:
+            clamp(
+                220px,
+                22vw,
+                300px
+            ) !important;
+
+        min-height: 220px !important;
+        max-height: 300px !important;
+
+        aspect-ratio: auto !important;
+
+        overflow: visible !important;
+    }
+
+    #yh-dashboard-profile-editor-overlay
+    .yh-dashboard-profile-preview-cover-image {
+        width: 100% !important;
+        height: 100% !important;
+
+        object-fit: cover !important;
+        object-position: center center !important;
+
+        opacity: 1 !important;
+        filter: none !important;
+        mix-blend-mode: normal !important;
+    }
+
+    #yh-dashboard-profile-editor-overlay
+    .yh-dashboard-profile-preview-cover
+    .yh-dashboard-profile-preview-avatar {
+        position: absolute !important;
+
+        left: 22px !important;
+        bottom: -48px !important;
+
+        width: 104px !important;
+        height: 104px !important;
+
+        border-radius: 50% !important;
+
+        border:
+            4px solid
+            rgba(
+                3,
+                8,
+                20,
+                0.98
+            ) !important;
+    }
+
+    #yh-dashboard-profile-editor-overlay
+    .yh-dashboard-profile-preview-main {
+        padding:
+            62px
+            22px
+            22px !important;
+    }
+}
+
+@media (min-width: 769px) {
+    #yh-dashboard-profile-editor-overlay
+    .yh-dashboard-profile-preview-grid--details {
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0, 1fr)
+            ) !important;
+
+        gap: 8px !important;
+    }
+
+    #yh-dashboard-profile-editor-overlay
+    .yh-dashboard-profile-preview-item,
+    #yh-dashboard-profile-editor-overlay
+    .yh-dashboard-profile-preview-pills {
+        min-height: 76px !important;
+
+        padding:
+            10px
+            12px !important;
+
+        border-radius: 12px !important;
+    }
+
+    #yh-dashboard-profile-editor-overlay
+    .yh-dashboard-profile-preview-item span,
+    #yh-dashboard-profile-editor-overlay
+    .yh-dashboard-profile-preview-pills
+    > div:first-child {
+        margin-bottom: 4px !important;
+
+        font-size: 0.7rem !important;
+    }
+
+    #yh-dashboard-profile-editor-overlay
+    .yh-dashboard-profile-preview-item strong {
+        font-size: 0.88rem !important;
+    }
+
+    #yh-dashboard-profile-editor-overlay
+    .yh-dashboard-profile-preview-pills span,
+    #yh-dashboard-profile-editor-overlay
+    .yh-dashboard-profile-preview-pills em {
+        min-height: 21px !important;
+
+        padding:
+            0
+            8px !important;
+
+        font-size: 0.74rem !important;
+    }
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-identity {
+    display: grid;
+    gap: 5px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-role {
+    color: #38bdf8;
+
+    font-size: 0.82rem;
+    font-weight: 750;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-social {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    gap: 7px;
+
+    color:
+        rgba(
+            226,
+            232,
+            240,
+            0.84
+        );
+
+    font-size: 0.82rem;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-social
+strong {
+    color: #ffffff;
+}
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-posts {
+    width: min(760px, calc(100% - 48px));
+    margin: 28px auto 32px;
+    padding: 0;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-posts-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-posts-head span {
+    display: block;
+    color: #38bdf8;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-posts-head h3 {
+    margin: 4px 0 0;
+    color: #f8fbff;
+    font-size: 1.08rem;
+    font-weight: 800;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-posts-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post,
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-posts-empty {
+    width: 100%;
+    border: 1px solid rgba(125, 211, 252, 0.15);
+    border-radius: 16px;
+    background:
+        linear-gradient(
+            180deg,
+            rgba(7, 18, 38, 0.82),
+            rgba(3, 8, 20, 0.78)
+        );
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post {
+    display: grid;
+    gap: 14px;
+    padding: 17px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-author {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-avatar {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+
+    overflow: hidden;
+
+    display: grid;
+    place-items: center;
+
+    border-radius: 50%;
+    border: 1px solid rgba(125, 211, 252, 0.22);
+
+    background: rgba(56, 189, 248, 0.1);
+
+    color: #fff;
+    font-weight: 800;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-avatar img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-author-copy {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-author-copy strong {
+    color: #fff;
+    font-size: 0.86rem;
+    font-weight: 800;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-author-copy span {
+    color: rgba(148, 163, 184, 0.9);
+    font-size: 0.72rem;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-body {
+    margin: 0;
+
+    color: rgba(238, 244, 255, 0.94);
+
+    font-size: 0.88rem;
+    line-height: 1.6;
+
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-stats {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    color: rgba(148, 163, 184, 0.88);
+
+    font-size: 0.72rem;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-open {
+    width: auto;
+    min-width: 112px;
+    justify-self: end;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-posts-empty {
+    padding: 22px;
+
+    color: rgba(148, 163, 184, 0.9);
+
+    text-align: center;
+    font-size: 0.84rem;
+}
 body[data-yh-view="hub"][data-yh-page="dashboard"]
     #yh-dashboard-settings-workspace
     .yh-dashboard-settings-card {
@@ -36749,3 +37798,202 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 }
 
 /* END PATCH: Business Chats approved-Plazas access lock v3 */
+/*
+ * Dashboard notification bell visibility authority.
+ *
+ * The global Dashboard top strip and bell remain
+ * visible on desktop regardless of the active
+ * inline division/view state.
+ */
+@media (min-width: 769px) {
+    body[data-yh-page="dashboard"]
+    .desktop-user-strip {
+        display:
+            flex !important;
+
+        visibility:
+            visible !important;
+
+        opacity:
+            1 !important;
+
+        pointer-events:
+            auto !important;
+    }
+
+    body[data-yh-page="dashboard"]
+    #notif-bell {
+        display:
+            inline-flex !important;
+
+        visibility:
+            visible !important;
+
+        opacity:
+            1 !important;
+
+        pointer-events:
+            auto !important;
+    }
+}
+/* ========================================================= */
+/* UNIFIED PROFILE COVER FLUSH + OVERLAY MENU v1             */
+/* ========================================================= */
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-profile-editor-overlay
+> .yh-dashboard-profile-modal-card {
+    position: relative !important;
+}
+
+
+/*
+ * Remove the separate header row completely
+ * from the document flow.
+ *
+ * The same existing 3-dots control now floats
+ * over the profile cover instead.
+ */
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-profile-editor-overlay
+.yh-dashboard-profile-modal-head--menu-only {
+    position: absolute !important;
+
+    top: 14px !important;
+    right: 14px !important;
+
+    z-index: 120 !important;
+
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    border: 0 !important;
+
+    background: transparent !important;
+
+    display: block !important;
+}
+
+
+/*
+ * Keep the menu itself clickable above the cover.
+ */
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-profile-editor-overlay
+.yh-dashboard-profile-head-menu-wrap {
+    position: relative !important;
+
+    margin: 0 !important;
+
+    z-index: 121 !important;
+}
+
+
+/*
+ * PREVIEW MODE
+ *
+ * Cover/profile card touches the outer profile
+ * card directly — no empty band around it.
+ */
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-profile-editor-overlay.is-profile-preview-mode
+.yh-dashboard-profile-preview-body {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+
+/*
+ * Remove the unnecessary nested-card shadow/border
+ * because the outer Unified Profile card now owns
+ * the outline.
+ */
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-profile-editor-overlay.is-profile-preview-mode
+.yh-dashboard-profile-preview-card {
+    margin: 0 !important;
+
+    border: 0 !important;
+
+    border-radius: inherit !important;
+
+    box-shadow: none !important;
+}
+
+
+/*
+ * Match the outer card's rounded top corners.
+ */
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-profile-editor-overlay.is-profile-preview-mode
+.yh-dashboard-profile-preview-cover {
+    border-radius:
+        19px
+        19px
+        0
+        0 !important;
+}
+
+
+/*
+ * EDIT MODE
+ *
+ * The Edit Profile cover still lives inside the
+ * editor-body padding, so move the same 3-dots
+ * button 12px inside that cover.
+ */
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-profile-editor-overlay.is-profile-edit-mode
+.yh-dashboard-profile-modal-head--menu-only {
+    top: 34px !important;
+    right: 36px !important;
+}
+
+
+/* ---------- mobile ---------- */
+
+@media (max-width: 768px) {
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    #yh-dashboard-profile-editor-overlay.is-profile-preview-mode
+    .yh-dashboard-profile-preview-body {
+        padding: 0 !important;
+    }
+
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    #yh-dashboard-profile-editor-overlay.is-profile-preview-mode
+    .yh-dashboard-profile-modal-head--menu-only {
+        top: 10px !important;
+        right: 10px !important;
+    }
+
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    #yh-dashboard-profile-editor-overlay.is-profile-preview-mode
+    .yh-dashboard-profile-preview-cover {
+        border-radius:
+            17px
+            17px
+            0
+            0 !important;
+    }
+
+
+    /*
+     * Mobile Edit mode has 16px editor-body padding.
+     * Put menu 10px inside the actual cover.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    #yh-dashboard-profile-editor-overlay.is-profile-edit-mode
+    .yh-dashboard-profile-modal-head--menu-only {
+        top: 26px !important;
+        right: 26px !important;
+    }
+}
+
+/* END UNIFIED PROFILE COVER FLUSH + OVERLAY MENU v1 */

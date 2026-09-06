@@ -12738,15 +12738,49 @@ app.post('/api/member/system-notifications/:id/read', requireApiUser, async (req
                 req.params.id
             );
 
-        if (!notificationId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Notification id is required.'
-            });
-        }
+if (!notificationId) {
+    return res.status(400).json({
+        success: false,
+        message:
+            'Notification id is required.'
+    });
+}
 
-        const nowIso =
-            new Date().toISOString();
+/*
+ * Ensure legacy notification records exist in
+ * the canonical notification table before
+ * persisting an individual read action.
+ */
+const userRow =
+    await yhuUsersSupabaseRepo
+        .getByUid(
+            userId
+        );
+
+const user =
+    userRow
+        ? getServerSupabaseAuthUser(
+            userRow
+        )
+        : {};
+
+const legacyNotifications =
+    getUserInProductNotifications(
+        user
+    );
+
+if (
+    legacyNotifications.length
+) {
+    await syncServerUserInProductNotifications(
+        userId,
+        legacyNotifications,
+        'server:member-system-read-migration'
+    );
+}
+
+const nowIso =
+    new Date().toISOString();
 
         await userNotificationsSupabaseRepo
             .markNotificationRead(
@@ -12780,13 +12814,50 @@ app.post('/api/member/system-notifications/:id/read', requireApiUser, async (req
 
 app.post('/api/member/system-notifications/read-all', requireApiUser, async (req, res) => {
     try {
-        const userId =
-            sanitizeText(
-                req.user?.id
-            );
+const userId =
+    sanitizeText(
+        req.user?.id
+    );
 
-        const nowIso =
-            new Date().toISOString();
+/*
+ * Legacy accounts may still contain older
+ * notifications inside yhu_users.
+ *
+ * Mirror them into the canonical notification
+ * table BEFORE marking everything as read.
+ * Otherwise a legacy unread notification can
+ * reappear after the next page load.
+ */
+const userRow =
+    await yhuUsersSupabaseRepo
+        .getByUid(
+            userId
+        );
+
+const user =
+    userRow
+        ? getServerSupabaseAuthUser(
+            userRow
+        )
+        : {};
+
+const legacyNotifications =
+    getUserInProductNotifications(
+        user
+    );
+
+if (
+    legacyNotifications.length
+) {
+    await syncServerUserInProductNotifications(
+        userId,
+        legacyNotifications,
+        'server:member-system-read-all-migration'
+    );
+}
+
+const nowIso =
+    new Date().toISOString();
 
         await userNotificationsSupabaseRepo
             .markAllNotificationsRead(

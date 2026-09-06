@@ -191,24 +191,124 @@ async function upsertNotification(userId = '', notification = {}, context = {}) 
 
     if (!sourceKey) return null;
 
-    const { data: existing, error: findError } = await yhuSupabaseAdmin
+const {
+    data: existing,
+    error: findError
+} =
+    await yhuSupabaseAdmin
         .from(TABLE)
-        .select('id')
-        .eq('user_id', cleanUserId)
-        .eq('source_field', sourceField)
-        .eq('source_notification_key', sourceKey)
+        .select(
+            'id,is_read,read_at_source,data'
+        )
+        .eq(
+            'user_id',
+            cleanUserId
+        )
+        .eq(
+            'source_field',
+            sourceField
+        )
+        .eq(
+            'source_notification_key',
+            sourceKey
+        )
         .limit(1)
         .maybeSingle();
 
-    if (findError) {
-        throw new Error(findError.message || findError.details || String(findError));
+if (findError) {
+    throw new Error(
+        findError.message ||
+        findError.details ||
+        String(findError)
+    );
+}
+
+if (existing?.id) {
+    let nextPayload =
+        payload;
+
+    /*
+     * Stable notification IDs are idempotent.
+     *
+     * Webhook retries, subscription syncs,
+     * application refreshes, etc. must never
+     * reopen a notification the user has
+     * already read.
+     */
+    if (
+        existing.is_read === true &&
+        payload.is_read !== true
+    ) {
+        const existingData =
+            existing.data &&
+            typeof existing.data ===
+                'object'
+                ? existing.data
+                : {};
+
+        const preservedReadAt =
+            normalizeDate(
+                existing.read_at_source
+            ) ||
+            normalizeDate(
+                existingData.readAt
+            ) ||
+            normalizeDate(
+                existingData.read_at
+            ) ||
+            new Date().toISOString();
+
+        nextPayload = {
+            ...payload,
+
+            is_read:
+                true,
+
+            read_at_source:
+                preservedReadAt,
+
+            public_meta: {
+                ...(
+                    payload.public_meta ||
+                    {}
+                ),
+
+                isRead:
+                    true
+            },
+
+            data: {
+                ...(
+                    payload.data ||
+                    {}
+                ),
+
+                isRead: true,
+                is_read: true,
+                read: true,
+
+                readAt:
+                    preservedReadAt,
+
+                read_at:
+                    preservedReadAt
+            }
+        };
     }
 
-    if (existing?.id) {
-        const { data, error } = await yhuSupabaseAdmin
+    const {
+        data,
+        error
+    } =
+        await yhuSupabaseAdmin
             .from(TABLE)
-            .update(payload)
-            .eq('id', existing.id)
+            .update(
+                nextPayload
+            )
+            .eq(
+                'id',
+                existing.id
+            )
             .select('*')
             .single();
 

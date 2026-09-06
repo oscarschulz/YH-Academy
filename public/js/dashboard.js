@@ -322,6 +322,22 @@ if (
 /* END PATCH: Dashboard Socket.IO BFCache lifecycle v1 */
 
 const myName = getStoredUserValue('yh_user_name', "Hustler");
+
+/*
+ * Dashboard profile state must exist before
+ * unified workspace boot runs.
+ *
+ * The workspace surface resolver executes
+ * before the Academy profile section later
+ * in this file, so this state belongs with
+ * the dashboard globals.
+ */
+let academyProfileViewState = {
+    mode: 'self',
+    memberId: '',
+    profile: null
+};
+
 function clearDashboardDeletedAccountClientState() {
     try {
         if (typeof window.YHSharedRuntime?.clearYHClientAuthStateForInvalidSession === 'function') {
@@ -4381,6 +4397,55 @@ function isYHBusinessChatPlazaApprovedV1(
     );
 }
 
+function setYHBusinessChatNavigationPendingV1() {
+    const controls = [
+        document.getElementById(
+            'btn-open-yh-business-chats'
+        ),
+
+        ...document.querySelectorAll(
+            '[data-yh-mobile-command-target="business-chats"]'
+        )
+    ].filter(Boolean);
+
+    controls.forEach((control) => {
+        /*
+         * Pending is deliberately NOT the same
+         * thing as locked.
+         *
+         * We don't allow the action until Plaza
+         * authority is resolved, but we also don't
+         * flash a false Locked state.
+         */
+        control.disabled = true;
+
+        control.setAttribute(
+            'aria-disabled',
+            'true'
+        );
+
+        control.setAttribute(
+            'aria-busy',
+            'true'
+        );
+
+        control.setAttribute(
+            'data-yh-business-chats-locked',
+            'pending'
+        );
+
+        control.setAttribute(
+            'title',
+            'Checking Plazas access...'
+        );
+
+        control.setAttribute(
+            'tabindex',
+            '-1'
+        );
+    });
+}
+
 function syncYHBusinessChatNavigationAccessV1(
     snapshot = null
 ) {
@@ -4411,10 +4476,18 @@ function syncYHBusinessChatNavigationAccessV1(
         )
     ].filter(Boolean);
 
-    controls.forEach(
-        (control) => {
-            control.disabled =
-                !approved;
+controls.forEach(
+    (control) => {
+        /*
+         * The Plaza authority has now resolved.
+         * Remove the temporary first-paint state.
+         */
+        control.removeAttribute(
+            'aria-busy'
+        );
+
+        control.disabled =
+            !approved;
 
             control.setAttribute(
                 'aria-disabled',
@@ -5665,17 +5738,72 @@ function openYHBusinessChatsPage(conversationId = '') {
 }
 
 function bootYHBusinessChatPanel() {
-    const businessChatButton = document.getElementById('btn-open-yh-business-chats');
+    const businessChatButton =
+        document.getElementById(
+            'btn-open-yh-business-chats'
+        );
 
-    businessChatButton?.addEventListener('click', (event) => {
-        event.preventDefault();
-        openYHBusinessChatsPage();
-    });
+    businessChatButton?.addEventListener(
+        'click',
+        (event) => {
+            event.preventDefault();
+
+            openYHBusinessChatsPage();
+        }
+    );
 
     /*
-     * Resolve the live Plaza approval immediately.
-     * The HTML intentionally starts Business Chats locked,
-     * so the backend must be authoritative on every boot.
+     * FIRST PAINT
+     * ===========
+     *
+     * Use only the account-scoped Plaza cache.
+     *
+     * getPlazaAccessSnapshot() already validates
+     * that the cached owner belongs to the currently
+     * logged-in user, so another/deleted account
+     * cannot grant this account access.
+     */
+    const cachedPlazaSnapshot =
+        typeof getPlazaAccessSnapshot ===
+            'function'
+            ? getPlazaAccessSnapshot()
+            : {};
+
+    const cachedPlazaApproved =
+        isYHBusinessChatPlazaApprovedV1(
+            cachedPlazaSnapshot
+        );
+
+    if (cachedPlazaApproved) {
+        /*
+         * This exact logged-in account was already
+         * authoritatively known to be approved.
+         *
+         * Unlock immediately so there is no false
+         * Locked flash during Dashboard boot.
+         */
+        syncYHBusinessChatNavigationAccessV1(
+            cachedPlazaSnapshot
+        );
+    } else {
+        /*
+         * Unknown, stale or previously unapproved
+         * state remains disabled while checking,
+         * but it must NOT visually claim Locked
+         * until the backend actually confirms it.
+         */
+        setYHBusinessChatNavigationPendingV1();
+    }
+
+    /*
+     * BACKEND AUTHORITY
+     * =================
+     *
+     * Always verify again immediately.
+     *
+     * This either confirms the cached approval,
+     * unlocks a newly approved account, or turns
+     * the neutral pending state into a real lock.
      */
     refreshYHBusinessChats(
         true,
@@ -11990,18 +12118,6 @@ function bootYHWalletPanel() {
         });
     });
 
-    document.getElementById('btn-open-dashboard-profile-editor')?.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        activateDashboardUnifiedWorkspace('edit-profile', {
-            animate: false,
-            scroll: true,
-            persist: true,
-            profileEditorMode: 'edit'
-        });
-    });
-
     document.getElementById('btn-open-yh-wallet')?.addEventListener('click', (event) => {
         event.preventDefault();
         openYHWalletInline();
@@ -15975,20 +16091,6 @@ const dashboardUnifiedWorkspaceCopy = {
         mode: 'Plans + Security',
         stage: 'Inline Workspace'
     },
-    'edit-profile': {
-        key: 'edit-profile',
-        division: 'resources',
-        kicker: 'Unified Profile',
-        title: 'EDIT PROFILE',
-        intro: 'Update the identity that powers your presence across Academy, Plazas, and Federation.',
-        eyebrow: 'Edit Profile',
-        headline: 'Manage your unified YH Universe profile.',
-        body: 'Update your cover photo, profile picture, public identity, profile tags, availability, work mode, and marketplace readiness in one workspace.',
-        focus: 'Profile Identity',
-        mode: 'Preview + Edit',
-        stage: 'Inline Workspace'
-    },
-
     profile: {
         key: 'profile',
         division: 'resources',
@@ -16000,6 +16102,20 @@ const dashboardUnifiedWorkspaceCopy = {
         body: 'Review public identity, social stats, activity, and relationship actions.',
         focus: 'Member Profile',
         mode: 'Profile View',
+        stage: 'Inline Workspace'
+    },
+
+    profile: {
+        key: 'profile',
+        division: 'resources',
+        kicker: 'Unified Profile',
+        title: 'PROFILE',
+        intro: 'Manage your own YH Universe identity or view another member profile inside one workspace.',
+        eyebrow: 'Profile',
+        headline: 'Your unified YH Universe profile.',
+        body: 'Manage profile details, social counts, media, and shared posts from one profile destination.',
+        focus: 'Profile Identity',
+        mode: 'View + Edit',
         stage: 'Inline Workspace'
     },
     wallet: {
@@ -16425,7 +16541,16 @@ const dashboardUnifiedWorkspaceCopy = {
 
 function getDashboardUnifiedWorkspaceCopy(key = 'overview') {
     const cleanKey = String(key || 'overview').trim().toLowerCase();
-    return dashboardUnifiedWorkspaceCopy[cleanKey] || dashboardUnifiedWorkspaceCopy.overview;
+
+    const canonicalKey =
+        cleanKey === 'edit-profile'
+            ? 'profile'
+            : cleanKey;
+
+    return (
+        dashboardUnifiedWorkspaceCopy[canonicalKey] ||
+        dashboardUnifiedWorkspaceCopy.overview
+    );
 }
 
 /* ========================================================= */
@@ -18853,8 +18978,19 @@ function writeDashboardPersistentUiState(patch = {}) {
 }
 
 function getDashboardPersistentWorkspaceKey(value = '') {
-    const cleanKey = String(value || '').trim().toLowerCase();
-    return dashboardUnifiedWorkspaceCopy[cleanKey] ? cleanKey : '';
+    const cleanKey =
+        String(value || '')
+            .trim()
+            .toLowerCase();
+
+    const canonicalKey =
+        cleanKey === 'edit-profile'
+            ? 'profile'
+            : cleanKey;
+
+    return dashboardUnifiedWorkspaceCopy[canonicalKey]
+        ? canonicalKey
+        : '';
 }
 
 function persistDashboardUnifiedWorkspaceState(key = 'overview', options = {}) {
@@ -27986,14 +28122,24 @@ function dashboardResetWorkspaceFrameV68() {
 
 
 function getDashboardEffectiveUnifiedWorkspaceKey(key = 'overview') {
-    const cleanKey = String(key || 'overview').trim().toLowerCase();
+    const cleanKey =
+        String(key || 'overview')
+            .trim()
+            .toLowerCase();
 
-    if (!cleanKey) return 'overview';
-    if (cleanKey === 'academy') return 'academy';
-    if (cleanKey === 'plazas') return 'plazas';
-    if (cleanKey === 'federation') return 'federation';
+    const canonicalKey =
+        cleanKey === 'edit-profile'
+            ? 'profile'
+            : cleanKey;
 
-    return dashboardUnifiedWorkspaceCopy[cleanKey] ? cleanKey : 'overview';
+    if (!canonicalKey) return 'overview';
+    if (canonicalKey === 'academy') return 'academy';
+    if (canonicalKey === 'plazas') return 'plazas';
+    if (canonicalKey === 'federation') return 'federation';
+
+    return dashboardUnifiedWorkspaceCopy[canonicalKey]
+        ? canonicalKey
+        : 'overview';
 }
 
 function dashboardIsParentWorkspaceCleanV71(key = 'overview') {
@@ -28101,8 +28247,24 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     const isMyContacts = cleanKey === 'my-contacts';
     const isMessages = cleanKey === 'messages';
     const isSettings = cleanKey === 'settings';
-    const isEditProfile = cleanKey === 'edit-profile';
     const isProfile = cleanKey === 'profile';
+
+    const profileMode =
+        String(
+            academyProfileViewState?.mode ||
+            'self'
+        )
+            .trim()
+            .toLowerCase();
+
+    const isVisitedProfile =
+        isProfile &&
+        profileMode === 'visited';
+
+    const isSelfProfile =
+        isProfile &&
+        !isVisitedProfile;
+
     const isAcademyParent = cleanKey === 'academy';
     const isPlazasParent = cleanKey === 'plazas';
     const isFederationParent = cleanKey === 'federation';
@@ -28153,9 +28315,7 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     const settingsWorkspaceContent = document.getElementById('yh-dashboard-settings-workspace-content');
     const settingsSurface = document.getElementById('yh-dashboard-settings-modal');
 
-    const profileEditorWorkspace = document.getElementById('yh-dashboard-profile-editor-workspace');
-    const profileEditorWorkspaceContent = document.getElementById('yh-dashboard-profile-editor-workspace-content');
-        const profileViewWorkspace =
+    const profileViewWorkspace =
         document.getElementById(
             'yh-dashboard-profile-view-workspace'
         );
@@ -28169,14 +28329,18 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
         document.getElementById(
             'academy-profile-view'
         );
+
     const profileEditorSurface =
-        document.getElementById('yh-dashboard-profile-editor-overlay') ||
+        document.getElementById(
+            'yh-dashboard-profile-editor-overlay'
+        ) ||
         (
-            isEditProfile &&
+            isSelfProfile &&
             typeof ensureDashboardUniverseProfileEditor === 'function'
                 ? ensureDashboardUniverseProfileEditor()
                 : null
         );
+
     if (
         profileViewWorkspaceContent &&
         dashboardProfileView &&
@@ -28185,6 +28349,17 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
     ) {
         profileViewWorkspaceContent.appendChild(
             dashboardProfileView
+        );
+    }
+
+    if (
+        profileViewWorkspaceContent &&
+        profileEditorSurface &&
+        profileEditorSurface.parentElement !==
+            profileViewWorkspaceContent
+    ) {
+        profileViewWorkspaceContent.appendChild(
+            profileEditorSurface
         );
     }
     const parentIntro = document.getElementById('yh-dashboard-division-parent-intro-v1');
@@ -28230,13 +28405,6 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
         settingsWorkspaceContent.appendChild(settingsSurface);
     }
 
-    if (
-        profileEditorWorkspaceContent &&
-        profileEditorSurface &&
-        profileEditorSurface.parentElement !== profileEditorWorkspaceContent
-    ) {
-        profileEditorWorkspaceContent.appendChild(profileEditorSurface);
-    }
 
     myContactsSurface?.classList.add('is-dashboard-inline-workspace');
     settingsSurface?.classList.add('is-dashboard-inline-workspace');
@@ -28273,18 +28441,27 @@ function setDashboardUnifiedWorkspaceSurfaceState(key = 'overview') {
         isSettings,
         'block'
     );
-    setVisible(settingsSurface, isSettings, 'block');
-    setVisible(profileEditorWorkspace, isEditProfile, 'block');
-    setVisible(profileEditorSurface, isEditProfile, 'block');
-        setVisible(
+    setVisible(
+        settingsSurface,
+        isSettings,
+        'block'
+    );
+
+    setVisible(
         profileViewWorkspace,
         isProfile,
         'block'
     );
 
     setVisible(
+        profileEditorSurface,
+        isSelfProfile,
+        'block'
+    );
+
+    setVisible(
         dashboardProfileView,
-        isProfile,
+        isVisitedProfile,
         'block'
     );
 
@@ -28933,29 +29110,58 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
         });
     }
 
-    if (copy.key === 'edit-profile') {
-        const requestedProfileEditorMode = options.profileEditorMode || 'edit';
+if (
+    copy.key === 'profile' &&
+    String(
+        academyProfileViewState?.mode ||
+        'self'
+    )
+        .trim()
+        .toLowerCase() !== 'visited'
+) {
+    const requestedProfileEditorMode =
+        options.profileEditorMode ||
+        'preview';
 
-        hydrateDashboardProfileEditorBeforeOpen()
-            .catch((error) => {
-                console.warn(
-                    'Edit Profile server hydration skipped:',
-                    error?.message || error
-                );
-            })
-            .finally(() => {
-                const currentWorkspace = String(
-                    document.body?.getAttribute('data-yh-unified-workspace') || ''
-                ).trim().toLowerCase();
+    hydrateDashboardProfileEditorBeforeOpen()
+        .catch((error) => {
+            console.warn(
+                'Profile server hydration skipped:',
+                error?.message || error
+            );
+        })
+        .finally(() => {
+            const currentWorkspace =
+                String(
+                    document.body?.getAttribute(
+                        'data-yh-unified-workspace'
+                    ) ||
+                    ''
+                )
+                    .trim()
+                    .toLowerCase();
 
-                if (currentWorkspace !== 'edit-profile') return;
+            const currentProfileMode =
+                String(
+                    academyProfileViewState?.mode ||
+                    'self'
+                )
+                    .trim()
+                    .toLowerCase();
 
-                openDashboardUniverseProfileEditor({
-                    mode: requestedProfileEditorMode,
-                    activateWorkspace: false
-                });
+            if (
+                currentWorkspace !== 'profile' ||
+                currentProfileMode === 'visited'
+            ) {
+                return;
+            }
+
+            openDashboardUniverseProfileEditor({
+                mode: requestedProfileEditorMode,
+                activateWorkspace: false
             });
-    }
+        });
+}
 
     /*
      * Division workspace activation must not
@@ -29194,11 +29400,17 @@ function bootDashboardUnifiedSidebarWorkspace() {
         const target = String(overviewAction.getAttribute('data-yh-command-overview-open') || '').trim();
 
         if (target === 'profile') {
-            if (typeof openAcademyProfileView === 'function') {
+            if (
+                typeof openAcademyProfileView ===
+                'function'
+            ) {
                 openAcademyProfileView();
             } else {
-                openDashboardUniverseProfileEditor({ mode: 'edit' });
+                openDashboardUniverseProfileEditor({
+                    mode: 'preview'
+                });
             }
+
             return;
         }
 
@@ -29251,7 +29463,6 @@ function installDashboardMobileAppShellV1() {
         referral: ['YH Universe', 'Referral'],
         'my-contacts': ['Command', 'My Contacts'],
         settings: ['YH Universe', 'Settings'],
-        'edit-profile': ['YH Universe', 'Edit Profile'],
         academy: ['YH Universe', 'Academy'],
         'academy-roadmap': ['Academy', 'Roadmap'],
         'academy-missions': ['Academy', 'Missions'],
@@ -29288,7 +29499,7 @@ function installDashboardMobileAppShellV1() {
     messages: ['Command', 'Messages'],
     'business-chats': ['Command', 'Business Chats'],
         resources: ['Command', 'Resources'],
-        profile: ['Command', 'Profile View']
+        profile: ['YH Universe', 'Profile']
     };
 
     function getCurrentWorkspaceKey() {
@@ -29814,7 +30025,7 @@ function installDashboardMobileAppShellV1() {
         'my-contacts',
         'resources',
         'settings',
-        'edit-profile'
+        'profile'
     ]);
 
     function resetMobileCommandWorkspaceTop(key = '') {
@@ -30044,8 +30255,7 @@ function installDashboardMobileAppShellV1() {
                 target === 'resources' ||
                 target === 'referral' ||
                 target === 'my-contacts' ||
-                target === 'settings' ||
-                target === 'edit-profile'
+                target === 'settings'
             ) {
                 navigateMobileWorkspace(target);
                 return;
@@ -30917,11 +31127,10 @@ if (dashboardTopProfileChip && dashboardTopProfileChip.dataset.profileViewBound 
         event?.preventDefault?.();
         event?.stopPropagation?.();
 
-        if (typeof closeDashboardUniverseProfileEditor === 'function') {
-            closeDashboardUniverseProfileEditor({ skipAcademyReturn: true });
-        }
-
-        if (typeof openAcademyProfileView === 'function') {
+        if (
+            typeof openAcademyProfileView ===
+            'function'
+        ) {
             openAcademyProfileView();
         }
     });
@@ -31922,7 +32131,64 @@ const notifBell = document.getElementById('notif-bell');
 const notifDropdown = document.getElementById('notif-dropdown');
 const markAllRead = document.getElementById('mark-all-read');
 const notifListContainer = document.getElementById('notif-list-container');
-const notifBadge = document.getElementById('notif-badge-count');
+const notifBadge =
+    document.getElementById(
+        'notif-badge-count'
+    );
+
+const desktopNotificationHost =
+    document.querySelector(
+        '.desktop-user-strip-right'
+    );
+
+const mobileNotificationHost =
+    document.getElementById(
+        'yh-mobile-notification-host'
+    );
+
+function syncDashboardNotificationBellHost() {
+    if (!notifBell) {
+        return;
+    }
+
+    const useMobile =
+        window
+            .matchMedia(
+                '(max-width: 768px)'
+            )
+            .matches;
+
+    const targetHost =
+        useMobile
+            ? mobileNotificationHost
+            : desktopNotificationHost;
+
+    if (
+        !targetHost ||
+        notifBell.parentElement ===
+            targetHost
+    ) {
+        return;
+    }
+
+    closeDashboardNotificationsDropdown();
+
+    targetHost.appendChild(
+        notifBell
+    );
+}
+
+syncDashboardNotificationBellHost();
+
+window.addEventListener(
+    'resize',
+    syncDashboardNotificationBellHost
+);
+
+window.addEventListener(
+    'pageshow',
+    syncDashboardNotificationBellHost
+);
 
 function positionDashboardNotificationDropdown() {
     if (!notifBell || !notifDropdown) return;
@@ -32368,14 +32634,32 @@ const openNotificationTarget = (target = '', targetId = '') => {
 const renderRealtimeNotifications = (notifications = []) => {
     if (!notifListContainer) return;
 
-    const list = (Array.isArray(notifications) ? notifications : [])
-        .map(normalizeRealtimeNotification);
+/*
+ * Notification bell displays only unread items.
+ *
+ * Read notifications remain persisted in the backend
+ * so the same event cannot notify the member again,
+ * but they should not reappear in the bell.
+ */
+const list =
+    (
+        Array.isArray(notifications)
+            ? notifications
+            : []
+    )
+        .map(
+            normalizeRealtimeNotification
+        )
+        .filter(
+            (item) =>
+                !item.isRead
+        );
 
     notifListContainer.innerHTML = '';
 
     if (!list.length) {
         notifListContainer.innerHTML = `
-            <li class="notif-empty-state" id="notif-empty-state">No notifications yet.</li>
+            <li class="notif-empty-state" id="notif-empty-state">No new notifications.</li>
         `;
         updateNotificationBadgeUi([]);
         return;
@@ -32516,10 +32800,45 @@ function buildYHBusinessChatDashboardNotifications() {
 }
 
 function isMemberSystemNotification(notification = {}) {
-    const source = String(notification?.source || '').trim().toLowerCase();
-    const type = String(notification?.notificationType || '').trim().toLowerCase();
+    const authority = String(
+        notification?.notificationAuthority ||
+        notification?.notification_authority ||
+        ''
+    ).trim().toLowerCase();
 
-    return source === 'admin-review' || type === 'application-review';
+    if (authority === 'member-system') {
+        return true;
+    }
+
+    if (
+        authority === 'realtime' ||
+        authority === 'business-chat'
+    ) {
+        return false;
+    }
+
+    /*
+     * Legacy fallback for notifications created
+     * before explicit authority tagging existed.
+     */
+    const source =
+        String(
+            notification?.source || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    const type =
+        String(
+            notification?.notificationType || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    return (
+        source === 'admin-review' ||
+        type === 'application-review'
+    );
 }
 
 function mergeInProductNotifications(realtimeNotifications = [], memberNotifications = []) {
@@ -32544,8 +32863,18 @@ async function loadMemberSystemNotifications() {
             method: 'GET'
         });
 
-        return (Array.isArray(result?.notifications) ? result.notifications : [])
-            .map(normalizeRealtimeNotification);
+    return (
+        Array.isArray(result?.notifications)
+            ? result.notifications
+            : []
+    )
+        .map((item) =>
+            normalizeRealtimeNotification({
+                ...item,
+                notificationAuthority:
+                    'member-system'
+            })
+        );
     } catch (error) {
         console.error('loadMemberSystemNotifications error:', error);
         return [];
@@ -32579,8 +32908,20 @@ async function loadRealtimeNotifications(forceFresh = false) {
 
         const realtimeNotifications =
             realtimeSettled.status === 'fulfilled'
-                ? (Array.isArray(realtimeSettled.value?.notifications) ? realtimeSettled.value.notifications : [])
-                    .map(normalizeRealtimeNotification)
+                ? (
+                    Array.isArray(
+                        realtimeSettled.value?.notifications
+                    )
+                        ? realtimeSettled.value.notifications
+                        : []
+                )
+                    .map((item) =>
+                        normalizeRealtimeNotification({
+                            ...item,
+                            notificationAuthority:
+                                'realtime'
+                        })
+                    )
                 : [];
 
         const memberNotifications =
@@ -32852,62 +33193,122 @@ async function markRealtimeNotificationRead(notificationId, rerender = true) {
 }
 
 async function markAllRealtimeNotificationsRead() {
-    const state = getDashboardState();
-    const current = Array.isArray(state.realtimeNotifications) ? state.realtimeNotifications : [];
+    const state =
+        getDashboardState();
+
+    const current =
+        Array.isArray(
+            state.realtimeNotifications
+        )
+            ? state.realtimeNotifications
+            : [];
 
     try {
-        const hasMemberSystemNotifications = current.some((item) => isMemberSystemNotification(item));
-        const hasBusinessChatNotifications = current.some((item) => isYHBusinessChatNotification(item));
-        const hasRealtimeNotifications = current.some((item) => {
-            return !isMemberSystemNotification(item) && !isYHBusinessChatNotification(item);
-        });
-
-        if (hasBusinessChatNotifications && typeof setYHBusinessLastSeenNow === 'function') {
+        /*
+         * Business chat notifications use their
+         * own last-seen authority.
+         */
+        if (
+            typeof setYHBusinessLastSeenNow ===
+            'function'
+        ) {
             setYHBusinessLastSeenNow();
         }
 
-        const requests = [];
+        /*
+         * The bell combines TWO persistent stores:
+         *
+         * 1. realtime notifications
+         * 2. member/system notifications
+         *
+         * Always mark both authorities as read.
+         * Do not rely on UI classification here.
+         */
+        const results =
+            await Promise.allSettled([
+                academyAuthedFetch(
+                    '/api/realtime/notifications/read-all',
+                    {
+                        method: 'POST'
+                    }
+                ),
 
-        if (hasRealtimeNotifications) {
-            requests.push(
-                academyAuthedFetch('/api/realtime/notifications/read-all', {
-                    method: 'POST'
-                }).catch((error) => {
-                    console.error('academy realtime read-all error:', error);
-                    return null;
-                })
+                academyAuthedFetch(
+                    '/api/member/system-notifications/read-all',
+                    {
+                        method: 'POST'
+                    }
+                )
+            ]);
+
+        const failed =
+            results.filter(
+                (result) =>
+                    result.status ===
+                    'rejected'
+            );
+
+        if (failed.length) {
+            failed.forEach(
+                (result) => {
+                    console.error(
+                        'notification read-all persistence error:',
+                        result.reason
+                    );
+                }
+            );
+
+            throw new Error(
+                'Failed to persist all notification read states.'
             );
         }
 
-        if (hasMemberSystemNotifications) {
-            requests.push(
-                academyAuthedFetch('/api/member/system-notifications/read-all', {
-                    method: 'POST'
-                }).catch((error) => {
-                    console.error('academy member-system read-all error:', error);
-                    return null;
-                })
-            );
-        }
+        const readAt =
+            new Date().toISOString();
 
-        await Promise.all(requests);
+        state.realtimeNotifications =
+            current.map((item) => ({
+                ...normalizeRealtimeNotification(
+                    item
+                ),
 
-        const readAt = new Date().toISOString();
+                isRead: true,
+                is_read: true,
+                read: true,
 
-        state.realtimeNotifications = current.map((item) => ({
-            ...normalizeRealtimeNotification(item),
-            isRead: true,
-            is_read: true,
-            read: true,
-            readAt,
-            read_at: readAt
-        }));
+                readAt,
+                read_at: readAt
+            }));
 
-        renderRealtimeNotifications(state.realtimeNotifications);
-        showToast('All notifications marked as read.', 'success');
+        renderRealtimeNotifications(
+            state.realtimeNotifications
+        );
+
+        showToast(
+            'All notifications marked as read.',
+            'success'
+        );
     } catch (error) {
-        console.error('markAllRealtimeNotificationsRead error:', error);
-        showToast(error.message || 'Failed to mark notifications as read.', 'error');
+        console.error(
+            'markAllRealtimeNotificationsRead error:',
+            error
+        );
+
+        /*
+         * Important:
+         * don't fake a read state locally if
+         * persistence failed. Reload authoritative
+         * server state instead.
+         */
+        await loadRealtimeNotifications(
+            true
+        ).catch(() => null);
+
+        showToast(
+            error?.message ||
+            'Failed to mark notifications as read.',
+            'error'
+        );
     }
 }
 
@@ -35077,11 +35478,11 @@ function openAcademyRoadmapView(forceFresh = false) {
             hideAcademyTabLoader();
         });
 }
-let academyProfileViewState = {
-    mode: 'self',
-    memberId: '',
-    profile: null
-};
+/*
+ * academyProfileViewState is declared with
+ * the dashboard globals above so Profile
+ * workspace boot can safely read it.
+ */
 
 const YH_DASHBOARD_SELF_PROFILE_CACHE_KEY = 'yh_academy_profile_cache_v1';
 const YH_DASHBOARD_VISITED_PROFILE_CACHE_KEY = 'yh_universe_visited_profile_cache_v1';
@@ -37949,161 +38350,231 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
 }
 
 function renderAcademyProfileRecentPosts(posts = [], options = {}) {
-    const list = document.getElementById('academy-profile-recent-posts');
+    const list = document.getElementById(
+        'academy-profile-recent-posts'
+    );
+
     if (!list) return;
 
-    const isSelf = options?.isSelf === true;
-    const profile = options?.profile || academyProfileViewState?.profile || {};
-    const profileWithPosts = {
-        ...profile,
-        recentPosts: Array.isArray(profile.recentPosts) ? profile.recentPosts : posts
-    };
+    const isSelf =
+        options?.isSelf === true;
 
-    const availableDivisionKeys = getYHUniverseActivityDivisionKeys(profileWithPosts);
-    const activities = getYHUniverseProfileActivities(profileWithPosts)
-        .filter((activity) => availableDivisionKeys.includes(activity.division));
+    const profile =
+        options?.profile ||
+        academyProfileViewState?.profile ||
+        {};
 
-    let controls = document.getElementById('yh-universe-profile-activity-controls');
+    /*
+     * Profile page is now POSTS ONLY.
+     * Never mix division snapshots, membership
+     * activities, or synthetic YH activity here.
+     */
+    document
+        .getElementById(
+            'yh-universe-profile-activity-controls'
+        )
+        ?.remove();
 
-    if (!controls) {
-        controls = document.createElement('div');
-        controls.id = 'yh-universe-profile-activity-controls';
-        controls.className = 'yh-universe-profile-activity-controls';
+    const realPosts =
+        Array.isArray(posts)
+            ? posts.filter(Boolean)
+            : [];
 
-        list.insertAdjacentElement('beforebegin', controls);
-    }
-
-    const activityFilterOptions = [
-        ...(availableDivisionKeys.length > 1
-            ? [{ value: 'all', label: 'All Activity' }]
-            : []),
-        ...availableDivisionKeys.map((key) => {
-            const label = YH_UNIVERSE_PROFILE_DIVISION_LABELS[key] || key;
-
-            return {
-                value: key,
-                label: `${label} Activity`
-            };
-        })
-    ];
-
-    const currentValue = String(document.getElementById('yh-universe-profile-activity-filter')?.value || '').trim();
-    const safeValue = activityFilterOptions.some((option) => option.value === currentValue)
-        ? currentValue
-        : (activityFilterOptions[0]?.value || 'all');
-
-    const selectedOption =
-        activityFilterOptions.find((option) => option.value === safeValue) ||
-        activityFilterOptions[0] ||
-        { value: 'all', label: 'All Activity' };
-
-    const optionHtml = activityFilterOptions.map((option) => {
-        const isSelected = option.value === safeValue;
-
-        return `
-            <button
-                type="button"
-                class="yh-universe-profile-activity-option${isSelected ? ' is-active' : ''}"
-                role="option"
-                aria-selected="${isSelected ? 'true' : 'false'}"
-                data-yh-profile-activity-option="${academyFeedEscapeHtml(option.value)}"
-            >
-                ${academyFeedEscapeHtml(option.label)}
-            </button>
-        `;
-    }).join('');
-
-    controls.innerHTML = `
-        <label id="yh-universe-profile-activity-label">Activity scope</label>
-
-        <div class="yh-universe-profile-activity-menu-wrap" data-yh-profile-activity-menu-wrap>
-            <input
-                type="hidden"
-                id="yh-universe-profile-activity-filter"
-                class="yh-universe-profile-activity-filter"
-                value="${academyFeedEscapeHtml(selectedOption.value)}"
-            >
-
-            <button
-                type="button"
-                id="yh-universe-profile-activity-trigger"
-                class="yh-universe-profile-activity-trigger"
-                aria-haspopup="listbox"
-                aria-expanded="false"
-                aria-labelledby="yh-universe-profile-activity-label"
-            >
-                <span>${academyFeedEscapeHtml(selectedOption.label)}</span>
-                <i aria-hidden="true">⌄</i>
-            </button>
-
-            <div
-                class="yh-universe-profile-activity-menu"
-                role="listbox"
-                aria-labelledby="yh-universe-profile-activity-label"
-            >
-                ${optionHtml}
-            </div>
-        </div>
-    `;
-
-    const selectedDivision = String(selectedOption.value || safeValue || 'all').trim();
-    const filteredActivities = activities.filter((activity) => {
-        return selectedDivision === 'all' || activity.division === selectedDivision;
-    });
-
-    if (!filteredActivities.length) {
+    if (!realPosts.length) {
         list.innerHTML = `
             <div class="academy-profile-empty-state">
-                ${isSelf
-                    ? 'No visible activity for this division yet.'
-                    : 'This member has no visible activity for this division yet.'}
+                ${
+                    isSelf
+                        ? 'You have not shared any posts yet.'
+                        : 'This member has not shared any posts yet.'
+                }
             </div>
         `;
+
         return;
     }
 
-    list.innerHTML = filteredActivities.map((activity) => {
-        const divisionLabel = YH_UNIVERSE_PROFILE_DIVISION_LABELS[activity.division] || activity.division;
-        const isAcademyPost = activity.division === 'academy' && activity.actionType === 'academy-post' && activity.sourceId;
+    const displayName =
+        String(
+            profile.displayName ||
+            profile.display_name ||
+            profile.fullName ||
+            profile.full_name ||
+            'YH Member'
+        ).trim() || 'YH Member';
 
-        return `
-            <article
-                class="academy-profile-post-card yh-universe-activity-card is-${academyFeedEscapeHtml(activity.division)}"
-                ${isAcademyPost ? `data-profile-post-id="${academyFeedEscapeHtml(activity.sourceId)}" style="cursor:pointer;"` : ''}
-            >
-                <div class="yh-universe-activity-head">
-                    <span class="yh-universe-activity-division">${academyFeedEscapeHtml(divisionLabel)}</span>
-                    <span class="academy-profile-post-meta">${academyFeedEscapeHtml(activity.meta || 'Profile activity')}</span>
-                </div>
+    const username =
+        String(
+            profile.username ||
+            ''
+        ).trim();
 
-                <div class="academy-profile-post-body">
-                    <strong>${academyFeedEscapeHtml(activity.title || 'Activity')}</strong>
-                    ${activity.body ? `<p>${academyFeedEscapeHtml(activity.body)}</p>` : ''}
-                </div>
+    const avatar =
+        normalizeDashboardProfileAssetUrl(
+            profile.avatar ||
+            profile.avatar_url ||
+            profile.avatarUrl ||
+            ''
+        );
 
-                ${
-                    activity.division === 'academy'
-                        ? `<div class="academy-profile-post-stats">${activity.likeCount || 0} likes • ${activity.commentCount || 0} comments</div>`
-                        : ''
+    const initial =
+        displayName
+            .charAt(0)
+            .toUpperCase() ||
+        'Y';
+
+    const renderedPosts =
+        realPosts
+            .map((post) => {
+                const postId =
+                    normalizeAcademyFeedId(
+                        post?.id
+                    );
+
+                const body =
+                    String(
+                        post?.body ||
+                        post?.text ||
+                        ''
+                    ).trim();
+
+                const postText =
+                    body ||
+                    (
+                        post?.share
+                            ? 'Shared a post from the Academy feed.'
+                            : ''
+                    );
+
+                if (
+                    !postText &&
+                    !postId
+                ) {
+                    return '';
                 }
 
-                ${
-                    isAcademyPost
+                const createdLabel =
+                    academyFeedTimeLabel(
+                        post?.created_at ||
+                        post?.createdAt ||
+                        null
+                    );
+
+                const likeCount =
+                    Number(
+                        post?.like_count ||
+                        post?.likeCount ||
+                        0
+                    );
+
+                const commentCount =
+                    Number(
+                        post?.comment_count ||
+                        post?.commentCount ||
+                        0
+                    );
+
+                const authorAvatarHtml =
+                    avatar
                         ? `
-                            <div style="margin-top:12px;display:flex;justify-content:flex-end;">
-                                <button
-                                    type="button"
-                                    class="btn-secondary"
-                                    data-profile-post-id="${academyFeedEscapeHtml(activity.sourceId)}"
-                                    style="width:auto;min-width:132px;"
-                                >Open in Feed</button>
-                            </div>
+                            <img
+                                src="${academyFeedEscapeHtml(avatar)}"
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                            >
                         `
-                        : ''
+                        : `
+                            <span>
+                                ${academyFeedEscapeHtml(initial)}
+                            </span>
+                        `;
+
+                return `
+                    <article
+                        class="academy-profile-post-card yh-profile-shared-post"
+                        ${
+                            postId
+                                ? `data-profile-post-id="${academyFeedEscapeHtml(postId)}"`
+                                : ''
+                        }
+                    >
+                        <div class="academy-profile-post-author">
+                            <div class="academy-profile-post-author-avatar">
+                                ${authorAvatarHtml}
+                            </div>
+
+                            <div class="academy-profile-post-author-copy">
+                                <strong>
+                                    ${academyFeedEscapeHtml(displayName)}
+                                </strong>
+
+                                <span>
+                                    ${
+                                        username
+                                            ? `${academyFeedEscapeHtml(username)} · `
+                                            : ''
+                                    }${academyFeedEscapeHtml(createdLabel || 'Recently')}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="academy-profile-post-body">
+                            ${
+                                postText
+                                    ? `
+                                        <p>
+                                            ${academyFeedEscapeHtml(postText)}
+                                        </p>
+                                    `
+                                    : ''
+                            }
+                        </div>
+
+                        <div class="academy-profile-post-stats">
+                            <span>
+                                ${Number.isFinite(likeCount) ? likeCount : 0}
+                                likes
+                            </span>
+
+                            <span>
+                                ${Number.isFinite(commentCount) ? commentCount : 0}
+                                comments
+                            </span>
+                        </div>
+
+                        ${
+                            postId
+                                ? `
+                                    <div class="academy-profile-post-actions">
+                                        <button
+                                            type="button"
+                                            class="btn-secondary"
+                                            data-profile-post-id="${academyFeedEscapeHtml(postId)}"
+                                        >
+                                            Open in Feed
+                                        </button>
+                                    </div>
+                                `
+                                : ''
+                        }
+                    </article>
+                `;
+            })
+            .filter(Boolean)
+            .join('');
+
+    list.innerHTML =
+        renderedPosts ||
+        `
+            <div class="academy-profile-empty-state">
+                ${
+                    isSelf
+                        ? 'You have not shared any posts yet.'
+                        : 'This member has not shared any posts yet.'
                 }
-            </article>
+            </div>
         `;
-    }).join('');
 }
 
 function syncDashboardVisitedProfileFollowPlacementV1() {
@@ -38590,40 +39061,32 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
             '#academy-profile-view .academy-profile-action-row'
         );
 
-    if (profileActionRow) {
-        /*
-         * Remove badge CTAs that may have been created
-         * by an earlier self-profile render.
-         */
-        profileActionRow
-            .querySelectorAll(
-                '[data-yh-dashboard-avail-badge], .yh-badge-avail-btn'
-            )
-            .forEach((node) => node.remove());
-
-        /*
-         * Own profile:
-         * no YHA/YHF/Delete Account action row here.
-         *
-         * Visited profiles retain Follow / Friend /
-         * Message actions.
-         */
-        profileActionRow.classList.toggle(
-            'hidden-step',
-            isSelf
+if (profileActionRow) {
+    profileActionRow
+        .querySelectorAll(
+            '[data-yh-dashboard-avail-badge], .yh-badge-avail-btn'
+        )
+        .forEach(
+            (node) => node.remove()
         );
 
-        if (isSelf) {
-            profileActionRow.setAttribute(
-                'aria-hidden',
-                'true'
-            );
-        } else {
-            profileActionRow.removeAttribute(
-                'aria-hidden'
-            );
-        }
-    }
+    /*
+     * Profile actions remain visible.
+     *
+     * Self:
+     * Edit Profile
+     *
+     * Visited:
+     * Follow / Message
+     */
+    profileActionRow.classList.remove(
+        'hidden-step'
+    );
+
+    profileActionRow.removeAttribute(
+        'aria-hidden'
+    );
+}
 
     if (profileUsername) profileUsername.innerText = normalized.username;
     if (profileRole) profileRole.innerText = normalized.roleLabel;
@@ -38644,8 +39107,19 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     const mutualCountValue = Number.isFinite(parsedMutualCount) ? parsedMutualCount : 0;
 
     if (profilePostCount) profilePostCount.innerText = String(normalized.postCount);
-    if (profileFollowerCount) profileFollowerCount.innerText = String(normalized.followersCount);
-    if (profileFollowingCount) profileFollowingCount.innerText = String(normalized.followingCount);
+    if (profileFollowerCount) {
+        profileFollowerCount.innerText =
+            formatDashboardProfileSocialCount(
+                normalized.followersCount
+            );
+    }
+
+    if (profileFollowingCount) {
+        profileFollowingCount.innerText =
+            formatDashboardProfileSocialCount(
+                normalized.followingCount
+            );
+    }
     if (profileFriendCount) profileFriendCount.innerText = String(normalized.friendsCount);
     if (profileHiddenCount) profileHiddenCount.innerText = isSelf ? String(normalized.hiddenCount) : '—';
     let resolvedStatusText = normalized.status;
@@ -38862,15 +39336,15 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     }
 
     if (profileRecentKicker) {
-        profileRecentKicker.innerText = isSelf
-            ? 'Recent Activity'
-            : 'Public Activity';
+        profileRecentKicker.innerText =
+            'Posts';
     }
 
     if (profileRecentTitle) {
-        profileRecentTitle.innerText = isSelf
-            ? 'Your latest profile posts'
-            : `${normalized.displayName}'s latest public posts`;
+        profileRecentTitle.innerText =
+            isSelf
+                ? 'Your posts'
+                : `${normalized.displayName}'s posts`;
     }
 
     if (profileTagList) {
@@ -38896,12 +39370,26 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         delete primaryAction.dataset.memberProfileId;
         delete primaryAction.dataset.friendRequestId;
         delete primaryAction.dataset.profileAction;
-        primaryAction.dataset.actionRank = isSelf ? 'own-primary-hidden' : 'visited-primary-follow';
+        primaryAction.dataset.actionRank =
+            isSelf
+                ? 'own-primary-edit'
+                : 'visited-primary-follow';
 
         if (isSelf) {
-            primaryAction.innerText = '';
-            primaryAction.classList.add('hidden-step');
-            primaryAction.setAttribute('aria-label', 'Edit Profile moved to dashboard top bar');
+            primaryAction.innerText =
+                'Edit Profile';
+
+            primaryAction.classList.remove(
+                'hidden-step'
+            );
+
+            primaryAction.dataset.profileAction =
+                'edit-universe-profile';
+
+            primaryAction.setAttribute(
+                'aria-label',
+                'Edit your YH Universe profile'
+            );
         } else {
             primaryAction.innerText = normalized.followedByMe ? 'Unfollow' : 'Follow';
             primaryAction.dataset.profileAction = 'toggle-follow';
@@ -38924,10 +39412,19 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         secondaryAction.dataset.actionRank = isSelf ? 'own-secondary-roadmap' : 'visited-secondary-friend';
 
         if (isSelf) {
-            secondaryAction.innerText = 'Delete Account';
-            secondaryAction.dataset.profileAction = 'open-delete-account';
-            secondaryAction.classList.add('yh-profile-danger-action');
-            secondaryAction.setAttribute('aria-label', 'Delete YH Universe account');
+            secondaryAction.innerText = '';
+
+            secondaryAction.classList.add(
+                'hidden-step'
+            );
+
+            secondaryAction.setAttribute(
+                'aria-hidden',
+                'true'
+            );
+
+            secondaryAction.disabled =
+                true;
         } else if (normalized.isFriend) {
             secondaryAction.innerText = 'Friends';
             secondaryAction.dataset.profileAction = 'friend-state';
@@ -38963,11 +39460,19 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         tertiaryAction.dataset.actionRank = isSelf ? 'own-hidden-message' : 'visited-primary-message';
 
         if (isSelf) {
-            tertiaryAction.innerText = 'Message';
-            tertiaryAction.dataset.profileAction = 'open-community';
-            tertiaryAction.disabled = true;
-            tertiaryAction.classList.add('is-following');
-            tertiaryAction.setAttribute('aria-label', 'Message is disabled on your own profile');
+            tertiaryAction.innerText = '';
+
+            tertiaryAction.classList.add(
+                'hidden-step'
+            );
+
+            tertiaryAction.setAttribute(
+                'aria-hidden',
+                'true'
+            );
+
+            tertiaryAction.disabled =
+                true;
         } else {
             tertiaryAction.innerText =
                 'Message';
@@ -39009,11 +39514,7 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
 
     syncDashboardVisitedProfileFollowPlacementV1();
 
-    renderYHUniverseProfileSnapshot(
-        normalized
-    );
-
-    renderAcademyProfileRecentPosts(
+renderAcademyProfileRecentPosts(
         normalized.recentPosts,
         {
             isSelf,
@@ -39153,6 +39654,17 @@ function getDashboardUniverseProfileDraft() {
                 ? readCache.can_offer
                 : [];
 
+    const recentPosts =
+        Array.isArray(profile.recentPosts)
+            ? profile.recentPosts
+            : Array.isArray(profile.recent_posts)
+                ? profile.recent_posts
+                : Array.isArray(readCache.recentPosts)
+                    ? readCache.recentPosts
+                    : Array.isArray(readCache.recent_posts)
+                        ? readCache.recent_posts
+                        : [];
+
     return {
         displayName,
         username,
@@ -39160,9 +39672,38 @@ function getDashboardUniverseProfileDraft() {
         avatar,
         coverPhoto,
         tags,
-        roleTrack: String(profile.role_track || profile.roleTrack || readCache.role_track || '').trim(),
-        lookingFor,
-        canOffer,
+roleLabel: String(
+    profile.role_label ||
+    profile.roleLabel ||
+    readCache.role_label ||
+    readCache.roleLabel ||
+    'YH Universe Member'
+).trim(),
+
+roleTrack: String(
+    profile.role_track ||
+    profile.roleTrack ||
+    readCache.role_track ||
+    ''
+).trim(),
+
+followersCount:
+    profile.followers_count ??
+    profile.followersCount ??
+    readCache.followers_count ??
+    readCache.followersCount ??
+    0,
+
+followingCount:
+    profile.following_count ??
+    profile.followingCount ??
+    readCache.following_count ??
+    readCache.followingCount ??
+    0,
+    recentPosts,
+
+lookingFor,
+canOffer,
         availability: String(profile.availability || readCache.availability || '').trim(),
         workMode: String(profile.work_mode || profile.workMode || readCache.work_mode || '').trim(),
         proofFocus: String(profile.proof_focus || profile.proofFocus || readCache.proof_focus || '').trim(),
@@ -39427,44 +39968,46 @@ function syncDashboardProfileEditorMediaControl(
      *   → hide the large CTA.
      *   → restore the compact 3-dots menu.
      */
-    if (normalizedKind === 'cover') {
-        setDashboardProfileMediaMenuOpen(
-            'cover',
-            false
-        );
+if (normalizedKind === 'cover') {
+    setDashboardProfileMediaMenuOpen(
+        'cover',
+        false
+    );
 
-        if (hasPreview) {
-            directButton?.classList.add(
-                'hidden-step'
-            );
-
-            menuWrap?.classList.remove(
-                'hidden-step'
-            );
-
-            return;
-        }
-
-        if (directButton) {
-            directButton.classList.remove(
-                'hidden-step'
-            );
-
-            directButton.textContent =
-                'Upload Cover Photo';
-
-            directButton.setAttribute(
-                'aria-label',
-                'Upload cover photo'
-            );
-        }
-
-        menuWrap?.classList.add(
+    if (directButton) {
+        directButton.classList.remove(
             'hidden-step'
         );
 
-        return;
+        directButton.innerHTML = `
+            <i
+                class="fa-solid fa-camera"
+                aria-hidden="true"
+            ></i>
+
+            <span>
+                ${
+                    hasPreview
+                        ? 'Edit cover photo'
+                        : 'Add cover photo'
+                }
+            </span>
+        `;
+
+        directButton.setAttribute(
+            'aria-label',
+            hasPreview
+                ? 'Edit cover photo'
+                : 'Add cover photo'
+        );
     }
+
+    menuWrap?.classList.add(
+        'hidden-step'
+    );
+
+    return;
+}
 
     /*
      * PROFILE PICTURE
@@ -39760,8 +40303,13 @@ function handleDashboardProfileAssetFile(file = null, kind = 'avatar') {
 function getDashboardCropperOutputSize(kind = 'avatar') {
     return kind === 'cover'
         ? {
-            width: 1500,
-            height: 1200
+            /*
+             * Canonical YH profile cover.
+             * Must match the visible profile
+             * cover viewport exactly: 8:3.
+             */
+            width: 1600,
+            height: 600
         }
         : {
             width: 512,
@@ -40167,7 +40715,7 @@ function openDashboardProfileImageCropper(file = null, kind = 'avatar') {
             normalizedKind === 'cover'
                 ? (
                     'Everything inside this cover frame will be saved ' +
-                    'and shown in the same 5:4 profile cover format. ' +
+                    'exactly as it will appear on your profile cover. ' +
                     'Drag to reposition, then resize with pinch or zoom controls.'
                 )
                 : (
@@ -40504,6 +41052,40 @@ async function uploadDashboardProfileAsset(file = null, kind = 'avatar') {
 
     return String(result.media.url || '').trim();
 }
+function formatDashboardProfileSocialCount(value = 0) {
+    const count =
+        Number(value);
+
+    if (
+        !Number.isFinite(count) ||
+        count < 0
+    ) {
+        return '0';
+    }
+
+    if (count < 1000) {
+        return String(
+            Math.floor(count)
+        );
+    }
+
+    try {
+        return new Intl.NumberFormat(
+            'en',
+            {
+                notation: 'compact',
+                maximumFractionDigits: 1
+            }
+        ).format(count);
+    } catch (_) {
+        if (count >= 1000000) {
+            return `${(count / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
+        }
+
+        return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+    }
+}
+
 function renderDashboardProfilePreviewList(label = '', value = '') {
     const cleanValue = String(value || '').trim();
 
@@ -40533,19 +41115,81 @@ function renderDashboardProfilePreviewPills(label = '', values = []) {
 }
 
 function renderDashboardUniverseProfileEditorPreview(draft = {}) {
-    const host = document.getElementById('yh-dashboard-profile-preview-body');
+    const host =
+        document.getElementById(
+            'yh-dashboard-profile-preview-body'
+        );
+
     if (!host) return;
 
-    const displayName = String(draft.displayName || 'Hustler').trim();
-    const username = String(draft.username || '').replace(/^@+/, '').trim();
-    const bio = String(draft.bio || '').trim();
-    const avatar = normalizeDashboardProfileAssetUrl(draft.avatar || '');
-    const cover = normalizeDashboardProfileAssetUrl(draft.coverPhoto || '');
-    const initial = displayName.charAt(0).toUpperCase() || 'Y';
+    const displayName =
+        String(
+            draft.displayName ||
+            'Hustler'
+        ).trim();
 
-    const avatarHtml = avatar
-        ? `<div class="yh-dashboard-profile-preview-avatar has-image" style="background-image:url('${academyFeedEscapeHtml(avatar)}')"></div>`
-        : `<div class="yh-dashboard-profile-preview-avatar">${academyFeedEscapeHtml(initial)}</div>`;
+    const username =
+        String(
+            draft.username ||
+            ''
+        )
+            .replace(/^@+/, '')
+            .trim();
+
+    const roleLabel =
+        String(
+            draft.roleLabel ||
+            draft.roleTrack ||
+            'YH Universe Member'
+        ).trim();
+
+    const bio =
+        String(
+            draft.bio ||
+            ''
+        ).trim();
+
+    const avatar =
+        normalizeDashboardProfileAssetUrl(
+            draft.avatar ||
+            ''
+        );
+
+    const cover =
+        normalizeDashboardProfileAssetUrl(
+            draft.coverPhoto ||
+            ''
+        );
+
+    const initial =
+        displayName
+            .charAt(0)
+            .toUpperCase() ||
+        'Y';
+
+    const followers =
+        formatDashboardProfileSocialCount(
+            draft.followersCount
+        );
+
+    const following =
+        formatDashboardProfileSocialCount(
+            draft.followingCount
+        );
+
+    const avatarHtml =
+        avatar
+            ? `
+                <div
+                    class="yh-dashboard-profile-preview-avatar has-image"
+                    style="background-image:url('${academyFeedEscapeHtml(avatar)}')"
+                ></div>
+            `
+            : `
+                <div class="yh-dashboard-profile-preview-avatar">
+                    ${academyFeedEscapeHtml(initial)}
+                </div>
+            `;
 
     host.innerHTML = `
         <section class="yh-dashboard-profile-preview-card">
@@ -40570,60 +41214,254 @@ function renderDashboardUniverseProfileEditorPreview(draft = {}) {
             </div>
 
             <div class="yh-dashboard-profile-preview-main">
-                <div>
-                    <h4>${academyFeedEscapeHtml(displayName)}</h4>
-                    <p>${username ? '@' + academyFeedEscapeHtml(username) : 'Username not set'}</p>
+                <div class="yh-dashboard-profile-preview-identity">
+                    <h4>
+                        ${academyFeedEscapeHtml(displayName)}
+                    </h4>
+
+                    <p class="yh-dashboard-profile-preview-username">
+                        ${
+                            username
+                                ? '@' + academyFeedEscapeHtml(username)
+                                : 'Username not set'
+                        }
+                    </p>
+
+                    <div class="yh-dashboard-profile-preview-role">
+                        ${academyFeedEscapeHtml(displayName)}
+                    </div>
+
+                    <div class="yh-dashboard-profile-preview-social">
+                        <span>
+                            <strong>${academyFeedEscapeHtml(followers)}</strong>
+                            Followers
+                        </span>
+
+                        <span>·</span>
+
+                        <span>
+                            <strong>${academyFeedEscapeHtml(following)}</strong>
+                            Following
+                        </span>
+                    </div>
                 </div>
 
                 <div class="yh-dashboard-profile-preview-bio">
                     ${academyFeedEscapeHtml(bio || 'No bio added yet.')}
                 </div>
 
-                <div class="yh-dashboard-profile-preview-grid">
+                <div class="yh-dashboard-profile-preview-grid yh-dashboard-profile-preview-grid--details">
                     ${renderDashboardProfilePreviewList('Role track', draft.roleTrack)}
                     ${renderDashboardProfilePreviewList('Availability', draft.availability)}
                     ${renderDashboardProfilePreviewList('Work mode', draft.workMode)}
                     ${renderDashboardProfilePreviewList('Proof focus', draft.proofFocus)}
                     ${renderDashboardProfilePreviewList('Marketplace ready', draft.marketplaceReady ? 'Yes' : 'No')}
+                    ${renderDashboardProfilePreviewPills('Profile tags', draft.tags)}
+                    ${renderDashboardProfilePreviewPills('Looking for', draft.lookingFor)}
+                    ${renderDashboardProfilePreviewPills('Can offer', draft.canOffer)}
                 </div>
-
-                ${renderDashboardProfilePreviewPills('Profile tags', draft.tags)}
-                ${renderDashboardProfilePreviewPills('Looking for', draft.lookingFor)}
-                ${renderDashboardProfilePreviewPills('Can offer', draft.canOffer)}
             </div>
         </section>
     `;
 }
 
+function renderDashboardUnifiedProfilePosts(draft = {}) {
+    const host =
+        document.getElementById(
+            'yh-dashboard-unified-profile-posts-list'
+        );
+
+    if (!host) return;
+
+    const posts =
+        Array.isArray(draft.recentPosts)
+            ? draft.recentPosts.filter(Boolean)
+            : [];
+
+    if (!posts.length) {
+        host.innerHTML = `
+            <div class="yh-dashboard-unified-profile-posts-empty">
+                No posts yet.
+            </div>
+        `;
+
+        return;
+    }
+
+    const displayName =
+        String(
+            draft.displayName ||
+            'Hustler'
+        ).trim() || 'Hustler';
+
+    const username =
+        String(
+            draft.username ||
+            ''
+        )
+            .replace(/^@+/, '')
+            .trim();
+
+    const avatar =
+        normalizeDashboardProfileAssetUrl(
+            draft.avatar ||
+            ''
+        );
+
+    const initial =
+        displayName
+            .charAt(0)
+            .toUpperCase() ||
+        'Y';
+
+    host.innerHTML =
+        posts
+            .map((post) => {
+                const postId =
+                    normalizeAcademyFeedId(
+                        post?.id
+                    );
+
+                const body =
+                    String(
+                        post?.body ||
+                        post?.text ||
+                        (
+                            post?.share
+                                ? 'Shared a post from the Academy feed.'
+                                : ''
+                        )
+                    ).trim();
+
+                const createdLabel =
+                    academyFeedTimeLabel(
+                        post?.created_at ||
+                        post?.createdAt ||
+                        null
+                    );
+
+                const likeCount =
+                    Number(
+                        post?.like_count ??
+                        post?.likeCount ??
+                        0
+                    ) || 0;
+
+                const commentCount =
+                    Number(
+                        post?.comment_count ??
+                        post?.commentCount ??
+                        0
+                    ) || 0;
+
+                return `
+                    <article class="yh-dashboard-unified-profile-post">
+                        <div class="yh-dashboard-unified-profile-post-author">
+                            <div class="yh-dashboard-unified-profile-post-avatar">
+                                ${
+                                    avatar
+                                        ? `
+                                            <img
+                                                src="${academyFeedEscapeHtml(avatar)}"
+                                                alt=""
+                                                loading="lazy"
+                                                decoding="async"
+                                            >
+                                        `
+                                        : `
+                                            <span>
+                                                ${academyFeedEscapeHtml(initial)}
+                                            </span>
+                                        `
+                                }
+                            </div>
+
+                            <div class="yh-dashboard-unified-profile-post-author-copy">
+                                <strong>
+                                    ${academyFeedEscapeHtml(displayName)}
+                                </strong>
+
+                                <span>
+                                    ${
+                                        username
+                                            ? `@${academyFeedEscapeHtml(username)} · `
+                                            : ''
+                                    }${academyFeedEscapeHtml(createdLabel || 'Recently')}
+                                </span>
+                            </div>
+                        </div>
+
+                        ${
+                            body
+                                ? `
+                                    <p class="yh-dashboard-unified-profile-post-body">
+                                        ${academyFeedEscapeHtml(body)}
+                                    </p>
+                                `
+                                : ''
+                        }
+
+                        <div class="yh-dashboard-unified-profile-post-stats">
+                            <span>${likeCount} likes</span>
+                            <span>${commentCount} comments</span>
+                        </div>
+
+                        ${
+                            postId
+                                ? `
+                                    <button
+                                        type="button"
+                                        class="btn-secondary yh-dashboard-unified-profile-post-open"
+                                        data-dashboard-profile-post-open="${academyFeedEscapeHtml(postId)}"
+                                    >
+                                        Open in Feed
+                                    </button>
+                                `
+                                : ''
+                        }
+                    </article>
+                `;
+            })
+            .join('');
+}
+
 function setDashboardProfileEditorMode(mode = 'preview') {
-    const overlay = document.getElementById('yh-dashboard-profile-editor-overlay');
+    const overlay =
+        document.getElementById(
+            'yh-dashboard-profile-editor-overlay'
+        );
+
     if (!overlay) return;
 
-    const cleanMode = String(mode || '').trim().toLowerCase() === 'edit' ? 'edit' : 'preview';
+    const cleanMode =
+        String(mode || '')
+            .trim()
+            .toLowerCase() === 'edit'
+            ? 'edit'
+            : 'preview';
 
-    overlay.setAttribute('data-dashboard-profile-mode', cleanMode);
-    overlay.classList.toggle('is-profile-edit-mode', cleanMode === 'edit');
-    overlay.classList.toggle('is-profile-preview-mode', cleanMode !== 'edit');
+    overlay.setAttribute(
+        'data-dashboard-profile-mode',
+        cleanMode
+    );
 
-    const title = document.getElementById('yh-dashboard-profile-editor-title');
-    const copy = document.getElementById('yh-dashboard-profile-editor-copy');
+    overlay.classList.toggle(
+        'is-profile-edit-mode',
+        cleanMode === 'edit'
+    );
 
-    if (title) {
-        title.textContent = cleanMode === 'edit'
-            ? 'Edit Young Hustlers Universe Profile'
-            : 'Preview Young Hustlers Universe Profile';
-    }
-
-    if (copy) {
-        copy.textContent = cleanMode === 'edit'
-            ? 'Update the details that power your identity across Academy, Plaza, and Federation.'
-            : 'Review how your Young Hustlers Universe profile appears before making changes.';
-    }
+    overlay.classList.toggle(
+        'is-profile-preview-mode',
+        cleanMode !== 'edit'
+    );
 }
 
 function ensureDashboardUniverseProfileEditor() {
     let overlay = document.getElementById('yh-dashboard-profile-editor-overlay');
-    const workspaceContent = document.getElementById('yh-dashboard-profile-editor-workspace-content');
+    const workspaceContent =
+    document.getElementById(
+        'yh-dashboard-profile-view-workspace-content'
+    );
 
     if (overlay) {
         if (
@@ -40642,105 +41480,140 @@ function ensureDashboardUniverseProfileEditor() {
     overlay.className = 'yh-dashboard-profile-modal is-dashboard-inline-workspace hidden-step';
     overlay.setAttribute('role', 'region');
     overlay.setAttribute('aria-hidden', 'true');
-    overlay.setAttribute('aria-labelledby', 'yh-dashboard-profile-editor-title');
+    overlay.setAttribute(
+        'aria-label',
+        'YH Universe profile'
+    );
 
     overlay.innerHTML = `
         <div class="yh-dashboard-profile-modal-card">
-            <div class="yh-dashboard-profile-modal-head">
-                <div>
-                    <div class="yh-dashboard-profile-modal-kicker">Unified Profile</div>
-                    <h3 id="yh-dashboard-profile-editor-title">Preview Young Hustlers Universe Profile</h3>
-                    <p id="yh-dashboard-profile-editor-copy">Review how your Young Hustlers Universe profile appears before making changes.</p>
-                </div>
+<div class="yh-dashboard-profile-modal-head yh-dashboard-profile-modal-head--menu-only">
+    <div class="yh-dashboard-profile-head-menu-wrap">
+        <button
+            type="button"
+            class="btn-secondary yh-dashboard-profile-head-menu-toggle"
+            id="yh-dashboard-profile-head-menu-toggle"
+            aria-label="Profile options"
+            aria-expanded="false"
+            aria-haspopup="true"
+        >
+            <i
+                class="fa-solid fa-ellipsis"
+                aria-hidden="true"
+            ></i>
+        </button>
 
-            </div>
+        <div
+            class="yh-dashboard-profile-head-menu hidden-step"
+            id="yh-dashboard-profile-head-menu"
+        >
+            <button
+                type="button"
+                class="yh-dashboard-profile-head-menu-item"
+                id="yh-dashboard-profile-head-edit-btn"
+            >
+                Edit Profile
+            </button>
+        </div>
+    </div>
+</div>
 
             <div class="yh-dashboard-profile-preview-body hide-scrollbar" id="yh-dashboard-profile-preview-body"></div>
 
             <div class="yh-dashboard-profile-modal-body yh-dashboard-profile-edit-fields hide-scrollbar">
-                <section class="yh-dashboard-profile-media-editor">
+<section class="yh-dashboard-profile-media-editor yh-dashboard-profile-social-editor">
+    <div
+        class="yh-dashboard-profile-cover-preview"
+        id="yh-dashboard-profile-cover-preview"
+    >
+        <button
+            type="button"
+            class="btn-secondary yh-dashboard-profile-media-btn yh-dashboard-profile-cover-btn"
+            id="yh-dashboard-profile-cover-trigger"
+            aria-label="Add cover photo"
+        >
+            <i class="fa-solid fa-camera" aria-hidden="true"></i>
+            <span>Add cover photo</span>
+        </button>
+    </div>
 
-                    <div
-                        class="yh-dashboard-profile-cover-preview"
-                        id="yh-dashboard-profile-cover-preview"
-                    >
-                        <button
-                            type="button"
-                            class="btn-secondary yh-dashboard-profile-media-btn yh-dashboard-profile-cover-btn"
-                            id="yh-dashboard-profile-cover-trigger"
-                            aria-label="Upload cover photo"
-                        >
-                            Upload Cover Photo
-                        </button>
+    <div class="yh-dashboard-profile-editor-identity-row">
+        <div class="yh-dashboard-profile-avatar-preview-wrap">
+            <div
+                class="yh-dashboard-profile-avatar-preview"
+                id="yh-dashboard-profile-avatar-preview"
+            >
+                Y
+            </div>
 
-                        <div
-                            class="yh-dashboard-profile-media-menu-wrap hidden-step"
-                            id="yh-dashboard-profile-cover-menu-wrap"
-                        >
-                            <button
-                                type="button"
-                                class="yh-dashboard-profile-media-menu-toggle"
-                                id="yh-dashboard-profile-cover-menu-toggle"
-                                aria-label="Cover photo options"
-                                aria-expanded="false"
-                            >
-                                •••
-                            </button>
+            <button
+                type="button"
+                class="yh-dashboard-profile-avatar-camera"
+                id="yh-dashboard-profile-avatar-trigger"
+                aria-label="Change profile picture"
+                title="Change profile picture"
+            >
+                <i
+                    class="fa-solid fa-camera"
+                    aria-hidden="true"
+                ></i>
+            </button>
+        </div>
 
-                            <div
-                                class="yh-dashboard-profile-media-menu hidden-step"
-                                id="yh-dashboard-profile-cover-menu"
-                            >
-                                <button
-                                    type="button"
-                                    class="yh-dashboard-profile-media-menu-item"
-                                    id="yh-dashboard-profile-cover-menu-change"
-                                >
-                                    Change Cover Photo
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+        <div class="yh-dashboard-profile-editor-identity-copy">
+            <strong id="yh-dashboard-profile-editor-name">
+                Hustler
+            </strong>
 
-                    <div class="yh-dashboard-profile-avatar-editor-row">
+            <span id="yh-dashboard-profile-editor-username">
+                @yhmember
+            </span>
 
-                        <div class="yh-dashboard-profile-avatar-preview-wrap">
-                            <div
-                                class="yh-dashboard-profile-avatar-preview"
-                                id="yh-dashboard-profile-avatar-preview"
-                            >
-                                Y
-                            </div>
-                        </div>
+            <div
+                class="yh-dashboard-profile-editor-role"
+                id="yh-dashboard-profile-editor-role"
+            >
+                YH Universe Member
+            </div>
 
-                        <div class="yh-dashboard-profile-avatar-copy">
-                            <strong>Profile picture</strong>
-                            <span>This is shown on your profile, member search, and visited member views.</span>
-                        </div>
+            <div class="yh-dashboard-profile-editor-social">
+                <span>
+                    <strong id="yh-dashboard-profile-editor-followers">
+                        0
+                    </strong>
+                    Followers
+                </span>
 
-                        <button
-                            type="button"
-                            class="btn-secondary yh-dashboard-profile-media-btn"
-                            id="yh-dashboard-profile-avatar-trigger"
-                        >
-                            Change Profile Picture
-                        </button>
-                    </div>
+                <span aria-hidden="true">·</span>
 
-                    <input
-                        type="file"
-                        id="yh-dashboard-profile-avatar-input"
-                        accept="image/*"
-                        style="display:none;"
-                    >
+                <span>
+                    <strong id="yh-dashboard-profile-editor-following">
+                        0
+                    </strong>
+                    Following
+                </span>
+            </div>
 
-                    <input
-                        type="file"
-                        id="yh-dashboard-profile-cover-input"
-                        accept="image/*"
-                        style="display:none;"
-                    >
-                </section>
+            <p id="yh-dashboard-profile-editor-bio">
+                Add a short public bio.
+            </p>
+        </div>
+    </div>
+
+    <input
+        type="file"
+        id="yh-dashboard-profile-avatar-input"
+        accept="image/*"
+        style="display:none;"
+    >
+
+    <input
+        type="file"
+        id="yh-dashboard-profile-cover-input"
+        accept="image/*"
+        style="display:none;"
+    >
+</section>
 
                 <div class="yh-dashboard-profile-field">
                     <label for="yh-dashboard-profile-display-name">Display name</label>
@@ -40819,38 +41692,171 @@ function ensureDashboardUniverseProfileEditor() {
                 </div>
             </div>
 
-            <div class="yh-dashboard-profile-modal-actions">
-                <div class="yh-dashboard-profile-primary-actions yh-dashboard-profile-preview-actions">
-                    <button type="button" class="btn-primary" id="yh-dashboard-profile-edit-mode-btn">Edit Profile</button>
-                </div>
+<div class="yh-dashboard-profile-modal-actions">
+    <div class="yh-dashboard-profile-primary-actions yh-dashboard-profile-edit-actions">
+        <button
+            type="button"
+            class="btn-secondary"
+            id="yh-dashboard-profile-preview-mode-btn"
+        >
+            Preview Profile
+        </button>
 
-                <div class="yh-dashboard-profile-primary-actions yh-dashboard-profile-edit-actions">
-                    <button type="button" class="btn-secondary" id="yh-dashboard-profile-preview-mode-btn">Preview Profile</button>
-                    <button type="button" class="btn-primary" id="yh-dashboard-profile-save-btn">Save Profile</button>
-                </div>
+        <button
+            type="button"
+            class="btn-primary"
+            id="yh-dashboard-profile-save-btn"
+        >
+            Save Profile
+        </button>
+    </div>
 
-                <div class="yh-dashboard-ticket-question">Have questions?</div>
+    <div class="yh-dashboard-ticket-question">
+        Have questions?
+    </div>
 
-                <button type="button" class="btn-secondary yh-dashboard-create-ticket-btn" id="yh-dashboard-create-ticket-btn">Create a Ticket</button>
-            </div>
+    <button
+        type="button"
+        class="btn-secondary yh-dashboard-create-ticket-btn"
+        id="yh-dashboard-create-ticket-btn"
+    >
+        Create a Ticket
+    </button>
+</div>
+
+<section
+    class="yh-dashboard-unified-profile-posts"
+    aria-labelledby="yh-dashboard-unified-profile-posts-title"
+>
+    <div class="yh-dashboard-unified-profile-posts-head">
+        <div>
+            <span>Posts</span>
+
+            <h3 id="yh-dashboard-unified-profile-posts-title">
+                Your shared posts
+            </h3>
+        </div>
+    </div>
+
+    <div
+        class="yh-dashboard-unified-profile-posts-list"
+        id="yh-dashboard-unified-profile-posts-list"
+    >
+        <div class="yh-dashboard-unified-profile-posts-empty">
+            No posts yet.
+        </div>
+    </div>
+</section>
         </div>
     `;
 
     (workspaceContent || document.body).appendChild(overlay);
 
 
-    document.getElementById('yh-dashboard-profile-edit-mode-btn')?.addEventListener('click', () => {
+    const setDashboardProfileHeadMenuOpen = (isOpen = false) => {
+        const menu = document.getElementById(
+            'yh-dashboard-profile-head-menu'
+        );
+
+        const toggle = document.getElementById(
+            'yh-dashboard-profile-head-menu-toggle'
+        );
+
+        if (!menu || !toggle) return;
+
+        menu.classList.toggle('hidden-step', !isOpen);
+        toggle.setAttribute(
+            'aria-expanded',
+            isOpen ? 'true' : 'false'
+        );
+    };
+
+    document.getElementById(
+        'yh-dashboard-profile-head-menu-toggle'
+    )?.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const menu = document.getElementById(
+            'yh-dashboard-profile-head-menu'
+        );
+
+        const willOpen =
+            menu?.classList.contains('hidden-step') === true;
+
+        setDashboardProfileHeadMenuOpen(willOpen);
+    });
+
+    document.getElementById(
+        'yh-dashboard-profile-head-edit-btn'
+    )?.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        setDashboardProfileHeadMenuOpen(false);
         setDashboardProfileEditorMode('edit');
     });
 
     document.getElementById('yh-dashboard-profile-preview-mode-btn')?.addEventListener('click', () => {
         renderDashboardUniverseProfileEditorPreview(getDashboardUniverseProfileDraft());
+        setDashboardProfileHeadMenuOpen(false);
         setDashboardProfileEditorMode('preview');
     });
 
-    document.getElementById('yh-dashboard-profile-save-btn')?.addEventListener('click', (event) => {
-        saveDashboardUniverseProfile(event.currentTarget);
-    });
+document.getElementById(
+    'yh-dashboard-profile-save-btn'
+)?.addEventListener(
+    'click',
+    (event) => {
+        saveDashboardUniverseProfile(
+            event.currentTarget
+        );
+    }
+);
+
+overlay.addEventListener(
+    'click',
+    (event) => {
+        if (
+            !event.target?.closest?.(
+                '.yh-dashboard-profile-head-menu-wrap'
+            )
+        ) {
+            setDashboardProfileHeadMenuOpen(false);
+        }
+
+        const postButton =
+            event.target?.closest?.(
+                '[data-dashboard-profile-post-open]'
+            );
+
+        if (!postButton) return;
+
+        const postId =
+            normalizeAcademyFeedId(
+                postButton.getAttribute(
+                    'data-dashboard-profile-post-open'
+                )
+            );
+
+        if (!postId) return;
+
+        openAcademyProfilePostInFeed(
+            postId
+        ).catch((error) => {
+            console.error(
+                'openAcademyProfilePostInFeed error:',
+                error
+            );
+
+            showToast(
+                error?.message ||
+                'Failed to open profile post.',
+                'error'
+            );
+        });
+    }
+);
 
     document.getElementById('yh-dashboard-create-ticket-btn')?.addEventListener('click', () => {
         openDashboardBasicAssistantPanel();
@@ -41055,42 +42061,111 @@ function splitDashboardSignalList(value = '') {
 }
 
 function openDashboardUniverseProfileEditor(options = {}) {
-    const requestedMode = String(options?.mode || 'edit').trim().toLowerCase() === 'preview'
-        ? 'preview'
-        : 'edit';
+    const requestedMode =
+        String(
+            options?.mode ||
+            'preview'
+        )
+            .trim()
+            .toLowerCase() === 'edit'
+            ? 'edit'
+            : 'preview';
 
     const currentWorkspace = String(
         document.body?.getAttribute('data-yh-unified-workspace') || ''
     ).trim().toLowerCase();
 
-    if (
-        options?.activateWorkspace !== false &&
-        currentWorkspace !== 'edit-profile' &&
-        typeof activateDashboardUnifiedWorkspace === 'function'
-    ) {
-        if (
-            typeof closeDashboardUniverseProfileView === 'function' &&
-            !document.getElementById('academy-profile-view')?.classList.contains('hidden-step')
-        ) {
-            closeDashboardUniverseProfileView({
-                useBrowserBack: false
-            });
-        }
+if (
+    options?.activateWorkspace !== false &&
+    currentWorkspace !== 'profile' &&
+    typeof activateDashboardUnifiedWorkspace === 'function'
+) {
+    academyProfileViewState = {
+        mode: 'self',
+        memberId: '',
+        profile:
+            academyProfileViewState?.mode === 'self'
+                ? academyProfileViewState.profile
+                : null
+    };
 
-        activateDashboardUnifiedWorkspace('edit-profile', {
+    activateDashboardUnifiedWorkspace(
+        'profile',
+        {
             animate: false,
-            scroll: options?.scroll !== false,
-            persist: options?.persist !== false,
-            profileEditorMode: requestedMode
-        });
+            scroll:
+                options?.scroll !== false,
+            persist:
+                options?.persist !== false,
+            profileEditorMode:
+                requestedMode
+        }
+    );
 
-        return document.getElementById('yh-dashboard-profile-editor-overlay');
+    return document.getElementById(
+        'yh-dashboard-profile-editor-overlay'
+    );
+}
+
+const overlay =
+    ensureDashboardUniverseProfileEditor();
+
+const draft =
+    getDashboardUniverseProfileDraft();
+
+const setProfileHeaderText = (
+    id,
+    value
+) => {
+    const element =
+        document.getElementById(id);
+
+    if (element) {
+        element.textContent =
+            String(value || '');
     }
+};
 
-    const overlay = ensureDashboardUniverseProfileEditor();
-    const draft = getDashboardUniverseProfileDraft();
+setProfileHeaderText(
+    'yh-dashboard-profile-editor-name',
+    draft.displayName || 'Hustler'
+);
 
-    setDashboardProfileEditorAsset('avatar', {
+setProfileHeaderText(
+    'yh-dashboard-profile-editor-username',
+    draft.username
+        ? `@${String(draft.username).replace(/^@+/, '')}`
+        : '@yhmember'
+);
+
+setProfileHeaderText(
+    'yh-dashboard-profile-editor-role',
+    draft.roleLabel ||
+    draft.roleTrack ||
+    'YH Universe Member'
+);
+
+setProfileHeaderText(
+    'yh-dashboard-profile-editor-followers',
+    formatDashboardProfileSocialCount(
+        draft.followersCount
+    )
+);
+
+setProfileHeaderText(
+    'yh-dashboard-profile-editor-following',
+    formatDashboardProfileSocialCount(
+        draft.followingCount
+    )
+);
+
+setProfileHeaderText(
+    'yh-dashboard-profile-editor-bio',
+    draft.bio ||
+    'Add a short public bio.'
+);
+
+setDashboardProfileEditorAsset('avatar', {
         file: null,
         previewUrl: draft.avatar || ''
     });
@@ -41117,8 +42192,17 @@ function openDashboardUniverseProfileEditor(options = {}) {
     setValue('yh-dashboard-profile-proof-focus', draft.proofFocus);
     setValue('yh-dashboard-profile-marketplace-ready', draft.marketplaceReady ? 'yes' : 'no');
 
-    renderDashboardUniverseProfileEditorPreview(draft);
-    setDashboardProfileEditorMode(requestedMode);
+    renderDashboardUniverseProfileEditorPreview(
+        draft
+    );
+
+    renderDashboardUnifiedProfilePosts(
+        draft
+    );
+
+    setDashboardProfileEditorMode(
+        requestedMode
+    );
 
     overlay.classList.remove('hidden-step');
     overlay.setAttribute('aria-hidden', 'false');
@@ -41829,9 +42913,27 @@ async function saveDashboardUniverseProfile(button = null) {
             previewUrl: String(preservedProfile.cover_photo || preservedProfile.coverPhoto || '').trim()
         });
 
-        renderAcademyProfileView(academyProfileViewState.profile, { mode: 'self' });
-        renderDashboardUniverseProfileEditorPreview(getDashboardUniverseProfileDraft());
-        setDashboardProfileEditorMode('preview');
+        renderAcademyProfileView(
+            academyProfileViewState.profile,
+            {
+                mode: 'self'
+            }
+        );
+
+        const refreshedDraft =
+            getDashboardUniverseProfileDraft();
+
+        renderDashboardUniverseProfileEditorPreview(
+            refreshedDraft
+        );
+
+        renderDashboardUnifiedProfilePosts(
+            refreshedDraft
+        );
+
+        setDashboardProfileEditorMode(
+            'preview'
+        );
 
         hydrateDashboardSelfUniverseProfile().catch((error) => {
             console.warn('hydrate after profile save failed:', error);
@@ -42641,16 +43743,86 @@ async function hydrateDashboardSelfUniverseProfile() {
 
 function openAcademyProfileView() {
     try {
-        sessionStorage.removeItem('yh_academy_visit_profile_target_v1');
-        sessionStorage.removeItem('yh_dashboard_open_profile_v1');
+        sessionStorage.removeItem(
+            'yh_academy_visit_profile_target_v1'
+        );
+
+        sessionStorage.removeItem(
+            'yh_dashboard_open_profile_v1'
+        );
     } catch (_) {}
 
-    if (typeof clearDashboardPersistentProfileState === 'function') {
+    const isDashboardProfileWorkspace =
+        document.body?.getAttribute(
+            'data-yh-page'
+        ) === 'dashboard' &&
+        typeof activateDashboardUnifiedWorkspace ===
+            'function';
+
+    /*
+     * Dashboard owns one Profile workspace.
+     * Own profile uses the editable profile surface.
+     */
+    if (isDashboardProfileWorkspace) {
+        const cachedSelfProfile =
+            dashboardGetSelfProfileCache();
+
+        const immediateProfile =
+            normalizeAcademyProfilePayload(
+                buildAcademySelfProfilePayload(
+                    cachedSelfProfile
+                ),
+                {
+                    mode: 'self'
+                }
+            );
+
+        academyProfileViewState = {
+            mode: 'self',
+            memberId:
+                immediateProfile.id ||
+                '',
+            profile:
+                immediateProfile
+        };
+
+        currentRoom = null;
+        currentRoomId = null;
+        currentRoomMeta = null;
+
+        activateDashboardUnifiedWorkspace(
+            'profile',
+            {
+                animate: false,
+                scroll: true,
+                persist: true,
+
+                /*
+                * Profile always opens in read/preview mode.
+                * Edit mode is entered only from the
+                * three-dot > Edit Profile action.
+                */
+                profileEditorMode:
+                    'preview'
+            }
+        );
+
+        return;
+    }
+
+    /*
+     * Preserve standalone Academy behavior.
+     */
+    if (
+        typeof clearDashboardPersistentProfileState ===
+        'function'
+    ) {
         clearDashboardPersistentProfileState();
     }
 
     saveAcademyViewState('profile');
     persistDashboardProfileUiState('self');
+
     hideAcademyViewsForFeed();
     setAcademySidebarActive('nav-profile');
     revealAcademyProfileView();
@@ -42659,10 +43831,6 @@ function openAcademyProfileView() {
     currentRoomId = null;
     currentRoomMeta = null;
 
-    /*
-     * Render the latest saved cache immediately instead
-     * of briefly rendering an old in-memory profile.
-     */
     const cachedSelfProfile =
         dashboardGetSelfProfileCache();
 
@@ -42734,6 +43902,17 @@ async function openAcademyMemberProfileView(memberId = '') {
     let renderedCachedProfile = false;
 
     const revealVisitedProfileShell = () => {
+        academyProfileViewState = {
+            mode: 'visited',
+            memberId:
+                normalizedMemberId,
+            profile:
+                academyProfileViewState?.mode === 'visited' &&
+                academyProfileViewState?.memberId === normalizedMemberId
+                    ? academyProfileViewState.profile
+                    : null
+        };
+
         hideAcademyViewsForFeed();
         setAcademySidebarActive('');
         revealAcademyProfileView();
@@ -53789,7 +54968,6 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         const isOverview = workspace === 'overview';
         const isReferral = workspace === 'referral';
         const isSettings = workspace === 'settings';
-        const isEditProfile = workspace === 'edit-profile';
         const isParent = PARENT_KEYS.has(workspace);
 
         const intro = ensureIntroMount();
@@ -53826,16 +55004,6 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         const settingsWorkspaceContent = document.getElementById('yh-dashboard-settings-workspace-content');
         const settingsSurface = document.getElementById('yh-dashboard-settings-modal');
 
-        const profileEditorWorkspace = document.getElementById('yh-dashboard-profile-editor-workspace');
-        const profileEditorWorkspaceContent = document.getElementById('yh-dashboard-profile-editor-workspace-content');
-        const profileEditorSurface =
-            document.getElementById('yh-dashboard-profile-editor-overlay') ||
-            (
-                isEditProfile &&
-                typeof ensureDashboardUniverseProfileEditor === 'function'
-                    ? ensureDashboardUniverseProfileEditor()
-                    : null
-            );
 
         const academyStrip = document.getElementById('yh-universe-academy-strip');
         const plazaStrip = document.getElementById('yh-universe-plaza-strip');
@@ -53859,16 +55027,9 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
             settingsWorkspaceContent.appendChild(settingsSurface);
         }
 
-        if (
-            profileEditorWorkspaceContent &&
-            profileEditorSurface &&
-            profileEditorSurface.parentElement !== profileEditorWorkspaceContent
-        ) {
-            profileEditorWorkspaceContent.appendChild(profileEditorSurface);
-        }
-
-        settingsSurface?.classList.add('is-dashboard-inline-workspace');
-        profileEditorSurface?.classList.add('is-dashboard-inline-workspace');
+        settingsSurface?.classList.add(
+            'is-dashboard-inline-workspace'
+        );
 
         setDashboardNodeVisible(commandHead, isOverview, 'grid');
         setDashboardNodeVisible(overviewGrid, false, 'grid');
@@ -53877,8 +55038,6 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         setDashboardNodeVisible(referralCard, isReferral);
         setDashboardNodeVisible(settingsWorkspace, isSettings, 'block');
         setDashboardNodeVisible(settingsSurface, isSettings, 'block');
-        setDashboardNodeVisible(profileEditorWorkspace, isEditProfile, 'block');
-        setDashboardNodeVisible(profileEditorSurface, isEditProfile, 'block');
 
         setDashboardNodeVisible(academyStrip, isOverview, 'block');
         setDashboardNodeVisible(plazaStrip, false, 'block');

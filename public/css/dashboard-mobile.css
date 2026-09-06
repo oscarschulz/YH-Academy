@@ -16,108 +16,43 @@ body[data-yh-view="hub"] canvas {
 }
 
 @media (min-width: 769px) {
-    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-recent-card {
-        min-width: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    #academy-profile-view
+    .academy-profile-recent-card {
+        width: min(760px, 100%) !important;
+        max-width: 760px !important;
+
+        margin-left: auto !important;
+        margin-right: auto !important;
+
         overflow: visible !important;
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view #yh-universe-profile-activity-controls {
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    #academy-profile-view
+    .academy-profile-post-list {
         width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
+
         display: grid !important;
-        grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) !important;
-        align-items: center !important;
+        grid-template-columns: 1fr !important;
+
         gap: 14px !important;
-        margin: 16px 0 14px !important;
-        padding: 14px 16px !important;
-        border: 1px solid rgba(103, 232, 249, 0.18) !important;
-        border-radius: 16px !important;
-        background:
-            radial-gradient(circle at 14% 0%, rgba(56, 189, 248, 0.12), transparent 38%),
-            linear-gradient(180deg, rgba(8, 18, 38, 0.7), rgba(3, 8, 20, 0.58)) !important;
-        overflow: visible !important;
-    }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view #yh-universe-profile-activity-controls label {
-        min-width: 0 !important;
-        margin: 0 !important;
-        font-size: 0.92rem !important;
-        line-height: 1 !important;
-        white-space: nowrap !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .yh-universe-profile-activity-filter {
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 240px !important;
-        height: 42px !important;
-        min-height: 42px !important;
-        justify-self: end !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-list {
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        display: grid !important;
-        grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)) !important;
-        gap: 14px !important;
         max-height: none !important;
-        overflow: visible !important;
-        padding-right: 0 !important;
-        align-items: stretch !important;
-    }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-card,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .yh-universe-activity-card {
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        min-height: 238px !important;
-        display: grid !important;
-        grid-template-rows: auto minmax(0, 1fr) auto !important;
-        align-content: stretch !important;
-        gap: 18px !important;
-        padding: 18px 18px !important;
         overflow: visible !important;
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .yh-universe-activity-head {
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    #academy-profile-view
+    .academy-profile-post-card {
         width: 100% !important;
         min-width: 0 !important;
-        display: grid !important;
-        grid-template-columns: max-content minmax(0, 1fr) !important;
-        align-items: center !important;
-        gap: 10px !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-meta {
-        min-width: 0 !important;
         max-width: 100% !important;
-        white-space: normal !important;
+
+        min-height: 0 !important;
+
         overflow: visible !important;
-        text-overflow: clip !important;
-        line-height: 1.28 !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-body {
-        min-width: 0 !important;
-        width: 100% !important;
-        display: grid !important;
-        align-content: start !important;
-        gap: 10px !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-body strong,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-body p,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-stats {
-        min-width: 0 !important;
-        max-width: 100% !important;
-        white-space: normal !important;
-        overflow-wrap: anywhere !important;
     }
 }
 
@@ -1360,7 +1295,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         grid-template-columns:
             minmax(0, 1fr)
             minmax(106px, 138px)
-            42px !important;
+            auto !important;
         align-items: center !important;
         gap: 8px !important;
         padding:
@@ -1644,7 +1579,62 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
     }
 
     /* END MOBILE DASHBOARD UNIVERSE SEARCH v1 */
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-mobile-app-actions {
+    grid-column:
+        3 !important;
 
+    justify-self:
+        end !important;
+
+    align-self:
+        center !important;
+
+    display:
+        inline-flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        flex-end !important;
+
+    gap:
+        7px !important;
+
+    width:
+        auto !important;
+
+    min-width:
+        0 !important;
+
+    pointer-events:
+        auto !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-mobile-notification-host {
+    width:
+        36px !important;
+
+    height:
+        36px !important;
+
+    min-width:
+        36px !important;
+
+    display:
+        grid !important;
+
+    place-items:
+        center !important;
+
+    position:
+        relative !important;
+
+    pointer-events:
+        auto !important;
+}
     body[data-yh-view="hub"][data-yh-page="dashboard"]
         .yh-mobile-app-profile {
         width: 42px !important;
@@ -1730,11 +1720,17 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         color: transparent !important;
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-profile {
-        grid-column: 3 !important;
-        justify-self: end !important;
-        align-self: end !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-mobile-app-profile {
+    grid-column:
+        auto !important;
+
+    justify-self:
+        auto !important;
+
+    align-self:
+        center !important;
+}
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtab-menu {
         grid-column: 2 !important;
@@ -1919,807 +1915,761 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
         text-overflow: ellipsis !important;
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
-        #academy-profile-view.yh-dashboard-universe-profile-host {
-        position: relative !important;
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view.yh-dashboard-universe-profile-host {
+    position: relative !important;
+    inset: auto !important;
 
-        inset: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
 
-        z-index: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
 
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
 
-        height: auto !important;
-        min-height: 0 !important;
+    display: block !important;
 
-        margin: 0 !important;
-        padding: 0 !important;
+    overflow: visible !important;
 
-        display: block !important;
+    background: transparent !important;
+}
 
-        overflow: visible !important;
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-universe-profile-header {
+    width: 100% !important;
+    min-height: 42px !important;
 
-        background: transparent !important;
+    margin: 0 0 10px !important;
+    padding: 0 12px !important;
 
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-    }
+    display: flex !important;
+    align-items: center !important;
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
-        .yh-dashboard-universe-profile-header {
-        position: relative !important;
+    background: transparent !important;
+    border: 0 !important;
+}
 
-        top: auto !important;
-        right: auto !important;
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.academy-profile-header-right {
+    width: 100% !important;
 
-        z-index: auto !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
 
-        width: 100% !important;
-        height: auto !important;
-        min-height: 42px !important;
+    gap: 8px !important;
+}
 
-        margin: 0 0 10px !important;
-        padding: 0 !important;
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-close {
+    width: auto !important;
+    min-width: 82px !important;
 
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
+    height: 38px !important;
+    min-height: 38px !important;
 
-        border: 0 !important;
-        background: transparent !important;
-        box-shadow: none !important;
-    }
+    padding: 0 12px !important;
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
-        .academy-profile-header-right {
-        position: static !important;
+    font-size: 0.74rem !important;
+}
 
-        width: 100% !important;
-        height: auto !important;
-
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        gap: 8px !important;
-    }
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
+body[data-yh-view="hub"][data-yh-page="dashboard"]
 .yh-profile-header-action-group {
     margin-left: auto !important;
 
     display: inline-flex !important;
     align-items: center !important;
-    justify-content: flex-end !important;
 
     gap: 6px !important;
-
-    min-width: 0 !important;
 }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
-        .yh-dashboard-profile-close {
-        position: relative !important;
-
-        width: auto !important;
-        min-width: 88px !important;
-        max-width: none !important;
-
-        height: 40px !important;
-        min-height: 40px !important;
-
-        margin: 0 !important;
-        padding: 0 13px !important;
-
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-
-        border-radius: 12px !important;
-
-        font-size: 0.78rem !important;
-        font-weight: 800 !important;
-
-        white-space: nowrap !important;
-    }
 body[data-yh-view="hub"][data-yh-page="dashboard"]
-    #academy-profile-view[data-profile-layout="visited"]
-    .yh-profile-header-action-group
-    #academy-profile-primary-action.yh-profile-header-follow-action,
+#academy-profile-view[data-profile-layout="visited"]
+.yh-profile-header-action-group
+#academy-profile-primary-action.yh-profile-header-follow-action,
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
-    #academy-profile-view[data-profile-layout="visited"]
-    .yh-profile-header-action-group
-    #academy-profile-tertiary-action.yh-profile-header-message-action {
-    width: 92px !important;
-    min-width: 92px !important;
-    max-width: 92px !important;
+#academy-profile-view[data-profile-layout="visited"]
+.yh-profile-header-action-group
+#academy-profile-tertiary-action.yh-profile-header-message-action {
+    width: auto !important;
+    min-width: 84px !important;
 
-    height: 40px !important;
-    min-height: 40px !important;
-    max-height: 40px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+
+    padding: 0 10px !important;
+
+    font-size: 0.68rem !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view[data-profile-layout="visited"]
+.academy-profile-hero-actions {
+    display: none !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-universe-profile-scroll {
+    width: 100% !important;
+    min-width: 0 !important;
+
+    overflow: visible !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+
+    margin: 0 auto !important;
+
+    padding:
+        0
+        12px
+        calc(
+            20px +
+            env(
+                safe-area-inset-bottom,
+                0px
+            )
+        ) !important;
+
+    display: grid !important;
+
+    gap: 14px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-cover-card {
+    width: 100% !important;
 
     margin: 0 !important;
-    padding: 0 8px !important;
 
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    border-radius: 16px !important;
 
-    flex: 0 0 92px !important;
-    order: 0 !important;
-
-    border-radius: 12px !important;
-
-    font-size: 0.7rem !important;
-    font-weight: 850 !important;
-    line-height: 1 !important;
-
-    white-space: nowrap !important;
+    overflow: hidden !important;
 }
 
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-cover-band {
+    width: 100% !important;
+
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    aspect-ratio: 8 / 3 !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-cover-body {
+    width: 100% !important;
+
+    margin-top: -46px !important;
+
+    padding:
+        0
+        15px
+        18px !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    align-items: stretch !important;
+
+    gap: 12px !important;
+
+    text-align: left !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-cover-left {
+    width: 100% !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    align-items: flex-start !important;
+
+    gap: 9px !important;
+
+    text-align: left !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-avatar-wrap {
+    width: 98px !important;
+    height: 98px !important;
+
+    min-width: 98px !important;
+    min-height: 98px !important;
+
+    margin: 0 !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-avatar {
+    width: 98px !important;
+    height: 98px !important;
+
+    min-width: 98px !important;
+    min-height: 98px !important;
+
+    margin: 0 !important;
+
+    border-radius: 50% !important;
+
+    border-width: 4px !important;
+
+    font-size: 1.7rem !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-identity-block {
+    width: 100% !important;
+
+    display: grid !important;
+
+    gap: 4px !important;
+
+    padding: 0 !important;
+
+    text-align: left !important;
+
+    justify-items: start !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-name {
+    width: 100% !important;
+
+    font-size: 1.34rem !important;
+    line-height: 1.05 !important;
+
+    text-align: left !important;
+
+    overflow-wrap: anywhere !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-username {
+    width: 100% !important;
+
+    margin-top: 2px !important;
+
+    font-size: 0.78rem !important;
+
+    text-align: left !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-subline {
+    width: 100% !important;
+
+    margin-top: 5px !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+
+    gap: 6px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-role {
+    width: auto !important;
+
+    font-size: 0.75rem !important;
+
+    text-align: left !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-pill {
+    width: auto !important;
+
+    min-height: 26px !important;
+
+    margin: 0 !important;
+
+    padding: 0 10px !important;
+
+    font-size: 0.62rem !important;
+    line-height: 26px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-social-summary {
+    width: 100% !important;
+
+    margin-top: 6px !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+
+    gap: 7px !important;
+
+    font-size: 0.76rem !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-hero-bio {
+    width: 100% !important;
+
+    margin-top: 5px !important;
+
+    font-size: 0.78rem !important;
+    line-height: 1.48 !important;
+
+    text-align: left !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-tag-list {
+    width: 100% !important;
+
+    margin-top: 7px !important;
+
+    display: flex !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+
+    gap: 5px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-tag-chip {
+    padding: 5px 8px !important;
+
+    font-size: 0.66rem !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view[data-profile-layout="self"]
+.academy-profile-hero-actions {
+    width: 100% !important;
+
+    display: flex !important;
+
+    margin: 4px 0 0 !important;
+
+    padding: 0 !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view[data-profile-layout="self"]
+.academy-profile-action-row {
+    width: 100% !important;
+
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view[data-profile-layout="self"]
+.academy-profile-action-btn {
+    width: 100% !important;
+
+    min-height: 38px !important;
+
+    font-size: 0.74rem !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-posts-section {
+    width: 100% !important;
+    max-width: 100% !important;
+
+    margin: 0 !important;
+
+    padding: 14px !important;
+
+    border-radius: 16px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-list {
+    width: 100% !important;
+
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+
+    gap: 10px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.yh-profile-shared-post {
+    width: 100% !important;
+    min-height: 0 !important;
+
+    padding: 14px !important;
+
+    gap: 13px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-author-avatar {
+    width: 40px !important;
+    height: 40px !important;
+
+    min-width: 40px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-author-copy
+strong {
+    font-size: 0.8rem !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-author-copy
+span {
+    font-size: 0.65rem !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.yh-profile-shared-post
+.academy-profile-post-body
+p {
+    font-size: 0.78rem !important;
+    line-height: 1.55 !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-stats {
+    font-size: 0.68rem !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.academy-profile-post-actions
+button {
+    width: 100% !important;
+
+    min-height: 36px !important;
+
+    font-size: 0.7rem !important;
+}
+
+
+/* EDIT PROFILE — MOBILE SOCIAL HEADER */
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-social-editor
+.yh-dashboard-profile-cover-preview {
+    min-height: 0 !important;
+
+    aspect-ratio: 8 / 3 !important;
+
+    border-radius: 14px 14px 0 0 !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-social-editor
+.yh-dashboard-profile-cover-preview[
+    data-has-cover="true"
+]
+> .yh-dashboard-profile-cover-btn {
+    right: 10px !important;
+    bottom: 10px !important;
+
+    min-width: 0 !important;
+
+    padding: 0 11px !important;
+
+    min-height: 34px !important;
+
+    font-size: 0.66rem !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-identity-row {
+    margin-top: -44px !important;
+
+    padding:
+        0
+        14px
+        8px !important;
+
+    grid-template-columns: 94px minmax(0, 1fr) !important;
+
+    gap: 12px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-identity-row
+.yh-dashboard-profile-avatar-preview-wrap {
+    width: 94px !important;
+    height: 94px !important;
+
+    min-width: 94px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-identity-row
+.yh-dashboard-profile-avatar-preview {
+    width: 94px !important;
+    height: 94px !important;
+
+    border-radius: 50% !important;
+
+    border-width: 4px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-avatar-camera {
+    width: 32px !important;
+    height: 32px !important;
+
+    right: 0 !important;
+    bottom: 2px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-identity-copy {
+    padding:
+        48px
+        0
+        4px !important;
+
+    gap: 3px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-identity-copy
+> strong {
+    font-size: 1.08rem !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-profile-editor-username,
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-role,
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-editor-social,
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-profile-editor-bio {
+    font-size: 0.65rem !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-cover {
+    aspect-ratio: 8 / 3 !important;
+
     /*
-     * The visited Profile's real Follow button
-     * now lives in the header on mobile.
-     * Friend / Message are intentionally hidden
-     * by the existing visited-profile behavior.
+     * Avatar overlaps below the cover.
+     * The cover itself must not clip it.
      */
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
-        #academy-profile-view[data-profile-layout="visited"]
-        .academy-profile-hero-actions {
-        display: none !important;
-        margin: 0 !important;
-    }
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
-        .yh-dashboard-universe-profile-scroll {
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
+    overflow: visible !important;
+}
 
-        height: auto !important;
-        min-height: 0 !important;
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-cover
+.yh-dashboard-profile-preview-avatar {
+    position: absolute !important;
 
-        overflow: visible !important;
+    left: 14px !important;
+    bottom: -45px !important;
 
-        overscroll-behavior: auto !important;
-    }
+    width: 92px !important;
+    height: 92px !important;
+    min-width: 92px !important;
+    min-height: 92px !important;
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-shell {
-        width: min(100%, 300px) !important;
-        max-width: calc(100vw - 36px) !important;
-        margin: 0 auto !important;
-        padding: 0 0 calc(18px + env(safe-area-inset-bottom, 0px)) !important;
-        display: grid !important;
-        gap: 12px !important;
-        overflow: visible !important;
-    }
+    border-radius: 50% !important;
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-card,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-hero-card {
-        width: 100% !important;
-        max-width: 100% !important;
-        margin: 0 auto !important;
-        overflow: hidden !important;
-        position: relative !important;
-        z-index: 2 !important;
-        border-radius: 18px !important;
-    }
+    overflow: hidden !important;
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-band {
-        min-height: 104px !important;
-        height: 104px !important;
-        max-height: 104px !important;
-    }
+    background-size: cover !important;
+    background-position: center center !important;
+    background-repeat: no-repeat !important;
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-body {
-        min-width: 0 !important;
-        width: 100% !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        gap: 10px !important;
-        padding: 0 14px 14px !important;
-        margin-top: -42px !important;
-        text-align: center !important;
-    }
+    z-index: 6 !important;
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-left {
-        min-width: 0 !important;
-        width: 100% !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        gap: 8px !important;
-        text-align: center !important;
-    }
+    border:
+        4px solid
+        rgba(3, 8, 20, 0.98) !important;
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-avatar-wrap {
-        width: 80px !important;
-        height: 80px !important;
-        min-width: 80px !important;
-        min-height: 80px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        margin: 0 auto !important;
-    }
+    box-sizing: border-box !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-avatar {
-        width: 80px !important;
-        height: 80px !important;
-        min-width: 80px !important;
-        min-height: 80px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        font-size: 1.72rem !important;
-        line-height: 1 !important;
-        margin: 0 auto !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-main {
+    padding:
+        60px
+        14px
+        16px !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-identity-block {
-        min-width: 0 !important;
-        width: 100% !important;
-        display: grid !important;
-        justify-items: center !important;
-        align-content: start !important;
-        gap: 4px !important;
-        padding: 0 !important;
-        text-align: center !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-modal-head-topline {
+    align-items: flex-start !important;
+    gap: 10px !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-name {
-        min-width: 0 !important;
-        max-width: 100% !important;
-        width: 100% !important;
-        font-size: 1.22rem !important;
-        line-height: 1.02 !important;
-        text-align: center !important;
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-        overflow-wrap: anywhere !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-head-menu-toggle {
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    border-radius: 10px !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-username,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-role {
-        min-width: 0 !important;
-        max-width: 100% !important;
-        width: 100% !important;
-        font-size: 0.78rem !important;
-        line-height: 1.12 !important;
-        text-align: center !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-head-menu {
+    min-width: 150px !important;
+    right: 0 !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-subline,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-tag-list {
-        min-width: 0 !important;
-        width: 100% !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        flex-wrap: wrap !important;
-        gap: 6px !important;
-        text-align: center !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-grid,
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-grid--details {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-pill {
-        width: max-content !important;
-        max-width: 100% !important;
-        min-height: 27px !important;
-        padding: 0 12px !important;
-        font-size: 0.66rem !important;
-        line-height: 27px !important;
-        white-space: nowrap !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-item,
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-pills {
+    min-height: 82px !important;
+    padding: 10px 11px !important;
+    border-radius: 14px !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-hero-actions {
-        width: 100% !important;
-        min-width: 0 !important;
-        margin: 8px 0 0 !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-item span,
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-pills > div:first-child {
+    margin-bottom: 4px !important;
+    font-size: 0.62rem !important;
+    letter-spacing: 0.05em !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-action-row {
-        width: 100% !important;
-        display: grid !important;
-        grid-template-columns: 1fr !important;
-        gap: 8px !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-item strong {
+    font-size: 0.84rem !important;
+    line-height: 1.3 !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-action-btn {
-        width: 100% !important;
-        min-width: 0 !important;
-        min-height: 36px !important;
-        height: 36px !important;
-        padding: 0 12px !important;
-        font-size: 0.74rem !important;
-        line-height: 1 !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-pills > div:last-child {
+    gap: 5px !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-social-strip,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-content-grid {
-        width: 100% !important;
-        max-width: 100% !important;
-        display: grid !important;
-        grid-template-columns: 1fr !important;
-        gap: 12px !important;
-        overflow: visible !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-pills span,
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-profile-preview-pills em {
+    min-height: 22px !important;
+    padding: 0 8px !important;
+    font-size: 0.72rem !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-main-column,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-side-column,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-card {
-        min-width: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow: visible !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-posts {
+    width: 100% !important;
+    margin: 20px auto 22px !important;
+    padding: 0 14px !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-card {
-        padding: 14px 12px !important;
-        border-radius: 16px !important;
-    }    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-universe-profile-scroll {
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow: visible !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-posts-head {
+    margin-bottom: 10px !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-shell {
-        width: min(100%, 320px) !important;
-        max-width: calc(100vw - 32px) !important;
-        margin: 0 auto !important;
-        padding: 0 0 calc(18px + env(safe-area-inset-bottom, 0px)) !important;
-        display: grid !important;
-        gap: 13px !important;
-        overflow: visible !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-posts-head span {
+    font-size: 0.58rem !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-card,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-hero-card {
-        width: 100% !important;
-        max-width: 100% !important;
-        margin: 0 auto !important;
-        overflow: hidden !important;
-        position: relative !important;
-        z-index: 2 !important;
-        border-radius: 18px !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-posts-head h3 {
+    font-size: 0.92rem !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-band {
-        min-height: 100px !important;
-        height: 100px !important;
-        max-height: 100px !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-posts-list {
+    gap: 9px !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-body {
-        min-width: 0 !important;
-        width: 100% !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        gap: 12px !important;
-        padding: 0 12px 14px !important;
-        margin-top: -40px !important;
-        text-align: center !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post {
+    gap: 11px !important;
+    padding: 13px !important;
+    border-radius: 14px !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-cover-left {
-        min-width: 0 !important;
-        width: 100% !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        gap: 8px !important;
-        text-align: center !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-avatar {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-avatar-wrap {
-        width: 82px !important;
-        height: 82px !important;
-        min-width: 82px !important;
-        min-height: 82px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        margin: 0 auto !important;
-        flex: 0 0 auto !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-author-copy strong {
+    font-size: 0.76rem !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-avatar {
-        width: 82px !important;
-        height: 82px !important;
-        min-width: 82px !important;
-        min-height: 82px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        margin: 0 auto !important;
-        font-size: 1.72rem !important;
-        line-height: 1 !important;
-        flex: 0 0 auto !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-author-copy span,
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-stats {
+    font-size: 0.62rem !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-identity-block {
-        min-width: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        display: grid !important;
-        justify-items: center !important;
-        align-content: start !important;
-        gap: 4px !important;
-        padding: 0 !important;
-        text-align: center !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-body {
+    font-size: 0.74rem !important;
+    line-height: 1.5 !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-name {
-        min-width: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        font-size: 1.16rem !important;
-        line-height: 1.06 !important;
-        text-align: center !important;
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-        overflow-wrap: anywhere !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-post-open {
+    width: 100% !important;
+    min-height: 34px !important;
+    font-size: 0.66rem !important;
+}
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-username,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-role {
-        min-width: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        font-size: 0.76rem !important;
-        line-height: 1.12 !important;
-        text-align: center !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-subline,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-tag-list {
-        min-width: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        flex-wrap: wrap !important;
-        gap: 6px !important;
-        text-align: center !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-pill {
-        width: max-content !important;
-        max-width: 100% !important;
-        min-height: 26px !important;
-        padding: 0 11px !important;
-        font-size: 0.64rem !important;
-        line-height: 26px !important;
-        white-space: nowrap !important;
-        margin: 0 auto !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-hero-actions {
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        margin: 8px 0 0 !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-action-row {
-        width: 100% !important;
-        display: grid !important;
-        grid-template-columns: 1fr !important;
-        gap: 8px !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-action-btn {
-        width: 100% !important;
-        min-width: 0 !important;
-        min-height: 36px !important;
-        height: 36px !important;
-        padding: 0 12px !important;
-        font-size: 0.72rem !important;
-        line-height: 1 !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
-        #academy-profile-view
-        .academy-profile-social-strip {
-        width: 100% !important;
-        max-width: 100% !important;
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        grid-auto-flow: row !important;
-        grid-auto-rows: minmax(76px, auto) !important;
-        gap: 8px !important;
-        align-items: stretch !important;
-        overflow: visible !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
-        #academy-profile-view
-        .academy-profile-social-stat {
-        grid-column: auto !important;
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        min-height: 76px !important;
-        padding: 9px !important;
-        display: grid !important;
-        align-content: start !important;
-        gap: 3px !important;
-        border-radius: 13px !important;
-        overflow: hidden !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
-        #academy-profile-view
-        .academy-profile-social-label {
-        min-width: 0 !important;
-        font-size: 0.58rem !important;
-        line-height: 1.15 !important;
-        letter-spacing: 0.075em !important;
-        white-space: normal !important;
-        overflow-wrap: anywhere !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
-        #academy-profile-view
-        .academy-profile-social-value {
-        min-width: 0 !important;
-        max-width: 100% !important;
-        margin-top: 2px !important;
-        font-size: 0.98rem !important;
-        line-height: 1.08 !important;
-        white-space: normal !important;
-        overflow-wrap: anywhere !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"]
-        #academy-profile-view
-        .academy-profile-social-meta {
-        min-width: 0 !important;
-        max-width: 100% !important;
-        margin-top: 2px !important;
-        font-size: 0.61rem !important;
-        line-height: 1.22 !important;
-        white-space: normal !important;
-        overflow-wrap: anywhere !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-content-grid {
-        width: 100% !important;
-        max-width: 100% !important;
-        display: grid !important;
-        grid-template-columns: 1fr !important;
-        gap: 12px !important;
-        overflow: visible !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-main-column,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-side-column,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-card {
-        min-width: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow: visible !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-card {
-        padding: 14px 12px !important;
-        border-radius: 16px !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-controls,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-menu-wrap,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-trigger,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-card select {
-        max-width: 100% !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-controls {
-        width: 100% !important;
-        min-width: 0 !important;
-        display: grid !important;
-        grid-template-columns: 1fr !important;
-        gap: 8px !important;
-        overflow: visible !important;
-        position: relative !important;
-        z-index: 40 !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-controls label {
-        width: 100% !important;
-        min-width: 0 !important;
-        display: block !important;
-        font-size: 0.82rem !important;
-        line-height: 1.1 !important;
-        text-align: left !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-filter {
-        display: none !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-menu-wrap {
-        position: relative !important;
-        z-index: 50 !important;
-        width: 100% !important;
-        min-width: 0 !important;
-        justify-self: stretch !important;
-        overflow: visible !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-trigger {
-        width: 100% !important;
-        min-width: 0 !important;
-        min-height: 42px !important;
-        height: 42px !important;
-        display: grid !important;
-        grid-template-columns: minmax(0, 1fr) 18px !important;
-        align-items: center !important;
-        gap: 8px !important;
-        padding: 0 12px 0 13px !important;
-        border: 1px solid rgba(103, 232, 249, 0.26) !important;
-        border-radius: 12px !important;
-        background:
-            linear-gradient(180deg, rgba(6, 18, 38, 0.92), rgba(3, 8, 20, 0.88)) !important;
-        color: rgba(248, 251, 255, 0.94) !important;
-        font-family: var(--yh-font-body, "Poppins", sans-serif) !important;
-        font-size: 0.86rem !important;
-        font-weight: 600 !important;
-        line-height: 1 !important;
-        text-align: left !important;
-        outline: none !important;
-        box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.055),
-            0 10px 22px rgba(0, 0, 0, 0.18) !important;
-        appearance: none !important;
-        -webkit-appearance: none !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-trigger span {
-        min-width: 0 !important;
-        max-width: 100% !important;
-        display: block !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-trigger i {
-        display: inline-grid !important;
-        place-items: center !important;
-        color: rgba(103, 232, 249, 0.9) !important;
-        font-style: normal !important;
-        line-height: 1 !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-menu {
-        position: absolute !important;
-        z-index: 999 !important;
-        top: calc(100% + 6px) !important;
-        left: 0 !important;
-        right: 0 !important;
-        width: 100% !important;
-        min-width: 0 !important;
-        max-height: 178px !important;
-        display: none !important;
-        padding: 6px !important;
-        border: 1px solid rgba(103, 232, 249, 0.32) !important;
-        border-radius: 12px !important;
-        background:
-            radial-gradient(circle at 10% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
-            linear-gradient(180deg, rgba(5, 14, 32, 0.98), rgba(2, 6, 18, 0.98)) !important;
-        box-shadow:
-            0 18px 42px rgba(0, 0, 0, 0.45),
-            inset 0 1px 0 rgba(255, 255, 255, 0.055) !important;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-menu-wrap.is-open .yh-universe-profile-activity-menu {
-        display: grid !important;
-        gap: 4px !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-option {
-        width: 100% !important;
-        min-height: 34px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        padding: 0 10px !important;
-        border: 1px solid transparent !important;
-        border-radius: 9px !important;
-        background: transparent !important;
-        color: rgba(248, 251, 255, 0.9) !important;
-        font-family: var(--yh-font-body, "Poppins", sans-serif) !important;
-        font-size: 0.84rem !important;
-        font-weight: 600 !important;
-        line-height: 1 !important;
-        text-align: left !important;
-        white-space: nowrap !important;
-        cursor: pointer !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-option:hover,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-profile-activity-option.is-active {
-        border-color: rgba(103, 232, 249, 0.22) !important;
-        background: rgba(56, 189, 248, 0.12) !important;
-        color: #f8fbff !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-list {
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        display: grid !important;
-        grid-template-columns: 1fr !important;
-        gap: 10px !important;
-        overflow: visible !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-card,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-activity-card {
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        min-height: auto !important;
-        display: grid !important;
-        gap: 16px !important;
-        padding: 16px 14px !important;
-        overflow: visible !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-activity-head {
-        width: 100% !important;
-        min-width: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        gap: 10px !important;
-        flex-wrap: wrap !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-activity-division,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-meta {
-        min-width: 0 !important;
-        max-width: 100% !important;
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-body {
-        width: 100% !important;
-        min-width: 0 !important;
-        display: grid !important;
-        gap: 10px !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-body strong,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-body p,
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-profile-post-stats {
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        white-space: normal !important;
-        overflow-wrap: anywhere !important;
-        text-align: left !important;
-    }
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yh-dashboard-unified-profile-posts-empty {
+    padding: 18px 12px !important;
+    font-size: 0.72rem !important;
+}
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-subtabs {
         position: fixed !important;
