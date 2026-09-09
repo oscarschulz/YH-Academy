@@ -73,9 +73,10 @@ workflows:
           xcode-project use-profiles \
             --project ios/App/App.xcodeproj
 
-      - name: Set build number
+      - name: Set app version and build number
         script: |
           cd ios/App
+          agvtool new-marketing-version 2.0
           agvtool new-version -all "$BUILD_NUMBER"
 
       - name: Build signed YHU IPA
