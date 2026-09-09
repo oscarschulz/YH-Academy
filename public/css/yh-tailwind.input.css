@@ -10473,16 +10473,173 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 }
 
 @media (max-width: 720px) {
-  body[data-yh-page] #toast-notification,
-  body[data-yh-page] .toast-notification,
-  body[data-yh-view="hub"][data-yh-page="dashboard"]
-    .academy-entry-state-badge[data-yh-academy-state-toast="below-right"] {
-    right: 12px !important;
-    bottom: 12px !important;
-    width: min(330px, calc(100vw - 24px)) !important;
-    max-width: min(330px, calc(100vw - 24px)) !important;
+
+  /*
+   * Compact mobile toast authority.
+   *
+   * Short feedback should visually match the
+   * compact Login successful notification.
+   */
+  body[data-yh-page]
+  #toast-notification,
+
+  body[data-yh-page]
+  .toast-notification {
+    width:
+      fit-content !important;
+
+    max-width:
+      min(
+        235px,
+        calc(
+          100vw -
+          32px
+        )
+      ) !important;
+
+    min-width:
+      0 !important;
+
+    height:
+      auto !important;
+
+    min-height:
+      34px !important;
+
+    padding:
+      5px
+      9px !important;
+
+    display:
+      inline-flex !important;
+
+    align-items:
+      center !important;
+
+    justify-content:
+      center !important;
+
+    gap:
+      5px !important;
+
+    box-sizing:
+      border-box !important;
+
+    font-size:
+      0.78rem !important;
+
+    line-height:
+      1.1 !important;
+
+    text-align:
+      center !important;
   }
-} /* END PATCH: YHU Solo toast below right v104 */
+
+
+  body[data-yh-page]
+  #toast-notification
+  #toast-icon,
+
+  body[data-yh-page]
+  .toast-notification
+  .toast-icon {
+    width:
+      19px !important;
+
+    height:
+      19px !important;
+
+    min-width:
+      19px !important;
+
+    flex:
+      0 0
+      19px !important;
+
+    margin:
+      0 !important;
+
+    align-self:
+      center !important;
+
+    font-size:
+      0.7rem !important;
+  }
+
+
+  body[data-yh-page]
+  #toast-notification
+  #toast-message,
+
+  body[data-yh-page]
+  .toast-notification
+  .toast-message {
+    width:
+      auto !important;
+
+    min-width:
+      0 !important;
+
+    max-width:
+      190px !important;
+
+    flex:
+      0 1
+      auto !important;
+
+    margin:
+      0 !important;
+
+    font-size:
+      0.78rem !important;
+
+    line-height:
+      1.1 !important;
+
+    text-align:
+      center !important;
+
+    white-space:
+      normal !important;
+  }
+
+
+  /*
+   * Academy access-state badge is NOT
+   * a temporary toast, so keep its
+   * existing wider presentation.
+   */
+  body[data-yh-view="hub"]
+  [data-yh-page="dashboard"]
+  .academy-entry-state-badge[
+    data-yh-academy-state-toast="below-right"
+  ] {
+    right:
+      12px !important;
+
+    bottom:
+      12px !important;
+
+    width:
+      min(
+        330px,
+        calc(
+          100vw -
+          24px
+        )
+      ) !important;
+
+    max-width:
+      min(
+        330px,
+        calc(
+          100vw -
+          24px
+        )
+      ) !important;
+  }
+}
+ /* END PATCH: YHU Solo toast below right v104 */
 
 /* PATCH: Academy mission detail Solo Leveling UI v105 */
 
@@ -17425,3 +17582,163 @@ body[data-yh-page="apply"]
 }
 
 /* END APPLY LOGIN SUCCESS TOAST v2 */
+/* =========================================================
+   ACADEMY TRUE COMPACT MOBILE TOAST v3
+   ========================================================= */
+
+@media (max-width: 720px) {
+
+    body[data-yh-page="academy"]
+    #toast-notification.yh-academy-compact-toast,
+
+    body.yh-dashboard-inline-embed-body
+    #toast-notification.yh-academy-compact-toast {
+        width:
+            max-content !important;
+
+        max-width:
+            min(
+                280px,
+                calc(
+                    100vw -
+                    24px
+                )
+            ) !important;
+
+        min-width:
+            0 !important;
+
+        min-height:
+            30px !important;
+
+        height:
+            auto !important;
+
+        padding:
+            4px
+            6px !important;
+
+        gap:
+            4px !important;
+
+        display:
+            inline-flex !important;
+
+        align-items:
+            center !important;
+
+        justify-content:
+            center !important;
+
+        text-align:
+            center !important;
+
+        box-sizing:
+            border-box !important;
+
+        clip-path:
+            polygon(
+                7px 0,
+                calc(100% - 7px) 0,
+                100% 7px,
+                100% calc(100% - 7px),
+                calc(100% - 7px) 100%,
+                7px 100%,
+                0 calc(100% - 7px),
+                0 7px
+            ) !important;
+    }
+
+
+    body[data-yh-page="academy"]
+    #toast-notification.yh-academy-compact-toast
+    #toast-icon,
+
+    body.yh-dashboard-inline-embed-body
+    #toast-notification.yh-academy-compact-toast
+    #toast-icon {
+        width:
+            18px !important;
+
+        height:
+            18px !important;
+
+        min-width:
+            18px !important;
+
+        flex:
+            0 0
+            18px !important;
+
+        margin:
+            0 !important;
+
+        font-size:
+            0.68rem !important;
+    }
+
+
+    body[data-yh-page="academy"]
+    #toast-notification.yh-academy-compact-toast
+    #toast-message,
+
+    body.yh-dashboard-inline-embed-body
+    #toast-notification.yh-academy-compact-toast
+    #toast-message {
+        width:
+            max-content !important;
+
+        max-width:
+            240px !important;
+
+        min-width:
+            0 !important;
+
+        flex:
+            0 1
+            auto !important;
+
+        margin:
+            0 !important;
+
+        padding:
+            0 !important;
+
+        font-size:
+            0.76rem !important;
+
+        line-height:
+            1.08 !important;
+
+        text-align:
+            center !important;
+
+        white-space:
+            normal !important;
+    }
+
+
+    body[data-yh-page="academy"]
+    #toast-notification.yh-academy-compact-toast::before,
+
+    body.yh-dashboard-inline-embed-body
+    #toast-notification.yh-academy-compact-toast::before {
+        left:
+            7px !important;
+
+        right:
+            7px !important;
+    }
+
+
+    body[data-yh-page="academy"]
+    #toast-notification.yh-academy-compact-toast::after,
+
+    body.yh-dashboard-inline-embed-body
+    #toast-notification.yh-academy-compact-toast::after {
+        inset:
+            3px !important;
+    }
+}
+
+/* END ACADEMY TRUE COMPACT MOBILE TOAST v3 */

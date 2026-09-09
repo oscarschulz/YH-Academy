@@ -109,12 +109,107 @@ function syncFederationParentTopNav() {
   return true;
 }
 
+function installFederationHiddenScrollbarAuthority() {
+  if (
+    document.getElementById(
+      'yh-federation-hidden-scrollbar-authority'
+    )
+  ) {
+    return;
+  }
+
+  const style =
+    document.createElement('style');
+
+  style.id =
+    'yh-federation-hidden-scrollbar-authority';
+
+  style.textContent = `
+    /*
+     * Federation-wide scrollbar authority.
+     *
+     * Scrolling remains enabled.
+     * Only the visible browser / WebView
+     * scrollbar track and thumb are removed.
+     */
+    html,
+    body,
+    .fed-shell,
+    .fed-main,
+    .fed-sidebar,
+    .fed-rightbar,
+    .fed-mobile-select-menu,
+    .fed-app-more-sheet,
+    .fed-universe-profile-card,
+    [data-yh-view="federation"],
+    [data-yh-view="federation"] * {
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+    }
+
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar,
+    .fed-shell::-webkit-scrollbar,
+    .fed-main::-webkit-scrollbar,
+    .fed-sidebar::-webkit-scrollbar,
+    .fed-rightbar::-webkit-scrollbar,
+    .fed-mobile-select-menu::-webkit-scrollbar,
+    .fed-app-more-sheet::-webkit-scrollbar,
+    .fed-universe-profile-card::-webkit-scrollbar,
+    [data-yh-view="federation"]::-webkit-scrollbar,
+    [data-yh-view="federation"] *::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+      background: transparent !important;
+    }
+
+    html::-webkit-scrollbar-track,
+    body::-webkit-scrollbar-track,
+    .fed-main::-webkit-scrollbar-track,
+    [data-yh-view="federation"] *::-webkit-scrollbar-track {
+      display: none !important;
+      width: 0 !important;
+      background: transparent !important;
+    }
+
+    html::-webkit-scrollbar-thumb,
+    body::-webkit-scrollbar-thumb,
+    .fed-main::-webkit-scrollbar-thumb,
+    [data-yh-view="federation"] *::-webkit-scrollbar-thumb {
+      display: none !important;
+      width: 0 !important;
+      min-height: 0 !important;
+      background: transparent !important;
+      border: 0 !important;
+    }
+  `;
+
+  document.head.appendChild(
+    style
+  );
+}
+
+
 function markFederationViewActive() {
+  installFederationHiddenScrollbarAuthority();
+
   if (syncFederationParentTopNav()) return;
 
-  window.setTimeout(syncFederationParentTopNav, 120);
-  window.setTimeout(syncFederationParentTopNav, 420);
-  window.setTimeout(syncFederationParentTopNav, 900);
+  window.setTimeout(
+    syncFederationParentTopNav,
+    120
+  );
+
+  window.setTimeout(
+    syncFederationParentTopNav,
+    420
+  );
+
+  window.setTimeout(
+    syncFederationParentTopNav,
+    900
+  );
 }
 
 markFederationViewActive();

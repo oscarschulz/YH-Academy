@@ -1513,11 +1513,107 @@ body.yh-notif-menu-open::after {
 .lounge-container { padding: 2rem; overflow-y: auto; flex: 1; }
 .lounge-title { font-size: 1.2rem; margin-bottom: 0.35rem; color: #fff; }
 .academy-live-lounge-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
+    position: relative;
+
+    width: 100%;
+
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+
+    align-items: start;
+    justify-items: center;
+
+    gap: 12px;
+
+    /*
+     * Give the heading breathing room
+     * below the Academy top bar.
+     */
+    padding-top: 14px;
+
     margin-bottom: 1.5rem;
+}
+
+
+.academy-live-lounge-copy {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /*
+     * Reserve room at the right side for
+     * the 24H badge while keeping the
+     * heading mathematically centered.
+     */
+    padding-left: 110px;
+    padding-right: 110px;
+
+    text-align: center;
+
+    box-sizing: border-box;
+}
+
+
+#voice-lobby-view
+.academy-live-lounge-copy
+.lounge-title {
+    margin: 0;
+
+    text-align: center;
+
+    line-height: 1.2;
+}
+
+
+.academy-live-lounge-actions {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-top: 8px;
+
+    box-sizing: border-box;
+}
+
+
+/*
+ * Keep the expiry badge beside the centered
+ * heading instead of sharing the CTA row.
+ */
+#voice-lobby-view
+.academy-live-lounge-actions
+.academy-live-expiry-pill {
+    position: absolute;
+
+    top: 14px;
+    right: 0;
+
+    margin: 0;
+}
+
+
+/*
+ * Start Lounge is centered beneath
+ * the Active Stages heading.
+ */
+#voice-lobby-view
+#btn-start-lounge {
+    width: min(420px, 100%);
+
+    min-height: 46px;
+
+    margin-left: auto;
+    margin-right: auto;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
 }
 .academy-live-expiry-note {
     color: var(--text-muted);
@@ -4196,9 +4292,83 @@ body[data-yh-view="academy"] .chat-messages {
 }
 
 .academy-home-action-btn {
-    width: auto !important;
-    min-height: 44px;
-    padding: 12px 18px !important;
+    width:
+        auto !important;
+
+    min-height:
+        42px;
+
+    padding:
+        10px 16px !important;
+
+    border-radius:
+        7px !important;
+
+    box-shadow:
+        none !important;
+
+    font-size:
+        0.88rem !important;
+
+    font-weight:
+        700 !important;
+}
+
+
+/*
+ * Primary Roadmap controls.
+ */
+#academy-chat[data-chat-mode="home"]
+.academy-home-action-btn.btn-primary {
+    border:
+        1px solid
+        #5bcce9 !important;
+
+    background:
+        #55c8e8 !important;
+
+    color:
+        #08213b !important;
+
+    box-shadow:
+        none !important;
+}
+
+
+#academy-chat[data-chat-mode="home"]
+.academy-home-action-btn.btn-primary:hover {
+    background:
+        #70d7ef !important;
+}
+
+
+/*
+ * Secondary Roadmap controls.
+ */
+#academy-chat[data-chat-mode="home"]
+.academy-home-action-btn.btn-secondary {
+    border:
+        1px solid
+        rgba(112, 157, 201, 0.42) !important;
+
+    background:
+        #1c365e !important;
+
+    color:
+        #e1ebf7 !important;
+
+    box-shadow:
+        none !important;
+}
+
+
+#academy-chat[data-chat-mode="home"]
+.academy-home-action-btn.btn-secondary:hover {
+    background:
+        #254671 !important;
+
+    border-color:
+        rgba(104, 216, 245, 0.48) !important;
 }
 
 .academy-home-stats {
@@ -4241,56 +4411,47 @@ body[data-yh-view="academy"] .chat-messages {
 
 .academy-solo-mode-panel-v1 {
     position: relative;
+
     overflow: hidden;
+
     display: grid;
+
     gap: 15px;
+
     margin-top: 14px;
-    padding: clamp(18px, 2vw, 24px);
-    border: 1px solid rgba(103, 232, 249, 0.22);
-    border-radius: 18px;
+
+    padding:
+        clamp(18px, 2vw, 24px);
+
+    border:
+        1px solid
+        rgba(101, 143, 187, 0.28);
+
+    border-radius:
+        12px;
+
     background:
-        radial-gradient(
-            circle at 10% 0,
-            rgba(56, 189, 248, 0.18),
-            transparent 34%
-        ),
-        radial-gradient(
-            circle at 92% 100%,
-            rgba(99, 102, 241, 0.16),
-            transparent 36%
-        ),
         linear-gradient(
-            135deg,
-            rgba(7, 20, 46, 0.96),
-            rgba(3, 9, 27, 0.94)
+            180deg,
+            #1a3158 0%,
+            #142844 100%
         );
+
     box-shadow:
-        0 20px 50px rgba(0, 0, 0, 0.28),
-        inset 0 1px 0 rgba(255, 255, 255, 0.055);
+        0 8px 24px
+        rgba(0, 0, 0, 0.16);
 }
 
+
+/*
+ * Remove decorative grid overlay.
+ */
 .academy-solo-mode-panel-v1::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.26;
-    background-image:
-        linear-gradient(
-            rgba(103, 232, 249, 0.05) 1px,
-            transparent 1px
-        ),
-        linear-gradient(
-            90deg,
-            rgba(103, 232, 249, 0.05) 1px,
-            transparent 1px
-        );
-    background-size: 34px 34px;
-    mask-image: linear-gradient(
-        90deg,
-        rgba(0, 0, 0, 0.78),
-        transparent
-    );
+    content:
+        none;
+
+    display:
+        none;
 }
 
 .academy-solo-mode-panel-v1 > * {
@@ -4595,23 +4756,39 @@ body[data-yh-view="academy"] .chat-messages {
 
 .academy-home-panel {
     padding: 18px;
-    border-radius: 16px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+
+    border-radius: 12px;
+
+    background:
+        #152a4b;
+
+    border:
+        1px solid
+        rgba(104, 145, 188, 0.26);
+
+    box-shadow:
+        0 8px 24px
+        rgba(0, 0, 0, 0.12);
 }
 
 .academy-home-panel-label {
-    font-size: 1rem;
-    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+
+    color: #8fb6d8;
+
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+
+    letter-spacing: 0.11em;
 }
 
 .academy-home-panel-copy {
     margin-top: 10px;
-    font-size: 1.03rem;
-    line-height: 1.7;
-    color: #fff;
+
+    font-size: 0.94rem;
+    line-height: 1.65;
+
+    color: #d7e1ee;
 }
 
 /* PATCH: Dashboard Academy Roadmap centered loading state v1 */
@@ -4838,8 +5015,126 @@ body[data-yh-view="academy"] .chat-messages {
 
 .academy-home-missions {
     margin-top: 12px;
+
     display: grid;
-    gap: 10px;
+
+    gap: 12px;
+}
+
+
+/*
+ * Main mission surface.
+ *
+ * Mission HTML/data stays exactly the same.
+ * This only replaces the visual skin.
+ */
+.academy-home-missions > div {
+    background:
+        #102542 !important;
+
+    border:
+        1px solid
+        rgba(93, 137, 181, 0.34) !important;
+
+    border-radius:
+        12px !important;
+
+    box-shadow:
+        0 7px 20px
+        rgba(0, 0, 0, 0.12) !important;
+
+    text-align:
+        left !important;
+}
+
+
+/*
+ * Roadmap mission content:
+ * keep one main mission card, then use clean
+ * content sections instead of nested cards.
+ */
+.academy-home-missions
+> div
+> div:nth-child(2)
+> div[style*="padding:10px 12px"] {
+    width:
+        100% !important;
+
+    margin:
+        0 !important;
+
+    padding:
+        10px 0 !important;
+
+    background:
+        transparent !important;
+
+    border:
+        0 !important;
+
+    border-bottom:
+        1px solid
+        rgba(121, 153, 188, 0.16) !important;
+
+    border-radius:
+        0 !important;
+
+    box-shadow:
+        none !important;
+
+    color:
+        #cbd8e8 !important;
+
+    text-align:
+        left !important;
+
+    box-sizing:
+        border-box !important;
+}
+
+
+/*
+ * No divider after the final information block.
+ */
+.academy-home-missions
+> div
+> div:nth-child(2)
+> div[style*="padding:10px 12px"]:last-child {
+    border-bottom:
+        0 !important;
+}
+
+
+/*
+ * Keep headings readable without every
+ * section becoming a different visual state.
+ */
+.academy-home-missions
+> div
+> div:nth-child(2)
+strong {
+    color:
+        #f6f9ff !important;
+
+    font-weight:
+        600 !important;
+}
+
+
+/*
+ * Micro-action list should read naturally.
+ */
+.academy-home-missions
+> div
+ol {
+    color:
+        #cbd8e8;
+
+    text-align:
+        left;
+
+    padding-left:
+        20px !important;
 }
 
 .academy-feed-shell {
@@ -4937,10 +5232,26 @@ body[data-yh-view="academy"] .chat-messages {
 .academy-messages-inbox-list {
     min-height: 0;
     overflow: auto;
+
     display: grid;
-    gap: 10px;
+
+    /*
+     * Conversations must always stack from
+     * the top instead of stretching across
+     * the available inbox height.
+     */
+    align-content: start;
+    grid-auto-rows: max-content;
+
+    /*
+     * Small vertical spacing between cards.
+     */
+    gap: 8px;
+
     padding-right: 4px;
-    transition: opacity 0.14s ease;
+
+    transition:
+        opacity 0.14s ease;
 }
 
 .academy-messages-inbox-list.is-switching-message-tab {
@@ -5489,16 +5800,38 @@ body[data-yh-view="academy"] .chat-messages {
     right: calc(100% + 8px);
     bottom: auto;
     left: auto;
-    min-width: 160px;
-    max-width: 190px;
+
+    min-width: 190px;
+    max-width: 220px;
+
     display: none;
     flex-direction: column;
+
     gap: 4px;
-    padding: 7.5px;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(8, 15, 32, 0.34);
-    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.34);
+
+    padding: 8px;
+
+    border-radius: 14px;
+
+    border:
+        1px solid
+        rgba(125, 211, 252, 0.34);
+
+    background:
+        linear-gradient(
+            180deg,
+            #124ba8 0%,
+            #0b347d 100%
+        );
+
+    box-shadow:
+        0 18px 38px
+            rgba(0, 0, 0, 0.42),
+        0 0 20px
+            rgba(37, 99, 235, 0.18),
+        inset 0 1px 0
+            rgba(255, 255, 255, 0.10);
+
     z-index: 120;
 }
 
@@ -5529,20 +5862,51 @@ body[data-yh-view="academy"] .chat-messages {
 
 .academy-messages-inbox-menu button {
     width: 100%;
+
     border: 0;
-    background: transparent;
-    color: #f8fafc;
-    text-align: left;
-    padding: 9.5px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.95rem;
-    line-height: 1.2;
-    font-weight: 500;
+
+    background:
+        transparent;
+
+    color:
+        #ffffff;
+
+    text-align:
+        left;
+
+    padding:
+        10px 12px;
+
+    border-radius:
+        9px;
+
+    cursor:
+        pointer;
+
+    font-size:
+        0.90rem;
+
+    line-height:
+        1.15;
+
+    font-weight:
+        700;
+
+    letter-spacing:
+        0.01em;
+
+    transition:
+        background 0.16s ease,
+        color 0.16s ease;
 }
 
-.academy-messages-inbox-menu button:hover {
-    background: rgba(255, 255, 255, 0.08);
+.academy-messages-inbox-menu button:hover,
+.academy-messages-inbox-menu button:focus-visible {
+    background:
+        rgba(255, 255, 255, 0.15);
+
+    color:
+        #ffffff;
 }
 
 .academy-messages-inbox-muted {
@@ -5970,22 +6334,63 @@ body[data-yh-view="academy"] .chat-messages {
     }
 
     .academy-messages-inbox-card {
-        grid-template-columns: minmax(0, 1fr) 42px;
-        gap: 8px;
+        grid-template-columns:
+            minmax(0, 1fr)
+            42px;
+
+        gap:
+            8px;
     }
 
     .academy-messages-inbox-actions {
-        width: 42px;
-        min-width: 42px;
+        width:
+            42px;
+
+        min-width:
+            42px;
     }
 
     .academy-messages-inbox-menu {
-        top: 0;
-        right: calc(100% + 8px);
-        bottom: auto;
-        left: auto;
-        min-width: 148px;
-        max-width: 176px;
+        top:
+            0;
+
+        right:
+            calc(100% + 6px);
+
+        bottom:
+            auto;
+
+        left:
+            auto;
+
+        min-width:
+            150px;
+
+        max-width:
+            168px;
+
+        padding:
+            6px;
+
+        border-radius:
+            12px;
+    }
+
+    .academy-messages-inbox-menu button {
+        padding:
+            8px 10px;
+
+        font-size:
+            0.76rem;
+
+        line-height:
+            1.15;
+
+        font-weight:
+            700;
+
+        border-radius:
+            8px;
     }
 
     .academy-sidebar-unread-badge {
@@ -6816,6 +7221,156 @@ width: auto;
     body[data-yh-view="academy"] .chat-messages {
         padding: 14px !important;
     }
+
+
+    /*
+     * LIVE VOICE LOUNGE — mobile heading.
+     */
+    #voice-lobby-view
+    .academy-live-lounge-head {
+        padding-top:
+            16px;
+
+        gap:
+            12px;
+
+        margin-bottom:
+            18px;
+    }
+
+
+    #voice-lobby-view
+    .academy-live-lounge-copy {
+        padding-left:
+            92px;
+
+        padding-right:
+            92px;
+    }
+
+
+    #voice-lobby-view
+    .academy-live-lounge-copy
+    .lounge-title {
+        width:
+            100%;
+
+        margin:
+            0 !important;
+
+        text-align:
+            center;
+
+        font-size:
+            1.15rem;
+    }
+
+
+    /*
+     * Compact 24-hour badge at the
+     * upper-right of the Voice Lounge.
+     */
+#voice-lobby-view
+.academy-live-lounge-actions
+.academy-live-expiry-pill {
+    top:
+        17px;
+
+    right:
+        0;
+
+    min-height:
+        24px !important;
+
+    height:
+        24px !important;
+
+    padding:
+        3px 8px !important;
+
+    font-size:
+        0.62rem !important;
+
+    line-height:
+        1 !important;
+
+    letter-spacing:
+        0.045em;
+
+    white-space:
+        nowrap;
+
+    box-sizing:
+        border-box;
+}
+
+
+    /*
+     * Almost full-width mobile CTA.
+     */
+#voice-lobby-view
+.academy-live-lounge-actions {
+    width:
+        100% !important;
+
+    display:
+        grid !important;
+
+    grid-template-columns:
+        minmax(0, 1fr) !important;
+
+    place-items:
+        center !important;
+
+    margin:
+        10px 0 0 !important;
+
+    padding:
+        0 !important;
+
+    box-sizing:
+        border-box !important;
+}
+
+
+#voice-lobby-view
+#btn-start-lounge {
+    width:
+        calc(100% - 16px) !important;
+
+    max-width:
+        none !important;
+
+    min-width:
+        0 !important;
+
+    min-height:
+        48px !important;
+
+    justify-self:
+        center !important;
+
+    margin:
+        0 auto !important;
+
+    padding:
+        10px 16px !important;
+
+    display:
+        flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        center !important;
+
+    text-align:
+        center !important;
+
+    box-sizing:
+        border-box !important;
+}
 
     #center-stage-view .stage-layout-wrapper {
         display: grid;
@@ -8957,10 +9512,92 @@ body.yh-resources-menu-open .yh-universe-side-nav {
 }
 
 .academy-feed-composer-avatar {
-    flex-shrink: 0;
-    width: 36px !important;
-    height: 36px !important;
-    font-size: 0.92rem !important;
+    flex:
+        0 0 36px !important;
+
+    width:
+        36px !important;
+
+    height:
+        36px !important;
+
+    min-width:
+        36px !important;
+
+    min-height:
+        36px !important;
+
+    max-width:
+        36px !important;
+
+    max-height:
+        36px !important;
+
+    aspect-ratio:
+        1 / 1;
+
+    display:
+        flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        center !important;
+
+    border-radius:
+        999px !important;
+
+    clip-path:
+        circle(50% at 50% 50%) !important;
+
+    overflow:
+        hidden !important;
+
+    background-size:
+        cover !important;
+
+    background-position:
+        center center !important;
+
+    background-repeat:
+        no-repeat !important;
+
+    font-size:
+        0.92rem !important;
+
+    box-sizing:
+        border-box !important;
+}
+
+
+.academy-feed-composer-avatar img {
+    width:
+        100% !important;
+
+    height:
+        100% !important;
+
+    min-width:
+        100% !important;
+
+    min-height:
+        100% !important;
+
+    display:
+        block !important;
+
+    object-fit:
+        cover !important;
+
+    object-position:
+        center center !important;
+
+    border-radius:
+        999px !important;
+
+    clip-path:
+        circle(50% at 50% 50%) !important;
 }
 
 .academy-feed-facebook-textarea {
@@ -9095,85 +9732,1058 @@ body.yh-resources-menu-open .yh-universe-side-nav {
     }
 }
 /* ==========================================
-   ACADEMY FEED FULL-WIDTH CENTER STAGE
+   ACADEMY COMMUNITY FEED — CLEAN SURFACE
    ========================================== */
 
-#academy-feed-view .academy-feed-shell {
-    width: 100%;
-    max-width: none;
-    margin-left: 0;
-    margin-right: 0;
-    display: grid;
-    gap: clamp(18px, 1.45vw, 24px);
-    padding: 0 0 24px;
+#academy-feed-view
+.academy-feed-shell {
+    position:
+        relative !important;
+
+    width:
+        100% !important;
+
+    min-width:
+        0 !important;
+
+    max-width:
+        none !important;
+
+    min-height:
+        100% !important;
+
+    margin:
+        0 !important;
+
+    display:
+        grid !important;
+
+    grid-template-columns:
+        minmax(0, 1fr) !important;
+
+    grid-auto-rows:
+        max-content !important;
+
+    align-content:
+        start !important;
+
+    gap:
+        14px !important;
+
+    padding:
+        0 0 24px !important;
+
+    overflow:
+        visible !important;
+
+    box-sizing:
+        border-box !important;
 }
 
-#academy-feed-view .academy-feed-composer-card,
-#academy-feed-view .academy-feed-card,
-#academy-feed-view #academy-feed-list {
-    width: 100%;
-    max-width: none;
+
+/*
+ * Every primary Feed surface must occupy
+ * its own row. This prevents the composer
+ * from visually climbing into the filters.
+ */
+#academy-feed-view
+.academy-feed-shell
+> .academy-community-layer-panel,
+
+#academy-feed-view
+.academy-feed-shell
+> .academy-feed-composer-card,
+
+#academy-feed-view
+.academy-feed-shell
+> #academy-feed-list {
+    position:
+        relative !important;
+
+    inset:
+        auto !important;
+
+    transform:
+        none !important;
+
+    grid-column:
+        1 !important;
+
+    width:
+        100% !important;
+
+    min-width:
+        0 !important;
+
+    max-width:
+        none !important;
+
+    margin:
+        0 !important;
 }
 
-#academy-feed-view .academy-feed-card,
-#academy-feed-view .academy-feed-composer-card {
-    padding: 16px;
-    border-radius: 18px;
+
+/* =========================================================
+   COMMUNITY FEED TOP CONTROLS
+   Restore proper dimensions and remove visual noise.
+   ========================================================= */
+
+body[data-yh-view="academy"][data-yh-page="academy"]
+#academy-feed-view
+.academy-community-layer-panel {
+    position:
+        relative !important;
+
+    inset:
+        auto !important;
+
+    transform:
+        none !important;
+
+    width:
+        100% !important;
+
+    min-width:
+        0 !important;
+
+    max-width:
+        none !important;
+
+    min-height:
+        0 !important;
+
+    height:
+        auto !important;
+
+    max-height:
+        none !important;
+
+    display:
+        grid !important;
+
+    grid-template-columns:
+        minmax(0, 1fr) !important;
+
+    grid-auto-rows:
+        max-content !important;
+
+    align-content:
+        start !important;
+
+    align-items:
+        stretch !important;
+
+    gap:
+        10px !important;
+
+    padding:
+        12px !important;
+
+    margin:
+        0 !important;
+
+    border:
+        1px solid
+        rgba(92, 137, 181, 0.32) !important;
+
+    border-radius:
+        12px !important;
+
+    background:
+        #10243f !important;
+
+    background-image:
+        none !important;
+
+    box-shadow:
+        0 8px 22px
+        rgba(0, 0, 0, 0.14) !important;
+
+    clip-path:
+        none !important;
+
+    overflow:
+        visible !important;
+
+    opacity:
+        1 !important;
+
+    visibility:
+        visible !important;
+
+    box-sizing:
+        border-box !important;
 }
 
-#academy-feed-view .academy-feed-card {
-    margin: 0;
+
+/*
+ * Kill the old futuristic inner frame.
+ * This is the thin broken shape currently
+ * appearing above the search field.
+ */
+body[data-yh-view="academy"][data-yh-page="academy"]
+#academy-feed-view
+.academy-community-layer-panel::before,
+
+body[data-yh-view="academy"][data-yh-page="academy"]
+#academy-feed-view
+.academy-community-layer-panel::after {
+    content:
+        none !important;
+
+    display:
+        none !important;
+
+    border:
+        0 !important;
+
+    background:
+        none !important;
+
+    clip-path:
+        none !important;
+
+    box-shadow:
+        none !important;
 }
 
-#academy-feed-view .academy-feed-comments-wrap textarea.chat-text-input {
-    min-height: 72px !important;
-    padding: 12px 14px !important;
+
+body[data-yh-view="academy"][data-yh-page="academy"]
+#academy-feed-view
+.academy-community-layer-head {
+    position:
+        relative !important;
+
+    inset:
+        auto !important;
+
+    transform:
+        none !important;
+
+    width:
+        100% !important;
+
+    min-width:
+        0 !important;
+
+    max-width:
+        none !important;
+
+    min-height:
+        0 !important;
+
+    height:
+        auto !important;
+
+    display:
+        block !important;
+
+    margin:
+        0 !important;
+
+    padding:
+        0 !important;
+
+    overflow:
+        visible !important;
+
+    clip-path:
+        none !important;
+
+    box-sizing:
+        border-box !important;
 }
 
-#academy-feed-view .academy-feed-comment-submit-btn,
-#academy-feed-view .academy-feed-like-btn,
-#academy-feed-view .academy-feed-comments-toggle-btn,
-#academy-feed-view .academy-feed-share-btn {
-    min-height: 40px !important;
-    padding: 9.5px 12px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    line-height: 1.2 !important;
-    border-radius: 12px !important;
+
+#academy-feed-view
+.academy-feed-header-right {
+    width:
+        100% !important;
+
+    min-width:
+        0 !important;
+
+    display:
+        block !important;
+
+    margin:
+        0 !important;
+
+    padding:
+        0 !important;
 }
 
-#academy-feed-view .academy-feed-post-menu-btn {
-    min-height: 34px !important;
-    padding: 7.5px 12px !important;
-}
-#academy-feed-view .academy-feed-card {
-    position: relative;
-    z-index: 1;
-    overflow: visible !important;
-    isolation: auto;
+
+/*
+ * Search becomes the primary control.
+ */
+#academy-feed-view
+.academy-feed-search-wrap {
+    width:
+        100% !important;
+
+    min-width:
+        0 !important;
+
+    max-width:
+        none !important;
+
+    min-height:
+        42px !important;
+
+    display:
+        flex !important;
+
+    align-items:
+        center !important;
+
+    gap:
+        9px !important;
+
+    margin:
+        0 !important;
+
+    padding:
+        0 12px !important;
+
+    border:
+        1px solid
+        rgba(92, 137, 181, 0.32) !important;
+
+    border-radius:
+        8px !important;
+
+    background:
+        #162d4d !important;
+
+    box-shadow:
+        none !important;
+
+    overflow:
+        visible !important;
+
+    box-sizing:
+        border-box !important;
 }
 
-#academy-feed-view .academy-feed-card.is-menu-open {
-    z-index: 10000 !important;
+
+#academy-feed-view
+.academy-feed-search-wrap
+.academy-header-search-input {
+    width:
+        100% !important;
+
+    min-width:
+        0 !important;
+
+    height:
+        40px !important;
+
+    min-height:
+        40px !important;
+
+    padding:
+        0 !important;
+
+    border:
+        0 !important;
+
+    background:
+        transparent !important;
+
+    color:
+        #eef5ff !important;
+
+    font-size:
+        0.88rem !important;
+
+    box-shadow:
+        none !important;
 }
 
-#academy-feed-view .academy-feed-card.is-menu-open .academy-feed-post-menu {
-    z-index: 10001 !important;
+
+/*
+ * Legacy refresh button has already been
+ * replaced by pull-to-refresh in JS.
+ */
+#academy-feed-refresh-btn {
+    display:
+        none !important;
+
+    visibility:
+        hidden !important;
+
+    pointer-events:
+        none !important;
 }
 
-#academy-feed-view .academy-feed-post-menu {
-    z-index: 10001 !important;
-    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+
+/* =========================================================
+   CIRCLE / NICHES / GLOBAL
+   ========================================================= */
+
+#academy-feed-view
+.academy-community-layer-tabs {
+    width:
+        100% !important;
+
+    min-width:
+        0 !important;
+
+    display:
+        grid !important;
+
+    grid-template-columns:
+        repeat(
+            3,
+            minmax(0, 1fr)
+        ) !important;
+
+    gap:
+        6px !important;
+
+    margin:
+        0 !important;
+
+    padding:
+        0 !important;
+
+    border:
+        none !important;
+
+    outline:
+        none !important;
+
+    border-radius:
+        0 !important;
+
+    background:
+        transparent !important;
+
+    box-shadow:
+        none !important;
+
+    overflow:
+        visible !important;
+
+    clip-path:
+        none !important;
 }
+
+
+#academy-feed-view
+.academy-community-layer-tab {
+    width:
+        100% !important;
+
+    min-width:
+        0 !important;
+
+    min-height:
+        40px !important;
+
+    display:
+        flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        center !important;
+
+    gap:
+        6px !important;
+
+    padding:
+        7px 9px !important;
+
+    border:
+        1px solid
+        rgba(100, 139, 179, 0.24) !important;
+
+    border-radius:
+        8px !important;
+
+    background:
+        #162a48 !important;
+
+    color:
+        #afc0d4 !important;
+
+    box-shadow:
+        none !important;
+
+    clip-path:
+        none !important;
+
+    font-size:
+        0.82rem !important;
+
+    font-weight:
+        650 !important;
+
+    line-height:
+        1.05 !important;
+
+    cursor:
+        pointer;
+}
+
+
+#academy-feed-view
+.academy-community-layer-tab:hover {
+    border-color:
+        rgba(104, 216, 245, 0.36) !important;
+
+    background:
+        #1b3558 !important;
+
+    color:
+        #ffffff !important;
+}
+
+
+#academy-feed-view
+.academy-community-layer-tab.is-active {
+    border-color:
+        rgba(104, 216, 245, 0.62) !important;
+
+    background:
+        #245474 !important;
+
+    color:
+        #ffffff !important;
+}
+
+
+#academy-feed-view
+.academy-community-layer-tab
+.academy-ui-icon {
+    width:
+        18px !important;
+
+    height:
+        18px !important;
+
+    filter:
+        none !important;
+}
+
+
+/* Circle sub-filter */
+#academy-feed-view
+.academy-circle-subtabs:not(.hidden-step) {
+    width:
+        100% !important;
+
+    display:
+        flex !important;
+
+    gap:
+        6px !important;
+
+    flex-wrap:
+        wrap !important;
+}
+
+
+#academy-feed-view
+.academy-circle-subtab {
+    min-height:
+        32px !important;
+
+    padding:
+        6px 10px !important;
+
+    border:
+        1px solid
+        rgba(100, 139, 179, 0.22) !important;
+
+    border-radius:
+        7px !important;
+
+    background:
+        #162a48 !important;
+
+    color:
+        #afc0d4 !important;
+
+    box-shadow:
+        none !important;
+}
+
+
+#academy-feed-view
+.academy-circle-subtab.is-active {
+    border-color:
+        rgba(104, 216, 245, 0.50) !important;
+
+    background:
+        #214a69 !important;
+
+    color:
+        #ffffff !important;
+}
+
+
+/*
+ * Posting context stays visible but secondary.
+ */
+#academy-feed-view
+.academy-feed-target-pill {
+    width:
+        fit-content !important;
+
+    max-width:
+        100% !important;
+
+    min-height:
+        28px !important;
+
+    display:
+        inline-flex !important;
+
+    align-items:
+        center !important;
+
+    margin:
+        0 !important;
+
+    padding:
+        5px 9px !important;
+
+    border:
+        1px solid
+        rgba(104, 216, 245, 0.22) !important;
+
+    border-radius:
+        6px !important;
+
+    background:
+        #183653 !important;
+
+    color:
+        #b9d9ea !important;
+
+    box-shadow:
+        none !important;
+
+    clip-path:
+        none !important;
+
+    font-size:
+        0.74rem !important;
+
+    font-weight:
+        650 !important;
+
+    line-height:
+        1.1 !important;
+}
+
+
+/* =========================================================
+   COMPOSER + POSTS
+   ========================================================= */
+
+#academy-feed-view
+.academy-feed-composer-card,
+
+#academy-feed-view
+.academy-feed-card,
+
+#academy-feed-view
+#academy-feed-list {
+    width:
+        100%;
+
+    max-width:
+        none;
+}
+
+
+#academy-feed-view
+.academy-feed-composer-card {
+    padding:
+        14px !important;
+
+    border:
+        1px solid
+        rgba(91, 133, 176, 0.30) !important;
+
+    border-radius:
+        12px !important;
+
+    background:
+        #10243f !important;
+
+    background-image:
+        none !important;
+
+    box-shadow:
+        0 8px 22px
+        rgba(0, 0, 0, 0.12) !important;
+
+    clip-path:
+        none !important;
+}
+
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-card {
+    position:
+        relative;
+
+    z-index:
+        1;
+
+    margin:
+        0;
+
+    padding:
+        14px !important;
+
+    border:
+        1px solid
+        rgba(91, 133, 176, 0.32) !important;
+
+    border-radius:
+        12px !important;
+
+    background:
+        #0f243f !important;
+
+    background-image:
+        none !important;
+
+    box-shadow:
+        0 7px 20px
+        rgba(0, 0, 0, 0.12) !important;
+
+    clip-path:
+        none !important;
+
+    overflow:
+        visible !important;
+
+    isolation:
+        auto;
+}
+
+
+/*
+ * Hover should clarify interaction,
+ * not turn the entire post neon.
+ */
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-card:hover {
+    border-color:
+        rgba(104, 173, 214, 0.48) !important;
+
+    background:
+        #122b49 !important;
+
+    background-image:
+        none !important;
+
+    box-shadow:
+        0 9px 24px
+        rgba(0, 0, 0, 0.15) !important;
+}
+
+
+/* Caption/body readability */
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-post-body-display {
+    color:
+        #edf3fb !important;
+
+    font-size:
+        0.94rem !important;
+
+    line-height:
+        1.55 !important;
+}
+
+
+/* =========================================================
+   LIKE / COMMENT / SHARE
+   ========================================================= */
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-submit-btn,
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-like-btn,
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comments-toggle-btn,
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-share-btn {
+    min-height:
+        38px !important;
+
+    padding:
+        8px 10px !important;
+
+    display:
+        inline-flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        center !important;
+
+    border:
+        1px solid
+        rgba(95, 137, 182, 0.30) !important;
+
+    border-radius:
+        8px !important;
+
+    background:
+        #17345a !important;
+
+    background-image:
+        none !important;
+
+    color:
+        #e7f0fb !important;
+
+    box-shadow:
+        none !important;
+
+    line-height:
+        1.1 !important;
+}
+
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-like-btn:hover,
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comments-toggle-btn:hover,
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-share-btn:hover {
+    border-color:
+        rgba(104, 216, 245, 0.46) !important;
+
+    background:
+        #20456f !important;
+
+    transform:
+        none !important;
+}
+
+
+#academy-feed-view
+.academy-feed-comments-wrap
+textarea.chat-text-input {
+    min-height:
+        72px !important;
+
+    padding:
+        12px 14px !important;
+
+    border:
+        1px solid
+        rgba(95, 137, 182, 0.30) !important;
+
+    background:
+        #0c1e35 !important;
+
+    box-shadow:
+        none !important;
+}
+
+
+/* =========================================================
+   3-DOTS MENU
+   ========================================================= */
+
+#academy-feed-view
+.academy-feed-post-menu-btn {
+    min-height:
+        34px !important;
+
+    padding:
+        7px 11px !important;
+
+    box-shadow:
+        none !important;
+}
+
+
+#academy-feed-view
+.academy-feed-card.is-menu-open {
+    z-index:
+        10000 !important;
+}
+
+
+#academy-feed-view
+.academy-feed-card.is-menu-open
+.academy-feed-post-menu {
+    z-index:
+        10001 !important;
+}
+
+
+#academy-feed-view
+.academy-feed-post-menu {
+    z-index:
+        10001 !important;
+
+    box-shadow:
+        0 14px 30px
+        rgba(0, 0, 0, 0.32) !important;
+}
+
+
+/* =========================================================
+   IMAGE PREVIEW
+   ========================================================= */
+
 #academy-feed-image-preview-wrap {
-    border-radius: 12px;
-    overflow: hidden;
+    border-radius:
+        10px;
+
+    overflow:
+        hidden;
 }
+
 
 #academy-feed-image-preview {
-    max-height: 220px;
-    object-fit: cover;
+    max-height:
+        220px;
+
+    object-fit:
+        cover;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 768px) {
+
+    #academy-feed-view
+    .academy-feed-shell {
+        gap:
+            12px;
+    }
+
+
+    #academy-feed-view
+    .academy-community-layer-panel {
+        padding:
+            10px !important;
+
+        gap:
+            8px !important;
+
+        border-radius:
+            10px !important;
+    }
+
+
+    #academy-feed-view
+    .academy-feed-search-wrap {
+        min-height:
+            40px !important;
+    }
+
+
+    #academy-feed-view
+    .academy-community-layer-tabs {
+        gap:
+            5px !important;
+    }
+
+
+    #academy-feed-view
+    .academy-community-layer-tab {
+        min-height:
+            38px !important;
+
+        padding:
+            6px 5px !important;
+
+        font-size:
+            0.72rem !important;
+
+        line-height:
+            1 !important;
+    }
+
+
+    #academy-feed-view
+    .academy-community-layer-tab
+    .academy-ui-icon {
+        width:
+            16px !important;
+
+        height:
+            16px !important;
+    }
+
+
+    #academy-feed-view
+    .academy-feed-composer-card,
+
+    #academy-feed-view
+    .academy-feed-card {
+        border-radius:
+            10px !important;
+    }
+
+
+    #academy-feed-view
+    .academy-feed-composer-card {
+        padding:
+            11px !important;
+    }
+
+
+    #academy-feed-view
+    .academy-feed-card {
+        padding:
+            12px 8px !important;
+    }
 }
 
 /* ==========================================
@@ -9487,13 +11097,507 @@ body.academy-feed-share-open {
     padding: 12px !important;
 }
 
+
+/* ==========================================
+   POST DETAIL COMMENT COMPOSER
+   ========================================== */
+
+/*
+ * Give the post and discussion area
+ * proper visual separation.
+ */
+#academy-post-detail-view
+.academy-post-detail-post-surface {
+    margin-bottom:
+        18px !important;
+}
+
+
+/*
+ * Comments heading must not touch
+ * the bottom edge of the post card.
+ */
+#academy-post-detail-view
+.academy-post-detail-comments-head {
+    margin:
+        0 0 12px !important;
+}
+
+
+#academy-post-detail-view
+.academy-post-detail-comments-head
+h3 {
+    margin:
+        0 !important;
+}
+
+
+/*
+ * Primary comments need real spacing
+ * instead of touching each other.
+ */
+#academy-post-detail-view
+.academy-post-detail-comments-list {
+    width:
+        100%;
+
+    display:
+        grid;
+
+    grid-template-columns:
+        minmax(0, 1fr);
+
+    gap:
+        12px;
+
+    margin:
+        0;
+
+    padding:
+        0;
+}
+
+
+#academy-post-detail-view
+.academy-post-detail-primary-thread {
+    width:
+        100%;
+
+    min-width:
+        0;
+
+    margin:
+        0;
+}
+
+
+#academy-post-detail-view
+.academy-post-detail-composer {
+    position:
+        relative;
+
+    width:
+        100%;
+
+    margin-top:
+        14px;
+
+    display:
+        block;
+
+    background:
+        transparent;
+
+    border:
+        0;
+
+    outline:
+        0;
+
+    box-shadow:
+        none;
+}
+
+
+#academy-post-detail-view
+#academy-post-detail-comment-input {
+    width: 100% !important;
+
+    min-height: 52px !important;
+    max-height: 120px !important;
+
+    margin: 0 !important;
+
+    /*
+     * Right padding reserves room
+     * for the send button.
+     */
+    padding:
+        12px
+        52px
+        12px
+        14px !important;
+
+    border-radius: 18px !important;
+
+    border:
+        1px solid
+        rgba(56, 189, 248, 0.22) !important;
+
+    background:
+        rgba(7, 17, 34, 0.72) !important;
+
+    color: #fff !important;
+
+    line-height: 1.4;
+
+    resize: none;
+
+    outline: none;
+
+    box-shadow:
+        inset 0 1px 0
+        rgba(255, 255, 255, 0.03);
+
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background 0.18s ease;
+}
+
+
+#academy-post-detail-view
+#academy-post-detail-comment-input:focus {
+    border-color:
+        rgba(56, 189, 248, 0.62) !important;
+
+    background:
+        rgba(8, 20, 40, 0.88) !important;
+
+    box-shadow:
+        0 0 0 2px
+        rgba(56, 189, 248, 0.08);
+}
+
+
+#academy-post-detail-view
+#academy-post-detail-comment-submit {
+    position: absolute !important;
+
+    right: 8px !important;
+    top: 50% !important;
+    bottom: auto !important;
+
+    width: 34px !important;
+    height: 34px !important;
+
+    min-width: 34px !important;
+    min-height: 34px !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    border-radius: 999px !important;
+
+    border:
+        1px solid
+        rgba(56, 189, 248, 0.48) !important;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(37, 99, 235, 0.95),
+            rgba(8, 73, 150, 0.95)
+        ) !important;
+
+    color: #fff !important;
+
+    font-size: 1.05rem !important;
+    font-weight: 900 !important;
+
+    line-height: 1 !important;
+
+    cursor: pointer;
+
+    z-index: 3;
+
+    box-shadow:
+        0 0 14px
+        rgba(56, 189, 248, 0.18) !important;
+
+    transform: translateY(-50%) !important;
+}
+
+
+#academy-post-detail-view
+#academy-post-detail-comment-submit:hover:not(:disabled) {
+    transform: translateY(-50%) !important;
+
+    border-color:
+        rgba(125, 211, 252, 0.76) !important;
+
+    box-shadow:
+        0 0 18px
+        rgba(56, 189, 248, 0.3) !important;
+}
+
+
+#academy-post-detail-view
+#academy-post-detail-comment-submit:disabled {
+    opacity: 0.34 !important;
+
+    cursor: default !important;
+
+    box-shadow: none !important;
+}
+
+
+/*
+ * Active network-loading state is intentionally
+ * different from the normal empty/disabled state.
+ */
+#academy-post-detail-view
+#academy-post-detail-comment-submit.is-loading {
+    opacity: 1 !important;
+
+    cursor: wait !important;
+
+    pointer-events: none !important;
+
+    color: transparent !important;
+}
+
+
+#academy-post-detail-view
+#academy-post-detail-comment-submit.is-loading::after {
+    content: '' !important;
+
+    width: 14px !important;
+    height: 14px !important;
+
+    margin: 0 !important;
+
+    display: block !important;
+
+    flex: 0 0 14px !important;
+
+    border-radius: 999px !important;
+
+    border:
+        2px solid
+        rgba(255, 255, 255, 0.28) !important;
+
+    border-top-color:
+        #ffffff !important;
+
+    animation:
+        academy-post-detail-send-spin
+        0.7s
+        linear
+        infinite !important;
+}
+
+
+@keyframes academy-post-detail-send-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/*
+ * Post Detail:
+ * desktop keeps the explicit Back control.
+ */
+#academy-post-detail-view
+.academy-post-detail-back {
+    display:
+        inline-flex !important;
+}
+
+
+@media (max-width: 768px) {
+
+    #academy-post-detail-view
+    .academy-post-detail-back {
+        display:
+            none !important;
+    }
+
+
+    #academy-post-detail-view
+    .academy-post-detail-toolbar {
+        display:
+            none !important;
+
+        margin:
+            0 !important;
+
+        padding:
+            0 !important;
+
+        min-height:
+            0 !important;
+
+        height:
+            0 !important;
+    }
+
+
+    body[data-yh-view="academy"]
+    .academy-mobile-bottom-nav {
+        transition:
+            opacity 0.18s ease,
+            transform 0.18s ease;
+    }
+
+
+    body[data-yh-view="academy"].academy-post-detail-active
+    .academy-mobile-bottom-nav {
+        display:
+            none !important;
+    }
+
+
+    body[data-yh-view="academy"].academy-post-detail-active
+    #academy-post-detail-view {
+        height:
+            100dvh !important;
+
+        min-height:
+            100dvh !important;
+
+        max-height:
+            100dvh !important;
+
+        overflow:
+            hidden !important;
+    }
+
+
+    body[data-yh-view="academy"].academy-post-detail-active
+    #academy-post-detail-view
+    .academy-post-detail-scroll {
+        height:
+            100% !important;
+
+        min-height:
+            0 !important;
+
+        overflow-x:
+            hidden !important;
+
+        overflow-y:
+            auto !important;
+
+        overscroll-behavior-y:
+            contain;
+
+        padding-bottom:
+            0 !important;
+    }
+
+
+    body[data-yh-view="academy"].academy-post-detail-active
+    #academy-post-detail-view
+    .academy-post-detail-shell {
+        width:
+            100%;
+
+        min-height:
+            100% !important;
+
+        display:
+            flex !important;
+
+        flex-direction:
+            column !important;
+    }
+
+
+    body[data-yh-view="academy"].academy-post-detail-active
+    #academy-post-detail-view
+    .academy-post-detail-comments {
+        flex:
+            1 1 auto !important;
+
+        min-height:
+            0 !important;
+
+        display:
+            flex !important;
+
+        flex-direction:
+            column !important;
+    }
+
+
+    body[data-yh-view="academy"].academy-post-detail-active
+    #academy-post-detail-view
+    .academy-post-detail-comments-list {
+        width:
+            100%;
+
+        display:
+            grid !important;
+
+        grid-template-columns:
+            minmax(0, 1fr);
+
+        gap:
+            12px !important;
+
+        /*
+         * Reserve room for the fixed composer
+         * so the final comment can still scroll
+         * completely above it.
+         */
+        padding-bottom:
+            92px !important;
+    }
+
+
+    body[data-yh-view="academy"].academy-post-detail-active
+    #academy-post-detail-view
+    .academy-post-detail-composer {
+        position:
+            fixed !important;
+
+        left:
+            10px !important;
+
+        right:
+            10px !important;
+
+        bottom:
+            max(
+                4px,
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            ) !important;
+
+        z-index:
+            120 !important;
+
+        width:
+            auto !important;
+
+        margin:
+            0 !important;
+
+        padding:
+            0 !important;
+
+        background:
+            transparent !important;
+
+        border:
+            0 !important;
+
+        outline:
+            0 !important;
+
+        box-shadow:
+            none !important;
+    }
+}
+
+
 @media (max-width: 480px) {
     #academy-feed-view .academy-feed-like-btn,
     #academy-feed-view .academy-feed-comments-toggle-btn,
     #academy-feed-view .academy-feed-share-btn,
     #academy-feed-view .academy-feed-comment-submit-btn {
-        font-size: 0.95rem !important;
-        padding: 7.5px 7.5px !important;
+        font-size:
+            0.95rem !important;
+
+        padding:
+            7.5px 7.5px !important;
     }
 }
 
@@ -14459,38 +16563,137 @@ display: block;
     pointer-events: none !important;
 }
 
-#academy-feed-view .academy-feed-post-edit-form,
-#academy-feed-view .academy-feed-comment-edit-form,
-#academy-feed-view .academy-feed-comment-reply-form {
-    margin-top: 10px;
-    display: grid;
-    gap: 8px;
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-post-edit-form,
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-edit-form {
+    margin-top:
+        8px;
+
+    display:
+        grid;
+
+    gap:
+        7px;
 }
 
-#academy-feed-view .academy-feed-post-edit-input,
-#academy-feed-view .academy-feed-comment-edit-input,
-#academy-feed-view .academy-feed-comment-reply-input {
+
+/*
+ * Reply composer is intentionally separate
+ * from the comment being replied to.
+ */
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-reply-form {
+    width:
+        100%;
+
+    margin-top:
+        10px;
+
+    padding:
+        12px;
+
+    display:
+        grid;
+
+    gap:
+        10px;
+
+    border:
+        1px solid
+        rgba(91, 133, 176, 0.28);
+
+    border-radius:
+        12px;
+
+    background:
+        #0b1e36;
+
+    box-shadow:
+        0 6px 16px
+        rgba(0, 0, 0, 0.10);
+
+    box-sizing:
+        border-box;
+}
+
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-post-edit-input,
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-edit-input,
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-reply-input {
     width: 100%;
-    min-height: 64px !important;
-    border-radius: 12px !important;
-    padding: 12px 14px !important;
+
+    min-height: 56px !important;
+
+    border-radius: 10px !important;
+
+    padding: 10px 12px !important;
 }
 
-#academy-feed-view .academy-feed-inline-actions {
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-inline-actions {
     display: flex;
+
     justify-content: flex-end;
-    gap: 8px;
+
+    gap: 6px;
+
     flex-wrap: wrap;
 }
 
-#academy-feed-view .academy-feed-inline-actions .btn-primary,
-#academy-feed-view .academy-feed-inline-actions .btn-secondary {
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-inline-actions
+.btn-primary,
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-inline-actions
+.btn-secondary {
     width: auto !important;
-    min-width: 92px;
-    min-height: 36px !important;
-    padding: 8.5px 14px !important;
-    border-radius: 10px !important;
-    font-size: 1rem !important;
+
+    min-width: 76px;
+
+    min-height: 32px !important;
+
+    padding: 6px 11px !important;
+
+    border-radius: 9px !important;
+
+    font-size: 0.82rem !important;
 }
 
 #academy-feed-view .academy-feed-comments-loading,
@@ -14500,174 +16703,402 @@ display: block;
     padding: 9.5px 2px;
 }
 
-#academy-feed-view .academy-feed-comment-node {
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-node {
     display: grid;
     gap: 8px;
     min-width: 0;
 }
 
-#academy-feed-view .academy-feed-comment-card {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 14px;
-    border-radius: 14px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-card {
+    display:
+        flex;
+
+    align-items:
+        flex-start;
+
+    gap:
+        10px;
+
+    padding:
+        12px;
+
+    border-radius:
+        12px;
+
+    background:
+        #0f243f;
+
+    border:
+        1px solid
+        rgba(91, 133, 176, 0.28);
+
+    box-shadow:
+        0 6px 16px
+        rgba(0, 0, 0, 0.10);
 }
 
-#academy-feed-view .academy-feed-comment-avatar {
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-    border-radius: 999px;
-    border: 1px solid rgba(14,165,233,0.25);
-    background-size: cover;
-    background-position: center;
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-avatar {
+    width: 34px !important;
+    height: 34px !important;
+
+    min-width: 34px !important;
+    min-height: 34px !important;
+
+    flex: 0 0 34px;
+
+    padding: 0 !important;
+
+    border-radius: 999px !important;
+
+    border:
+        1px solid
+        rgba(14,165,233,0.25);
+
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+
     background-color: #0ea5e9;
+
     cursor: pointer;
-    box-shadow: 0 0 14px rgba(14,165,233,0.18);
+
+    box-shadow:
+        0 0 14px
+        rgba(14,165,233,0.18);
 }
 
-#academy-feed-view .academy-feed-comment-avatar-fallback {
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-avatar-fallback {
     color: #fff;
+
     display: inline-flex;
     align-items: center;
     justify-content: center;
+
     font-weight: 800;
     font-size: 0.86rem;
 }
 
-#academy-feed-view .academy-feed-comment-main {
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-main {
     min-width: 0;
     flex: 1;
 }
 
-#academy-feed-view .academy-feed-comment-head {
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
+
     gap: 8px;
 }
 
-#academy-feed-view .academy-feed-comment-author-wrap {
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-author-wrap {
     min-width: 0;
 }
 
-#academy-feed-view .academy-feed-comment-author {
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-author {
+    width: auto !important;
+
     font-weight: 700;
     color: #fff;
+
     line-height: 1.15;
-    background: transparent;
-    border: 0;
-    padding: 0;
+
+    background: transparent !important;
+
+    border: 0 !important;
+
+    padding: 0 !important;
+
     text-align: left;
+
     cursor: pointer;
 }
 
-#academy-feed-view .academy-feed-comment-meta {
-    font-size: 0.95rem;
-    color: var(--text-muted);
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-meta {
     margin-top: 2px;
+
+    font-size: 0.82rem;
+
+    color:
+        var(--text-muted);
 }
 
-#academy-feed-view .academy-feed-comment-body {
-    margin-top: 8px;
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-body {
+    margin-top: 7px;
+
     color: #e5e7eb;
-    line-height: 1.55;
+
+    line-height: 1.5;
+
     word-break: break-word;
 }
 
-#academy-feed-view .academy-feed-comment-actions {
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-actions {
     display: flex;
     align-items: center;
+
     gap: 10px;
-    margin-top: 8px;
+
+    margin-top: 6px;
 }
 
-#academy-feed-view .academy-feed-comment-reply-btn {
-    background: transparent;
-    border: 0;
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-reply-btn {
+    width: auto !important;
+
+    background: transparent !important;
+
+    border: 0 !important;
+
     color: var(--neon-blue);
+
     font-weight: 700;
-    font-size: 1rem;
+
+    font-size: 0.82rem;
+
     cursor: pointer;
-    padding: 0;
+
+    padding: 0 !important;
 }
 
-#academy-feed-view .academy-feed-comment-reply-btn:hover {
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-reply-btn:hover {
     color: #fff;
 }
 
-#academy-feed-view .academy-feed-comment-children {
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-children {
     display: grid;
+
     gap: 8px;
+
     margin-left: 28px;
+
     padding-left: 14px;
-    border-left: 1px solid rgba(14, 165, 233, 0.18);
+
+    border-left:
+        1px solid
+        rgba(14,165,233,0.18);
 }
 
-#academy-feed-view .academy-feed-comment-menu-wrap {
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-menu-wrap {
     position: relative;
+
     flex: 0 0 auto;
 }
 
-#academy-feed-view .academy-feed-comment-menu-btn {
-    width: auto !important;
-    min-height: 30px !important;
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-menu-btn {
+    width: 30px !important;
+    min-width: 30px !important;
+
     height: 30px !important;
-    padding: 4px 10.5px !important;
+    min-height: 30px !important;
+
+    padding: 0 !important;
+
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+
     border-radius: 999px !important;
-    font-size: 0.95rem !important;
+
+    font-size: 0.82rem !important;
+
+    line-height: 1 !important;
 }
 
-#academy-feed-view .academy-feed-comment-menu {
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-menu {
     position: absolute;
+
     top: calc(100% + 6px);
     right: 0;
-    min-width: 132px;
+
+    min-width: 118px;
+
     background: #0f172a;
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px;
-    padding: 9.5px;
+
+    border:
+        1px solid
+        rgba(255,255,255,0.08);
+
+    border-radius: 10px;
+
+    padding: 6px;
+
     display: grid;
-    gap: 6px;
-    z-index: 25;
-    box-shadow: 0 18px 32px rgba(0,0,0,0.28);
+
+    gap: 4px;
+
+    z-index: 40;
+
+    box-shadow:
+        0 18px 32px
+        rgba(0,0,0,0.28);
 }
 
-#academy-feed-view .academy-feed-comment-menu .btn-secondary {
+
+:is(
+    #academy-feed-view,
+    #academy-post-detail-view
+)
+.academy-feed-comment-menu
+.btn-secondary {
     width: 100% !important;
-    min-height: 34px !important;
-    padding: 8.5px 12px !important;
-    border-radius: 10px !important;
-    font-size: 0.95rem !important;
+
+    min-height: 30px !important;
+
+    padding: 6px 9px !important;
+
+    border-radius: 8px !important;
+
+    font-size: 0.82rem !important;
 }
 
 @media (max-width: 520px) {
-    #academy-feed-view .academy-feed-comment-card {
-        padding: 12px;
+
+    :is(
+        #academy-feed-view,
+        #academy-post-detail-view
+    )
+    .academy-feed-comment-card {
+        padding: 9px;
+
         gap: 8px;
     }
 
-    #academy-feed-view .academy-feed-comment-avatar {
-        width: 30px;
-        height: 30px;
-        min-width: 30px;
+
+    :is(
+        #academy-feed-view,
+        #academy-post-detail-view
+    )
+    .academy-feed-comment-avatar {
+        width: 32px !important;
+        height: 32px !important;
+
+        min-width: 32px !important;
+        min-height: 32px !important;
+
+        flex-basis: 32px;
     }
 
-    #academy-feed-view .academy-feed-comment-children {
+
+    :is(
+        #academy-feed-view,
+        #academy-post-detail-view
+    )
+    .academy-feed-comment-children {
         margin-left: 10px;
+
         padding-left: 10px;
     }
 
-    #academy-feed-view .academy-feed-inline-actions {
+
+    :is(
+        #academy-feed-view,
+        #academy-post-detail-view
+    )
+    .academy-feed-inline-actions {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+
+        grid-template-columns:
+            1fr 1fr;
     }
 
-    #academy-feed-view .academy-feed-inline-actions .btn-primary,
-    #academy-feed-view .academy-feed-inline-actions .btn-secondary {
+
+    :is(
+        #academy-feed-view,
+        #academy-post-detail-view
+    )
+    .academy-feed-inline-actions
+    .btn-primary,
+
+    :is(
+        #academy-feed-view,
+        #academy-post-detail-view
+    )
+    .academy-feed-inline-actions
+    .btn-secondary {
         width: 100% !important;
     }
 }
@@ -14718,40 +17149,138 @@ body > #academy-search-results-panel:not(.hidden-step),
     justify-content: center !important;
 }
 
-#academy-search-results-panel .academy-search-results-shell {
-    width: min(860px, calc(100vw - 48px));
-    max-width: 100%;
-    margin: 0 auto;
-    display: grid;
-    gap: 0;
+#academy-search-results-panel
+.academy-search-results-shell {
+    width:
+        min(
+            760px,
+            calc(100vw - 48px)
+        );
+
+    max-width:
+        100%;
+
+    margin:
+        0 auto;
+
+    display:
+        grid;
+
+    grid-template-columns:
+        minmax(0, 1fr);
+
+    gap:
+        0;
+
+    border:
+        1px solid
+        rgba(92, 137, 181, 0.38);
+
+    border-radius:
+        14px;
+
+    background:
+        #10243f;
+
+    box-shadow:
+        0 22px 54px
+        rgba(0, 0, 0, 0.42);
+
+    overflow:
+        hidden;
+
+    box-sizing:
+        border-box;
 }
 
-#academy-search-results-panel .academy-search-results-head {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 16px 18px;
-    border: 1px solid rgba(56, 189, 248, 0.24);
-    border-bottom: none;
-    border-radius: 20px 20px 0 0;
-    background: rgba(7, 15, 33, 0.28);
-    box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+
+#academy-search-results-panel
+.academy-search-results-head {
+    width:
+        100%;
+
+    min-width:
+        0;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    gap:
+        10px;
+
+    padding:
+        12px 14px;
+
+    border:
+        0;
+
+    border-bottom:
+        1px solid
+        rgba(92, 137, 181, 0.24);
+
+    border-radius:
+        0;
+
+    background:
+        #142b49;
+
+    box-shadow:
+        none;
+
+    box-sizing:
+        border-box;
 }
 
-#academy-search-results-panel .academy-search-results-inner {
-    width: 100%;
-    display: grid;
-    gap: 12px;
-    padding: 16px 18px 18px;
-    max-height: calc(100vh - 180px);
-    overflow: auto;
-    border: 1px solid rgba(56, 189, 248, 0.24);
-    border-top: none;
-    border-radius: 0 0 20px 20px;
-    background: rgba(7, 15, 33, 0.28);
-    box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+
+#academy-search-results-panel
+.academy-search-results-inner {
+    width:
+        100%;
+
+    min-width:
+        0;
+
+    display:
+        grid;
+
+    grid-template-columns:
+        minmax(0, 1fr);
+
+    gap:
+        10px;
+
+    padding:
+        14px;
+
+    max-height:
+        calc(100dvh - 190px);
+
+    overflow-x:
+        hidden;
+
+    overflow-y:
+        auto;
+
+    border:
+        0;
+
+    border-radius:
+        0;
+
+    background:
+        #0e2039;
+
+    box-shadow:
+        none;
+
+    box-sizing:
+        border-box;
 }
 
 #academy-search-results-panel .academy-search-results-title,
@@ -14778,22 +17307,64 @@ body > #academy-search-results-panel:not(.hidden-step),
 }
 
 @media (max-width: 768px) {
+
     body > #academy-search-results-panel,
     #academy-search-results-panel {
-        padding: 84px 16px 20px !important;
+        padding:
+            82px
+            12px
+            calc(
+                92px +
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            ) !important;
     }
 
-    #academy-search-results-panel .academy-search-results-shell {
-        width: min(100%, calc(100vw - 28px));
+
+    #academy-search-results-panel
+    .academy-search-results-shell {
+        width:
+            100%;
+
+        max-width:
+            100%;
+
+        border-radius:
+            12px;
     }
 
-    #academy-search-results-panel .academy-search-results-head {
-        flex-wrap: wrap;
-        align-items: flex-start;
+
+    #academy-search-results-panel
+    .academy-search-results-head {
+        min-height:
+            48px;
+
+        padding:
+            9px 11px;
+
+        flex-wrap:
+            nowrap;
+
+        align-items:
+            center;
     }
 
-    #academy-search-results-panel .academy-search-results-inner {
-        max-height: calc(100vh - 150px);
+
+    #academy-search-results-panel
+    .academy-search-results-inner {
+        max-height:
+            calc(
+                100dvh -
+                220px
+            );
+
+        padding:
+            10px;
+
+        gap:
+            8px;
     }
 }
 /* =========================================
@@ -16983,12 +19554,63 @@ body.academy-profile-image-preview-open {
 }
 
 .academy-feed-author-avatar {
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    width:
+        36px !important;
+
+    height:
+        36px !important;
+
+    min-width:
+        36px !important;
+
+    min-height:
+        36px !important;
+
+    max-width:
+        36px !important;
+
+    max-height:
+        36px !important;
+
+    flex:
+        0 0 36px !important;
+
+    display:
+        block;
+
+    border-radius:
+        50% !important;
+
+    object-fit:
+        cover !important;
+
+    object-position:
+        center center !important;
+
+    background-size:
+        cover !important;
+
+    background-position:
+        center center !important;
+
+    background-repeat:
+        no-repeat !important;
+
+    overflow:
+        hidden;
+
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease;
 }
 
 .academy-feed-author-avatar:hover {
-    transform: scale(1.04);
-    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.22);
+    transform:
+        scale(1.04);
+
+    box-shadow:
+        0 0 0 2px
+        rgba(56, 189, 248, 0.22);
 }
 /* =========================================
    YH MESSENGER MODE
@@ -17520,6 +20142,124 @@ body.academy-profile-image-preview-open {
         overflow-x: hidden !important;
         align-content: start !important;
         overscroll-behavior: contain;
+    }
+
+    /*
+     * Desktop inbox conversations:
+     * use the same rounded rectangular card
+     * language as mobile.
+     */
+    /*
+     * Desktop conversation card:
+     * the OUTER card owns the rectangle so
+     * content + 3-dots live inside one surface.
+     */
+    #academy-chat[data-chat-mode="messages"]
+    .academy-messages-inbox-card,
+
+    #academy-chat[data-chat-mode="thread"]
+    .academy-messages-inbox-card {
+        grid-template-columns:
+            minmax(0, 1fr)
+            44px !important;
+
+        gap:
+            0 !important;
+
+        width:
+            100% !important;
+
+        max-width:
+            100% !important;
+
+        box-sizing:
+            border-box !important;
+
+        border:
+            1px solid
+            rgba(255, 255, 255, 0.08) !important;
+
+        border-radius:
+            16px !important;
+
+        background:
+            rgba(255, 255, 255, 0.025) !important;
+
+        clip-path:
+            none !important;
+
+        overflow:
+            visible !important;
+    }
+
+
+    /*
+     * Inner conversation button no longer
+     * draws a second smaller rectangle.
+     */
+    #academy-chat[data-chat-mode="messages"]
+    .academy-messages-inbox-item,
+
+    #academy-chat[data-chat-mode="thread"]
+    .academy-messages-inbox-item {
+        width:
+            100% !important;
+
+        min-width:
+            0 !important;
+
+        border:
+            0 !important;
+
+        border-radius:
+            16px 0 0 16px !important;
+
+        background:
+            transparent !important;
+
+        clip-path:
+            none !important;
+
+        box-shadow:
+            none !important;
+    }
+
+
+    /*
+     * Keep the options trigger inside the
+     * right side of the same rectangle.
+     */
+    #academy-chat[data-chat-mode="messages"]
+    .academy-messages-inbox-actions,
+
+    #academy-chat[data-chat-mode="thread"]
+    .academy-messages-inbox-actions {
+        width:
+            44px !important;
+
+        min-width:
+            44px !important;
+
+        height:
+            100% !important;
+
+        padding:
+            9px
+            7px
+            0
+            0 !important;
+
+        display:
+            flex !important;
+
+        align-items:
+            flex-start !important;
+
+        justify-content:
+            flex-end !important;
+
+        box-sizing:
+            border-box !important;
     }
 
     #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-list > *,
@@ -18924,21 +21664,24 @@ body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-
     text-align: left;
     padding: 22px;
     border-radius: 24px;
-    border: 1px solid rgba(56, 189, 248, 0.22);
+    border: 1px solid rgba(93, 137, 181, 0.34);
     background:
-        radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 38%),
-        rgba(9, 18, 33, 0.28);
+        linear-gradient(180deg, rgba(16, 37, 66, 0.98), rgba(16, 37, 66, 0.98));
     color: #f8fbff;
     cursor: pointer;
-    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    box-shadow:
+        0 10px 26px rgba(0, 0, 0, 0.18);
 }
 
 .academy-mission-playbook-card:hover {
     transform: translateY(-3px);
-    border-color: rgba(56, 189, 248, 0.55);
+    border-color: rgba(56, 189, 248, 0.42);
     background:
-        radial-gradient(circle at top right, rgba(56, 189, 248, 0.18), transparent 42%),
-        rgba(10, 22, 39, 0.28);
+        linear-gradient(180deg, rgba(23, 46, 80, 0.99), rgba(16, 37, 66, 0.99));
+    box-shadow:
+        0 14px 30px rgba(0, 0, 0, 0.22),
+        0 0 20px rgba(56, 189, 248, 0.08);
 }
 
 .academy-mission-playbook-icon {
@@ -18948,14 +21691,13 @@ body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-
     place-items: center;
     border-radius: 16px;
     background:
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 44%),
-        rgba(56, 189, 248, 0.09);
-    border: 1px solid rgba(56, 189, 248, 0.24);
+        linear-gradient(180deg, rgba(23, 46, 80, 0.98), rgba(23, 46, 80, 0.98));
+    border: 1px solid rgba(93, 137, 181, 0.30);
     font-size: 1.35rem;
     overflow: hidden;
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.05),
-        0 0 20px rgba(56, 189, 248, 0.10);
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 0 14px rgba(56, 189, 248, 0.06);
 }
 
 .academy-mission-playbook-icon-img {
@@ -19014,17 +21756,20 @@ body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-
     color: #38bdf8;
     font-size: 1rem;
     font-weight: 800;
-}.academy-mission-playbook-footer {
+}
+.academy-mission-playbook-footer {
     display: grid;
     gap: 8px;
     margin-top: 18px;
     padding: 16px 18px;
     border-radius: 18px;
-    border: 1px solid rgba(148, 163, 184, 0.14);
-    background: rgba(15, 23, 42, 0.24);
-    color: var(--text-muted);
+    border: 1px solid rgba(93, 137, 181, 0.26);
+    background: #172e50;
+    color: #cbd8e8;
     font-size: 1rem;
     line-height: 1.5;
+    box-shadow:
+        0 8px 18px rgba(0, 0, 0, 0.12);
 }
 
 .academy-mission-playbook-footer strong {
@@ -19099,10 +21844,11 @@ min-height: 38px;
 .academy-mission-playbook-detail-card {
     padding: 18px;
     border-radius: 20px;
-    border: 1px solid rgba(56, 189, 248, 0.22);
+    border: 1px solid rgba(93, 137, 181, 0.34);
     background:
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.10), transparent 32%),
-        rgba(8, 17, 31, 0.28);
+        linear-gradient(180deg, rgba(16, 37, 66, 0.98), rgba(16, 37, 66, 0.98));
+    box-shadow:
+        0 10px 26px rgba(0, 0, 0, 0.16);
 }
 
 .academy-mission-playbook-detail-hero {
@@ -19183,8 +21929,8 @@ min-height: 38px;
 .academy-mission-playbook-section {
     padding: 14px;
     border-radius: 15px;
-    border: 1px solid rgba(148, 163, 184, 0.13);
-    background: rgba(15, 23, 42, 0.22);
+    border: 1px solid rgba(121, 153, 188, 0.18);
+    background: #172e50;
 }
 
 .academy-mission-playbook-section h4 {
@@ -21842,27 +24588,70 @@ body[data-yh-page="dashboard"]
 
 body[data-yh-page="dashboard"]
 .yh-dashboard-universe-profile-header {
-    width: 100%;
-    margin: 0 0 12px;
-    padding: 0;
+    /*
+     * Navigation/actions are now rendered
+     * directly over the cover photo.
+     *
+     * Keep the legacy header node in DOM
+     * for compatibility, but remove it
+     * completely from visual layout.
+     */
+    display: none;
 
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
+    width: 0;
+    height: 0;
+    min-height: 0;
+
+    margin: 0;
+    padding: 0;
 
     border: 0;
     background: transparent;
     box-shadow: none;
 }
 
+
 body[data-yh-page="dashboard"]
-.yh-dashboard-universe-profile-header
-.academy-profile-header-right {
-    width: 100%;
+#academy-profile-view
+.yh-dashboard-profile-cover-controls {
+    position: absolute;
+
+    top: 12px;
+    left: 12px;
+    right: 12px;
+
+    z-index: 6;
 
     display: flex;
-    align-items: center;
-    justify-content: flex-start;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 8px;
+
+    pointer-events: none;
+}
+
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.yh-dashboard-profile-cover-controls
+> * {
+    pointer-events: auto;
+}
+
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+.yh-dashboard-profile-cover-controls
+.yh-profile-header-action-group {
+    margin-left: auto;
+}
+
+
+body[data-yh-page="dashboard"]
+#academy-profile-view
+#academy-profile-dashboard-close[hidden] {
+    display: none !important;
 }
 
 body[data-yh-page="dashboard"]
@@ -23571,15 +26360,28 @@ aspect-ratio: 8 / 3;
 }
 
 .yh-dashboard-basic-assistant-card {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border-radius: 22px;
-    border: 1px solid rgba(56, 189, 248, 0.24);
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    overflow:
+        hidden;
+
+    border-radius:
+        22px;
+
+    border:
+        1px solid
+        rgba(91, 133, 176, 0.38);
+
     background:
-        radial-gradient(circle at top right, rgba(56, 189, 248, 0.16), transparent 42%),
-        linear-gradient(180deg, rgba(10, 20, 40, 0.28), rgba(5, 12, 28, 0.28));
-    box-shadow: 0 28px 90px rgba(0, 0, 0, 0.58);
+        #0f243f;
+
+    box-shadow:
+        0 28px 90px
+        rgba(0, 0, 0, 0.58);
 }
 
 .yh-dashboard-basic-assistant-head {
@@ -23624,11 +26426,21 @@ aspect-ratio: 8 / 3;
 }
 
 .yh-dashboard-basic-assistant-intake {
-    display: grid;
-    gap: 8px;
-    padding: 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(2, 6, 23, 0.22);
+    display:
+        grid;
+
+    gap:
+        8px;
+
+    padding:
+        14px;
+
+    border-bottom:
+        1px solid
+        rgba(91, 133, 176, 0.24);
+
+    background:
+        #102b49;
 }
 
 .yh-dashboard-basic-assistant-intake label {
@@ -23648,39 +26460,32 @@ aspect-ratio: 8 / 3;
     line-height: 1.45;
 }
 
-.yh-dashboard-basic-assistant-category-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-}
 
-.yh-dashboard-basic-assistant-category-chips button {
-    width: auto;
-    min-height: 30px;
-    padding: 6px 9px;
-    border-radius: 999px;
-    border: 1px solid rgba(56, 189, 248, 0.24);
-    background: rgba(14, 165, 233, 0.08);
-    color: #bae6fd;
-    font-size: 0.95rem;
-    font-weight: 800;
-    cursor: pointer;
-}
-
-.yh-dashboard-basic-assistant-category-chips button:hover {
-    border-color: rgba(56, 189, 248, 0.48);
-    background: rgba(14, 165, 233, 0.16);
-    color: #ffffff;
-}
 
 .yh-dashboard-basic-assistant-messages {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-height: 220px;
-    max-height: min(40vh, 360px);
-    padding: 16px;
-    overflow-y: auto;
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    gap:
+        10px;
+
+    min-height:
+        220px;
+
+    max-height:
+        min(40vh, 360px);
+
+    padding:
+        16px;
+
+    overflow-y:
+        auto;
+
+    background:
+        #0b1e36;
 }
 
 .yh-dashboard-basic-assistant-empty {
@@ -23731,20 +26536,42 @@ aspect-ratio: 8 / 3;
 }
 
 .yh-dashboard-basic-assistant-message-bubble {
-    max-width: 100%;
-    padding: 12px 14px;
-    border-radius: 15px;
-    border: 1px solid rgba(148, 163, 184, 0.14);
-    background: rgba(15, 23, 42, 0.72);
-    color: #dbeafe;
-    font-size: 1rem;
-    line-height: 1.55;
+    max-width:
+        100%;
+
+    padding:
+        12px 14px;
+
+    border-radius:
+        15px;
+
+    border:
+        1px solid
+        rgba(91, 133, 176, 0.28);
+
+    background:
+        #172e50;
+
+    color:
+        #e6eef8;
+
+    font-size:
+        1rem;
+
+    line-height:
+        1.55;
 }
 
-.yh-dashboard-basic-assistant-message.is-user .yh-dashboard-basic-assistant-message-bubble {
-    border-color: rgba(56, 189, 248, 0.24);
-    background: rgba(14, 165, 233, 0.14);
-    color: #f8fbff;
+.yh-dashboard-basic-assistant-message.is-user
+.yh-dashboard-basic-assistant-message-bubble {
+    border-color:
+        rgba(56, 189, 248, 0.34);
+
+    background:
+        #123c61;
+
+    color:
+        #f8fbff;
 }
 
 .yh-dashboard-basic-assistant-form {
@@ -23933,32 +26760,279 @@ aspect-ratio: 8 / 3;
     }
 
     .yh-dashboard-basic-assistant {
-        top: 14px;
-        right: 12px;
-        left: 12px;
-        width: auto;
-        max-height: calc(100vh - 28px);
+        top:
+            max(
+                8px,
+                env(
+                    safe-area-inset-top,
+                    0px
+                )
+            );
+
+        right:
+            10px;
+
+        bottom:
+            max(
+                8px,
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            );
+
+        left:
+            10px;
+
+        width:
+            auto;
+
+        height:
+            auto;
+
+        max-height:
+            none;
     }
+
+
+    .yh-dashboard-basic-assistant-card {
+        width:
+            100%;
+
+        height:
+            100%;
+
+        min-height:
+            0;
+
+        max-height:
+            100%;
+
+        border-radius:
+            18px;
+    }
+
+
+    .yh-dashboard-basic-assistant-head {
+        gap:
+            9px;
+
+        padding:
+            10px 12px 9px;
+    }
+
+
+    .yh-dashboard-basic-assistant-title-row {
+        gap:
+            9px;
+    }
+
+
+    .yh-dashboard-basic-assistant-kicker {
+        font-size:
+            0.74rem;
+
+        line-height:
+            1.2;
+    }
+
+
+    .yh-dashboard-basic-assistant-head h3 {
+        margin:
+            2px 0 3px;
+
+        font-size:
+            0.88rem;
+
+        line-height:
+            1.2;
+    }
+
+
+    .yh-dashboard-basic-assistant-head p {
+        font-size:
+            0.78rem;
+
+        line-height:
+            1.35;
+    }
+
+
+    .yh-dashboard-basic-assistant-close {
+        width:
+            30px;
+
+        height:
+            30px;
+
+        flex:
+            0 0 30px;
+
+        border-radius:
+            10px;
+    }
+
+
+    .yh-dashboard-basic-assistant-intake {
+        gap:
+            5px;
+
+        padding:
+            9px 12px 10px;
+    }
+
+
+    .yh-dashboard-basic-assistant-intake label {
+        font-size:
+            0.82rem;
+    }
+
+
+    .yh-dashboard-basic-assistant-intake select {
+        min-height:
+            38px;
+
+        padding:
+            8px 10px;
+
+        font-size:
+            0.84rem;
+    }
+
+
+    .yh-dashboard-basic-assistant-category-hint {
+        font-size:
+            0.76rem;
+
+        line-height:
+            1.35;
+    }
+
 
     .yh-dashboard-basic-assistant-messages {
-        min-height: 180px;
-        max-height: 36vh;
+        flex:
+            1 1 auto;
+
+        min-height:
+            0;
+
+        max-height:
+            none;
+
+        gap:
+            8px;
+
+        padding:
+            10px 12px;
     }
 
-    .yh-dashboard-basic-assistant-category-chips button {
-        flex: 1 1 calc(50% - 7px);
+
+    .yh-dashboard-basic-assistant-empty {
+        font-size:
+            0.82rem;
+
+        line-height:
+            1.4;
     }
+
+
+    .yh-dashboard-basic-assistant-message {
+        gap:
+            6px;
+    }
+
+
+    .yh-dashboard-basic-assistant-message-main {
+        gap:
+            3px;
+
+        max-width:
+            92%;
+    }
+
+
+    .yh-dashboard-basic-assistant-message-avatar {
+        width:
+            28px;
+
+        height:
+            28px;
+
+        flex:
+            0 0 28px;
+
+        border-radius:
+            10px;
+    }
+
+
+    .yh-dashboard-basic-assistant-message-label {
+        font-size:
+            0.7rem;
+    }
+
+
+    .yh-dashboard-basic-assistant-message-bubble {
+        padding:
+            9px 10px;
+
+        border-radius:
+            12px;
+
+        font-size:
+            0.82rem;
+
+        line-height:
+            1.4;
+    }
+
 
     .yh-dashboard-basic-assistant-form {
-        grid-template-columns: 1fr;
+        grid-template-columns:
+            minmax(0, 1fr)
+            68px;
+
+        gap:
+            7px;
+
+        padding:
+            8px 10px 10px;
     }
+
 
     .yh-dashboard-basic-assistant-form .input-field {
-        min-height: 74px;
+        min-height:
+            50px;
+
+        max-height:
+            72px;
+
+        padding:
+            9px 10px;
+
+        font-size:
+            0.8rem;
+
+        line-height:
+            1.35;
+
+        resize:
+            none;
     }
 
+
     .yh-dashboard-basic-assistant-form .btn-primary {
-        min-height: 46px;
+        min-height:
+            50px;
+
+        padding:
+            8px 9px;
+
+        font-size:
+            0.78rem;
+
+        align-self:
+            stretch;
     }
 }
 /* ========================================================= */
@@ -26671,9 +29745,21 @@ body[data-yh-view="academy"] #academy-feed-view .academy-feed-niche-badge {
 }
 
 @media (max-width: 560px) {
+
+    #yh-dashboard-referral-workspace {
+        padding-top:
+            2px !important;
+    }
+
     .yh-universe-referral-card {
-        padding: 16px;
-        border-radius: 20px;
+        margin:
+            -10px 0 18px !important;
+
+        padding:
+            16px;
+
+        border-radius:
+            20px;
     }
 
     .yh-universe-referral-link-row {
@@ -27538,7 +30624,8 @@ body.academy-coach-opening .yh-tab-loader {
 
 .academy-messages-inbox-menu button[data-inbox-room-action="pin"],
 .academy-messages-thread-menu button[data-thread-room-action="pin"] {
-    color: #ff4d4f;
+    color:
+        #ffffff;
 }
 .academy-messages-inbox-pin-icon-v2 {
     display: inline-flex;
@@ -27821,9 +30908,11 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
 }
 
 .academy-messages-inbox-card .academy-messages-inbox-menu {
-    z-index: 10020 !important;
-    min-width: 196px;
-    overflow: visible !important;
+    z-index:
+        10020 !important;
+
+    overflow:
+        visible !important;
 }
 
 .academy-messages-inbox-card.is-menu-open .academy-messages-inbox-menu,
@@ -30102,7 +33191,7 @@ body[data-yh-page="academy"] .academy-ai-coach-rect-form {
 
 .academy-roadmap-tabs-trigger {
     width: 100%;
-    min-height: 44px;
+    min-height: 42px;
 
     display: flex;
     align-items: center;
@@ -30110,61 +33199,64 @@ body[data-yh-page="academy"] .academy-ai-coach-rect-form {
 
     gap: 12px;
 
-    padding: 10px 14px;
+    padding: 9px 13px;
 
     border:
         1px solid
-        rgba(56, 189, 248, 0.30);
+        rgba(107, 151, 194, 0.34);
 
-    border-radius: 14px;
+    border-radius: 8px;
 
     background:
-        radial-gradient(
-            circle at 100% 0%,
-            rgba(56, 189, 248, 0.13),
-            transparent 46%
-        ),
-        rgba(3, 10, 24, 0.82);
+        #1a3158;
 
-    color: #dff7ff;
+    color:
+        #edf5ff;
 
     font-family:
-        "Orbitron",
         "Rajdhani",
         "Poppins",
         system-ui,
         sans-serif;
 
-    font-size: 0.9rem;
-    line-height: 1;
+    font-size:
+        0.86rem;
 
-    font-weight: 800;
+    line-height:
+        1;
 
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-weight:
+        700;
 
-    cursor: pointer;
+    letter-spacing:
+        0.055em;
 
-    user-select: none;
-    -webkit-user-select: none;
+    text-transform:
+        uppercase;
+
+    cursor:
+        pointer;
+
+    user-select:
+        none;
+
+    -webkit-user-select:
+        none;
+
+    box-shadow:
+        none;
 
     transition:
-        border-color 0.2s ease,
-        background 0.2s ease,
-        box-shadow 0.2s ease;
+        border-color 0.18s ease,
+        background 0.18s ease;
 }
 
 .academy-roadmap-tabs-trigger:hover {
     border-color:
-        rgba(125, 211, 252, 0.56);
+        rgba(104, 216, 245, 0.54);
 
     background:
-        radial-gradient(
-            circle at 100% 0%,
-            rgba(56, 189, 248, 0.19),
-            transparent 46%
-        ),
-        rgba(4, 14, 32, 0.94);
+        #203b66;
 }
 
 .academy-roadmap-tabs-menu[open]
@@ -30208,7 +33300,7 @@ body[data-yh-page="academy"] .academy-ai-coach-rect-form {
 .academy-roadmap-tabs-menu-panel {
     position: absolute;
 
-    top: calc(100% + 8px);
+    top: calc(100% + 6px);
     left: 0;
 
     z-index: 200;
@@ -30217,35 +33309,32 @@ body[data-yh-page="academy"] .academy-ai-coach-rect-form {
     min-width: 0;
 
     display: grid;
+
     grid-template-columns:
         minmax(0, 1fr);
 
-    gap: 7px;
+    gap: 4px;
 
-    padding: 9px;
+    padding: 6px;
 
     border:
         1px solid
-        rgba(56, 189, 248, 0.28);
+        rgba(105, 147, 190, 0.34);
 
-    border-radius: 15px;
+    border-radius: 9px;
 
     background:
-        radial-gradient(
-            circle at 12% 0%,
-            rgba(56, 189, 248, 0.14),
-            transparent 38%
-        ),
-        rgba(3, 10, 24, 0.98);
+        #162d50;
 
     box-shadow:
-        0 22px 48px
-        rgba(0, 0, 0, 0.52),
-        inset 0 1px 0
-        rgba(255, 255, 255, 0.05);
+        0 12px 26px
+        rgba(0, 0, 0, 0.28);
 
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter:
+        none;
+
+    -webkit-backdrop-filter:
+        none;
 }
 
 
@@ -30254,7 +33343,7 @@ body[data-yh-page="academy"] .academy-ai-coach-rect-form {
 .academy-roadmap-menu-option {
     width: 100%;
     min-width: 0;
-    min-height: 42px;
+    min-height: 40px;
 
     display: flex;
     align-items: center;
@@ -30262,63 +33351,75 @@ body[data-yh-page="academy"] .academy-ai-coach-rect-form {
 
     gap: 10px;
 
-    padding: 10px 12px;
+    padding:
+        9px 11px;
 
     border:
         1px solid
-        rgba(56, 189, 248, 0.12);
+        transparent;
 
-    border-radius: 11px;
+    border-radius:
+        7px;
 
     background:
-        rgba(14, 165, 233, 0.04);
+        transparent;
 
     color:
-        rgba(226, 238, 255, 0.80);
+        #afc0d6;
 
     font-family:
-        "Orbitron",
         "Rajdhani",
         "Poppins",
         system-ui,
         sans-serif;
 
-    font-size: 0.82rem;
-    line-height: 1.2;
+    font-size:
+        0.82rem;
 
-    font-weight: 800;
+    line-height:
+        1.2;
 
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-weight:
+        650;
 
-    text-align: left;
+    letter-spacing:
+        0.035em;
 
-    cursor: pointer;
+    text-transform:
+        uppercase;
+
+    text-align:
+        left;
+
+    cursor:
+        pointer;
 
     transition:
-        border-color 0.18s ease,
-        background 0.18s ease,
-        color 0.18s ease;
+        border-color 0.16s ease,
+        background 0.16s ease,
+        color 0.16s ease;
 }
 
 .academy-roadmap-menu-option:hover {
     border-color:
-        rgba(56, 189, 248, 0.42);
+        rgba(103, 180, 220, 0.24);
 
     background:
-        rgba(14, 165, 233, 0.11);
+        #1d3a64;
 
-    color: #ffffff;
+    color:
+        #ffffff;
 }
 
 .academy-roadmap-menu-option.is-active {
     border-color:
-        rgba(103, 232, 249, 0.58);
+        rgba(104, 216, 245, 0.56);
 
     background:
-        rgba(14, 165, 233, 0.16);
+        #285777;
 
-    color: #ffffff;
+    color:
+        #ffffff;
 }
 body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] #academy-chat .chat-messages,
 body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] #academy-chat .chat-messages {
@@ -30357,31 +33458,55 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
 }
 
 .academy-roadmap-tab-panel-card {
-    border-radius: 20px;
-    padding: 20px;
+    padding: 18px 20px;
     margin-bottom: 14px;
+
+    border-radius: 12px;
+
+    border:
+        1px solid
+        rgba(105, 146, 190, 0.28);
+
+    background:
+        linear-gradient(
+            180deg,
+            #1a3158 0%,
+            #152945 100%
+        );
+
+    box-shadow:
+        0 8px 22px
+        rgba(0, 0, 0, 0.16);
 }
 
 .academy-roadmap-tab-kicker {
-    color: var(--neon-blue);
-    font-size: 0.91rem;
-    font-weight: 900;
-    letter-spacing: 0.12em;
+    color: #68d8f5;
+
+    font-size: 0.76rem;
+    font-weight: 700;
+
+    letter-spacing: 0.11em;
     text-transform: uppercase;
-    margin-bottom: 8px;
+
+    margin-bottom: 7px;
 }
 
 .academy-roadmap-tab-panel-card h3 {
-    margin: 0 0 8px;
-    color: #fff;
-    font-size: 1.08rem;
-    line-height: 1.25;
+    margin: 0 0 6px;
+
+    color: #f6f9ff;
+
+    font-size: 1.02rem;
+    font-weight: 600;
+    line-height: 1.3;
 }
 
 .academy-roadmap-tab-panel-card p {
     margin: 0;
-    color: var(--text-muted);
-    font-size: 1rem;
+
+    color: #a9bad0;
+
+    font-size: 0.9rem;
     line-height: 1.55;
 }
 
@@ -33048,7 +36173,8 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="
 body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] #academy-chat[data-chat-mode="home"] .roadmap-mission-track {
     max-height: none !important;
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-}body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] #academy-chat[data-chat-mode="home"] .academy-home-panel,
+}
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] #academy-chat[data-chat-mode="home"] .academy-home-panel,
 body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] #academy-chat[data-chat-mode="home"] .academy-home-panel,
 body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] #academy-chat[data-chat-mode="home"] .roadmap-clean-hero,
 body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] #academy-chat[data-chat-mode="home"] .roadmap-clean-hero,
@@ -33056,12 +36182,25 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="
 body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] #academy-chat[data-chat-mode="home"] .roadmap-transform-card,
 body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] #academy-chat[data-chat-mode="home"] .roadmap-mission-board,
 body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] #academy-chat[data-chat-mode="home"] .roadmap-mission-board {
-    width: 100% !important;
-    max-width: none !important;
-    border-color: rgba(56, 189, 248, 0.18) !important;
+    width:
+        100% !important;
+
+    max-width:
+        none !important;
+
+    border-color:
+        rgba(101, 143, 187, 0.28) !important;
+
     background:
-        radial-gradient(circle at top right, rgba(56, 189, 248, 0.10), transparent 34%),
-        linear-gradient(180deg, rgba(8, 18, 33, 0.18), rgba(2, 8, 23, 0.18)) !important;
+        linear-gradient(
+            180deg,
+            #1a3158 0%,
+            #142844 100%
+        ) !important;
+
+    box-shadow:
+        0 8px 24px
+        rgba(0, 0, 0, 0.14) !important;
 }
 
 body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] #academy-chat[data-chat-mode="home"] .academy-home-stack > *,
@@ -37997,3 +41136,706 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 }
 
 /* END UNIFIED PROFILE COVER FLUSH + OVERLAY MENU v1 */
+/* ========================================================= */
+/* ROADMAP MOBILE BOTTOM-SHEET + DROPDOWN BOUNDARY v2        */
+/* ========================================================= */
+
+@media (max-width: 720px) {
+
+    /*
+     * Roadmap creation should sit against
+     * the bottom edge instead of floating
+     * vertically in the middle.
+     */
+    #academy-roadmap-modal.modal-overlay {
+        align-items: flex-end !important;
+        justify-content: center !important;
+
+        padding:
+            10px
+            10px
+            0 !important;
+
+        overflow: hidden !important;
+    }
+
+
+    #academy-roadmap-modal
+    .modal-content {
+        width: min(
+            100%,
+            430px
+        ) !important;
+
+        max-width: 430px !important;
+
+        /*
+         * Flush against bottom.
+         */
+        margin:
+            0
+            auto !important;
+
+        max-height:
+            calc(
+                100dvh -
+                82px
+            ) !important;
+
+        padding:
+            1.35rem
+            1rem
+            calc(
+                1rem +
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            ) !important;
+
+        border-radius:
+            18px
+            18px
+            0
+            0 !important;
+
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+
+        overscroll-behavior:
+            contain !important;
+    }
+}
+
+/* END ROADMAP MOBILE BOTTOM-SHEET + DROPDOWN BOUNDARY v2 */
+/* =========================================================
+   ACADEMY FEED MOBILE FINAL POLISH v1
+   ========================================================= */
+
+@media (max-width: 768px) {
+
+    /*
+     * Feed card horizontal authority.
+     *
+     * Keep equal small padding on both sides
+     * so post content can use almost the
+     * entire card width.
+     */
+    #academy-feed-view
+    .academy-feed-post-compact {
+        padding:
+            13px
+            8px !important;
+    }
+
+
+    /*
+     * Author row:
+     * avatar + name remain together at top.
+     */
+    #academy-feed-view
+    .academy-feed-post-compact
+    > div:first-child {
+        width:
+            100% !important;
+
+        max-width:
+            100% !important;
+
+        gap:
+            7px !important;
+
+        align-items:
+            flex-start !important;
+
+        box-sizing:
+            border-box !important;
+    }
+
+
+    /*
+     * Post content is now outside the
+     * avatar/name column because of the
+     * JS structural patch we already applied.
+     */
+    #academy-feed-view
+    .academy-feed-post-content-fullwidth {
+        width:
+            100% !important;
+
+        max-width:
+            100% !important;
+
+        min-width:
+            0 !important;
+
+        margin:
+            0 !important;
+
+        padding:
+            0 !important;
+
+        box-sizing:
+            border-box !important;
+    }
+
+
+    /*
+     * Caption starts from the left content edge.
+     */
+    #academy-feed-view
+    .academy-feed-post-content-fullwidth
+    .academy-feed-post-body-display {
+        width:
+            100% !important;
+
+        max-width:
+            100% !important;
+
+        margin-left:
+            0 !important;
+
+        margin-right:
+            0 !important;
+
+        box-sizing:
+            border-box !important;
+    }
+
+
+    /*
+     * Shared-post embed also uses the full
+     * available post width.
+     */
+    #academy-feed-view
+    .academy-feed-post-content-fullwidth
+    .academy-feed-share-embed {
+        width:
+            100% !important;
+
+        max-width:
+            100% !important;
+
+        margin-left:
+            0 !important;
+
+        margin-right:
+            0 !important;
+
+        box-sizing:
+            border-box !important;
+    }
+
+
+    /*
+     * Like / Comment / Share must span the
+     * entire available width equally.
+     */
+    #academy-feed-view
+    .academy-feed-post-content-fullwidth
+    .academy-feed-post-actions-grid {
+        width:
+            100% !important;
+
+        max-width:
+            100% !important;
+
+        display:
+            grid !important;
+
+        grid-template-columns:
+            repeat(
+                3,
+                minmax(0, 1fr)
+            ) !important;
+
+        gap:
+            5px !important;
+
+        margin:
+            10px
+            0
+            0 !important;
+
+        padding:
+            0 !important;
+
+        box-sizing:
+            border-box !important;
+    }
+
+
+    #academy-feed-view
+    .academy-feed-post-content-fullwidth
+    .academy-feed-post-actions-grid
+    > button {
+        width:
+            100% !important;
+
+        min-width:
+            0 !important;
+
+        max-width:
+            none !important;
+
+        margin:
+            0 !important;
+
+        box-sizing:
+            border-box !important;
+    }
+
+
+    /*
+     * Comments/edit surfaces follow the
+     * same full-width content authority.
+     */
+    #academy-feed-view
+    .academy-feed-post-content-fullwidth
+    .academy-feed-comments-wrap,
+
+    #academy-feed-view
+    .academy-feed-post-content-fullwidth
+    .academy-feed-post-edit-form {
+        width:
+            100% !important;
+
+        max-width:
+            100% !important;
+
+        margin-left:
+            0 !important;
+
+        margin-right:
+            0 !important;
+
+        box-sizing:
+            border-box !important;
+    }
+
+
+    /*
+     * Composer avatar is exactly 36x36,
+     * so post avatars use the exact same
+     * rendered dimensions.
+     */
+#academy-feed-view
+.academy-feed-post-avatar-trigger
+.profile-avatar-mini {
+    width:
+        36px !important;
+
+    height:
+        36px !important;
+
+    min-width:
+        36px !important;
+
+    min-height:
+        36px !important;
+
+    max-width:
+        36px !important;
+
+    max-height:
+        36px !important;
+
+    flex:
+        0 0
+        36px !important;
+
+    margin:
+        0 !important;
+
+    padding:
+        0 !important;
+
+    display:
+        flex !important;
+
+    align-items:
+        center !important;
+
+    justify-content:
+        center !important;
+
+    border-radius:
+        50% !important;
+
+    background-size:
+        cover !important;
+
+    background-position:
+        center center !important;
+
+    background-repeat:
+        no-repeat !important;
+
+    font-size:
+        0.82rem !important;
+
+    box-sizing:
+        border-box !important;
+}
+
+
+#academy-feed-view
+.academy-feed-post-avatar-trigger
+.profile-avatar-mini
+img,
+
+#academy-feed-view
+.academy-feed-post-avatar-trigger
+img {
+    width:
+        36px !important;
+
+    height:
+        36px !important;
+
+    min-width:
+        36px !important;
+
+    min-height:
+        36px !important;
+
+    max-width:
+        36px !important;
+
+    max-height:
+        36px !important;
+
+    display:
+        block !important;
+
+    object-fit:
+        cover !important;
+
+    object-position:
+        center center !important;
+
+    border-radius:
+        50% !important;
+
+    margin:
+        0 !important;
+
+    padding:
+        0 !important;
+}
+
+
+    #academy-feed-view
+    .academy-feed-post-avatar-trigger
+    img {
+        width:
+            36px !important;
+
+        height:
+            36px !important;
+
+        min-width:
+            36px !important;
+
+        min-height:
+            36px !important;
+
+        max-width:
+            36px !important;
+
+        max-height:
+            36px !important;
+
+        display:
+            block !important;
+
+        object-fit:
+            cover !important;
+
+        object-position:
+            center center !important;
+
+        border-radius:
+            50% !important;
+    }
+
+
+    /*
+     * Keep author name tight beside avatar.
+     */
+    #academy-feed-view
+    .academy-feed-author-name {
+        margin:
+            0 !important;
+
+        padding:
+            0 !important;
+    }
+}
+@media (max-width: 768px) {
+
+    /*
+     * Compact post options menu.
+     *
+     * Always opens BELOW the three-dot button.
+     * All three owner actions fit without
+     * requiring internal scrolling.
+     */
+    #academy-feed-view
+    .academy-feed-post-menu {
+        width:
+            136px !important;
+
+        min-width:
+            136px !important;
+
+        max-width:
+            136px !important;
+
+        padding:
+            4px !important;
+
+        gap:
+            3px !important;
+
+        border-radius:
+            9px !important;
+
+        /*
+         * Restore natural downward opening.
+         */
+        top:
+            calc(
+                100% +
+                5px
+            ) !important;
+
+        bottom:
+            auto !important;
+
+        right:
+            0 !important;
+
+        left:
+            auto !important;
+
+        max-height:
+            none !important;
+
+        overflow:
+            visible !important;
+
+        z-index:
+            10001 !important;
+    }
+
+
+    #academy-feed-view
+    .academy-feed-post-menu
+    button {
+        width:
+            100% !important;
+
+        min-height:
+            25px !important;
+
+        height:
+            25px !important;
+
+        padding:
+            2px
+            5px !important;
+
+        margin:
+            0 !important;
+
+        border-radius:
+            6px !important;
+
+        font-size:
+            0.64rem !important;
+
+        line-height:
+            1 !important;
+
+        white-space:
+            nowrap !important;
+
+        display:
+            flex !important;
+
+        align-items:
+            center !important;
+
+        justify-content:
+            center !important;
+
+        text-align:
+            center !important;
+    }
+}
+/*
+ * Dashboard already owns the visible Academy
+ * top bar when Academy is embedded.
+ *
+ * Prevent the Academy iframe/child top strip
+ * from flashing before embed boot settles.
+ */
+html.yh-academy-dashboard-embed-root
+body
+.desktop-user-strip {
+    display:
+        none !important;
+
+    visibility:
+        hidden !important;
+
+    opacity:
+        0 !important;
+
+    pointer-events:
+        none !important;
+}
+
+
+/*
+ * Removing the child strip must not leave
+ * an empty top row.
+ */
+html.yh-academy-dashboard-embed-root
+body
+.dashboard-layout {
+    row-gap:
+        0 !important;
+}
+
+
+html.yh-academy-dashboard-embed-root
+body
+#academy-wrapper {
+    margin-top:
+        0 !important;
+
+    padding-top:
+        0 !important;
+}
+@media (max-width: 768px) {
+
+    /*
+     * No visual Refresh Feed button.
+     * Pull-to-refresh is the Feed refresh UI.
+     */
+    #academy-feed-refresh-btn {
+        display:
+            none !important;
+
+        visibility:
+            hidden !important;
+
+        pointer-events:
+            none !important;
+    }
+
+
+    #academy-feed-view {
+        min-height:
+            calc(
+                100dvh -
+                58px
+            ) !important;
+
+        height:
+            auto !important;
+
+        overflow:
+            visible !important;
+
+        overscroll-behavior-y:
+            contain !important;
+    }
+
+
+    /*
+     * Feed content needs real space beneath
+     * the fixed mobile navigation.
+     *
+     * This lets the final post scroll completely
+     * above Dashboard / Academy / Command /
+     * Plazas / Federation.
+     */
+    #academy-feed-view
+    > .chat-messages {
+        width:
+            100% !important;
+
+        min-height:
+            calc(
+                100dvh -
+                58px
+            ) !important;
+
+        height:
+            auto !important;
+
+        margin:
+            0 !important;
+
+        padding-top:
+            12px !important;
+
+        padding-right:
+            10px !important;
+
+        padding-bottom:
+            calc(
+                104px +
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            ) !important;
+
+        padding-left:
+            10px !important;
+
+        overflow-x:
+            hidden !important;
+
+        overflow-y:
+            visible !important;
+
+        overscroll-behavior-y:
+            contain !important;
+
+        box-sizing:
+            border-box !important;
+    }
+
+
+    #academy-feed-view
+    .academy-feed-shell {
+        min-height:
+            calc(
+                100dvh -
+                174px
+            ) !important;
+
+        padding-bottom:
+            0 !important;
+    }
+
+
+    #academy-feed-view
+    #academy-feed-list {
+        padding-bottom:
+            8px !important;
+    }
+
+
+    #academy-feed-view.is-pull-refreshing {
+        cursor:
+            progress;
+    }
+}
+
+/* END ACADEMY FEED MOBILE FINAL POLISH v1 */

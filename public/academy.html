@@ -450,14 +450,8 @@
                 <div class="chat-messages hide-scrollbar" style="padding: 16px;">
                     <div class="academy-feed-shell">
                         <section class="academy-community-layer-panel">
-                            <div class="academy-community-layer-head">
-                                <div>
-                                    <div class="academy-community-layer-kicker">Community Feed</div>
-                                    <h3 id="academy-community-layer-title">Circle · Friends</h3>
-                                    <p id="academy-community-layer-copy">See posts from your friends, people you follow, or members who follow you.</p>
-                                </div>
-
-                                <div class="academy-feed-header-right">
+                    <div class="academy-community-layer-head">
+                        <div class="academy-feed-header-right">
                                     <div class="academy-header-search-wrap academy-feed-search-wrap">
                                         <span class="search-icon-mini academy-header-search-icon">🔍</span>
 
@@ -598,13 +592,110 @@
                             </div>
                         </div>
 
-                        <div id="academy-feed-list" style="display:grid;gap:14px;margin-top:16px;">
-                            <div style="text-align:center;color:var(--text-muted);padding:2rem;">Loading YHA feed...</div>
-                        </div>
+<div id="academy-feed-list" style="display:grid;gap:14px;margin-top:16px;">
+    <div style="text-align:center;color:var(--text-muted);padding:2rem;">
+        Loading YHA feed...
+    </div>
+</div>
+</div>
+</div>
+</main>
+
+
+<!-- =====================================================
+     ACADEMY POST DETAIL / COMMENT THREAD
+     Facebook-style dedicated post discussion surface
+     ===================================================== -->
+<main
+    class="yh-main-chat hide-scrollbar hidden-step fade-in"
+    id="academy-post-detail-view"
+    aria-hidden="true"
+>
+    <div class="chat-messages hide-scrollbar academy-post-detail-scroll">
+        <div class="academy-post-detail-shell">
+
+<header class="academy-post-detail-toolbar">
+    <button
+        type="button"
+        class="btn-secondary academy-post-detail-back"
+        id="academy-post-detail-back"
+        aria-label="Back to Community Feed"
+        style="
+            width:auto !important;
+            min-width:0 !important;
+            min-height:34px !important;
+            padding:6px 12px !important;
+            align-items:center;
+            justify-content:center;
+            align-self:flex-start;
+            border-radius:999px;
+        "
+    >
+        ← Back
+    </button>
+</header>
+
+
+            <!-- Exact clicked post is rendered here -->
+            <section
+                class="academy-post-detail-post-surface"
+                id="academy-post-detail-post"
+                aria-live="polite"
+            >
+                <div class="academy-post-detail-loading">
+                    Loading post...
+                </div>
+            </section>
+
+
+            <section class="academy-post-detail-comments">
+                <div class="academy-post-detail-comments-head">
+                    <h3>Comments</h3>
+                </div>
+
+
+                <!--
+                    Primary comments render here.
+
+                    Replies remain hidden by default and
+                    appear only after View X replies.
+                -->
+                <div
+                    class="academy-post-detail-comments-list"
+                    id="academy-post-detail-comments-list"
+                    aria-live="polite"
+                >
+                    <div class="academy-post-detail-comments-empty">
+                        Loading comments...
                     </div>
                 </div>
-            </main>
-            <main class="yh-main-chat hide-scrollbar hidden-step fade-in" id="academy-chat">
+
+
+                <div class="academy-post-detail-composer">
+                    <textarea
+                        id="academy-post-detail-comment-input"
+                        class="chat-text-input academy-post-detail-comment-input"
+                        rows="2"
+                        placeholder="Write a comment."
+                    ></textarea>
+
+                    <button
+                        type="button"
+                        class="btn-primary academy-post-detail-comment-submit"
+                        id="academy-post-detail-comment-submit"
+                        disabled
+                    >
+                        Comment
+                    </button>
+                </div>
+            </section>
+
+        </div>
+    </div>
+</main>
+
+
+<main class="yh-main-chat hide-scrollbar hidden-step fade-in" id="academy-chat">
 
 
                 <div class="pinned-message" id="chat-pinned-message" style="display:none;">
@@ -1576,16 +1667,11 @@
 
                 <div class="lounge-container hide-scrollbar">
                     <div class="academy-live-lounge-head">
-                        <div class="academy-live-lounge-copy">
-                            <h2 class="lounge-title">
-                                Active Stages
-                            </h2>
-
-                            <p class="academy-live-expiry-note">
-                                This live will automatically end in the next
-                                24 hours if you don't end it manually.
-                            </p>
-                        </div>
+                    <div class="academy-live-lounge-copy">
+                        <h2 class="lounge-title">
+                            Active Stages
+                        </h2>
+                    </div>
 
                         <div class="academy-live-lounge-actions">
                             <span class="academy-live-expiry-pill">
@@ -1610,26 +1696,6 @@
             </main>
 
 <main class="yh-main-chat hide-scrollbar hidden-step fade-in" id="academy-profile-view" data-profile-layout="self">
-    <header class="chat-header">
-        <div class="header-left academy-profile-header-left">
-            <button
-                type="button"
-                class="academy-profile-back-btn hidden-step"
-                id="academy-profile-back-btn"
-                aria-label="Go back to previous Academy page"
-                aria-hidden="true"
-            >
-                ← Back
-            </button>
-
-            <h3 id="academy-profile-header-title">My Profile</h3>
-            <div class="header-divider academy-profile-header-divider"></div>
-            <p class="header-topic" id="academy-profile-header-topic">Profile integrations, identity view, and visitable Academy member profiles.</p>
-        </div>
-
-
-    </header>
-
     <div class="chat-messages hide-scrollbar" style="padding: 16px;">
         <div class="academy-profile-shell">
             <section class="academy-profile-hero-card academy-profile-cover-card">

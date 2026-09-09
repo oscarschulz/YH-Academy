@@ -646,7 +646,28 @@ function showToast(...args) {
         return false;
     }
 
-    return sharedShowToast(...args);
+    const result =
+        sharedShowToast(...args);
+
+    /*
+     * Academy mobile notifications use
+     * the compact content-width surface.
+     */
+    const markCompactToast = () => {
+        document.getElementById(
+            'toast-notification'
+        )?.classList.add(
+            'yh-academy-compact-toast'
+        );
+    };
+
+    markCompactToast();
+
+    queueMicrotask(
+        markCompactToast
+    );
+
+    return result;
 }
 
 /*
@@ -907,17 +928,54 @@ const {
 
 function isAcademyDashboardEmbedContext() {
     try {
-        const url = new URL(window.location.href);
+        const url =
+            new URL(
+                window.location.href
+            );
 
         return (
-            url.searchParams.get('embed') === 'dashboard' ||
-            url.searchParams.get('shell') === 'dashboard' ||
+            url.searchParams.get(
+                'embed'
+            ) === 'dashboard' ||
+
+            url.searchParams.get(
+                'shell'
+            ) === 'dashboard' ||
+
             window.parent !== window
         );
     } catch (_) {
-        return window.parent !== window;
+        return (
+            window.parent !== window
+        );
     }
 }
+
+
+/*
+ * Dashboard embed must be identified
+ * immediately — before the later workspace
+ * settle/ready cycle.
+ *
+ * Otherwise the child Academy top bar can
+ * briefly render together with the parent
+ * Dashboard top bar.
+ */
+if (
+    isAcademyDashboardEmbedContext()
+) {
+    document.documentElement
+        ?.classList.add(
+            'yh-academy-dashboard-embed-root'
+        );
+
+    document.body
+        ?.setAttribute(
+            'data-yh-dashboard-embed',
+            'true'
+        );
+}
+
 
 function isStandaloneAcademyPage() {
     if (isAcademyDashboardEmbedContext()) return false;
@@ -1445,15 +1503,19 @@ function getAcademySectionFromUrl() {
 
 function academyGetCurrentPrimaryView() {
     const feedView = document.getElementById('academy-feed-view');
+    const postDetailView = document.getElementById('academy-post-detail-view');
     const academyChat = document.getElementById('academy-chat');
     const profileView = document.getElementById('academy-profile-view');
     const leadMissionsView = document.getElementById('academy-lead-missions-view');
     const voiceView = document.getElementById('voice-lobby-view');
     const videoView = document.getElementById('video-lobby-view');
 
-    if (feedView && !feedView.classList.contains('hidden-step')) {
-        return 'community';
-    }
+if (
+    (feedView && !feedView.classList.contains('hidden-step')) ||
+    (postDetailView && !postDetailView.classList.contains('hidden-step'))
+) {
+    return 'community';
+}
 
     if (profileView && !profileView.classList.contains('hidden-step')) {
         return 'profile';
@@ -1838,24 +1900,61 @@ function setActiveCustomRoomState(room = null) {
     });
 }
 
-async function academyPersistRoomReadState(roomId = '') {
-    const normalizedRoomId = normalizeRoomKey(roomId);
+async function academyPersistRoomReadState(
+    roomId = ''
+) {
+    const normalizedRoomId =
+        normalizeRoomKey(
+            roomId
+        );
 
     if (
         !normalizedRoomId ||
-        normalizedRoomId === normalizeRoomKey('YH-community') ||
-        normalizedRoomId === normalizeRoomKey('main-chat')
+        normalizedRoomId ===
+            normalizeRoomKey(
+                'YH-community'
+            ) ||
+        normalizedRoomId ===
+            normalizeRoomKey(
+                'main-chat'
+            )
     ) {
         return false;
     }
 
     try {
-        await academyAuthedFetch(`/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/read`, {
-            method: 'POST'
-        });
+        await academyAuthedFetch(
+            `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/read`,
+            {
+                method:
+                    'POST',
+
+                /*
+                 * Opening a DM from Profile can
+                 * immediately transition the embedded
+                 * Academy workspace to Messages.
+                 *
+                 * Allow this tiny read-state request
+                 * to survive that lifecycle change.
+                 */
+                keepalive:
+                    true
+            }
+        );
+
         return true;
     } catch (error) {
-        console.error('academyPersistRoomReadState error:', error);
+        /*
+         * Read-state persistence is best-effort.
+         * Local room state has already been updated
+         * by sharedMarkCustomRoomAsRead().
+         */
+        console.warn(
+            'Academy room read-state persistence skipped:',
+            error?.message ||
+            error
+        );
+
         return false;
     }
 }
@@ -2074,15 +2173,52 @@ const universeFeatureContent = {
 };
 
 let activeUniverseDivision = 'academy';
-const academySearchResultsPanel = document.getElementById('academy-search-results-panel');
-if (academySearchResultsPanel && !academySearchResultsPanel.dataset.overlayBound) {
-    academySearchResultsPanel.dataset.overlayBound = 'true';
 
-    academySearchResultsPanel.addEventListener('click', (event) => {
-        if (event.target === academySearchResultsPanel) {
-            closeAcademySearchResultsPanel();
+const academySearchResultsPanel =
+    document.getElementById(
+        'academy-search-results-panel'
+    );
+
+/*
+ * Search results are a viewport-level surface.
+ *
+ * The panel is authored beside the search input,
+ * but leaving it inside the Feed control hierarchy
+ * allows transformed / clipped / responsive parent
+ * surfaces to become its containing block.
+ *
+ * Move the EXISTING panel to body once so its
+ * fixed positioning is always relative to the
+ * Academy viewport.
+ */
+if (
+    academySearchResultsPanel &&
+    academySearchResultsPanel.parentElement !==
+        document.body
+) {
+    document.body.appendChild(
+        academySearchResultsPanel
+    );
+}
+
+if (
+    academySearchResultsPanel &&
+    !academySearchResultsPanel.dataset.overlayBound
+) {
+    academySearchResultsPanel.dataset.overlayBound =
+        'true';
+
+    academySearchResultsPanel.addEventListener(
+        'click',
+        (event) => {
+            if (
+                event.target ===
+                academySearchResultsPanel
+            ) {
+                closeAcademySearchResultsPanel();
+            }
         }
-    });
+    );
 }
 function normalizeUniverseDivision(value = 'academy') {
     const allowedDivisions = ['academy', 'plazas', 'federation'];
@@ -2373,10 +2509,11 @@ function openRoom(type, element) {
         else if (type === 'video' || (element && element.closest('#video-grid') && navVideo)) navVideo.classList.add('active');
     }
 
-    const views = {
-        'academy-feed-view': document.getElementById('academy-feed-view'),
-        'academy-chat': document.getElementById('academy-chat'),
-        'academy-profile-view': document.getElementById('academy-profile-view'),
+const views = {
+    'academy-feed-view': document.getElementById('academy-feed-view'),
+    'academy-post-detail-view': document.getElementById('academy-post-detail-view'),
+    'academy-chat': document.getElementById('academy-chat'),
+    'academy-profile-view': document.getElementById('academy-profile-view'),
         'academy-lead-missions-view': document.getElementById('academy-lead-missions-view'),
         'center-stage-view': document.getElementById('center-stage-view'),
         'announcements-view': document.getElementById('announcements-view'),
@@ -2996,12 +3133,16 @@ function initAcademyMobileBottomNavAutoHide() {
                     'academy-ai-coach-rect-open'
                 ) === true;
 
+        const isPostDetailActive =
+            academyIsPostDetailActiveV1();
+
         const shouldShowBottomNav =
             isTabletOrPhoneViewport() &&
             isAnyPrimaryAcademyTabVisible &&
             !isStageVisible &&
             !isSingleActionThread &&
-            !isAiCoachOpen;
+            !isAiCoachOpen &&
+            !isPostDetailActive;
 
         academyMobileBottomNav.style.transition = 'transform 0.22s ease, opacity 0.22s ease';
         academyMobileBottomNav.style.willChange = 'transform, opacity';
@@ -12017,45 +12158,72 @@ const missionsHtml = missions.length
                 .map((item) => `<li>${safeHtml(item)}</li>`)
                 .join('');
 
-            const lifeAreaImpactHtml = lifeAreaImpact
-                .slice(0, 4)
-                .map((impact) => `
-                    <span style="padding:5px 9px;border-radius:999px;border:1px solid rgba(14,165,233,0.18);background:rgba(14,165,233,0.06);color:#bae6fd;font-size:0.74rem;">
-                        ${safeHtml(impact)}
-                    </span>
-                `)
-                .join('');
+const lifeAreaImpactHtml = lifeAreaImpact
+    .slice(0, 4)
+    .map((impact) => `
+        <span
+            style="
+                padding:
+                    5px 8px;
+
+                border-radius:
+                    6px;
+
+                border:
+                    1px solid
+                    rgba(104,216,245,0.20);
+
+                background:
+                    #1b3858;
+
+                color:
+                    #b9deef;
+
+                font-size:
+                    0.71rem;
+
+                line-height:
+                    1;
+
+                font-weight:
+                    600;
+            "
+        >
+            ${safeHtml(impact)}
+        </span>
+    `)
+    .join('');
 
             const isCompleted = statusRaw === 'completed';
 
-            const statusMeta =
-                statusRaw === 'completed'
-                    ? {
-                        color: '#22c55e',
-                        border: 'rgba(34,197,94,0.35)',
-                        background: 'rgba(34,197,94,0.12)',
-                        label: 'Completed'
-                    }
-                    : statusRaw === 'skipped'
-                    ? {
-                        color: '#f59e0b',
-                        border: 'rgba(245,158,11,0.35)',
-                        background: 'rgba(245,158,11,0.12)',
-                        label: 'Skipped'
-                    }
-                    : statusRaw === 'stuck'
-                    ? {
-                        color: '#ef4444',
-                        border: 'rgba(239,68,68,0.35)',
-                        background: 'rgba(239,68,68,0.12)',
-                        label: 'Stuck'
-                    }
-                    : {
-                        color: '#94a3b8',
-                        border: 'rgba(148,163,184,0.28)',
-                        background: 'rgba(148,163,184,0.10)',
-                        label: 'Pending'
-                    };
+const statusMeta =
+    statusRaw === 'completed'
+        ? {
+            color: '#b7efc5',
+            border: 'rgba(111,196,139,0.30)',
+            background: '#1c403a',
+            label: 'Completed'
+        }
+        : statusRaw === 'skipped'
+        ? {
+            color: '#f1d49b',
+            border: 'rgba(209,169,92,0.28)',
+            background: '#44391f',
+            label: 'Skipped'
+        }
+        : statusRaw === 'stuck'
+        ? {
+            color: '#ffc1c1',
+            border: 'rgba(210,103,112,0.28)',
+            background: '#482832',
+            label: 'Stuck'
+        }
+        : {
+            color: '#c2cedd',
+            border: 'rgba(127,157,190,0.28)',
+            background: '#263b58',
+            label: 'Pending'
+        };
 
             const taskLabel = 'Task';
             const whatToDoLabel = 'What to do';
@@ -12078,25 +12246,42 @@ const missionsHtml = missions.length
                     <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
                         <div style="min-width:0;flex:1;">
                             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                <span
-                                    style="
-                                        display:inline-flex;
-                                        align-items:center;
-                                        gap:7px;
-                                        padding:5px 10px;
-                                        border-radius:999px;
-                                        border:1px solid ${pillarMeta.border};
-                                        background:${pillarMeta.background};
-                                        color:${pillarMeta.text};
-                                        font-size:0.76rem;
-                                        letter-spacing:0.06em;
-                                        text-transform:uppercase;
-                                        font-weight:600;
-                                    "
-                                >
-                                    <span aria-hidden="true">${pillarIcon}</span>
-                                    <span>${pillar}</span>
-                                </span>
+<span
+    style="
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+
+        padding:5px 9px;
+
+        border-radius:6px;
+
+        border:
+            1px solid
+            rgba(104,216,245,0.28);
+
+        background:
+            #1c435f;
+
+        color:
+            #bfefff;
+
+        font-size:
+            0.73rem;
+
+        letter-spacing:
+            0.045em;
+
+        text-transform:
+            uppercase;
+
+        font-weight:
+            700;
+    "
+>
+    <span aria-hidden="true">${pillarIcon}</span>
+    <span>${pillar}</span>
+</span>
 
                                 <span style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">
                                     Mission ${index + 1}
@@ -12108,23 +12293,42 @@ const missionsHtml = missions.length
                             </div>
                         </div>
 
-                        <div
-                            style="
-                                display:inline-flex;
-                                align-items:center;
-                                gap:6px;
-                                padding:6px 10px;
-                                border-radius:999px;
-                                border:1px solid ${statusMeta.border};
-                                background:${statusMeta.background};
-                                color:${statusMeta.color};
-                                font-size:0.78rem;
-                                font-weight:600;
-                                text-transform:capitalize;
-                            "
-                        >
-                            ${safeHtml(statusMeta.label)}
-                        </div>
+<div
+    style="
+        display:inline-flex;
+        align-items:center;
+
+        padding:
+            5px 9px;
+
+        border-radius:
+            6px;
+
+        border:
+            1px solid
+            ${statusMeta.border};
+
+        background:
+            ${statusMeta.background};
+
+        color:
+            ${statusMeta.color};
+
+        font-size:
+            0.73rem;
+
+        line-height:
+            1;
+
+        font-weight:
+            700;
+
+        text-transform:
+            capitalize;
+    "
+>
+    ${safeHtml(statusMeta.label)}
+</div>
                     </div>
 
 
@@ -12216,12 +12420,50 @@ const missionsHtml = missions.length
         <strong style="color:#fff;">Reflection:</strong> ${reflectionPrompt}
     </div>
 
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <span style="padding:5px 9px;border-radius:999px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text-muted);font-size:0.74rem;text-transform:capitalize;">
-            Difficulty: ${difficultyLevel}
-        </span>
-        ${lifeAreaImpactHtml}
-    </div>
+<div
+    style="
+        display:flex;
+        gap:6px;
+        flex-wrap:wrap;
+        align-items:center;
+    "
+>
+    <span
+        style="
+            padding:
+                5px 8px;
+
+            border-radius:
+                6px;
+
+            border:
+                1px solid
+                rgba(126,155,190,0.20);
+
+            background:
+                #213650;
+
+            color:
+                #aebfd2;
+
+            font-size:
+                0.71rem;
+
+            line-height:
+                1;
+
+            font-weight:
+                600;
+
+            text-transform:
+                capitalize;
+        "
+    >
+        Difficulty: ${difficultyLevel}
+    </span>
+
+    ${lifeAreaImpactHtml}
+</div>
 
         ${whyItMatters ? `
             <div style="
@@ -12738,10 +12980,11 @@ function hideAcademyViewsForFeed() {
         document.body?.classList.remove('academy-mobile-profile-after-messages');
     }
 
-    [
-        'academy-feed-view',
-        'academy-chat',
-        'academy-profile-view',
+[
+    'academy-feed-view',
+    'academy-post-detail-view',
+    'academy-chat',
+    'academy-profile-view',
         'academy-lead-missions-view',
         'center-stage-view',
         'announcements-view',
@@ -13439,13 +13682,29 @@ function openAcademyFeedView(forceReload = false) {
         chatHeaderIcon.innerHTML = '<img src="/assets/academy/icons/academy-icon-community-feed-news.png" alt="" class="academy-ui-icon academy-ui-icon-header">';
     }
 
+    /*
+    * Community Feed already has its identity
+    * in the Academy top bar.
+    *
+    * Do not render a second Community Feed /
+    * Post heading inside focused post views.
+    */
     if (chatHeaderTitle) {
-        chatHeaderTitle.innerText = 'Community Feed';
+        chatHeaderTitle.innerText = '';
+        chatHeaderTitle.style.setProperty(
+            'display',
+            'none',
+            'important'
+        );
     }
 
     if (chatHeaderTopic) {
-        chatHeaderTopic.style.removeProperty('display');
-        chatHeaderTopic.innerText = 'Updates, posts, members, and Academy discussion.';
+        chatHeaderTopic.innerText = '';
+        chatHeaderTopic.style.setProperty(
+            'display',
+            'none',
+            'important'
+        );
     }
 
     if (chatWelcomeBox) {
@@ -23547,15 +23806,39 @@ async function academyOpenDirectMessageFromProfile(memberId = '') {
         saveAcademyViewState('messages');
         setAcademySidebarActive('nav-messages');
 
-        const transientRoomElement = academyCreateDirectMessageRoomElement(roomEntry);
+        const transientRoomElement =
+            academyCreateDirectMessageRoomElement(
+                roomEntry
+            );
+
         academyRefreshMessagesInboxSelection();
-        openRoom('dm', transientRoomElement);
-        academySetMessagesChatMode('thread');
-        markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
-        pulseAcademyRoomEntry(roomEntry.roomId || roomEntry.id);
+
+        /*
+         * openRoom() already marks private rooms
+         * as read. Do not call markCustomRoomAsRead()
+         * a second time here.
+         */
+        openRoom(
+            'dm',
+            transientRoomElement
+        );
+
+        academySetMessagesChatMode(
+            'thread'
+        );
+
+        pulseAcademyRoomEntry(
+            roomEntry.roomId ||
+            roomEntry.id
+        );
+
         academyRefreshMessagesInboxSelection();
         academyRenderMessagesSidebarBadge();
-        academyHydrateMessageRooms(false).catch(() => {});
+
+        academyHydrateMessageRooms(
+            false
+        ).catch(() => {});
+
         focusAcademyChatComposer();
     } finally {
         setAcademyProfileMessageOpeningState(false);
@@ -23827,20 +24110,681 @@ async function openAcademyMemberProfileView(memberId = '') {
         hideAcademyTabLoader();
     }
 }
-function openAcademyFeedAuthorProfile(memberId = '') {
-    const normalizedMemberId = normalizeAcademyFeedId(memberId);
-    if (!normalizedMemberId) return;
+function installAcademyFeedOwnProfileBackButtonV1(
+    parentWindow,
+    returnWorkspace = 'academy-community',
+    attempt = 0
+) {
+    if (
+        !parentWindow ||
+        parentWindow === window
+    ) {
+        return false;
+    }
 
-    const selfId =
-        normalizeAcademyFeedId(getStoredUserValue('yh_user_id', '')) ||
-        normalizeAcademyFeedId(getStoredUserValue('yh_user_uid', ''));
+    let parentDocument = null;
 
-    if (selfId && normalizedMemberId === selfId) {
-        openAcademyProfileView();
+    try {
+        parentDocument =
+            parentWindow.document;
+    } catch (_) {
+        return false;
+    }
+
+    const safeReturnWorkspace =
+        String(
+            returnWorkspace ||
+            'academy-community'
+        )
+            .trim()
+            .toLowerCase() ||
+        'academy-community';
+
+    /*
+     * Own Profile is rendered by the Dashboard
+     * profile editor/preview surface.
+     */
+    const profileModalCard =
+        parentDocument.querySelector(
+            '#yh-dashboard-profile-editor-overlay .yh-dashboard-profile-modal-card'
+        );
+
+    if (!profileModalCard) {
+        if (attempt < 20) {
+            parentWindow.setTimeout(
+                () => {
+                    installAcademyFeedOwnProfileBackButtonV1(
+                        parentWindow,
+                        safeReturnWorkspace,
+                        attempt + 1
+                    );
+                },
+                50
+            );
+        }
+
+        return false;
+    }
+
+    const existing =
+        parentDocument.getElementById(
+            'yh-dashboard-academy-feed-profile-back-row'
+        );
+
+    if (existing) {
+        existing.remove();
+    }
+
+    const backRow =
+        parentDocument.createElement(
+            'div'
+        );
+
+    backRow.id =
+        'yh-dashboard-academy-feed-profile-back-row';
+
+    backRow.setAttribute(
+        'data-yh-profile-return-source',
+        safeReturnWorkspace
+    );
+
+    backRow.style.cssText = [
+        'position:absolute',
+        'top:clamp(10px,1vw,14px)',
+        'left:clamp(10px,1vw,14px)',
+        'z-index:122',
+        'width:auto',
+        'margin:0',
+        'padding:0',
+        'display:flex',
+        'align-items:center',
+        'justify-content:flex-start',
+        'box-sizing:border-box',
+        'pointer-events:auto'
+    ].join(';');
+
+    const backButton =
+        parentDocument.createElement(
+            'button'
+        );
+
+    backButton.type =
+        'button';
+
+    backButton.className =
+        'btn-secondary yh-dashboard-profile-close yh-dashboard-academy-feed-profile-back';
+
+    backButton.setAttribute(
+        'aria-label',
+        'Back to previous page'
+    );
+
+    backButton.setAttribute(
+        'data-yh-return-workspace',
+        safeReturnWorkspace
+    );
+
+    backButton.textContent =
+        '← Back';
+
+    backButton.style.cssText = [
+        'width:auto',
+        'min-width:82px',
+        'min-height:38px',
+        'padding:0 12px',
+        'margin:0',
+        'border-radius:999px',
+        'display:inline-flex',
+        'align-items:center',
+        'justify-content:center',
+        'white-space:nowrap'
+    ].join(';');
+
+    /*
+     * Important:
+     * navigation is NOT bound here.
+     *
+     * This button lives inside Dashboard,
+     * therefore Dashboard owns its click.
+     */
+    backRow.appendChild(
+        backButton
+    );
+
+    profileModalCard.insertBefore(
+        backRow,
+        profileModalCard.firstChild
+    );
+
+    return true;
+}
+
+
+function academyGetFeedProfileVisitLoaderDocumentV1(
+    targetWindow = window
+) {
+    try {
+        return targetWindow?.document || document;
+    } catch (_) {
+        return document;
+    }
+}
+
+
+function academyShowFeedProfileVisitLoaderV1(
+    targetWindow = window
+) {
+    const doc =
+        academyGetFeedProfileVisitLoaderDocumentV1(
+            targetWindow
+        );
+
+    if (!doc?.body) {
+        return false;
+    }
+
+
+    /*
+     * Never allow duplicate loaders.
+     */
+    doc.getElementById(
+        'yh-academy-profile-visit-loader-v1'
+    )?.remove();
+
+
+    const overlay =
+        doc.createElement(
+            'div'
+        );
+
+    overlay.id =
+        'yh-academy-profile-visit-loader-v1';
+
+    overlay.setAttribute(
+        'role',
+        'status'
+    );
+
+    overlay.setAttribute(
+        'aria-live',
+        'polite'
+    );
+
+    overlay.setAttribute(
+        'aria-label',
+        'Opening profile'
+    );
+
+
+    overlay.style.cssText = [
+        'position:fixed',
+        'inset:0',
+        'z-index:2147483000',
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
+        'padding:20px',
+        'box-sizing:border-box',
+        'background:rgba(2,6,23,.48)',
+        'backdrop-filter:blur(2px)',
+        '-webkit-backdrop-filter:blur(2px)',
+        'pointer-events:auto'
+    ].join(';');
+
+
+    const panel =
+        doc.createElement(
+            'div'
+        );
+
+    panel.style.cssText = [
+        'min-width:150px',
+        'max-width:220px',
+        'padding:18px 20px',
+        'display:flex',
+        'flex-direction:column',
+        'align-items:center',
+        'justify-content:center',
+        'gap:10px',
+        'box-sizing:border-box',
+        'border:1px solid rgba(56,189,248,.34)',
+        'border-radius:16px',
+        'background:rgba(4,15,34,.96)',
+        'box-shadow:0 18px 48px rgba(0,0,0,.42)',
+        'color:#f8fafc',
+        'text-align:center'
+    ].join(';');
+
+
+    const spinner =
+        doc.createElement(
+            'div'
+        );
+
+    spinner.setAttribute(
+        'aria-hidden',
+        'true'
+    );
+
+    spinner.style.cssText = [
+        'width:30px',
+        'height:30px',
+        'border-radius:50%',
+        'border:3px solid rgba(125,211,252,.22)',
+        'border-top-color:#38bdf8',
+        'box-sizing:border-box'
+    ].join(';');
+
+
+    const label =
+        doc.createElement(
+            'div'
+        );
+
+    label.textContent =
+        'Opening profile...';
+
+    label.style.cssText = [
+        'font-size:13px',
+        'font-weight:700',
+        'line-height:1.2',
+        'letter-spacing:.01em',
+        'color:#e2e8f0'
+    ].join(';');
+
+
+    panel.append(
+        spinner,
+        label
+    );
+
+    overlay.appendChild(
+        panel
+    );
+
+    doc.body.appendChild(
+        overlay
+    );
+
+
+    try {
+        spinner.animate(
+            [
+                {
+                    transform:
+                        'rotate(0deg)'
+                },
+                {
+                    transform:
+                        'rotate(360deg)'
+                }
+            ],
+            {
+                duration:
+                    720,
+
+                iterations:
+                    Infinity
+            }
+        );
+    } catch (_) {}
+
+
+    /*
+     * Emergency cleanup:
+     * never leave the app blocked if
+     * profile navigation unexpectedly fails.
+     */
+    try {
+        targetWindow.setTimeout(
+            () => {
+                academyHideFeedProfileVisitLoaderV1(
+                    targetWindow
+                );
+            },
+            8000
+        );
+    } catch (_) {}
+
+
+    return true;
+}
+
+
+function academyHideFeedProfileVisitLoaderV1(
+    targetWindow = window
+) {
+    const doc =
+        academyGetFeedProfileVisitLoaderDocumentV1(
+            targetWindow
+        );
+
+    doc
+        ?.getElementById(
+            'yh-academy-profile-visit-loader-v1'
+        )
+        ?.remove();
+}
+
+
+function academyHideFeedProfileVisitLoaderAfterPaintV1(
+    targetWindow = window,
+    delayMs = 120
+) {
+    const raf =
+        typeof targetWindow
+            ?.requestAnimationFrame ===
+            'function'
+            ? targetWindow
+                .requestAnimationFrame
+                .bind(targetWindow)
+            : (
+                callback
+            ) =>
+                window.setTimeout(
+                    callback,
+                    16
+                );
+
+
+    raf(() => {
+        raf(() => {
+            targetWindow.setTimeout(
+                () => {
+                    academyHideFeedProfileVisitLoaderV1(
+                        targetWindow
+                    );
+                },
+                Math.max(
+                    0,
+                    Number(
+                        delayMs ||
+                        0
+                    )
+                )
+            );
+        });
+    });
+}
+
+
+async function openAcademyFeedAuthorProfile(
+    memberId = '',
+    options = {}
+) {
+    const normalizedMemberId =
+        normalizeAcademyFeedId(
+            memberId
+        );
+
+    if (!normalizedMemberId) {
         return;
     }
 
-    openAcademyMemberProfileView(normalizedMemberId);
+
+    const selfId =
+        normalizeAcademyFeedId(
+            getStoredUserValue(
+                'yh_user_id',
+                ''
+            )
+        ) ||
+        normalizeAcademyFeedId(
+            getStoredUserValue(
+                'yh_user_uid',
+                ''
+            )
+        );
+
+
+const forceSelf =
+    options?.forceSelf === true;
+
+const isSelfProfile =
+    forceSelf ||
+    Boolean(
+        selfId &&
+        normalizedMemberId === selfId
+    );
+
+
+const isDashboardEmbed =
+    typeof isAcademyDashboardEmbedContext ===
+        'function' &&
+    isAcademyDashboardEmbedContext() &&
+    window.parent &&
+    window.parent !== window;
+
+
+const profileVisitLoaderWindow =
+    isDashboardEmbed
+        ? window.parent
+        : window;
+
+
+academyShowFeedProfileVisitLoaderV1(
+    profileVisitLoaderWindow
+);
+
+
+    /*
+     * Dashboard owns the unified Profile page.
+     *
+     * If Academy is embedded, always hand the
+     * profile visit to the parent Dashboard.
+     */
+    if (isDashboardEmbed) {
+        try {
+            const parentWindow =
+                window.parent;
+
+
+            /*
+             * Own avatar/name.
+             */
+if (isSelfProfile) {
+    let parentProfileChip = null;
+
+    /*
+     * Use the exact same Dashboard control
+     * that already opens the working own
+     * YH Universe Profile.
+     *
+     * Never route the Academy iframe itself
+     * to /dashboard.
+     */
+    try {
+        parentProfileChip =
+            parentWindow.document
+                ?.getElementById(
+                    'yh-command-top-profile'
+                ) ||
+            null;
+    } catch (error) {
+        console.warn(
+            'Unable to access Dashboard Profile control:',
+            error
+        );
+    }
+
+
+    if (
+        parentProfileChip &&
+        typeof parentProfileChip.click ===
+            'function'
+    ) {
+        /*
+         * This triggers the Dashboard's existing:
+         *
+         * openAcademyProfileView()
+         *     ↓
+         * activateDashboardUnifiedWorkspace(
+         *     'profile',
+         *     { profileEditorMode: 'preview' }
+         * )
+         */
+        const returnWorkspace =
+            String(
+                parentWindow.document
+                    ?.body
+                    ?.getAttribute(
+                        'data-yh-unified-workspace'
+                    ) ||
+                'academy-community'
+            )
+                .trim()
+                .toLowerCase() ||
+            'academy-community';
+
+        try {
+            parentWindow.sessionStorage.setItem(
+                'yh_dashboard_profile_return_workspace_v1',
+                returnWorkspace
+            );
+        } catch (_) {}
+
+
+        parentProfileChip.click();
+
+
+        /*
+         * Add contextual Back after Profile mounts.
+         * It remembers the exact workspace that
+         * was active before Profile opened.
+         */
+        parentWindow
+            .requestAnimationFrame(
+                () => {
+                    installAcademyFeedOwnProfileBackButtonV1(
+                        parentWindow,
+                        returnWorkspace
+                    );
+                }
+            );
+
+
+        academyHideFeedProfileVisitLoaderAfterPaintV1(
+            profileVisitLoaderWindow,
+            140
+        );
+
+
+        return;
+    }
+
+
+    /*
+     * Critical safety:
+     *
+     * DO NOT fall through to the Academy-side
+     * openAcademyProfileView(), because that
+     * navigates this iframe to /dashboard and
+     * creates Dashboard-inside-Dashboard.
+     */
+    console.warn(
+        'Dashboard Profile control was not found.'
+    );
+
+    academyHideFeedProfileVisitLoaderV1(
+        profileVisitLoaderWindow
+    );
+
+
+    showToast(
+        'Unable to open your profile right now.',
+        'error'
+    );
+
+    return;
+}
+
+
+            /*
+             * Another member.
+             *
+             * First prepare/fetch that member as
+             * the active visited profile.
+             */
+            if (
+                typeof parentWindow
+                    .openAcademyMemberProfileView ===
+                    'function'
+            ) {
+                await Promise.resolve(
+                    parentWindow
+                        .openAcademyMemberProfileView(
+                            normalizedMemberId
+                        )
+                );
+
+
+                /*
+                 * Critical:
+                 * switch the parent Dashboard from
+                 * Academy to the Profile workspace.
+                 *
+                 * persist:false is deliberate because
+                 * openAcademyMemberProfileView already
+                 * persisted the visited member state.
+                 */
+                if (
+                    typeof parentWindow
+                        .activateDashboardUnifiedWorkspace ===
+                        'function'
+                ) {
+                    parentWindow
+                        .activateDashboardUnifiedWorkspace(
+                            'profile',
+                            {
+                                animate:
+                                    false,
+
+                                scroll:
+                                    true,
+
+                                persist:
+                                    false
+                            }
+                        );
+                }
+
+
+                academyHideFeedProfileVisitLoaderAfterPaintV1(
+                    profileVisitLoaderWindow,
+                    120
+                );
+
+
+                return;
+            }
+        } catch (error) {
+            console.warn(
+                'Academy parent profile bridge unavailable:',
+                error
+            );
+        }
+    }
+
+
+    /*
+     * Standalone Academy fallback.
+     */
+    if (
+        isSelfProfile
+    ) {
+        await Promise.resolve(
+            openAcademyProfileView()
+        );
+
+        return;
+    }
+
+
+    await Promise.resolve(
+        openAcademyMemberProfileView(
+            normalizedMemberId
+        )
+    );
 }
 
 function readAcademyFeedCachePosts() {
@@ -23981,7 +24925,7 @@ function academyFeedUpdatePostDomAfterEdit(postId, body) {
     const safeBody = academyFeedEscapeHtml(body).replace(/\n/g, '<br>');
 
     if (display) {
-        display.innerHTML = `${safeBody}<span class="academy-feed-edited-label">Edited</span>`;
+        display.innerHTML = safeBody;
         display.classList.remove('hidden-step');
     }
 
@@ -28585,7 +29529,7 @@ function renderAcademyFeed(posts = []) {
         const hasMainBody = String(mainBodyText || '').trim().length > 0;
 
         const bodyBlockHtml = hasMainBody
-            ? `<div class="academy-feed-post-body-display" id="academy-feed-post-body-display-${post.id}">${bodyHtml}${post.edited_at ? '<span class="academy-feed-edited-label">Edited</span>' : ''}</div>`
+            ? `<div class="academy-feed-post-body-display" id="academy-feed-post-body-display-${post.id}">${bodyHtml}</div>`
             : `<div class="academy-feed-post-body-display hidden-step" id="academy-feed-post-body-display-${post.id}"></div>`;
 
         const postEditFormHtml = isOwner
@@ -28708,6 +29652,7 @@ function renderAcademyFeed(posts = []) {
                     type="button"
                     class="academy-feed-author-trigger academy-feed-post-avatar-trigger"
                     data-member-profile-id="${academyFeedEscapeHtml(authorProfileId)}"
+                    data-yh-feed-author-self="${isOwner ? 'true' : 'false'}"
                     title="Open ${academyFeedEscapeHtml(displayName)} profile"
                     aria-label="Open ${academyFeedEscapeHtml(displayName)} profile"
                 >${rawAvatarHtml}</button>
@@ -28737,12 +29682,13 @@ function renderAcademyFeed(posts = []) {
                     <div style="min-width:0;flex:1;">
                         <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
                             <div>
-                                <button
-                                    type="button"
-                                    class="academy-feed-author-trigger academy-feed-author-name"
-                                    data-member-profile-id="${academyFeedEscapeHtml(authorProfileId)}"
-                                    style="font-weight:700;color:#fff;line-height:1.15;"
-                                >${academyFeedEscapeHtml(displayName)}</button>
+                            <button
+                                type="button"
+                                class="academy-feed-author-trigger academy-feed-author-name"
+                                data-member-profile-id="${academyFeedEscapeHtml(authorProfileId)}"
+                                data-yh-feed-author-self="${isOwner ? 'true' : 'false'}"
+                                style="font-weight:700;color:#fff;line-height:1.15;"
+                            >${academyFeedEscapeHtml(displayName)}</button>
 
                                 <div style="font-size:0.76rem;color:var(--text-muted);line-height:1.2;margin-top:2px;">${academyFeedEscapeHtml(roleLabel)} • ${academyFeedTimeLabel(post.created_at)}</div>
                             </div>
@@ -28770,8 +29716,11 @@ function renderAcademyFeed(posts = []) {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
 
-                        ${nicheBadgeHtml}
+                <div class="academy-feed-post-content-fullwidth">
+                    ${nicheBadgeHtml}
                         ${bodyBlockHtml}
                         ${postEditFormHtml}
                         ${sharedEmbedHtml}
@@ -28818,7 +29767,6 @@ function renderAcademyFeed(posts = []) {
                                 >💬 Comment</button>
                             </div>
                         </div>
-                    </div>
                 </div>
             </article>
         `;
@@ -30854,16 +31802,48 @@ function academyFeedRenderCommentNode(postId, comment = {}, depth = 0, seen = ne
                     </div>
 
                     <div class="academy-feed-comment-actions">
-                        <button type="button" class="academy-feed-comment-reply-btn" data-post-id="${academyFeedEscapeHtml(postId)}" data-comment-id="${academyFeedEscapeHtml(commentId)}" data-comment-author="${academyFeedEscapeHtml(displayName)}">Reply</button>
+                        <button
+                            type="button"
+                            class="academy-feed-comment-reply-btn"
+                            data-post-id="${academyFeedEscapeHtml(postId)}"
+                            data-comment-id="${academyFeedEscapeHtml(commentId)}"
+                            data-comment-author="${academyFeedEscapeHtml(displayName)}"
+                        >
+                            Reply
+                        </button>
                     </div>
+                </div>
+            </div>
 
-                    <div class="academy-feed-comment-reply-form hidden-step" id="academy-feed-comment-reply-form-${commentId}">
-                        <textarea class="chat-text-input academy-feed-comment-reply-input" id="academy-feed-comment-reply-input-${commentId}" rows="2" placeholder="Reply to ${academyFeedEscapeHtml(displayName)}."></textarea>
-                        <div class="academy-feed-inline-actions">
-                            <button type="button" class="btn-secondary academy-feed-comment-reply-cancel-btn" data-post-id="${academyFeedEscapeHtml(postId)}" data-comment-id="${academyFeedEscapeHtml(commentId)}">Cancel</button>
-                            <button type="button" class="btn-primary academy-feed-comment-reply-submit-btn" data-post-id="${academyFeedEscapeHtml(postId)}" data-comment-id="${academyFeedEscapeHtml(commentId)}">Reply</button>
-                        </div>
-                    </div>
+            <div
+                class="academy-feed-comment-reply-form hidden-step"
+                id="academy-feed-comment-reply-form-${commentId}"
+            >
+                <textarea
+                    class="chat-text-input academy-feed-comment-reply-input"
+                    id="academy-feed-comment-reply-input-${commentId}"
+                    rows="2"
+                    placeholder="Reply to ${academyFeedEscapeHtml(displayName)}."
+                ></textarea>
+
+                <div class="academy-feed-inline-actions">
+                    <button
+                        type="button"
+                        class="btn-secondary academy-feed-comment-reply-cancel-btn"
+                        data-post-id="${academyFeedEscapeHtml(postId)}"
+                        data-comment-id="${academyFeedEscapeHtml(commentId)}"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn-primary academy-feed-comment-reply-submit-btn"
+                        data-post-id="${academyFeedEscapeHtml(postId)}"
+                        data-comment-id="${academyFeedEscapeHtml(commentId)}"
+                    >
+                        Reply
+                    </button>
                 </div>
             </div>
 
@@ -30965,6 +31945,1274 @@ async function academyFeedHidePost(postId, button = null) {
     }
 }
 
+let academyPostDetailStateV1 = {
+    postId: '',
+    feedScrollTop: 0
+};
+
+
+let academyPostDetailNativeStateLastSentV1 = '';
+
+
+function academyGetNativePostDetailPlatformV1() {
+    try {
+        const runtime =
+            window.YHNativeRuntime;
+
+        if (
+            runtime?.isNativeApp?.() !==
+            true
+        ) {
+            return '';
+        }
+
+        const platform =
+            String(
+                runtime
+                    ?.getPlatform
+                    ?.() ||
+                ''
+            )
+                .trim()
+                .toLowerCase();
+
+        return (
+            platform === 'ios' ||
+            platform === 'android'
+        )
+            ? platform
+            : '';
+    } catch (_) {
+        return '';
+    }
+}
+
+
+function academyIsPostDetailActiveV1() {
+    const detailView =
+        document.getElementById(
+            'academy-post-detail-view'
+        );
+
+    return Boolean(
+        detailView &&
+        !detailView.classList.contains(
+            'hidden-step'
+        ) &&
+        detailView.getAttribute(
+            'aria-hidden'
+        ) !== 'true' &&
+        normalizeAcademyFeedId(
+            academyPostDetailStateV1
+                ?.postId ||
+            ''
+        )
+    );
+}
+
+
+function academySyncPostDetailNativeNavigationV1() {
+    const platform =
+        academyGetNativePostDetailPlatformV1();
+
+    const active =
+        academyIsPostDetailActiveV1();
+
+    /*
+     * Dedicated Post Detail mobile state.
+     *
+     * CSS uses this single state to:
+     * - remove the bottom navigation
+     * - give the discussion full viewport height
+     * - keep the comment composer at the bottom
+     */
+    document.body?.classList.toggle(
+        'academy-post-detail-active',
+        active
+    );
+
+    const mobileBottomNav =
+        document.getElementById(
+            'academy-mobile-bottom-nav'
+        );
+
+    if (mobileBottomNav) {
+        mobileBottomNav.setAttribute(
+            'aria-hidden',
+            active
+                ? 'true'
+                : 'false'
+        );
+    }
+
+    const backButton =
+        document.getElementById(
+            'academy-post-detail-back'
+        );
+
+    const toolbar =
+        backButton
+            ?.closest(
+                '.academy-post-detail-toolbar'
+            ) ||
+        null;
+
+    /*
+     * iOS + Android apps use native/mobile
+     * navigation instead of the visual button.
+     *
+     * Web keeps the Back button.
+     */
+    const hideVisualBack =
+        Boolean(
+            platform === 'ios' ||
+            platform === 'android'
+        );
+
+
+    if (backButton) {
+        backButton.classList.toggle(
+            'hidden-step',
+            hideVisualBack
+        );
+
+        backButton.setAttribute(
+            'aria-hidden',
+            hideVisualBack
+                ? 'true'
+                : 'false'
+        );
+
+        if (hideVisualBack) {
+            backButton.setAttribute(
+                'tabindex',
+                '-1'
+            );
+        } else {
+            backButton.removeAttribute(
+                'tabindex'
+            );
+        }
+    }
+
+
+    /*
+     * The toolbar contains only the Back button
+     * now, so remove the empty top spacing too.
+     */
+    if (toolbar) {
+        toolbar.classList.toggle(
+            'hidden-step',
+            hideVisualBack
+        );
+
+        toolbar.setAttribute(
+            'aria-hidden',
+            hideVisualBack
+                ? 'true'
+                : 'false'
+        );
+    }
+
+
+    const postId =
+        normalizeAcademyFeedId(
+            academyPostDetailStateV1
+                ?.postId ||
+            ''
+        );
+
+    const stateKey =
+        [
+            platform || 'web',
+            active ? '1' : '0',
+            postId
+        ].join('|');
+
+
+    /*
+     * Parent Dashboard owns Android's
+     * Capacitor App back-button listener.
+     */
+    if (
+        stateKey !==
+        academyPostDetailNativeStateLastSentV1
+    ) {
+        academyPostDetailNativeStateLastSentV1 =
+            stateKey;
+
+        if (
+            window.parent &&
+            window.parent !== window
+        ) {
+            try {
+                window.parent.postMessage(
+                    {
+                        type:
+                            'yh:academy-post-detail-native-state',
+
+                        active,
+
+                        platform,
+
+                        postId
+                    },
+                    window.location.origin
+                );
+            } catch (_) {}
+        }
+    }
+
+    return active;
+}
+
+
+function bindAcademyPostDetailNativeNavigationV1() {
+    const detailView =
+        document.getElementById(
+            'academy-post-detail-view'
+        );
+
+    if (
+        !detailView ||
+        detailView.dataset
+            .yhNativePostDetailBound ===
+            'true'
+    ) {
+        academySyncPostDetailNativeNavigationV1();
+        return;
+    }
+
+
+    detailView.dataset
+        .yhNativePostDetailBound =
+        'true';
+
+
+    /*
+     * iOS native left-edge swipe.
+     *
+     * Because Academy runs inside the Dashboard
+     * iframe, this is more reliable than relying
+     * on WKWebView browser-history navigation.
+     */
+    let edgeTracking =
+        false;
+
+    let edgeStartX =
+        0;
+
+    let edgeStartY =
+        0;
+
+    let edgeStartedAt =
+        0;
+
+
+    const resetEdgeGesture = () => {
+        edgeTracking =
+            false;
+
+        edgeStartX =
+            0;
+
+        edgeStartY =
+            0;
+
+        edgeStartedAt =
+            0;
+    };
+
+
+    detailView.addEventListener(
+        'touchstart',
+        (event) => {
+            resetEdgeGesture();
+
+            if (
+                academyGetNativePostDetailPlatformV1() !==
+                    'ios' ||
+                !academyIsPostDetailActiveV1() ||
+                event.touches?.length !==
+                    1
+            ) {
+                return;
+            }
+
+            const touch =
+                event.touches[0];
+
+            /*
+             * Gesture must begin from the
+             * left 30px edge of the screen.
+             */
+            if (
+                Number(
+                    touch.clientX
+                ) >
+                30
+            ) {
+                return;
+            }
+
+            edgeTracking =
+                true;
+
+            edgeStartX =
+                Number(
+                    touch.clientX ||
+                    0
+                );
+
+            edgeStartY =
+                Number(
+                    touch.clientY ||
+                    0
+                );
+
+            edgeStartedAt =
+                Date.now();
+        },
+        {
+            passive:
+                true
+        }
+    );
+
+
+    detailView.addEventListener(
+        'touchend',
+        (event) => {
+            if (
+                !edgeTracking ||
+                academyGetNativePostDetailPlatformV1() !==
+                    'ios'
+            ) {
+                resetEdgeGesture();
+                return;
+            }
+
+            const touch =
+                event.changedTouches
+                    ?.[0];
+
+            const deltaX =
+                touch
+                    ? Number(
+                        touch.clientX ||
+                        0
+                    ) -
+                    edgeStartX
+                    : 0;
+
+            const deltaY =
+                touch
+                    ? Number(
+                        touch.clientY ||
+                        0
+                    ) -
+                    edgeStartY
+                    : 0;
+
+            const elapsed =
+                edgeStartedAt
+                    ? Date.now() -
+                        edgeStartedAt
+                    : 9999;
+
+            resetEdgeGesture();
+
+
+            /*
+             * Must be a deliberate horizontal
+             * right swipe, not normal scrolling.
+             */
+            if (
+                deltaX < 72 ||
+                Math.abs(
+                    deltaY
+                ) > 70 ||
+                elapsed > 1000 ||
+                !academyIsPostDetailActiveV1()
+            ) {
+                return;
+            }
+
+
+            academyClosePostDetailViewV1({
+                restoreScroll:
+                    true
+            });
+        },
+        {
+            passive:
+                true
+        }
+    );
+
+
+    detailView.addEventListener(
+        'touchcancel',
+        resetEdgeGesture,
+        {
+            passive:
+                true
+        }
+    );
+
+
+    /*
+     * If another Academy tab hides Post Detail,
+     * immediately release Android's native Back
+     * ownership in the parent Dashboard.
+     */
+    try {
+        const ObserverCtor =
+            window.MutationObserver;
+
+        if (
+            typeof ObserverCtor ===
+            'function'
+        ) {
+            const observer =
+                new ObserverCtor(
+                    () => {
+                        academySyncPostDetailNativeNavigationV1();
+                    }
+                );
+
+            observer.observe(
+                detailView,
+                {
+                    attributes:
+                        true,
+
+                    attributeFilter:
+                        [
+                            'class',
+                            'aria-hidden'
+                        ]
+                }
+            );
+
+            detailView
+                .__yhNativePostDetailObserverV1 =
+                observer;
+        }
+    } catch (_) {}
+
+
+    window.addEventListener(
+        'pagehide',
+        () => {
+            if (
+                window.parent &&
+                window.parent !== window
+            ) {
+                try {
+                    window.parent.postMessage(
+                        {
+                            type:
+                                'yh:academy-post-detail-native-state',
+
+                            active:
+                                false,
+
+                            platform:
+                                academyGetNativePostDetailPlatformV1(),
+
+                            postId:
+                                ''
+                        },
+                        window.location.origin
+                    );
+                } catch (_) {}
+            }
+        },
+        {
+            once:
+                true
+        }
+    );
+
+
+    academySyncPostDetailNativeNavigationV1();
+}
+
+
+function academyBuildPostDetailCardCloneV1(
+    postId = ''
+) {
+    const normalizedPostId =
+        normalizeAcademyFeedId(
+            postId
+        );
+
+    if (!normalizedPostId) {
+        return null;
+    }
+
+
+    const sourceCard =
+        academyFeedGetPostCard(
+            normalizedPostId
+        );
+
+    if (!sourceCard) {
+        return null;
+    }
+
+
+    /*
+     * The dedicated page owns comments now.
+     * Clear any previously opened inline thread
+     * from this Feed card to avoid duplicate ids.
+     */
+    sourceCard
+        .querySelector(
+            '.academy-feed-comments-wrap'
+        )
+        ?.classList
+        .add(
+            'hidden-step'
+        );
+
+
+    const sourceCommentList =
+        sourceCard.querySelector(
+            '.academy-feed-comments-list'
+        );
+
+    if (sourceCommentList) {
+        sourceCommentList.innerHTML = '';
+    }
+
+
+    const clone =
+        sourceCard.cloneNode(
+            true
+        );
+
+
+    clone.classList.add(
+        'academy-post-detail-card'
+    );
+
+    clone.classList.remove(
+        'is-menu-open',
+        'is-feed-action-loading',
+        'academy-feed-card-removing'
+    );
+
+    clone.removeAttribute(
+        'aria-busy'
+    );
+
+
+    /*
+     * Comments are rendered separately below
+     * the exact post.
+     */
+    clone
+        .querySelector(
+            '.academy-feed-comments-wrap'
+        )
+        ?.remove();
+
+
+    /*
+     * Avoid duplicated edit/menu state from
+     * the hidden Feed card.
+     */
+    clone
+        .querySelector(
+            '.academy-feed-post-edit-form'
+        )
+        ?.remove();
+
+
+    const menuButton =
+        clone.querySelector(
+            '.academy-feed-post-menu-btn'
+        );
+
+    menuButton
+        ?.parentElement
+        ?.remove();
+
+
+    clone
+        .querySelector(
+            '.academy-feed-card-action-status'
+        )
+        ?.remove();
+
+
+    clone
+        .querySelector(
+            '.academy-feed-post-body-display'
+        )
+        ?.classList
+        .remove(
+            'hidden-step'
+        );
+
+
+    /*
+     * Original Feed post remains mounted.
+     * Remove ids from the cloned detail card
+     * so document ids remain unique.
+     */
+    clone
+        .querySelectorAll(
+            '[id]'
+        )
+        .forEach(
+            (node) => {
+                node.removeAttribute(
+                    'id'
+                );
+            }
+        );
+
+
+    clone
+        .querySelectorAll(
+            'button'
+        )
+        .forEach(
+            (button) => {
+                button.disabled = false;
+
+                button.removeAttribute(
+                    'aria-busy'
+                );
+            }
+        );
+
+
+    return clone;
+}
+
+
+function academyClosePostDetailViewV1(
+    {
+        restoreScroll = true
+    } = {}
+) {
+    const feedView =
+        document.getElementById(
+            'academy-feed-view'
+        );
+
+    const detailView =
+        document.getElementById(
+            'academy-post-detail-view'
+        );
+
+
+    if (detailView) {
+        detailView.classList.add(
+            'hidden-step'
+        );
+
+        detailView.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+    }
+
+
+    if (feedView) {
+        feedView.classList.remove(
+            'hidden-step'
+        );
+
+        feedView.setAttribute(
+            'aria-hidden',
+            'false'
+        );
+    }
+
+
+    const savedScrollTop =
+        Number(
+            academyPostDetailStateV1
+                .feedScrollTop ||
+            0
+        );
+
+
+    academyPostDetailStateV1 = {
+        postId: '',
+        feedScrollTop: 0
+    };
+
+
+    academySyncPostDetailNativeNavigationV1();
+
+
+    setAcademySidebarActive?.(
+        'nav-chat'
+    );
+
+    saveAcademyViewState?.(
+        'community'
+    );
+
+
+    if (
+        restoreScroll &&
+        feedView
+    ) {
+        window.requestAnimationFrame(
+            () => {
+                const scrollHost =
+                    feedView.querySelector(
+                        '.chat-messages'
+                    );
+
+                if (scrollHost) {
+                    scrollHost.scrollTop =
+                        savedScrollTop;
+                }
+            }
+        );
+    }
+}
+
+
+async function academyOpenPostDetailViewV1(
+    postId = ''
+) {
+    const normalizedPostId =
+        normalizeAcademyFeedId(
+            postId
+        );
+
+    if (!normalizedPostId) {
+        return false;
+    }
+
+
+    const feedView =
+        document.getElementById(
+            'academy-feed-view'
+        );
+
+    const detailView =
+        document.getElementById(
+            'academy-post-detail-view'
+        );
+
+    const postSurface =
+        document.getElementById(
+            'academy-post-detail-post'
+        );
+
+    const commentsList =
+        document.getElementById(
+            'academy-post-detail-comments-list'
+        );
+
+    const detailInput =
+        document.getElementById(
+            'academy-post-detail-comment-input'
+        );
+
+    const detailSubmit =
+        document.getElementById(
+            'academy-post-detail-comment-submit'
+        );
+
+
+    if (
+        !feedView ||
+        !detailView ||
+        !postSurface ||
+        !commentsList
+    ) {
+        showToast(
+            'Post detail view is unavailable.',
+            'error'
+        );
+
+        return false;
+    }
+
+
+    const postClone =
+        academyBuildPostDetailCardCloneV1(
+            normalizedPostId
+        );
+
+
+    if (!postClone) {
+        showToast(
+            'This post is no longer available in the current feed.',
+            'error'
+        );
+
+        return false;
+    }
+
+
+    /*
+     * Remember exact Feed position.
+     */
+    const feedScrollHost =
+        feedView.querySelector(
+            '.chat-messages'
+        );
+
+
+    academyPostDetailStateV1 = {
+        postId:
+            normalizedPostId,
+
+        feedScrollTop:
+            Number(
+                feedScrollHost
+                    ?.scrollTop ||
+                0
+            )
+    };
+
+
+    /*
+     * Render exact clicked post.
+     */
+    postSurface.innerHTML = '';
+
+    postSurface.appendChild(
+        postClone
+    );
+
+
+    /*
+     * Comment rendering comes in the next patch.
+     */
+    commentsList.innerHTML = `
+        <div class="academy-post-detail-comments-empty">
+            Loading comments...
+        </div>
+    `;
+
+
+    if (detailInput) {
+        detailInput.value = '';
+
+        detailInput.setAttribute(
+            'data-post-id',
+            normalizedPostId
+        );
+    }
+
+
+    /*
+     * Keep disabled until comment-thread wiring
+     * is added in the next patch.
+     */
+if (detailSubmit) {
+    detailSubmit.setAttribute(
+        'data-post-id',
+        normalizedPostId
+    );
+}
+
+
+academySyncPostDetailComposerStateV1();
+
+
+    /*
+     * Swap Feed → Post Detail.
+     */
+    feedView.classList.add(
+        'hidden-step'
+    );
+
+    feedView.setAttribute(
+        'aria-hidden',
+        'true'
+    );
+
+
+    detailView.classList.remove(
+        'hidden-step'
+    );
+
+    detailView.setAttribute(
+        'aria-hidden',
+        'false'
+    );
+
+
+    academySyncPostDetailNativeNavigationV1();
+
+
+    setAcademySidebarActive?.(
+        'nav-chat'
+    );
+
+    saveAcademyViewState?.(
+        'community'
+    );
+
+
+window.requestAnimationFrame(
+    () => {
+        const scrollHost =
+            detailView.querySelector(
+                '.academy-post-detail-scroll'
+            );
+
+        if (scrollHost) {
+            scrollHost.scrollTop = 0;
+        }
+    }
+);
+
+
+/*
+ * Load the discussion only after the
+ * Post Detail surface is visible.
+ */
+await academyPostDetailLoadCommentsV1(
+    normalizedPostId
+);
+
+
+return true;
+}
+
+
+function academySyncPostDetailComposerStateV1() {
+    const input =
+        document.getElementById(
+            'academy-post-detail-comment-input'
+        );
+
+    const submit =
+        document.getElementById(
+            'academy-post-detail-comment-submit'
+        );
+
+    if (
+        !input ||
+        !submit
+    ) {
+        return;
+    }
+
+
+    /*
+     * Compact send control.
+     */
+    submit.textContent = '>';
+
+    submit.setAttribute(
+        'aria-label',
+        'Send comment'
+    );
+
+    submit.setAttribute(
+        'title',
+        'Send comment'
+    );
+
+
+    const hasBody =
+        String(
+            input.value ||
+            ''
+        ).trim().length > 0;
+
+
+    const hasPost =
+        Boolean(
+            normalizeAcademyFeedId(
+                input.getAttribute(
+                    'data-post-id'
+                ) ||
+                academyPostDetailStateV1
+                    ?.postId ||
+                ''
+            )
+        );
+
+
+    submit.disabled =
+        !hasBody ||
+        !hasPost;
+
+    submit.setAttribute(
+        'aria-disabled',
+        submit.disabled
+            ? 'true'
+            : 'false'
+    );
+}
+
+
+function academyPostDetailCountRepliesV1(
+    comment = {}
+) {
+    const children =
+        Array.isArray(
+            comment?.children
+        )
+            ? comment.children
+            : [];
+
+    return children.reduce(
+        (total, child) => {
+            return (
+                total +
+                1 +
+                academyPostDetailCountRepliesV1(
+                    child
+                )
+            );
+        },
+        0
+    );
+}
+
+
+function academyPostDetailRenderPrimaryCommentV1(
+    postId = '',
+    comment = {}
+) {
+    const normalizedPostId =
+        normalizeAcademyFeedId(
+            postId
+        );
+
+    const commentId =
+        normalizeAcademyFeedId(
+            comment?.id
+        );
+
+    if (
+        !normalizedPostId ||
+        !commentId
+    ) {
+        return '';
+    }
+
+
+    const replies =
+        Array.isArray(
+            comment?.children
+        )
+            ? comment.children
+            : [];
+
+    const replyCount =
+        academyPostDetailCountRepliesV1(
+            comment
+        );
+
+
+    /*
+     * Render the primary comment by itself.
+     *
+     * Removing children here prevents the
+     * normal recursive comment renderer from
+     * showing replies immediately.
+     */
+    const primaryComment = {
+        ...comment,
+        children: []
+    };
+
+
+    const primaryHtml =
+        academyFeedRenderCommentNode(
+            normalizedPostId,
+            primaryComment,
+            0
+        );
+
+
+    if (!replyCount) {
+        return `
+            <div
+                class="academy-post-detail-primary-thread"
+                data-primary-comment-id="${academyFeedEscapeHtml(commentId)}"
+            >
+                ${primaryHtml}
+            </div>
+        `;
+    }
+
+
+    /*
+     * Replies are still rendered with the
+     * existing authoritative renderer, but
+     * placed inside a hidden container.
+     */
+    const repliesHtml =
+        replies
+            .map(
+                (reply) =>
+                    academyFeedRenderCommentNode(
+                        normalizedPostId,
+                        reply,
+                        1
+                    )
+            )
+            .join('');
+
+
+    return `
+        <div
+            class="academy-post-detail-primary-thread has-replies"
+            data-primary-comment-id="${academyFeedEscapeHtml(commentId)}"
+        >
+            ${primaryHtml}
+
+            <button
+                type="button"
+                class="academy-post-detail-replies-toggle"
+                data-primary-comment-id="${academyFeedEscapeHtml(commentId)}"
+                data-reply-count="${replyCount}"
+                aria-expanded="false"
+                style="
+                    width:auto;
+                    margin:5px 0 4px 44px;
+                    padding:4px 2px;
+                    border:0;
+                    background:transparent;
+                    color:var(--neon-blue);
+                    font:inherit;
+                    font-size:0.82rem;
+                    font-weight:700;
+                    cursor:pointer;
+                    text-align:left;
+                "
+            >
+                View ${replyCount}
+                ${replyCount === 1 ? 'reply' : 'replies'}
+            </button>
+
+            <div
+                class="academy-post-detail-replies hidden-step"
+                id="academy-post-detail-replies-${academyFeedEscapeHtml(commentId)}"
+                data-primary-comment-id="${academyFeedEscapeHtml(commentId)}"
+            >
+                ${repliesHtml}
+            </div>
+        </div>
+    `;
+}
+
+
+async function academyPostDetailLoadCommentsV1(
+    postId = ''
+) {
+    const normalizedPostId =
+        normalizeAcademyFeedId(
+            postId
+        );
+
+    const list =
+        document.getElementById(
+            'academy-post-detail-comments-list'
+        );
+
+    if (
+        !normalizedPostId ||
+        !list
+    ) {
+        return;
+    }
+
+
+    list.innerHTML = `
+        <div class="academy-post-detail-comments-empty">
+            Loading comments...
+        </div>
+    `;
+
+
+    try {
+        const result =
+            await academyAuthedFetch(
+                `/api/academy/feed/posts/${encodeURIComponent(normalizedPostId)}/comments`,
+                {
+                    method: 'GET'
+                }
+            );
+
+
+        const comments =
+            Array.isArray(
+                result?.comments
+            )
+                ? result.comments
+                : [];
+
+
+        academyWriteCommunitySearchCommentsCache(
+            normalizedPostId,
+            comments
+        );
+
+
+        if (!comments.length) {
+            list.innerHTML = `
+                <div class="academy-post-detail-comments-empty">
+                    No comments yet.
+                </div>
+            `;
+
+            return;
+        }
+
+
+        /*
+         * This gives us primary/root comments
+         * with their replies under children[].
+         */
+        const threadedComments =
+            academyFeedBuildCommentTree(
+                comments
+            );
+
+
+        /*
+         * ONLY roots are placed directly in
+         * the Post Detail comments list.
+         *
+         * Each root decides separately whether
+         * its reply container is opened.
+         */
+        list.innerHTML =
+            threadedComments
+                .map(
+                    (comment) =>
+                        academyPostDetailRenderPrimaryCommentV1(
+                            normalizedPostId,
+                            comment
+                        )
+                )
+                .join('');
+    } catch (error) {
+        console.error(
+            'Post detail comments load error:',
+            error
+        );
+
+        list.innerHTML = `
+            <div class="academy-post-detail-comments-empty">
+                Failed to load comments.
+            </div>
+        `;
+    }
+}
+
+
 async function academyFeedLoadComments(postId, forceOpen = false) {
     const wrap = document.getElementById(`academy-feed-comments-${postId}`);
     const list = document.getElementById(`academy-feed-comments-list-${postId}`);
@@ -31000,26 +33248,94 @@ async function academyFeedLoadComments(postId, forceOpen = false) {
     }
 }
 
-function academyFeedSetInlineSubmitState(button = null, isLoading = false, loadingLabel = 'Posting...') {
-    if (!button) return;
-
-    if (isLoading) {
-        if (!button.dataset.idleLabel) {
-            button.dataset.idleLabel = button.innerHTML;
-        }
-
-        button.disabled = true;
-        button.setAttribute('aria-busy', 'true');
-        button.innerHTML = loadingLabel;
+function academyFeedSetInlineSubmitState(
+    button = null,
+    isLoading = false,
+    loadingLabel = 'Posting...'
+) {
+    if (!button) {
         return;
     }
 
+
+    const isPostDetailSend =
+        button.id ===
+        'academy-post-detail-comment-submit';
+
+
+    if (isLoading) {
+        if (!button.dataset.idleLabel) {
+            button.dataset.idleLabel =
+                button.innerHTML;
+        }
+
+
+        button.disabled = true;
+
+        button.setAttribute(
+            'aria-busy',
+            'true'
+        );
+
+
+        /*
+         * Post Detail uses a compact icon-style
+         * send button. Do not put "Commenting..."
+         * or "Sending..." inside it.
+         */
+        if (isPostDetailSend) {
+            button.innerHTML = '';
+
+            button.classList.add(
+                'is-loading'
+            );
+
+            button.setAttribute(
+                'aria-label',
+                'Sending comment'
+            );
+
+            return;
+        }
+
+
+        /*
+         * Existing loading labels remain
+         * authoritative for all other buttons.
+         */
+        button.innerHTML =
+            loadingLabel;
+
+        return;
+    }
+
+
     button.disabled = false;
-    button.removeAttribute('aria-busy');
+
+    button.removeAttribute(
+        'aria-busy'
+    );
+
+    button.classList.remove(
+        'is-loading'
+    );
+
 
     if (button.dataset.idleLabel) {
-        button.innerHTML = button.dataset.idleLabel;
+        button.innerHTML =
+            button.dataset.idleLabel;
+
         delete button.dataset.idleLabel;
+    }
+
+
+    if (isPostDetailSend) {
+        button.innerHTML = '>';
+
+        button.setAttribute(
+            'aria-label',
+            'Send comment'
+        );
     }
 }
 
@@ -31039,51 +33355,195 @@ function academyFeedBumpPostCommentCount(postId = '', delta = 1) {
     toggleBtn.innerText = `💬 Comment (${nextCount})`;
 }
 
-async function academyFeedSubmitComment(postId, parentCommentId = '', submitButton = null) {
-    const normalizedPostId = normalizeAcademyFeedId(postId);
-    const normalizedParentCommentId = normalizeAcademyFeedId(parentCommentId);
-    const input = normalizedParentCommentId
-        ? document.getElementById(`academy-feed-comment-reply-input-${normalizedParentCommentId}`)
-        : document.getElementById(`academy-feed-comment-input-${normalizedPostId}`);
+async function academyFeedSubmitComment(
+    postId,
+    parentCommentId = '',
+    submitButton = null
+) {
+    const normalizedPostId =
+        normalizeAcademyFeedId(
+            postId
+        );
 
-    const body = String(input?.value || '').trim();
+    const normalizedParentCommentId =
+        normalizeAcademyFeedId(
+            parentCommentId
+        );
 
-    if (!normalizedPostId) return;
-
-    if (submitButton?.disabled) return;
-
-    if (!body) {
-        showToast(normalizedParentCommentId ? 'Reply cannot be empty.' : 'Comment cannot be empty.', 'error');
+    if (!normalizedPostId) {
         return;
     }
 
-    const loadingLabel = normalizedParentCommentId ? 'Replying...' : 'Commenting...';
 
-    academyFeedSetInlineSubmitState(submitButton, true, loadingLabel);
+    const detailView =
+        document.getElementById(
+            'academy-post-detail-view'
+        );
+
+    const isPostDetailActive =
+        Boolean(
+            detailView &&
+            !detailView.classList.contains(
+                'hidden-step'
+            ) &&
+            normalizeAcademyFeedId(
+                academyPostDetailStateV1
+                    ?.postId
+            ) ===
+                normalizedPostId
+        );
+
+
+    /*
+     * Replies already use the existing
+     * comment-specific textarea.
+     *
+     * Root comments use the dedicated
+     * Post Detail composer when detail
+     * view is active.
+     */
+    const input =
+        normalizedParentCommentId
+            ? document.getElementById(
+                `academy-feed-comment-reply-input-${normalizedParentCommentId}`
+            )
+            : (
+                isPostDetailActive
+                    ? document.getElementById(
+                        'academy-post-detail-comment-input'
+                    )
+                    : document.getElementById(
+                        `academy-feed-comment-input-${normalizedPostId}`
+                    )
+            );
+
+
+    const body =
+        String(
+            input?.value ||
+            ''
+        ).trim();
+
+
+    if (
+        submitButton?.disabled
+    ) {
+        return;
+    }
+
+
+    if (!body) {
+        showToast(
+            normalizedParentCommentId
+                ? 'Reply cannot be empty.'
+                : 'Comment cannot be empty.',
+            'error'
+        );
+
+        return;
+    }
+
+
+    const loadingLabel =
+        normalizedParentCommentId
+            ? 'Replying...'
+            : 'Commenting...';
+
+
+    academyFeedSetInlineSubmitState(
+        submitButton,
+        true,
+        loadingLabel
+    );
+
 
     try {
-        await academyAuthedFetch(`/api/academy/feed/posts/${encodeURIComponent(normalizedPostId)}/comments`, {
-            method: 'POST',
-            body: JSON.stringify({
-                body,
-                parentCommentId: normalizedParentCommentId
-            })
-        });
+        await academyAuthedFetch(
+            `/api/academy/feed/posts/${encodeURIComponent(normalizedPostId)}/comments`,
+            {
+                method: 'POST',
 
-        if (input) input.value = '';
+                body:
+                    JSON.stringify({
+                        body,
 
-        if (normalizedParentCommentId) {
-            document.getElementById(`academy-feed-comment-reply-form-${normalizedParentCommentId}`)?.classList.add('hidden-step');
+                        parentCommentId:
+                            normalizedParentCommentId
+                    })
+            }
+        );
+
+
+        if (input) {
+            input.value = '';
         }
 
-        academyFeedBumpPostCommentCount(normalizedPostId, 1);
-        await academyFeedLoadComments(normalizedPostId, true);
 
-        showToast(normalizedParentCommentId ? 'Reply posted.' : 'Comment posted.', 'success');
+        if (
+            normalizedParentCommentId
+        ) {
+            document.getElementById(
+                `academy-feed-comment-reply-form-${normalizedParentCommentId}`
+            )?.classList.add(
+                'hidden-step'
+            );
+        }
+
+
+        academyFeedBumpPostCommentCount(
+            normalizedPostId,
+            1
+        );
+
+
+        /*
+         * Post Detail owns the discussion
+         * while it is open.
+         *
+         * Do NOT reopen the hidden inline
+         * Feed comments section.
+         */
+        if (isPostDetailActive) {
+            await academyPostDetailLoadCommentsV1(
+                normalizedPostId
+            );
+        } else {
+            await academyFeedLoadComments(
+                normalizedPostId,
+                true
+            );
+        }
+
+
+        showToast(
+            normalizedParentCommentId
+                ? 'Reply posted.'
+                : 'Comment posted.',
+            'success'
+        );
     } catch (error) {
-        showToast(error.message || 'Failed to post comment.', 'error');
+        showToast(
+            error.message ||
+            'Failed to post comment.',
+            'error'
+        );
     } finally {
-        academyFeedSetInlineSubmitState(submitButton, false);
+        academyFeedSetInlineSubmitState(
+            submitButton,
+            false
+        );
+
+
+        /*
+         * Root Post Detail composer should
+         * return to disabled while empty.
+         */
+        if (
+            isPostDetailActive &&
+            !normalizedParentCommentId
+        ) {
+            academySyncPostDetailComposerStateV1();
+        }
     }
 }
 
@@ -32591,13 +35051,314 @@ function resetAcademyFeedComposer() {
     academyFeedClearComposerMedia();
 }
 
-document.getElementById('academy-feed-refresh-btn')?.addEventListener('click', async (event) => {
-    const button = event.currentTarget;
+let academyFeedPullRefreshInFlightV1 =
+    false;
 
-    await runDashboardButtonAction(button, 'Refreshing Feed...', async () => {
-        await loadAcademyFeed(true);
-    });
-});
+
+function initAcademyFeedPullToRefreshV1() {
+    const feedView =
+        document.getElementById(
+            'academy-feed-view'
+        );
+
+    /*
+     * Refresh Feed has been replaced by
+     * mobile pull-to-refresh.
+     *
+     * Remove legacy markup if it still
+     * exists in an older HTML shell.
+     */
+    document.getElementById(
+        'academy-feed-refresh-btn'
+    )?.remove();
+
+
+    if (
+        !feedView ||
+        feedView.dataset
+            .academyPullRefreshBound ===
+            'true'
+    ) {
+        return;
+    }
+
+
+    feedView.dataset
+        .academyPullRefreshBound =
+        'true';
+
+
+    let startX = 0;
+    let startY = 0;
+
+    let canPull =
+        false;
+
+    let isVerticalPull =
+        false;
+
+
+    const threshold =
+        72;
+
+
+    const isFeedAtTop = () => {
+        const scrollHost =
+            feedView.querySelector(
+                '.chat-messages'
+            );
+
+
+        const hostCanScroll =
+            !!scrollHost &&
+            scrollHost.scrollHeight >
+                scrollHost.clientHeight +
+                2;
+
+
+        if (hostCanScroll) {
+            return (
+                Number(
+                    scrollHost
+                        .scrollTop ||
+                    0
+                ) <= 2
+            );
+        }
+
+
+        return (
+            Number(
+                document
+                    .scrollingElement
+                    ?.scrollTop ||
+
+                window.scrollY ||
+
+                0
+            ) <= 2
+        );
+    };
+
+
+    const resetPullState = () => {
+        startX =
+            0;
+
+        startY =
+            0;
+
+        canPull =
+            false;
+
+        isVerticalPull =
+            false;
+    };
+
+
+    feedView.addEventListener(
+        'touchstart',
+        (event) => {
+            if (
+                window.innerWidth >
+                    768 ||
+
+                academyFeedPullRefreshInFlightV1 ||
+
+                event.touches
+                    ?.length !==
+                    1
+            ) {
+                resetPullState();
+                return;
+            }
+
+
+            const touch =
+                event.touches[0];
+
+
+            startX =
+                touch.clientX;
+
+            startY =
+                touch.clientY;
+
+
+            canPull =
+                isFeedAtTop();
+
+            isVerticalPull =
+                false;
+        },
+        {
+            passive:
+                true
+        }
+    );
+
+
+    feedView.addEventListener(
+        'touchmove',
+        (event) => {
+            if (
+                !canPull ||
+                event.touches
+                    ?.length !==
+                    1
+            ) {
+                return;
+            }
+
+
+            const touch =
+                event.touches[0];
+
+
+            const deltaY =
+                touch.clientY -
+                startY;
+
+
+            const deltaX =
+                touch.clientX -
+                startX;
+
+
+            isVerticalPull =
+                deltaY > 8 &&
+                Math.abs(
+                    deltaX
+                ) <
+                Math.abs(
+                    deltaY
+                ) *
+                0.75;
+
+
+            if (
+                isVerticalPull &&
+                deltaY > 0
+            ) {
+                /*
+                 * Academy owns this pull gesture.
+                 * Prevent browser-level page refresh.
+                 */
+                event.preventDefault();
+            }
+        },
+        {
+            passive:
+                false
+        }
+    );
+
+
+    feedView.addEventListener(
+        'touchend',
+        async (event) => {
+            if (
+                !canPull ||
+                !isVerticalPull ||
+                window.innerWidth >
+                    768
+            ) {
+                resetPullState();
+                return;
+            }
+
+
+            const touch =
+                event
+                    .changedTouches
+                    ?.[0];
+
+
+            const deltaY =
+                touch
+                    ? touch.clientY -
+                        startY
+                    : 0;
+
+
+            const deltaX =
+                touch
+                    ? touch.clientX -
+                        startX
+                    : 0;
+
+
+            resetPullState();
+
+
+            if (
+                deltaY <
+                    threshold ||
+
+                Math.abs(
+                    deltaX
+                ) > 56 ||
+
+                academyFeedPullRefreshInFlightV1
+            ) {
+                return;
+            }
+
+
+            academyFeedPullRefreshInFlightV1 =
+                true;
+
+
+            feedView.classList.add(
+                'is-pull-refreshing'
+            );
+
+
+            try {
+                await loadAcademyFeed(
+                    true
+                );
+            } catch (error) {
+                console.error(
+                    'Academy pull-to-refresh failed:',
+                    error
+                );
+
+
+                showToast(
+                    error?.message ||
+                    'Failed to refresh feed.',
+                    'error'
+                );
+            } finally {
+                academyFeedPullRefreshInFlightV1 =
+                    false;
+
+
+                feedView.classList.remove(
+                    'is-pull-refreshing'
+                );
+            }
+        },
+        {
+            passive:
+                true
+        }
+    );
+
+
+    feedView.addEventListener(
+        'touchcancel',
+        resetPullState,
+        {
+            passive:
+                true
+        }
+    );
+}
+
+
+initAcademyFeedPullToRefreshV1();
 
 document.getElementById('academy-feed-layer-switcher')?.addEventListener('click', async (event) => {
     const button = event.target?.closest?.('[data-feed-layer]');
@@ -33243,6 +36004,428 @@ document.getElementById('academy-checkin-modal')?.addEventListener('click', (eve
         academyCloseCheckinModal();
     }
 });
+const academyPostDetailCommentInput =
+    document.getElementById(
+        'academy-post-detail-comment-input'
+    );
+
+
+academyPostDetailCommentInput?.addEventListener(
+    'input',
+    () => {
+        academySyncPostDetailComposerStateV1();
+    }
+);
+
+
+academyPostDetailCommentInput?.addEventListener(
+    'keydown',
+    (event) => {
+        /*
+         * Enter = send
+         * Shift + Enter = new line
+         */
+        if (
+            event.key !== 'Enter' ||
+            event.shiftKey ||
+            event.isComposing
+        ) {
+            return;
+        }
+
+
+        event.preventDefault();
+
+
+        const submit =
+            document.getElementById(
+                'academy-post-detail-comment-submit'
+            );
+
+
+        if (
+            !submit ||
+            submit.disabled
+        ) {
+            return;
+        }
+
+
+        submit.click();
+    }
+);
+
+
+document.getElementById(
+    'academy-post-detail-comment-submit'
+)?.addEventListener(
+    'click',
+    async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const button =
+            event.currentTarget;
+
+        const postId =
+            normalizeAcademyFeedId(
+                button.getAttribute(
+                    'data-post-id'
+                ) ||
+                academyPostDetailStateV1
+                    ?.postId ||
+                ''
+            );
+
+
+        if (!postId) {
+            return;
+        }
+
+
+        await academyFeedSubmitComment(
+            postId,
+            '',
+            button
+        );
+    }
+);
+
+
+bindAcademyPostDetailNativeNavigationV1();
+
+
+document.getElementById(
+    'academy-post-detail-back'
+)?.addEventListener(
+    'click',
+    (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        academyClosePostDetailViewV1({
+            restoreScroll: true
+        });
+    }
+);
+
+
+document.getElementById(
+    'academy-post-detail-view'
+)?.addEventListener(
+    'click',
+    async (event) => {
+
+        /*
+         * Facebook-style reply expansion.
+         *
+         * Replies are hidden independently
+         * for every primary comment.
+         */
+        const repliesToggle =
+            event.target.closest(
+                '.academy-post-detail-replies-toggle'
+            );
+
+        if (repliesToggle) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const commentId =
+                normalizeAcademyFeedId(
+                    repliesToggle.getAttribute(
+                        'data-primary-comment-id'
+                    )
+                );
+
+            const replyCount =
+                Math.max(
+                    0,
+                    Number(
+                        repliesToggle.getAttribute(
+                            'data-reply-count'
+                        ) ||
+                        0
+                    )
+                );
+
+            if (!commentId) {
+                return;
+            }
+
+
+            const replies =
+                document.getElementById(
+                    `academy-post-detail-replies-${commentId}`
+                );
+
+            if (!replies) {
+                return;
+            }
+
+
+            const isHidden =
+                replies.classList.contains(
+                    'hidden-step'
+                );
+
+
+            if (isHidden) {
+                replies.classList.remove(
+                    'hidden-step'
+                );
+
+                repliesToggle.setAttribute(
+                    'aria-expanded',
+                    'true'
+                );
+
+                repliesToggle.textContent =
+                    'Hide replies';
+            } else {
+                replies.classList.add(
+                    'hidden-step'
+                );
+
+                repliesToggle.setAttribute(
+                    'aria-expanded',
+                    'false'
+                );
+
+                repliesToggle.textContent =
+                    `View ${replyCount} ${
+                        replyCount === 1
+                            ? 'reply'
+                            : 'replies'
+                    }`;
+            }
+
+
+            return;
+        }
+/*
+ * Start replying to a primary comment
+ * or an already visible reply.
+ */
+const replyButton =
+    event.target.closest(
+        '.academy-feed-comment-reply-btn'
+    );
+
+if (replyButton) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const postId =
+        normalizeAcademyFeedId(
+            replyButton.getAttribute(
+                'data-post-id'
+            )
+        );
+
+    const commentId =
+        normalizeAcademyFeedId(
+            replyButton.getAttribute(
+                'data-comment-id'
+            )
+        );
+
+    if (
+        postId &&
+        commentId
+    ) {
+        academyFeedStartCommentReply(
+            postId,
+            commentId
+        );
+    }
+
+    return;
+}
+
+
+/*
+ * Cancel reply.
+ */
+const replyCancelButton =
+    event.target.closest(
+        '.academy-feed-comment-reply-cancel-btn'
+    );
+
+if (replyCancelButton) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const commentId =
+        normalizeAcademyFeedId(
+            replyCancelButton.getAttribute(
+                'data-comment-id'
+            )
+        );
+
+    if (commentId) {
+        academyFeedCancelCommentReply(
+            commentId
+        );
+    }
+
+    return;
+}
+
+
+/*
+ * Submit reply.
+ */
+const replySubmitButton =
+    event.target.closest(
+        '.academy-feed-comment-reply-submit-btn'
+    );
+
+if (replySubmitButton) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const postId =
+        normalizeAcademyFeedId(
+            replySubmitButton.getAttribute(
+                'data-post-id'
+            )
+        );
+
+    const commentId =
+        normalizeAcademyFeedId(
+            replySubmitButton.getAttribute(
+                'data-comment-id'
+            )
+        );
+
+    if (
+        postId &&
+        commentId
+    ) {
+        await academyFeedSubmitComment(
+            postId,
+            commentId,
+            replySubmitButton
+        );
+    }
+
+    return;
+}
+        /*
+         * Author avatar/name.
+         */
+        const authorTrigger =
+            event.target.closest(
+                '.academy-feed-author-trigger'
+            );
+
+        if (authorTrigger) {
+            const memberId =
+                normalizeAcademyFeedId(
+                    authorTrigger.getAttribute(
+                        'data-member-profile-id'
+                    )
+                );
+
+            const forceSelf =
+                authorTrigger.getAttribute(
+                    'data-yh-feed-author-self'
+                ) === 'true';
+
+            if (memberId) {
+                openAcademyFeedAuthorProfile(
+                    memberId,
+                    {
+                        forceSelf
+                    }
+                );
+            }
+
+            return;
+        }
+
+
+        /*
+         * Like still works on Post Detail.
+         */
+        const likeButton =
+            event.target.closest(
+                '.academy-feed-like-btn'
+            );
+
+        if (likeButton) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const postId =
+                normalizeAcademyFeedId(
+                    likeButton.getAttribute(
+                        'data-post-id'
+                    )
+                );
+
+            if (postId) {
+                await academyFeedToggleLike(
+                    postId,
+                    likeButton
+                );
+            }
+
+            return;
+        }
+
+
+        /*
+         * Comment button inside the Post Detail
+         * simply focuses the dedicated composer.
+         */
+        const commentButton =
+            event.target.closest(
+                '.academy-feed-comments-toggle-btn'
+            );
+
+        if (commentButton) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            document.getElementById(
+                'academy-post-detail-comment-input'
+            )?.focus();
+
+            return;
+        }
+
+
+        /*
+         * Existing Share modal remains authoritative.
+         */
+        const shareButton =
+            event.target.closest(
+                '.academy-feed-share-btn'
+            );
+
+        if (shareButton) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const postId =
+                normalizeAcademyFeedId(
+                    shareButton.getAttribute(
+                        'data-post-id'
+                    )
+                );
+
+            if (postId) {
+                academyFeedOpenShareModal(
+                    postId
+                );
+            }
+        }
+    }
+);
+
+
 document.getElementById('academy-feed-list')?.addEventListener('click', async (event) => {
     const feedActionTarget = event.target?.closest?.(
         '[data-academy-feed-load-more-v2], .academy-feed-like-btn, .academy-feed-comments-toggle-btn, .academy-feed-share-btn, .academy-feed-post-menu-btn, .academy-feed-comment-submit-btn, .academy-feed-comment-reply-btn, .academy-feed-comment-reply-submit-btn, .academy-feed-comment-edit-btn, .academy-feed-comment-edit-save-btn, .academy-feed-comment-menu-btn'
@@ -33270,14 +36453,32 @@ document.getElementById('academy-feed-list')?.addEventListener('click', async (e
         return;
     }
 
-    const authorTrigger = event.target.closest('.academy-feed-author-trigger');
-    if (authorTrigger) {
-        const memberId = normalizeAcademyFeedId(authorTrigger.getAttribute('data-member-profile-id'));
-        if (memberId) {
-            openAcademyFeedAuthorProfile(memberId);
-        }
-        return;
+const authorTrigger = event.target.closest('.academy-feed-author-trigger');
+
+if (authorTrigger) {
+    const memberId =
+        normalizeAcademyFeedId(
+            authorTrigger.getAttribute(
+                'data-member-profile-id'
+            )
+        );
+
+    const forceSelf =
+        authorTrigger.getAttribute(
+            'data-yh-feed-author-self'
+        ) === 'true';
+
+    if (memberId) {
+        openAcademyFeedAuthorProfile(
+            memberId,
+            {
+                forceSelf
+            }
+        );
     }
+
+    return;
+}
 
     const likeBtn = event.target.closest('.academy-feed-like-btn');
     if (likeBtn) {
@@ -33293,12 +36494,30 @@ document.getElementById('academy-feed-list')?.addEventListener('click', async (e
         return;
     }
 
-    const commentsToggleBtn = event.target.closest('.academy-feed-comments-toggle-btn');
-    if (commentsToggleBtn) {
-        const postId = normalizeAcademyFeedId(commentsToggleBtn.getAttribute('data-post-id'));
-        if (postId) academyFeedLoadComments(postId);
-        return;
+const commentsToggleBtn =
+    event.target.closest(
+        '.academy-feed-comments-toggle-btn'
+    );
+
+if (commentsToggleBtn) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const postId =
+        normalizeAcademyFeedId(
+            commentsToggleBtn.getAttribute(
+                'data-post-id'
+            )
+        );
+
+    if (postId) {
+        await academyOpenPostDetailViewV1(
+            postId
+        );
     }
+
+    return;
+}
 
     const shareBtn = event.target.closest('.academy-feed-share-btn');
     if (shareBtn) {
@@ -34574,58 +37793,156 @@ function positionRoadmapCustomSelectV1(state) {
     }
 
     const rect =
-        state.trigger.getBoundingClientRect();
+        state.trigger
+            .getBoundingClientRect();
 
     const viewportHeight =
         Math.max(
-            document.documentElement.clientHeight || 0,
+            document.documentElement
+                .clientHeight || 0,
+
             window.innerHeight || 0
+        );
+
+    const viewportWidth =
+        Math.max(
+            document.documentElement
+                .clientWidth || 0,
+
+            window.innerWidth || 0
         );
 
     const gap = 6;
     const edge = 8;
 
+    /*
+     * The dropdown is still mounted on body
+     * to avoid overflow clipping, but its
+     * visual boundaries now belong to the
+     * Roadmap modal card — not the viewport.
+     */
+    const modalContent =
+        document.querySelector(
+            '#academy-roadmap-modal .modal-content'
+        );
+
+    const modalRect =
+        modalContent
+            ?.getBoundingClientRect?.() ||
+        null;
+
+    const boundaryTop =
+        modalRect
+            ? Math.max(
+                edge,
+                modalRect.top + edge
+            )
+            : edge;
+
+    const boundaryBottom =
+        modalRect
+            ? Math.min(
+                viewportHeight - edge,
+                modalRect.bottom - edge
+            )
+            : viewportHeight - edge;
+
+    const boundaryLeft =
+        modalRect
+            ? Math.max(
+                edge,
+                modalRect.left + edge
+            )
+            : edge;
+
+    const boundaryRight =
+        modalRect
+            ? Math.min(
+                viewportWidth - edge,
+                modalRect.right - edge
+            )
+            : viewportWidth - edge;
+
     const spaceBelow =
-        viewportHeight -
-        rect.bottom -
-        edge;
+        Math.max(
+            0,
+            boundaryBottom -
+            rect.bottom
+        );
 
     const spaceAbove =
-        rect.top -
-        edge;
+        Math.max(
+            0,
+            rect.top -
+            boundaryTop
+        );
 
+    /*
+     * Prefer below when it fits.
+     * Otherwise use whichever side gives
+     * more space inside the modal card.
+     */
     const openAbove =
         spaceBelow < 150 &&
         spaceAbove > spaceBelow;
 
     const available =
-        (
-            openAbove
-                ? spaceAbove
-                : spaceBelow
-        ) - gap;
+        Math.max(
+            1,
+            (
+                openAbove
+                    ? spaceAbove
+                    : spaceBelow
+            ) - gap
+        );
 
-    /*
-     * Critical part:
-     * menu width is copied directly from
-     * the visible field width.
-     */
+    const boundaryWidth =
+        Math.max(
+            1,
+            boundaryRight -
+            boundaryLeft
+        );
+
+    const menuWidth =
+        Math.min(
+            rect.width,
+            boundaryWidth
+        );
+
+    const maxLeft =
+        Math.max(
+            boundaryLeft,
+            boundaryRight -
+            menuWidth
+        );
+
+    const menuLeft =
+        Math.min(
+            Math.max(
+                rect.left,
+                boundaryLeft
+            ),
+            maxLeft
+        );
+
     state.menu.style.width =
-        `${rect.width}px`;
+        `${menuWidth}px`;
 
     state.menu.style.maxWidth =
-        `${rect.width}px`;
+        `${menuWidth}px`;
 
     state.menu.style.left =
-        `${rect.left}px`;
+        `${menuLeft}px`;
 
+    /*
+     * Never allow the menu itself to grow
+     * beyond the visible Roadmap card.
+     * It becomes scrollable instead.
+     */
     state.menu.style.maxHeight =
         `${Math.min(
             260,
-            Math.max(
-                90,
-                available
-            )
+            available
         )}px`;
 
     if (openAbove) {

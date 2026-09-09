@@ -1939,17 +1939,33 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
 .yh-dashboard-universe-profile-header {
-    width: 100% !important;
-    min-height: 42px !important;
+    display: none !important;
 
-    margin: 0 0 10px !important;
-    padding: 0 12px !important;
+    width: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    border: 0 !important;
+}
+
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#academy-profile-view
+.yh-dashboard-profile-cover-controls {
+    top: 10px !important;
+    left: 10px !important;
+    right: 10px !important;
+
+    z-index: 8 !important;
 
     display: flex !important;
     align-items: center !important;
+    justify-content: space-between !important;
 
-    background: transparent !important;
-    border: 0 !important;
+    gap: 6px !important;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
@@ -2856,7 +2872,11 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"]
-        .yh-mobile-bottom-nav.is-scroll-hidden {
+        .yh-mobile-bottom-nav.is-scroll-hidden,
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy-community"][data-yh-academy-post-detail-open="true"]
+        #yh-mobile-app-shell
+        .yh-mobile-bottom-nav {
         transform:
             translate3d(
                 0,
@@ -2870,8 +2890,15 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
                 ),
                 0
             ) !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
+
+        opacity:
+            0 !important;
+
+        visibility:
+            hidden !important;
+
+        pointer-events:
+            none !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-bottom-nav button {

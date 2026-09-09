@@ -15853,7 +15853,7 @@ function closeUniverseImageLightbox() {
     document.body?.classList.remove('yh-universe-image-lightbox-open');
 
     if (image) {
-        image.src = '';
+        image.removeAttribute('src');
         image.alt = '';
     }
 
@@ -25914,6 +25914,25 @@ const dashboardDmThreadLock =
         'data-yh-dashboard-dm-thread-open'
     ) === 'true';
 
+
+if (
+    workspaceKey !==
+    'academy-community'
+) {
+    body?.removeAttribute(
+        'data-yh-academy-post-detail-open'
+    );
+}
+
+
+const academyPostDetailLock =
+    workspaceKey ===
+        'academy-community' &&
+    body?.getAttribute(
+        'data-yh-academy-post-detail-open'
+    ) === 'true';
+
+
 let isMobile = false;
 
     try {
@@ -25954,6 +25973,7 @@ const shouldHide =
         voiceStageLock ||
         messageThreadLock ||
         dashboardDmThreadLock ||
+        academyPostDetailLock ||
         hidden === true
     );
 
@@ -27239,12 +27259,504 @@ function bindDashboardInlineAcademyScrollNavigationV1(
     return true;
 }
 
+let dashboardAcademyPostDetailAndroidBackHandleV1 =
+    null;
+
+let dashboardAcademyPostDetailAndroidBackWantedV1 =
+    false;
+
+let dashboardAcademyPostDetailAndroidBackAttachPromiseV1 =
+    null;
+
+
+function dashboardGetNativePlatformForPostDetailV1() {
+    try {
+        const runtime =
+            window.YHNativeRuntime;
+
+        if (
+            runtime?.isNativeApp?.() !==
+            true
+        ) {
+            return '';
+        }
+
+        return String(
+            runtime
+                ?.getPlatform
+                ?.() ||
+            ''
+        )
+            .trim()
+            .toLowerCase();
+    } catch (_) {
+        return '';
+    }
+}
+
+
+function dashboardGetCapacitorAppPluginV1() {
+    try {
+        const capacitor =
+            window.Capacitor;
+
+        if (!capacitor) {
+            return null;
+        }
+
+        const existingPlugin =
+            capacitor.Plugins
+                ?.App;
+
+        if (
+            existingPlugin &&
+            typeof existingPlugin
+                .addListener ===
+                'function'
+        ) {
+            return existingPlugin;
+        }
+
+
+        if (
+            typeof capacitor
+                .isPluginAvailable ===
+                'function' &&
+            capacitor
+                .isPluginAvailable(
+                    'App'
+                ) !== true
+        ) {
+            return null;
+        }
+
+
+        if (
+            typeof capacitor
+                .registerPlugin ===
+                'function'
+        ) {
+            return capacitor
+                .registerPlugin(
+                    'App'
+                );
+        }
+    } catch (_) {}
+
+    return null;
+}
+
+
+function dashboardGetActiveAcademyPostDetailFrameV1() {
+    const frame =
+        document.getElementById(
+            'yh-universe-workspace-inline-frame'
+        );
+
+    if (!frame?.contentWindow) {
+        return null;
+    }
+
+
+    const workspaceKey =
+        String(
+            getDashboardInlineWorkspaceKeyFromFrame(
+                frame
+            ) ||
+            ''
+        )
+            .trim()
+            .toLowerCase();
+
+
+    if (
+        workspaceKey !==
+        'academy-community'
+    ) {
+        return null;
+    }
+
+
+    let frameDocument =
+        null;
+
+    try {
+        frameDocument =
+            frame.contentDocument ||
+            frame.contentWindow
+                ?.document ||
+            null;
+    } catch (_) {
+        frameDocument =
+            null;
+    }
+
+
+    const detailView =
+        frameDocument
+            ?.getElementById(
+                'academy-post-detail-view'
+            );
+
+
+    if (
+        !detailView ||
+        detailView.classList
+            .contains(
+                'hidden-step'
+            ) ||
+        detailView.getAttribute(
+            'aria-hidden'
+        ) === 'true'
+    ) {
+        return null;
+    }
+
+
+    return frame;
+}
+
+
+function dashboardCloseActiveAcademyPostDetailV1() {
+    const frame =
+        dashboardGetActiveAcademyPostDetailFrameV1();
+
+    if (!frame) {
+        return false;
+    }
+
+
+    try {
+        const childWindow =
+            frame.contentWindow;
+
+
+        if (
+            typeof childWindow
+                ?.academyClosePostDetailViewV1 ===
+                'function'
+        ) {
+            childWindow
+                .academyClosePostDetailViewV1(
+                    {
+                        restoreScroll:
+                            true
+                    }
+                );
+
+            return true;
+        }
+
+
+        /*
+         * Safe fallback to the existing web
+         * Back authority.
+         */
+        const backButton =
+            frame.contentDocument
+                ?.getElementById(
+                    'academy-post-detail-back'
+                );
+
+        if (
+            backButton &&
+            typeof backButton.click ===
+                'function'
+        ) {
+            backButton.click();
+            return true;
+        }
+    } catch (_) {}
+
+
+    return false;
+}
+
+
+async function dashboardSetAcademyPostDetailAndroidBackV1(
+    active = false
+) {
+    if (
+        dashboardGetNativePlatformForPostDetailV1() !==
+        'android'
+    ) {
+        return false;
+    }
+
+
+    dashboardAcademyPostDetailAndroidBackWantedV1 =
+        active === true;
+
+
+    /*
+     * Remove the Android listener as soon
+     * as Post Detail is no longer active.
+     *
+     * This prevents us from stealing Back
+     * events elsewhere in the app.
+     */
+    if (
+        !dashboardAcademyPostDetailAndroidBackWantedV1
+    ) {
+        const handle =
+            dashboardAcademyPostDetailAndroidBackHandleV1;
+
+        dashboardAcademyPostDetailAndroidBackHandleV1 =
+            null;
+
+
+        if (
+            handle &&
+            typeof handle.remove ===
+                'function'
+        ) {
+            try {
+                await Promise.resolve(
+                    handle.remove()
+                );
+            } catch (_) {}
+        }
+
+
+        return true;
+    }
+
+
+    if (
+        dashboardAcademyPostDetailAndroidBackHandleV1 ||
+        dashboardAcademyPostDetailAndroidBackAttachPromiseV1
+    ) {
+        return true;
+    }
+
+
+    const appPlugin =
+        dashboardGetCapacitorAppPluginV1();
+
+
+    if (
+        !appPlugin ||
+        typeof appPlugin.addListener !==
+            'function'
+    ) {
+        return false;
+    }
+
+
+    dashboardAcademyPostDetailAndroidBackAttachPromiseV1 =
+        Promise.resolve(
+            appPlugin.addListener(
+                'backButton',
+                async (event) => {
+
+                    /*
+                     * Android system Back while a
+                     * Post Detail is open.
+                     */
+                    if (
+                        dashboardCloseActiveAcademyPostDetailV1()
+                    ) {
+                        return;
+                    }
+
+
+                    /*
+                     * Defensive stale-listener cleanup.
+                     */
+                    await dashboardSetAcademyPostDetailAndroidBackV1(
+                        false
+                    );
+
+
+                    if (
+                        event?.canGoBack ===
+                            true &&
+                        window.history.length >
+                            1
+                    ) {
+                        window.history.back();
+                    }
+                }
+            )
+        )
+            .then(
+                async (handle) => {
+                    dashboardAcademyPostDetailAndroidBackAttachPromiseV1 =
+                        null;
+
+
+                    if (
+                        !dashboardAcademyPostDetailAndroidBackWantedV1
+                    ) {
+                        if (
+                            handle &&
+                            typeof handle.remove ===
+                                'function'
+                        ) {
+                            try {
+                                await Promise.resolve(
+                                    handle.remove()
+                                );
+                            } catch (_) {}
+                        }
+
+                        return null;
+                    }
+
+
+                    dashboardAcademyPostDetailAndroidBackHandleV1 =
+                        handle ||
+                        null;
+
+                    return handle;
+                }
+            )
+            .catch(
+                () => {
+                    dashboardAcademyPostDetailAndroidBackAttachPromiseV1 =
+                        null;
+
+                    return null;
+                }
+            );
+
+
+    await dashboardAcademyPostDetailAndroidBackAttachPromiseV1;
+
+
+    return Boolean(
+        dashboardAcademyPostDetailAndroidBackHandleV1
+    );
+}
+
+
+function installDashboardAcademyPostDetailNativeBackBridgeV1() {
+    if (
+        window
+            .__yhDashboardAcademyPostDetailNativeBackBridgeV1Installed ===
+        true
+    ) {
+        return;
+    }
+
+
+    window
+        .__yhDashboardAcademyPostDetailNativeBackBridgeV1Installed =
+        true;
+
+
+    window.addEventListener(
+        'message',
+        (event) => {
+            if (
+                event.origin !==
+                window.location.origin
+            ) {
+                return;
+            }
+
+
+            const data =
+                event.data ||
+                {};
+
+
+            if (
+                data.type !==
+                'yh:academy-post-detail-native-state'
+            ) {
+                return;
+            }
+
+
+            const frame =
+                document.getElementById(
+                    'yh-universe-workspace-inline-frame'
+                );
+
+
+            if (
+                !frame ||
+                event.source !==
+                    frame.contentWindow
+            ) {
+                return;
+            }
+
+
+            const postDetailActive =
+                data.active ===
+                    true;
+
+
+            /*
+             * Academy owns the Post Detail UI.
+             * Dashboard owns the parent mobile navbar.
+             *
+             * Mirror the child state onto the parent
+             * Dashboard so the navbar disappears while
+             * Post Detail is open.
+             */
+            if (postDetailActive) {
+                document.body?.setAttribute(
+                    'data-yh-academy-post-detail-open',
+                    'true'
+                );
+            } else {
+                document.body?.removeAttribute(
+                    'data-yh-academy-post-detail-open'
+                );
+            }
+
+
+            setDashboardMobileBottomNavScrollStateV1(
+                postDetailActive,
+                postDetailActive
+                    ? 'academy-post-detail-open'
+                    : 'academy-post-detail-closed'
+            );
+
+
+            void dashboardSetAcademyPostDetailAndroidBackV1(
+                postDetailActive
+            );
+        }
+    );
+
+
+    window.addEventListener(
+        'pagehide',
+        () => {
+            void dashboardSetAcademyPostDetailAndroidBackV1(
+                false
+            );
+        }
+    );
+}
+
+
+installDashboardAcademyPostDetailNativeBackBridgeV1();
+
+
 function bindDashboardInlineFrameEmbedMode(frame) {
     if (!frame || frame.dataset.dashboardEmbedModeBound === 'true') return;
 
     frame.dataset.dashboardEmbedModeBound = 'true';
 
     frame.addEventListener('load', () => {
+        document.body?.removeAttribute(
+            'data-yh-academy-post-detail-open'
+        );
+
+        setDashboardMobileBottomNavScrollStateV1(
+            false,
+            'academy-post-detail-frame-load'
+        );
+
+        void dashboardSetAcademyPostDetailAndroidBackV1(
+            false
+        );
+
         const navigationToken = String(
             frame.dataset.yhDashboardNavigationToken || ''
         ).trim();
@@ -31144,8 +31656,98 @@ document.getElementById('academy-profile-dashboard-close')?.addEventListener('cl
     event?.preventDefault?.();
     event?.stopPropagation?.();
 
-    closeDashboardUniverseProfileView({ useBrowserBack: true });
+    closeDashboardUniverseProfileView({
+        useBrowserBack: true
+    });
 });
+
+
+/*
+ * Contextual own-profile Back.
+ *
+ * The button may be created by embedded Academy,
+ * but Dashboard owns the actual navigation.
+ */
+document.addEventListener(
+    'click',
+    (event) => {
+        const backButton =
+            event.target?.closest?.(
+                '.yh-dashboard-academy-feed-profile-back'
+            );
+
+        if (
+            !(backButton instanceof HTMLElement) ||
+            !document.contains(backButton)
+        ) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        let storedReturnWorkspace = '';
+
+        try {
+            storedReturnWorkspace =
+                String(
+                    sessionStorage.getItem(
+                        'yh_dashboard_profile_return_workspace_v1'
+                    ) ||
+                    ''
+                )
+                    .trim()
+                    .toLowerCase();
+        } catch (_) {}
+
+
+        const requestedReturnWorkspace =
+            String(
+                backButton.getAttribute(
+                    'data-yh-return-workspace'
+                ) ||
+                storedReturnWorkspace ||
+                'overview'
+            )
+                .trim()
+                .toLowerCase();
+
+
+        /*
+         * Never send Back into Profile again.
+         */
+        const returnWorkspace =
+            requestedReturnWorkspace &&
+            requestedReturnWorkspace !==
+                'profile'
+                ? requestedReturnWorkspace
+                : 'overview';
+
+
+        backButton
+            .closest(
+                '#yh-dashboard-academy-feed-profile-back-row'
+            )
+            ?.remove();
+
+
+        try {
+            sessionStorage.removeItem(
+                'yh_dashboard_profile_return_workspace_v1'
+            );
+        } catch (_) {}
+
+
+        activateDashboardUnifiedWorkspace(
+            returnWorkspace,
+            {
+                animate: false,
+                scroll: false,
+                persist: true
+            }
+        );
+    }
+);
 
 document.getElementById('academy-member-browser-modal')?.addEventListener('click', (event) => {
     if (event.target?.id === 'academy-member-browser-modal') {
@@ -38752,9 +39354,32 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     const profileViewRoot = document.getElementById('academy-profile-view');
     const profileHeaderTitle = document.getElementById('academy-profile-header-title');
     const profileHeaderTopic = document.getElementById('academy-profile-header-topic');
-    const profileAvatar = document.getElementById('academy-profile-avatar');
-    const profileCoverBand = document.getElementById('academy-profile-view')?.querySelector('.academy-profile-cover-band');
-    const profileName = document.getElementById('academy-profile-name');
+    const profileAvatar =
+        document.getElementById(
+            'academy-profile-avatar'
+        );
+
+    const profileCoverBand =
+        document.getElementById(
+            'academy-profile-view'
+        )?.querySelector(
+            '.academy-profile-cover-band'
+        );
+
+    const profileDashboardClose =
+        document.getElementById(
+            'academy-profile-dashboard-close'
+        );
+
+    const profileHeaderActionGroup =
+        document.getElementById(
+            'yh-profile-header-action-group'
+        );
+
+    const profileName =
+        document.getElementById(
+            'academy-profile-name'
+        );
     const profileUsername = document.getElementById('academy-profile-username');
     const profileRole = document.getElementById('academy-profile-role');
     const profileBio = document.getElementById('academy-profile-bio');
@@ -38798,18 +39423,117 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     const secondaryAction = document.getElementById('academy-profile-secondary-action');
     const tertiaryAction = document.getElementById('academy-profile-tertiary-action');
 
-    if (profileViewRoot) {
-        profileViewRoot.setAttribute('data-profile-layout', isSelf ? 'self' : 'visited');
-        profileViewRoot.setAttribute('data-profile-relationship-state', relationshipState);
+if (profileViewRoot) {
+    profileViewRoot.setAttribute(
+        'data-profile-layout',
+        isSelf
+            ? 'self'
+            : 'visited'
+    );
 
-        if (normalized.id) {
-            profileViewRoot.setAttribute('data-profile-member-id', normalized.id);
-        } else {
-            profileViewRoot.removeAttribute('data-profile-member-id');
-        }
+    profileViewRoot.setAttribute(
+        'data-profile-relationship-state',
+        relationshipState
+    );
+
+    if (normalized.id) {
+        profileViewRoot.setAttribute(
+            'data-profile-member-id',
+            normalized.id
+        );
+    } else {
+        profileViewRoot.removeAttribute(
+            'data-profile-member-id'
+        );
+    }
+}
+
+
+/*
+ * Profile navigation/actions belong on top
+ * of the cover photo instead of occupying
+ * a separate row above the profile card.
+ */
+if (profileCoverBand) {
+    let coverControls =
+        profileCoverBand.querySelector(
+            '.yh-dashboard-profile-cover-controls'
+        );
+
+    if (!coverControls) {
+        coverControls =
+            document.createElement(
+                'div'
+            );
+
+        coverControls.className =
+            'yh-dashboard-profile-cover-controls';
+
+        coverControls.id =
+            'yh-dashboard-profile-cover-controls';
+
+        profileCoverBand.appendChild(
+            coverControls
+        );
     }
 
-    if (profileAvatar) {
+
+    /*
+     * Visited-profile Back button.
+     */
+    if (
+        profileDashboardClose &&
+        profileDashboardClose.parentElement !==
+            coverControls
+    ) {
+        coverControls.appendChild(
+            profileDashboardClose
+        );
+    }
+
+
+    /*
+     * Keep the existing mobile visited-profile
+     * action group working, but move it into
+     * the same cover overlay.
+     */
+    if (
+        profileHeaderActionGroup &&
+        profileHeaderActionGroup.parentElement !==
+            coverControls
+    ) {
+        coverControls.appendChild(
+            profileHeaderActionGroup
+        );
+    }
+
+
+    /*
+     * Normal own Profile opened from the
+     * Dashboard does not need this native Back.
+     *
+     * Academy Feed adds its own contextual
+     * Back button separately.
+     */
+    if (profileDashboardClose) {
+        profileDashboardClose.hidden =
+            isSelf;
+
+        if (isSelf) {
+            profileDashboardClose.setAttribute(
+                'aria-hidden',
+                'true'
+            );
+        } else {
+            profileDashboardClose.removeAttribute(
+                'aria-hidden'
+            );
+        }
+    }
+}
+
+
+if (profileAvatar) {
         const resolvedAvatar =
             normalizeDashboardProfileAssetUrl(
                 normalized.avatar || ''
@@ -42589,16 +43313,6 @@ function ensureDashboardBasicAssistantPanel() {
                     `).join('')}
                 </select>
                 <div id="yh-dashboard-basic-assistant-category-hint" class="yh-dashboard-basic-assistant-category-hint"></div>
-
-                <div class="yh-dashboard-basic-assistant-category-chips" aria-label="Common issue categories">
-                    <button type="button" data-dashboard-ticket-category="platform_guide">Platform Guide</button>
-                    <button type="button" data-dashboard-ticket-category="earning_paths">Earning</button>
-                    <button type="button" data-dashboard-ticket-category="billing">Billing</button>
-                    <button type="button" data-dashboard-ticket-category="academy">Academy</button>
-                    <button type="button" data-dashboard-ticket-category="federation">Federation</button>
-                    <button type="button" data-dashboard-ticket-category="plazas">Plazas</button>
-                    <button type="button" data-dashboard-ticket-category="technical_bug">Bug</button>
-                </div>
             </div>
 
             <div class="yh-dashboard-basic-assistant-messages hide-scrollbar" id="yh-dashboard-basic-assistant-messages"></div>
@@ -42624,19 +43338,7 @@ function ensureDashboardBasicAssistantPanel() {
 
     document.getElementById('yh-dashboard-basic-assistant-category')?.addEventListener('change', syncDashboardBasicAssistantCategoryUi);
 
-    panel.querySelectorAll('[data-dashboard-ticket-category]').forEach((button) => {
-        button.addEventListener('click', () => {
-            const categoryValue = button.getAttribute('data-dashboard-ticket-category') || 'general';
-            const select = document.getElementById('yh-dashboard-basic-assistant-category');
 
-            if (select) {
-                select.value = categoryValue;
-            }
-
-            syncDashboardBasicAssistantCategoryUi();
-            document.getElementById('yh-dashboard-basic-assistant-input')?.focus();
-        });
-    });
 
     document.getElementById('yh-dashboard-basic-assistant-form')?.addEventListener('submit', (event) => {
         event.preventDefault();
