@@ -2179,15 +2179,23 @@ if (replyForm) {
       renderAll();
     }
 
-    initSocket();
     renderAll();
 
     markBusinessChatUiReady();
 
+    /*
+     * Refresh conversations from the authoritative backend
+     * before opening the realtime socket.
+     *
+     * This prevents stale/deleted conversation IDs restored
+     * from localStorage from being joined as Socket.IO rooms.
+     */
     await Promise.all([
       refreshConversations({ force: true }),
       loadBlocks({ silent: true })
     ]);
+
+    initSocket();
 
     startAutoRefresh();
 

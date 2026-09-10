@@ -4456,7 +4456,7 @@ function syncYHBusinessChatNavigationAccessV1(
             ? snapshot
             : (
                 typeof getPlazaAccessSnapshot ===
-                    'function'
+                'function'
                     ? getPlazaAccessSnapshot()
                     : {}
             );
@@ -4465,6 +4465,59 @@ function syncYHBusinessChatNavigationAccessV1(
         isYHBusinessChatPlazaApprovedV1(
             currentSnapshot
         );
+
+    /*
+     * A false/empty snapshot before the first
+     * backend access check is NOT proof that
+     * the account is locked.
+     *
+     * Keep Business Chats in neutral pending
+     * state until Plazas authority has actually
+     * resolved at least once.
+     *
+     * Previously this temporary empty snapshot
+     * produced the visible LOCKED flash.
+     */
+    const plazaAuthorityResolved = (() => {
+        try {
+            const cached =
+                JSON.parse(
+                    localStorage.getItem(
+                        'yh_plaza_access_status_v1'
+                    ) || '{}'
+                );
+
+            const currentUserId =
+                getYHBusinessChatCurrentUserIdV1();
+
+            const cachedOwnerUserId =
+                normalizeAcademyFeedId(
+                    cached?.ownerUserId ||
+                    cached?.owner_user_id ||
+                    ''
+                );
+
+            return Boolean(
+                cached?.cachedAt &&
+                (
+                    !currentUserId ||
+                    cachedOwnerUserId ===
+                        currentUserId
+                )
+            );
+        } catch (_) {
+            return false;
+        }
+    })();
+
+    if (
+        !approved &&
+        !plazaAuthorityResolved
+    ) {
+        setYHBusinessChatNavigationPendingV1();
+
+        return false;
+    }
 
     const controls = [
         document.getElementById(
@@ -4476,18 +4529,14 @@ function syncYHBusinessChatNavigationAccessV1(
         )
     ].filter(Boolean);
 
-controls.forEach(
-    (control) => {
-        /*
-         * The Plaza authority has now resolved.
-         * Remove the temporary first-paint state.
-         */
-        control.removeAttribute(
-            'aria-busy'
-        );
+    controls.forEach(
+        (control) => {
+            control.removeAttribute(
+                'aria-busy'
+            );
 
-        control.disabled =
-            !approved;
+            control.disabled =
+                !approved;
 
             control.setAttribute(
                 'aria-disabled',
@@ -20342,16 +20391,78 @@ function isDashboardInlineFrameNavigationCurrent(
 }
 
 /* PATCH: Dashboard universal child workspace loader v1 */
-function getDashboardFederationSectionFromWorkspaceKey(value = 'federation-command') {
-    const clean = String(value || 'federation-command').trim().toLowerCase();
+function getDashboardFederationSectionFromWorkspaceKey(
+    value = 'federation-command'
+) {
+    const clean =
+        String(
+            value ||
+            'federation-command'
+        )
+            .trim()
+            .toLowerCase();
 
-    if (clean === 'federation-connect') return 'connect';
-    if (clean === 'federation-deal-rooms') return 'deal-rooms';
-    if (clean === 'federation-directory') return 'directory';
-    if (clean === 'federation-requests') return 'requests';
-    if (clean === 'federation-referrals') return 'referrals';
-    if (clean === 'federation-access') return 'status';
-    if (clean === 'federation' || clean === 'federation-command') return 'command';
+    if (
+        clean === 'federation-connect'
+    ) {
+        return 'connect';
+    }
+
+    if (
+        clean ===
+        'federation-deal-rooms'
+    ) {
+        return 'deal-rooms';
+    }
+
+    if (
+        clean ===
+        'federation-directory'
+    ) {
+        return 'directory';
+    }
+
+    if (
+        clean ===
+        'federation-requests'
+    ) {
+        return 'requests';
+    }
+
+    if (
+        clean ===
+        'federation-referrals'
+    ) {
+        return 'referrals';
+    }
+
+    /*
+     * Dashboard workspace name:
+     * federation-access
+     *
+     * Federation internal section/hash:
+     * status
+     *
+     * URL parsing converts #status into
+     * federation-status, so both aliases
+     * must resolve to the same section.
+     */
+    if (
+        clean ===
+            'federation-access' ||
+        clean ===
+            'federation-status'
+    ) {
+        return 'status';
+    }
+
+    if (
+        clean === 'federation' ||
+        clean ===
+            'federation-command'
+    ) {
+        return 'command';
+    }
 
     return 'command';
 }
@@ -25401,18 +25512,21 @@ body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-shell {
 body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-main-grid,
 body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-main-grid {
     height: auto;
-    min-height: 0;
+    min-height: calc(
+        100dvh -
+        76px -
+        env(safe-area-inset-bottom, 0px)
+    );
 
     margin: 0;
 
     padding-bottom:
-        calc(
-            18px +
-            env(
-                safe-area-inset-bottom,
-                0px
-            )
+        env(
+            safe-area-inset-bottom,
+            0px
         );
+
+    align-items: stretch;
 
     overflow: visible;
 }
@@ -25422,14 +25536,21 @@ body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-activ
     width: 100%;
     min-width: 0;
 
-    min-height: 0;
+    min-height: calc(
+        100dvh -
+        76px -
+        env(safe-area-inset-bottom, 0px)
+    );
     height: auto;
 
-    display: block;
+    display: flex;
+    flex-direction: column;
 }
 
 body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="overview"] .bc-member-results,
 body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="overview"] .bc-member-results {
+    flex: 1 0 auto;
+
     min-height: 0;
     max-height: none;
 
@@ -25444,8 +25565,31 @@ body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-activ
         min-width: 0;
 
         height: auto;
+        min-height: 100%;
+        max-height: none;
+    }
+
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="conversations"] .bc-thread-panel,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="conversations"] .bc-thread-panel {
+        width: 100%;
+        min-width: 0;
+
+        min-height: calc(100dvh - 76px);
+        height: auto;
+
+        grid-template-rows:
+            auto
+            minmax(0, 1fr)
+            auto;
+    }
+
+    body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"][data-bc-active-view="conversations"] .bc-thread-body,
+    body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-active-view="conversations"] .bc-thread-body {
         min-height: 0;
         max-height: none;
+
+        overflow-x: hidden;
+        overflow-y: auto;
     }
 }
 
@@ -27768,12 +27912,26 @@ function bindDashboardInlineFrameEmbedMode(frame) {
 
         if (!navigationToken || !workspaceKey) return;
 
+        /*
+         * Business Chats may resolve to an equivalent same-origin URL
+         * inside Capacitor/WebView. Do not leave its iframe permanently
+         * hidden just because the loaded URL string differs slightly
+         * from the expected embedded URL.
+         *
+         * Navigation token + workspace ownership are still validated.
+         */
+        const shouldVerifyLoadedUrl =
+            workspaceKey !== 'business-chats';
+
         if (
             !isDashboardInlineFrameNavigationCurrent(
                 frame,
                 navigationToken,
                 workspaceKey,
-                { verifyLoadedUrl: true }
+                {
+                    verifyLoadedUrl:
+                        shouldVerifyLoadedUrl
+                }
             )
         ) {
             return;
@@ -42164,6 +42322,15 @@ function setDashboardProfileEditorMode(mode = 'preview') {
             ? 'edit'
             : 'preview';
 
+    const isVisitedProfile =
+        String(
+            academyProfileViewState?.mode ||
+            ''
+        )
+            .trim()
+            .toLowerCase() ===
+        'visited';
+
     overlay.setAttribute(
         'data-dashboard-profile-mode',
         cleanMode
@@ -42178,6 +42345,59 @@ function setDashboardProfileEditorMode(mode = 'preview') {
         'is-profile-preview-mode',
         cleanMode !== 'edit'
     );
+
+    /*
+     * Owner-only profile controls.
+     *
+     * Visited members must never see the
+     * Edit Profile menu belonging to the
+     * signed-in account.
+     */
+    const profileMenuWrap =
+        overlay.querySelector(
+            '.yh-dashboard-profile-head-menu-wrap'
+        );
+
+    const profileMenu =
+        document.getElementById(
+            'yh-dashboard-profile-head-menu'
+        );
+
+    const profileMenuToggle =
+        document.getElementById(
+            'yh-dashboard-profile-head-menu-toggle'
+        );
+
+    if (profileMenuWrap) {
+        profileMenuWrap.hidden =
+            isVisitedProfile;
+
+        profileMenuWrap.setAttribute(
+            'aria-hidden',
+            isVisitedProfile
+                ? 'true'
+                : 'false'
+        );
+    }
+
+    if (profileMenuToggle) {
+        profileMenuToggle.disabled =
+            isVisitedProfile;
+
+        profileMenuToggle.setAttribute(
+            'aria-expanded',
+            'false'
+        );
+    }
+
+    if (
+        isVisitedProfile &&
+        profileMenu
+    ) {
+        profileMenu.classList.add(
+            'hidden-step'
+        );
+    }
 }
 
 function ensureDashboardUniverseProfileEditor() {
@@ -44067,41 +44287,136 @@ if (!window.__yhDashboardProfileHistoryBackV1Installed) {
 }
 
 async function fetchAcademyMemberProfile(memberId = '') {
-    const normalizedMemberId = normalizeAcademyFeedId(memberId);
+    const normalizedMemberId =
+        normalizeAcademyFeedId(memberId);
+
     if (!normalizedMemberId) {
-        throw new Error('Missing member id.');
+        throw new Error(
+            'Missing member id.'
+        );
     }
 
-    const [academyResult, universeResult] = await Promise.allSettled([
+    const [
+        academyResult,
+        universeResult
+    ] = await Promise.allSettled([
         academyAuthedFetch(
             `/api/academy/community/members/${encodeURIComponent(normalizedMemberId)}/profile`,
-            { method: 'GET' }
+            {
+                method: 'GET'
+            }
         ),
+
         academyAuthedFetch(
             `/api/universe/profile/${encodeURIComponent(normalizedMemberId)}`,
-            { method: 'GET' }
+            {
+                method: 'GET'
+            }
         )
     ]);
 
     const academyProfile =
-        academyResult.status === 'fulfilled' && academyResult.value?.profile
+        academyResult.status ===
+            'fulfilled' &&
+        academyResult.value?.profile
             ? academyResult.value.profile
             : {};
 
     const universeProfile =
-        universeResult.status === 'fulfilled' && universeResult.value?.profile
+        universeResult.status ===
+            'fulfilled' &&
+        universeResult.value?.profile
             ? universeResult.value.profile
             : {};
 
-    if (!academyProfile.id && !universeProfile.id && !universeProfile.uid) {
+    if (
+        !academyProfile.id &&
+        !universeProfile.id &&
+        !universeProfile.uid
+    ) {
         throw new Error(
-            academyResult.status === 'rejected'
-                ? academyResult.reason?.message || 'Profile not found.'
+            academyResult.status ===
+                'rejected'
+                ? academyResult.reason?.message ||
+                    'Profile not found.'
                 : 'Profile not found.'
         );
     }
 
-    return mergeYHUniverseProfilePayload(universeProfile, academyProfile);
+    /*
+     * Merge all normal profile data first.
+     *
+     * IMPORTANT:
+     * The generic merge helper supports own-profile
+     * media fallbacks from local cache/localStorage.
+     * A visited member must NEVER inherit those
+     * signed-in-user media assets.
+     */
+    const mergedProfile =
+        mergeYHUniverseProfilePayload(
+            universeProfile,
+            academyProfile
+        );
+
+    const visitedAvatar =
+        normalizeDashboardProfileAssetUrl(
+            academyProfile.avatar ||
+            academyProfile.avatar_url ||
+            academyProfile.avatarUrl ||
+            academyProfile.profile_photo ||
+            academyProfile.profilePhoto ||
+            academyProfile.photo_url ||
+            academyProfile.photoURL ||
+
+            universeProfile.avatar ||
+            universeProfile.avatar_url ||
+            universeProfile.avatarUrl ||
+            universeProfile.profile_photo ||
+            universeProfile.profilePhoto ||
+            universeProfile.photo_url ||
+            universeProfile.photoURL ||
+            ''
+        );
+
+    const visitedCoverPhoto =
+        resolveDashboardProfileCoverAsset(
+            academyProfile,
+            universeProfile
+        );
+
+    return {
+        ...mergedProfile,
+
+        avatar:
+            visitedAvatar,
+
+        avatar_url:
+            visitedAvatar,
+
+        avatarUrl:
+            visitedAvatar,
+
+        profile_photo:
+            visitedAvatar,
+
+        profilePhoto:
+            visitedAvatar,
+
+        photoURL:
+            visitedAvatar,
+
+        cover_photo:
+            visitedCoverPhoto,
+
+        coverPhoto:
+            visitedCoverPhoto,
+
+        cover_url:
+            visitedCoverPhoto,
+
+        coverUrl:
+            visitedCoverPhoto
+    };
 }
 
 function academyBuildDirectMessageRoomEntry(room = {}, profile = {}) {
@@ -44586,37 +44901,431 @@ function redirectToStandaloneAcademyMemberProfile(memberId = '') {
 }
 
 async function openAcademyMemberProfileView(memberId = '') {
-    const normalizedMemberId = normalizeAcademyFeedId(memberId);
+    const normalizedMemberId =
+        normalizeAcademyFeedId(memberId);
+
     if (!normalizedMemberId) return;
 
-    if (academyIsVisitedProfileFollowLocked(normalizedMemberId)) {
+    if (
+        academyIsVisitedProfileFollowLocked(
+            normalizedMemberId
+        )
+    ) {
         return;
     }
 
-    if (shouldRedirectAcademyProfileVisitToStandaloneAcademy()) {
-        redirectToStandaloneAcademyMemberProfile(normalizedMemberId);
+    if (
+        shouldRedirectAcademyProfileVisitToStandaloneAcademy()
+    ) {
+        redirectToStandaloneAcademyMemberProfile(
+            normalizedMemberId
+        );
+
         return;
     }
 
-    persistDashboardProfileUiState('visited', normalizedMemberId);
+    persistDashboardProfileUiState(
+        'visited',
+        normalizedMemberId
+    );
 
-    const cachedProfile = dashboardGetVisitedProfileCache(normalizedMemberId);
+    const cachedProfile =
+        dashboardGetVisitedProfileCache(
+            normalizedMemberId
+        );
+
     let renderedCachedProfile = false;
+
+    /*
+     * Build the exact draft shape consumed by the
+     * canonical Dashboard Profile preview.
+     *
+     * This keeps visited profiles visually identical
+     * to the own-profile preview instead of maintaining
+     * a second compact profile design.
+     */
+    const buildVisitedDashboardProfileDraft = (
+        profile = {}
+    ) => {
+        const normalized =
+            normalizeAcademyProfilePayload(
+                profile,
+                {
+                    mode: 'visited'
+                }
+            );
+
+        const signals =
+            profile?.signals &&
+            typeof profile.signals === 'object'
+                ? profile.signals
+                : {};
+
+        const firstArray = (...sources) => {
+            for (const source of sources) {
+                if (!Array.isArray(source)) {
+                    continue;
+                }
+
+                return source
+                    .map(
+                        (item) =>
+                            String(
+                                item || ''
+                            ).trim()
+                    )
+                    .filter(Boolean);
+            }
+
+            return [];
+        };
+
+        /*
+         * System branding images are placeholders,
+         * not member-uploaded profile media.
+         *
+         * Visited profiles with no uploaded media
+         * must use:
+         * - branded gradient cover
+         * - member initial avatar
+         */
+        const isSystemProfilePlaceholder = (
+            value = ''
+        ) => {
+            const clean =
+                String(value || '')
+                    .trim()
+                    .toLowerCase()
+                    .split('?')[0]
+                    .split('#')[0];
+
+            if (!clean) {
+                return false;
+            }
+
+            return (
+                clean.endsWith(
+                    '/images/logo.avif'
+                ) ||
+                clean.endsWith(
+                    '/images/logo.png'
+                ) ||
+                clean.endsWith(
+                    '/images/logo.webp'
+                ) ||
+                clean.endsWith(
+                    '/images/yhlobby.png'
+                ) ||
+                clean.includes(
+                    '/images/yh-logo'
+                ) ||
+                clean.includes(
+                    '/images/yhu-logo'
+                ) ||
+                clean.includes(
+                    '/images/default-avatar'
+                ) ||
+                clean.includes(
+                    '/images/profile-placeholder'
+                )
+            );
+        };
+
+        const resolvedVisitedAvatar =
+            isSystemProfilePlaceholder(
+                normalized.avatar
+            )
+                ? ''
+                : normalized.avatar || '';
+
+        const resolvedVisitedCover =
+            isSystemProfilePlaceholder(
+                normalized.coverPhoto
+            )
+                ? ''
+                : normalized.coverPhoto || '';
+
+        return {
+            displayName:
+                normalized.displayName ||
+                'YH Member',
+
+            username:
+                String(
+                    normalized.usernameRaw ||
+                    profile.username ||
+                    ''
+                )
+                    .replace(/^@+/, '')
+                    .trim(),
+
+            bio:
+                normalized.bio ||
+                '',
+
+            avatar:
+                resolvedVisitedAvatar,
+
+            coverPhoto:
+                resolvedVisitedCover,
+
+            roleLabel:
+                normalized.roleLabel ||
+                'YH Universe Member',
+
+            roleTrack:
+                String(
+                    profile.role_track ||
+                    profile.roleTrack ||
+                    ''
+                ).trim(),
+
+            followersCount:
+                normalized.followersCount,
+
+            followingCount:
+                normalized.followingCount,
+
+            tags:
+                Array.isArray(
+                    normalized.searchTags
+                )
+                    ? normalized.searchTags
+                    : [],
+
+            lookingFor:
+                firstArray(
+                    profile.looking_for,
+                    profile.lookingFor,
+                    signals.lookingFor
+                ),
+
+            canOffer:
+                firstArray(
+                    profile.can_offer,
+                    profile.canOffer,
+                    signals.canOffer
+                ),
+
+            availability:
+                String(
+                    profile.availability ||
+                    signals.availability ||
+                    ''
+                ).trim(),
+
+            workMode:
+                String(
+                    profile.work_mode ||
+                    profile.workMode ||
+                    signals.workMode ||
+                    ''
+                ).trim(),
+
+            proofFocus:
+                String(
+                    profile.proof_focus ||
+                    profile.proofFocus ||
+                    ''
+                ).trim(),
+
+            marketplaceReady:
+                profile.marketplace_ready === true ||
+                profile.marketplaceReady === true ||
+                signals.marketplaceReady === true,
+
+            recentPosts:
+                Array.isArray(
+                    normalized.recentPosts
+                )
+                    ? normalized.recentPosts
+                    : []
+        };
+    };
+
+    /*
+     * Keep the existing visited-profile runtime because
+     * it already owns Follow / Message state and actions,
+     * but replace its old visual body with the same
+     * Dashboard Profile preview used for the signed-in user.
+     */
+    const renderVisitedCanonicalProfile = (
+        profile = {}
+    ) => {
+        /*
+         * First hydrate the existing visited-profile
+         * action state: Follow, Message, relationship,
+         * member id, counts, etc.
+         */
+        renderAcademyProfileView(
+            profile,
+            {
+                mode: 'visited'
+            }
+        );
+
+        const profileView =
+            document.getElementById(
+                'academy-profile-view'
+            );
+
+        if (!profileView) {
+            return;
+        }
+
+        const legacyProfileScroll =
+            profileView.querySelector(
+                '.yh-dashboard-universe-profile-scroll'
+            );
+
+        /*
+         * Reuse the actual own-profile component.
+         * Do not create another profile-card implementation.
+         */
+        const canonicalProfileSurface =
+            ensureDashboardUniverseProfileEditor();
+
+        if (!canonicalProfileSurface) {
+            return;
+        }
+
+        /*
+         * The visited Profile shell continues owning
+         * Back / Follow / Message and browser-history
+         * behavior. The canonical own-profile preview
+         * becomes its visible content surface.
+         */
+        if (
+            canonicalProfileSurface.parentElement !==
+            profileView
+        ) {
+            profileView.appendChild(
+                canonicalProfileSurface
+            );
+        }
+
+        /*
+         * The old compact visited-profile body must not
+         * render underneath the canonical Profile UI.
+         */
+        if (legacyProfileScroll) {
+            legacyProfileScroll.classList.add(
+                'hidden-step'
+            );
+
+            legacyProfileScroll.setAttribute(
+                'aria-hidden',
+                'true'
+            );
+        }
+
+        /*
+         * Keep the existing visited Follow and Message
+         * controls alive. Move them into the persistent
+         * Profile header before hiding the old body.
+         */
+        const headerActionGroup =
+            document.getElementById(
+                'yh-profile-header-action-group'
+            );
+
+        const followAction =
+            document.getElementById(
+                'academy-profile-primary-action'
+            );
+
+        const messageAction =
+            document.getElementById(
+                'academy-profile-tertiary-action'
+            );
+
+        if (
+            headerActionGroup &&
+            followAction &&
+            followAction.parentElement !==
+                headerActionGroup
+        ) {
+            headerActionGroup.appendChild(
+                followAction
+            );
+        }
+
+        if (
+            headerActionGroup &&
+            messageAction &&
+            messageAction.parentElement !==
+                headerActionGroup
+        ) {
+            headerActionGroup.appendChild(
+                messageAction
+            );
+        }
+
+        const draft =
+            buildVisitedDashboardProfileDraft(
+                profile
+            );
+
+        /*
+         * THIS is the same renderer used by the
+         * top-right own Profile view.
+         */
+        renderDashboardUniverseProfileEditorPreview(
+            draft
+        );
+
+        renderDashboardUnifiedProfilePosts(
+            draft
+        );
+
+        const postsTitle =
+            document.getElementById(
+                'yh-dashboard-unified-profile-posts-title'
+            );
+
+        if (postsTitle) {
+            postsTitle.textContent =
+                'Shared posts';
+        }
+
+        /*
+         * Preview only.
+         * Edit fields and Save controls stay hidden.
+         */
+        setDashboardProfileEditorMode(
+            'preview'
+        );
+
+        canonicalProfileSurface.classList.remove(
+            'hidden-step'
+        );
+
+        canonicalProfileSurface.setAttribute(
+            'aria-hidden',
+            'false'
+        );
+    };
 
     const revealVisitedProfileShell = () => {
         academyProfileViewState = {
-            mode: 'visited',
+            mode:
+                'visited',
+
             memberId:
                 normalizedMemberId,
+
             profile:
-                academyProfileViewState?.mode === 'visited' &&
-                academyProfileViewState?.memberId === normalizedMemberId
+                academyProfileViewState?.mode ===
+                    'visited' &&
+                academyProfileViewState?.memberId ===
+                    normalizedMemberId
                     ? academyProfileViewState.profile
                     : null
         };
 
         hideAcademyViewsForFeed();
         setAcademySidebarActive('');
+
         revealAcademyProfileView();
 
         currentRoom = null;
@@ -44624,31 +45333,59 @@ async function openAcademyMemberProfileView(memberId = '') {
         currentRoomMeta = null;
 
         closeAcademySearchResultsPanel();
-        document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
+
+        document
+            .getElementById(
+                'academy-member-browser-modal'
+            )
+            ?.classList.add(
+                'hidden-step'
+            );
     };
 
     if (cachedProfile) {
         revealVisitedProfileShell();
-        renderAcademyProfileView(cachedProfile, { mode: 'visited' });
+
+        renderVisitedCanonicalProfile(
+            cachedProfile
+        );
+
         renderedCachedProfile = true;
     } else {
-        showAcademyTabLoader('Loading Profile...');
+        showAcademyTabLoader(
+            'Loading Profile...'
+        );
     }
 
     try {
-        const profile = await fetchAcademyMemberProfile(normalizedMemberId);
-        dashboardPersistVisitedProfileCache(profile);
+        const profile =
+            await fetchAcademyMemberProfile(
+                normalizedMemberId
+            );
+
+        dashboardPersistVisitedProfileCache(
+            profile
+        );
 
         if (!renderedCachedProfile) {
             revealVisitedProfileShell();
         }
 
-        renderAcademyProfileView(profile, { mode: 'visited' });
+        renderVisitedCanonicalProfile(
+            profile
+        );
     } catch (error) {
-        console.error('openAcademyMemberProfileView error:', error);
+        console.error(
+            'openAcademyMemberProfileView error:',
+            error
+        );
 
         if (!renderedCachedProfile) {
-            showToast(error?.message || 'Failed to load member profile.', 'error');
+            showToast(
+                error?.message ||
+                    'Failed to load member profile.',
+                'error'
+            );
         }
     } finally {
         hideAcademyTabLoader();

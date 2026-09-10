@@ -53,11 +53,11 @@ a {
 }
 
 /*
- * Mobile Business Chats must remain visible even while
+ * Mobile + tablet Business Chats must remain visible even while
  * enhanced controls are still initializing. Native controls
  * provide the safe fallback instead of blanking the page.
  */
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   body[data-yh-view="business-chats"] .bc-shell,
   body[data-yh-page="business-chats"] .bc-shell {
     visibility: visible;
@@ -770,12 +770,12 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 }
 
 /* ========================================================= */
-/* BUSINESS CHATS — MOBILE REBUILD v1                        */
+/* BUSINESS CHATS — MOBILE + TABLET REBUILD v2               */
 /* One clear vertical document flow.                         */
 /* Dashboard iframe owns viewport; this page owns scrolling. */
 /* ========================================================= */
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
 
   html,
   body[data-yh-view="business-chats"],
@@ -797,6 +797,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     width: 100%;
     min-width: 0;
     max-width: 100%;
+    min-height: 100dvh;
 
     margin: 0;
 
@@ -1228,9 +1229,9 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 
     align-content: start;
 
-    gap: 9px;
+    gap: 14px;
 
-    padding: 12px;
+    padding: 14px 12px;
 
     max-height: none;
 
@@ -1250,9 +1251,21 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 
     align-items: stretch;
 
-    gap: 12px;
+    gap: 14px;
 
-    padding: 13px;
+    padding: 16px;
+  }
+
+  body[data-yh-view="business-chats"] .bc-member-results .bc-member-card,
+  body[data-yh-page="business-chats"] .bc-member-results .bc-member-card,
+  body[data-yh-view="business-chats"] .bc-member-results .bc-member-card .bc-member-main,
+  body[data-yh-page="business-chats"] .bc-member-results .bc-member-card .bc-member-main {
+    background: #071426 !important;
+    background-color: #071426 !important;
+    background-image: none !important;
+
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
 
@@ -1277,12 +1290,47 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
   }
 
 
-  .bc-member-main strong,
+  .bc-member-main strong {
+    max-width: 100%;
+
+    font-size: 1rem;
+    line-height: 1.2;
+
+    white-space: normal;
+
+    overflow-wrap: anywhere;
+  }
+
   .bc-member-main span,
-  .bc-member-main p,
-  .bc-block-card strong,
   .bc-block-card span {
     max-width: 100%;
+
+    font-size: 0.9rem;
+    line-height: 1.35;
+
+    white-space: normal;
+
+    overflow-wrap: anywhere;
+  }
+
+  .bc-member-main p {
+    max-width: 100%;
+
+    margin-top: 4px;
+
+    font-size: 0.9rem;
+    line-height: 1.4;
+
+    white-space: normal;
+
+    overflow-wrap: anywhere;
+  }
+
+  .bc-block-card strong {
+    max-width: 100%;
+
+    font-size: 1rem;
+    line-height: 1.2;
 
     white-space: normal;
 
@@ -1527,6 +1575,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 
     padding: 10px 12px;
 
+    font-size: 1rem;
     line-height: 1.35;
 
     resize: vertical;

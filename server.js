@@ -4463,81 +4463,149 @@ async function loadAcademyChatHistoryFromSupabaseV2({
 }
 /* END PATCH: Academy Supabase message delivery and migration bridge v2 */
 
+/*
+ * Business Chats realtime must use the same authoritative
+ * Supabase repository as the active REST API routes.
+ *
+ * Firestore plazaConversations is legacy storage and must not
+ * be used to validate active Supabase Business Chat IDs.
+ */
+const plazaBusinessMessagesSupabaseRepo =
+    require('./backend/repositories/plazaBusinessMessagesSupabaseRepo');
+
 function getBusinessChatParticipantIds(data = {}) {
     return Array.isArray(data.participantIds)
-        ? data.participantIds.map((item) => sanitizeText(item)).filter(Boolean)
+        ? data.participantIds
+            .map((item) => sanitizeText(item))
+            .filter(Boolean)
         : [];
 }
 
-async function getBusinessChatForSocket(userId = '', conversationId = '') {
+async function getBusinessChatForSocket(
+    userId = '',
+    conversationId = ''
+) {
     const cleanUserId = sanitizeText(userId);
-    const cleanConversationId = sanitizeText(conversationId);
+    const cleanConversationId =
+        sanitizeText(conversationId);
 
     if (!cleanUserId || !cleanConversationId) {
-        const error = new Error('Missing Business Chat conversation.');
+        const error =
+            new Error(
+                'Missing Business Chat conversation.'
+            );
+
         error.statusCode = 400;
         throw error;
     }
 
-    const snap = await plazaConversationsCol.doc(cleanConversationId).get();
+    const conversation =
+        await plazaBusinessMessagesSupabaseRepo
+            .getConversationById(
+                cleanConversationId
+            );
 
-    if (!snap.exists) {
-        const error = new Error('Business Chat conversation not found.');
+    if (!conversation) {
+        const error =
+            new Error(
+                'Business Chat conversation not found.'
+            );
+
         error.statusCode = 404;
         throw error;
     }
 
-    const data = snap.data() || {};
-    const participantIds = getBusinessChatParticipantIds(data);
+    const participantIds =
+        getBusinessChatParticipantIds(
+            conversation
+        );
 
     if (!participantIds.includes(cleanUserId)) {
-        const error = new Error('You are not part of this Business Chat.');
+        const error =
+            new Error(
+                'You are not part of this Business Chat.'
+            );
+
         error.statusCode = 403;
         throw error;
     }
 
     return {
-        snap,
-        data,
+        data: conversation,
         participantIds,
-        conversation: mapBusinessChatConversationDoc(snap)
+        conversation
     };
 }
 
-function emitBusinessChatConversation(conversation = {}) {
-    const conversationId = sanitizeText(conversation.id);
+function emitBusinessChatConversation(
+    conversation = {}
+) {
+    const conversationId =
+        sanitizeText(conversation.id);
+
     if (!conversationId) return;
 
-    io.to(getBusinessChatRoom(conversationId)).emit('businessChatUpdated', {
-        success: true,
-        conversation
-    });
-
-    const participantIds = Array.isArray(conversation.participantIds)
-        ? conversation.participantIds.map((item) => sanitizeText(item)).filter(Boolean)
-        : [];
-
-    participantIds.forEach((participantId) => {
-        io.to(getBusinessChatUserRoom(participantId)).emit('businessChatUpdated', {
+    io.to(
+        getBusinessChatRoom(conversationId)
+    ).emit(
+        'businessChatUpdated',
+        {
             success: true,
             conversation
-        });
-    });
+        }
+    );
+
+    const participantIds =
+        getBusinessChatParticipantIds(
+            conversation
+        );
+
+    participantIds.forEach(
+        (participantId) => {
+            io.to(
+                getBusinessChatUserRoom(
+                    participantId
+                )
+            ).emit(
+                'businessChatUpdated',
+                {
+                    success: true,
+                    conversation
+                }
+            );
+        }
+    );
 }
 
-async function emitBusinessChatConversationById(conversationId = '') {
-    const cleanConversationId = sanitizeText(conversationId);
-    if (!cleanConversationId) return null;
+async function emitBusinessChatConversationById(
+    conversationId = ''
+) {
+    const cleanConversationId =
+        sanitizeText(conversationId);
 
-    const snap = await plazaConversationsCol.doc(cleanConversationId).get();
-    if (!snap.exists) return null;
+    if (!cleanConversationId) {
+        return null;
+    }
 
-    const conversation = mapBusinessChatConversationDoc(snap);
-    emitBusinessChatConversation(conversation);
+    const conversation =
+        await plazaBusinessMessagesSupabaseRepo
+            .getConversationById(
+                cleanConversationId
+            );
+
+    if (!conversation) {
+        return null;
+    }
+
+    emitBusinessChatConversation(
+        conversation
+    );
+
     return conversation;
 }
 
-global.yhEmitPlazaBusinessConversationUpdated = emitBusinessChatConversationById;
+global.yhEmitPlazaBusinessConversationUpdated =
+    emitBusinessChatConversationById;
 
 
 // ==========================================

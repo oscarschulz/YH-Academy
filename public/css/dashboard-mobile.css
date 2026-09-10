@@ -3300,10 +3300,10 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
      * Academy, Plazas, and Federation child workspaces
      * keep their own dedicated edge-to-edge viewport rules.
      */
-    body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="academy"]):not([data-yh-unified-workspace="profile"]):not([data-yh-unified-workspace^="academy-"]):not([data-yh-unified-workspace^="plazas-"]):not([data-yh-unified-workspace^="federation-"])
+    body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-dashboard-dm-thread-open="true"]):not([data-yh-unified-workspace="academy"]):not([data-yh-unified-workspace="profile"]):not([data-yh-unified-workspace^="academy-"]):not([data-yh-unified-workspace^="plazas-"]):not([data-yh-unified-workspace^="federation-"])
     #universe-hub-view,
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="academy"]):not([data-yh-unified-workspace="profile"]):not([data-yh-unified-workspace^="academy-"]):not([data-yh-unified-workspace^="plazas-"]):not([data-yh-unified-workspace^="federation-"])
+    body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-dashboard-dm-thread-open="true"]):not([data-yh-unified-workspace="academy"]):not([data-yh-unified-workspace="profile"]):not([data-yh-unified-workspace^="academy-"]):not([data-yh-unified-workspace^="plazas-"]):not([data-yh-unified-workspace^="federation-"])
     .universe-hub-view {
         padding:
             calc(
@@ -3516,8 +3516,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="bu
 
 body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] #yh-universe-workspace-frame-shell,
 body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="plazas"] #yh-universe-workspace-frame-shell,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-frame-shell,
-body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="business-chats"] #yh-universe-workspace-frame-shell {
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-division="federation"] #yh-universe-workspace-frame-shell {
         position: relative !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -3530,6 +3529,51 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="bu
         outline: 0 !important;
         background: transparent !important;
         box-shadow: none !important;
+        overflow: hidden !important;
+    }
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="business-chats"] #yh-universe-workspace-frame-shell {
+        position: relative !important;
+        width: 100% !important;
+        max-width: 100% !important;
+
+        height:
+            calc(
+                100dvh -
+                70px -
+                max(
+                    8px,
+                    env(
+                        safe-area-inset-top,
+                        0px
+                    )
+                )
+            ) !important;
+
+        min-height:
+            calc(
+                100dvh -
+                70px -
+                max(
+                    8px,
+                    env(
+                        safe-area-inset-top,
+                        0px
+                    )
+                )
+            ) !important;
+
+        max-height: none !important;
+
+        margin: 0 !important;
+
+        border: 0 !important;
+        border-radius: 0 !important;
+        outline: 0 !important;
+
+        background: transparent !important;
+        box-shadow: none !important;
+
         overflow: hidden !important;
     }
 
