@@ -8745,8 +8745,6 @@ body[data-yh-page=business-chats] .bc-inline-dialog-x:hover,body[data-yh-view=bu
 }
 
 body[data-yh-page=business-chats],body[data-yh-page=business-chats] *,body[data-yh-view=business-chats],body[data-yh-view=business-chats] * {
-  background-color:#020617;
-  background:linear-gradient(180deg,rgba(2,6,23,.04),rgba(2,6,23,.2)),url(/images/yhu-premium-bg.png?v=20260531-bg-09) 50% /cover no-repeat fixed,#020617;
   scrollbar-width:none;
   -ms-overflow-style:none;
   scrollbar-gutter:auto;
