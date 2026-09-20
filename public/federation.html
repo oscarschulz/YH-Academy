@@ -15,7 +15,7 @@
     href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/federation.css?v=20260815-css-sync-v1" />
+<link rel="stylesheet" href="/css/federation.css?v=20260919-command-style-authority-v1" />
 <link rel="stylesheet" href="/css/yh-tailwind.css?v=20260815-css-sync-v1" />
 <link rel="stylesheet" href="/css/yh-division-tutorials.css?v=20260815-css-sync-v1" />
 </head>
@@ -663,13 +663,21 @@
         <div class="fed-strategic-command-shell-v1" id="federationStrategicCommandV1">
           <header class="fed-strategic-hero-v1">
             <div class="fed-strategic-hero-copy-v1">
+              <span>Federation Command</span>
+              <h4>Your strategic operating desk</h4>
+              <p>
+                Review your verified member position, active network signals,
+                current requests, regional reach, and the next serious action
+                available inside the Federation.
+              </p>
+
               <div class="fed-strategic-hero-actions-v1">
                 <button class="fed-btn fed-btn-primary" type="button" data-jump="#deal-rooms">
-                  Review Operations
+                  Open Deal Rooms
                 </button>
 
                 <button class="fed-btn fed-btn-secondary" type="button" data-jump="#connect">
-                  Open Diplomacy Lane
+                  Request Connection
                 </button>
               </div>
             </div>
@@ -947,48 +955,63 @@
 
 
           <div class="fed-connect-hero">
-            <article class="fed-command-card fed-connect-hero-card">
-              <div class="fed-sidebar-card-label">How Connect Works</div>
-              <h4>Sell access, not exposed contact data</h4>
+            <article class="fed-command-card fed-connect-hero-card fed-connect-hero-card-v2">
+              <div class="fed-connect-card-kicker-v2">Federation Connect</div>
+              <h4>Request protected business introductions</h4>
               <p class="fed-command-copy">
-                Operators add leads through Academy Lead Missions. Admin qualifies the lead, marks it Federation-ready,
-                and Federation members can request a brokered connection from this page.
+                Browse admin-reviewed opportunities, request a controlled introduction,
+                and track every connection from first request to final decision.
               </p>
 
-              <div class="fed-command-pills">
+              <div class="fed-command-pills fed-connect-pills-v2">
                 <span>Admin-reviewed</span>
-                <span>Operator-sourced</span>
                 <span>Protected details</span>
                 <span>Brokered intro</span>
+                <span>Member-only access</span>
               </div>
             </article>
 
-            <article class="fed-command-card">
-              <div class="fed-sidebar-card-label">Available Opportunities</div>
-              <div class="fed-state-grid">
-                <div class="fed-state-metric">
-                  <strong id="federationConnectAvailableCount">0</strong>
-                  <small>Federation-ready leads</small>
+            <article class="fed-command-card fed-connect-stats-card-v2">
+              <div class="fed-command-card-topline-v2">
+                <div>
+                  <div class="fed-sidebar-card-label">Opportunities</div>
+                  <h4>Available leads</h4>
                 </div>
-                <div class="fed-state-metric">
+                <span class="fed-command-status-pill-v2">Live</span>
+              </div>
+
+              <div class="fed-state-grid fed-connect-stat-grid-v2">
+                <div class="fed-state-metric fed-connect-stat-v2 is-total">
+                  <strong id="federationConnectAvailableCount">0</strong>
+                  <small>Ready leads</small>
+                </div>
+                <div class="fed-state-metric fed-connect-stat-v2">
                   <strong id="federationConnectRequestCount">0</strong>
                   <small>Your requests</small>
                 </div>
               </div>
             </article>
 
-            <article class="fed-command-card" id="federationStrategicReadinessCard">
-              <div class="fed-sidebar-card-label">Strategic Readiness</div>
-              <div class="fed-state-grid">
-                <div class="fed-state-metric">
-                  <strong id="federationStrategicReadinessLabel">Plazas First</strong>
-                  <small>Federation candidacy</small>
+            <article class="fed-command-card fed-connect-readiness-card-v2" id="federationStrategicReadinessCard">
+              <div class="fed-command-card-topline-v2">
+                <div>
+                  <div class="fed-sidebar-card-label">Strategic Readiness</div>
+                  <h4>Access state</h4>
                 </div>
-                <div class="fed-state-metric">
+                <span class="fed-command-status-pill-v2">Status</span>
+              </div>
+
+              <div class="fed-state-grid fed-connect-stat-grid-v2">
+                <div class="fed-state-metric fed-connect-stat-v2">
+                  <strong id="federationStrategicReadinessLabel">Plazas First</strong>
+                  <small>Candidacy</small>
+                </div>
+                <div class="fed-state-metric fed-connect-stat-v2">
                   <strong id="federationConnectReadinessLabel">Locked</strong>
-                  <small>Connect readiness</small>
+                  <small>Connect</small>
                 </div>
               </div>
+
               <p class="fed-command-copy" id="federationStrategicReadinessCopy">
                 Federation candidacy starts after Plaza approval and signal-building inside the Plazas.
               </p>
@@ -1029,9 +1052,9 @@
             <input type="hidden" id="connectRequestOwnerUid" name="ownerUid" />
 
             <div class="fed-form-group fed-form-group-full">
-              <div class="fed-form-section-title">Request a Contact</div>
+              <div class="fed-form-section-title">Request a Strategic Connection</div>
               <p class="fed-connect-selected" id="connectSelectedOpportunity">
-                Fill the request fields below. Admin will match your request against the Federation-ready lead database.
+                Choose a lead, explain the business reason, and admin will review the safest introduction route.
               </p>
             </div>
 
@@ -1849,7 +1872,7 @@
     </aside>
   </div>
 
-<script src="/js/federation.js?v=20260818-phase2d-b-control-responses-v1"></script>
+<script src="/js/federation.js?v=20260918-connect-polish-v1"></script>
 <script src="/js/yh-division-tutorials.js?v=20260806-embedded-ready-trigger-v4"></script>
 </body>
 </html>

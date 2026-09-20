@@ -3670,11 +3670,17 @@ function renderFederationConnectRequestsPanel() {
 
   if (!requests.length) {
     panel.innerHTML = `
-      <article class="fed-command-card fed-connect-requests-empty">
-        <div class="fed-sidebar-card-label">Your Requests</div>
-        <h4>No connection requests yet</h4>
+      <article class="fed-command-card fed-connect-requests-empty fed-connect-requests-empty-v2">
+        <div class="fed-command-card-topline-v2">
+          <div>
+            <div class="fed-sidebar-card-label">Your Requests</div>
+            <h4>No connection requests yet</h4>
+          </div>
+          <span class="fed-command-status-pill-v2">Empty</span>
+        </div>
+
         <p class="fed-command-copy">
-          When you request a strategic introduction, it will appear here for status tracking.
+          When you request a strategic introduction, it will appear here with its review status.
         </p>
       </article>
     `;
@@ -3682,13 +3688,18 @@ function renderFederationConnectRequestsPanel() {
   }
 
   panel.innerHTML = `
-    <article class="fed-command-card fed-connect-requests-card">
-      <div class="fed-sidebar-card-label">Your Requests</div>
-      <h4>Connection request tracker</h4>
+    <article class="fed-command-card fed-connect-requests-card fed-connect-requests-card-v2">
+      <div class="fed-command-card-topline-v2">
+        <div>
+          <div class="fed-sidebar-card-label">Your Requests</div>
+          <h4>Connection request tracker</h4>
+        </div>
+        <span class="fed-command-status-pill-v2">${escapeHtml(String(requests.length))}</span>
+      </div>
 
-      <div class="fed-connect-request-list">
+      <div class="fed-connect-request-list fed-connect-request-list-v2">
         ${requests.slice(0, 8).map((request) => `
-          <div class="fed-connect-request-item">
+          <div class="fed-connect-request-item fed-connect-request-item-v2">
             <div>
               <strong>${escapeHtml(request.opportunityTitle || "Connection request")}</strong>
               <small>
@@ -4115,8 +4126,8 @@ function renderFederationConnectSection() {
   }
 
   grid.innerHTML = filtered.map((opportunity) => `
-    <article class="fed-connect-card">
-      <div class="fed-connect-card-top">
+    <article class="fed-connect-card fed-connect-opportunity-card-v2">
+      <div class="fed-connect-card-top fed-connect-card-top-v2">
         <div>
           <div class="fed-sidebar-card-label">
             ${escapeHtml(
@@ -4144,9 +4155,9 @@ function renderFederationConnectSection() {
         </span>
       </div>
 
-      <p class="fed-command-copy">${escapeHtml(opportunity.summary)}</p>
+      <p class="fed-command-copy fed-connect-card-summary-v2">${escapeHtml(opportunity.summary)}</p>
 
-      <div class="fed-connect-meta">
+      <div class="fed-connect-meta fed-connect-meta-v2">
         <span>
           ${escapeHtml(
             opportunity.category
@@ -4164,12 +4175,12 @@ function renderFederationConnectSection() {
         <span>${opportunity.hasDirectContact ? "Contact on file" : "Intro required"}</span>
         ${
           Number(opportunity.buyerPriceAmount || 0) > 0
-            ? `<span>${escapeHtml(formatFederationConnectMoney(opportunity.buyerPriceAmount, opportunity.currency))} total access price</span>`
+            ? `<span>${escapeHtml(formatFederationConnectMoney(opportunity.buyerPriceAmount, opportunity.currency))} access price</span>`
             : `<span>Price set by admin</span>`
         }
       </div>
 
-      <div class="fed-connect-card-foot">
+      <div class="fed-connect-card-foot fed-connect-card-foot-v2">
         <small>
           ${escapeHtml(
             opportunity.companyLabel ||
@@ -7251,8 +7262,8 @@ function renderFederationStrategicCommandV1(state = getCurrentUserState()) {
     .forEach((node) => {
       node.textContent =
         influenceLoaded
-          ? "Live Ledger"
-          : "Syncing Ledger";
+          ? "Live Status"
+          : "Syncing";
     });
 
   qsa("[data-fed-strategic-rank]", shell).forEach((node) => {
@@ -7264,10 +7275,10 @@ function renderFederationStrategicCommandV1(state = getCurrentUserState()) {
 
   if (metricsNode) {
     const metrics = [
-      ["Approved Members", signals.members.length, "Current verified network visibility"],
-      ["Countries Active", signals.countries.length, homeRegion === "Not established" ? "Home region not established" : `Home: ${homeRegion}`],
-      ["Strategic Sectors", signals.sectors.length, member?.category || "No member lane established"],
-      ["Request Signals", signals.requests.length, "Existing request workflow"]
+      ["Approved Members", signals.members.length, "Verified Federation visibility"],
+      ["Active Operations", signals.activeOperations, "Current Deal Room or Connect movement"],
+      ["Strategic Alerts", signals.strategicAlerts, "Items needing review or attention"],
+      ["Countries Active", signals.countries.length, homeRegion === "Not established" ? "No home region established" : `Home: ${homeRegion}`]
     ];
 
     metricsNode.innerHTML = metrics.map(([label, value, note]) => `
@@ -7297,11 +7308,15 @@ function renderFederationStrategicCommandV1(state = getCurrentUserState()) {
             </button>
           </article>
         `
-      : `
+        : `
           <div class="fed-strategic-empty-v1">
-            <strong>No active strategic operation is available.</strong>
-            <span>Real Deal Room or Federation Connect records will appear here without invented operations.</span>
-            <button type="button" data-jump="#deal-rooms">Open Deal Rooms</button>
+            <strong>No active operation yet.</strong>
+            <span>Start from Deal Rooms or request a controlled introduction when you are ready to move.</span>
+
+            <div class="fed-strategic-empty-actions-v1">
+              <button type="button" data-jump="#deal-rooms">Open Deal Rooms</button>
+              <button type="button" data-jump="#connect">Request Connection</button>
+            </div>
           </div>
         `;
   }
@@ -7347,7 +7362,7 @@ function renderFederationStrategicCommandV1(state = getCurrentUserState()) {
           ? `${weeklyInfluence.toLocaleString()} this week • ${influenceEventCount.toLocaleString()} verified events`
           : "Waiting for the canonical Influence profile"
       ],
-      ["Council Standing", "Wiring pending", "Governance system not connected"],
+      ["Council Standing", "Not active yet", "No council role or authority assigned"],
       ["Alliance Status", signals.countries.length ? "Network visible" : "Not established", `${signals.countries.length} active country signals`],
       ["Command Access", state?.type === "member" ? "Active" : "Restricted", state?.type === "member" ? "Approved Federation member" : "Federation approval required"]
     ];
@@ -7538,69 +7553,99 @@ function renderMemberCommandSection() {
       </div>
     </article>
 
-    <article class="fed-command-card">
-      <div class="fed-sidebar-card-label">Referral Momentum</div>
-      <h4>Your current pipeline</h4>
-      <div class="fed-state-grid">
-        <div class="fed-state-metric">
+    <article class="fed-command-card fed-command-card-referral-v2">
+      <div class="fed-command-card-topline-v2">
+        <div>
+          <div class="fed-sidebar-card-label">Referral Momentum</div>
+          <h4>Your current pipeline</h4>
+        </div>
+        <span class="fed-command-status-pill-v2">Live</span>
+      </div>
+
+      <p class="fed-command-copy fed-command-card-subcopy-v2">
+        Track the profiles you have routed into Federation review.
+      </p>
+
+      <div class="fed-state-grid fed-command-metric-grid-v2">
+        <div class="fed-state-metric fed-command-metric-v2 is-total">
           <strong>${escapeHtml(String(snapshot.total))}</strong>
-          <small>Total referred profiles</small>
+          <small>Total referred</small>
         </div>
-        <div class="fed-state-metric">
+        <div class="fed-state-metric fed-command-metric-v2">
           <strong>${escapeHtml(String(snapshot.pending))}</strong>
-          <small>Still under review</small>
+          <small>Under review</small>
         </div>
-        <div class="fed-state-metric">
+        <div class="fed-state-metric fed-command-metric-v2">
           <strong>${escapeHtml(String(snapshot.shortlisted))}</strong>
           <small>Shortlisted</small>
         </div>
-        <div class="fed-state-metric">
+        <div class="fed-state-metric fed-command-metric-v2 is-approved">
           <strong>${escapeHtml(String(snapshot.approved))}</strong>
           <small>Approved</small>
         </div>
       </div>
     </article>
 
-        <article class="fed-command-card fed-command-card-positioning">
-      <div class="fed-sidebar-card-label">Positioning</div>
-      <h4>Where your lane is strongest</h4>
-      <div class="fed-state-grid">
-        <div class="fed-state-metric">
+    <article class="fed-command-card fed-command-card-positioning fed-command-card-positioning-v2">
+      <div class="fed-command-card-topline-v2">
+        <div>
+          <div class="fed-sidebar-card-label">Positioning</div>
+          <h4>Where your lane is strongest</h4>
+        </div>
+        <span class="fed-command-status-pill-v2">Profile</span>
+      </div>
+
+      <p class="fed-command-copy fed-command-card-subcopy-v2">
+        Your strongest lane is based on sector, region, and verified member code.
+      </p>
+
+      <div class="fed-state-grid fed-command-metric-grid-v2 fed-command-positioning-grid-v2">
+        <div class="fed-state-metric fed-command-metric-v2 fed-command-position-pill-v2">
           <strong>${escapeHtml(member.category || "N/A")}</strong>
           <small>Primary sector</small>
         </div>
-        <div class="fed-state-metric">
+        <div class="fed-state-metric fed-command-metric-v2 fed-command-position-pill-v2">
           <strong>${escapeHtml([member.city, member.country].filter(Boolean).join(", ") || "N/A")}</strong>
           <small>Regional anchor</small>
         </div>
-        <div class="fed-state-metric">
+        <div class="fed-state-metric fed-command-metric-v2">
           <strong>${escapeHtml(String(liveRegions || 0))}</strong>
-          <small>Countries in same lane</small>
+          <small>Same-lane countries</small>
         </div>
-        <div class="fed-state-metric">
+        <div class="fed-state-metric fed-command-metric-v2">
           <strong>${escapeHtml(member.referralCode || "N/A")}</strong>
-          <small>Live member code</small>
+          <small>Member code</small>
         </div>
       </div>
     </article>
 
-    <article class="fed-command-card fed-command-card-full">
-      <div class="fed-sidebar-card-label">Connection Activity</div>
-      <h4>Your request pipeline</h4>
-      <div class="fed-state-grid">
-        <div class="fed-state-metric">
-          <strong>${escapeHtml(String(federationServerState.command?.stats?.connectOpportunities || federationConnectState.opportunities.length || 0))}</strong>
-          <small>Available Connect leads</small>
+    <article class="fed-command-card fed-command-card-full fed-command-card-activity-v2">
+      <div class="fed-command-card-topline-v2">
+        <div>
+          <div class="fed-sidebar-card-label">Connection Activity</div>
+          <h4>Your request pipeline</h4>
         </div>
-        <div class="fed-state-metric">
+        <span class="fed-command-status-pill-v2">Requests</span>
+      </div>
+
+      <p class="fed-command-copy fed-command-card-subcopy-v2">
+        Monitor available leads, submitted requests, pending reviews, and completed outcomes.
+      </p>
+
+      <div class="fed-state-grid fed-command-metric-grid-v2 fed-command-activity-grid-v2">
+        <div class="fed-state-metric fed-command-metric-v2 is-total">
+          <strong>${escapeHtml(String(federationServerState.command?.stats?.connectOpportunities || federationConnectState.opportunities.length || 0))}</strong>
+          <small>Available leads</small>
+        </div>
+        <div class="fed-state-metric fed-command-metric-v2">
           <strong>${escapeHtml(String(federationServerState.command?.stats?.myRequests || federationConnectState.requests.length || 0))}</strong>
           <small>Total requests</small>
         </div>
-        <div class="fed-state-metric">
+        <div class="fed-state-metric fed-command-metric-v2 is-pending">
           <strong>${escapeHtml(String(federationServerState.command?.stats?.pendingRequests || federationConnectState.requests.filter((item) => String(item.status || "").includes("pending")).length || 0))}</strong>
           <small>Pending review</small>
         </div>
-        <div class="fed-state-metric">
+        <div class="fed-state-metric fed-command-metric-v2 is-approved">
           <strong>${escapeHtml(String(federationServerState.command?.stats?.completedRequests || federationConnectState.requests.filter((item) => String(item.status || "").toLowerCase() === "completed").length || 0))}</strong>
           <small>Completed</small>
         </div>

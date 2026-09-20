@@ -1605,10 +1605,19 @@ function academyPrimeFeedFallbackHistory() {
 
 function academyPushFeedFallbackHistory(source = 'academy') {
     if (document.body?.getAttribute('data-yh-view') !== 'academy') return;
-    if (isAcademyDashboardEmbedContext()) return;
+
+    const isDashboardEmbed = isAcademyDashboardEmbedContext();
 
     try {
-        academyPrimeFeedFallbackHistory();
+        /*
+         * Standalone Academy keeps the old back-trap primer.
+         * Dashboard-embedded Academy must still push a local
+         * iframe history state so browser/swipe Back can restore
+         * Community Feed instead of leaving a blank white surface.
+         */
+        if (!isDashboardEmbed) {
+            academyPrimeFeedFallbackHistory();
+        }
 
         const normalizedSource = String(source || 'academy').trim().toLowerCase() || 'academy';
         const normalizedSection = normalizedSource === 'group' ? 'messages' : normalizedSource;
@@ -1626,6 +1635,7 @@ function academyPushFeedFallbackHistory(source = 'academy') {
             yhAcademyFallbackTarget: '',
             yhAcademySource: normalizedSource,
             yhAcademySection: normalizedSection,
+            yhAcademyDashboardEmbed: isDashboardEmbed,
             yhAcademyNavStamp: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
         };
 
@@ -1636,9 +1646,11 @@ function academyPushFeedFallbackHistory(source = 'academy') {
         );
     } catch (_) {}
 }
+
 function academyHandleFeedFallbackPopstate(event) {
     if (document.body?.getAttribute('data-yh-view') !== 'academy') return;
-    if (isAcademyDashboardEmbedContext()) return;
+
+    const isDashboardEmbed = isAcademyDashboardEmbedContext();
 
     const state =
         event?.state && typeof event.state === 'object'
@@ -1649,6 +1661,13 @@ function academyHandleFeedFallbackPopstate(event) {
 
     const sectionFromUrl = String(getAcademySectionFromUrl() || '').trim().toLowerCase();
 
+    const profileView = document.getElementById('academy-profile-view');
+    const profileVisible = Boolean(
+        profileView &&
+        !profileView.classList.contains('hidden-step') &&
+        profileView.getAttribute('aria-hidden') !== 'true'
+    );
+
     const shouldForceFeed =
         state?.yhAcademyBackTrap === true ||
         state?.yhAcademyBaseEntry === true ||
@@ -1656,17 +1675,19 @@ function academyHandleFeedFallbackPopstate(event) {
             state?.yhAcademyInternalFallback === true &&
             String(state?.yhAcademyFallbackTarget || '').trim().toLowerCase() === 'community'
         ) ||
-        sectionFromUrl === 'community';
+        sectionFromUrl === 'community' ||
+        (
+            isDashboardEmbed &&
+            profileVisible
+        );
 
     if (!shouldForceFeed) return;
 
     window.requestAnimationFrame(() => {
         if (document.body?.getAttribute('data-yh-view') !== 'academy') return;
 
-        const navChat = document.getElementById('nav-chat');
-
-        if (navChat && typeof navChat.click === 'function') {
-            navChat.click();
+        if (typeof openAcademyFeedView === 'function') {
+            openAcademyFeedView(false);
         } else {
             const feedView = document.getElementById('academy-feed-view');
             const academyChat = document.getElementById('academy-chat');
@@ -1676,32 +1697,48 @@ function academyHandleFeedFallbackPopstate(event) {
 
             [academyChat, profileView, voiceView, videoView].filter(Boolean).forEach((node) => {
                 node.classList.add('hidden-step');
+                node.setAttribute('aria-hidden', 'true');
             });
+
+            document.body?.classList.remove('academy-mobile-profile-active');
+            document.body?.classList.remove('academy-mobile-profile-layout-locked');
+            document.body?.classList.remove('academy-mobile-profile-after-messages');
 
             if (feedView) {
                 feedView.classList.remove('hidden-step');
                 feedView.classList.remove('fade-in');
+                feedView.setAttribute('aria-hidden', 'false');
                 void feedView.offsetWidth;
                 feedView.classList.add('fade-in');
             }
         }
 
-        if (typeof academyPrimeFeedFallbackHistory === 'function') {
+        /*
+         * Only standalone Academy needs the back-trap primer.
+         * Dashboard embed must not keep stacking trap states.
+         */
+        if (
+            !isDashboardEmbed &&
+            typeof academyPrimeFeedFallbackHistory === 'function'
+        ) {
             academyPrimeFeedFallbackHistory();
         }
     });
 }
 function bindAcademyFeedFallbackPopstate() {
-    if (isAcademyDashboardEmbedContext()) return;
     if (window.__yhAcademyFeedFallbackPopstateBound) return;
     window.__yhAcademyFeedFallbackPopstateBound = true;
 
-    academyPrimeFeedFallbackHistory();
+    if (!isAcademyDashboardEmbedContext()) {
+        academyPrimeFeedFallbackHistory();
+    }
 
     window.addEventListener('popstate', academyHandleFeedFallbackPopstate);
 
     window.addEventListener('pageshow', () => {
-        academyPrimeFeedFallbackHistory();
+        if (!isAcademyDashboardEmbedContext()) {
+            academyPrimeFeedFallbackHistory();
+        }
     });
 }
 
@@ -2541,6 +2578,14 @@ const views = {
         void views['voice-lobby-view'].offsetWidth;
         views['voice-lobby-view'].classList.add('fade-in');
 
+        /*
+         * Any route back to Voice Lobby must
+         * release the parent Dashboard navbar lock.
+         */
+        academyNotifyDashboardVoiceStageStateV2(
+            false
+        );
+
         academyPushFeedFallbackHistory('voice');
         saveAcademyViewState('voice'); // persistence (PATCH 5C)
 
@@ -2875,6 +2920,63 @@ function toggleAcademyMobileMenu() {
 
 function initAcademyMobileBottomNavAutoHide() {
     if (!academyMobileBottomNav) return;
+
+    /*
+     * The unified Dashboard owns mobile navigation.
+     *
+     * Academy's historical mobile drawer / menu /
+     * bottom navigation must never render or install
+     * its auto-show runtime while Academy is embedded
+     * inside the Dashboard shell.
+     */
+    if (isAcademyDashboardEmbedContext()) {
+        [
+            document.getElementById('academy-mobile-nav-drawer'),
+            academyMobileNavToggle,
+            academyMobileNavMenu,
+            academyMobileBottomNav
+        ]
+            .filter(Boolean)
+            .forEach((node) => {
+                node.classList.add('hidden-step');
+
+                node.setAttribute(
+                    'aria-hidden',
+                    'true'
+                );
+
+                node.style.setProperty(
+                    'display',
+                    'none',
+                    'important'
+                );
+
+                node.style.setProperty(
+                    'visibility',
+                    'hidden',
+                    'important'
+                );
+
+                node.style.setProperty(
+                    'opacity',
+                    '0',
+                    'important'
+                );
+
+                node.style.setProperty(
+                    'pointer-events',
+                    'none',
+                    'important'
+                );
+            });
+
+        academyMobileNavToggle?.setAttribute(
+            'aria-expanded',
+            'false'
+        );
+
+        return;
+    }
 
     let ticking = false;
     let pendingForceReveal = false;
@@ -8551,10 +8653,56 @@ function academyNormalizeMissionDetailList(values = [], fallback = [], limit = 4
     return out;
 }
 
+function academyCleanRoadmapMissionCopyForDisplay(value = '') {
+    const source = String(value ?? '').trim();
+
+    if (!source) {
+        return '';
+    }
+
+    const contextMarker = source.match(
+        /\buse\s+this\s+context\s+from\s+your\s+roadmap\s+activation\s*:\s*/i
+    );
+
+    if (!contextMarker) {
+        return source;
+    }
+
+    const beforeContext = source
+        .slice(0, contextMarker.index)
+        .trim();
+
+    const afterMarker = source
+        .slice(contextMarker.index + contextMarker[0].length)
+        .trim();
+
+    /*
+     * Keep any actual user-facing instruction that follows
+     * the internal personalization/context payload.
+     */
+    const publicTailMatch = afterMarker.match(
+        /\bdo\s+this\s+as\s+one\s+focused\s+action\b[\s\S]*$/i
+    );
+
+    const publicTail = publicTailMatch
+        ? publicTailMatch[0].trim()
+        : '';
+
+    return [beforeContext, publicTail]
+        .filter(Boolean)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 function academyRenderRoadmapMissionBundleDetails(mission = {}, options = {}) {
     const compact = options?.compact === true;
     const title = String(mission.title || 'today’s Roadmap mission').trim();
-    const description = String(mission.description || 'Complete one focused action that moves your Roadmap forward.').trim();
+
+    const description = academyCleanRoadmapMissionCopyForDisplay(
+        mission.description ||
+        'Complete one focused action that moves your Roadmap forward.'
+    );
 
     const objective = String(
         mission.missionObjective ||
@@ -12123,9 +12271,12 @@ const missionsHtml = missions.length
             const status = safeHtml(statusRaw || 'pending');
             const dueDate = safeHtml(mission.dueDate || 'Not set');
             const estimatedMinutes = safeHtml(mission.estimatedMinutes || 0);
-            const description = safeHtml(
-                mission.description || 'Do the core action described by this mission and produce one concrete output.'
+            const cleanDescription = academyCleanRoadmapMissionCopyForDisplay(
+                mission.description ||
+                'Do the core action described by this mission and produce one concrete output.'
             );
+
+            const description = safeHtml(cleanDescription);
             const doneLooksLike = safeHtml(
                 mission.doneLooksLike || 'A concrete output is finished and ready to review, use, or submit.'
             );
@@ -12145,7 +12296,7 @@ const missionsHtml = missions.length
                 ? mission.microActions
                 : [
                     `Write the mission title: ${mission.title || `Mission ${index + 1}`}.`,
-                    mission.description || 'Complete the smallest useful version of this mission.',
+                    cleanDescription || 'Complete the smallest useful version of this mission.',
                     'Write one sentence proving what you completed.'
                 ];
 
@@ -13111,6 +13262,21 @@ function academySetRoadmapInnerTab(tab = 'overview') {
 
     if (!shell) return;
 
+    /*
+     * Expose the active Roadmap section to the UI layer.
+     * This lets responsive styling react to the current
+     * workspace without guessing from hidden panels.
+     */
+    document.body?.setAttribute(
+        'data-yh-roadmap-tab',
+        cleanTab
+    );
+
+    shell.setAttribute(
+        'data-roadmap-active-tab',
+        cleanTab
+    );
+
     shell
         .querySelectorAll(
             '[data-academy-roadmap-inner-tab]'
@@ -13193,6 +13359,63 @@ function academySetRoadmapInnerTab(tab = 'overview') {
     ) {
         roadmapMenu.open = false;
     }
+
+    /*
+     * The Roadmap AI Coach tab owns the existing
+     * AI Coach conversation surface inline.
+     *
+     * Other Roadmap tabs release it back to the
+     * overlay launcher so there is still only one
+     * coach DOM/runtime instance.
+     */
+    const syncRoadmapCoachSurface = () => {
+        if (
+            document.body?.getAttribute(
+                'data-yh-roadmap-tab'
+            ) !== cleanTab
+        ) {
+            return;
+        }
+
+        if (cleanTab === 'coach') {
+            const coachHost =
+                shell.querySelector(
+                    '[data-roadmap-coach-host]'
+                );
+
+            if (
+                coachHost &&
+                typeof window
+                    .mountAcademyAiCoachRectInline ===
+                    'function'
+            ) {
+                window
+                    .mountAcademyAiCoachRectInline(
+                        coachHost
+                    );
+            }
+
+            return;
+        }
+
+        if (
+            typeof window
+                .unmountAcademyAiCoachRectInline ===
+                'function'
+        ) {
+            window
+                .unmountAcademyAiCoachRectInline();
+        }
+    };
+
+    window.requestAnimationFrame(
+        syncRoadmapCoachSurface
+    );
+
+    window.setTimeout(
+        syncRoadmapCoachSurface,
+        120
+    );
 
     try {
         sessionStorage.setItem(
@@ -13354,15 +13577,11 @@ function academyBuildRoadmapTabbedShellFromCurrentDom() {
                 </section>
 
                 <section class="academy-roadmap-inner-panel hidden-step" data-academy-roadmap-inner-panel="coach" aria-hidden="true">
-                    <div class="academy-roadmap-tab-panel-card">
-                        <div class="academy-roadmap-tab-kicker">AI Coach</div>
-                        <h3>Need help simplifying the next move?</h3>
-                        <p>Open the Academy AI Coach for today’s focus, mission simplification, discipline, or Learn From guidance.</p>
-                        <div class="academy-home-actions academy-roadmap-coach-actions">
-                            <button id="academy-roadmap-inner-open-coach" type="button" class="btn-primary academy-home-action-btn">Ask AI Coach</button>
-                            <button id="academy-roadmap-inner-open-checkin" type="button" class="btn-secondary academy-home-action-btn">Daily Check-In</button>
-                        </div>
-                    </div>
+                    <div
+                        id="academy-roadmap-inner-coach-host"
+                        class="academy-roadmap-coach-host"
+                        data-roadmap-coach-host
+                    ></div>
                 </section>
             </div>
         </section>
@@ -13416,17 +13635,6 @@ function academyBuildRoadmapTabbedShellFromCurrentDom() {
         button.addEventListener('click', () => {
             academySetRoadmapInnerTab(button.getAttribute('data-academy-roadmap-inner-tab') || 'overview');
         });
-    });
-
-    chatWelcomeBox.querySelector('#academy-roadmap-inner-open-coach')?.addEventListener('click', async (event) => {
-        const button = event.currentTarget;
-        await runDashboardButtonAction(button, 'Opening AI Coach.', async () => {
-            await openAcademyCoachView(true);
-        });
-    });
-
-    chatWelcomeBox.querySelector('#academy-roadmap-inner-open-checkin')?.addEventListener('click', () => {
-        academyOpenCheckin();
     });
 
     const todaySlotHasMissionCards = Boolean(
@@ -14205,8 +14413,21 @@ let academyProfileEditorState = {
 const ACADEMY_PROFILE_CACHE_KEY = 'yh_academy_profile_cache_v1';
 
 function academyNormalizeProfileAssetUrl(value = '') {
-    const raw = String(value || '').trim();
+    const raw = String(value ?? '').trim();
+
     if (!raw) return '';
+
+    /*
+     * Reject non-asset sentinel / boolean / numeric values.
+     * Prevents values such as 1 from becoming "/1".
+     */
+    if (
+        /^(?:0|1|true|false|null|undefined|nan)$/i.test(raw) ||
+        /^\d+$/.test(raw) ||
+        raw === '[object Object]'
+    ) {
+        return '';
+    }
 
     if (/^data:/i.test(raw) || /^blob:/i.test(raw)) {
         return raw;
@@ -14379,27 +14600,56 @@ function persistAcademyProfileCache(profile = null) {
     return normalized;
 }
 function academyResolveMemberAvatarUrl(member = {}) {
-    const directAvatar = academyNormalizeProfileAssetUrl(
-        member.avatar ||
-        member.avatarUrl ||
-        member.profilePhoto ||
-        member.photoURL ||
-        ''
+    /*
+     * Test avatar fields one by one instead of using one || chain.
+     * This allows an invalid value such as avatar=1 to be skipped
+     * while still accepting a valid avatar_url.
+     */
+    const directAvatar = academyFirstProfileAssetUrl(
+        member.avatar_url,
+        member.avatarUrl,
+        member.avatar,
+        member.profile_photo,
+        member.profilePhoto,
+        member.photo_url,
+        member.photoURL
     );
 
     if (directAvatar) return directAvatar;
 
-    const memberId = normalizeAcademyFeedId(member.id || member.user_id || member.uid || '');
-    if (memberId && typeof readKnownUsersCache === 'function') {
-        const cache = readKnownUsersCache();
-        const known = cache && typeof cache === 'object' ? cache[memberId] : null;
+    /*
+     * For a DM room, room.id is the ROOM id.
+     * recipientId is the actual member whose avatar we need.
+     */
+    const memberId = normalizeAcademyFeedId(
+        member.recipientId ||
+        member.recipient_id ||
+        member.userId ||
+        member.user_id ||
+        member.uid ||
+        member.id ||
+        ''
+    );
 
-        const knownAvatar = academyNormalizeProfileAssetUrl(
-            known?.avatar ||
-            known?.avatarUrl ||
-            known?.profilePhoto ||
-            known?.photoURL ||
-            ''
+    if (
+        memberId &&
+        typeof readKnownUsersCache === 'function'
+    ) {
+        const cache = readKnownUsersCache();
+
+        const known =
+            cache && typeof cache === 'object'
+                ? cache[memberId]
+                : null;
+
+        const knownAvatar = academyFirstProfileAssetUrl(
+            known?.avatar_url,
+            known?.avatarUrl,
+            known?.avatar,
+            known?.profile_photo,
+            known?.profilePhoto,
+            known?.photo_url,
+            known?.photoURL
         );
 
         if (knownAvatar) return knownAvatar;
@@ -16943,18 +17193,28 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
 
     if (profileAvatar) {
         if (resolvedAvatarPhoto) {
-            profileAvatar.innerText = '';
-            profileAvatar.style.backgroundImage = `url(${resolvedAvatarPhoto})`;
-            profileAvatar.style.backgroundSize = 'cover';
-            profileAvatar.style.backgroundPosition = 'center';
+            const safeAvatarPhoto = String(resolvedAvatarPhoto).replace(/"/g, '\\"');
+
+            profileAvatar.textContent = '';
+            profileAvatar.style.setProperty(
+                'background-image',
+                `url("${safeAvatarPhoto}")`,
+                'important'
+            );
+            profileAvatar.style.setProperty('background-size', 'cover', 'important');
+            profileAvatar.style.setProperty('background-position', 'center', 'important');
+            profileAvatar.style.setProperty('background-repeat', 'no-repeat', 'important');
             profileAvatar.setAttribute('data-profile-image-preview', resolvedAvatarPhoto);
             profileAvatar.setAttribute('data-profile-image-preview-type', 'profile photo');
             profileAvatar.setAttribute('role', 'button');
             profileAvatar.setAttribute('tabindex', '0');
             profileAvatar.setAttribute('title', 'Preview profile photo');
         } else {
-            profileAvatar.innerText = normalized.displayName.charAt(0).toUpperCase();
-            profileAvatar.style.backgroundImage = 'none';
+            profileAvatar.textContent = normalized.displayName.charAt(0).toUpperCase();
+            profileAvatar.style.removeProperty('background-image');
+            profileAvatar.style.removeProperty('background-size');
+            profileAvatar.style.removeProperty('background-position');
+            profileAvatar.style.removeProperty('background-repeat');
             profileAvatar.removeAttribute('data-profile-image-preview');
             profileAvatar.removeAttribute('data-profile-image-preview-type');
             profileAvatar.removeAttribute('role');
@@ -16974,21 +17234,29 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
 
     if (profileCoverBand) {
         if (resolvedCoverPhoto) {
-            profileCoverBand.style.backgroundImage = `
-                linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(15, 23, 42, 0.1)),
-                url(${resolvedCoverPhoto})
-            `;
-            profileCoverBand.style.backgroundSize = 'cover';
-            profileCoverBand.style.backgroundPosition = 'center';
+            const safeCoverPhoto = String(resolvedCoverPhoto).replace(/"/g, '\\"');
+
+            profileCoverBand.style.setProperty(
+                'background-image',
+                `
+                    linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(15, 23, 42, 0.1)),
+                    url("${safeCoverPhoto}")
+                `,
+                'important'
+            );
+            profileCoverBand.style.setProperty('background-size', 'cover', 'important');
+            profileCoverBand.style.setProperty('background-position', 'center', 'important');
+            profileCoverBand.style.setProperty('background-repeat', 'no-repeat', 'important');
             profileCoverBand.setAttribute('data-profile-image-preview', resolvedCoverPhoto);
             profileCoverBand.setAttribute('data-profile-image-preview-type', 'cover photo');
             profileCoverBand.setAttribute('role', 'button');
             profileCoverBand.setAttribute('tabindex', '0');
             profileCoverBand.setAttribute('title', 'Preview cover photo');
         } else {
-            profileCoverBand.style.backgroundImage = '';
-            profileCoverBand.style.backgroundSize = '';
-            profileCoverBand.style.backgroundPosition = '';
+            profileCoverBand.style.removeProperty('background-image');
+            profileCoverBand.style.removeProperty('background-size');
+            profileCoverBand.style.removeProperty('background-position');
+            profileCoverBand.style.removeProperty('background-repeat');
             profileCoverBand.removeAttribute('data-profile-image-preview');
             profileCoverBand.removeAttribute('data-profile-image-preview-type');
             profileCoverBand.removeAttribute('role');
@@ -21297,14 +21565,17 @@ async function fetchAcademyMemberProfile(memberId = '') {
     };
 
     const resolvedAvatar = academyFirstProfileAssetUrl(
-        communityProfile.avatar,
+        communityProfile.avatar_url,
         communityProfile.avatarUrl,
+        communityProfile.avatar,
         communityProfile.profile_photo,
         communityProfile.profilePhoto,
         communityProfile.photo_url,
         communityProfile.photoURL,
-        canonicalProfile?.avatar,
+
+        canonicalProfile?.avatar_url,
         canonicalProfile?.avatarUrl,
+        canonicalProfile?.avatar,
         canonicalProfile?.profile_photo,
         canonicalProfile?.profilePhoto,
         canonicalProfile?.photo_url,
@@ -22457,13 +22728,14 @@ function academyNormalizeRealtimeRoomEntry(room = {}) {
     );
     const unreadCount = Number.isFinite(unreadRaw) && unreadRaw > 0 ? unreadRaw : 0;
 
-    const avatarUrl = normalizeAvatarUrl(
-        String(
-            room?.avatar ||
-            room?.avatarUrl ||
-            room?.avatar_url ||
-            ''
-        ).trim()
+    const avatarUrl = academyFirstProfileAssetUrl(
+        room?.avatar_url,
+        room?.avatarUrl,
+        room?.avatar,
+        room?.profile_photo,
+        room?.profilePhoto,
+        room?.photo_url,
+        room?.photoURL
     );
     const currentUserId =
         normalizeAcademyFeedId(getStoredUserValue('yh_user_id', '')) ||
@@ -22659,6 +22931,112 @@ async function academyHydrateMessageRooms(forceFresh = false) {
                         room?.id
                     );
                 });
+
+            /*
+             * Existing / older DM rooms may not carry
+             * the other member's avatar on the room payload.
+             *
+             * Reuse the existing Academy profile authority
+             * so Inbox + open Thread receive the real avatar.
+             */
+            const dmProfileRequests = new Map();
+
+            await Promise.all(
+                normalizedRooms.map(async (room) => {
+                    if (
+                        String(room?.type || '').trim().toLowerCase() !== 'dm' ||
+                        room?.avatarUrl
+                    ) {
+                        return;
+                    }
+
+                    const recipientId =
+                        normalizeAcademyFeedId(
+                            room?.recipientId ||
+                            room?.recipient_id ||
+                            ''
+                        );
+
+                    if (!recipientId) return;
+
+                    /*
+                     * First try the existing known-user cache.
+                     */
+                    const cachedAvatar =
+                        typeof academyResolveMemberAvatarUrl === 'function'
+                            ? academyResolveMemberAvatarUrl({
+                                recipientId,
+                                user_id: recipientId
+                            })
+                            : '';
+
+                    if (cachedAvatar) {
+                        room.avatarUrl = cachedAvatar;
+                        room.avatar = cachedAvatar;
+                        return;
+                    }
+
+                    /*
+                     * Only fetch each member once even when
+                     * multiple DM rooms point to the same user.
+                     */
+                    if (!dmProfileRequests.has(recipientId)) {
+                        dmProfileRequests.set(
+                            recipientId,
+                            Promise.resolve(
+                                fetchAcademyMemberProfile(recipientId)
+                            ).catch(() => null)
+                        );
+                    }
+
+                    const profile =
+                        await dmProfileRequests.get(recipientId);
+
+                    if (!profile) return;
+
+                    const resolvedAvatar =
+                        academyFirstProfileAssetUrl(
+                            profile.avatar,
+                            profile.avatarUrl,
+                            profile.avatar_url,
+                            profile.profilePhoto,
+                            profile.profile_photo,
+                            profile.photoURL,
+                            profile.photo_url
+                        );
+
+                    if (!resolvedAvatar) return;
+
+                    room.avatarUrl = resolvedAvatar;
+                    room.avatar = resolvedAvatar;
+
+                    if (typeof persistKnownUser === 'function') {
+                        persistKnownUser({
+                            id: recipientId,
+                            userId: recipientId,
+                            uid: recipientId,
+                            name:
+                                profile.displayName ||
+                                profile.display_name ||
+                                profile.fullName ||
+                                profile.full_name ||
+                                room.name ||
+                                '',
+                            displayName:
+                                profile.displayName ||
+                                profile.display_name ||
+                                profile.fullName ||
+                                profile.full_name ||
+                                room.name ||
+                                '',
+                            avatar: resolvedAvatar,
+                            avatarUrl: resolvedAvatar,
+                            profilePhoto: resolvedAvatar,
+                            photoURL: resolvedAvatar
+                        });
+                    }
+                })
+            );
 
             syncCustomRoomsUI(normalizedRooms);
 
@@ -27036,6 +27414,77 @@ function academyResolveLiveRoomHostNameV2(
     );
 }
 
+function academyResolveLiveRoomHostAvatarV1(
+    room = {}
+) {
+    const hostUserId =
+        normalizeAcademyFeedId(
+            room?.host_user_id ||
+            room?.hostUserId ||
+            room?.host_id ||
+            room?.hostId ||
+            ''
+        );
+
+    const directAvatar =
+        academyFirstProfileAssetUrl(
+            room?.host_user_avatar,
+            room?.hostUserAvatar,
+            room?.host_avatar,
+            room?.hostAvatar,
+            room?.avatar_url,
+            room?.avatarUrl,
+            room?.avatar
+        );
+
+    if (directAvatar) {
+        return directAvatar;
+    }
+
+    const currentUserId =
+        academyGetCurrentUserIdForRoomModeration();
+
+    const currentUserOwnsRoom =
+        Boolean(
+            (
+                hostUserId &&
+                currentUserId &&
+                hostUserId === currentUserId
+            ) ||
+            isAcademyLiveRoomHost(room)
+        );
+
+    if (currentUserOwnsRoom) {
+        const ownAvatar =
+            academyFirstProfileAssetUrl(
+                getStoredUserValue(
+                    'yh_user_avatar',
+                    ''
+                ),
+                localStorage.getItem(
+                    'yh_user_avatar'
+                ),
+                readAcademyProfileCache()?.avatar
+            );
+
+        if (ownAvatar) {
+            return ownAvatar;
+        }
+    }
+
+    if (hostUserId) {
+        return academyResolveMemberAvatarUrl({
+            userId:
+                hostUserId,
+
+            user_id:
+                hostUserId
+        });
+    }
+
+    return '';
+}
+
 function academyGetActiveVoiceRoomId() {
     return normalizeAcademyLiveRoomId(
         academyActiveLiveRoom?.id ||
@@ -27620,6 +28069,52 @@ function syncAcademyStageActionButtons(room = {}) {
     }
 }
 
+
+/*
+ * Dashboard mobile navigation authority.
+ *
+ * Academy is rendered inside the Dashboard iframe,
+ * so tell the parent when the user actually enters
+ * or leaves the live stage.
+ */
+function academyNotifyDashboardVoiceStageStateV2(
+    open = false
+) {
+    const stageOpen =
+        open === true;
+
+    document.body?.toggleAttribute(
+        'data-yh-live-stage-open',
+        stageOpen
+    );
+
+    if (stageOpen) {
+        document.body?.setAttribute(
+            'data-yh-live-stage-open',
+            'true'
+        );
+    }
+
+    try {
+        if (
+            window.parent &&
+            window.parent !== window
+        ) {
+            window.parent.postMessage(
+                {
+                    type:
+                        'yh:academy-voice-stage-state',
+
+                    open:
+                        stageOpen
+                },
+                window.location.origin
+            );
+        }
+    } catch (_) {}
+}
+
+
 function renderAcademyStageFromRoom(room = {}, options = {}) {
     hideAcademyViewsForFeed();
 
@@ -27639,6 +28134,14 @@ function renderAcademyStageFromRoom(room = {}, options = {}) {
         }
     }
 
+    /*
+     * Entered the live room:
+     * Dashboard mobile navbar must disappear.
+     */
+    academyNotifyDashboardVoiceStageStateV2(
+        true
+    );
+
     const defaultTitle = roomType === 'video' ? 'Live Video Room' : 'Live Voice Lounge';
     const defaultTopic = roomType === 'video'
         ? 'Live Academy video networking'
@@ -27657,11 +28160,55 @@ function renderAcademyStageFromRoom(room = {}, options = {}) {
     const stageTopic = document.getElementById('stage-topic');
     const stageIcon = document.getElementById('stage-icon');
 
-    if (stageTitle) stageTitle.innerText = roomTitle;
-    if (hostNameEl) hostNameEl.innerText = hostName;
-    if (hostAvatar) hostAvatar.innerText = hostName.charAt(0).toUpperCase();
-    if (stageTopic) stageTopic.innerText = roomTopic;
-    if (stageIcon) stageIcon.innerText = roomType === 'video' ? '📹' : '🎙️';
+    if (stageTitle) {
+        stageTitle.innerText =
+            roomTitle;
+    }
+
+    if (hostNameEl) {
+        hostNameEl.innerText =
+            hostName;
+    }
+
+    if (hostAvatar) {
+        const hostAvatarUrl =
+            academyResolveLiveRoomHostAvatarV1(
+                room
+            );
+
+        hostAvatar.innerText =
+            hostAvatarUrl
+                ? ''
+                : hostName
+                    .charAt(0)
+                    .toUpperCase();
+
+        hostAvatar.style.backgroundImage =
+            hostAvatarUrl
+                ? `url(${JSON.stringify(hostAvatarUrl)})`
+                : '';
+
+        hostAvatar.style.backgroundSize =
+            'cover';
+
+        hostAvatar.style.backgroundPosition =
+            'center';
+
+        hostAvatar.style.backgroundRepeat =
+            'no-repeat';
+    }
+
+    if (stageTopic) {
+        stageTopic.innerText =
+            roomTopic;
+    }
+
+    if (stageIcon) {
+        stageIcon.innerText =
+            roomType === 'video'
+                ? '📹'
+                : '🎙️';
+    }
 
     const stageExpiryNote = document.getElementById('academy-live-stage-expiry-note');
     if (stageExpiryNote) {
@@ -27723,6 +28270,14 @@ function academyRenderLiveLobbyImmediatelyV1(
             : 'voice-lobby-view';
 
     hideAcademyViewsForFeed();
+
+    /*
+     * Returned to Lobby:
+     * restore Dashboard mobile navbar.
+     */
+    academyNotifyDashboardVoiceStageStateV2(
+        false
+    );
 
     setAcademySidebarActive(
         navId
@@ -28179,8 +28734,22 @@ function getAcademyLiveRoomAutoEndText(room = {}) {
         return 'This live has reached the 24-hour limit and will be ended automatically.';
     }
 
-    const hours = Math.floor(remainingMs / (60 * 60 * 1000));
-    const minutes = Math.ceil((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+    const totalMinutes =
+        Math.max(
+            1,
+            Math.floor(
+                remainingMs /
+                (60 * 1000)
+            )
+        );
+
+    const hours =
+        Math.floor(
+            totalMinutes / 60
+        );
+
+    const minutes =
+        totalMinutes % 60;
 
     if (hours >= 1) {
         return `This live will automatically end in about ${hours}h ${minutes}m if you don't end it manually.`;
@@ -28986,23 +29555,21 @@ async function submitAcademyLoungeCreateModal(
 
 function academyMergeFeedPostsV2(
     currentPosts = [],
-    incomingPosts = []
+    incomingPosts = [],
+    options = {}
 ) {
     const byId =
         new Map();
 
-    [
-        ...(
-            Array.isArray(currentPosts)
-                ? currentPosts
-                : []
-        ),
-        ...(
-            Array.isArray(incomingPosts)
-                ? incomingPosts
-                : []
-        )
-    ].forEach((post) => {
+    const order = [];
+
+    const prependIncoming =
+        options?.prependIncoming === true;
+
+    const addPost = (
+        post = {},
+        allowOverwrite = true
+    ) => {
         const postId =
             normalizeAcademyFeedId(
                 post?.id ||
@@ -29011,15 +29578,251 @@ function academyMergeFeedPostsV2(
 
         if (!postId) return;
 
-        byId.set(
-            postId,
-            post
-        );
-    });
+        if (!byId.has(postId)) {
+            order.push(postId);
+            byId.set(postId, post);
+            return;
+        }
 
-    return [
-        ...byId.values()
-    ];
+        if (allowOverwrite) {
+            byId.set(
+                postId,
+                {
+                    ...byId.get(postId),
+                    ...post
+                }
+            );
+        }
+    };
+
+    if (prependIncoming) {
+        (
+            Array.isArray(incomingPosts)
+                ? incomingPosts
+                : []
+        ).forEach((post) => addPost(post, true));
+
+        (
+            Array.isArray(currentPosts)
+                ? currentPosts
+                : []
+        ).forEach((post) => addPost(post, false));
+    } else {
+        (
+            Array.isArray(currentPosts)
+                ? currentPosts
+                : []
+        ).forEach((post) => addPost(post, true));
+
+        (
+            Array.isArray(incomingPosts)
+                ? incomingPosts
+                : []
+        ).forEach((post) => addPost(post, true));
+    }
+
+    return order
+        .map((postId) => byId.get(postId))
+        .filter(Boolean);
+}
+
+function academyBuildSubmittedFeedPostV1(
+    result = {},
+    draft = {}
+) {
+    const serverPost =
+        result?.post ||
+        result?.feedPost ||
+        result?.createdPost ||
+        result?.data?.post ||
+        result?.data?.feedPost ||
+        null;
+
+    if (
+        serverPost &&
+        typeof serverPost === 'object'
+    ) {
+        return serverPost;
+    }
+
+    const media =
+        draft?.media &&
+        typeof draft.media === 'object'
+            ? draft.media
+            : {};
+
+    const feedContext =
+        draft?.feedContext &&
+        typeof draft.feedContext === 'object'
+            ? draft.feedContext
+            : {};
+
+    const mediaUrl =
+        String(media.url || '').trim();
+
+    const serverPostId =
+        normalizeAcademyFeedId(
+            result?.postId ||
+            result?.post_id ||
+            result?.id ||
+            result?.data?.postId ||
+            result?.data?.post_id ||
+            ''
+        );
+
+    return {
+        id:
+            serverPostId ||
+            `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+
+        user_id:
+            getStoredUserValue('yh_user_id', '') ||
+            getStoredUserValue('yh_user_uid', ''),
+
+        display_name:
+            myName ||
+            getStoredUserValue('yh_user_name', '') ||
+            getStoredUserValue('yh_user_full_name', '') ||
+            'Academy Member',
+
+        fullName:
+            myName ||
+            getStoredUserValue('yh_user_full_name', '') ||
+            getStoredUserValue('yh_user_name', '') ||
+            'Academy Member',
+
+        username:
+            getStoredUserValue('yh_user_username', ''),
+
+        role_label:
+            'Academy Member',
+
+        body:
+            String(draft?.body || '').trim(),
+
+        created_at:
+            result?.created_at ||
+            result?.createdAt ||
+            new Date().toISOString(),
+
+        feedScope:
+            feedContext.feedScope ||
+            'global',
+
+        feed_scope:
+            feedContext.feedScope ||
+            'global',
+
+        nicheLabel:
+            feedContext.nicheLabel ||
+            '',
+
+        niche_label:
+            feedContext.nicheLabel ||
+            '',
+
+        media_url:
+            mediaUrl,
+
+        image_url:
+            String(media.kind || '').toLowerCase() === 'image'
+                ? mediaUrl
+                : '',
+
+        video_url:
+            String(media.kind || '').toLowerCase() === 'video'
+                ? mediaUrl
+                : '',
+
+        media_kind:
+            String(media.kind || '').toLowerCase(),
+
+        media_type:
+            String(media.type || '').trim(),
+
+        media_size:
+            Number(media.size || 0) || 0,
+
+        like_count:
+            0,
+
+        comment_count:
+            0,
+
+        owned_by_me:
+            false,
+
+        can_edit:
+            false,
+
+        can_delete:
+            false
+    };
+}
+
+function academyFeedPrependCreatedPostV1(
+    createdPost = {}
+) {
+    const postId =
+        normalizeAcademyFeedId(
+            createdPost?.id ||
+            createdPost?.post_id
+        );
+
+    if (!postId) return;
+
+    const cacheKey =
+        academyBuildFeedCacheKey();
+
+    if (
+        academyFeedPaginationStateV2.cacheKey !==
+        cacheKey
+    ) {
+        academyFeedPaginationStateV2.cacheKey =
+            cacheKey;
+    }
+
+    const nextPosts =
+        academyMergeFeedPostsV2(
+            academyFeedPaginationStateV2.posts,
+            [createdPost],
+            {
+                prependIncoming: true
+            }
+        );
+
+    academyFeedPaginationStateV2.posts =
+        nextPosts;
+
+    renderAcademyFeed(nextPosts);
+    academySyncFeedPaginationControlV2();
+
+    const cachePayload = {
+        posts: nextPosts,
+        nextCursor:
+            academyFeedPaginationStateV2.nextCursor,
+        hasMore:
+            academyFeedPaginationStateV2.hasMore,
+        cachedAt:
+            new Date().toISOString()
+    };
+
+    try {
+        localStorage.setItem(
+            cacheKey,
+            JSON.stringify(cachePayload)
+        );
+
+        localStorage.setItem(
+            'yh_academy_feed_cache',
+            JSON.stringify(cachePayload)
+        );
+    } catch (error) {
+        console.warn(
+            'Failed to cache prepended Academy post:',
+            error
+        );
+    }
 }
 
 function academySyncFeedPaginationControlV2() {
@@ -29086,6 +29889,64 @@ function academySyncFeedPaginationControlV2() {
     list.appendChild(wrap);
 }
 
+function academyShouldBlockNicheFeedRequestV1() {
+    const state =
+        academyReadFeedLayerState();
+
+    if (
+        academyNormalizeFeedLayer(state.layer) !==
+        'niches'
+    ) {
+        return false;
+    }
+
+    const activeNicheKey =
+        academyNormalizeNicheKey(
+            state.activeNicheKey
+        );
+
+    if (
+        state.nicheMenuOpen === true ||
+        !activeNicheKey
+    ) {
+        return true;
+    }
+
+    const joinedKeys =
+        new Set(
+            (
+                Array.isArray(state.joinedNiches)
+                    ? state.joinedNiches
+                    : []
+            )
+                .map((item) =>
+                    academyNormalizeNicheKey(
+                        item?.key
+                    )
+                )
+                .filter(Boolean)
+        );
+
+    return !joinedKeys.has(
+        activeNicheKey
+    );
+}
+
+function academyRenderNicheFeedGateV1() {
+    const list =
+        document.getElementById(
+            'academy-feed-list'
+        );
+
+    if (!list) return;
+
+    list.innerHTML = `
+        <div style="text-align:center;color:var(--text-muted);padding:2rem;">
+            Join or open a niche above to load its feed.
+        </div>
+    `;
+}
+
 async function loadAcademyFeed(
     forceReload = false,
     append = false
@@ -29098,6 +29959,20 @@ async function loadAcademyFeed(
     if (!list) return;
 
     academySyncFeedLayerShell();
+
+    if (
+        typeof academyShouldBlockNicheFeedRequestV1 === 'function' &&
+        academyShouldBlockNicheFeedRequestV1()
+    ) {
+        academyResetFeedPaginationV2(
+            academyBuildFeedCacheKey()
+        );
+
+        academyRenderNicheFeedGateV1();
+        academySyncFeedPaginationControlV2();
+
+        return;
+    }
 
     const cacheKey =
         academyBuildFeedCacheKey();
@@ -29240,14 +30115,31 @@ async function loadAcademyFeed(
                 ? result.posts
                 : [];
 
+        const existingPosts =
+            Array.isArray(
+                academyFeedPaginationStateV2.posts
+            )
+                ? academyFeedPaginationStateV2.posts
+                : [];
+
         const posts =
             append
                 ? academyMergeFeedPostsV2(
-                    academyFeedPaginationStateV2
-                        .posts,
+                    existingPosts,
                     incomingPosts
                 )
-                : incomingPosts;
+                : (
+                    !forceReload &&
+                    existingPosts.length
+                        ? academyMergeFeedPostsV2(
+                            existingPosts,
+                            incomingPosts,
+                            {
+                                prependIncoming: true
+                            }
+                        )
+                        : incomingPosts
+                );
 
         academyFeedPaginationStateV2
             .posts =
@@ -30167,24 +31059,116 @@ function academyUpdateFeedComposerContext() {
 function academyRenderNicheCard(niche = {}, options = {}) {
     const joined = options.joined === true;
     const isDefault = options.isDefault === true;
-    const isActive = academyNormalizeNicheKey(academyFeedLayerState.activeNicheKey) === niche.key;
+
+    const key =
+        academyNormalizeNicheKey(
+            niche?.key
+        );
+
+    const label =
+        String(
+            niche?.label ||
+            'Unnamed Niche'
+        ).trim();
+
+    const description =
+        String(
+            niche?.description ||
+            'Join this niche to personalize your Academy feed.'
+        ).trim();
+
+    const isActive =
+        academyNormalizeNicheKey(
+            academyFeedLayerState.activeNicheKey
+        ) === key;
+
+    const safeKey =
+        academyFeedEscapeHtml(
+            key
+        );
+
+    const safeLabel =
+        academyFeedEscapeHtml(
+            label
+        );
+
+    const safeDescription =
+        academyFeedEscapeHtml(
+            description
+        );
+
+    const statusLabel =
+        isDefault
+            ? 'Default track'
+            : joined
+                ? 'Joined'
+                : 'Available';
 
     return `
-        <div class="academy-niche-card ${isActive ? 'is-active' : ''} ${isDefault ? 'is-default' : ''}" data-niche-card="${academyFeedEscapeHtml(niche.key)}">
-            <strong>${academyFeedEscapeHtml(niche.label)}</strong>
-            <p>${academyFeedEscapeHtml(niche.description || 'Join this niche to personalize your Academy feed.')}</p>
+        <article
+            class="academy-niche-card ${isActive ? 'is-active' : ''} ${isDefault ? 'is-default' : ''} ${joined ? 'is-joined' : 'is-available'}"
+            data-niche-card="${safeKey}"
+        >
+            <div class="academy-niche-card-main">
+                <div class="academy-niche-card-top">
+                    <span class="academy-niche-card-mark">
+                        ${safeLabel.charAt(0).toUpperCase()}
+                    </span>
+
+                    <span class="academy-niche-card-status">
+                        ${academyFeedEscapeHtml(statusLabel)}
+                    </span>
+                </div>
+
+                <h4 class="academy-niche-card-title">
+                    ${safeLabel}
+                </h4>
+
+                <p class="academy-niche-card-copy">
+                    ${safeDescription}
+                </p>
+            </div>
+
             <div class="academy-niche-card-actions">
                 ${
                     joined
                         ? `
-                            <button type="button" class="academy-niche-action-btn is-primary" data-open-niche="${academyFeedEscapeHtml(niche.key)}">Open</button>
-                            <button type="button" class="academy-niche-action-btn" data-default-niche="${academyFeedEscapeHtml(niche.key)}">${isDefault ? 'Default' : 'Make Default'}</button>
-                            <button type="button" class="academy-niche-action-btn is-danger" data-leave-niche="${academyFeedEscapeHtml(niche.key)}">Leave</button>
+                            <button
+                                type="button"
+                                class="academy-niche-action-btn is-primary"
+                                data-open-niche="${safeKey}"
+                            >
+                                Open niche
+                            </button>
+
+                            <button
+                                type="button"
+                                class="academy-niche-action-btn"
+                                data-default-niche="${safeKey}"
+                            >
+                                ${isDefault ? 'Default' : 'Make default'}
+                            </button>
+
+                            <button
+                                type="button"
+                                class="academy-niche-action-btn is-danger"
+                                data-leave-niche="${safeKey}"
+                            >
+                                Leave
+                            </button>
                         `
-                        : `<button type="button" class="academy-niche-action-btn is-primary" data-join-niche="${academyFeedEscapeHtml(niche.key)}">Join</button>`
+                        : `
+                            <button
+                                type="button"
+                                class="academy-niche-action-btn is-primary"
+                                data-join-niche="${safeKey}"
+                            >
+                                Join niche
+                            </button>
+                        `
                 }
             </div>
-        </div>
+        </article>
     `;
 }
 
@@ -30258,41 +31242,163 @@ function academyRenderNicheDashboard() {
         );
     });
 
-    wrap.innerHTML = `
-        <div class="academy-niche-section">
-            <div class="academy-niche-section-head">
-                <div class="academy-niche-section-title">Recommended Niche</div>
-            </div>
-            <div class="academy-niche-grid">
-                ${recommended ? academyRenderNicheCard(recommended, { joined: joinedKeys.has(recommended.key), isDefault: recommended.key === defaultKey }) : ''}
-            </div>
-        </div>
+    const totalCount =
+        Array.isArray(niches)
+            ? niches.length
+            : 0;
 
-        <div class="academy-niche-section">
-            <div class="academy-niche-section-head">
-                <div class="academy-niche-section-title">Joined Niches</div>
+    const joinedCount =
+        joined.length;
+
+    const exploreCount =
+        explore.length;
+
+    wrap.innerHTML = `
+        <section class="academy-niche-hero">
+            <span class="academy-niche-kicker">
+                Academy Niches
+            </span>
+
+            <h3 class="academy-niche-hero-title">
+                Choose your growth lane.
+            </h3>
+
+            <p class="academy-niche-hero-copy">
+                Join focused communities for skills, business models,
+                mindset, markets, and execution. Your selected niche
+                controls the feed you post into.
+            </p>
+
+            <div class="academy-niche-stats">
+                <div class="academy-niche-stat">
+                    <strong>${totalCount}</strong>
+                    <span>Total tracks</span>
+                </div>
+
+                <div class="academy-niche-stat">
+                    <strong>${joinedCount}</strong>
+                    <span>Joined</span>
+                </div>
+
+                <div class="academy-niche-stat">
+                    <strong>${exploreCount}</strong>
+                    <span>Available</span>
+                </div>
             </div>
+        </section>
+
+        <section class="academy-niche-section academy-niche-section-featured">
+            <div class="academy-niche-section-head">
+                <div>
+                    <div class="academy-niche-section-kicker">
+                        Recommended
+                    </div>
+
+                    <div class="academy-niche-section-title">
+                        Start here
+                    </div>
+                </div>
+            </div>
+
+            <div class="academy-niche-grid">
+                ${
+                    recommended
+                        ? academyRenderNicheCard(
+                            recommended,
+                            {
+                                joined:
+                                    joinedKeys.has(
+                                        academyNormalizeNicheKey(
+                                            recommended.key
+                                        )
+                                    ),
+
+                                isDefault:
+                                    academyNormalizeNicheKey(
+                                        recommended.key
+                                    ) === defaultKey
+                            }
+                        )
+                        : ''
+                }
+            </div>
+        </section>
+
+        <section class="academy-niche-section">
+            <div class="academy-niche-section-head">
+                <div>
+                    <div class="academy-niche-section-kicker">
+                        Your tracks
+                    </div>
+
+                    <div class="academy-niche-section-title">
+                        Joined Niches
+                    </div>
+                </div>
+            </div>
+
             <div class="academy-niche-grid">
                 ${
                     joined.length
-                        ? joined.map((item) => academyRenderNicheCard(item, { joined: true, isDefault: item.key === defaultKey })).join('')
-                        : `<div class="academy-niche-loading">You have not joined a niche yet. Open one below and press Join.</div>`
+                        ? joined
+                            .map((item) =>
+                                academyRenderNicheCard(
+                                    item,
+                                    {
+                                        joined: true,
+                                        isDefault:
+                                            academyNormalizeNicheKey(
+                                                item.key
+                                            ) === defaultKey
+                                    }
+                                )
+                            )
+                            .join('')
+                        : `
+                            <div class="academy-niche-empty">
+                                You have not joined a niche yet. Choose one below
+                                and press Join.
+                            </div>
+                        `
                 }
             </div>
-        </div>
+        </section>
 
-        <div class="academy-niche-section">
+        <section class="academy-niche-section">
             <div class="academy-niche-section-head">
-                <div class="academy-niche-section-title">Explore More Niches</div>
+                <div>
+                    <div class="academy-niche-section-kicker">
+                        Explore
+                    </div>
+
+                    <div class="academy-niche-section-title">
+                        More Niches
+                    </div>
+                </div>
             </div>
+
             <div class="academy-niche-grid">
                 ${
                     explore.length
-                        ? explore.map((item) => academyRenderNicheCard(item, { joined: false, isDefault: false })).join('')
-                        : `<div class="academy-niche-loading">You have joined all available niches.</div>`
+                        ? explore
+                            .map((item) =>
+                                academyRenderNicheCard(
+                                    item,
+                                    {
+                                        joined: false,
+                                        isDefault: false
+                                    }
+                                )
+                            )
+                            .join('')
+                        : `
+                            <div class="academy-niche-empty">
+                                You have joined all available niches.
+                            </div>
+                        `
                 }
             </div>
-        </div>
+        </section>
     `;
 }
 
@@ -30420,8 +31526,14 @@ async function academyLoadCommunityNicheState() {
             academyFeedLayerState.activeNicheKey =
                 academyFeedLayerState.defaultNicheKey ||
                 academyFeedLayerState.joinedNiches?.[0]?.key ||
-                academyFeedLayerState.niches?.[0]?.key ||
                 '';
+        }
+
+        if (
+            academyFeedLayerState.layer === 'niches' &&
+            !academyFeedLayerState.activeNicheKey
+        ) {
+            academyFeedLayerState.nicheMenuOpen = true;
         }
 
         academyWriteFeedLayerState();
@@ -31535,21 +32647,40 @@ async function academyFeedSubmitPost() {
             submitBtn.innerText = 'Posting...';
         }
 
-        await academyAuthedFetch('/api/academy/feed/posts', {
-            method: 'POST',
-            body: JSON.stringify({
-                body,
-                mediaReceipt: media.receipt || '',
-                feedScope: feedContext.feedScope,
-                nicheKey: feedContext.nicheKey || '',
-                nicheLabel: feedContext.nicheLabel || '',
-                audience: feedContext.audience || 'global'
-            })
-        });
+        const result =
+            await academyAuthedFetch('/api/academy/feed/posts', {
+                method: 'POST',
+                body: JSON.stringify({
+                    body,
+                    mediaReceipt: media.receipt || '',
+                    feedScope: feedContext.feedScope,
+                    nicheKey: feedContext.nicheKey || '',
+                    nicheLabel: feedContext.nicheLabel || '',
+                    audience: feedContext.audience || 'global'
+                })
+            });
+
+        const createdPost =
+            academyBuildSubmittedFeedPostV1(
+                result,
+                {
+                    body,
+                    media,
+                    feedContext
+                }
+            );
 
         resetAcademyFeedComposer();
+
+        academyFeedPrependCreatedPostV1(
+            createdPost
+        );
+
         showToast(`Posted to ${feedContext.label}.`, 'success');
-        loadAcademyFeed(true);
+
+        window.setTimeout(() => {
+            loadAcademyFeed(false);
+        }, 450);
     } catch (error) {
         showToast(error.message || 'Failed to create post.', 'error');
     } finally {
@@ -31947,8 +33078,100 @@ async function academyFeedHidePost(postId, button = null) {
 
 let academyPostDetailStateV1 = {
     postId: '',
-    feedScrollTop: 0
+    feedScrollTop: 0,
+    historyKey: ''
 };
+
+
+function academyPushPostDetailHistoryV1(
+    postId = ''
+) {
+    const normalizedPostId =
+        normalizeAcademyFeedId(
+            postId
+        );
+
+    if (!normalizedPostId) {
+        return;
+    }
+
+    try {
+        const historyKey =
+            `post-detail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+        academyPostDetailStateV1.historyKey =
+            historyKey;
+
+        window.history.pushState(
+            {
+                ...(window.history.state || {}),
+                yhAcademyPostDetail: true,
+                yhAcademyPostDetailPostId: normalizedPostId,
+                yhAcademyPostDetailHistoryKey: historyKey,
+                yhAcademySection: 'community'
+            },
+            '',
+            window.location.href
+        );
+    } catch (_) {}
+}
+
+
+function academyReplacePostDetailHistoryAsFeedV1() {
+    try {
+        if (
+            window.history.state &&
+            window.history.state.yhAcademyPostDetail === true
+        ) {
+            window.history.replaceState(
+                {
+                    ...(window.history.state || {}),
+                    yhAcademyPostDetail: false,
+                    yhAcademyPostDetailPostId: '',
+                    yhAcademyPostDetailHistoryKey: '',
+                    yhAcademySection: 'community'
+                },
+                '',
+                window.location.href
+            );
+        }
+    } catch (_) {}
+}
+
+
+function academyHandlePostDetailPopstateV1() {
+    if (
+        document.body?.getAttribute('data-yh-view') !==
+        'academy'
+    ) {
+        return;
+    }
+
+    if (
+        typeof academyIsPostDetailActiveV1 === 'function' &&
+        academyIsPostDetailActiveV1()
+    ) {
+        academyClosePostDetailViewV1({
+            restoreScroll: true,
+            fromHistory: true
+        });
+    }
+}
+
+
+function bindAcademyPostDetailWebNavigationV1() {
+    if (window.__yhAcademyPostDetailWebNavigationBoundV1) {
+        return;
+    }
+
+    window.__yhAcademyPostDetailWebNavigationBoundV1 =
+        true;
+
+    window.addEventListener(
+        'popstate',
+        academyHandlePostDetailPopstateV1
+    );
+}
 
 
 let academyPostDetailNativeStateLastSentV1 = '';
@@ -32597,7 +33820,8 @@ function academyBuildPostDetailCardCloneV1(
 
 function academyClosePostDetailViewV1(
     {
-        restoreScroll = true
+        restoreScroll = true,
+        fromHistory = false
     } = {}
 ) {
     const feedView =
@@ -32608,6 +33832,23 @@ function academyClosePostDetailViewV1(
     const detailView =
         document.getElementById(
             'academy-post-detail-view'
+        );
+
+    const postSurface =
+        document.getElementById(
+            'academy-post-detail-post'
+        );
+
+    const commentsList =
+        document.getElementById(
+            'academy-post-detail-comments-list'
+        );
+
+    const savedScrollTop =
+        Number(
+            academyPostDetailStateV1
+                .feedScrollTop ||
+            0
         );
 
 
@@ -32623,30 +33864,52 @@ function academyClosePostDetailViewV1(
     }
 
 
+    if (postSurface) {
+        postSurface.innerHTML = '';
+    }
+
+    if (commentsList) {
+        commentsList.innerHTML = '';
+    }
+
+
     if (feedView) {
         feedView.classList.remove(
             'hidden-step'
+        );
+
+        feedView.classList.remove(
+            'fade-in'
         );
 
         feedView.setAttribute(
             'aria-hidden',
             'false'
         );
-    }
 
+        void feedView.offsetWidth;
 
-    const savedScrollTop =
-        Number(
-            academyPostDetailStateV1
-                .feedScrollTop ||
-            0
+        feedView.classList.add(
+            'fade-in'
         );
+    }
 
 
     academyPostDetailStateV1 = {
         postId: '',
-        feedScrollTop: 0
+        feedScrollTop: 0,
+        historyKey: ''
     };
+
+
+    document.body?.classList.remove(
+        'academy-post-detail-active'
+    );
+
+
+    if (!fromHistory) {
+        academyReplacePostDetailHistoryAsFeedV1();
+    }
 
 
     academySyncPostDetailNativeNavigationV1();
@@ -32659,6 +33922,21 @@ function academyClosePostDetailViewV1(
     saveAcademyViewState?.(
         'community'
     );
+
+
+    /*
+     * Force the real Community Feed surface back.
+     * This prevents the white blank page after
+     * browser/mobile swipe Back from Post Detail.
+     */
+    if (typeof openAcademyFeedView === 'function') {
+        window.setTimeout(
+            () => {
+                openAcademyFeedView(false);
+            },
+            0
+        );
+    }
 
 
     if (
@@ -32775,8 +34053,16 @@ async function academyOpenPostDetailViewV1(
                 feedScrollHost
                     ?.scrollTop ||
                 0
-            )
+            ),
+
+        historyKey:
+            ''
     };
+
+
+    academyPushPostDetailHistoryV1(
+        normalizedPostId
+    );
 
 
     /*
@@ -32981,7 +34267,8 @@ function academyPostDetailCountRepliesV1(
 
 function academyPostDetailRenderPrimaryCommentV1(
     postId = '',
-    comment = {}
+    comment = {},
+    options = {}
 ) {
     const normalizedPostId =
         normalizeAcademyFeedId(
@@ -32999,6 +34286,21 @@ function academyPostDetailRenderPrimaryCommentV1(
     ) {
         return '';
     }
+
+
+    const expandedReplyIds =
+        Array.isArray(
+            options?.expandedReplyIds
+        )
+            ? options.expandedReplyIds
+                .map((id) => normalizeAcademyFeedId(id))
+                .filter(Boolean)
+            : [];
+
+    const shouldKeepRepliesOpen =
+        expandedReplyIds.includes(
+            commentId
+        );
 
 
     const replies =
@@ -33050,7 +34352,8 @@ function academyPostDetailRenderPrimaryCommentV1(
     /*
      * Replies are still rendered with the
      * existing authoritative renderer, but
-     * placed inside a hidden container.
+     * their open/closed state is preserved
+     * after posting a reply.
      */
     const repliesHtml =
         replies
@@ -33077,7 +34380,7 @@ function academyPostDetailRenderPrimaryCommentV1(
                 class="academy-post-detail-replies-toggle"
                 data-primary-comment-id="${academyFeedEscapeHtml(commentId)}"
                 data-reply-count="${replyCount}"
-                aria-expanded="false"
+                aria-expanded="${shouldKeepRepliesOpen ? 'true' : 'false'}"
                 style="
                     width:auto;
                     margin:5px 0 4px 44px;
@@ -33092,12 +34395,15 @@ function academyPostDetailRenderPrimaryCommentV1(
                     text-align:left;
                 "
             >
-                View ${replyCount}
-                ${replyCount === 1 ? 'reply' : 'replies'}
+                ${
+                    shouldKeepRepliesOpen
+                        ? 'Hide replies'
+                        : `View ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`
+                }
             </button>
 
             <div
-                class="academy-post-detail-replies hidden-step"
+                class="academy-post-detail-replies ${shouldKeepRepliesOpen ? '' : 'hidden-step'}"
                 id="academy-post-detail-replies-${academyFeedEscapeHtml(commentId)}"
                 data-primary-comment-id="${academyFeedEscapeHtml(commentId)}"
             >
@@ -33108,8 +34414,71 @@ function academyPostDetailRenderPrimaryCommentV1(
 }
 
 
+function academyPostDetailReadExpandedReplyIdsV1() {
+    return Array
+        .from(
+            document.querySelectorAll(
+                '#academy-post-detail-view .academy-post-detail-primary-thread[data-primary-comment-id]'
+            )
+        )
+        .filter((thread) => {
+            const replies =
+                thread.querySelector(
+                    '.academy-post-detail-replies'
+                );
+
+            return Boolean(
+                replies &&
+                !replies.classList.contains(
+                    'hidden-step'
+                )
+            );
+        })
+        .map((thread) =>
+            normalizeAcademyFeedId(
+                thread.getAttribute(
+                    'data-primary-comment-id'
+                )
+            )
+        )
+        .filter(Boolean);
+}
+
+
+function academyPostDetailFindPrimaryThreadIdForCommentV1(
+    commentId = ''
+) {
+    const normalizedCommentId =
+        normalizeAcademyFeedId(
+            commentId
+        );
+
+    if (!normalizedCommentId) {
+        return '';
+    }
+
+    const replyForm =
+        document.getElementById(
+            `academy-feed-comment-reply-form-${normalizedCommentId}`
+        );
+
+    const primaryThread =
+        replyForm?.closest?.(
+            '.academy-post-detail-primary-thread[data-primary-comment-id]'
+        );
+
+    return normalizeAcademyFeedId(
+        primaryThread?.getAttribute(
+            'data-primary-comment-id'
+        ) ||
+        normalizedCommentId
+    );
+}
+
+
 async function academyPostDetailLoadCommentsV1(
-    postId = ''
+    postId = '',
+    options = {}
 ) {
     const normalizedPostId =
         normalizeAcademyFeedId(
@@ -33129,11 +34498,46 @@ async function academyPostDetailLoadCommentsV1(
     }
 
 
-    list.innerHTML = `
-        <div class="academy-post-detail-comments-empty">
-            Loading comments...
-        </div>
-    `;
+    const preserveExisting =
+        options?.preserveExisting === true;
+
+    const hasRenderedComments =
+        Boolean(
+            list.children &&
+            list.children.length
+        );
+
+    const expandedReplyIds =
+        Array.isArray(
+            options?.expandedReplyIds
+        )
+            ? options.expandedReplyIds
+                .map((id) => normalizeAcademyFeedId(id))
+                .filter(Boolean)
+            : academyPostDetailReadExpandedReplyIdsV1();
+
+
+    /*
+     * Normal first load can show Loading.
+     * Post-submit reload must keep the already-rendered
+     * comments/replies visible until the fresh server data
+     * is ready.
+     */
+    if (
+        !preserveExisting ||
+        !hasRenderedComments
+    ) {
+        list.innerHTML = `
+            <div class="academy-post-detail-comments-empty">
+                Loading comments...
+            </div>
+        `;
+    } else {
+        list.setAttribute(
+            'aria-busy',
+            'true'
+        );
+    }
 
 
     try {
@@ -33171,30 +34575,22 @@ async function academyPostDetailLoadCommentsV1(
         }
 
 
-        /*
-         * This gives us primary/root comments
-         * with their replies under children[].
-         */
         const threadedComments =
             academyFeedBuildCommentTree(
                 comments
             );
 
 
-        /*
-         * ONLY roots are placed directly in
-         * the Post Detail comments list.
-         *
-         * Each root decides separately whether
-         * its reply container is opened.
-         */
         list.innerHTML =
             threadedComments
                 .map(
                     (comment) =>
                         academyPostDetailRenderPrimaryCommentV1(
                             normalizedPostId,
-                            comment
+                            comment,
+                            {
+                                expandedReplyIds
+                            }
                         )
                 )
                 .join('');
@@ -33204,11 +34600,25 @@ async function academyPostDetailLoadCommentsV1(
             error
         );
 
-        list.innerHTML = `
-            <div class="academy-post-detail-comments-empty">
-                Failed to load comments.
-            </div>
-        `;
+        if (
+            !preserveExisting ||
+            !hasRenderedComments
+        ) {
+            list.innerHTML = `
+                <div class="academy-post-detail-comments-empty">
+                    Failed to load comments.
+                </div>
+            `;
+        } else {
+            showToast(
+                'Failed to refresh comments.',
+                'error'
+            );
+        }
+    } finally {
+        list.removeAttribute(
+            'aria-busy'
+        );
     }
 }
 
@@ -33500,12 +34910,45 @@ async function academyFeedSubmitComment(
          * Post Detail owns the discussion
          * while it is open.
          *
-         * Do NOT reopen the hidden inline
-         * Feed comments section.
+         * Keep the existing rendered comments/replies
+         * visible while the fresh server copy loads.
          */
         if (isPostDetailActive) {
+            const expandedReplyIds =
+                typeof academyPostDetailReadExpandedReplyIdsV1 === 'function'
+                    ? academyPostDetailReadExpandedReplyIdsV1()
+                    : [];
+
+            const parentPrimaryThreadId =
+                normalizedParentCommentId &&
+                typeof academyPostDetailFindPrimaryThreadIdForCommentV1 === 'function'
+                    ? academyPostDetailFindPrimaryThreadIdForCommentV1(
+                        normalizedParentCommentId
+                    )
+                    : '';
+
+            const nextExpandedReplyIds =
+                [
+                    ...expandedReplyIds
+                ];
+
+            if (
+                parentPrimaryThreadId &&
+                !nextExpandedReplyIds.includes(
+                    parentPrimaryThreadId
+                )
+            ) {
+                nextExpandedReplyIds.push(
+                    parentPrimaryThreadId
+                );
+            }
+
             await academyPostDetailLoadCommentsV1(
-                normalizedPostId
+                normalizedPostId,
+                {
+                    preserveExisting: true,
+                    expandedReplyIds: nextExpandedReplyIds
+                }
             );
         } else {
             await academyFeedLoadComments(
@@ -35496,7 +36939,10 @@ document.getElementById('academy-feed-image-file')?.addEventListener('change', a
 
         if (uploadBtn) {
             uploadBtn.disabled = true;
-            uploadBtn.innerText = 'Uploading...';
+            uploadBtn.innerHTML = `
+                <span class="academy-feed-gallery-btn-icon">↥</span>
+                <span class="academy-feed-gallery-btn-text">Uploading...</span>
+            `;
         }
 
         if (submitBtn) {
@@ -36093,6 +37539,7 @@ document.getElementById(
 
 
 bindAcademyPostDetailNativeNavigationV1();
+bindAcademyPostDetailWebNavigationV1();
 
 
 document.getElementById(
@@ -44929,25 +46376,55 @@ function lockBotToVisibleBottom() {
         const liveTabMode = getAcademyAiCoachInlineTabMode();
         const hasAccess = academyHasAiCoachSubscriberAccess();
 
+        const activeRoadmapTab = String(
+            document.body?.getAttribute(
+                'data-yh-roadmap-tab'
+            ) || ''
+        )
+            .trim()
+            .toLowerCase();
+
+        const isRoadmapCoachTab =
+            liveTabMode === 'roadmap' &&
+            activeRoadmapTab === 'coach';
+
         if (liveTabMode) {
             academyAiCoachInlineStableMode = liveTabMode;
         }
 
-        const stableTabMode = liveTabMode || academyAiCoachInlineStableMode;
-        const shouldShow = Boolean(liveTabMode) && hasAccess;
+        const stableTabMode =
+            liveTabMode ||
+            academyAiCoachInlineStableMode;
+
+        const shouldShow =
+            Boolean(liveTabMode) &&
+            hasAccess &&
+            !isRoadmapCoachTab;
+
         const shouldHoldDuringTransition =
             !liveTabMode &&
             hasAccess &&
             Boolean(stableTabMode) &&
+            !isRoadmapCoachTab &&
             isAcademyAiCoachInlineTabTransitioning();
 
-        if (shouldShow || shouldHoldDuringTransition) {
-            showAcademyAiCoachInlineTabButton(button, stableTabMode);
+        if (
+            shouldShow ||
+            shouldHoldDuringTransition
+        ) {
+            showAcademyAiCoachInlineTabButton(
+                button,
+                stableTabMode
+            );
+
             return;
         }
 
         academyAiCoachInlineStableMode = '';
-        hideAcademyAiCoachInlineTabButton(button);
+
+        hideAcademyAiCoachInlineTabButton(
+            button
+        );
     }
 
     function scheduleAcademyAiCoachInlineTabButtonSync(delay = 80) {
@@ -47398,16 +48875,19 @@ function openAcademyYhaBadgePaymentModalFromLearnFrom() {
         modal.setAttribute('aria-hidden', 'true');
 
         modal.innerHTML = `
-            <div class="academy-ai-coach-rect-card" role="dialog" aria-modal="true" aria-labelledby="academy-ai-coach-rect-title">
-                <div class="academy-ai-coach-rect-head">
-                    <div class="academy-ai-coach-rect-identity">
-                        <div class="academy-ai-coach-rect-avatar has-ai-robot-image">${getAcademyAiCoachRobotAvatarHtml('academy-ai-coach-rect-avatar-img')}</div>
-                        <div>
-                            <div class="academy-ai-coach-rect-kicker">Academy Assistant</div>
-                            <h3 id="academy-ai-coach-rect-title">AI Coach</h3>
-                            <p>Ask about your roadmap, missions, discipline, check-ins, or today’s next move.</p>
-                        </div>
-                    </div>
+<div class="academy-ai-coach-rect-card" role="dialog" aria-modal="true" aria-labelledby="academy-ai-coach-rect-kicker">
+    <div class="academy-ai-coach-rect-head">
+        <div class="academy-ai-coach-rect-identity">
+            <div class="academy-ai-coach-rect-avatar has-ai-robot-image">${getAcademyAiCoachRobotAvatarHtml('academy-ai-coach-rect-avatar-img')}</div>
+            <div>
+                <div
+                    id="academy-ai-coach-rect-kicker"
+                    class="academy-ai-coach-rect-kicker"
+                >
+                    Academy Assistant
+                </div>
+            </div>
+        </div>
 
                     <button type="button" class="academy-ai-coach-rect-close" id="${CLOSE_ID}" aria-label="Close AI Coach">✕</button>
                 </div>
@@ -47875,6 +49355,193 @@ function openAcademyYhaBadgePaymentModalFromLearnFrom() {
     }
 
 
+    function mountInline(host) {
+        if (!(host instanceof HTMLElement)) {
+            return false;
+        }
+
+        if (!hasAcademyAiCoachSubscriberAccess()) {
+            const existingModal =
+                document.getElementById(
+                    MODAL_ID
+                );
+
+            if (
+                existingModal?.classList.contains(
+                    'is-inline-tab'
+                )
+            ) {
+                unmountInline();
+            }
+
+            host.innerHTML = `
+                <div class="academy-roadmap-tab-panel-card">
+                    <div class="academy-roadmap-tab-kicker">
+                        AI Coach
+                    </div>
+
+                    <h3>Academy AI Coach</h3>
+
+                    <p>
+                        AI Coach is available to active
+                        Academy/YHA subscribers.
+                    </p>
+                </div>
+            `;
+
+            return false;
+        }
+
+        const modal =
+            createModal();
+
+        const alreadyMounted =
+            modal.classList.contains(
+                'is-inline-tab'
+            ) &&
+            modal.parentElement === host;
+
+        const card =
+            modal.querySelector(
+                '.academy-ai-coach-rect-card'
+            );
+
+        if (!alreadyMounted) {
+            host.replaceChildren(
+                modal
+            );
+        }
+
+        modal.classList.remove(
+            'hidden-step',
+            'is-open'
+        );
+
+        modal.classList.add(
+            'is-inline-tab'
+        );
+
+        modal.setAttribute(
+            'aria-hidden',
+            'false'
+        );
+
+        modal.setAttribute(
+            'data-ai-coach-presentation',
+            'inline'
+        );
+
+        if (card) {
+            card.setAttribute(
+                'role',
+                'region'
+            );
+
+            card.removeAttribute(
+                'aria-modal'
+            );
+
+            card.setAttribute(
+                'aria-label',
+                'Academy AI Coach'
+            );
+        }
+
+        /*
+         * Inline mode is page content,
+         * not a Dashboard-blocking modal.
+         */
+        document.body?.classList.remove(
+            'academy-ai-coach-rect-open'
+        );
+
+        if (!alreadyMounted) {
+            refreshAcademyLearnFromAccess()
+                .catch(
+                    () => null
+                );
+
+            loadCoachMessages();
+        }
+
+        return true;
+    }
+
+
+    function unmountInline() {
+        const modal =
+            document.getElementById(
+                MODAL_ID
+            );
+
+        if (
+            !modal ||
+            !modal.classList.contains(
+                'is-inline-tab'
+            )
+        ) {
+            return false;
+        }
+
+        const quickMenu =
+            modal.querySelector(
+                '.academy-ai-coach-rect-quick-menu'
+            );
+
+        if (
+            quickMenu instanceof
+            HTMLDetailsElement
+        ) {
+            quickMenu.open = false;
+        }
+
+        const card =
+            modal.querySelector(
+                '.academy-ai-coach-rect-card'
+            );
+
+        modal.classList.remove(
+            'is-inline-tab',
+            'is-open'
+        );
+
+        modal.classList.add(
+            'hidden-step'
+        );
+
+        modal.removeAttribute(
+            'data-ai-coach-presentation'
+        );
+
+        modal.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+
+        if (card) {
+            card.setAttribute(
+                'role',
+                'dialog'
+            );
+
+            card.setAttribute(
+                'aria-modal',
+                'true'
+            );
+
+            card.removeAttribute(
+                'aria-label'
+            );
+        }
+
+        document.body.appendChild(
+            modal
+        );
+
+        return true;
+    }
+
+
     function openModal() {
         if (!hasAcademyAiCoachSubscriberAccess()) {
             try {
@@ -47886,6 +49553,14 @@ function openAcademyYhaBadgePaymentModalFromLearnFrom() {
         }
 
         const modal = createModal();
+
+        if (
+            modal.classList.contains(
+                'is-inline-tab'
+            )
+        ) {
+            unmountInline();
+        }
 
         modal.classList.remove(
             'hidden-step'
@@ -47944,6 +49619,19 @@ function openAcademyYhaBadgePaymentModalFromLearnFrom() {
             HTMLDetailsElement
         ) {
             quickMenu.open = false;
+        }
+
+        /*
+         * Inline Roadmap mode is not dismissible.
+         * Escape may close the actions menu,
+         * but AI Coach remains the active page.
+         */
+        if (
+            modal.classList.contains(
+                'is-inline-tab'
+            )
+        ) {
+            return;
         }
 
         modal.classList.remove(
@@ -48197,6 +49885,8 @@ function openAcademyYhaBadgePaymentModalFromLearnFrom() {
 
     window.openAcademyAiCoachRectModal = openModal;
     window.closeAcademyAiCoachRectModal = closeModal;
+    window.mountAcademyAiCoachRectInline = mountInline;
+    window.unmountAcademyAiCoachRectInline = unmountInline;
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {

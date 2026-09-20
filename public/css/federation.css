@@ -4434,36 +4434,295 @@ body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric small {
 }
 .fed-connect-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
-  gap: 18px;
-  margin-bottom: 18px;
+  grid-template-columns:
+    minmax(0, 1.12fr)
+    minmax(260px, 0.52fr)
+    minmax(260px, 0.52fr);
+  gap: 14px;
+  margin-bottom: 16px;
 }
 
-.fed-connect-hero-card {
+.fed-connect-hero-card,
+.fed-connect-stats-card-v2,
+.fed-connect-readiness-card-v2 {
+  position: relative;
   min-width: 0;
   min-height: 100%;
+
+  overflow: hidden;
+
+  border: 1px solid rgba(71, 178, 255, 0.22);
+  border-radius: 24px;
+
+  background:
+    radial-gradient(circle at 12% 0%, rgba(34, 211, 238, 0.16), transparent 38%),
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.12), transparent 42%),
+    linear-gradient(145deg, rgba(8, 20, 41, 0.96), rgba(4, 8, 20, 0.96));
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 34px rgba(0, 0, 0, 0.20);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+.fed-connect-hero-card::before,
+.fed-connect-stats-card-v2::before,
+.fed-connect-readiness-card-v2::before,
+.fed-connect-opportunity-card-v2::before,
+.fed-connect-requests-card-v2::before,
+.fed-connect-requests-empty-v2::before,
+.fed-connect-request-panel::before {
+  content: "";
+  position: absolute;
+
+  left: 18px;
+  right: 18px;
+  top: 0;
+
+  height: 1px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(103, 232, 249, 0.72),
+      rgba(211, 178, 112, 0.42),
+      transparent
+    );
+
+  pointer-events: none;
+}
+
+.fed-connect-card-kicker-v2 {
+  width: fit-content;
+
+  padding: 7px 10px;
+
+  border: 1px solid rgba(103, 232, 249, 0.30);
+  border-radius: 0;
+
+  background: rgba(8, 47, 73, 0.34);
+
+  color: #67e8f9;
+
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+#connect .fed-command-card-topline-v2 {
+  min-width: 0;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 12px;
+}
+
+#connect .fed-command-card-topline-v2 > div {
+  min-width: 0;
+
+  display: grid;
+  gap: 5px;
+}
+
+#connect .fed-command-status-pill-v2 {
+  flex: 0 0 auto;
+
+  min-height: 28px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 6px 10px;
+
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  border-radius: 999px;
+
+  background: rgba(8, 47, 73, 0.36);
+
+  color: #67e8f9;
+
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.fed-connect-hero-card h4,
+.fed-connect-stats-card-v2 h4,
+.fed-connect-readiness-card-v2 h4,
+.fed-connect-requests-card-v2 h4,
+.fed-connect-requests-empty-v2 h4 {
+  margin: 0;
+
+  color: #ffffff;
+
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.28);
+}
+
+.fed-connect-hero-card .fed-command-copy,
+.fed-connect-readiness-card-v2 .fed-command-copy,
+.fed-connect-requests-card-v2 .fed-command-copy,
+.fed-connect-requests-empty-v2 .fed-command-copy {
+  color: rgba(203, 213, 225, 0.80);
+  line-height: 1.58;
+}
+
+.fed-connect-pills-v2 span {
+  border-radius: 999px;
+  border-color: rgba(103, 232, 249, 0.26);
+  background: rgba(2, 8, 23, 0.18);
+}
+
+.fed-connect-stat-grid-v2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.fed-connect-stat-v2 {
+  min-height: 96px;
+
+  display: grid;
+  align-content: space-between;
+
+  padding: 14px;
+
+  border: 1px solid rgba(103, 232, 249, 0.14);
+  border-radius: 18px;
+
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.10), transparent 40%),
+    rgba(15, 23, 42, 0.42);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+.fed-connect-stat-v2.is-total {
+  border-color: rgba(103, 232, 249, 0.22);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.15), transparent 44%),
+    rgba(8, 47, 73, 0.26);
+}
+
+.fed-connect-stat-v2 strong {
+  color: #ffffff;
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-size: 1.48rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.fed-connect-stat-v2 small {
+  color: rgba(203, 213, 225, 0.74);
+  font-size: 0.76rem;
+  line-height: 1.32;
 }
 
 .fed-connect-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(180px, 0.5fr) minmax(180px, 0.5fr);
-  gap: 14px;
-  margin-bottom: 18px;
+  grid-template-columns:
+    minmax(0, 1.2fr)
+    minmax(160px, 0.48fr)
+    minmax(160px, 0.48fr);
+
+  gap: 12px;
+
+  margin-bottom: 16px;
+  padding: 14px;
+
+  border: 1px solid rgba(103, 232, 249, 0.16);
+  border-radius: 24px;
+
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.10), transparent 42%),
+    rgba(8, 13, 27, 0.72);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 34px rgba(0, 0, 0, 0.16);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+.fed-connect-toolbar .fed-input-wrap {
+  min-width: 0;
+}
+
+.fed-connect-toolbar label {
+  color: rgba(103, 232, 249, 0.90);
+}
+
+.fed-connect-toolbar input,
+.fed-connect-toolbar select {
+  min-height: 46px;
+  border-radius: 16px;
+  border-color: rgba(103, 232, 249, 0.22);
+  background: rgba(2, 8, 23, 0.18);
 }
 
 .fed-connect-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .fed-connect-card {
   min-width: 0;
-  padding: 26px;
+
+  padding: 20px;
+
   display: grid;
-  gap: 18px;
-  min-height: 250px;
+  gap: 14px;
+
+  min-height: 230px;
+
   overflow: visible;
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+.fed-connect-opportunity-card-v2 {
+  position: relative;
+
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 24px;
+
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.10), transparent 38%),
+    linear-gradient(180deg, rgba(9, 19, 39, 0.88), rgba(4, 8, 20, 0.90));
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 34px rgba(0, 0, 0, 0.18);
+
+  clip-path: none;
+  -webkit-clip-path: none;
 }
 
 .fed-connect-card-top {
@@ -4471,7 +4730,7 @@ body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric small {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 14px;
+  gap: 12px;
 }
 
 .fed-connect-card-top > div {
@@ -4480,17 +4739,31 @@ body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric small {
 
 .fed-connect-card h4 {
   max-width: 100%;
-  margin: 7px 0 0;
-  font-size: 1.03rem;
-  line-height: 1.38;
+  margin: 6px 0 0;
+  color: #ffffff;
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-size: 1.22rem;
+  line-height: 1.16;
+  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
+}
+
+.fed-connect-card-summary-v2 {
+  color: rgba(203, 213, 225, 0.80);
+  font-size: 0.9rem;
+  line-height: 1.55;
 }
 
 .fed-connect-value {
   flex: 0 0 auto;
-  max-width: 100%;
-  padding: 6px 10px;
-  font-size: 0.82rem;
+  max-width: 42%;
+  padding: 7px 10px;
+  border: 1px solid rgba(211, 178, 112, 0.22);
+  border-radius: 999px;
+  background: rgba(47, 32, 9, 0.24);
+  color: #f2d89c;
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 0.64rem;
   font-weight: 800;
   line-height: 1.15;
   text-transform: uppercase;
@@ -4502,15 +4775,26 @@ body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric small {
   min-width: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px;
 }
 
 .fed-connect-meta span {
   min-width: 0;
   max-width: 100%;
-  padding: 6px 9px;
-  font-size: 0.78rem;
-  line-height: 1.22;
+
+  padding: 7px 10px;
+
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+
+  background: rgba(15, 23, 42, 0.50);
+
+  color: rgba(241, 245, 249, 0.90);
+
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.18;
+
   overflow-wrap: break-word;
 }
 
@@ -4520,39 +4804,111 @@ body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric small {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
 }
 
 .fed-connect-card-foot small {
-  line-height: 1.45;
+  color: rgba(203, 213, 225, 0.72);
+  line-height: 1.35;
   overflow-wrap: break-word;
 }
 
+#connect .fed-btn,
 .fed-connect-card-foot .fed-btn {
   width: auto;
   min-width: max-content;
+  min-height: 42px;
+
+  border-radius: 999px;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+#connect .fed-btn-primary {
+  border: 1px solid rgba(96, 165, 250, 0.42);
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(14, 165, 233, 0.82));
+  color: #ffffff;
+}
+
+#connect .fed-btn-secondary {
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  background: rgba(15, 23, 42, 0.50);
+  color: rgba(226, 232, 240, 0.90);
 }
 
 .fed-connect-empty {
   grid-column: 1 / -1;
+  border-radius: 24px;
 }
 
 .fed-connect-request-panel {
+  position: relative;
   min-width: 0;
+
   margin-top: 18px;
   margin-bottom: 18px;
-  padding: 32px 38px 34px;
-  overflow: visible;
+
+  padding: 20px;
+
+  overflow: hidden;
+
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 24px;
+
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.10), transparent 38%),
+    linear-gradient(180deg, rgba(9, 19, 39, 0.88), rgba(4, 8, 20, 0.90));
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 34px rgba(0, 0, 0, 0.18);
+
+  clip-path: none;
+  -webkit-clip-path: none;
 }
 
 .fed-connect-request-form {
-  padding: 0 8px 4px;
+  padding: 0;
+}
+
+.fed-connect-request-form .fed-input-wrap {
+  min-width: 0;
+}
+
+.fed-connect-request-form input,
+.fed-connect-request-form select,
+.fed-connect-request-form textarea {
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 16px;
+
+  background: rgba(2, 8, 23, 0.58);
+
+  color: #ffffff;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+.fed-connect-request-form input:focus,
+.fed-connect-request-form select:focus,
+.fed-connect-request-form textarea:focus {
+  border-color: rgba(103, 232, 249, 0.54);
+  box-shadow:
+    0 0 0 3px rgba(56, 189, 248, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .fed-connect-selected {
-  margin: 10px 0 4px;
+  margin: 8px 0 4px;
+  color: rgba(203, 213, 225, 0.80);
   font-weight: 600;
-  line-height: 1.58;
+  line-height: 1.54;
   padding-left: 0;
   padding-right: 0;
   max-width: 980px;
@@ -4563,18 +4919,53 @@ body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric small {
   margin-top: 18px;
 }
 
+.fed-connect-requests-card-v2,
+.fed-connect-requests-empty-v2 {
+  position: relative;
+
+  overflow: hidden;
+
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 24px;
+
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.10), transparent 38%),
+    linear-gradient(180deg, rgba(9, 19, 39, 0.88), rgba(4, 8, 20, 0.90));
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 34px rgba(0, 0, 0, 0.18);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
 .fed-connect-request-list {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   margin-top: 14px;
 }
 
 .fed-connect-request-item {
   min-width: 0;
+
   display: flex;
   justify-content: space-between;
-  gap: 14px;
-  padding: 16px;
+
+  gap: 12px;
+
+  padding: 14px;
+
+  border: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 18px;
+
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.10), transparent 42%),
+    rgba(15, 23, 42, 0.46);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .fed-connect-request-item div {
@@ -4584,15 +4975,17 @@ body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric small {
 }
 
 .fed-connect-request-item strong {
-  font-size: 0.94rem;
-  line-height: 1.28;
+  color: #ffffff;
+  font-size: 0.98rem;
+  line-height: 1.24;
   overflow-wrap: anywhere;
 }
 
 .fed-connect-request-item small,
 .fed-connect-request-item span {
-  font-size: 0.84rem;
-  line-height: 1.45;
+  color: rgba(203, 213, 225, 0.72);
+  font-size: 0.8rem;
+  line-height: 1.4;
   overflow-wrap: break-word;
 }
 
@@ -4600,34 +4993,7 @@ body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric small {
   .fed-connect-hero,
   .fed-connect-toolbar,
   .fed-connect-grid {
-  grid-template-columns: 1fr;
-}
-
-  .fed-connect-card {
-    padding: 20px;
-    gap: 16px;
-  }
-
-  .fed-connect-card-foot,
-  .fed-connect-request-item {
-  align-items: stretch;
-  flex-direction: column;
-}
-
-  .fed-connect-card-foot .fed-btn {
-  width: 100%;
-}
-
-  .fed-connect-request-panel {
-    padding: 22px;
-  }
-}
-
-@media (max-width: 640px) {
-  .fed-connect-hero,
-  .fed-connect-toolbar,
-  .fed-connect-grid {
-    gap: 14px;
+    grid-template-columns: 1fr;
   }
 
   .fed-connect-card {
@@ -4635,24 +5001,187 @@ body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric small {
     gap: 14px;
   }
 
-  .fed-connect-card-top {
-    flex-direction: column;
+  .fed-connect-card-foot,
+  .fed-connect-request-item {
     align-items: stretch;
+    flex-direction: column;
+  }
+
+  .fed-connect-card-foot .fed-btn {
+    width: 100%;
+  }
+
+  .fed-connect-request-panel {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  #connect {
+    padding:
+      10px
+      10px
+      calc(
+        128px +
+        env(safe-area-inset-bottom, 0px)
+      );
+  }
+
+  .fed-connect-hero,
+  .fed-connect-toolbar,
+  .fed-connect-grid {
+    gap: 12px;
+  }
+
+  .fed-connect-hero-card,
+  .fed-connect-stats-card-v2,
+  .fed-connect-readiness-card-v2,
+  .fed-connect-opportunity-card-v2,
+  .fed-connect-request-panel,
+  .fed-connect-requests-card-v2,
+  .fed-connect-requests-empty-v2 {
+    border-radius: 24px;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+  }
+
+  .fed-connect-hero-card,
+  .fed-connect-stats-card-v2,
+  .fed-connect-readiness-card-v2 {
+    padding: 15px;
+  }
+
+  #connect .fed-command-card-topline-v2 {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  #connect .fed-command-status-pill-v2 {
+    min-height: 26px;
+    padding: 5px 8px;
+    font-size: 0.56rem;
+  }
+
+  .fed-connect-hero-card h4,
+  .fed-connect-stats-card-v2 h4,
+  .fed-connect-readiness-card-v2 h4,
+  .fed-connect-requests-card-v2 h4,
+  .fed-connect-requests-empty-v2 h4 {
+    font-size: 1.28rem;
+    line-height: 1.1;
+  }
+
+  .fed-connect-hero-card .fed-command-copy,
+  .fed-connect-readiness-card-v2 .fed-command-copy {
+    color: rgba(203, 213, 225, 0.80);
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+
+  .fed-connect-stat-grid-v2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .fed-connect-stat-v2 {
+    min-height: 86px;
+    padding: 12px;
+  }
+
+  .fed-connect-stat-v2 strong {
+    font-size: 1.35rem;
+  }
+
+  .fed-connect-stat-v2 small {
+    font-size: 0.72rem;
+  }
+
+  .fed-connect-toolbar {
+    padding: 12px;
+    border-radius: 24px;
+  }
+
+  .fed-connect-toolbar input,
+  .fed-connect-toolbar select {
+    min-height: 48px;
+  }
+
+  .fed-connect-card {
+    padding: 15px;
+    gap: 13px;
+    min-height: 0;
+  }
+
+  .fed-connect-card-top {
+    flex-direction: row;
+    align-items: flex-start;
     gap: 10px;
   }
 
   .fed-connect-card h4 {
-    font-size: 0.94rem;
-    line-height: 1.32;
+    color: #ffffff;
+    font-size: 1.08rem;
+    line-height: 1.2;
+  }
+
+  .fed-connect-card-summary-v2 {
+    color: rgba(203, 213, 225, 0.80);
+    font-size: 0.84rem;
+    line-height: 1.52;
+  }
+
+  .fed-connect-value {
+    max-width: 120px;
+    font-size: 0.56rem;
+    padding: 6px 8px;
+  }
+
+  .fed-connect-meta {
+    gap: 6px;
+  }
+
+  .fed-connect-meta span {
+    font-size: 0.7rem;
+    padding: 6px 8px;
   }
 
   .fed-connect-request-panel {
-    padding: 20px 18px;
+    padding: 15px;
+  }
+
+  .fed-connect-request-form input,
+  .fed-connect-request-form select,
+  .fed-connect-request-form textarea {
+    min-height: 48px;
+  }
+
+  .fed-connect-request-form textarea {
+    min-height: 108px;
   }
 
   .fed-connect-selected {
-    font-size: 0.82rem;
-    line-height: 1.52;
+    color: rgba(203, 213, 225, 0.82);
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+
+  .fed-connect-request-item {
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  #connect .fed-form-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  #connect .fed-form-actions .fed-btn {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
   }
 }
 /* ========================================================= */
@@ -5315,6 +5844,1738 @@ body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric small {
     min-height: 104px;
   }
 }
+/* ========================================================= */
+/* PATCH: FEDERATION DEAL ROOMS COMMAND ALIGNMENT v1          */
+/* ========================================================= */
+
+body[data-yh-page="federation"] #deal-rooms {
+  padding-bottom:
+    calc(
+      126px +
+      env(safe-area-inset-bottom, 0px)
+    );
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-section-head {
+  position: relative;
+  overflow: hidden;
+
+  border: 1px solid rgba(71, 178, 255, 0.22);
+  border-radius: 24px;
+
+  background:
+    radial-gradient(circle at 12% 0%, rgba(34, 211, 238, 0.16), transparent 38%),
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.10), transparent 42%),
+    linear-gradient(145deg, rgba(8, 20, 41, 0.96), rgba(4, 8, 20, 0.96));
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 34px rgba(0, 0, 0, 0.20);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-section-head::before {
+  content: "";
+  position: absolute;
+
+  left: 18px;
+  right: 18px;
+  top: 0;
+
+  height: 1px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(103, 232, 249, 0.60),
+      rgba(211, 178, 112, 0.36),
+      transparent
+    );
+
+  pointer-events: none;
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-kicker,
+body[data-yh-page="federation"] #deal-rooms .fed-sidebar-card-label,
+body[data-yh-page="federation"] #deal-rooms .fed-form-section-title,
+body[data-yh-page="federation"] #deal-rooms .federation-match-label,
+body[data-yh-page="federation"] #deal-rooms .federation-deal-grid label span {
+  color: #67e8f9;
+
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-section-head h3 {
+  color: #ffffff;
+
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.28);
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-section-head p {
+  color: rgba(203, 213, 225, 0.80);
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-command-card,
+body[data-yh-page="federation"] #deal-rooms .fed-connect-card,
+body[data-yh-page="federation"] #deal-rooms .fed-state-card,
+body[data-yh-page="federation"] #deal-rooms .panel-card,
+body[data-yh-page="federation"] #deal-rooms .federation-match-box {
+  position: relative;
+  overflow: hidden;
+
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 24px;
+
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.10), transparent 38%),
+    linear-gradient(180deg, rgba(9, 19, 39, 0.88), rgba(4, 8, 20, 0.90));
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 34px rgba(0, 0, 0, 0.18);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-command-card::before,
+body[data-yh-page="federation"] #deal-rooms .fed-connect-card::before,
+body[data-yh-page="federation"] #deal-rooms .fed-state-card::before,
+body[data-yh-page="federation"] #deal-rooms .panel-card::before,
+body[data-yh-page="federation"] #deal-rooms .federation-match-box::before {
+  content: "";
+  position: absolute;
+
+  left: 18px;
+  right: 18px;
+  top: 0;
+
+  height: 1px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(103, 232, 249, 0.56),
+      rgba(211, 178, 112, 0.38),
+      transparent
+    );
+
+  pointer-events: none;
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-command-card h4,
+body[data-yh-page="federation"] #deal-rooms .fed-connect-card h4,
+body[data-yh-page="federation"] #deal-rooms .fed-state-card h4,
+body[data-yh-page="federation"] #deal-rooms .panel-card h4 {
+  color: #ffffff;
+
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-command-copy,
+body[data-yh-page="federation"] #deal-rooms .fed-state-text,
+body[data-yh-page="federation"] #deal-rooms .federation-match-hint,
+body[data-yh-page="federation"] #deal-rooms .panel-card p {
+  color: rgba(203, 213, 225, 0.82);
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-command-pills span,
+body[data-yh-page="federation"] #deal-rooms .fed-status-list span,
+body[data-yh-page="federation"] #deal-rooms .fed-tag-wrap span,
+body[data-yh-page="federation"] #deal-rooms .fed-state-meta span,
+body[data-yh-page="federation"] #deal-rooms .fed-state-points span,
+body[data-yh-page="federation"] #deal-rooms .fed-admin-meta span {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+
+  background: rgba(15, 23, 42, 0.50);
+
+  color: rgba(241, 245, 249, 0.90);
+
+  font-weight: 800;
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-state-metric,
+body[data-yh-page="federation"] #deal-rooms .fed-mini-card,
+body[data-yh-page="federation"] #deal-rooms .fed-admin-stat {
+  min-width: 0;
+
+  display: grid;
+  align-content: space-between;
+
+  border: 1px solid rgba(103, 232, 249, 0.14);
+  border-radius: 18px;
+
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.10), transparent 40%),
+    rgba(15, 23, 42, 0.42);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-state-metric strong,
+body[data-yh-page="federation"] #deal-rooms .fed-mini-value,
+body[data-yh-page="federation"] #deal-rooms .fed-admin-stat-value {
+  color: #ffffff;
+
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-weight: 800;
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-state-metric small,
+body[data-yh-page="federation"] #deal-rooms .fed-mini-label,
+body[data-yh-page="federation"] #deal-rooms .fed-admin-stat-label {
+  color: rgba(203, 213, 225, 0.74);
+}
+
+body[data-yh-page="federation"] #deal-rooms .federation-deal-grid {
+  gap: 14px;
+}
+
+body[data-yh-page="federation"] #deal-rooms .federation-deal-grid label {
+  min-width: 0;
+
+  display: grid;
+  gap: 8px;
+}
+
+body[data-yh-page="federation"] #deal-rooms .federation-match-select,
+body[data-yh-page="federation"] #deal-rooms .federation-deal-grid input,
+body[data-yh-page="federation"] #deal-rooms .federation-deal-grid select,
+body[data-yh-page="federation"] #deal-rooms .federation-deal-grid textarea,
+body[data-yh-page="federation"] #deal-rooms .fed-input-wrap input,
+body[data-yh-page="federation"] #deal-rooms .fed-input-wrap select,
+body[data-yh-page="federation"] #deal-rooms .fed-input-wrap textarea {
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 16px;
+
+  background: rgba(2, 8, 23, 0.58);
+
+  color: #ffffff;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #deal-rooms .federation-match-select:focus,
+body[data-yh-page="federation"] #deal-rooms .federation-deal-grid input:focus,
+body[data-yh-page="federation"] #deal-rooms .federation-deal-grid select:focus,
+body[data-yh-page="federation"] #deal-rooms .federation-deal-grid textarea:focus,
+body[data-yh-page="federation"] #deal-rooms .fed-input-wrap input:focus,
+body[data-yh-page="federation"] #deal-rooms .fed-input-wrap select:focus,
+body[data-yh-page="federation"] #deal-rooms .fed-input-wrap textarea:focus {
+  border-color: rgba(103, 232, 249, 0.54);
+
+  box-shadow:
+    0 0 0 3px rgba(56, 189, 248, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-btn,
+body[data-yh-page="federation"] #deal-rooms .badge-btn,
+body[data-yh-page="federation"] #deal-rooms .inline-actions .badge-btn {
+  min-height: 42px;
+
+  border-radius: 999px;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-btn-primary,
+body[data-yh-page="federation"] #deal-rooms .inline-actions .badge-btn {
+  border: 1px solid rgba(96, 165, 250, 0.42);
+
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(14, 165, 233, 0.82));
+
+  color: #ffffff;
+}
+
+body[data-yh-page="federation"] #deal-rooms .fed-btn-secondary {
+  border: 1px solid rgba(103, 232, 249, 0.22);
+
+  background: rgba(15, 23, 42, 0.50);
+
+  color: rgba(226, 232, 240, 0.90);
+}
+
+body[data-yh-page="federation"] #deal-rooms .inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  body[data-yh-page="federation"] #deal-rooms {
+    padding:
+      10px
+      10px
+      calc(
+        128px +
+        env(safe-area-inset-bottom, 0px)
+      );
+  }
+
+  body[data-yh-page="federation"] #deal-rooms .fed-section-head,
+  body[data-yh-page="federation"] #deal-rooms .fed-command-card,
+  body[data-yh-page="federation"] #deal-rooms .fed-connect-card,
+  body[data-yh-page="federation"] #deal-rooms .fed-state-card,
+  body[data-yh-page="federation"] #deal-rooms .panel-card,
+  body[data-yh-page="federation"] #deal-rooms .federation-match-box {
+    border-radius: 24px;
+  }
+
+  body[data-yh-page="federation"] #deal-rooms .fed-section-head,
+  body[data-yh-page="federation"] #deal-rooms .fed-command-card,
+  body[data-yh-page="federation"] #deal-rooms .fed-connect-card,
+  body[data-yh-page="federation"] #deal-rooms .fed-state-card,
+  body[data-yh-page="federation"] #deal-rooms .panel-card {
+    padding: 15px;
+  }
+
+  body[data-yh-page="federation"] #deal-rooms .fed-section-head h3 {
+    font-size: 1.28rem;
+    line-height: 1.1;
+  }
+
+  body[data-yh-page="federation"] #deal-rooms .fed-section-head p,
+  body[data-yh-page="federation"] #deal-rooms .fed-command-copy,
+  body[data-yh-page="federation"] #deal-rooms .fed-state-text,
+  body[data-yh-page="federation"] #deal-rooms .federation-match-hint {
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+
+  body[data-yh-page="federation"] #deal-rooms .federation-deal-grid,
+  body[data-yh-page="federation"] #deal-rooms .fed-state-grid,
+  body[data-yh-page="federation"] #deal-rooms .fed-admin-stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  body[data-yh-page="federation"] #deal-rooms .fed-state-metric,
+  body[data-yh-page="federation"] #deal-rooms .fed-mini-card,
+  body[data-yh-page="federation"] #deal-rooms .fed-admin-stat {
+    min-height: 84px;
+    padding: 12px;
+  }
+
+  body[data-yh-page="federation"] #deal-rooms .federation-match-select,
+  body[data-yh-page="federation"] #deal-rooms .federation-deal-grid input,
+  body[data-yh-page="federation"] #deal-rooms .federation-deal-grid select,
+  body[data-yh-page="federation"] #deal-rooms .federation-deal-grid textarea,
+  body[data-yh-page="federation"] #deal-rooms .fed-input-wrap input,
+  body[data-yh-page="federation"] #deal-rooms .fed-input-wrap select,
+  body[data-yh-page="federation"] #deal-rooms .fed-input-wrap textarea {
+    min-height: 48px;
+    font-size: 0.84rem;
+  }
+
+  body[data-yh-page="federation"] #deal-rooms .federation-deal-grid textarea,
+  body[data-yh-page="federation"] #deal-rooms .fed-input-wrap textarea {
+    min-height: 108px;
+  }
+
+  body[data-yh-page="federation"] #deal-rooms .inline-actions,
+  body[data-yh-page="federation"] #deal-rooms .fed-form-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  body[data-yh-page="federation"] #deal-rooms .inline-actions .badge-btn,
+  body[data-yh-page="federation"] #deal-rooms .fed-form-actions .fed-btn {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+  }
+}
+
+/* ========================================================= */
+/* PATCH: FEDERATION DIRECTORY COMMAND ALIGNMENT v1           */
+/* ========================================================= */
+
+body[data-yh-page="federation"] #directory {
+  padding-bottom:
+    calc(
+      126px +
+      env(safe-area-inset-bottom, 0px)
+    );
+}
+
+body[data-yh-page="federation"] #directory .fed-section-head,
+body[data-yh-page="federation"] #directory .fed-directory-state-strip,
+body[data-yh-page="federation"] #directory .fed-directory-toolbar,
+body[data-yh-page="federation"] #directory .fed-member-card,
+body[data-yh-page="federation"] #directory .fed-empty-block {
+  position: relative;
+
+  overflow: hidden;
+
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 24px;
+
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.10), transparent 38%),
+    linear-gradient(180deg, rgba(9, 19, 39, 0.88), rgba(4, 8, 20, 0.90));
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 34px rgba(0, 0, 0, 0.18);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #directory .fed-section-head::before,
+body[data-yh-page="federation"] #directory .fed-directory-state-strip::before,
+body[data-yh-page="federation"] #directory .fed-directory-toolbar::before,
+body[data-yh-page="federation"] #directory .fed-member-card::before,
+body[data-yh-page="federation"] #directory .fed-empty-block::before {
+  content: "";
+  position: absolute;
+
+  left: 18px;
+  right: 18px;
+  top: 0;
+
+  height: 1px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(103, 232, 249, 0.56),
+      rgba(211, 178, 112, 0.38),
+      transparent
+    );
+
+  pointer-events: none;
+}
+
+body[data-yh-page="federation"] #directory .fed-section-head {
+  padding: 22px;
+  margin-bottom: 18px;
+}
+
+body[data-yh-page="federation"] #directory .fed-kicker,
+body[data-yh-page="federation"] #directory .fed-sidebar-card-label,
+body[data-yh-page="federation"] #directory .fed-input-wrap label,
+body[data-yh-page="federation"] #directory .fed-directory-toolbar label {
+  color: #67e8f9;
+
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+body[data-yh-page="federation"] #directory .fed-section-head h3,
+body[data-yh-page="federation"] #directory .fed-directory-state-strip h3,
+body[data-yh-page="federation"] #directory .fed-member-name {
+  color: #ffffff;
+
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.28);
+}
+
+body[data-yh-page="federation"] #directory .fed-section-head p,
+body[data-yh-page="federation"] #directory .fed-directory-state-strip p,
+body[data-yh-page="federation"] #directory .fed-member-role,
+body[data-yh-page="federation"] #directory .fed-member-desc,
+body[data-yh-page="federation"] #directory .fed-empty-block {
+  color: rgba(203, 213, 225, 0.82);
+}
+
+body[data-yh-page="federation"] #directory .fed-directory-state-strip {
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 12px;
+
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+body[data-yh-page="federation"] #directory .fed-directory-toolbar {
+  grid-template-columns:
+    minmax(0, 1.2fr)
+    minmax(160px, 0.52fr)
+    minmax(160px, 0.52fr);
+
+  gap: 12px;
+
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+body[data-yh-page="federation"] #directory .fed-input-wrap {
+  min-width: 0;
+}
+
+body[data-yh-page="federation"] #directory .fed-input-wrap input,
+body[data-yh-page="federation"] #directory .fed-input-wrap select,
+body[data-yh-page="federation"] #directory .fed-directory-toolbar input,
+body[data-yh-page="federation"] #directory .fed-directory-toolbar select {
+  min-height: 48px;
+
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 16px;
+
+  background: rgba(2, 8, 23, 0.58);
+
+  color: #ffffff;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #directory .fed-input-wrap input:focus,
+body[data-yh-page="federation"] #directory .fed-input-wrap select:focus,
+body[data-yh-page="federation"] #directory .fed-directory-toolbar input:focus,
+body[data-yh-page="federation"] #directory .fed-directory-toolbar select:focus {
+  border-color: rgba(103, 232, 249, 0.54);
+
+  box-shadow:
+    0 0 0 3px rgba(56, 189, 248, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+body[data-yh-page="federation"] #directory .fed-directory-grid {
+  gap: 14px;
+  align-items: stretch;
+}
+
+body[data-yh-page="federation"] #directory .fed-member-card {
+  min-width: 0;
+  min-height: 260px;
+
+  padding: 20px;
+
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+body[data-yh-page="federation"] #directory .fed-member-top {
+  min-width: 0;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  margin-bottom: 0;
+}
+
+body[data-yh-page="federation"] #directory .fed-member-top > div {
+  min-width: 0;
+}
+
+body[data-yh-page="federation"] #directory .fed-member-name {
+  margin-bottom: 5px;
+
+  font-size: 1.08rem;
+  line-height: 1.16;
+
+  overflow-wrap: anywhere;
+}
+
+body[data-yh-page="federation"] #directory .fed-member-role {
+  font-size: 0.86rem;
+  line-height: 1.45;
+
+  overflow-wrap: break-word;
+}
+
+body[data-yh-page="federation"] #directory .fed-member-badge {
+  flex: 0 0 auto;
+
+  padding: 7px 10px;
+
+  border: 1px solid rgba(211, 178, 112, 0.22);
+  border-radius: 999px;
+
+  background: rgba(47, 32, 9, 0.24);
+
+  color: #f2d89c;
+
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  line-height: 1.15;
+  text-transform: uppercase;
+
+  white-space: normal;
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #directory .fed-member-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+
+  margin-bottom: 0;
+}
+
+body[data-yh-page="federation"] #directory .fed-member-meta span {
+  min-width: 0;
+  max-width: 100%;
+
+  padding: 7px 10px;
+
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+
+  background: rgba(15, 23, 42, 0.50);
+
+  color: rgba(241, 245, 249, 0.90);
+
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.18;
+
+  overflow-wrap: break-word;
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #directory .fed-member-desc {
+  margin: 0;
+
+  flex: 1 1 auto;
+  min-height: 0;
+
+  font-size: 0.86rem;
+  line-height: 1.58;
+
+  overflow-wrap: break-word;
+}
+
+body[data-yh-page="federation"] #directory .fed-member-lock,
+body[data-yh-page="federation"] #directory .fed-state-badge {
+  width: fit-content;
+  max-width: 100%;
+
+  padding: 8px 10px;
+
+  border: 1px solid rgba(103, 232, 249, 0.20);
+  border-radius: 999px;
+
+  background: rgba(8, 47, 73, 0.34);
+
+  color: #67e8f9;
+
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.18;
+
+  white-space: normal;
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #directory .fed-mobile-select-button {
+  min-height: 48px;
+
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 16px;
+
+  background: rgba(2, 8, 23, 0.58);
+
+  color: #ffffff;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+body[data-yh-page="federation"] #directory .fed-mobile-select-menu {
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  border-radius: 18px;
+
+  background:
+    radial-gradient(circle at 18% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(5, 16, 37, 0.98), rgba(2, 8, 23, 0.98));
+
+  box-shadow:
+    0 22px 54px rgba(0, 0, 0, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.055);
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+body[data-yh-page="federation"] #directory .fed-empty-block {
+  padding: 18px;
+
+  line-height: 1.62;
+}
+
+@media (max-width: 768px) {
+  body[data-yh-page="federation"] #directory {
+    padding:
+      10px
+      10px
+      calc(
+        128px +
+        env(safe-area-inset-bottom, 0px)
+      );
+  }
+
+  body[data-yh-page="federation"] #directory .fed-section-head,
+  body[data-yh-page="federation"] #directory .fed-directory-state-strip,
+  body[data-yh-page="federation"] #directory .fed-directory-toolbar,
+  body[data-yh-page="federation"] #directory .fed-member-card,
+  body[data-yh-page="federation"] #directory .fed-empty-block {
+    border-radius: 24px;
+  }
+
+  body[data-yh-page="federation"] #directory .fed-section-head,
+  body[data-yh-page="federation"] #directory .fed-directory-state-strip,
+  body[data-yh-page="federation"] #directory .fed-directory-toolbar,
+  body[data-yh-page="federation"] #directory .fed-member-card {
+    padding: 15px;
+  }
+
+  body[data-yh-page="federation"] #directory .fed-section-head h3,
+  body[data-yh-page="federation"] #directory .fed-directory-state-strip h3 {
+    font-size: 1.28rem;
+    line-height: 1.1;
+  }
+
+  body[data-yh-page="federation"] #directory .fed-section-head p,
+  body[data-yh-page="federation"] #directory .fed-directory-state-strip p,
+  body[data-yh-page="federation"] #directory .fed-member-role,
+  body[data-yh-page="federation"] #directory .fed-member-desc {
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+
+  body[data-yh-page="federation"] #directory .fed-directory-state-strip,
+  body[data-yh-page="federation"] #directory .fed-directory-toolbar,
+  body[data-yh-page="federation"] #directory .fed-directory-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  body[data-yh-page="federation"] #directory .fed-member-card {
+    min-height: 0;
+    gap: 13px;
+  }
+
+  body[data-yh-page="federation"] #directory .fed-member-top {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  body[data-yh-page="federation"] #directory .fed-member-name {
+    font-size: 1.04rem;
+    line-height: 1.18;
+  }
+
+  body[data-yh-page="federation"] #directory .fed-member-badge {
+    max-width: 118px;
+
+    font-size: 0.56rem;
+    padding: 6px 8px;
+  }
+
+  body[data-yh-page="federation"] #directory .fed-member-meta {
+    gap: 6px;
+  }
+
+  body[data-yh-page="federation"] #directory .fed-member-meta span {
+    font-size: 0.7rem;
+    padding: 6px 8px;
+  }
+
+  body[data-yh-page="federation"] #directory .fed-input-wrap input,
+  body[data-yh-page="federation"] #directory .fed-input-wrap select,
+  body[data-yh-page="federation"] #directory .fed-directory-toolbar input,
+  body[data-yh-page="federation"] #directory .fed-directory-toolbar select {
+    min-height: 48px;
+    font-size: 0.84rem;
+  }
+}
+
+/* ========================================================= */
+/* PATCH: FEDERATION MY REQUESTS COMMAND ALIGNMENT v1         */
+/* ========================================================= */
+
+body[data-yh-page="federation"] #requests {
+  padding-bottom:
+    calc(
+      126px +
+      env(safe-area-inset-bottom, 0px)
+    );
+}
+
+body[data-yh-page="federation"] #requests .fed-section-head,
+body[data-yh-page="federation"] #requests .fed-requests-toolbar,
+body[data-yh-page="federation"] #requests .fed-request-card,
+body[data-yh-page="federation"] #requests .fed-empty-block {
+  position: relative;
+
+  overflow: hidden;
+
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 24px;
+
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.10), transparent 38%),
+    linear-gradient(180deg, rgba(9, 19, 39, 0.88), rgba(4, 8, 20, 0.90));
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 34px rgba(0, 0, 0, 0.18);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #requests .fed-section-head::before,
+body[data-yh-page="federation"] #requests .fed-requests-toolbar::before,
+body[data-yh-page="federation"] #requests .fed-request-card::before,
+body[data-yh-page="federation"] #requests .fed-empty-block::before {
+  content: "";
+  position: absolute;
+
+  left: 18px;
+  right: 18px;
+  top: 0;
+
+  height: 1px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(103, 232, 249, 0.56),
+      rgba(211, 178, 112, 0.38),
+      transparent
+    );
+
+  pointer-events: none;
+}
+
+body[data-yh-page="federation"] #requests .fed-section-head {
+  padding: 22px;
+  margin-bottom: 18px;
+}
+
+body[data-yh-page="federation"] #requests .fed-kicker,
+body[data-yh-page="federation"] #requests .fed-sidebar-card-label,
+body[data-yh-page="federation"] #requests .fed-input-wrap label,
+body[data-yh-page="federation"] #requests .fed-requests-toolbar label {
+  color: #67e8f9;
+
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+body[data-yh-page="federation"] #requests .fed-section-head h3,
+body[data-yh-page="federation"] #requests .fed-request-card h4 {
+  color: #ffffff;
+
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.28);
+}
+
+body[data-yh-page="federation"] #requests .fed-section-head p,
+body[data-yh-page="federation"] #requests .fed-command-copy,
+body[data-yh-page="federation"] #requests .fed-state-text,
+body[data-yh-page="federation"] #requests .fed-empty-block {
+  color: rgba(203, 213, 225, 0.82);
+}
+
+body[data-yh-page="federation"] #requests .fed-requests-toolbar {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.2fr)
+    minmax(160px, 0.52fr)
+    minmax(160px, 0.52fr);
+
+  gap: 12px;
+
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+body[data-yh-page="federation"] #requests .fed-input-wrap {
+  min-width: 0;
+}
+
+body[data-yh-page="federation"] #requests .fed-input-wrap input,
+body[data-yh-page="federation"] #requests .fed-input-wrap select,
+body[data-yh-page="federation"] #requests .fed-requests-toolbar input,
+body[data-yh-page="federation"] #requests .fed-requests-toolbar select {
+  min-height: 48px;
+
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 16px;
+
+  background: rgba(2, 8, 23, 0.58);
+
+  color: #ffffff;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #requests .fed-input-wrap input:focus,
+body[data-yh-page="federation"] #requests .fed-input-wrap select:focus,
+body[data-yh-page="federation"] #requests .fed-requests-toolbar input:focus,
+body[data-yh-page="federation"] #requests .fed-requests-toolbar select:focus {
+  border-color: rgba(103, 232, 249, 0.54);
+
+  box-shadow:
+    0 0 0 3px rgba(56, 189, 248, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+body[data-yh-page="federation"] #requests .fed-requests-list {
+  display: grid;
+  gap: 14px;
+}
+
+body[data-yh-page="federation"] #requests .fed-request-card {
+  min-width: 0;
+
+  padding: 20px;
+
+  display: grid;
+  gap: 14px;
+}
+
+body[data-yh-page="federation"] #requests .fed-request-card-head {
+  min-width: 0;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 14px;
+}
+
+body[data-yh-page="federation"] #requests .fed-request-card-head > div {
+  min-width: 0;
+}
+
+body[data-yh-page="federation"] #requests .fed-request-card h4 {
+  max-width: 100%;
+
+  margin: 5px 0 0;
+
+  font-size: 1.12rem;
+  line-height: 1.16;
+
+  overflow-wrap: anywhere;
+}
+
+body[data-yh-page="federation"] #requests .fed-request-card .fed-command-copy {
+  margin: 0;
+
+  max-width: 100%;
+
+  font-size: 0.88rem;
+  line-height: 1.58;
+
+  overflow-wrap: break-word;
+}
+
+body[data-yh-page="federation"] #requests .fed-state-badge {
+  flex: 0 0 auto;
+
+  width: fit-content;
+  max-width: 160px;
+
+  padding: 7px 10px;
+
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  border-radius: 999px;
+
+  background: rgba(8, 47, 73, 0.34);
+
+  color: #67e8f9;
+
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  line-height: 1.15;
+  text-transform: uppercase;
+
+  white-space: normal;
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #requests .fed-state-badge.is-pending,
+body[data-yh-page="federation"] #requests .fed-state-badge.is-under-review,
+body[data-yh-page="federation"] #requests .fed-state-badge.is-screening {
+  border-color: rgba(211, 178, 112, 0.28);
+  background: rgba(47, 32, 9, 0.24);
+  color: #f2d89c;
+}
+
+body[data-yh-page="federation"] #requests .fed-state-badge.is-approved,
+body[data-yh-page="federation"] #requests .fed-state-badge.is-shortlisted {
+  border-color: rgba(34, 197, 94, 0.24);
+  background: rgba(6, 39, 24, 0.24);
+  color: #86efac;
+}
+
+body[data-yh-page="federation"] #requests .fed-state-badge.is-rejected {
+  border-color: rgba(248, 113, 113, 0.30);
+  background: rgba(69, 10, 10, 0.28);
+  color: #fca5a5;
+}
+
+body[data-yh-page="federation"] #requests .fed-state-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+body[data-yh-page="federation"] #requests .fed-state-metric {
+  min-width: 0;
+  min-height: 88px;
+
+  display: grid;
+  align-content: space-between;
+
+  padding: 14px;
+
+  border: 1px solid rgba(103, 232, 249, 0.14);
+  border-radius: 18px;
+
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.10), transparent 40%),
+    rgba(15, 23, 42, 0.42);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #requests .fed-state-metric strong {
+  display: block;
+
+  color: #ffffff;
+
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.15;
+
+  overflow-wrap: anywhere;
+}
+
+body[data-yh-page="federation"] #requests .fed-state-metric small {
+  display: block;
+
+  color: rgba(203, 213, 225, 0.74);
+
+  font-size: 0.76rem;
+  line-height: 1.34;
+
+  overflow-wrap: break-word;
+}
+
+body[data-yh-page="federation"] #requests .fed-state-meta,
+body[data-yh-page="federation"] #requests .fed-state-points,
+body[data-yh-page="federation"] #requests .fed-admin-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+
+  margin-bottom: 0;
+}
+
+body[data-yh-page="federation"] #requests .fed-state-meta span,
+body[data-yh-page="federation"] #requests .fed-state-points span,
+body[data-yh-page="federation"] #requests .fed-admin-meta span {
+  min-width: 0;
+  max-width: 100%;
+
+  padding: 7px 10px;
+
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+
+  background: rgba(15, 23, 42, 0.50);
+
+  color: rgba(241, 245, 249, 0.90);
+
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.18;
+
+  overflow-wrap: break-word;
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #requests .fed-btn,
+body[data-yh-page="federation"] #requests .badge-btn {
+  min-height: 42px;
+
+  border-radius: 999px;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+body[data-yh-page="federation"] #requests .fed-btn-primary,
+body[data-yh-page="federation"] #requests .badge-btn {
+  border: 1px solid rgba(96, 165, 250, 0.42);
+
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(14, 165, 233, 0.82));
+
+  color: #ffffff;
+}
+
+body[data-yh-page="federation"] #requests .fed-btn-secondary {
+  border: 1px solid rgba(103, 232, 249, 0.22);
+
+  background: rgba(15, 23, 42, 0.50);
+
+  color: rgba(226, 232, 240, 0.90);
+}
+
+body[data-yh-page="federation"] #requests .fed-empty-block {
+  padding: 18px;
+
+  line-height: 1.62;
+}
+
+@media (max-width: 768px) {
+  body[data-yh-page="federation"] #requests {
+    padding:
+      10px
+      10px
+      calc(
+        128px +
+        env(safe-area-inset-bottom, 0px)
+      );
+  }
+
+  body[data-yh-page="federation"] #requests .fed-section-head,
+  body[data-yh-page="federation"] #requests .fed-requests-toolbar,
+  body[data-yh-page="federation"] #requests .fed-request-card,
+  body[data-yh-page="federation"] #requests .fed-empty-block {
+    border-radius: 24px;
+  }
+
+  body[data-yh-page="federation"] #requests .fed-section-head,
+  body[data-yh-page="federation"] #requests .fed-requests-toolbar,
+  body[data-yh-page="federation"] #requests .fed-request-card {
+    padding: 15px;
+  }
+
+  body[data-yh-page="federation"] #requests .fed-section-head h3 {
+    font-size: 1.28rem;
+    line-height: 1.1;
+  }
+
+  body[data-yh-page="federation"] #requests .fed-section-head p,
+  body[data-yh-page="federation"] #requests .fed-command-copy,
+  body[data-yh-page="federation"] #requests .fed-state-text {
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+
+  body[data-yh-page="federation"] #requests .fed-requests-toolbar,
+  body[data-yh-page="federation"] #requests .fed-state-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  body[data-yh-page="federation"] #requests .fed-requests-list {
+    gap: 12px;
+  }
+
+  body[data-yh-page="federation"] #requests .fed-request-card {
+    gap: 13px;
+  }
+
+  body[data-yh-page="federation"] #requests .fed-request-card-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  body[data-yh-page="federation"] #requests .fed-request-card h4 {
+    font-size: 1.04rem;
+    line-height: 1.18;
+  }
+
+  body[data-yh-page="federation"] #requests .fed-state-badge {
+    max-width: 100%;
+
+    font-size: 0.58rem;
+    padding: 6px 8px;
+  }
+
+  body[data-yh-page="federation"] #requests .fed-state-metric {
+    min-height: 82px;
+    padding: 12px;
+  }
+
+  body[data-yh-page="federation"] #requests .fed-state-metric strong {
+    font-size: 0.96rem;
+  }
+
+  body[data-yh-page="federation"] #requests .fed-state-metric small {
+    font-size: 0.72rem;
+  }
+
+  body[data-yh-page="federation"] #requests .fed-input-wrap input,
+  body[data-yh-page="federation"] #requests .fed-input-wrap select,
+  body[data-yh-page="federation"] #requests .fed-requests-toolbar input,
+  body[data-yh-page="federation"] #requests .fed-requests-toolbar select {
+    min-height: 48px;
+    font-size: 0.84rem;
+  }
+}
+
+/* ========================================================= */
+/* PATCH: FEDERATION REFERRALS COMMAND ALIGNMENT v1           */
+/* ========================================================= */
+
+body[data-yh-page="federation"] #referrals {
+  padding-bottom:
+    calc(
+      126px +
+      env(safe-area-inset-bottom, 0px)
+    );
+}
+
+body[data-yh-page="federation"] #referrals .fed-section-head,
+body[data-yh-page="federation"] #referrals .fed-referral-card,
+body[data-yh-page="federation"] #referrals .fed-referral-code,
+body[data-yh-page="federation"] #referrals .fed-referral-item,
+body[data-yh-page="federation"] #referrals .fed-empty-block {
+  position: relative;
+
+  overflow: hidden;
+
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 24px;
+
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.10), transparent 38%),
+    linear-gradient(180deg, rgba(9, 19, 39, 0.88), rgba(4, 8, 20, 0.90));
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 34px rgba(0, 0, 0, 0.18);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #referrals .fed-section-head::before,
+body[data-yh-page="federation"] #referrals .fed-referral-card::before,
+body[data-yh-page="federation"] #referrals .fed-referral-code::before,
+body[data-yh-page="federation"] #referrals .fed-referral-item::before,
+body[data-yh-page="federation"] #referrals .fed-empty-block::before {
+  content: "";
+  position: absolute;
+
+  left: 18px;
+  right: 18px;
+  top: 0;
+
+  height: 1px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(103, 232, 249, 0.56),
+      rgba(211, 178, 112, 0.38),
+      transparent
+    );
+
+  pointer-events: none;
+}
+
+body[data-yh-page="federation"] #referrals .fed-section-head {
+  padding: 22px;
+  margin-bottom: 18px;
+}
+
+body[data-yh-page="federation"] #referrals .fed-kicker,
+body[data-yh-page="federation"] #referrals .fed-sidebar-card-label,
+body[data-yh-page="federation"] #referrals .fed-referral-link-label,
+body[data-yh-page="federation"] #referrals .fed-form-section-title {
+  color: #67e8f9;
+
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+body[data-yh-page="federation"] #referrals .fed-section-head h3,
+body[data-yh-page="federation"] #referrals .fed-referral-card h4,
+body[data-yh-page="federation"] #referrals .fed-referral-item-name,
+body[data-yh-page="federation"] #referrals .fed-referral-code strong {
+  color: #ffffff;
+
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.28);
+}
+
+body[data-yh-page="federation"] #referrals .fed-section-head p,
+body[data-yh-page="federation"] #referrals .fed-referral-caption,
+body[data-yh-page="federation"] #referrals .fed-referral-item-meta,
+body[data-yh-page="federation"] #referrals .fed-empty-block,
+body[data-yh-page="federation"] #referrals .fed-form-inline-note {
+  color: rgba(203, 213, 225, 0.82);
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-layout {
+  gap: 14px;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-card {
+  min-width: 0;
+
+  padding: 20px;
+
+  display: grid;
+  gap: 14px;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-card-full {
+  grid-column: 1 / -1;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-caption {
+  max-width: 100%;
+
+  margin: 0;
+
+  font-size: 0.88rem;
+  line-height: 1.58;
+
+  overflow-wrap: break-word;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-code {
+  min-width: 0;
+
+  margin-top: 4px;
+  padding: 16px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 14px;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-code-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-code strong {
+  display: block;
+
+  max-width: 100%;
+
+  font-size: 1.08rem;
+  line-height: 1.14;
+  letter-spacing: 0.04em;
+
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-code-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-link-wrap {
+  margin-top: 12px;
+
+  display: grid;
+  gap: 8px;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-link-input {
+  width: 100%;
+  min-height: 48px;
+
+  padding: 13px 14px;
+
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 16px;
+
+  background: rgba(2, 8, 23, 0.58);
+
+  color: #ffffff;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  outline: none;
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-link-input:focus {
+  border-color: rgba(103, 232, 249, 0.54);
+
+  box-shadow:
+    0 0 0 3px rgba(56, 189, 248, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-list {
+  display: grid;
+  gap: 12px;
+
+  margin-top: 14px;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-item {
+  min-width: 0;
+
+  padding: 16px;
+
+  display: grid;
+  gap: 10px;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-item-top {
+  min-width: 0;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  margin-bottom: 0;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-item-top > div {
+  min-width: 0;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-item-name {
+  margin-bottom: 5px;
+
+  font-size: 1.04rem;
+  line-height: 1.18;
+
+  overflow-wrap: anywhere;
+}
+
+body[data-yh-page="federation"] #referrals .fed-referral-item-meta {
+  font-size: 0.82rem;
+  line-height: 1.45;
+
+  overflow-wrap: break-word;
+}
+
+body[data-yh-page="federation"] #referrals .fed-state-badge,
+body[data-yh-page="federation"] #referrals .fed-referral-item-top > span,
+body[data-yh-page="federation"] #referrals .fed-referral-item-top > small {
+  flex: 0 0 auto;
+
+  width: fit-content;
+  max-width: 160px;
+
+  padding: 7px 10px;
+
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  border-radius: 999px;
+
+  background: rgba(8, 47, 73, 0.34);
+
+  color: #67e8f9;
+
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  line-height: 1.15;
+  text-transform: uppercase;
+
+  white-space: normal;
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #referrals .fed-state-grid,
+body[data-yh-page="federation"] #referrals .fed-referral-stat-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+body[data-yh-page="federation"] #referrals .fed-state-metric {
+  min-width: 0;
+  min-height: 88px;
+
+  display: grid;
+  align-content: space-between;
+
+  padding: 14px;
+
+  border: 1px solid rgba(103, 232, 249, 0.14);
+  border-radius: 18px;
+
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.10), transparent 40%),
+    rgba(15, 23, 42, 0.42);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] #referrals .fed-state-metric strong {
+  display: block;
+
+  color: #ffffff;
+
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1.1;
+
+  overflow-wrap: anywhere;
+}
+
+body[data-yh-page="federation"] #referrals .fed-state-metric small {
+  display: block;
+
+  color: rgba(203, 213, 225, 0.74);
+
+  font-size: 0.76rem;
+  line-height: 1.34;
+
+  overflow-wrap: break-word;
+}
+
+body[data-yh-page="federation"] #referrals .fed-btn,
+body[data-yh-page="federation"] #referrals .fed-referral-code-actions .fed-btn {
+  min-height: 42px;
+
+  border-radius: 999px;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+body[data-yh-page="federation"] #referrals .fed-btn-primary {
+  border: 1px solid rgba(96, 165, 250, 0.42);
+
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(14, 165, 233, 0.82));
+
+  color: #ffffff;
+}
+
+body[data-yh-page="federation"] #referrals .fed-btn-secondary {
+  border: 1px solid rgba(103, 232, 249, 0.22);
+
+  background: rgba(15, 23, 42, 0.50);
+
+  color: rgba(226, 232, 240, 0.90);
+}
+
+body[data-yh-page="federation"] #referrals .fed-empty-block {
+  padding: 18px;
+
+  line-height: 1.62;
+}
+
+@media (max-width: 768px) {
+  body[data-yh-page="federation"] #referrals {
+    padding:
+      10px
+      10px
+      calc(
+        128px +
+        env(safe-area-inset-bottom, 0px)
+      );
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-section-head,
+  body[data-yh-page="federation"] #referrals .fed-referral-card,
+  body[data-yh-page="federation"] #referrals .fed-referral-code,
+  body[data-yh-page="federation"] #referrals .fed-referral-item,
+  body[data-yh-page="federation"] #referrals .fed-empty-block {
+    border-radius: 24px;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-section-head,
+  body[data-yh-page="federation"] #referrals .fed-referral-card,
+  body[data-yh-page="federation"] #referrals .fed-referral-code,
+  body[data-yh-page="federation"] #referrals .fed-referral-item {
+    padding: 15px;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-section-head h3,
+  body[data-yh-page="federation"] #referrals .fed-referral-card h4 {
+    font-size: 1.28rem;
+    line-height: 1.1;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-section-head p,
+  body[data-yh-page="federation"] #referrals .fed-referral-caption,
+  body[data-yh-page="federation"] #referrals .fed-referral-item-meta {
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-referral-layout,
+  body[data-yh-page="federation"] #referrals .fed-state-grid,
+  body[data-yh-page="federation"] #referrals .fed-referral-stat-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-referral-code {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-referral-code strong {
+    font-size: 0.96rem;
+    line-height: 1.18;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-referral-code-actions {
+    width: 100%;
+
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-referral-code-actions .fed-btn {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-referral-item-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-referral-item-name {
+    font-size: 1.02rem;
+    line-height: 1.18;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-state-badge,
+  body[data-yh-page="federation"] #referrals .fed-referral-item-top > span,
+  body[data-yh-page="federation"] #referrals .fed-referral-item-top > small {
+    max-width: 100%;
+
+    font-size: 0.58rem;
+    padding: 6px 8px;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-state-metric {
+    min-height: 82px;
+    padding: 12px;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-state-metric strong {
+    font-size: 1.02rem;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-state-metric small {
+    font-size: 0.72rem;
+  }
+
+  body[data-yh-page="federation"] #referrals .fed-referral-link-input {
+    min-height: 48px;
+    font-size: 0.84rem;
+  }
+}
+
 /* ========================================================= */
 /* Federation Network Desk + Deal Package                    */
 /* ========================================================= */
@@ -7258,6 +9519,1560 @@ body[data-yh-page="federation"] .fed-member-actions .fed-btn {
     text-align: left;
   }
 }
+
+/* ========================================================= */
+/* PATCH: FEDERATION COMMAND MOBILE POLISH v1                 */
+/* ========================================================= */
+
+body[data-yh-page="federation"] #command {
+  padding-bottom:
+    calc(
+      126px +
+      env(safe-area-inset-bottom, 0px)
+    );
+}
+
+body[data-yh-page="federation"] .fed-strategic-command-shell-v1 {
+  gap: 13px;
+  margin-bottom: 18px;
+}
+
+body[data-yh-page="federation"] .fed-strategic-hero-v1,
+body[data-yh-page="federation"] .fed-strategic-card-v1,
+body[data-yh-page="federation"] .fed-strategic-operations-board-v2,
+body[data-yh-page="federation"] .fed-strategic-council-shell-v3,
+body[data-yh-page="federation"] .fed-strategic-diplomacy-shell-v3,
+body[data-yh-page="federation"] .fed-strategic-regional-shell-v3,
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card {
+  border-radius: 24px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 34px rgba(0, 0, 0, 0.18);
+}
+
+body[data-yh-page="federation"] .fed-strategic-hero-v1 {
+  grid-template-columns:
+    minmax(0, 1.12fr)
+    minmax(280px, 0.88fr);
+
+  align-items: stretch;
+
+  border-color: rgba(71, 178, 255, 0.22);
+
+  background:
+    radial-gradient(circle at 12% 0%, rgba(34, 211, 238, 0.18), transparent 38%),
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.13), transparent 42%),
+    linear-gradient(145deg, rgba(8, 20, 41, 0.98), rgba(4, 8, 20, 0.96));
+}
+
+body[data-yh-page="federation"] .fed-strategic-hero-copy-v1 {
+  display: grid;
+  align-content: center;
+  gap: 11px;
+}
+
+body[data-yh-page="federation"] .fed-strategic-hero-copy-v1 > span {
+  width: fit-content;
+  padding: 7px 10px;
+
+  border: 1px solid rgba(103, 232, 249, 0.28);
+  background: rgba(8, 47, 73, 0.34);
+
+  color: #67e8f9;
+}
+
+body[data-yh-page="federation"] .fed-strategic-hero-copy-v1 h4 {
+  max-width: 620px;
+  margin: 0;
+
+  font-size:
+    clamp(
+      2rem,
+      5.8vw,
+      3.8rem
+    );
+
+  line-height: 0.96;
+  letter-spacing: -0.045em;
+}
+
+body[data-yh-page="federation"] .fed-strategic-hero-copy-v1 p {
+  max-width: 620px;
+  color: rgba(219, 234, 254, 0.78);
+  font-size: 0.98rem;
+  line-height: 1.62;
+}
+
+body[data-yh-page="federation"] .fed-strategic-hero-actions-v1 {
+  margin-top: 6px;
+}
+
+body[data-yh-page="federation"] .fed-strategic-hero-actions-v1 .fed-btn {
+  min-height: 46px;
+  border-radius: 999px;
+}
+
+body[data-yh-page="federation"] .fed-strategic-profile-v1 {
+  gap: 12px;
+  padding: 16px;
+
+  border-color: rgba(211, 178, 112, 0.22);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.12), transparent 40%),
+    rgba(2, 6, 18, 0.50);
+}
+
+body[data-yh-page="federation"] .fed-strategic-profile-head-v1 strong {
+  font-size: 1.72rem;
+  letter-spacing: -0.03em;
+}
+
+body[data-yh-page="federation"] .fed-strategic-profile-grid-v1 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body[data-yh-page="federation"] .fed-strategic-profile-grid-v1 > span,
+body[data-yh-page="federation"] .fed-strategic-metrics-v1 article,
+body[data-yh-page="federation"] .fed-state-metric {
+  border-radius: 18px;
+}
+
+body[data-yh-page="federation"] .fed-strategic-profile-grid-v1 > span {
+  min-height: 74px;
+  padding: 12px;
+
+  border-color: rgba(148, 163, 184, 0.10);
+  background: rgba(15, 23, 42, 0.46);
+}
+
+body[data-yh-page="federation"] .fed-strategic-profile-grid-v1 b {
+  font-size: 0.95rem;
+  line-height: 1.22;
+}
+
+body[data-yh-page="federation"] .fed-strategic-metrics-v1 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+body[data-yh-page="federation"] .fed-strategic-metrics-v1 article {
+  min-height: 96px;
+  align-content: space-between;
+
+  padding: 14px;
+
+  border-color: rgba(103, 232, 249, 0.14);
+
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.10), transparent 40%),
+    rgba(15, 23, 42, 0.42);
+}
+
+body[data-yh-page="federation"] .fed-strategic-metrics-v1 strong {
+  font-size: 1.42rem;
+}
+
+body[data-yh-page="federation"] .fed-strategic-grid-v1 {
+  gap: 12px;
+}
+
+body[data-yh-page="federation"] .fed-strategic-card-v1 {
+  padding: 17px;
+
+  border-color: rgba(148, 163, 184, 0.12);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.07), transparent 38%),
+    rgba(10, 16, 31, 0.72);
+}
+
+body[data-yh-page="federation"] .fed-strategic-card-head-v1 h4 {
+  margin-top: 4px;
+  font-size: 1.42rem;
+  line-height: 1.12;
+}
+
+body[data-yh-page="federation"] .fed-strategic-card-head-v1 button,
+body[data-yh-page="federation"] .fed-strategic-operation-card-v1 button,
+body[data-yh-page="federation"] .fed-strategic-empty-v1 button {
+  width: fit-content;
+
+  padding: 8px 11px;
+
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  border-radius: 999px;
+
+  background: rgba(37, 99, 235, 0.12);
+
+  color: #93c5fd;
+}
+
+body[data-yh-page="federation"] .fed-strategic-empty-v1 {
+  min-height: 168px;
+  align-content: center;
+
+  padding: 18px;
+
+  border-radius: 20px;
+  border-color: rgba(103, 232, 249, 0.18);
+
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.10), transparent 42%),
+    rgba(2, 8, 23, 0.36);
+}
+
+body[data-yh-page="federation"] .fed-strategic-empty-v1 strong {
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+body[data-yh-page="federation"] .fed-strategic-empty-v1 span {
+  color: rgba(203, 213, 225, 0.82);
+}
+
+body[data-yh-page="federation"] .fed-strategic-empty-actions-v1 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body[data-yh-page="federation"] .fed-strategic-operations-board-v2,
+body[data-yh-page="federation"] .fed-strategic-council-shell-v3,
+body[data-yh-page="federation"] .fed-strategic-diplomacy-shell-v3,
+body[data-yh-page="federation"] .fed-strategic-regional-shell-v3 {
+  padding: 17px;
+}
+
+body[data-yh-page="federation"] .fed-strategic-operation-filters-v2 button {
+  border-radius: 999px;
+}
+
+body[data-yh-page="federation"] .fed-strategic-lanes-v1 button,
+body[data-yh-page="federation"] .fed-strategic-operation-item-v2,
+body[data-yh-page="federation"] .fed-strategic-influence-grid-v2 article,
+body[data-yh-page="federation"] .fed-strategic-phase-path-v2 article,
+body[data-yh-page="federation"] .fed-strategic-rank-path-v1 article,
+body[data-yh-page="federation"] .fed-strategic-readiness-v1 article,
+body[data-yh-page="federation"] .fed-strategic-diplomacy-board-v3 > article,
+body[data-yh-page="federation"] .fed-strategic-regional-map-v3 > button {
+  border-radius: 18px;
+}
+
+body[data-yh-page="federation"] .fed-strategic-lanes-v1 button {
+  min-height: 132px;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel.fed-command-layout {
+  gap: 12px;
+  margin-top: 4px;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card {
+  border-color: rgba(103, 232, 249, 0.13);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.08), transparent 38%),
+    rgba(8, 13, 27, 0.72);
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card h4 {
+  font-size: 1.35rem;
+  line-height: 1.14;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-pills span {
+  border-radius: 999px;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-actions .fed-btn,
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-actions a.fed-btn {
+  border-radius: 999px;
+}
+
+@media (max-width: 768px) {
+  body[data-yh-page="federation"] #command {
+    padding:
+      10px
+      10px
+      calc(
+        128px +
+        env(safe-area-inset-bottom, 0px)
+      );
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-command-shell-v1 {
+    gap: 11px;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-hero-v1 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+
+    padding: 14px;
+
+    border-radius: 24px;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-hero-copy-v1 h4 {
+    font-size: 2rem;
+    line-height: 0.98;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-hero-copy-v1 p {
+    font-size: 0.92rem;
+    line-height: 1.56;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-hero-actions-v1 {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-profile-v1 {
+    padding: 13px;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-profile-head-v1,
+  body[data-yh-page="federation"] .fed-strategic-card-head-v1,
+  body[data-yh-page="federation"] .fed-strategic-council-head-v3,
+  body[data-yh-page="federation"] .fed-strategic-diplomacy-head-v3,
+  body[data-yh-page="federation"] .fed-strategic-regional-head-v3 {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-profile-head-v1 > span,
+  body[data-yh-page="federation"] .fed-strategic-preview-badge-v1 {
+    white-space: nowrap;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-profile-grid-v1,
+  body[data-yh-page="federation"] .fed-strategic-metrics-v1 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-profile-grid-v1 > span {
+    min-height: 76px;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-metrics-v1 article {
+    min-height: 104px;
+    padding: 12px;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-metrics-v1 small {
+    font-size: 0.64rem;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-metrics-v1 strong {
+    font-size: 1.24rem;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-metrics-v1 span {
+    font-size: 0.73rem;
+    line-height: 1.35;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-grid-v1,
+  body[data-yh-page="federation"] .fed-strategic-region-grid-v1,
+  body[data-yh-page="federation"] .fed-strategic-lanes-v1,
+  body[data-yh-page="federation"] .fed-strategic-operation-summary-v2,
+  body[data-yh-page="federation"] .fed-strategic-operation-board-v2,
+  body[data-yh-page="federation"] .fed-strategic-council-metrics-v3,
+  body[data-yh-page="federation"] .fed-strategic-diplomacy-summary-v3,
+  body[data-yh-page="federation"] .fed-strategic-diplomacy-board-v3,
+  body[data-yh-page="federation"] .fed-strategic-regional-map-v3,
+  body[data-yh-page="federation"] .fed-strategic-relationship-lanes-v3 {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-card-v1,
+  body[data-yh-page="federation"] .fed-strategic-operations-board-v2,
+  body[data-yh-page="federation"] .fed-strategic-council-shell-v3,
+  body[data-yh-page="federation"] .fed-strategic-diplomacy-shell-v3,
+  body[data-yh-page="federation"] .fed-strategic-regional-shell-v3 {
+    padding: 14px;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-card-head-v1 {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-card-head-v1 h4 {
+    font-size: 1.25rem;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-card-head-v1 button,
+  body[data-yh-page="federation"] .fed-strategic-diplomacy-head-v3 button,
+  body[data-yh-page="federation"] .fed-strategic-regional-head-v3 button {
+    max-width: 150px;
+    font-size: 0.78rem;
+    line-height: 1.15;
+    white-space: normal;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-empty-v1 {
+    min-height: 150px;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-empty-actions-v1 {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-empty-actions-v1 button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-lanes-v1 button {
+    min-height: 118px;
+    padding: 14px;
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-rank-path-v1 article,
+  body[data-yh-page="federation"] .fed-strategic-phase-path-v2 article {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  body[data-yh-page="federation"] .fed-strategic-rank-path-v1 b,
+  body[data-yh-page="federation"] .fed-strategic-phase-path-v2 b {
+    width: 36px;
+    height: 36px;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card {
+    padding: 15px;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-actions {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-state-metric {
+    min-height: 84px;
+    padding: 13px;
+  }
+}
+
+/* ========================================================= */
+/* PATCH: FEDERATION COMMAND LOWER CARDS POLISH v1            */
+/* Referral Momentum / Positioning / Connection Activity      */
+/* ========================================================= */
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-referral-v2,
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-positioning-v2,
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-activity-v2 {
+  position: relative;
+  overflow: hidden;
+
+  border-color: rgba(103, 232, 249, 0.18);
+
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.10), transparent 38%),
+    linear-gradient(180deg, rgba(9, 19, 39, 0.88), rgba(4, 8, 20, 0.90));
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-referral-v2::before,
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-positioning-v2::before,
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-activity-v2::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+
+  height: 1px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(103, 232, 249, 0.56),
+      rgba(211, 178, 112, 0.38),
+      transparent
+    );
+
+  pointer-events: none;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-topline-v2 {
+  min-width: 0;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 12px;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-topline-v2 > div {
+  min-width: 0;
+
+  display: grid;
+  gap: 5px;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-topline-v2 h4 {
+  margin: 0;
+
+  color: #ffffff;
+
+  font-size: 1.45rem;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-status-pill-v2 {
+  flex: 0 0 auto;
+
+  min-height: 28px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 6px 10px;
+
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  border-radius: 999px;
+
+  background: rgba(8, 47, 73, 0.36);
+
+  color: #67e8f9;
+
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-subcopy-v2 {
+  margin-top: -2px;
+
+  max-width: 680px;
+
+  color: rgba(203, 213, 225, 0.78);
+
+  font-size: 0.9rem;
+  line-height: 1.52;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-metric-grid-v2,
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card > .fed-command-metric-grid-v2,
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-full .fed-command-metric-grid-v2,
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-positioning .fed-command-metric-grid-v2 {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(0, 1fr)
+    );
+
+  gap: 10px;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-metric-v2 {
+  min-width: 0;
+  min-height: 92px;
+
+  display: grid;
+  align-content: space-between;
+
+  gap: 10px;
+
+  padding: 14px;
+
+  border: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 18px;
+
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.10), transparent 42%),
+    rgba(15, 23, 42, 0.46);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-metric-v2.is-total {
+  border-color: rgba(103, 232, 249, 0.22);
+
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.15), transparent 44%),
+    rgba(8, 47, 73, 0.26);
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-metric-v2.is-pending {
+  border-color: rgba(211, 178, 112, 0.22);
+
+  background:
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.15), transparent 44%),
+    rgba(47, 32, 9, 0.20);
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-metric-v2.is-approved {
+  border-color: rgba(34, 197, 94, 0.20);
+
+  background:
+    radial-gradient(circle at 100% 0%, rgba(34, 197, 94, 0.12), transparent 44%),
+    rgba(6, 39, 24, 0.20);
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-metric-v2 strong {
+  display: block;
+
+  min-width: 0;
+
+  color: #ffffff;
+
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-size: 1.62rem;
+  font-weight: 800;
+  line-height: 1;
+
+  overflow-wrap: anywhere;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-metric-v2 small {
+  display: block;
+
+  color: rgba(203, 213, 225, 0.74);
+
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.32;
+
+  overflow-wrap: break-word;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-position-pill-v2 {
+  min-height: 104px;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-position-pill-v2 strong {
+  font-size: 1.06rem;
+  line-height: 1.2;
+}
+
+body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-activity-v2 {
+  margin-bottom:
+    calc(
+      28px +
+      env(safe-area-inset-bottom, 0px)
+    );
+}
+
+@media (max-width: 768px) {
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-referral-v2,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-positioning-v2,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-activity-v2 {
+    padding: 15px;
+
+    border-radius: 24px;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-topline-v2 {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-topline-v2 h4 {
+    font-size: 1.28rem;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-status-pill-v2 {
+    min-height: 26px;
+
+    padding: 5px 8px;
+
+    font-size: 0.56rem;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-subcopy-v2 {
+    font-size: 0.84rem;
+    line-height: 1.46;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-metric-grid-v2,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card > .fed-command-metric-grid-v2,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-full .fed-command-metric-grid-v2,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-positioning .fed-command-metric-grid-v2 {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+
+    gap: 9px;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-metric-v2 {
+    min-height: 86px;
+
+    padding: 12px;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-metric-v2 strong {
+    font-size: 1.45rem;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-metric-v2 small {
+    font-size: 0.74rem;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-position-pill-v2 {
+    grid-column: 1 / -1;
+
+    min-height: 82px;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-position-pill-v2 strong {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 380px) {
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-metric-grid-v2,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card > .fed-command-metric-grid-v2,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-full .fed-command-metric-grid-v2,
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-card-positioning .fed-command-metric-grid-v2 {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-yh-page="federation"] #memberCommandPanel .fed-command-position-pill-v2 {
+    grid-column: auto;
+  }
+}
+
+/* ========================================================= */
+/* PATCH: FEDERATION COMMAND STYLE AUTHORITY FOR ALL TABS v1  */
+/* Command is the source of truth for the rest of Federation   */
+/* ========================================================= */
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) {
+  padding-bottom:
+    calc(
+      128px +
+      env(safe-area-inset-bottom, 0px)
+    );
+}
+
+/* Main section header cards */
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) .fed-section-head {
+  position: relative;
+
+  overflow: hidden;
+
+  padding: 22px;
+  margin-bottom: 18px;
+
+  border: 1px solid rgba(71, 178, 255, 0.22);
+  border-radius: 24px;
+
+  background:
+    radial-gradient(circle at 12% 0%, rgba(34, 211, 238, 0.16), transparent 38%),
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.12), transparent 42%),
+    linear-gradient(145deg, rgba(8, 20, 41, 0.96), rgba(4, 8, 20, 0.96));
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 34px rgba(0, 0, 0, 0.20);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) .fed-section-head::before {
+  content: "";
+  position: absolute;
+
+  left: 18px;
+  right: 18px;
+  top: 0;
+
+  height: 1px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(103, 232, 249, 0.60),
+      rgba(211, 178, 112, 0.42),
+      transparent
+    );
+
+  pointer-events: none;
+}
+
+/* Command-style cards */
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-command-card,
+  .fed-connect-card,
+  .fed-member-card,
+  .fed-request-card,
+  .fed-referral-card,
+  .fed-referral-code,
+  .fed-referral-item,
+  .fed-directory-state-strip,
+  .fed-directory-toolbar,
+  .fed-requests-toolbar,
+  .fed-connect-toolbar,
+  .fed-connect-request-panel,
+  .fed-connect-requests-card-v2,
+  .fed-connect-requests-empty-v2,
+  .fed-state-card,
+  .fed-info-card,
+  .fed-benefit-card,
+  .fed-criteria-card,
+  .fed-sector-card,
+  .fed-panel-card,
+  .fed-mini-card,
+  .fed-side-stat,
+  .fed-map-card,
+  .panel-card,
+  .federation-match-box,
+  .fed-empty-block
+) {
+  position: relative;
+
+  overflow: hidden;
+
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 24px;
+
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.10), transparent 38%),
+    linear-gradient(180deg, rgba(9, 19, 39, 0.88), rgba(4, 8, 20, 0.90));
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 34px rgba(0, 0, 0, 0.18);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-command-card,
+  .fed-connect-card,
+  .fed-member-card,
+  .fed-request-card,
+  .fed-referral-card,
+  .fed-referral-code,
+  .fed-referral-item,
+  .fed-directory-state-strip,
+  .fed-directory-toolbar,
+  .fed-requests-toolbar,
+  .fed-connect-toolbar,
+  .fed-connect-request-panel,
+  .fed-connect-requests-card-v2,
+  .fed-connect-requests-empty-v2,
+  .fed-state-card,
+  .fed-info-card,
+  .fed-benefit-card,
+  .fed-criteria-card,
+  .fed-sector-card,
+  .fed-panel-card,
+  .fed-mini-card,
+  .fed-side-stat,
+  .fed-map-card,
+  .panel-card,
+  .federation-match-box,
+  .fed-empty-block
+)::before {
+  content: "";
+  position: absolute;
+
+  left: 18px;
+  right: 18px;
+  top: 0;
+
+  height: 1px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(103, 232, 249, 0.56),
+      rgba(211, 178, 112, 0.38),
+      transparent
+    );
+
+  pointer-events: none;
+}
+
+/* Gold/cyan command typography */
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-kicker,
+  .fed-sidebar-card-label,
+  .fed-right-card-label,
+  .fed-form-section-title,
+  .fed-input-wrap label,
+  .fed-referral-link-label,
+  .federation-match-label,
+  .federation-deal-grid label span
+) {
+  color: #d3b270;
+
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  line-height: 1.16;
+  text-transform: uppercase;
+}
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-section-head h3,
+  .fed-command-card h4,
+  .fed-connect-card h4,
+  .fed-member-name,
+  .fed-request-card h4,
+  .fed-referral-card h4,
+  .fed-referral-code strong,
+  .fed-referral-item-name,
+  .fed-info-title,
+  .fed-sector-title,
+  .fed-sidebar-card-title,
+  .fed-right-card-title
+) {
+  color: #ffffff;
+
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.28);
+}
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-section-head p,
+  .fed-command-copy,
+  .fed-state-text,
+  .fed-member-role,
+  .fed-member-desc,
+  .fed-referral-caption,
+  .fed-referral-item-meta,
+  .federation-match-hint,
+  .fed-form-inline-note,
+  .fed-empty-block,
+  .panel-card p,
+  .fed-info-card p,
+  .fed-benefit-card p,
+  .fed-criteria-card p,
+  .fed-sector-card p
+) {
+  color: rgba(203, 213, 225, 0.82);
+
+  line-height: 1.58;
+}
+
+/* Command metric cards */
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-state-metric,
+  .fed-mini-card,
+  .fed-side-stat,
+  .fed-admin-stat,
+  .fed-connect-stat-v2,
+  .fed-command-metric-v2
+) {
+  min-width: 0;
+  min-height: 88px;
+
+  display: grid;
+  align-content: space-between;
+
+  gap: 10px;
+
+  padding: 14px;
+
+  border: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 18px;
+
+  background:
+    radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.10), transparent 42%),
+    rgba(15, 23, 42, 0.46);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-state-metric strong,
+  .fed-mini-value,
+  .fed-side-stat-value,
+  .fed-admin-stat-value,
+  .fed-command-metric-v2 strong,
+  .fed-connect-stat-v2 strong
+) {
+  display: block;
+
+  color: #ffffff;
+
+  font-family: "Rajdhani", "Poppins", sans-serif;
+  font-weight: 800;
+  line-height: 1.05;
+
+  overflow-wrap: anywhere;
+}
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-state-metric small,
+  .fed-mini-label,
+  .fed-side-stat-label,
+  .fed-admin-stat-label,
+  .fed-command-metric-v2 small,
+  .fed-connect-stat-v2 small
+) {
+  display: block;
+
+  color: rgba(203, 213, 225, 0.74);
+
+  font-size: 0.76rem;
+  line-height: 1.34;
+
+  overflow-wrap: break-word;
+}
+
+/* Command gold profile-style highlighted panels */
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-connect-readiness-card-v2,
+  .fed-command-card-positioning-v2,
+  .fed-referral-code,
+  .fed-directory-state-strip,
+  .fed-state-card.is-featured,
+  .fed-panel-emphasis
+) {
+  border-color: rgba(211, 178, 112, 0.22);
+
+  background:
+    radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.12), transparent 40%),
+    rgba(2, 6, 18, 0.50);
+}
+
+/* Chips, tags, badges */
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-command-pills span,
+  .fed-status-list span,
+  .fed-tag-wrap span,
+  .fed-state-meta span,
+  .fed-state-points span,
+  .fed-admin-meta span,
+  .fed-connect-meta span,
+  .fed-member-meta span,
+  .fed-referral-item-top > span,
+  .fed-referral-item-top > small
+) {
+  min-width: 0;
+  max-width: 100%;
+
+  padding: 7px 10px;
+
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+
+  background: rgba(15, 23, 42, 0.50);
+
+  color: rgba(241, 245, 249, 0.90);
+
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.18;
+
+  overflow-wrap: break-word;
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-state-badge,
+  .fed-member-badge,
+  .fed-connect-value,
+  .fed-command-status-pill-v2
+) {
+  flex: 0 0 auto;
+
+  width: fit-content;
+  max-width: 160px;
+
+  padding: 7px 10px;
+
+  border: 1px solid rgba(211, 178, 112, 0.24);
+  border-radius: 999px;
+
+  background: rgba(47, 32, 9, 0.24);
+
+  color: #f2d89c;
+
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  white-space: normal;
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+/* Inputs and selects */
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  input,
+  select,
+  textarea,
+  .federation-match-select,
+  .fed-referral-link-input,
+  .fed-mobile-select-button
+) {
+  min-height: 48px;
+
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 16px;
+
+  background: rgba(2, 8, 23, 0.58);
+
+  color: #ffffff;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  clip-path: none;
+  -webkit-clip-path: none;
+}
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  input,
+  select,
+  textarea,
+  .federation-match-select,
+  .fed-referral-link-input,
+  .fed-mobile-select-button
+):focus {
+  border-color: rgba(103, 232, 249, 0.54);
+
+  box-shadow:
+    0 0 0 3px rgba(56, 189, 248, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Buttons */
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-btn,
+  .badge-btn,
+  button
+) {
+  min-height: 42px;
+
+  border-radius: 999px;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-btn-primary,
+  .badge-btn
+) {
+  border: 1px solid rgba(96, 165, 250, 0.42);
+
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(14, 165, 233, 0.82));
+
+  color: #ffffff;
+}
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) .fed-btn-secondary {
+  border: 1px solid rgba(103, 232, 249, 0.22);
+
+  background: rgba(15, 23, 42, 0.50);
+
+  color: rgba(226, 232, 240, 0.90);
+}
+
+/* Layout consistency */
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-connect-hero,
+  .fed-directory-grid,
+  .fed-requests-list,
+  .fed-referral-layout,
+  .fed-state-grid,
+  .fed-grid,
+  .fed-grid-2,
+  .fed-grid-3,
+  .federation-deal-grid
+) {
+  gap: 14px;
+}
+
+body[data-yh-page="federation"] :is(
+  #connect,
+  #deal-rooms,
+  #directory,
+  #requests,
+  #referrals,
+  #status
+) :is(
+  .fed-form-actions,
+  .inline-actions,
+  .fed-referral-code-actions
+) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Mobile command rhythm */
+
+@media (max-width: 768px) {
+  body[data-yh-page="federation"] :is(
+    #connect,
+    #deal-rooms,
+    #directory,
+    #requests,
+    #referrals,
+    #status
+  ) {
+    padding:
+      10px
+      10px
+      calc(
+        128px +
+        env(safe-area-inset-bottom, 0px)
+      );
+  }
+
+  body[data-yh-page="federation"] :is(
+    #connect,
+    #deal-rooms,
+    #directory,
+    #requests,
+    #referrals,
+    #status
+  ) :is(
+    .fed-section-head,
+    .fed-command-card,
+    .fed-connect-card,
+    .fed-member-card,
+    .fed-request-card,
+    .fed-referral-card,
+    .fed-referral-code,
+    .fed-referral-item,
+    .fed-directory-state-strip,
+    .fed-directory-toolbar,
+    .fed-requests-toolbar,
+    .fed-connect-toolbar,
+    .fed-connect-request-panel,
+    .fed-connect-requests-card-v2,
+    .fed-connect-requests-empty-v2,
+    .fed-state-card,
+    .fed-info-card,
+    .fed-benefit-card,
+    .fed-criteria-card,
+    .fed-sector-card,
+    .fed-panel-card,
+    .fed-mini-card,
+    .fed-side-stat,
+    .fed-map-card,
+    .panel-card,
+    .federation-match-box,
+    .fed-empty-block
+  ) {
+    border-radius: 24px;
+  }
+
+  body[data-yh-page="federation"] :is(
+    #connect,
+    #deal-rooms,
+    #directory,
+    #requests,
+    #referrals,
+    #status
+  ) :is(
+    .fed-section-head,
+    .fed-command-card,
+    .fed-connect-card,
+    .fed-member-card,
+    .fed-request-card,
+    .fed-referral-card,
+    .fed-referral-code,
+    .fed-referral-item,
+    .fed-directory-state-strip,
+    .fed-directory-toolbar,
+    .fed-requests-toolbar,
+    .fed-connect-toolbar,
+    .fed-connect-request-panel,
+    .fed-state-card,
+    .fed-info-card,
+    .fed-benefit-card,
+    .fed-criteria-card,
+    .fed-sector-card,
+    .fed-panel-card
+  ) {
+    padding: 15px;
+  }
+
+  body[data-yh-page="federation"] :is(
+    #connect,
+    #deal-rooms,
+    #directory,
+    #requests,
+    #referrals,
+    #status
+  ) :is(
+    .fed-section-head h3,
+    .fed-command-card h4,
+    .fed-connect-card h4,
+    .fed-request-card h4,
+    .fed-referral-card h4
+  ) {
+    font-size: 1.28rem;
+    line-height: 1.1;
+  }
+
+  body[data-yh-page="federation"] :is(
+    #connect,
+    #deal-rooms,
+    #directory,
+    #requests,
+    #referrals,
+    #status
+  ) :is(
+    .fed-section-head p,
+    .fed-command-copy,
+    .fed-state-text,
+    .fed-member-role,
+    .fed-member-desc,
+    .fed-referral-caption,
+    .fed-referral-item-meta
+  ) {
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+
+  body[data-yh-page="federation"] :is(
+    #connect,
+    #deal-rooms,
+    #directory,
+    #requests,
+    #referrals,
+    #status
+  ) :is(
+    .fed-directory-toolbar,
+    .fed-requests-toolbar,
+    .fed-connect-toolbar,
+    .fed-directory-grid,
+    .fed-requests-list,
+    .fed-referral-layout,
+    .fed-state-grid,
+    .fed-grid,
+    .fed-grid-2,
+    .fed-grid-3,
+    .federation-deal-grid
+  ) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  body[data-yh-page="federation"] :is(
+    #connect,
+    #deal-rooms,
+    #directory,
+    #requests,
+    #referrals,
+    #status
+  ) :is(
+    .fed-form-actions,
+    .inline-actions,
+    .fed-referral-code-actions
+  ) {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  body[data-yh-page="federation"] :is(
+    #connect,
+    #deal-rooms,
+    #directory,
+    #requests,
+    #referrals,
+    #status
+  ) :is(
+    .fed-form-actions .fed-btn,
+    .inline-actions .fed-btn,
+    .inline-actions .badge-btn,
+    .fed-referral-code-actions .fed-btn
+  ) {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+  }
+}
+
+/* END PATCH: FEDERATION COMMAND STYLE AUTHORITY FOR ALL TABS v1 */
 
 /* END PHASE 3E-FE-3 — COUNCIL, GOVERNANCE, DIPLOMACY, REGIONS */
 

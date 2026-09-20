@@ -8990,9 +8990,9 @@ app.get(['/dashboard', '/dashboard/'], (req, res) => {
     return sendYHSoftProtectedShell(req, res, 'dashboard.html');
 });
 
-app.get(['/academy-embed', '/academy-embed/'], (req, res) => {
-    return sendYHSoftProtectedShell(req, res, 'academy-embed.html');
-});
+// Legacy Academy embed retired.
+// Current Academy experience is owned by the unified /dashboard workspace.
+// Route intentionally disabled pending final regression validation.
 
 app.get(['/academy', '/academy/'], (req, res) => {
     return sendYHSoftProtectedShell(req, res, 'academy.html');

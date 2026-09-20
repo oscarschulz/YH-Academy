@@ -6191,11 +6191,11 @@ const plazaState = plazaAdapter.getState();
 
 const plazaConfig = {
   explorer: {
-    title: "Explorer",
-    note: "Open World command layer for regional zones, opportunity quests, member discovery, meetups, and cross-division routes.",
+    title: "Home",
+    note: "Your Plaza overview for regional movement, opportunities, trusted members, meetups, conversations, and relevant network activity.",
     navTab: "explorer",
     toolbar: null,
-    breadcrumb: ["Plazas", "Explorer"]
+    breadcrumb: ["Plazas", "Home"]
   },
   feed: {
     title: "Feed",
@@ -6442,9 +6442,41 @@ const PRIMARY_SCREENS = new Set([
   "meetups"
 ]);
 
+const PLAZA_LEGACY_ENTRY_REDIRECTS_V1 =
+  Object.freeze({
+    feed: "explorer",
+    atlas: "regions",
+    requests: "inbox",
+    "patron-desk": "patron",
+    bridge: "explorer"
+  });
+
+function normalizePlazaPrimaryEntryScreenV1(
+  value = "explorer"
+) {
+  const clean = String(
+    value || "explorer"
+  )
+    .trim()
+    .toLowerCase();
+
+  const redirected =
+    PLAZA_LEGACY_ENTRY_REDIRECTS_V1[
+      clean
+    ] || clean;
+
+  return PRIMARY_SCREENS.has(
+    redirected
+  )
+    ? redirected
+    : "explorer";
+}
+
 const plazaRuntime = {
-  currentScreen: "feed",
-  previousScreen: "feed",
+  currentScreen: "explorer",
+  previousScreen: "explorer",
+  regionsView: "overview",
+  inboxView: "incoming",
   feedFilter: "all",
   questFilter: "all",
   activeInboxRole: "all",
@@ -6493,10 +6525,50 @@ async function runLockedButtonAction(lockKey, button, busyText, callback) {
 }
 
 function savePlazaUiState() {
+  const previousState =
+    loadStoredUiState(PLAZA_UI_STATE_KEY) || {};
+
+  const currentScreen =
+    String(
+      plazaRuntime.currentScreen || ""
+    ).trim().toLowerCase();
+
+  const previousScreen =
+    String(
+      plazaRuntime.previousScreen || ""
+    ).trim().toLowerCase();
+
+  const storedScreen =
+    String(
+      previousState.currentScreen || ""
+    ).trim().toLowerCase();
+
+  /*
+   * Only primary Plaza tabs belong in persistent Dashboard state.
+   *
+   * Internal screens such as incoming-detail, conversation,
+   * opportunity-detail, project-detail, region-hub and
+   * bridge-detail must remain inside their owning primary tab.
+   */
+    const persistentCandidate =
+      PRIMARY_SCREENS.has(currentScreen)
+        ? currentScreen
+        : PRIMARY_SCREENS.has(previousScreen)
+          ? previousScreen
+          : PRIMARY_SCREENS.has(storedScreen)
+            ? storedScreen
+            : "explorer";
+
+    const persistentScreen =
+      normalizePlazaPrimaryEntryScreenV1(
+        persistentCandidate
+      );
+
   persistStoredUiState(PLAZA_UI_STATE_KEY, {
-    currentScreen: PRIMARY_SCREENS.has(plazaRuntime.currentScreen) ? plazaRuntime.currentScreen : "feed",
+    currentScreen: persistentScreen,
     feedFilter: plazaRuntime.feedFilter || "all",
     questFilter: plazaRuntime.questFilter || "all",
+    inboxView: plazaRuntime.inboxView || "incoming",
     activeInboxRole: plazaRuntime.activeInboxRole || "all",
     activeNotificationRole: plazaRuntime.activeNotificationRole || "all",
     directoryRegion: plazaRegionFilter?.value || "all",
@@ -6514,9 +6586,48 @@ function readPlazaLaunchScreenFromUrl() {
       params.get("section") ||
       "";
 
-    const clean = String(raw || "").trim().toLowerCase();
+const clean =
+  String(
+    raw ||
+    ""
+  )
+    .trim()
+    .toLowerCase();
 
-    return PRIMARY_SCREENS.has(clean) ? clean : "";
+if (
+  clean === "atlas" ||
+  clean === "plaza-atlas"
+) {
+  plazaRuntime.regionsView =
+    "atlas";
+
+  return "regions";
+}
+
+if (clean === "regions") {
+  plazaRuntime.regionsView =
+    "overview";
+}
+
+if (clean === "requests") {
+  plazaRuntime.inboxView =
+    "requests";
+
+  return "inbox";
+}
+
+if (clean === "inbox") {
+  plazaRuntime.inboxView =
+    "incoming";
+
+  return "inbox";
+}
+
+return PRIMARY_SCREENS.has(clean)
+  ? normalizePlazaPrimaryEntryScreenV1(
+      clean
+    )
+  : "";
   } catch (_) {
     return "";
   }
@@ -6526,10 +6637,45 @@ function restorePlazaUiState() {
   const saved = loadStoredUiState(PLAZA_UI_STATE_KEY);
   const urlTargetScreen = readPlazaLaunchScreenFromUrl();
 
-  plazaRuntime.feedFilter = String(saved.feedFilter || "all");
-  plazaRuntime.questFilter = String(saved.questFilter || "all");
-  plazaRuntime.activeInboxRole = String(saved.activeInboxRole || "all");
-  plazaRuntime.activeNotificationRole = String(saved.activeNotificationRole || "all");
+  plazaRuntime.feedFilter =
+    String(
+      saved.feedFilter ||
+      "all"
+    );
+
+  plazaRuntime.questFilter =
+    String(
+      saved.questFilter ||
+      "all"
+    );
+
+  if (!urlTargetScreen) {
+    const savedScreen =
+      String(
+        saved.currentScreen ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
+    plazaRuntime.inboxView =
+      savedScreen === "requests" ||
+      saved.inboxView === "requests"
+        ? "requests"
+        : "incoming";
+  }
+
+  plazaRuntime.activeInboxRole =
+    String(
+      saved.activeInboxRole ||
+      "all"
+    );
+
+  plazaRuntime.activeNotificationRole =
+    String(
+      saved.activeNotificationRole ||
+      "all"
+    );
 
   if (plazaRegionFilter) {
     plazaRegionFilter.value = String(saved.directoryRegion || "all");
@@ -6547,8 +6693,13 @@ function restorePlazaUiState() {
     return urlTargetScreen;
   }
 
-  const targetScreen = String(saved.currentScreen || "feed");
-  return PRIMARY_SCREENS.has(targetScreen) ? targetScreen : "feed";
+const targetScreen =
+  normalizePlazaPrimaryEntryScreenV1(
+    saved.currentScreen ||
+    "explorer"
+  );
+
+return targetScreen;
 }
 
 const plazaTabs = Array.from(document.querySelectorAll(".yh-plaza-tab"));
@@ -6557,7 +6708,7 @@ const plazaNavButtons = Array.from(document.querySelectorAll("[data-nav-tab]"));
 const plazaFeedFilters = Array.from(document.querySelectorAll("[data-feed-filter]"));
 
 const PLAZA_SCREEN_LOADER_LABELS = {
-  explorer: "Loading Open World...",
+  explorer: "Loading Plaza Home...",
   feed: "Loading Feed...",
   opportunities: "Loading Opportunities...",
   directory: "Loading Directory...",
@@ -6901,10 +7052,26 @@ const plazaQuestFilterBarV1 = document.getElementById("plazaQuestFilterBarV1");
 const plazaRegionGrid = document.getElementById("plazaRegionGrid");
 const plazaBridgeGrid = document.getElementById("plazaBridgeGrid");
 const plazaRequestsScreenList = document.getElementById("plazaRequestsScreenList");
+
 const plazaInboxMeta = document.getElementById("plazaInboxMeta");
 const plazaInboxRoleFilters = document.getElementById("plazaInboxRoleFilters");
 const plazaInboxSummaryGrid = document.getElementById("plazaInboxSummaryGrid");
 const plazaInboxList = document.getElementById("plazaInboxList");
+
+const plazaInboxViewButtons =
+  Array.from(
+    document.querySelectorAll(
+      "[data-plaza-inbox-view]"
+    )
+  );
+
+const plazaInboxViewPanels =
+  Array.from(
+    document.querySelectorAll(
+      "[data-plaza-inbox-view-panel]"
+    )
+  );
+
 const plazaIncomingDetailTitle = document.getElementById("plazaIncomingDetailTitle");
 const plazaIncomingDetailMeta = document.getElementById("plazaIncomingDetailMeta");
 const plazaIncomingDetailActions = document.getElementById("plazaIncomingDetailActions");
@@ -6923,6 +7090,20 @@ const plazaBusinessMemberResults = document.getElementById("plazaBusinessMemberR
 
 const plazaAtlasSummary = document.getElementById("plazaAtlasSummary");
 const plazaAtlasGrid = document.getElementById("plazaAtlasGrid");
+
+const plazaRegionsViewButtons =
+  Array.from(
+    document.querySelectorAll(
+      "[data-plaza-regions-view]"
+    )
+  );
+
+const plazaRegionsViewPanels =
+  Array.from(
+    document.querySelectorAll(
+      "[data-plaza-regions-view-panel]"
+    )
+  );
 
 const plazaPatronApplicationMeta = document.getElementById("plazaPatronApplicationMeta");
 const plazaPatronApplicationStatusCard = document.getElementById("plazaPatronApplicationStatusCard");
@@ -8120,8 +8301,41 @@ function delegatePlazaPrimaryScreenToDashboardV27(
   }
 }
 
-function openScreen(screenName, options = {}) {
-  const nextScreenName = String(screenName || "feed").trim() || "feed";
+function openScreen(
+  screenName,
+  options = {}
+) {
+  const requestedScreenName =
+    String(
+      screenName ||
+      "explorer"
+    )
+      .trim()
+      .toLowerCase() ||
+    "explorer";
+
+  const isLegacyAtlasScreen =
+    requestedScreenName ===
+      "atlas" ||
+    requestedScreenName ===
+      "plaza-atlas";
+
+  const nextScreenName =
+    isLegacyAtlasScreen
+      ? "regions"
+      : requestedScreenName;
+
+  if (isLegacyAtlasScreen) {
+    renderRegions();
+    renderAtlasScreen();
+
+    setPlazaRegionsViewV1(
+      "atlas",
+      {
+        render: false
+      }
+    );
+  }
 
   if (
     delegatePlazaPrimaryScreenToDashboardV27(
@@ -8188,10 +8402,10 @@ function openScreen(screenName, options = {}) {
 }
 
 function normalizePlazaDashboardScreenV26(
-  value = "feed"
+  value = "explorer"
 ) {
   const clean = String(
-    value || "feed"
+    value || "explorer"
   ).trim().toLowerCase();
 
   if (clean === "conversations") {
@@ -8199,12 +8413,14 @@ function normalizePlazaDashboardScreenV26(
   }
 
   if (clean === "plaza-atlas") {
-    return "atlas";
+    return "regions";
   }
 
   return PRIMARY_SCREENS.has(clean)
-    ? clean
-    : "feed";
+    ? normalizePlazaPrimaryEntryScreenV1(
+        clean
+      )
+    : "explorer";
 }
 
 function isPlazaDashboardScreenHydratedV26(
@@ -8645,7 +8861,10 @@ function resetPlazaToOverview() {
   renderFeed("all");
   renderDirectory();
   renderRequestsPreview();
-  openScreen("feed", { resetHistory: true, pushHistory: false });
+  openScreen("explorer", {
+  resetHistory: true,
+  pushHistory: false
+});
 }
 
 function renderStats() {
@@ -10649,9 +10868,79 @@ function renderAtlasScreen() {
   }).join("");
 }
 
+function setPlazaRegionsViewV1(
+  view = "overview",
+  options = {}
+) {
+  const cleanView =
+    String(view || "")
+      .trim()
+      .toLowerCase() === "atlas"
+      ? "atlas"
+      : "overview";
+
+  plazaRuntime.regionsView =
+    cleanView;
+
+  plazaRegionsViewButtons.forEach(
+    (button) => {
+      const isActive =
+        button.getAttribute(
+          "data-plaza-regions-view"
+        ) === cleanView;
+
+      button.classList.toggle(
+        "is-active",
+        isActive
+      );
+
+      button.setAttribute(
+        "aria-selected",
+        isActive
+          ? "true"
+          : "false"
+      );
+    }
+  );
+
+  plazaRegionsViewPanels.forEach(
+    (panel) => {
+      const isActive =
+        panel.getAttribute(
+          "data-plaza-regions-view-panel"
+        ) === cleanView;
+
+      panel.hidden = !isActive;
+    }
+  );
+
+  if (options.render === false) {
+    return;
+  }
+
+  if (cleanView === "atlas") {
+    renderAtlasScreen();
+  } else {
+    renderRegions();
+  }
+}
+
+
 function openAtlasScreen(options = {}) {
+  renderRegions();
   renderAtlasScreen();
-  openScreen("atlas", options);
+
+  setPlazaRegionsViewV1(
+    "atlas",
+    {
+      render: false
+    }
+  );
+
+  openScreen(
+    "regions",
+    options
+  );
 }
 
 function populatePatronRegionSelect() {
@@ -11205,7 +11494,10 @@ function upsertPlazaRealtimeConversation(conversation = {}) {
   plazaServerMessagesLoaded = true;
   renderMessagesScreen();
 
-  if (plazaRuntime.activeConversationId === normalized.id) {
+  if (
+    plazaRuntime.currentScreen === "conversation" &&
+    plazaRuntime.activeConversationId === normalized.id
+  ) {
     renderConversationScreen(normalized);
   }
 
@@ -12375,6 +12667,39 @@ async function runPlazaConversationSafetyAction(
 }
 
 
+function getPlazaConversationSenderInitialV1(value = "") {
+  const clean =
+    String(value || "")
+      .trim();
+
+  if (!clean) return "YH";
+
+  return clean
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0))
+    .join("")
+    .toUpperCase() || "YH";
+}
+
+function scrollPlazaConversationThreadToBottomV1() {
+  if (!plazaConversationThread) return;
+
+  window.requestAnimationFrame(() => {
+    try {
+      plazaConversationThread.scrollTop =
+        plazaConversationThread.scrollHeight;
+
+      if (typeof plazaConversationThread.scrollTo === "function") {
+        plazaConversationThread.scrollTo({
+          top: plazaConversationThread.scrollHeight,
+          behavior: "auto"
+        });
+      }
+    } catch (_) {}
+  });
+}
+
 function renderConversationScreen(item) {
   if (!item || !plazaConversationTitle || !plazaConversationMeta || !plazaConversationThread) return;
 
@@ -12395,17 +12720,62 @@ function renderConversationScreen(item) {
     plazaConversationIdField.value = item.id;
   }
 
-  plazaConversationThread.innerHTML = safeArray(item.messages).length
-    ? item.messages.map((message) => `
-        <article class="yh-plaza-conversation-bubble ${message.type === "system" ? "is-system" : message.sender === "You" ? "is-self" : ""}">
-          <strong>${escapeHtml(message.sender)}</strong>
-          <p>${escapeHtml(message.text)}</p>
-          <span class="yh-plaza-conversation-time">${escapeHtml(formatDate(message.createdAt))}</span>
-        </article>
-      `).join("")
+  const messages =
+    safeArray(item.messages);
+
+  plazaConversationThread.setAttribute(
+    "aria-live",
+    "polite"
+  );
+
+  plazaConversationThread.innerHTML = messages.length
+    ? messages.map((message) => {
+        const sender =
+          String(message.sender || "System")
+            .trim() || "System";
+
+        const isSystem =
+          String(message.type || "")
+            .trim()
+            .toLowerCase() === "system";
+
+        const isSelf =
+          !isSystem &&
+          sender.toLowerCase() === "you";
+
+        const bubbleClass =
+          isSystem
+            ? "is-system"
+            : isSelf
+              ? "is-self"
+              : "is-other";
+
+        const initial =
+          isSystem
+            ? "YH"
+            : getPlazaConversationSenderInitialV1(sender);
+
+        return `
+          <article class="yh-plaza-conversation-bubble ${bubbleClass}">
+            <span class="yh-plaza-conversation-bubble-avatar" aria-hidden="true">
+              ${escapeHtml(initial)}
+            </span>
+
+            <div class="yh-plaza-conversation-bubble-main">
+              <div class="yh-plaza-conversation-bubble-head">
+                <strong>${escapeHtml(sender)}</strong>
+                <span class="yh-plaza-conversation-time">${escapeHtml(formatDate(message.createdAt))}</span>
+              </div>
+
+              <p>${escapeHtml(message.text)}</p>
+            </div>
+          </article>
+        `;
+      }).join("")
     : `<div class="yh-plaza-empty-subtle">No message exists in this conversation yet.</div>`;
 
   openScreen("conversation");
+  scrollPlazaConversationThreadToBottomV1();
 }
 
 function openConversationScreen(conversationId) {
@@ -12417,9 +12787,77 @@ function openConversationScreen(conversationId) {
   renderConversationScreen(item);
 }
 
+function setPlazaInboxViewV1(
+  view = "incoming",
+  options = {}
+) {
+  const cleanView =
+    String(
+      view ||
+      "incoming"
+    )
+      .trim()
+      .toLowerCase() ===
+    "requests"
+      ? "requests"
+      : "incoming";
+
+  plazaRuntime.inboxView =
+    cleanView;
+
+  plazaInboxViewButtons.forEach(
+    (button) => {
+      const isActive =
+        button.getAttribute(
+          "data-plaza-inbox-view"
+        ) === cleanView;
+
+      button.classList.toggle(
+        "is-active",
+        isActive
+      );
+
+      button.setAttribute(
+        "aria-selected",
+        isActive
+          ? "true"
+          : "false"
+      );
+    }
+  );
+
+  plazaInboxViewPanels.forEach(
+    (panel) => {
+      const isActive =
+        panel.getAttribute(
+          "data-plaza-inbox-view-panel"
+        ) === cleanView;
+
+      panel.hidden = !isActive;
+    }
+  );
+
+  if (options.render === false) {
+    return;
+  }
+
+  if (cleanView === "requests") {
+    renderRequestsScreen();
+  } else {
+    renderInboxScreen();
+  }
+}
+
+
 function openInboxScreen(options = {}) {
-  renderInboxScreen();
-  openScreen("inbox", options);
+  setPlazaInboxViewV1(
+    "incoming"
+  );
+
+  openScreen(
+    "inbox",
+    options
+  );
 }
 
 function openNotificationsScreen(options = {}) {
@@ -12522,6 +12960,39 @@ function renderIncomingDetailScreen(item) {
   `;
 
   openScreen("incoming-detail");
+
+  /*
+   * Incoming Detail is entered from an Inbox card that may be far
+   * down the mobile scroll surface.
+   *
+   * Dashboard embedded Plazas uses .yh-plaza-app-grid as the mobile
+   * scroll owner, while standalone/desktop layouts may still use the
+   * workspace/tab panel. Reset all legitimate Plaza scroll owners so
+   * the newly opened detail always begins at its top.
+   */
+  window.requestAnimationFrame(() => {
+    const scrollOwners = [
+      document.querySelector(".yh-plaza-app-grid"),
+      document.querySelector(".yh-plaza-workspace"),
+      document.querySelector(".yh-plaza-tab-panels"),
+      document.scrollingElement
+    ].filter(Boolean);
+
+    scrollOwners.forEach((owner) => {
+      try {
+        owner.scrollTop = 0;
+        owner.scrollLeft = 0;
+
+        if (typeof owner.scrollTo === "function") {
+          owner.scrollTo({
+            top: 0,
+            left: 0,
+            behavior: "auto"
+          });
+        }
+      } catch (_) {}
+    });
+  });
 }
 
 function openIncomingDetailScreen(inboxId) {
@@ -13334,9 +13805,21 @@ function renderBridgeDetailScreen(item) {
   openScreen("bridge-detail");
 }
 
-function openRequestsScreen() {
+function openRequestsScreen(options = {}) {
+  renderInboxScreen();
   renderRequestsScreen();
-  openScreen("requests");
+
+  setPlazaInboxViewV1(
+    "requests",
+    {
+      render: false
+    }
+  );
+
+  openScreen(
+    "inbox",
+    options
+  );
 }
 
 function openRequestPreview(requestId) {
@@ -13468,20 +13951,35 @@ function openRequestContext(requestId) {
     }
   }
 
-  if (sourceType === "feed-introduction") {
-    const feed = plazaAdapter.getFeedById(targetId);
-    if (feed) {
-      plazaRuntime.feedFilter = "all";
-      plazaFeedFilters.forEach((pill) => pill.classList.toggle("is-active", pill.dataset.feedFilter === "all"));
-      renderFeed("all");
-      openScreen("feed", { resetHistory: true, pushHistory: false });
-      focusContextCard(
-        `[data-context-card="feed"][data-context-id="${CSS.escape(feed.id)}"]`,
-        `Opened related feed context for ${feed.member}.`
-      );
-      return;
-    }
+if (sourceType === "feed-introduction") {
+  const feed = plazaAdapter.getFeedById(targetId);
+
+  if (feed) {
+    plazaRuntime.feedFilter = "all";
+
+    plazaFeedFilters.forEach((pill) =>
+      pill.classList.toggle(
+        "is-active",
+        pill.dataset.feedFilter === "all"
+      )
+    );
+
+    renderFeed("all");
+    renderPlazaExplorerScreenV1();
+
+    openScreen("explorer", {
+      resetHistory: true,
+      pushHistory: false
+    });
+
+    focusContextCard(
+      `[data-context-card="feed"][data-context-id="${CSS.escape(feed.id)}"]`,
+      `Opened related Plaza Activity for ${feed.member}.`
+    );
+
+    return;
   }
+}
 
   if (sourceType === "member-connection" || sourceType === "member-screened") {
     const member = plazaAdapter.getMemberById(targetId);
@@ -13869,12 +14367,40 @@ function bindEvents() {
       }
 
       if (targetTab === "meetups") {
-        openMeetupsScreen({ resetHistory: true, pushHistory: false });
+        openMeetupsScreen({
+          resetHistory: true,
+          pushHistory: false
+        });
+
         return;
       }
 
+      if (targetTab === "regions") {
+        setPlazaRegionsViewV1(
+          "overview"
+        );
+
+        openScreen(
+          "regions",
+          {
+            resetHistory: true,
+            pushHistory: false
+          }
+        );
+
+        return;
+      }
+
+      /*
+      * Legacy Atlas navigation compatibility.
+      * Atlas now lives inside Regions.
+      */
       if (targetTab === "atlas") {
-        openAtlasScreen({ resetHistory: true, pushHistory: false });
+        openAtlasScreen({
+          resetHistory: true,
+          pushHistory: false
+        });
+
         return;
       }
 
@@ -13889,6 +14415,36 @@ function bindEvents() {
       }
 
       openScreen(targetTab, { resetHistory: true, pushHistory: false });
+    });
+  });
+
+  plazaRegionsViewButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const requestedView =
+        button.getAttribute("data-plaza-regions-view") ||
+        "overview";
+
+      setPlazaRegionsViewV1(
+        requestedView
+      );
+
+      savePlazaUiState();
+    });
+  });
+
+  plazaInboxViewButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const requestedView =
+        button.getAttribute(
+          "data-plaza-inbox-view"
+        ) ||
+        "incoming";
+
+      setPlazaInboxViewV1(
+        requestedView
+      );
+
+      savePlazaUiState();
     });
   });
 
@@ -13952,14 +14508,37 @@ function bindEvents() {
       ).trim().toLowerCase();
 
       if (targetScreen === "explorer") {
-        openPlazaExplorerScreenV1({ resetHistory: true, pushHistory: false });
+        openPlazaExplorerScreenV1({
+          resetHistory: true,
+          pushHistory: false
+        });
       } else if (targetScreen === "atlas") {
-        openAtlasScreen({ resetHistory: true, pushHistory: false });
+        openAtlasScreen({
+          resetHistory: true,
+          pushHistory: false
+        });
       } else if (targetScreen === "meetups") {
-        openMeetupsScreen({ resetHistory: true, pushHistory: false });
+        openMeetupsScreen({
+          resetHistory: true,
+          pushHistory: false
+        });
+      } else if (targetScreen === "requests") {
+        openRequestsScreen({
+          resetHistory: true,
+          pushHistory: false
+        });
       } else {
-        openScreen(targetScreen, { resetHistory: true, pushHistory: false });
-        renderPlazaBootTargetScreenOnly(targetScreen);
+        openScreen(
+          targetScreen,
+          {
+            resetHistory: true,
+            pushHistory: false
+          }
+        );
+
+        renderPlazaBootTargetScreenOnly(
+          targetScreen
+        );
       }
 
       return;
@@ -13981,7 +14560,35 @@ function bindEvents() {
       return;
     }
 
-    const screenBack = target.closest("[data-screen-back]");
+    const plazaConversationBackBtn =
+      target.closest(
+        "[data-plaza-conversation-back]"
+      );
+
+    if (
+      plazaConversationBackBtn instanceof HTMLElement
+    ) {
+      /*
+       * The dedicated Business Conversation screen
+       * always returns directly to Conversations.
+       *
+       * Clear the active thread first so realtime
+       * updates cannot immediately reopen it.
+       */
+      plazaRuntime.activeConversationId = "";
+
+      openMessagesScreen({
+        resetHistory: true,
+        pushHistory: false,
+        showLoader: false
+      });
+
+      return;
+    }
+
+    const screenBack =
+      target.closest("[data-screen-back]");
+
     if (screenBack instanceof HTMLElement) {
       goBackFromScreen();
       return;
@@ -14863,8 +15470,16 @@ if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
         renderFeed("all");
         renderRailSignals();
         renderOperationalPreviews();
-        openScreen("feed", { resetHistory: true, pushHistory: false });
-        showToast("Introduction submitted to Plaza feed.");
+        renderPlazaExplorerScreenV1();
+
+        openScreen("explorer", {
+          resetHistory: true,
+          pushHistory: false
+        });
+
+        showToast(
+          "Introduction added to Plaza Activity."
+        );
       } finally {
         clearButtonBusy(submitButton);
         plazaActionLocks.delete(lockKey);
@@ -16940,6 +17555,7 @@ function writePlazaAccessBootCache(snapshot = {}) {
     localStorage.setItem(
       "yh_plaza_access_status_v1",
       JSON.stringify({
+        ownerUserId: getPlazaCurrentUserIdV1(),
         hasApplication: snapshot?.hasApplication === true,
         canEnterPlaza: snapshot?.canEnterPlaza === true,
         applicationStatus: String(
@@ -16952,6 +17568,10 @@ function writePlazaAccessBootCache(snapshot = {}) {
           typeof snapshot.application === "object"
             ? snapshot.application
             : null,
+        divisionOverride:
+          snapshot?.divisionOverride ||
+          snapshot?.application?.divisionOverride ||
+          null,
         member:
           snapshot?.member &&
           typeof snapshot.member === "object"
@@ -17359,10 +17979,31 @@ async function initPlaza() {
     deferDashboardReady: true
   });
 
-  renderPlazaBootTargetScreenOnly(
-    restoredScreen
+renderPlazaBootTargetScreenOnly(
+  restoredScreen
+);
+
+if (
+  restoredScreen ===
+  "regions"
+) {
+  setPlazaRegionsViewV1(
+    plazaRuntime.regionsView ||
+      "overview"
   );
-  bindEvents();
+}
+
+if (
+  restoredScreen ===
+  "inbox"
+) {
+  setPlazaInboxViewV1(
+    plazaRuntime.inboxView ||
+      "incoming"
+  );
+}
+
+bindEvents();
   enhancePlazaSelectControls();
 
 
@@ -17748,12 +18389,61 @@ initPlaza();
             `[data-plaza-screen="${screen}"]`
         );
 
-        const targetScreenReady = Boolean(
-            childReady &&
-            readyScreen === screen &&
+        const visibleScreen =
+            document.querySelector(
+                '[data-plaza-screen].yh-plaza-screen.is-active:not([hidden])'
+            );
+
+        const visibleScreenName =
+            String(
+                visibleScreen?.getAttribute(
+                    'data-plaza-screen'
+                ) ||
+                ''
+            )
+                .trim()
+                .toLowerCase();
+
+        const internalScreenOwners = {
+            'incoming-detail': 'inbox',
+            'notifications': 'inbox',
+
+            'conversation': 'messages',
+
+            'opportunity-detail': 'opportunities',
+
+            'project-detail': 'feed',
+
+            'region-hub': 'regions',
+
+            'bridge-detail': 'bridge'
+        };
+
+        const readyScreenOwner =
+            internalScreenOwners[readyScreen] ||
+            readyScreen;
+
+        const visibleScreenOwner =
+            internalScreenOwners[visibleScreenName] ||
+            visibleScreenName;
+
+        const primaryTargetVisible =
             activeScreen instanceof HTMLElement &&
             activeScreen.hidden !== true &&
-            activeScreen.classList.contains('is-active')
+            activeScreen.classList.contains('is-active');
+
+        const internalTargetVisible =
+            visibleScreen instanceof HTMLElement &&
+            internalScreenOwners[visibleScreenName] === screen;
+
+        const targetScreenReady = Boolean(
+            childReady &&
+            readyScreenOwner === screen &&
+            visibleScreenOwner === screen &&
+            (
+                primaryTargetVisible ||
+                internalTargetVisible
+            )
         );
 
         const shell =

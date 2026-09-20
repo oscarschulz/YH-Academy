@@ -14,12 +14,20 @@
 }
 
 body {
+  position: relative;
   background-color: #020617;
-  background: linear-gradient(180deg, rgba(2, 6, 23, 0.04), rgba(2, 6, 23, 0.20)),
-    url("/images/yhu-premium-bg.png?v=20260531-bg-09") center center / cover no-repeat fixed,
-    #020617;
+  background:
+    radial-gradient(circle at 70% 12%, rgba(56, 189, 248, 0.09), transparent 34%),
+    radial-gradient(circle at 16% 80%, rgba(37, 99, 235, 0.10), transparent 38%),
+    linear-gradient(180deg, rgba(3, 10, 24, 0.96), rgba(2, 6, 23, 0.98));
   min-height: 100vh;
   overflow-x: hidden;
+}
+
+body::before,
+body::after {
+  content: none;
+  display: none;
 }
 
 button,
@@ -75,10 +83,44 @@ a {
 
 .bc-shell {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   width: min(1480px, calc(100vw - 28px));
   margin: 0 auto;
   padding: 24px 0 28px;
+}
+
+@media (min-width: 769px) {
+  .bc-shell {
+    min-height:
+      auto;
+
+    padding:
+      0;
+
+    border:
+      0;
+
+    border-radius:
+      0;
+
+    background:
+      transparent;
+
+    background-image:
+      none;
+
+    box-shadow:
+      none;
+
+    backdrop-filter:
+      none;
+
+    -webkit-backdrop-filter:
+      none;
+
+    overflow:
+      visible;
+  }
 }
 
 .bc-topnav {
@@ -160,7 +202,7 @@ body[data-bc-active-view="conversations"] .bc-main-grid {
 body[data-bc-active-view="overview"] .bc-main-grid,
 body[data-bc-active-view="start"] .bc-main-grid,
 body[data-bc-active-view="blocked"] .bc-main-grid {
-  grid-template-columns: minmax(0, 760px);
+  grid-template-columns: minmax(0, min(1040px, 100%));
   justify-content: center;
 }
 
@@ -210,11 +252,11 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 .bc-ghost-small,
 .bc-primary-small,
 .bc-safety-actions .bc-danger-btn {
-  min-height: 24px;
-  height: 24px;
-  min-width: 54px;
+  min-height: 28px;
+  height: 28px;
+  min-width: 64px;
   width: auto;
-  padding: 2px 8px;
+  padding: 4px 10px;
   box-sizing: border-box;
   line-height: 1;
   white-space: nowrap;
@@ -274,7 +316,12 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 .bc-start-panel,
 .bc-blocked-panel,
 .bc-panel,
-.bc-thread-panel {overflow: hidden;background-color:rgba(2, 8, 23, 0.28);}
+.bc-thread-panel {
+  overflow: hidden;
+  background-color: rgba(6, 18, 38, 0.58);
+  backdrop-filter: blur(14px) saturate(1.04);
+  -webkit-backdrop-filter: blur(14px) saturate(1.04);
+}
 
 .bc-panel-head {
   display: flex;
@@ -570,56 +617,77 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
   z-index: 10000;
   display: grid;
   place-items: center;
-  padding: 20px;
+  padding: 18px;
 }
 
 .bc-inline-dialog-card {
-  width: min(520px, 100%);
-  overflow: hidden;
+  width: min(580px, 100%);
+  max-height: min(86vh, 760px);
+  overflow: auto;
 }
 
 .bc-inline-dialog-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
-  padding: 18px;
+  gap: 16px;
+  padding: 22px 22px 16px;
 }
 
 .bc-inline-dialog-x {
-  width: 38px;
-  height: 38px;
-  flex: 0 0 38px;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
   display: inline-grid;
   place-items: center;
 }
 
 .bc-inline-dialog-body {
-  padding: 18px;
+  padding: 18px 22px 20px;
   display: grid;
-  gap: 12px;
+  gap: 18px;
 }
 
 .bc-inline-dialog-field {
   display: grid;
-  gap: 7px;
+  gap: 10px;
+}
+
+.bc-inline-dialog-field label {
+  font-size: 1rem;
+  line-height: 1.15;
+}
+
+.bc-inline-dialog-field input {
+  min-height: 54px;
+  padding: 14px 16px;
+  font-size: 1rem;
+  line-height: 1.2;
 }
 
 .bc-inline-dialog-field textarea {
-  min-height: 94px;
+  min-height: 132px;
+  padding: 15px 16px;
+  font-size: 1rem;
+  line-height: 1.45;
 }
 
 .bc-inline-dialog-actions {
-  padding: 14px 18px 18px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+  padding: 4px 22px 22px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 
 .bc-inline-dialog-actions .bc-ghost-small,
 .bc-inline-dialog-actions .bc-primary-small,
 .bc-inline-dialog-actions .bc-danger-btn {
-  min-width: 112px;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  height: 48px;
+  padding: 10px 16px;
+  font-size: 0.98rem;
 }
 
 @media (min-width: 901px) {
@@ -805,7 +873,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
       8px
       8px
       calc(
-        20px +
+        118px +
         env(safe-area-inset-bottom, 0px)
       );
 
@@ -1052,7 +1120,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 
     align-items: start;
 
-    margin: 0;
+    margin: 0 0 28px;
 
     overflow: visible;
   }
@@ -1078,6 +1146,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     width: 100%;
     min-width: 0;
     max-width: 100%;
+    margin-bottom: 22px;
   }
 
 
@@ -1549,7 +1618,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 
     position: sticky;
 
-    bottom: 0;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     z-index: 20;
 
     display: grid;
@@ -1561,7 +1630,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 
     gap: 8px;
 
-    padding: 10px 12px;
+    padding: 10px 12px 16px;
   }
 
 
@@ -1755,19 +1824,47 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 
 @media (max-width: 560px) {
   .bc-inline-dialog {
-    align-items: end;
-    padding: 12px;
+    align-items: center;
+    padding: 14px;
+  }
+
+  .bc-inline-dialog-card {
+    width: 100%;
+    max-height: calc(100dvh - 96px);
+  }
+
+  .bc-inline-dialog-head {
+    padding: 20px 18px 14px;
+  }
+
+  .bc-inline-dialog-body {
+    padding: 16px 18px 18px;
+    gap: 16px;
+  }
+
+  .bc-inline-dialog-field input {
+    min-height: 52px;
+    padding: 13px 15px;
+  }
+
+  .bc-inline-dialog-field textarea {
+    min-height: 124px;
+    padding: 14px 15px;
   }
 
   .bc-inline-dialog-actions {
     display: grid;
     grid-template-columns: 1fr;
+    padding: 2px 18px 20px;
+    gap: 12px;
   }
 
   .bc-inline-dialog-actions .bc-ghost-small,
   .bc-inline-dialog-actions .bc-primary-small,
   .bc-inline-dialog-actions .bc-danger-btn {
     width: 100%;
+    min-height: 48px;
+    height: 48px;
   }
 }
 
@@ -1790,3 +1887,4 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
     line-height: 1.1;
   }
 }
+

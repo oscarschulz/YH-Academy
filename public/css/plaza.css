@@ -224,8 +224,20 @@ a {
   overflow: visible;
   padding-right: 0;
   margin-top: 0;
+  padding-bottom: 52px;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+#plazaScreenPatron {
+  padding-bottom: 0;
+}
+
+#plazaScreenPatron .yh-plaza-screen-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-bottom: 0;
 }
 .yh-plaza-tab-panels::-webkit-scrollbar {
   width: 0;
@@ -317,8 +329,9 @@ a {
 }
 .yh-plaza-feed-composer {
   display: grid;
-  gap: 10px;margin:0 0 8px;
-  padding: 16px;
+  gap: 16px;
+  margin: 0 0 24px;
+  padding: 20px;
   border-radius: 14px;
 }
 
@@ -550,10 +563,17 @@ a {
 .yh-plaza-btn {
   border: 1px solid var(--yh-border);
   padding: 14px 20px;
-  border-radius: 14px;
+
+  border-radius: 14px !important;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+
   color: var(--yh-text);
   cursor: pointer;
   transition: 0.22s ease;
+
+  overflow: hidden;
 }
 
 .yh-plaza-btn:hover,
@@ -766,10 +786,18 @@ a {
 .yh-plaza-tab,
 .yh-plaza-pill {
   color: var(--yh-text-dim);
+
   padding: 12px 16px;
-  border-radius: 999px;
+
+  border-radius: 999px !important;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+
   cursor: pointer;
   transition: 0.2s ease;
+
+  overflow: hidden;
 }
 
 .yh-plaza-tab {
@@ -2217,6 +2245,219 @@ border-radius: 14px;
     padding: 10px;
   }
 
+  /* ====================================================== */
+  /* PLAZA DIRECTORY — MOBILE CONTENT HEIGHT FIX            */
+  /* ====================================================== */
+
+  /*
+   * Directory should behave like Plaza Home:
+   * natural content height, compact cards, and controlled
+   * bottom clearance above the persistent Dashboard nav.
+   */
+  [data-plaza-screen="directory"] {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  [data-plaza-screen="directory"] > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  [data-plaza-screen="directory"] .yh-plaza-screen-shell,
+  [data-plaza-screen="directory"] .yh-plaza-screen-body {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    gap: 14px !important;
+  }
+
+  body[data-yh-dashboard-active-screen="directory"] #plazaDirectoryToolbar,
+  body[data-yh-page="plaza"].yh-plaza-page #plazaDirectoryToolbar:not([hidden]) {
+    position: relative !important;
+
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+
+    margin: 0 0 18px !important;
+    padding: 16px !important;
+
+    border-radius: 26px !important;
+    border: 1px solid rgba(103, 232, 249, 0.24) !important;
+
+    background:
+      radial-gradient(circle at 16% 0%, rgba(56, 189, 248, 0.18), transparent 46%),
+      linear-gradient(180deg, rgba(7, 33, 62, 0.94), rgba(3, 10, 25, 0.92)) !important;
+
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 0 0 1px rgba(56, 189, 248, 0.055),
+      0 18px 38px rgba(0, 0, 0, 0.24) !important;
+
+    overflow: hidden !important;
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+  }
+
+  body[data-yh-dashboard-active-screen="directory"] #plazaDirectoryToolbar::before,
+  body[data-yh-page="plaza"].yh-plaza-page #plazaDirectoryToolbar:not([hidden])::before {
+    content: none !important;
+    display: none !important;
+  }
+
+  body[data-yh-dashboard-active-screen="directory"] #plazaDirectoryToolbar::after,
+  body[data-yh-page="plaza"].yh-plaza-page #plazaDirectoryToolbar:not([hidden])::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  body[data-yh-dashboard-active-screen="directory"] #plazaDirectoryToolbar .yh-plaza-field,
+  body[data-yh-page="plaza"].yh-plaza-page #plazaDirectoryToolbar:not([hidden]) .yh-plaza-field {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+
+    margin: 0 !important;
+    padding: 12px !important;
+
+    border-radius: 18px !important;
+    border: 1px solid rgba(56, 189, 248, 0.16) !important;
+
+    background:
+      linear-gradient(180deg, rgba(15, 35, 64, 0.62), rgba(2, 8, 23, 0.56)) !important;
+
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+  }
+
+  body[data-yh-dashboard-active-screen="directory"] #plazaDirectoryToolbar .yh-plaza-field > span,
+  body[data-yh-page="plaza"].yh-plaza-page #plazaDirectoryToolbar:not([hidden]) .yh-plaza-field > span {
+    display: block !important;
+
+    margin: 0 0 2px !important;
+
+    color: #dff7ff !important;
+
+    font-size: 0.92rem !important;
+    font-weight: 900 !important;
+    line-height: 1.15 !important;
+    letter-spacing: 0 !important;
+
+    text-shadow:
+      0 1px 0 rgba(0, 0, 0, 0.55) !important;
+  }
+
+  body[data-yh-dashboard-active-screen="directory"] #plazaDirectoryToolbar .yh-plaza-field select,
+  body[data-yh-page="plaza"].yh-plaza-page #plazaDirectoryToolbar:not([hidden]) .yh-plaza-field select {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 50px !important;
+
+    border-radius: 15px !important;
+    border: 1px solid rgba(103, 232, 249, 0.34) !important;
+
+    background-color: #030b18 !important;
+    background-image:
+      linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.96) 50%),
+      linear-gradient(135deg, rgba(255, 255, 255, 0.96) 50%, transparent 50%),
+      linear-gradient(180deg, rgba(2, 8, 23, 0.99), rgba(5, 18, 38, 0.98)) !important;
+
+    color: #ffffff !important;
+
+    font-size: 1rem !important;
+    font-weight: 900 !important;
+    line-height: 1.15 !important;
+    letter-spacing: 0 !important;
+
+    text-shadow:
+      0 1px 0 rgba(0, 0, 0, 0.55) !important;
+
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.055),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.015),
+      0 10px 22px rgba(0, 0, 0, 0.18) !important;
+  }
+
+  body[data-yh-dashboard-active-screen="directory"] #plazaDirectoryToolbar .yh-plaza-field select option,
+  body[data-yh-dashboard-active-screen="directory"] #plazaDirectoryToolbar .yh-plaza-field select optgroup,
+  body[data-yh-page="plaza"].yh-plaza-page #plazaDirectoryToolbar:not([hidden]) .yh-plaza-field select option,
+  body[data-yh-page="plaza"].yh-plaza-page #plazaDirectoryToolbar:not([hidden]) .yh-plaza-field select optgroup {
+    color: #ffffff !important;
+    background: #030b18 !important;
+    font-weight: 800 !important;
+  }
+
+  [data-plaza-screen="directory"] #plazaDirectoryComposerForm {
+    margin: 0 0 14px !important;
+    padding: 18px !important;
+  }
+
+  [data-plaza-screen="directory"] .yh-plaza-panel-note {
+    margin: 10px 0 14px !important;
+    padding: 16px !important;
+  }
+
+  [data-plaza-screen="directory"] #plazaDirectoryGrid {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    display: grid !important;
+    gap: 14px !important;
+
+    margin-bottom: 0 !important;
+    padding-bottom: 18px !important;
+
+    align-content: start !important;
+    align-items: start !important;
+  }
+
+  [data-plaza-screen="directory"] .yh-plaza-directory-card {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  [data-plaza-screen="directory"] .yh-plaza-directory-card:last-child {
+    margin-bottom: 10px !important;
+  }
+
+  /*
+   * Stop full-screen stretching only while Directory is active.
+   * Use both the active screen class and the dashboard-ready body
+   * attribute because Directory is opened inside the Dashboard iframe.
+   */
+  body[data-yh-dashboard-active-screen="directory"] .yh-plaza-workspace,
+  body[data-yh-dashboard-active-screen="directory"] .yh-plaza-workspace-card,
+  body[data-yh-dashboard-active-screen="directory"] .yh-plaza-tab-panels,
+  .yh-plaza-workspace:has([data-plaza-screen="directory"].is-active),
+  .yh-plaza-workspace-card:has([data-plaza-screen="directory"].is-active),
+  .yh-plaza-tab-panels:has([data-plaza-screen="directory"].is-active) {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  body[data-yh-dashboard-active-screen="directory"] .yh-plaza-tab-panels,
+  .yh-plaza-tab-panels:has([data-plaza-screen="directory"].is-active) {
+    padding-bottom: 0 !important;
+  }
+}
+
   .yh-plaza-app-header {
     min-height: 58px;
     padding: 0 18px;
@@ -2342,7 +2583,7 @@ border-radius: 14px;
   .yh-plaza-feed-composer-actions .yh-plaza-btn {
     width: 100%;
   }
-}
+
 /* ========================================================= */
 /* PLAZA PREMIUM CARD ROUNDING + TEXT SPACING POLISH          */
 /* Structure only. No color palette changes.                  */
@@ -2375,7 +2616,12 @@ border-radius: 14px;
 .yh-plaza-access-card,
 .yh-plaza-modal-card,
 .yh-plaza-drawer-card {
-  border-radius: 24px;
+  border-radius: 24px !important;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+
+  overflow: hidden;
 }
 
 .yh-plaza-feed-composer,
@@ -2527,7 +2773,13 @@ border-radius: 14px;
 
 .yh-plaza-panel-note {
   padding: 16px 20px;
-  border-radius: 22px;
+
+  border-radius: 22px !important;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+
+  overflow: hidden;
 }
 
 @media (max-width: 1280px) {
@@ -2719,6 +2971,415 @@ border-radius: 14px;
     padding: 10px;
     font-size: 0.86rem;
     line-height: 1.25;
+  }
+
+
+  /* ====================================================== */
+  /* PLAZA INBOX — MOBILE LAYOUT POLISH                     */
+  /* ====================================================== */
+
+  #plazaScreenInbox .yh-plaza-screen-shell {
+    gap: 12px;
+
+    padding:
+      14px
+      14px
+      calc(96px + env(safe-area-inset-bottom, 0px));
+
+    overflow: visible;
+
+    /* remove the extra background card */
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+
+    border-radius: 0 !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+  }
+
+
+  /* ---------- INBOX HEADER ---------- */
+
+  #plazaScreenInbox .yh-plaza-screen-head {
+    gap: 8px;
+    padding: 0;
+
+    width: 100%;
+    min-width: 0;
+
+    border-radius: 20px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    mask: none !important;
+    -webkit-mask: none !important;
+
+    overflow: hidden;
+  }
+
+  #plazaScreenInbox .yh-plaza-screen-title {
+    margin: 5px 0 3px;
+
+    font-size: 1.45rem;
+    line-height: 1.12;
+  }
+
+  #plazaScreenInbox .yh-plaza-panel-note {
+    padding: 12px 14px;
+
+    border-radius: 18px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    font-size: 0.83rem;
+    line-height: 1.55;
+
+    text-align: center;
+  }
+
+
+  /* ---------- TOP INBOX COUNTERS ---------- */
+
+  #plazaInboxMeta {
+    width: 100%;
+
+    display: grid !important;
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+
+    gap: 6px;
+
+    justify-content: stretch !important;
+  }
+
+  #plazaInboxMeta > * {
+    width: 100%;
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 7px 6px;
+
+    font-size: 0.68rem;
+    line-height: 1.2;
+
+    text-align: center;
+
+    border-radius: 999px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+  }
+
+
+  /* ---------- QUEUE FILTERS ---------- */
+
+  #plazaInboxRoleFilters {
+    width: 100%;
+
+    display: grid !important;
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 8px;
+
+    margin-top: 0;
+  }
+
+  #plazaInboxRoleFilters .yh-plaza-role-chip {
+    width: 100%;
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 7px;
+
+    padding: 9px 11px;
+
+    border-radius: 999px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    font-size: 0.76rem;
+    line-height: 1.2;
+
+    text-align: left;
+  }
+
+  #plazaInboxRoleFilters
+  .yh-plaza-role-chip:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  #plazaInboxRoleFilters .yh-plaza-role-chip-count {
+    flex: 0 0 auto;
+
+    min-width: 23px;
+    min-height: 23px;
+
+    padding: 0 7px;
+
+    font-size: 0.7rem;
+  }
+
+
+  /* ---------- SUMMARY CARDS: 2 × 2 ---------- */
+
+  #plazaInboxSummaryGrid {
+    width: 100%;
+
+    display: grid !important;
+
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+
+    gap: 8px !important;
+  }
+
+  #plazaInboxSummaryGrid .yh-plaza-ops-summary-card {
+    min-width: 0;
+    min-height: 118px;
+
+    padding: 13px !important;
+
+    gap: 6px !important;
+
+    border-radius: 18px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+  }
+
+  #plazaInboxSummaryGrid .yh-plaza-ops-summary-card span {
+    font-size: 0.8rem;
+    line-height: 1.25;
+  }
+
+  #plazaInboxSummaryGrid .yh-plaza-ops-summary-card strong {
+    margin: 2px 0;
+
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+
+  #plazaInboxSummaryGrid .yh-plaza-ops-summary-card small {
+    margin-top: auto;
+
+    font-size: 0.68rem;
+    line-height: 1.42;
+
+    overflow-wrap: anywhere;
+  }
+
+
+  /* ---------- ACTUAL INCOMING ITEMS ---------- */
+
+  #plazaInboxList {
+    width: 100%;
+
+    display: grid;
+
+    gap: 10px !important;
+
+    /*
+     * Real physical space after the final Inbox card.
+     * This belongs to the content itself, not the
+     * outer Plaza viewport.
+     */
+    padding-bottom: 28px !important;
+
+    box-sizing: border-box;
+  }
+
+  #plazaInboxList .yh-plaza-inbox-card,
+  #plazaInboxList .yh-plaza-request-card {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+
+    padding: 14px !important;
+
+    gap: 10px !important;
+
+    border-radius: 18px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    overflow: hidden;
+  }
+
+
+  /* ---------- REQUEST HEADER ---------- */
+
+  #plazaInboxList .yh-plaza-inbox-card-head,
+  #plazaInboxList .yh-plaza-request-card-head {
+    width: 100%;
+    min-width: 0;
+
+    display: flex;
+
+    align-items: flex-start;
+
+    flex-wrap: wrap;
+
+    gap: 7px;
+  }
+
+  #plazaInboxList .yh-plaza-inbox-card-head > *,
+  #plazaInboxList .yh-plaza-request-card-head > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+
+  /* ---------- REQUEST CHIPS ---------- */
+
+  #plazaInboxList .yh-plaza-queue-chip,
+  #plazaInboxList .yh-plaza-kind-chip,
+  #plazaInboxList .yh-plaza-incoming-status,
+  #plazaInboxList .yh-plaza-request-status {
+    max-width: 100%;
+
+    padding: 7px 10px;
+
+    border-radius: 999px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    font-size: 0.7rem;
+    line-height: 1.2;
+
+    white-space: normal;
+
+    overflow-wrap: anywhere;
+  }
+
+
+  /* ---------- REQUEST TITLE / BODY ---------- */
+
+  #plazaInboxList .yh-plaza-inbox-card h3,
+  #plazaInboxList .yh-plaza-request-card h3 {
+    margin: 2px 0;
+
+    font-size: 1rem;
+    line-height: 1.35;
+
+    overflow-wrap: anywhere;
+  }
+
+  #plazaInboxList .yh-plaza-inbox-card p,
+  #plazaInboxList .yh-plaza-request-card p {
+    margin: 0;
+
+    font-size: 0.82rem;
+    line-height: 1.55;
+
+    overflow-wrap: anywhere;
+  }
+
+
+  /* ---------- REQUEST META ---------- */
+
+  #plazaInboxList .yh-plaza-inbox-meta {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 5px 8px;
+
+    margin-top: 1px;
+
+    font-size: 0.72rem;
+    line-height: 1.4;
+  }
+
+
+  /* ---------- CURRENT LANE ---------- */
+
+  #plazaInboxList .yh-plaza-request-section {
+    width: 100%;
+
+    margin-top: 4px;
+
+    padding: 12px 13px;
+
+    border-radius: 16px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    overflow: hidden;
+  }
+
+  #plazaInboxList .yh-plaza-request-section strong {
+    font-size: 0.82rem;
+  }
+
+  #plazaInboxList .yh-plaza-request-section p {
+    margin-top: 4px;
+
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+
+  /* ---------- REQUEST FLOW ---------- */
+
+  #plazaInboxList .yh-plaza-request-flow {
+    gap: 6px;
+
+    margin-top: 8px;
+  }
+
+  #plazaInboxList .yh-plaza-request-stage {
+    padding: 6px 9px;
+
+    font-size: 0.68rem;
+    line-height: 1.2;
+
+    border-radius: 999px;
+  }
+
+
+  /* ---------- CARD ACTIONS ---------- */
+
+  #plazaInboxList .yh-plaza-inline-actions {
+    width: 100%;
+
+    display: grid;
+
+    grid-template-columns: 1fr;
+
+    gap: 7px;
+  }
+
+  #plazaInboxList
+  .yh-plaza-inline-actions
+  .yh-plaza-btn,
+  #plazaInboxList
+  .yh-plaza-inline-actions
+  .yh-plaza-ghost-btn {
+    width: 100%;
+
+    justify-content: center;
+
+    text-align: center;
+
+    border-radius: 999px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
   }
 }
 /* ========================================================= */
@@ -3524,9 +4185,18 @@ border-radius: 14px;
   background:
     radial-gradient(circle at top left, rgba(var(--yh-bridge-blue-rgb), 0.16), transparent 32%),
     rgba(8, 14, 25, 0.28);
-  border-radius: var(--yh-radius-lg);
+
+  border-radius: 24px !important;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+
+  mask: none !important;
+  -webkit-mask: none !important;
+
   padding: clamp(16px, 2vw, 22px);
   margin: 0 0 18px;
+
   box-shadow: var(--yh-shadow);
 }
 
@@ -3571,9 +4241,17 @@ border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   gap: 14px;
   padding: 16px;
-  border-radius: var(--yh-radius-md);
+
+  border-radius: 20px !important;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+
+  mask: none !important;
+  -webkit-mask: none !important;
 }
 
 .yh-plaza-business-member-main {
@@ -3693,39 +4371,1170 @@ border-radius: 14px;
 }
 
 
-/* Plaza conversation safety controls */
+/* ========================================================= */
+/* PLAZA — DEDICATED BUSINESS CONVERSATION SCREEN            */
+/* ========================================================= */
+
+#plazaScreenConversation {
+  width: 100%;
+  min-width: 0;
+
+  padding-bottom: 32px;
+}
+
+/*
+ * Dedicated Conversation screen:
+ * remove inherited decorative/inset Plaza outlines.
+ * Keep only the intentional conversation surfaces.
+ */
+.yh-plaza-workspace-card:has(#plazaScreenConversation.is-active)::before,
+.yh-plaza-workspace-card:has(#plazaScreenConversation.is-active):before,
+#plazaScreenConversation .yh-plaza-panel-note::before,
+#plazaScreenConversation .yh-plaza-panel-note:before,
+#plazaScreenConversation .yh-plaza-panel-note::after,
+#plazaScreenConversation .yh-plaza-panel-note:after {
+  content: none !important;
+  display: none !important;
+  border: 0 !important;
+  background: none !important;
+}
+
+#plazaScreenConversation .yh-plaza-conversation-page {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 14px;
+  padding: 0;
+
+  border: 0 !important;
+  border-radius: 0 !important;
+
+  background: transparent !important;
+
+  box-shadow: none !important;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+
+  mask: none !important;
+  -webkit-mask: none !important;
+
+  overflow: visible;
+}
+
+
+/* ---------- TOP BAR ---------- */
+
+#plazaScreenConversation
+.yh-plaza-conversation-page-topbar {
+  width: 100%;
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+}
+
+#plazaScreenConversation
+.yh-plaza-conversation-back {
+  min-height: 40px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 16px;
+
+  border:
+    1px solid rgba(56, 189, 248, 0.28);
+
+  border-radius: 999px !important;
+
+  background:
+    rgba(6, 30, 64, 0.58);
+
+  color: var(--yh-text);
+
+  font-weight: 700;
+
+  cursor: pointer;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+#plazaScreenConversation
+.yh-plaza-conversation-back:hover {
+  border-color:
+    rgba(103, 232, 249, 0.48);
+
+  background:
+    rgba(14, 165, 233, 0.13);
+
+  transform: translateY(-1px);
+}
+
+
+/* ---------- PAGE HEADING ---------- */
+
+#plazaScreenConversation
+.yh-plaza-conversation-page-head {
+  width: 100%;
+  min-width: 0;
+
+  padding: 16px 18px;
+
+  border: 0 !important;
+
+  border-radius: 20px !important;
+
+  background:
+    rgba(2, 8, 23, 0.42);
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+
+  mask: none !important;
+  -webkit-mask: none !important;
+}
+
+#plazaScreenConversation
+.yh-plaza-conversation-page-head
+.yh-plaza-screen-title {
+  margin: 8px 0 6px;
+}
+
+#plazaScreenConversation
+.yh-plaza-conversation-page-head
+.yh-plaza-panel-note {
+  max-width: 760px;
+
+  margin: 0;
+  padding: 0;
+
+  border: 0;
+
+  border-radius: 0 !important;
+
+  background: transparent;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+#plazaScreenConversation
+.yh-plaza-screen-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 7px;
+}
+
+
+/* ---------- MAIN PAGE BODY ---------- */
+
+#plazaScreenConversation
+.yh-plaza-conversation-page-body {
+  width: 100%;
+  min-width: 0;
+
+  display: grid;
+
+  gap: 14px;
+
+  padding-bottom: 10px;
+}
+
+
+/* ---------- REPORT / CLOSE / BLOCK ---------- */
+
 .yh-plaza-conversation-safety-actions {
+  width: 100%;
+
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+
   flex-wrap: wrap;
-  margin-bottom: 12px;
-  padding: 14px;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: var(--yh-radius-md);
-  background: rgba(255,255,255,0.035);
+
+  gap: 8px;
+
+  margin: 0;
+  padding: 0;
+
+  border: 0;
+
+  border-radius: 0 !important;
+
+  background: transparent;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+.yh-plaza-conversation-safety-actions
+.yh-plaza-btn {
+  min-height: 38px;
+
+  padding: 8px 16px;
+
+  border-radius: 999px !important;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
 }
 
 .yh-plaza-danger-btn {
   color: #fecaca;
-  border-color: rgba(248, 113, 113, 0.34);
-  background: rgba(127, 29, 29, 0.18);
+
+  border-color:
+    rgba(248, 113, 113, 0.34);
+
+  background:
+    rgba(127, 29, 29, 0.18);
 }
 
-.yh-plaza-conversation-safety-actions button:disabled {
+.yh-plaza-conversation-safety-actions
+button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
+
+/* ---------- THREAD ---------- */
+
+#plazaScreenConversation
+.yh-plaza-conversation-thread {
+  width: 100%;
+  min-width: 0;
+
+  min-height: 220px;
+
+  display: grid;
+  align-content: start;
+
+  gap: 12px;
+
+  padding: 16px;
+
+  border: 0 !important;
+
+  border-radius: 20px !important;
+
+  background:
+    rgba(2, 8, 23, 0.34);
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+#plazaScreenConversation
+.yh-plaza-conversation-bubble {
+  border-radius: 18px !important;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+
+  mask: none !important;
+  -webkit-mask: none !important;
+}
+
+
+/* ---------- COMPOSER ---------- */
+
+#plazaScreenConversation
+.yh-plaza-conversation-composer {
+  width: 100%;
+  min-width: 0;
+
+  display: grid;
+
+  gap: 12px;
+
+  margin: 0 0 18px;
+
+  padding: 16px;
+
+  border: 0 !important;
+
+  border-radius: 20px !important;
+
+  background:
+    rgba(2, 8, 23, 0.48);
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+#plazaScreenConversation
+.yh-plaza-conversation-composer
+textarea {
+  width: 100%;
+  min-width: 0;
+
+  min-height: 110px;
+
+  border-radius: 16px !important;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+#plazaScreenConversation
+.yh-plaza-conversation-composer
+.yh-plaza-form-actions {
+  width: 100%;
+
+  display: flex;
+  justify-content: flex-end;
+}
+
+#plazaScreenConversation
+.yh-plaza-conversation-composer
+.yh-plaza-form-actions
+.yh-plaza-btn {
+  min-width: 150px;
+
+  border-radius: 999px !important;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
 @media (max-width: 720px) {
-  .yh-plaza-conversation-safety-actions {
-    align-items: stretch;
-    flex-direction: column;
+  /* ====================================================== */
+  /* PLAZA MEETUPS — MOBILE POLISH                          */
+  /* ====================================================== */
+
+  #plazaScreenMeetups .yh-plaza-screen-shell {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+
+    /*
+     * Structural wrapper only.
+     * Remove the giant background card / outline.
+     */
+    border: 0 !important;
+    border-radius: 0 !important;
+
+    background: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    mask: none !important;
+    -webkit-mask: none !important;
+
+    overflow: visible;
   }
 
-  .yh-plaza-conversation-safety-actions .yh-plaza-btn {
+  #plazaScreenMeetups .yh-plaza-screen-shell::before,
+  #plazaScreenMeetups .yh-plaza-screen-shell::after {
+    content: none !important;
+    display: none !important;
+  }
+
+    #plazaScreenMeetups #plazaMeetupsList {
     width: 100%;
+    min-width: 0;
+
+    padding-bottom:
+      calc(
+        96px +
+        env(safe-area-inset-bottom, 0px)
+      ) !important;
+  }
+
+    #plazaScreenMeetups #plazaMeetupsList {
+    border: 0 !important;
+    border-radius: 0 !important;
+
+    background: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    mask: none !important;
+    -webkit-mask: none !important;
+  }
+  /* ====================================================== */
+  /* PLAZA CONVERSATIONS — MOBILE POLISH                    */
+  /* ====================================================== */
+
+
+  /* ---------- CONVERSATIONS LIST SCREEN ---------- */
+
+#plazaScreenMessages .yh-plaza-screen-shell {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  /*
+   * Mobile Conversations:
+   * shell is layout-only, not a visible card.
+   */
+  border: 0 !important;
+  border-radius: 0 !important;
+
+  background: transparent !important;
+
+  box-shadow: none !important;
+
+  outline: none !important;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+
+  mask: none !important;
+  -webkit-mask: none !important;
+}
+
+#plazaScreenMessages .yh-plaza-screen-shell::before,
+#plazaScreenMessages .yh-plaza-screen-shell::after {
+  content: none !important;
+  display: none !important;
+}
+
+
+  #plazaScreenMessages .yh-plaza-screen-head {
+    width: 100%;
+    min-width: 0;
+
+    border-radius: 20px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    mask: none !important;
+    -webkit-mask: none !important;
+  }
+
+
+  #plazaScreenMessages .yh-plaza-panel-note {
+    border-radius: 18px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    mask: none !important;
+    -webkit-mask: none !important;
+  }
+
+
+  #plazaScreenMessages .yh-plaza-cross-division-panel {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+
+    border-radius: 22px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    mask: none !important;
+    -webkit-mask: none !important;
+  }
+
+
+  #plazaScreenMessages .yh-plaza-business-member-card,
+  #plazaScreenMessages .yh-plaza-message-card {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+
+    border-radius: 18px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    mask: none !important;
+    -webkit-mask: none !important;
+  }
+
+
+  /*
+   * PLAZA CONVERSATIONS
+   * Real spacing after the final conversation card.
+   */
+  #plazaScreenMessages #plazaMessagesList {
+    padding-bottom:
+      calc(
+        96px +
+        env(safe-area-inset-bottom, 0px)
+      ) !important;
+  }
+
+
+  /* ---------- DEDICATED BUSINESS CONVERSATION ---------- */
+
+  #plazaScreenConversation {
+    width: 100%;
+    min-width: 0;
+
+    padding-bottom:
+      calc(
+        88px +
+        env(safe-area-inset-bottom, 0px)
+      ) !important;
+  }
+
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-page {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+
+    padding: 10px 10px 0 !important;
+
+    border: 0 !important;
+    border-radius: 0 !important;
+
+    background: transparent !important;
+    box-shadow: none !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    mask: none !important;
+    -webkit-mask: none !important;
+
+    overflow: visible;
+  }
+
+
+  /* ---------- CHAT HEADER ---------- */
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-page-topbar {
+    width: 100%;
+    min-width: 0;
+
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    align-items: center !important;
+
+    gap: 8px !important;
+
+    padding: 10px 12px !important;
+
+    border: 1px solid rgba(56, 189, 248, 0.16) !important;
+    border-radius: 22px !important;
+
+    background:
+      radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.14), transparent 44%),
+      linear-gradient(180deg, rgba(8, 25, 49, 0.88), rgba(2, 8, 23, 0.72)) !important;
+
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.045),
+      0 14px 30px rgba(0, 0, 0, 0.18) !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+  }
+
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-back {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+
+    padding: 0 !important;
+
+    overflow: hidden !important;
+
+    border-radius: 999px !important;
+    border: 1px solid rgba(103, 232, 249, 0.32) !important;
+
+    background:
+      linear-gradient(180deg, rgba(14, 116, 144, 0.38), rgba(8, 47, 73, 0.42)) !important;
+
+    color: transparent !important;
+
+    font-size: 0 !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-back::before {
+    content: "←" !important;
+
+    color: #ffffff !important;
+
+    font-size: 18px !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+  }
+
+
+  #plazaScreenConversation
+  .yh-plaza-screen-meta {
+    width: 100% !important;
+    min-width: 0 !important;
+
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+
+    gap: 6px !important;
+
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-screen-meta::-webkit-scrollbar {
+    display: none !important;
+  }
+
+
+  #plazaScreenConversation
+  .yh-plaza-screen-meta
+  .yh-plaza-view-chip {
+    flex: 0 0 auto !important;
+
+    max-width: 160px !important;
+
+    padding: 6px 9px !important;
+
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+
+    font-size: 10px !important;
+    font-weight: 800 !important;
+
+    border-radius: 999px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+  }
+
+
+  /* ---------- CHAT TITLE ---------- */
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-page-head {
+    width: 100%;
+    min-width: 0;
+
+    padding: 14px 14px 12px !important;
+
+    border: 1px solid rgba(56, 189, 248, 0.16) !important;
+    border-radius: 22px !important;
+
+    background:
+      radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 44%),
+      linear-gradient(180deg, rgba(2, 8, 23, 0.40), rgba(2, 8, 23, 0.18)) !important;
+
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    mask: none !important;
+    -webkit-mask: none !important;
+  }
+
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-page-head
+  .yh-plaza-section-kicker {
+    padding: 5px 8px !important;
+
+    font-size: 9.5px !important;
+    line-height: 1 !important;
+  }
+
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-page-head
+  .yh-plaza-screen-title {
+    margin: 8px 0 0 !important;
+
+    max-width: 100% !important;
+
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+
+    color: #ffffff !important;
+
+    font-size: 20px !important;
+    line-height: 1.12 !important;
+    letter-spacing: -0.02em !important;
+  }
+
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-page-head
+  .yh-plaza-panel-note {
+    display: none !important;
+  }
+
+
+  /* ---------- CHAT BODY ---------- */
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-page-body {
+    width: 100%;
+    min-width: 0;
+
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+
+    padding-bottom: 0 !important;
+  }
+
+
+  /* ---------- REPORT / CLOSE / BLOCK ---------- */
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-safety-actions {
+    width: 100%;
+
+    display: grid !important;
+
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr)) !important;
+
+    align-items: stretch !important;
+
+    gap: 7px !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    border: 0 !important;
+
+    border-radius: 0 !important;
+
+    background: transparent !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+  }
+
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-safety-actions
+  .yh-plaza-btn {
+    width: 100% !important;
+    min-width: 0 !important;
+
+    min-height: 34px !important;
+
+    padding: 7px 8px !important;
+
+    justify-content: center !important;
+
+    font-size: 11px !important;
+    font-weight: 800 !important;
+
+    border-radius: 999px !important;
+
+    opacity: 0.86 !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+  }
+
+
+  /* ---------- MESSAGE THREAD ---------- */
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-thread {
+    width: 100%;
+    min-width: 0;
+
+    min-height:
+      min(
+        420px,
+        calc(100dvh - 360px)
+      ) !important;
+
+    max-height:
+      calc(100dvh - 305px) !important;
+
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+
+    display: grid !important;
+    align-content: end !important;
+
+    gap: 10px !important;
+
+    /*
+     * Keep the latest message near the bottom of the
+     * thread card. The composer already has its own card
+     * below, so this should not push messages to the center.
+     */
+    padding:
+      14px
+      10px
+      22px !important;
+
+    scroll-padding-bottom:
+      calc(
+        76px +
+        env(safe-area-inset-bottom, 0px)
+      ) !important;
+
+    border: 1px solid rgba(56, 189, 248, 0.12) !important;
+    border-radius: 22px !important;
+
+    background:
+      radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.08), transparent 44%),
+      rgba(2, 8, 23, 0.16) !important;
+
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.025) !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    mask: none !important;
+    -webkit-mask: none !important;
+
+    scrollbar-width: none !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-thread::-webkit-scrollbar {
+    display: none !important;
+  }
+
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-bubble {
+    width: fit-content !important;
+    max-width: 86% !important;
+
+    display: flex !important;
+    align-items: flex-end !important;
+    gap: 8px !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    mask: none !important;
+    -webkit-mask: none !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-bubble:last-child {
+    margin-bottom: 0 !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-bubble.is-self {
+    justify-self: end !important;
+    flex-direction: row-reverse !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-bubble.is-system {
+    justify-self: center !important;
+    max-width: 92% !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-bubble-avatar {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    border-radius: 999px !important;
+    border: 1px solid rgba(103, 232, 249, 0.26) !important;
+
+    background:
+      linear-gradient(180deg, rgba(14, 116, 144, 0.36), rgba(8, 47, 73, 0.42)) !important;
+
+    color: #eaffff !important;
+
+    font-size: 10px !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-bubble.is-self
+  .yh-plaza-conversation-bubble-avatar {
+    background:
+      linear-gradient(180deg, rgba(37, 99, 235, 0.82), rgba(30, 64, 175, 0.84)) !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-bubble-main {
+    min-width: 0 !important;
+
+    padding: 11px 12px !important;
+
+    border: 1px solid rgba(56, 189, 248, 0.18) !important;
+    border-radius: 18px 18px 18px 6px !important;
+
+    background:
+      linear-gradient(180deg, rgba(12, 37, 66, 0.86), rgba(3, 10, 25, 0.82)) !important;
+
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.045),
+      0 10px 24px rgba(0, 0, 0, 0.18) !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-bubble.is-self
+  .yh-plaza-conversation-bubble-main {
+    border-color: rgba(96, 165, 250, 0.34) !important;
+    border-radius: 18px 18px 6px 18px !important;
+
+    background:
+      linear-gradient(180deg, rgba(29, 78, 216, 0.84), rgba(30, 64, 175, 0.78)) !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-bubble.is-system
+  .yh-plaza-conversation-bubble-main {
+    border-color: rgba(103, 232, 249, 0.24) !important;
+    border-radius: 18px !important;
+
+    background:
+      linear-gradient(180deg, rgba(8, 47, 73, 0.58), rgba(2, 8, 23, 0.76)) !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-bubble-head {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+
+    gap: 10px !important;
+
+    margin: 0 0 5px !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-bubble strong {
+    display: block !important;
+
+    margin: 0 !important;
+
+    color: #ffffff !important;
+
+    font-size: 12px !important;
+    font-weight: 900 !important;
+    line-height: 1.1 !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-bubble p {
+    margin: 0 !important;
+
+    color: rgba(248, 251, 255, 0.94) !important;
+
+    font-size: 14px !important;
+    line-height: 1.45 !important;
+
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-time {
+    display: block !important;
+
+    margin: 0 !important;
+
+    color: rgba(223, 247, 255, 0.58) !important;
+
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+
+    white-space: nowrap !important;
+  }
+
+
+  /* ---------- MESSAGE COMPOSER ---------- */
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-composer {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+
+    position: sticky !important;
+    bottom:
+      calc(
+        76px +
+        env(safe-area-inset-bottom, 0px)
+      ) !important;
+    z-index: 8 !important;
+
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 46px !important;
+    align-items: end !important;
+
+    gap: 8px !important;
+
+    margin: 0 !important;
+
+    padding: 9px !important;
+
+    border: 1px solid rgba(56, 189, 248, 0.22) !important;
+    border-radius: 22px !important;
+
+    background:
+      linear-gradient(180deg, rgba(8, 25, 49, 0.94), rgba(2, 8, 23, 0.92)) !important;
+
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.045),
+      0 -12px 26px rgba(2, 8, 23, 0.34) !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+
+    mask: none !important;
+    -webkit-mask: none !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-field {
+    width: 100% !important;
+    min-width: 0 !important;
+
+    display: block !important;
+
+    margin: 0 !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-field
+  span {
+    display: none !important;
+  }
+
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-composer
+  textarea {
+    width: 100% !important;
+    min-width: 0 !important;
+
+    min-height: 46px !important;
+    max-height: 96px !important;
+
+    resize: none !important;
+
+    padding: 13px 14px !important;
+
+    border: 1px solid rgba(56, 189, 248, 0.18) !important;
+    border-radius: 16px !important;
+
+    background: rgba(2, 8, 23, 0.78) !important;
+
+    color: #ffffff !important;
+
+    font-size: 14px !important;
+    line-height: 1.35 !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-composer
+  textarea::placeholder {
+    color: rgba(203, 213, 225, 0.62) !important;
+  }
+
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-composer
+  .yh-plaza-form-actions {
+    width: 46px !important;
+    min-width: 46px !important;
+
+    display: block !important;
+  }
+
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-composer
+  .yh-plaza-form-actions
+  .yh-plaza-btn {
+    width: 46px !important;
+    min-width: 46px !important;
+    height: 46px !important;
+    min-height: 46px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    padding: 0 !important;
+
+    overflow: hidden !important;
+
+    border-radius: 16px !important;
+
+    color: transparent !important;
+
+    font-size: 0 !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+  }
+
+  #plazaScreenConversation
+  .yh-plaza-conversation-composer
+  .yh-plaza-form-actions
+  .yh-plaza-btn::before {
+    content: "➜" !important;
+
+    color: #ffffff !important;
+
+    font-size: 16px !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
   }
 }
 
@@ -3813,14 +5622,63 @@ body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaz
   -webkit-overflow-scrolling: touch;
 }
 
+
+/* Mobile embedded Plaza:
+   make the final content fully reachable above the Dashboard nav. */
+@media (max-width: 760px) {
+  body[data-yh-page="plaza"].yh-plaza-page.yh-plaza-dashboard-embed-ready .yh-plaza-app-grid,
+  body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaza-app-grid {
+    padding-bottom:
+      calc(
+        84px +
+        env(safe-area-inset-bottom, 0px)
+      );
+
+    scroll-padding-bottom:
+      calc(
+        84px +
+        env(safe-area-inset-bottom, 0px)
+      );
+  }
+
+
+  /*
+   * DIRECTORY ONLY:
+   * Directory uses repeated member cards, so the final
+   * scroll reserve should be tight, not full-screen.
+   */
+  body[data-yh-dashboard-active-screen="directory"].yh-plaza-page
+    .yh-plaza-app-grid,
+
+  body[data-yh-page="plaza"].yh-plaza-page.yh-plaza-dashboard-embed-ready
+    .yh-plaza-app-grid:has([data-plaza-screen="directory"].is-active),
+
+  body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page
+    .yh-plaza-app-grid:has([data-plaza-screen="directory"].is-active) {
+    padding-bottom:
+      calc(
+        12px +
+        env(safe-area-inset-bottom, 0px)
+      ) !important;
+
+    scroll-padding-bottom:
+      calc(
+        12px +
+        env(safe-area-inset-bottom, 0px)
+      ) !important;
+  }
+}
+
+
 body[data-yh-page="plaza"].yh-plaza-page.yh-plaza-dashboard-embed-ready .yh-plaza-workspace,
 body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaza-workspace {
   grid-column: 1 / -1;
   width: 100%;
   min-width: 0;
   height: auto;
-  min-height: 100%;
+  min-height: 0;
   overflow: visible;
+  align-self: start;
 }
 
 body[data-yh-page="plaza"].yh-plaza-page.yh-plaza-dashboard-embed-ready .yh-plaza-workspace-card,
@@ -3936,6 +5794,13 @@ body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaz
 .yh-plaza-open-world-actions-v1 .yh-plaza-btn {
   width: auto;
   min-width: 190px;
+
+  border-radius: 999px !important;
+
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+
+  overflow: hidden;
 }
 
 .yh-plaza-open-world-profile-v1 {
@@ -4217,29 +6082,244 @@ body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaz
 }
 
 @media (max-width: 720px) {
-  .yh-plaza-open-world-hero-v1 {
-    padding: 18px;
+  /* ====================================================== */
+  /* EXPLORER MOBILE — compact dashboard composition       */
+  /* ====================================================== */
+
+  .yh-plaza-open-world-v1 {
+    gap: 12px;
+
+    /*
+     * Compact breathing room above the persistent
+     * Dashboard mobile navigation.
+     */
+    padding-bottom:
+      calc(
+        20px +
+        env(safe-area-inset-bottom, 0px)
+      );
   }
 
-  .yh-plaza-open-world-actions-v1,
+
+  /* ---------- HERO ---------- */
+
+  .yh-plaza-open-world-hero-v1 {
+    gap: 14px;
+    padding: 15px;
+
+    /*
+     * Mobile should feel cleaner than the large
+     * desktop cut-corner presentation.
+     */
+    clip-path: none;
+    border-radius: 16px;
+  }
+
+  .yh-plaza-open-world-hero-copy-v1 h2 {
+    margin: 7px 0 9px;
+
+    font-size: clamp(
+      1.9rem,
+      9vw,
+      2.35rem
+    );
+
+    line-height: 0.98;
+  }
+
+  .yh-plaza-open-world-hero-copy-v1 p {
+    line-height: 1.5;
+  }
+
+  .yh-plaza-open-world-actions-v1 {
+    width: 100%;
+
+    gap: 8px;
+
+    margin-top: 14px;
+  }
+
   .yh-plaza-open-world-actions-v1 .yh-plaza-btn {
     width: 100%;
+    min-width: 0;
+
+    min-height: 40px;
   }
 
-  .yh-plaza-open-world-metrics-v1,
-  .yh-plaza-open-world-lanes-v1,
-  .yh-plaza-open-world-zone-grid-v1,
-  .yh-plaza-open-world-rank-path-v1 {
-    grid-template-columns: 1fr;
+
+  /* ---------- EXPLORER PROFILE ---------- */
+
+  .yh-plaza-open-world-profile-v1 {
+    gap: 10px;
+
+    padding: 14px;
+
+    border-left: 0;
+    border-top:
+      1px solid
+      rgba(103, 232, 249, 0.18);
   }
 
-  .yh-plaza-open-world-zone-v1 {
-    transform: none;
+
+  /* ---------- FOUR PRIMARY METRICS ---------- */
+
+  .yh-plaza-open-world-metrics-v1 {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 8px;
+  }
+
+  .yh-plaza-open-world-metrics-v1 article {
+    min-height: 92px;
+
+    padding: 11px;
+  }
+
+  .yh-plaza-open-world-metrics-v1 strong {
+    font-size: 1.55rem;
+  }
+
+  .yh-plaza-open-world-metrics-v1 small {
+    font-size: 0.64rem;
+  }
+
+  .yh-plaza-open-world-metrics-v1 span {
+    font-size: 0.68rem;
+
+    line-height: 1.3;
+  }
+
+
+  /* ---------- GENERIC EXPLORER CARDS ---------- */
+
+  .yh-plaza-open-world-card-v1 {
+    padding: 14px;
   }
 
   .yh-plaza-open-world-card-head-v1 {
     align-items: stretch;
     flex-direction: column;
+
+    gap: 9px;
+
+    margin-bottom: 12px;
+  }
+
+  .yh-plaza-open-world-card-head-v1 h3 {
+    font-size: 1.35rem;
+  }
+
+
+  /* ---------- REGIONAL ZONES ---------- */
+
+  /*
+   * Horizontal swipe rail:
+   * one main zone + visible preview of the next.
+   */
+  .yh-plaza-open-world-zone-grid-v1 {
+    min-height: 0;
+
+    display: flex;
+
+    align-items: stretch;
+
+    gap: 10px;
+
+    padding: 12px;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    scroll-snap-type: x proximity;
+    scroll-padding-left: 12px;
+
+    -webkit-overflow-scrolling: touch;
+
+    scrollbar-width: none;
+
+    background:
+      radial-gradient(
+        circle at 50% 40%,
+        rgba(56, 189, 248, 0.10),
+        transparent 54%
+      ),
+      rgba(2, 8, 23, 0.78);
+  }
+
+  .yh-plaza-open-world-zone-grid-v1::-webkit-scrollbar {
+    display: none;
+  }
+
+  .yh-plaza-open-world-zone-v1 {
+    flex: 0 0 84%;
+
+    min-width: 0;
+    min-height: 106px;
+
+    padding: 13px;
+
+    transform: none;
+
+    scroll-snap-align: start;
+  }
+
+
+  /* ---------- EXPLORER LANES ---------- */
+
+  .yh-plaza-open-world-lanes-v1 {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 8px;
+  }
+
+  .yh-plaza-open-world-lanes-v1 button {
+    min-height: 112px;
+
+    padding: 12px;
+
+    align-content: end;
+  }
+
+  .yh-plaza-open-world-lanes-v1 strong {
+    font-size: 1rem;
+  }
+
+  .yh-plaza-open-world-lanes-v1 small {
+    font-size: 0.72rem;
+
+    line-height: 1.35;
+  }
+
+
+  /* ---------- LEGACY OPEN-WORLD RANK ---------- */
+
+  .yh-plaza-open-world-rank-path-v1 {
+    grid-template-columns: 1fr;
+
+    gap: 6px;
+  }
+
+
+  /* ---------- EMPTY / NEXT MOVE ---------- */
+
+  .yh-plaza-open-world-featured-quest-v1 {
+    min-height: 0;
+
+    padding: 15px;
+  }
+
+  .yh-plaza-open-world-empty-v1 {
+    min-height: 128px;
+
+    gap: 7px;
+
+    padding: 15px;
+  }
+
+  .yh-plaza-open-world-empty-v1 button {
+    width: 100%;
   }
 }
 /* END PATCH: Phase 3D-FE-1 — Plazas Open World shell v1 */
@@ -4572,13 +6652,36 @@ body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaz
 }
 
 @media (max-width: 720px) {
+  .yh-plaza-quest-board-head-v1 {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
   .yh-plaza-quest-board-copy-v1,
   .yh-plaza-quest-board-summary-v1,
   .yh-plaza-quest-briefing-hero-v1 {
     padding: 15px;
+
+    border-radius: 18px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
   }
 
-  .yh-plaza-quest-board-summary-v1,
+  .yh-plaza-quest-board-summary-v1 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .yh-plaza-quest-board-summary-v1 span {
+    min-height: 76px;
+    padding: 11px;
+  }
+
+  .yh-plaza-quest-board-summary-v1 b {
+    font-size: 1.2rem;
+  }
+
   .yh-plaza-quest-facts-v1,
   .yh-plaza-quest-detail-list-v1 {
     grid-template-columns: 1fr;
@@ -4587,6 +6690,7 @@ body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaz
   .yh-plaza-quest-filter-bar-v1 {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .yh-plaza-quest-filter-bar-v1 button {
@@ -4835,24 +6939,588 @@ body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaz
 }
 
 @media (max-width: 720px) {
-  .yh-plaza-explorer-profile-head-v2 {
-    align-items: stretch;
-    flex-direction: column;
+
+  /* ====================================================== */
+  /* EXPLORER PROFILE / PROGRESSION MOBILE COMPACTION       */
+  /* ====================================================== */
+
+  .yh-plaza-explorer-profile-v2 {
+    gap: 11px;
   }
 
+
+  /* ---------- PROFILE HEADER ---------- */
+
+  .yh-plaza-explorer-profile-head-v2 {
+    align-items: center;
+
+    flex-direction: row;
+
+    gap: 10px;
+  }
+
+  .yh-plaza-explorer-profile-head-v2 > div {
+    flex: 1 1 auto;
+
+    min-width: 0;
+  }
+
+  .yh-plaza-explorer-profile-head-v2 > span {
+    flex: 0 0 auto;
+
+    width: fit-content;
+
+    padding: 5px 7px;
+
+    font-size: 0.62rem;
+
+    white-space: nowrap;
+  }
+
+  .yh-plaza-explorer-profile-head-v2 strong {
+    font-size: 1.3rem;
+  }
+
+
+  /* ---------- PROFILE STATS: 2 × 2 ---------- */
+
   .yh-plaza-explorer-profile-stats-v2 {
-    grid-template-columns: 1fr;
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 7px;
+  }
+
+  .yh-plaza-explorer-profile-stats-v2 > span {
+    gap: 4px;
+
+    padding: 9px;
+  }
+
+  .yh-plaza-explorer-profile-stats-v2 small {
+    font-size: 0.6rem;
+
+    line-height: 1.25;
+  }
+
+  .yh-plaza-explorer-profile-stats-v2 b {
+    font-size: 0.78rem;
+
+    line-height: 1.25;
+  }
+
+
+  /* ---------- RANK PATH ---------- */
+
+  .yh-plaza-explorer-rank-path-v2 {
+    gap: 6px;
+  }
+
+  .yh-plaza-explorer-rank-path-v2 article {
+    grid-template-columns:
+      34px minmax(0, 1fr);
+
+    gap: 8px;
+
+    padding: 8px;
+  }
+
+  .yh-plaza-explorer-rank-path-v2 b {
+    width: 34px;
+    height: 34px;
+
+    font-size: 0.66rem;
+  }
+
+  .yh-plaza-explorer-rank-path-v2 article > div {
+    gap: 2px;
+  }
+
+  .yh-plaza-explorer-rank-path-v2 strong {
+    font-size: 0.88rem;
+  }
+
+  .yh-plaza-explorer-rank-path-v2 small {
+    font-size: 0.7rem;
+
+    line-height: 1.3;
+  }
+
+
+  /* ---------- OPERATOR SIGNALS ---------- */
+
+  /*
+   * Keep score on the right.
+   * The previous mobile rule unnecessarily stacked
+   * the score underneath the description.
+   */
+  .yh-plaza-explorer-reputation-grid-v2 {
+    gap: 6px;
   }
 
   .yh-plaza-explorer-reputation-grid-v2 article {
-    align-items: start;
-    grid-template-columns: 1fr;
+    align-items: center;
+
+    grid-template-columns:
+      minmax(0, 1fr) auto;
+
+    gap: 8px;
+
+    padding: 9px;
+  }
+
+  .yh-plaza-explorer-reputation-grid-v2 article > div {
+    gap: 2px;
+  }
+
+  .yh-plaza-explorer-reputation-grid-v2 strong {
+    font-size: 0.86rem;
+  }
+
+  .yh-plaza-explorer-reputation-grid-v2 small {
+    font-size: 0.69rem;
+
+    line-height: 1.3;
   }
 
   .yh-plaza-explorer-reputation-grid-v2 article > span {
-    white-space: normal;
+    font-size: 0.68rem;
+
+    white-space: nowrap;
+  }
+
+
+  /* ---------- CURRENT WORKING SIGNALS ---------- */
+
+  .yh-plaza-explorer-activity-log-v2 {
+    gap: 6px;
+  }
+
+  .yh-plaza-explorer-activity-log-v2 article {
+    gap: 3px 8px;
+
+    padding: 9px;
+  }
+
+  .yh-plaza-explorer-activity-log-v2 span {
+    font-size: 0.84rem;
+  }
+
+  .yh-plaza-explorer-activity-log-v2 strong {
+    font-size: 0.76rem;
+  }
+
+  .yh-plaza-explorer-activity-log-v2 small {
+    font-size: 0.68rem;
   }
 }
 
 /* END PHASE 3D-FE-3 — PLAZA REPUTATION + EXPLORER PROGRESSION */
 
+/* ========================================================= */
+/* EXPLORER MOBILE — CLEAN ROUNDED HERO ACTIONS              */
+/* ========================================================= */
+
+@media (max-width: 720px) {
+
+  .yh-plaza-open-world-actions-v1 .yh-plaza-btn {
+    width: 100%;
+    min-width: 0;
+
+    min-height: 44px;
+
+    border-radius: 999px;
+
+    clip-path: none;
+    -webkit-clip-path: none;
+
+    overflow: hidden;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
+  }
+
+}
+/* ========================================================= */
+/* PLAZA HOME — ACTIVITY MERGE v1                            */
+/* ========================================================= */
+
+.yh-plaza-home-activity-v1 {
+  display: grid;
+  gap: 16px;
+
+  width: 100%;
+  min-width: 0;
+
+  margin-top: 4px;
+}
+
+.yh-plaza-home-activity-head-v1 {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+
+  min-width: 0;
+}
+
+.yh-plaza-home-activity-head-v1 > div {
+  min-width: 0;
+}
+
+.yh-plaza-home-activity-head-v1 h3 {
+  margin: 6px 0 0;
+
+  font-size: 1.12rem;
+  line-height: 1.3;
+}
+
+.yh-plaza-home-activity-head-v1 p {
+  max-width: 760px;
+
+  margin: 8px 0 0;
+
+  line-height: 1.65;
+  opacity: 0.78;
+}
+
+
+@media (max-width: 640px) {
+  .yh-plaza-home-activity-v1 {
+    gap: 12px;
+    margin-top: 0;
+  }
+
+  .yh-plaza-home-activity-head-v1 {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .yh-plaza-home-activity-head-v1 h3 {
+    font-size: 1rem;
+  }
+
+  .yh-plaza-home-activity-head-v1 p {
+    font-size: 0.84rem;
+    line-height: 1.6;
+  }
+}
+
+/* ========================================================= */
+/* PLAZA REGIONS — OVERVIEW / ATLAS MERGE v1                 */
+/* ========================================================= */
+
+.yh-plaza-regions-view-shell-v1 {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.yh-plaza-regions-view-tabs-v1 {
+  width: 100%;
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.yh-plaza-regions-view-tabs-v1 .yh-plaza-pill {
+  position: relative;
+
+  border: 2px solid rgba(103, 232, 249, 0.62) !important;
+  background:
+    linear-gradient(180deg, rgba(8, 47, 73, 0.34), rgba(3, 8, 20, 0.86)) !important;
+
+  color: #eafcff !important;
+
+  box-shadow:
+    0 0 0 1px rgba(103, 232, 249, 0.24),
+    0 0 14px rgba(56, 189, 248, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.yh-plaza-regions-view-tabs-v1 .yh-plaza-pill::before {
+  content: none !important;
+  display: none !important;
+}
+
+.yh-plaza-regions-view-tabs-v1 .yh-plaza-pill.is-active {
+  border-color: rgba(103, 232, 249, 1) !important;
+  background:
+    linear-gradient(180deg, rgba(14, 116, 144, 0.70), rgba(8, 47, 73, 0.62)) !important;
+
+  color: #ffffff !important;
+
+  box-shadow:
+    0 0 0 2px rgba(103, 232, 249, 0.42),
+    0 0 20px rgba(56, 189, 248, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+
+.yh-plaza-regions-view-panel-v1 {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+.yh-plaza-regions-view-panel-v1 > * {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.yh-plaza-regions-atlas-head-v1 {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  margin-bottom: 0;
+
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.yh-plaza-regions-atlas-head-v1 > div {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.yh-plaza-regions-atlas-head-v1
+  .yh-plaza-screen-title {
+  width: 100%;
+
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+
+.yh-plaza-regions-atlas-head-v1
+  .yh-plaza-panel-note {
+  text-align: left;
+}
+
+.yh-plaza-regions-atlas-summary-v1 {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  justify-content: flex-start;
+}
+
+.yh-plaza-regions-atlas-summary-v1
+  .yh-plaza-view-chip {
+  max-width: 100%;
+
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+[data-plaza-regions-view-panel="atlas"]
+  .yh-plaza-atlas-grid {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  margin-top: 0;
+}
+
+
+@media (max-width: 640px) {
+  .yh-plaza-regions-view-shell-v1 {
+    gap: 12px;
+  }
+
+  .yh-plaza-regions-view-tabs-v1 {
+    gap: 6px;
+  }
+
+  .yh-plaza-regions-view-tabs-v1
+    .yh-plaza-pill {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    text-align: center;
+  }
+
+  [data-plaza-regions-view-panel="atlas"] {
+    align-content: start;
+    align-items: start;
+  }
+
+  [data-plaza-regions-view-panel="atlas"]
+    .yh-plaza-screen-title {
+    font-size: clamp(24px, 7vw, 30px);
+    line-height: 1.1;
+  }
+
+  [data-plaza-regions-view-panel="atlas"]
+    .yh-plaza-panel-note {
+    padding: 14px;
+    font-size: 0.84rem;
+    line-height: 1.58;
+  }
+
+  .yh-plaza-regions-atlas-summary-v1 {
+    gap: 6px;
+  }
+
+  .yh-plaza-regions-atlas-summary-v1
+    .yh-plaza-view-chip {
+    padding: 7px 10px;
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  [data-plaza-regions-view-panel="atlas"]
+    .yh-plaza-atlas-grid {
+    margin-top: 0;
+  }
+}
+
+
+/* ========================================================= */
+/* PLAZA INBOX — INCOMING / REQUESTS MERGE v1                */
+/* ========================================================= */
+
+.yh-plaza-inbox-view-tabs-v1 {
+  width: 100%;
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.yh-plaza-inbox-view-panel-v1 {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  justify-items: stretch;
+
+  gap: 16px;
+
+  padding-bottom: 110px;
+}
+
+@media (max-width: 640px) {
+
+  #plazaScreenInbox
+  .yh-plaza-inbox-view-panel-v1 {
+    padding-bottom: 130px;
+  }
+
+}
+
+.yh-plaza-inbox-view-panel-v1 > * {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+#plazaScreenInbox
+  .yh-plaza-inbox-view-panel-v1
+  .yh-plaza-screen-head {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  grid-template-columns:
+    minmax(0, 1fr) !important;
+}
+
+#plazaScreenInbox
+  .yh-plaza-inbox-view-panel-v1
+  .yh-plaza-screen-head > div {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+#plazaScreenInbox
+  .yh-plaza-inbox-view-panel-v1
+  .yh-plaza-screen-title {
+  width: 100%;
+
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+
+[data-plaza-inbox-view-panel="requests"]
+  #plazaRequestsScreenList {
+  width: 100%;
+  min-width: 0;
+
+  display: grid;
+  gap: 14px;
+
+  margin: 0;
+  padding: 0;
+}
+
+
+@media (max-width: 640px) {
+  .yh-plaza-inbox-view-tabs-v1 {
+    gap: 6px;
+  }
+
+  .yh-plaza-inbox-view-tabs-v1
+    .yh-plaza-pill {
+    flex: 1 1 0;
+    min-width: 0;
+
+    justify-content: center;
+    text-align: center;
+  }
+
+  .yh-plaza-inbox-view-panel-v1 {
+    gap: 12px;
+  }
+
+  [data-plaza-inbox-view-panel="requests"]
+    #plazaRequestsScreenList {
+    gap: 10px;
+  }
+}
+/* ======================================================
+   PATRON MOBILE FINAL SPACING FIX
+====================================================== */
+
+@media (max-width: 640px) {
+
+  #plazaScreenPatron {
+    padding-bottom: 0;
+  }
+
+  #plazaScreenPatron .yh-plaza-screen-shell {
+    gap: 14px;
+    padding-bottom: 0;
+  }
+
+  #plazaScreenPatron .yh-plaza-feed-composer {
+    margin-bottom: 24px;
+  }
+
+  #plazaScreenPatron .yh-plaza-panel-note {
+    margin-bottom: 0;
+    padding: 18px;
+  }
+}

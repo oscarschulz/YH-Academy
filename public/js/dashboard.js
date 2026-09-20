@@ -739,7 +739,7 @@ function redirectToAcademyPage(section = 'home') {
 }
 
 function buildPlazaUrl() {
-    return '/plaza.html?tab=feed';
+    return '/plaza.html?tab=explorer';
 }
 
 /* PATCH: Dashboard Plazas child tab icon assets v1 */
@@ -4626,6 +4626,70 @@ async function getYHBusinessChatPlazaAccessV1(
     };
 }
 
+async function refreshYHBusinessChatBackendAccessAuthorityV1(
+    options = {}
+) {
+    const cachedSnapshot =
+        typeof getPlazaAccessSnapshot ===
+            'function'
+            ? getPlazaAccessSnapshot()
+            : {};
+
+    const cachedApproved =
+        isYHBusinessChatPlazaApprovedV1(
+            cachedSnapshot
+        );
+
+    if (!cachedApproved) {
+        setYHBusinessChatNavigationPendingV1();
+    }
+
+    if (
+        typeof refreshPlazaAccessStatusFromBackend !==
+        'function'
+    ) {
+        return syncYHBusinessChatNavigationAccessV1(
+            cachedSnapshot
+        );
+    }
+
+    const snapshot =
+        await refreshPlazaAccessStatusFromBackend(
+            options?.forceFresh !== false
+        );
+
+    const approved =
+        syncYHBusinessChatNavigationAccessV1(
+            snapshot
+        );
+
+    if (approved) {
+        yhBusinessChatState.plazaAccessDenied = false;
+        updateYHBusinessChatBadge();
+    }
+
+    return approved;
+}
+
+function scheduleYHBusinessChatBackendAccessAuthorityV1() {
+    [
+        250,
+        1200,
+        3000
+    ].forEach((delay) => {
+        window.setTimeout(() => {
+            refreshYHBusinessChatBackendAccessAuthorityV1({
+                forceFresh: true
+            }).catch((error) => {
+                console.warn(
+                    'Business Chats backend access authority check failed:',
+                    error
+                );
+            });
+        }, delay);
+    });
+}
+
 function clearYHBusinessChatStateForNoPlazaAccessV1() {
     yhBusinessChatState.conversations = [];
     yhBusinessChatState.activeId = '';
@@ -5747,6 +5811,32 @@ async function submitYHBusinessReply(event) {
 }
 
 function openYHBusinessChatsPage(conversationId = '') {
+    const openApprovedBusinessChats = () => {
+        const cleanConversationId =
+            String(
+                conversationId ||
+                ''
+            ).trim();
+
+        if (cleanConversationId) {
+            try {
+                sessionStorage.setItem(
+                    'yh_business_chats_inline_conversation_id_v1',
+                    cleanConversationId
+                );
+            } catch (_) {}
+        }
+
+        activateDashboardUnifiedWorkspace(
+            'business-chats',
+            {
+                animate: false
+            }
+        );
+
+        return true;
+    };
+
     const currentSnapshot =
         typeof getPlazaAccessSnapshot ===
             'function'
@@ -5754,36 +5844,46 @@ function openYHBusinessChatsPage(conversationId = '') {
             : {};
 
     if (
-        !syncYHBusinessChatNavigationAccessV1(
+        syncYHBusinessChatNavigationAccessV1(
             currentSnapshot
         )
     ) {
-        return false;
+        return openApprovedBusinessChats();
     }
 
-    const cleanConversationId =
-        String(
-            conversationId ||
-            ''
-        ).trim();
+    setYHBusinessChatNavigationPendingV1();
 
-    if (cleanConversationId) {
-        try {
-            sessionStorage.setItem(
-                'yh_business_chats_inline_conversation_id_v1',
-                cleanConversationId
+    refreshYHBusinessChatBackendAccessAuthorityV1({
+        forceFresh: true
+    })
+        .then((approved) => {
+            if (approved) {
+                openApprovedBusinessChats();
+                return;
+            }
+
+            if (typeof showToast === 'function') {
+                showToast(
+                    'Business Chats unlock after Plazas approval.',
+                    'warning'
+                );
+            }
+        })
+        .catch((error) => {
+            console.warn(
+                'Business Chats open access check failed:',
+                error
             );
-        } catch (_) {}
-    }
 
-    activateDashboardUnifiedWorkspace(
-        'business-chats',
-        {
-            animate: false
-        }
-    );
+            if (typeof showToast === 'function') {
+                showToast(
+                    'Could not verify Business Chats access yet. Please try again.',
+                    'error'
+                );
+            }
+        });
 
-    return true;
+    return false;
 }
 
 function bootYHBusinessChatPanel() {
@@ -5848,23 +5948,31 @@ function bootYHBusinessChatPanel() {
      * BACKEND AUTHORITY
      * =================
      *
-     * Always verify again immediately.
-     *
-     * This either confirms the cached approval,
-     * unlocks a newly approved account, or turns
-     * the neutral pending state into a real lock.
+     * Verify Plaza approval directly first.
+     * Do not depend on opening the Plazas page
+     * before Business Chats can unlock.
      */
-    refreshYHBusinessChats(
-        true,
-        {
-            silent: true
-        }
-    ).catch((error) => {
-        console.warn(
-            'Initial Business Chats access refresh failed:',
-            error
-        );
-    });
+    refreshYHBusinessChatBackendAccessAuthorityV1({
+        forceFresh: true
+    })
+        .then((approved) => {
+            if (!approved) return;
+
+            return refreshYHBusinessChats(
+                false,
+                {
+                    silent: true
+                }
+            );
+        })
+        .catch((error) => {
+            console.warn(
+                'Initial Business Chats access authority check failed:',
+                error
+            );
+        });
+
+    scheduleYHBusinessChatBackendAccessAuthorityV1();
 
     startYHBusinessChatAutoRefresh();
 
@@ -13607,6 +13715,19 @@ async function handleDashboardAcademyAccessIntent(
         ) || null;
 
     const openApprovedWorkspace = () => {
+        getDashboardSidebarToggleDivisionsV190()
+            .filter(
+                (division) =>
+                    division !== 'academy'
+            )
+            .forEach(
+                (division) =>
+                    setDashboardSidebarDivisionManualCollapsedV190(
+                        division,
+                        true
+                    )
+            );
+
         setDashboardSidebarDivisionManualCollapsedV190(
             'academy',
             false
@@ -13919,6 +14040,28 @@ async function handleDashboardPlazaAccessIntent(
             typeof setDashboardSidebarDivisionManualCollapsedV190 ===
             'function'
         ) {
+            /*
+             * Plaza sidebar behaves as a true accordion:
+             * opening Plazas closes Academy and Federation.
+             */
+            if (
+                typeof getDashboardSidebarToggleDivisionsV190 ===
+                'function'
+            ) {
+                getDashboardSidebarToggleDivisionsV190()
+                    .filter(
+                        (division) =>
+                            division !== 'plazas'
+                    )
+                    .forEach(
+                        (division) =>
+                            setDashboardSidebarDivisionManualCollapsedV190(
+                                division,
+                                true
+                            )
+                    );
+            }
+
             setDashboardSidebarDivisionManualCollapsedV190(
                 'plazas',
                 false
@@ -14126,6 +14269,19 @@ async function handleDashboardFederationAccessIntent(
         event?.target?.closest?.('button, a') || null;
 
     const openApprovedWorkspace = () => {
+        getDashboardSidebarToggleDivisionsV190()
+            .filter(
+                (division) =>
+                    division !== 'federation'
+            )
+            .forEach(
+                (division) =>
+                    setDashboardSidebarDivisionManualCollapsedV190(
+                        division,
+                        true
+                    )
+            );
+
         setDashboardSidebarDivisionManualCollapsedV190(
             'federation',
             false
@@ -16305,26 +16461,26 @@ const dashboardUnifiedWorkspaceCopy = {
         division: 'plazas',
         kicker: 'Plazas Workspace',
         title: 'THE PLAZAS',
-        intro: 'Feed, inbox, conversations, meetups, opportunities, directory, regions, atlas, patron tools, bridge, and requests.',
-        eyebrow: 'Plazas Control',
-        headline: 'Your marketplace and networking layer.',
-        body: 'Use the Plazas sidebar tabs to move across Feed, Inbox, Conversations, Meetups, Opportunities, Directory, Regions, Atlas, Patron tools, Bridge, and Requests inside the unified Dashboard shell.',
+        intro: 'Home, opportunities, directory, regions, meetups, conversations, inbox, and Patron access.',
+        eyebrow: 'Plazas',
+        headline: 'Your regional opportunity and networking layer.',
+        body: 'Use Plazas to discover people, opportunities, regional hubs, real-world meetups, and context-based conversations across YH Universe.',
         focus: 'Plazas Access',
         mode: 'Movement Hub',
-        stage: 'Plazas Preview'
+        stage: 'Plazas'
     },
     'plazas-explorer': {
         key: 'plazas-explorer',
         division: 'plazas',
-        kicker: 'Plazas / Open World',
-        title: 'PLAZA EXPLORER',
-        intro: 'Open World command shell for zones, quests, members, meetups, and bridge routes.',
-        eyebrow: 'Open World Mode',
-        headline: 'Explore the active movement layer.',
-        body: 'This frontend shell connects the existing Plaza screens into one game-oriented Explorer experience without changing their current workflows.',
-        focus: 'World Map',
-        mode: 'Open World',
-        stage: 'Frontend Concept'
+        kicker: 'Plazas / Home',
+        title: 'PLAZA HOME',
+        intro: 'Your overview of regional movement, opportunities, members, meetups, and network progression.',
+        eyebrow: 'Plaza Home',
+        headline: 'Your active Plaza movement at a glance.',
+        body: 'Start here to see relevant regional signals and move into opportunities, member discovery, regions, meetups, and conversations.',
+        focus: 'Plaza Overview',
+        mode: 'Movement Hub',
+        stage: 'Home'
     },
     'plazas-feed': {
         key: 'plazas-feed',
@@ -16619,7 +16775,8 @@ const dashboardDirectMessagesStateV1 = {
     loadingRooms: false,
     loadingThread: false,
     sendPending: false,
-    searchQuery: ''
+    searchQuery: '',
+    roomFilter: 'dm'
 };
 
 function dashboardDmEscapeHtmlV1(value = '') {
@@ -16658,6 +16815,18 @@ function normalizeDashboardDmRoomV1(
             ? profile
             : {};
 
+    const roomType =
+        String(
+            room.room_type ||
+            room.roomType ||
+            room.type ||
+            'dm'
+        )
+            .trim()
+            .toLowerCase() === 'group'
+            ? 'group'
+            : 'dm';
+
     const recipientId =
         normalizeAcademyFeedId(
             safeProfile.id ||
@@ -16667,31 +16836,64 @@ function normalizeDashboardDmRoomV1(
             ''
         );
 
+    const memberNames =
+        Array.isArray(room.member_names)
+            ? room.member_names
+            : Array.isArray(room.memberNames)
+                ? room.memberNames
+                : Array.isArray(room.participantNames)
+                    ? room.participantNames
+                    : [];
+
+    const groupFallbackName =
+        memberNames.length
+            ? memberNames.slice(0, 3).join(', ')
+            : 'Group Conversation';
+
     const name =
         String(
-            safeProfile.displayName ||
-            safeProfile.display_name ||
-            safeProfile.fullName ||
-            safeProfile.full_name ||
-            safeProfile.name ||
-            room.recipient_name ||
-            room.recipientName ||
-            room.name ||
-            'YH Member'
+            roomType === 'group'
+                ? (
+                    room.name ||
+                    room.title ||
+                    groupFallbackName
+                )
+                : (
+                    safeProfile.displayName ||
+                    safeProfile.display_name ||
+                    safeProfile.fullName ||
+                    safeProfile.full_name ||
+                    safeProfile.name ||
+                    room.recipient_name ||
+                    room.recipientName ||
+                    room.name ||
+                    'YH Member'
+                )
         ).trim() ||
-        'YH Member';
+        (
+            roomType === 'group'
+                ? 'Group Conversation'
+                : 'YH Member'
+        );
 
     const username =
-        String(
-            safeProfile.username ||
-            safeProfile.userName ||
-            room.recipient_username ||
-            room.recipientUsername ||
-            room.username ||
-            ''
-        )
-            .replace(/^@+/, '')
-            .trim();
+        roomType === 'group'
+            ? String(
+                memberNames.length
+                    ? `${memberNames.length} members`
+                    : 'Group'
+            )
+                .trim()
+            : String(
+                safeProfile.username ||
+                safeProfile.userName ||
+                room.recipient_username ||
+                room.recipientUsername ||
+                room.username ||
+                ''
+            )
+                .replace(/^@+/, '')
+                .trim();
 
     const rawAvatar =
         String(
@@ -16730,15 +16932,7 @@ function normalizeDashboardDmRoomV1(
                 ''
             ).trim(),
 
-        roomType:
-            String(
-                room.room_type ||
-                room.roomType ||
-                room.type ||
-                'dm'
-            )
-                .trim()
-                .toLowerCase(),
+        roomType,
 
         recipientId,
         recipient_id:
@@ -16752,6 +16946,8 @@ function normalizeDashboardDmRoomV1(
         username,
 
         avatar,
+
+        memberNames,
 
         unreadCount:
             Math.max(
@@ -17013,14 +17209,56 @@ function renderDashboardDmRoomsV1() {
             .trim()
             .toLowerCase();
 
+    const activeFilter =
+        String(
+            dashboardDirectMessagesStateV1
+                .roomFilter ||
+            'dm'
+        )
+            .trim()
+            .toLowerCase() === 'group'
+            ? 'group'
+            : 'dm';
+
+    document
+        .querySelectorAll(
+            '[data-yh-dashboard-dm-filter]'
+        )
+        .forEach((button) => {
+            const filter =
+                String(
+                    button.getAttribute(
+                        'data-yh-dashboard-dm-filter'
+                    ) ||
+                    ''
+                )
+                    .trim()
+                    .toLowerCase();
+
+            button.classList.toggle(
+                'is-active',
+                filter === activeFilter
+            );
+        });
+
     const rooms =
         dashboardDirectMessagesStateV1
             .rooms
+            .filter((room) => {
+                return String(
+                    room.roomType ||
+                    room.room_type ||
+                    'dm'
+                )
+                    .trim()
+                    .toLowerCase() === activeFilter;
+            })
             .filter((room) => {
                 if (!query) return true;
 
                 return [
                     room.name,
+                    room.username,
                     room.lastMessage
                 ]
                     .map(
@@ -17040,19 +17278,26 @@ function renderDashboardDmRoomsV1() {
             });
 
     if (status) {
+        const label =
+            activeFilter === 'group'
+                ? 'group'
+                : 'conversation';
+
         status.textContent =
             dashboardDirectMessagesStateV1
                 .loadingRooms
                 ? 'Loading conversations...'
                 : rooms.length
-                    ? `${rooms.length} conversation${
+                    ? `${rooms.length} ${label}${
                         rooms.length === 1
                             ? ''
                             : 's'
                     }`
                     : query
                         ? 'No matching conversations.'
-                        : 'No direct messages yet.';
+                        : activeFilter === 'group'
+                            ? 'No groups yet.'
+                            : 'No direct messages yet.';
     }
 
     list.innerHTML =
@@ -17071,7 +17316,11 @@ function renderDashboardDmRoomsV1() {
                 const preview =
                     dashboardDmEscapeHtmlV1(
                         room.lastMessage ||
-                        'Start the conversation.'
+                        (
+                            room.roomType === 'group'
+                                ? 'Group conversation'
+                                : 'Start the conversation.'
+                        )
                     );
 
                 const avatar =
@@ -17343,9 +17592,14 @@ if (name) {
 
 if (username) {
     username.textContent =
-        room.username
-            ? `@${room.username}`
-            : 'YH Universe member';
+        room.roomType === 'group'
+            ? (
+                room.username ||
+                'Group conversation'
+            )
+            : room.username
+                ? `@${room.username}`
+                : 'YH Universe member';
 }
 
 if (avatar) {
@@ -17558,15 +17812,19 @@ async function loadDashboardDirectMessageRoomsV1(
             )
                 .filter(
                     (room) =>
-                        String(
-                            room.room_type ||
-                            room.roomType ||
-                            room.type ||
-                            ''
+                        [
+                            'dm',
+                            'group'
+                        ].includes(
+                            String(
+                                room.room_type ||
+                                room.roomType ||
+                                room.type ||
+                                'dm'
+                            )
+                                .trim()
+                                .toLowerCase()
                         )
-                            .trim()
-                            .toLowerCase() ===
-                        'dm'
                 )
 .map(
     (room) => {
@@ -17880,6 +18138,282 @@ if (
                 ?.focus?.();
         }
     );
+}
+
+async function findDashboardMessageMemberByQueryV1(
+    query = ''
+) {
+    const cleanQuery =
+        String(query || '')
+            .trim();
+
+    if (!cleanQuery) {
+        return null;
+    }
+
+    const members =
+        typeof requestAcademyMemberSearch === 'function'
+            ? await requestAcademyMemberSearch(
+                cleanQuery
+            )
+            : await academyAuthedFetch(
+                '/api/academy/community/members?limit=24&query=' +
+                encodeURIComponent(cleanQuery),
+                {
+                    method: 'GET'
+                }
+            )
+                .then((result) =>
+                    Array.isArray(result?.members)
+                        ? result.members
+                        : []
+                )
+                .catch(() => []);
+
+    return (
+        members.find((member) =>
+            normalizeAcademyFeedId(
+                member.id ||
+                member.uid ||
+                member.userId ||
+                member.user_id
+            )
+        ) ||
+        null
+    );
+}
+
+function getDashboardMessageMemberIdV1(
+    member = {}
+) {
+    return normalizeAcademyFeedId(
+        member.id ||
+        member.uid ||
+        member.userId ||
+        member.user_id ||
+        member.firebaseUid ||
+        member.firebase_uid ||
+        ''
+    );
+}
+
+async function startDashboardMessageDmPromptV1() {
+    const query =
+        window.prompt(
+            'Search member name or username to start DM:'
+        );
+
+    if (!query) return;
+
+    const member =
+        await findDashboardMessageMemberByQueryV1(
+            query
+        );
+
+    const targetUserId =
+        getDashboardMessageMemberIdV1(
+            member
+        );
+
+    if (!targetUserId) {
+        showToast(
+            'No matching member found.',
+            'error'
+        );
+
+        return;
+    }
+
+    const result =
+        await academyAuthedFetch(
+            '/api/realtime/rooms',
+            {
+                method:
+                    'POST',
+
+                body:
+                    JSON.stringify({
+                        roomType:
+                            'dm',
+
+                        targetUserId
+                    })
+            }
+        );
+
+    const room =
+        result?.room ||
+        null;
+
+    if (!room?.id) {
+        throw new Error(
+            'Direct message room was not created.'
+        );
+    }
+
+    const profile =
+        member &&
+        typeof member === 'object'
+            ? member
+            : {};
+
+    const normalized =
+        normalizeDashboardDmRoomV1(
+            room,
+            profile
+        );
+
+    dashboardDirectMessagesStateV1
+        .rooms = [
+            normalized,
+            ...dashboardDirectMessagesStateV1
+                .rooms
+                .filter(
+                    (entry) =>
+                        entry.id !==
+                        normalized.id
+                )
+        ];
+
+    dashboardDirectMessagesStateV1
+        .roomFilter =
+        'dm';
+
+    renderDashboardDmRoomsV1();
+
+    await selectDashboardDmRoomV1(
+        normalized.id
+    );
+
+    await loadDashboardDirectMessageRoomsV1({
+        force:
+            true
+    });
+}
+
+async function createDashboardMessageGroupPromptV1() {
+    const groupName =
+        window.prompt(
+            'Group name:'
+        );
+
+    if (!groupName) return;
+
+    const rawMembers =
+        window.prompt(
+            'Add members by name or username. Separate multiple members with commas:'
+        );
+
+    if (!rawMembers) return;
+
+    const queries =
+        String(rawMembers || '')
+            .split(',')
+            .map((item) =>
+                item.trim()
+            )
+            .filter(Boolean);
+
+    if (!queries.length) {
+        showToast(
+            'Add at least one member.',
+            'error'
+        );
+
+        return;
+    }
+
+    const foundMembers =
+        await Promise.all(
+            queries.map((query) =>
+                findDashboardMessageMemberByQueryV1(
+                    query
+                )
+            )
+        );
+
+    const memberUserIds =
+        Array.from(
+            new Set(
+                foundMembers
+                    .map(
+                        getDashboardMessageMemberIdV1
+                    )
+                    .filter(Boolean)
+            )
+        );
+
+    if (!memberUserIds.length) {
+        showToast(
+            'No valid group members found.',
+            'error'
+        );
+
+        return;
+    }
+
+    const result =
+        await academyAuthedFetch(
+            '/api/realtime/rooms',
+            {
+                method:
+                    'POST',
+
+                body:
+                    JSON.stringify({
+                        roomType:
+                            'group',
+
+                        name:
+                            String(groupName || '')
+                                .trim(),
+
+                        memberUserIds
+                    })
+            }
+        );
+
+    const room =
+        result?.room ||
+        null;
+
+    if (!room?.id) {
+        throw new Error(
+            'Group room was not created.'
+        );
+    }
+
+    const normalized =
+        normalizeDashboardDmRoomV1(
+            room
+        );
+
+    dashboardDirectMessagesStateV1
+        .rooms = [
+            normalized,
+            ...dashboardDirectMessagesStateV1
+                .rooms
+                .filter(
+                    (entry) =>
+                        entry.id !==
+                        normalized.id
+                )
+        ];
+
+    dashboardDirectMessagesStateV1
+        .roomFilter =
+        'group';
+
+    renderDashboardDmRoomsV1();
+
+    await selectDashboardDmRoomV1(
+        normalized.id
+    );
+
+    await loadDashboardDirectMessageRoomsV1({
+        force:
+            true
+    });
 }
 
 async function openDashboardDirectMessageRoomV1(
@@ -18684,6 +19218,86 @@ function bootDashboardDirectMessagesV1() {
         true;
 
     document
+        .querySelectorAll(
+            '[data-yh-dashboard-dm-filter]'
+        )
+        .forEach((button) => {
+            button.addEventListener(
+                'click',
+                () => {
+                    const filter =
+                        String(
+                            button.getAttribute(
+                                'data-yh-dashboard-dm-filter'
+                            ) ||
+                            'dm'
+                        )
+                            .trim()
+                            .toLowerCase() === 'group'
+                            ? 'group'
+                            : 'dm';
+
+                    dashboardDirectMessagesStateV1
+                        .roomFilter =
+                        filter;
+
+                    dashboardDirectMessagesStateV1
+                        .activeRoomId =
+                        '';
+
+                    renderDashboardDmRoomsV1();
+                    renderDashboardDmThreadV1();
+                }
+            );
+        });
+
+    document
+        .getElementById(
+            'yh-dashboard-dm-start-btn'
+        )
+        ?.addEventListener(
+            'click',
+            () => {
+                startDashboardMessageDmPromptV1()
+                    .catch((error) => {
+                        console.error(
+                            'startDashboardMessageDmPromptV1 error:',
+                            error
+                        );
+
+                        showToast(
+                            error?.message ||
+                            'Failed to start direct message.',
+                            'error'
+                        );
+                    });
+            }
+        );
+
+    document
+        .getElementById(
+            'yh-dashboard-dm-create-group-btn'
+        )
+        ?.addEventListener(
+            'click',
+            () => {
+                createDashboardMessageGroupPromptV1()
+                    .catch((error) => {
+                        console.error(
+                            'createDashboardMessageGroupPromptV1 error:',
+                            error
+                        );
+
+                        showToast(
+                            error?.message ||
+                            'Failed to create group.',
+                            'error'
+                        );
+                    });
+            }
+        );
+
+    document
         .getElementById(
             'yh-dashboard-dm-room-list'
         )
@@ -19042,19 +19656,101 @@ function getDashboardPersistentWorkspaceKey(value = '') {
         : '';
 }
 
-function persistDashboardUnifiedWorkspaceState(key = 'overview', options = {}) {
-    if (options?.persist === false) return;
+/* ========================================================= */
+/* PLAZAS — LEGACY MAIN-NAV STATE COMPATIBILITY v1           */
+/* ========================================================= */
 
-    const copy = getDashboardUnifiedWorkspaceCopy(key);
-    const previous = readDashboardPersistentUiState();
+function normalizeDashboardPersistedPlazaWorkspaceV1(
+    value = ''
+) {
+    const cleanKey =
+        getDashboardPersistentWorkspaceKey(
+            value
+        );
+
+    if (!cleanKey) {
+        return '';
+    }
+
+    const legacyRedirects = {
+        'plazas-feed':
+            'plazas-explorer',
+
+        'plazas-atlas':
+            'plazas-regions',
+
+        'plazas-requests':
+            'plazas-inbox',
+
+        'plazas-patron-desk':
+            'plazas-patron',
+
+        'plazas-bridge':
+            'plazas-explorer'
+    };
+
+    return (
+        legacyRedirects[cleanKey] ||
+        cleanKey
+    );
+}
+
+function persistDashboardUnifiedWorkspaceState(
+    key = 'overview',
+    options = {}
+) {
+    if (options?.persist === false) {
+        return;
+    }
+
+    const copy =
+        getDashboardUnifiedWorkspaceCopy(
+            key
+        );
+
+    /*
+     * Legacy Plaza screens may still be opened
+     * contextually during this migration.
+     *
+     * Do not persist them as the next main
+     * Dashboard destination.
+     */
+    const persistentKey =
+        normalizeDashboardPersistedPlazaWorkspaceV1(
+            copy.key
+        ) ||
+        copy.key;
+
+    const persistentCopy =
+        getDashboardUnifiedWorkspaceCopy(
+            persistentKey
+        );
+
+    const previous =
+        readDashboardPersistentUiState();
 
     writeDashboardPersistentUiState({
         type: 'workspace',
-        workspaceKey: copy.key,
-        division: copy.division,
+
+        workspaceKey:
+            persistentCopy.key,
+
+        division:
+            persistentCopy.division,
+
         profileMode: '',
         profileMemberId: '',
-        walletTab: copy.key === 'wallet' ? (previous.walletTab || 'overview') : previous.walletTab || ''
+
+        walletTab:
+            persistentCopy.key === 'wallet'
+                ? (
+                    previous.walletTab ||
+                    'overview'
+                )
+                : (
+                    previous.walletTab ||
+                    ''
+                )
     });
 }
 
@@ -19158,13 +19854,15 @@ function restoreDashboardPersistentUiState() {
         readDashboardPersistentUiState();
 
     const savedWorkspace =
-        getDashboardPersistentWorkspaceKey(
-            state.workspaceKey
-        ) ||
-        getDashboardPersistentWorkspaceKey(
-            state.workspace
-        ) ||
-        '';
+        normalizeDashboardPersistedPlazaWorkspaceV1(
+            getDashboardPersistentWorkspaceKey(
+                state.workspaceKey
+            ) ||
+            getDashboardPersistentWorkspaceKey(
+                state.workspace
+            ) ||
+            ''
+        );
 
     const profileMode =
         String(
@@ -19421,12 +20119,12 @@ const dashboardUnifiedWorkspaceLaunchMap = {
         division: 'plazas',
         title: 'Open Plazas',
         kicker: 'Plazas Workspace',
-        copy: 'Continue into the real Plazas Movement Hub using the existing Plazas page state.',
-        routeLabel: '/plaza.html?tab=feed',
-        url: '/plaza.html?tab=feed',
-        plazaScreen: 'feed',
+        copy: 'Continue into Plaza Home and your regional opportunity and networking layer.',
+        routeLabel: '/plaza.html?tab=explorer',
+        url: '/plaza.html?tab=explorer',
+        plazaScreen: 'explorer',
         buttonText: 'Open Plazas →',
-        loadingLabel: 'Opening Plazas...'
+        loadingLabel: 'Opening Plaza Home...'
     },
     'plazas-explorer': {
         division: 'plazas',
@@ -20129,6 +20827,182 @@ function switchDashboardInlinePlazaScreenInLoadedFrameV26(
 
         return false;
     }
+}
+
+/*
+ * PATCH: Dashboard loaded Academy child switch v1
+ *
+ * Academy Roadmap, Missions, Community, Messages, and Voice all
+ * belong to the same /academy document.
+ *
+ * Once that document is already loaded and ready inside Dashboard,
+ * switch its internal view instead of assigning iframe.src again.
+ *
+ * This preserves the existing Academy functions while avoiding a
+ * full HTML/CSS/JS boot on every child-tab change.
+ */
+function switchDashboardInlineAcademySectionInLoadedFrameV1(
+    frame,
+    workspaceKey = '',
+    meta = {},
+    navigationToken = '',
+    inlineUrl = ''
+) {
+    const cleanWorkspaceKey =
+        String(
+            workspaceKey || ''
+        )
+            .trim()
+            .toLowerCase();
+
+    if (
+        !frame ||
+        !cleanWorkspaceKey.startsWith(
+            'academy-'
+        )
+    ) {
+        return false;
+    }
+
+    let childWindow = null;
+    let childDocument = null;
+    let loadedPath = '';
+
+    try {
+        childWindow =
+            frame.contentWindow || null;
+
+        childDocument =
+            frame.contentDocument ||
+            childWindow?.document ||
+            null;
+
+        const loadedHref =
+            String(
+                childWindow?.location?.href ||
+                ''
+            ).trim();
+
+        if (loadedHref) {
+            loadedPath =
+                new URL(
+                    loadedHref,
+                    window.location.origin
+                )
+                    .pathname
+                    .replace(
+                        /\/+$/,
+                        ''
+                    ) || '/';
+        }
+    } catch (_) {
+        return false;
+    }
+
+    if (
+        loadedPath !== '/academy' ||
+        !childDocument?.body
+    ) {
+        return false;
+    }
+
+    const childBody =
+        childDocument.body;
+
+    const isAcademyDocument =
+        childBody.getAttribute(
+            'data-yh-view'
+        ) === 'academy' ||
+        childBody.getAttribute(
+            'data-yh-page'
+        ) === 'academy';
+
+    if (!isAcademyDocument) {
+        return false;
+    }
+
+    /*
+     * Only reuse an Academy document that has already completed its
+     * first Dashboard handshake. Initial Academy entry still uses the
+     * normal iframe load path.
+     */
+    if (
+        childBody.getAttribute(
+            'data-yh-dashboard-child-ready'
+        ) !== 'true'
+    ) {
+        return false;
+    }
+
+    const target =
+        getDashboardInlineAcademyTargetFromFrame(
+            frame
+        );
+
+    if (!target) {
+        return false;
+    }
+
+    frame.dataset
+        .yhDashboardNavigationExpectedUrl =
+        normalizeDashboardInlineNavigationUrl(
+            inlineUrl
+        );
+
+    frame.dataset
+        .yhDashboardNavigationState =
+        'switching-loaded-academy';
+
+    frame.dataset
+        .yhDashboardAcademyPrewarmed =
+        'true';
+
+    childBody.setAttribute(
+        'data-yh-dashboard-embed',
+        'true'
+    );
+
+    childBody.setAttribute(
+        'data-yh-dashboard-inline-requested-target',
+        target
+    );
+
+    /*
+     * Keep the iframe URL synchronized without causing navigation.
+     * replaceState changes only the document URL; it does not reload
+     * Academy or destroy its current runtime state.
+     */
+    try {
+        if (
+            childWindow?.history &&
+            inlineUrl
+        ) {
+            childWindow.history.replaceState(
+                childWindow.history.state,
+                '',
+                inlineUrl
+            );
+        }
+    } catch (_) {}
+
+    const didApply =
+        applyDashboardInlineAcademySection(
+            frame,
+            {
+                force: true,
+                retry: false
+            }
+        );
+
+    if (!didApply) {
+        return false;
+    }
+
+    normalizeDashboardEmbeddedAcademyAiCoachLauncher(
+        frame
+    );
+
+    return true;
 }
 
 function getDashboardInlineAcademySectionFromFrame(frame) {
@@ -21147,19 +22021,43 @@ function isDashboardInlinePlazaReady(frame, doc) {
     const stableReady =
         doc.body.dataset.yhDashboardStableReady === 'true';
 
+    const internalScreenOwners = {
+        'incoming-detail': 'inbox',
+        'notifications': 'inbox',
+
+        'conversation': 'messages',
+
+        'opportunity-detail': 'opportunities',
+
+        'project-detail': 'feed',
+
+        'region-hub': 'regions',
+
+        'bridge-detail': 'bridge'
+    };
+
+    const readyScreenOwner =
+        internalScreenOwners[readyScreen] ||
+        readyScreen;
+
+    const stableScreenOwner =
+        internalScreenOwners[stableScreen] ||
+        stableScreen;
+
     if (
         !targetScreen ||
         !childReady ||
         !stableReady ||
-        readyScreen !== targetScreen ||
-        stableScreen !== targetScreen
+        readyScreenOwner !== targetScreen ||
+        stableScreenOwner !== targetScreen
     ) {
         return false;
     }
 
-    const activeScreen = doc.querySelector(
-        `[data-plaza-screen="${targetScreen}"]`
-    );
+    const activeScreen =
+        doc.querySelector(
+            '[data-plaza-screen].yh-plaza-screen.is-active:not([hidden])'
+        );
 
     if (
         !activeScreen ||
@@ -21167,6 +22065,24 @@ function isDashboardInlinePlazaReady(frame, doc) {
         activeScreen.hidden === true ||
         !activeScreen.classList.contains('is-active')
     ) {
+        return false;
+    }
+
+    const activeScreenName =
+        String(
+            activeScreen.getAttribute(
+                'data-plaza-screen'
+            ) ||
+            ''
+        )
+            .trim()
+            .toLowerCase();
+
+    const activeScreenOwner =
+        internalScreenOwners[activeScreenName] ||
+        activeScreenName;
+
+    if (activeScreenOwner !== targetScreen) {
         return false;
     }
 
@@ -22596,6 +23512,18 @@ function syncDashboardEmbeddedAcademyMobileChromeV2(
     const chromeSelectors = [
         '#academy-lead-missions-view > .chat-header',
         '#academy-feed-view > .chat-header',
+
+        /*
+         * Legacy standalone Academy mobile navigation.
+         * Dashboard owns navigation while embedded.
+         */
+        '#academy-mobile-nav-drawer',
+        '.academy-mobile-nav-drawer',
+        '#academy-mobile-nav-toggle',
+        '.academy-mobile-nav-toggle',
+        '#academy-mobile-nav-menu',
+        '.academy-mobile-nav-menu',
+
         '#academy-mobile-bottom-nav',
         '.academy-mobile-bottom-nav',
         'nav[aria-label="Academy mobile navigation"]'
@@ -24091,30 +25019,41 @@ function forceDashboardInlineFrameContentOnly(frame) {
             box-sizing: border-box !important;
         }
 
-        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
-            #academy-chat[data-chat-mode="home"]
-            .academy-messages-thread-shell,
-        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
-            #academy-chat[data-chat-mode="home"]
-            .academy-messages-thread-shell,
-        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
-            #academy-chat[data-chat-mode="home"]
-            #dynamic-chat-history,
-        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
-            #academy-chat[data-chat-mode="home"]
-            #dynamic-chat-history,
-        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
-            #academy-chat[data-chat-mode="home"]
-            .academy-home-stack,
-        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
-            #academy-chat[data-chat-mode="home"]
-            .academy-home-stack {
-            width: 100% !important;
-            min-width: 0 !important;
-            min-height: 100% !important;
-            margin: 0 !important;
-            box-sizing: border-box !important;
-        }
+body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+    #academy-chat[data-chat-mode="home"]
+    .academy-messages-inbox,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+    #academy-chat[data-chat-mode="home"]
+    .academy-messages-inbox,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+    #academy-chat[data-chat-mode="home"]
+    .academy-messages-thread-shell,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+    #academy-chat[data-chat-mode="home"]
+    .academy-messages-thread-shell,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+    #academy-chat[data-chat-mode="home"]
+    #dynamic-chat-history,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+    #academy-chat[data-chat-mode="home"]
+    #dynamic-chat-history,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+    #academy-chat[data-chat-mode="home"]
+    .academy-home-stack,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+    #academy-chat[data-chat-mode="home"]
+    .academy-home-stack {
+    width: 100% !important;
+    min-width: 0 !important;
+
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    margin: 0 !important;
+
+    box-sizing: border-box !important;
+}
 
         /*
          * Remove the standalone Academy mobile height
@@ -24547,33 +25486,34 @@ function forceDashboardInlineFrameContentOnly(frame) {
          * One mission card is shown per swipe, with
          * compact position indicators below.
          */
-        body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
-            #academy-lead-missions-view
-            .academy-mission-playbook-grid[data-yh-dashboard-mission-carousel="true"],
-        body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
-            #academy-lead-missions-view
-            .academy-mission-playbook-grid[data-yh-dashboard-mission-carousel="true"] {
-            width: 100% !important;
-            min-width: 0 !important;
-            max-width: 100% !important;
-            display: flex !important;
-            grid-template-columns: none !important;
-            align-items: stretch !important;
-            gap: 12px !important;
-            margin: 0 !important;
-            padding: 4px 8px 10px !important;
-            overflow-x: auto !important;
-            overflow-y: hidden !important;
-            scroll-snap-type: x mandatory !important;
-            scroll-padding-inline: 8px !important;
-            scroll-behavior: smooth !important;
-            overscroll-behavior-inline: contain !important;
-            -webkit-overflow-scrolling: touch !important;
-            touch-action: pan-x pan-y !important;
-            scrollbar-width: none !important;
-            -ms-overflow-style: none !important;
-            box-sizing: border-box !important;
-        }
+body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+    #academy-lead-missions-view
+    .academy-mission-playbook-grid[data-yh-dashboard-mission-carousel="true"],
+body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+    #academy-lead-missions-view
+    .academy-mission-playbook-grid[data-yh-dashboard-mission-carousel="true"] {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: stretch !important;
+
+    gap: 12px !important;
+    margin: 0 !important;
+    padding: 4px 8px 10px !important;
+
+    overflow: visible !important;
+
+    scroll-snap-type: none !important;
+    scroll-padding-inline: 0 !important;
+    scroll-behavior: auto !important;
+    overscroll-behavior: auto !important;
+
+    touch-action: pan-y !important;
+    box-sizing: border-box !important;
+}
 
         body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
             #academy-lead-missions-view
@@ -24594,20 +25534,28 @@ function forceDashboardInlineFrameContentOnly(frame) {
             #academy-lead-missions-view
             .academy-mission-playbook-grid[data-yh-dashboard-mission-carousel="true"]
             > .academy-mission-playbook-card {
-            flex: 0 0 calc(100% - 20px) !important;
-            width: calc(100% - 20px) !important;
-            min-width: calc(100% - 20px) !important;
-            max-width: calc(100% - 20px) !important;
+            flex: none !important;
+
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+
             height: auto !important;
             margin: 0 !important;
-            scroll-snap-align: center !important;
-            scroll-snap-stop: always !important;
+
+            scroll-snap-align: none !important;
+            scroll-snap-stop: normal !important;
+
+            align-self: stretch !important;
+            box-sizing: border-box !important;
             align-self: stretch !important;
             box-sizing: border-box !important;
         }
 
-        body.yh-dashboard-mobile-inline-embed-body
-            .yh-dashboard-mission-carousel-indicators-v1 {
+            body.yh-dashboard-mobile-inline-embed-body
+                .yh-dashboard-mission-carousel-indicators-v1 {
+                display: none !important;
+            }
             width: 100% !important;
             min-height: 28px !important;
             display: flex !important;
@@ -25092,13 +26040,29 @@ function forceDashboardInlineFrameContentOnly(frame) {
             grid-template-rows: auto !important;
             align-content: start !important;
             gap: 0 !important;
-            padding: 0 0 env(safe-area-inset-bottom, 0px) !important;
+
+            /*
+             * Keep a small scroll runway after the final
+             * Plaza card so the last action/card never
+             * finishes flush against the viewport edge.
+             */
+            padding:
+                0
+                0
+                calc(28px + env(safe-area-inset-bottom, 0px))
+                !important;
+
             box-sizing: border-box !important;
+
             overflow-y: auto !important;
             overflow-x: hidden !important;
+
             -webkit-overflow-scrolling: touch !important;
             overscroll-behavior: contain !important;
-            scroll-padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+
+            scroll-padding-bottom:
+                calc(28px + env(safe-area-inset-bottom, 0px))
+                !important;
         }
 
         body.yh-dashboard-inline-embed-body .yh-plaza-workspace,
@@ -25740,28 +26704,37 @@ body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-activ
                 box-sizing: border-box !important;
             }
 
-            /*
-             * Stretch short Academy surfaces to the bottom
-             * instead of ending early and exposing a blank
-             * portion of the iframe.
-             */
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-chat[data-chat-mode="home"] .academy-messages-thread-shell,
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-chat[data-chat-mode="home"] .academy-messages-thread-shell,
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-chat[data-chat-mode="home"] #dynamic-chat-history,
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-chat[data-chat-mode="home"] #dynamic-chat-history,
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-chat[data-chat-mode="home"] .academy-home-stack,
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-chat[data-chat-mode="home"] .academy-home-stack,
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-lead-missions-view .academy-lead-missions-shell,
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-lead-missions-view .academy-lead-missions-shell,
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-lead-missions-view .academy-lead-missions-workspace,
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-lead-missions-view .academy-lead-missions-workspace,
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #academy-feed-view .academy-feed-shell,
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #academy-feed-view .academy-feed-shell,
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"] #voice-lobby-view .lounge-container,
-            body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"] #voice-lobby-view .lounge-container {
-                min-height: 100% !important;
-                box-sizing: border-box !important;
-            }
+/*
+ * Stretch genuinely short Academy surfaces to the bottom.
+ * Roadmap is excluded because its content owns natural height.
+ */
+body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+    #academy-lead-missions-view
+    .academy-lead-missions-shell,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+    #academy-lead-missions-view
+    .academy-lead-missions-shell,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+    #academy-lead-missions-view
+    .academy-lead-missions-workspace,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+    #academy-lead-missions-view
+    .academy-lead-missions-workspace,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+    #academy-feed-view
+    .academy-feed-shell,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+    #academy-feed-view
+    .academy-feed-shell,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-view="academy"]
+    #voice-lobby-view
+    .lounge-container,
+body.yh-dashboard-mobile-inline-embed-body[data-yh-page="academy"]
+    #voice-lobby-view
+    .lounge-container {
+    min-height: 100% !important;
+    box-sizing: border-box !important;
+}
 
             /*
              * Academy Messages:
@@ -25811,16 +26784,24 @@ body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"][data-bc-activ
              * ========================================== */
 
             /*
-             * Dashboard already owns device safe areas.
-             * Do not reserve another bottom safe-area
-             * inside the embedded Plazas document.
+             * Dashboard owns the outer device safe area,
+             * but Plaza still needs a small internal
+             * bottom runway so its final card is fully
+             * reachable inside the iframe.
              */
             body.yh-dashboard-inline-embed-body[data-yh-page="plaza"] .yh-plaza-app-grid,
             body.yh-dashboard-inline-embed-body[data-yh-view="plaza"] .yh-plaza-app-grid {
                 padding-top: 0 !important;
-                padding-bottom: 0 !important;
+
+                padding-bottom:
+                    calc(28px + env(safe-area-inset-bottom, 0px))
+                    !important;
+
                 scroll-padding-top: 0 !important;
-                scroll-padding-bottom: 0 !important;
+
+                scroll-padding-bottom:
+                    calc(28px + env(safe-area-inset-bottom, 0px))
+                    !important;
             }
 
             /*
@@ -28021,7 +29002,7 @@ function setDashboardUnifiedWorkspaceLauncher(key = 'overview') {
     if (!card || !button) return;
 
     const cleanKey = String(key || 'overview').trim().toLowerCase();
-    const isParentWorkspace = ['overview', 'academy'].includes(cleanKey);
+    const isParentWorkspace = ['overview', 'academy', 'plazas', 'federation'].includes(cleanKey);
     const meta = getDashboardUnifiedWorkspaceLaunchMeta(cleanKey);
 if (!meta || isParentWorkspace) {
         card.classList.add('hidden-step');
@@ -28226,6 +29207,15 @@ if (!meta || isParentWorkspace) {
                 navigationToken
             );
 
+            const reusedLoadedAcademyDocument =
+                switchDashboardInlineAcademySectionInLoadedFrameV1(
+                    frame,
+                    cleanKey,
+                    meta,
+                    navigationToken,
+                    inlineUrl
+                );
+
             const reusedLoadedPlazaDocument =
                 switchDashboardInlinePlazaScreenInLoadedFrameV26(
                     frame,
@@ -28235,7 +29225,36 @@ if (!meta || isParentWorkspace) {
                     inlineUrl
                 );
 
-            if (reusedLoadedPlazaDocument) {
+            if (reusedLoadedAcademyDocument) {
+                clearDashboardInlineAcademyApplyTimers(
+                    frame
+                );
+
+                window.clearTimeout(
+                    frame
+                        .__yhDashboardInlineLoadFollowupTimer1
+                );
+
+                window.clearTimeout(
+                    frame
+                        .__yhDashboardInlineLoadFollowupTimer2
+                );
+
+                frameShell.classList.add(
+                    'is-switching'
+                );
+
+                waitForDashboardInlineWorkspaceReady(
+                    frame,
+                    'loaded-academy-section-ready',
+                    {
+                        navigationToken,
+                        workspaceKey: cleanKey,
+                        timeoutMs: 1500,
+                        pollMs: 45
+                    }
+                );
+            } else if (reusedLoadedPlazaDocument) {
                 clearDashboardInlineAcademyApplyTimers(
                     frame
                 );
@@ -28354,7 +29373,7 @@ async function refreshDashboardUnifiedInlineWorkspaceState(key = 'overview') {
     const cleanKey = String(key || 'overview').trim().toLowerCase();
     const meta = getDashboardUnifiedWorkspaceLaunchMeta(cleanKey);
 
-    if (!meta || ['overview', 'academy'].includes(cleanKey)) return;
+    if (!meta || ['overview', 'academy', 'plazas', 'federation'].includes(cleanKey)) return;
 
     const beforeState = getDashboardInlineDivisionState(meta.division);
 
@@ -28660,11 +29679,62 @@ function syncDashboardSidebarDivisionGroupStateV190(activeDivision = '') {
         }
 
         if (subnav) {
-            subnav.hidden = !accessApproved;
+            /*
+             * Hard accordion authority.
+             *
+             * The hidden attribute alone can be overridden
+             * by existing Dashboard CSS, so collapsed
+             * division menus must also receive an inline
+             * !important display lock.
+             */
+            subnav.hidden = !shouldExpand;
+
             subnav.setAttribute(
                 'aria-hidden',
                 shouldExpand ? 'false' : 'true'
             );
+
+            if (shouldExpand) {
+                subnav.style.removeProperty(
+                    'display'
+                );
+
+                subnav.style.removeProperty(
+                    'visibility'
+                );
+
+                subnav.style.removeProperty(
+                    'opacity'
+                );
+
+                subnav.style.removeProperty(
+                    'pointer-events'
+                );
+            } else {
+                subnav.style.setProperty(
+                    'display',
+                    'none',
+                    'important'
+                );
+
+                subnav.style.setProperty(
+                    'visibility',
+                    'hidden',
+                    'important'
+                );
+
+                subnav.style.setProperty(
+                    'opacity',
+                    '0',
+                    'important'
+                );
+
+                subnav.style.setProperty(
+                    'pointer-events',
+                    'none',
+                    'important'
+                );
+            }
         }
     });
 }
@@ -30136,13 +31206,13 @@ function installDashboardMobileAppShellV1() {
         academy: ['YH Universe', 'Academy'],
         'academy-roadmap': ['Academy', 'Roadmap'],
         'academy-missions': ['Academy', 'Missions'],
-        'academy-community': ['Academy', 'Community Feed'],
+        'academy-community': ['Academy', 'Community'],
         'academy-messages': ['Academy', 'Messages'],
-        'academy-voice': ['Academy', 'Live Voice Lounge'],
+        'academy-voice': ['Academy', 'Voice Lounge'],
         'academy-profile': ['Academy', 'Profile'],
 
         plazas: ['YH Universe', 'Plazas'],
-        'plazas-explorer': ['Plazas', 'Explorer'],
+        'plazas-explorer': ['Plazas', 'Home'],
         'plazas-feed': ['Plazas', 'Feed'],
         'plazas-inbox': ['Plazas', 'Inbox'],
         'plazas-conversations': ['Plazas', 'Conversations'],
@@ -30472,7 +31542,7 @@ function installDashboardMobileAppShellV1() {
             plazas: {
                 prefix: 'plazas',
                 defaultKey: 'plazas-explorer',
-                defaultLabel: 'Explorer',
+                defaultLabel: 'Home',
                 menuLabel: 'Plazas sections',
                 ariaLabel: 'Plazas'
             },
@@ -31151,7 +32221,7 @@ document
     ?.addEventListener('click', (event) => {
         handleDashboardPlazaAccessIntent(
             event,
-            'plazas-feed'
+            'plazas-explorer'
         );
     });
 
@@ -31164,14 +32234,14 @@ document
 document.getElementById('btn-open-federation-preview')?.addEventListener('click', (event) => {
     handleDashboardFederationAccessIntent(
         event,
-        'federation-command'
+        'federation'
     );
 });
 
 document.getElementById('btn-dashboard-enter-federation')?.addEventListener('click', (event) => {
     handleDashboardFederationAccessIntent(
         event,
-        'federation-command'
+        'federation'
     );
 });
 
@@ -55479,7 +56549,7 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
 
         if (parentKey === 'plazas') return 'plazas';
 
-        return 'plazas-feed';
+        return 'plazas-explorer';
     }
 
     function redirectDivision(division) {
@@ -55495,11 +56565,11 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
             }
 
             if (typeof buildPlazaUrl === 'function') {
-                window.location.href = buildPlazaUrl('feed');
+                window.location.href = buildPlazaUrl();
                 return;
             }
 
-            window.location.href = '/plaza.html?tab=feed';
+            window.location.href = '/plaza.html?tab=explorer';
             return;
         }
 
@@ -55655,9 +56725,12 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
                     division === 'plazas' &&
                     typeof activateDashboardUnifiedWorkspace === 'function'
                 ) {
-                    const statusWorkspace = requestedWorkspace.startsWith('plazas-')
-                        ? requestedWorkspace
-                        : 'plazas-feed';
+                    const statusWorkspace =
+                        requestedWorkspace.startsWith(
+                            'plazas-'
+                        )
+                            ? requestedWorkspace
+                            : 'plazas-explorer';
 
                     activateDashboardUnifiedWorkspace(statusWorkspace, {
                         animate: false,
@@ -56208,27 +57281,22 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
         plazas: {
             kicker: 'Plazas Workspace',
             title: 'The Plazas',
-            headline: 'Application-gated marketplace and networking hub.',
-            body: 'Use the Plazas to discover opportunities, regional hubs, directories, bridge paths, requests, meetups, and member conversations. The parent tab introduces the division; child tabs open the active tools.',
+            headline: 'Regional opportunity and networking hub.',
+            body: 'Discover people, opportunities, regional hubs, meetups, and conversations across the YH Universe movement layer.',
             signal: 'Strategic Review',
-            status: 'Plaza access unlocks Explorer, Feed, Inbox, Conversations, Meetups, Opportunities, Directory, Regions, Atlas, Become Patron, Patron Desk, Bridge, and Requests.',
+            status: 'Plaza access unlocks Home, Opportunities, Directory, Regions, Meetups, Conversations, Inbox, and Patron access.',
             icon: '/assets/dashboard/plaza.png',
             children: [
-                { key: 'plazas-explorer', label: 'Explorer', text: 'Open the Plaza world map, rank path, and active signals.' },
-                { key: 'plazas-feed', label: 'Feed', text: 'See movement and marketplace updates.' },
-                { key: 'plazas-inbox', label: 'Inbox', text: 'Review incoming requests and Plaza updates.' },
-                { key: 'plazas-conversations', label: 'Conversations', text: 'Continue Plaza member and business discussions.' },
+                { key: 'plazas-explorer', label: 'Home', text: 'See your Plaza overview, regional movement, and next relevant actions.' },
+                { key: 'plazas-opportunities', label: 'Opportunities', text: 'Find projects, collaborations, services, and opportunity quests.' },
+                { key: 'plazas-directory', label: 'Directory', text: 'Find trusted members, operators, specialists, and connectors.' },
+                { key: 'plazas-regions', label: 'Regions', text: 'Explore regional hubs, local movement, and network access.' },
                 { key: 'plazas-meetups', label: 'Meetups', text: 'Find and organize regional gatherings.' },
-                { key: 'plazas-opportunities', label: 'Opportunities', text: 'Find services, offers, and monetization paths.' },
-                { key: 'plazas-directory', label: 'Directory', text: 'Search trusted members and operators.' },
-                { key: 'plazas-regions', label: 'Regions', text: 'Explore regional hubs and network routes.' },
-                { key: 'plazas-atlas', label: 'Plaza Atlas', text: 'Browse the complete Plaza geography and topology.' },
-                { key: 'plazas-patron', label: 'Become Patron', text: 'Apply for a Plaza leadership and Patron role.' },
-                { key: 'plazas-patron-desk', label: 'Patron Desk', text: 'Manage routed requests, recommendations, and payouts.' },
-                { key: 'plazas-bridge', label: 'Bridge', text: 'Request bridge support and movement paths.' },
-                { key: 'plazas-requests', label: 'Requests', text: 'Track submitted Plaza requests.' }
+                { key: 'plazas-conversations', label: 'Conversations', text: 'Continue context-based Plaza discussions.' },
+                { key: 'plazas-inbox', label: 'Inbox', text: 'Review incoming requests and Plaza activity.' },
+                { key: 'plazas-patron', label: 'Patron', text: 'Open your Patron application or leadership access.' }
             ],
-            primary: { key: 'plazas-explorer', label: 'Open Explorer' }
+            primary: { key: 'plazas-explorer', label: 'Open Home' }
         },
         federation: {
             kicker: 'Federation Workspace',
@@ -56237,7 +57305,7 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
             body: 'Use the Federation for high-value relationships, verified introductions, deal rooms, protected directory access, requests, referrals, and long-term relationship capital.',
             signal: 'Open Division',
             status: 'Federation access controls Command, Connect, Deal Rooms, Directory, My Requests, Referrals, and My Access.',
-            icon: '/images/logo.avif',
+            icon: '/assets/dashboard/federation.png',
             children: [
                 { key: 'federation-command', label: 'Command', text: 'Review your Federation command layer.' },
                 { key: 'federation-connect', label: 'Connect', text: 'Request verified introductions.' },
@@ -56547,7 +57615,7 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
             applyLabel: 'Apply',
             enterLabel: 'Enter',
             pendingLabel: 'Pending',
-            applyTarget: 'plazas-feed',
+            applyTarget: 'plazas-explorer',
             enterTarget: 'plazas'
         },
         federation: {
@@ -56915,7 +57983,7 @@ body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column 
                 ) {
                     await window.handleDashboardPlazaAccessIntent(
                         event,
-                        'plazas-feed'
+                        'plazas-explorer'
                     );
 
                     return;

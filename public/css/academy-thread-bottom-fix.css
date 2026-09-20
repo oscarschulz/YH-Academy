@@ -1065,7 +1065,7 @@ body[data-yh-view="academy"]
     margin: 2px 0 !important;
   }
 
-  body[data-yh-view="academy"] .academy-mobile-bottom-nav {
+body[data-yh-view="academy"]:not(.yh-dashboard-inline-embed-body):not(.yh-dashboard-mobile-inline-embed-body) .academy-mobile-bottom-nav {
     position: fixed !important;
     left: 12px !important;
     right: 12px !important;
@@ -1302,7 +1302,6 @@ body[data-yh-view="academy"]
   body[data-yh-view="academy"] .academy-feed-composer-card,
   body[data-yh-view="academy"] .academy-feed-card,
   body[data-yh-view="academy"] .academy-home-panel,
-  body[data-yh-view="academy"] .academy-home-stat-card,
   body[data-yh-view="academy"] .academy-profile-card {
     border-radius: 18px !important;
     padding: 18px !important;
@@ -1433,11 +1432,29 @@ body[data-yh-view="academy"]
     flex: 1 1 auto !important;
   }
 
-  body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-avatar,
   body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-roomtype,
   body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-meta,
   body[data-yh-view="academy"].academy-messages-thread-open #academy-messages-thread-refresh-btn {
     display: none !important;
+  }
+
+  body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-avatar {
+    display: flex !important;
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    flex: 0 0 38px !important;
+
+    align-items: center !important;
+    justify-content: center !important;
+
+    border-radius: 50% !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+
+    overflow: hidden !important;
   }
 
   body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-copy {
@@ -2127,7 +2144,13 @@ body[data-yh-view="academy"]
     min-height: 0 !important;
     height: 100% !important;
     overflow: hidden !important;
-    padding: 0 !important;
+
+    /*
+     * Keep the private thread visually inside
+     * the same mobile content gutter as Inbox.
+     */
+    padding: 0 10px 8px !important;
+
     gap: 0 !important;
   }
 

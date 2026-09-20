@@ -1181,13 +1181,13 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
 
 @media (max-width: 1024px) and (min-width: 769px) {
     body[data-yh-view="hub"][data-yh-page="dashboard"] .dashboard-layout {
-        grid-template-columns: 232px minmax(0, 1fr) !important;
+        grid-template-columns: clamp(204px, 21.5vw, 220px) minmax(0, 1fr) !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav {
-        width: 232px !important;
-        padding: 14px 10px 18px !important;
-        gap: 12px !important;
+        width: clamp(204px, 21.5vw, 220px) !important;
+        padding: 14px 9px 18px !important;
+        gap: 11px !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .nav-brand {
@@ -1195,46 +1195,109 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right > .
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .nav-brand span {
-        font-size: 0.9rem !important;
-        letter-spacing: 0.08em !important;
+        font-size: 0.86rem !important;
+        letter-spacing: 0.075em !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-command-link {
         min-height: 40px !important;
-        padding: 8px 10px !important;
-        gap: 10px !important;
+        padding: 8px 9px !important;
+        gap: 9px !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-nav-group {
         gap: 7px !important;
-        padding-bottom: 12px !important;
+        padding-bottom: 11px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-inner {
         grid-template-columns: minmax(0, 1fr) max-content !important;
+        gap: 8px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .desktop-user-strip-right {
+        gap: 6px !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-top-search,
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-profile-search {
-        max-width: 360px !important;
+        width: min(100%, 310px) !important;
+        max-width: 310px !important;
+        min-width: 0 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-top-search-btn,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
+        width: 72px !important;
+        min-width: 72px !important;
+        max-width: 72px !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-top-live-chip {
-        min-width: 54px !important;
-        padding-left: 9px !important;
-        padding-right: 9px !important;
+        min-width: 52px !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-top-wallet-chip {
-        width: 92px !important;
-        min-width: 92px !important;
-        max-width: 92px !important;
+        width: 86px !important;
+        min-width: 86px !important;
+        max-width: 86px !important;
+        padding-left: 7px !important;
+        padding-right: 7px !important;
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-top-profile {
-        width: 118px !important;
-        min-width: 108px !important;
-        max-width: 118px !important;
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-top-profile {
+        width: 40px !important;
+        min-width: 40px !important;
+        max-width: 40px !important;
+        height: 34px !important;
+        min-height: 34px !important;
+        padding: 0 !important;
+
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+
+        gap: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-command-top-profile-copy {
+        display: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-command-top-profile
+    .profile-avatar-mini {
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+        margin: 0 !important;
+        flex: 0 0 28px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #notif-bell,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .mobile-notif-under-name,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #notif-bell.notif-wrapper {
+        width: 34px !important;
+        min-width: 34px !important;
+        height: 34px !important;
+    }
+        body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="academy"])
+    #universe-hub-view,
+    body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspace="academy"])
+    .universe-hub-view {
+        padding:
+            12px
+            12px
+            22px !important;
     }
 }
 
@@ -1861,22 +1924,23 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
         min-width: 0 !important;
         width: 100% !important;
         display: grid !important;
-        grid-template-columns: 28px minmax(0, 1fr) !important;
+        grid-template-columns: 30px minmax(0, 1fr) !important;
         align-items: center !important;
-        align-self: end !important;
+        align-self: center !important;
         justify-self: start !important;
         gap: 9px !important;
         overflow: hidden !important;
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-logo {
-        width: 28px !important;
-        height: 28px !important;
-        min-width: 28px !important;
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-logo {
+        width: 30px !important;
+        height: 34px !important;
+        min-width: 30px !important;
         object-fit: contain !important;
+        object-position: center !important;
         filter:
-            drop-shadow(0 0 10px rgba(96, 165, 250, 0.48))
-            drop-shadow(0 0 14px rgba(139, 92, 246, 0.22)) !important;
+            drop-shadow(0 0 10px rgba(56, 189, 248, 0.3))
+            drop-shadow(0 8px 14px rgba(0, 0, 0, 0.18)) !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-mobile-app-title-wrap {
@@ -3776,14 +3840,24 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="bu
         overflow: visible;
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-game-division-grid {
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-game-division-grid {
         width: 100%;
         min-width: 0;
         display: grid;
         grid-template-columns: none;
         grid-auto-flow: column;
-        grid-auto-columns: 92%;
-        gap: 8px;
+
+        /*
+         * Phone:
+         * retains roughly the existing 92% card presentation.
+         *
+         * Tablet:
+         * caps cards at 390px so more of the next division
+         * becomes visible and the larger viewport is actually used.
+         */
+        grid-auto-columns: min(92%, 390px);
+
+        gap: 10px;
         overflow-x: auto;
         overflow-y: hidden;
         scroll-snap-type: x mandatory;
@@ -3799,7 +3873,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="bu
         display: none;
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-game-division-card {
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-game-division-card {
         width: 100%;
         min-width: 0;
         max-width: 100%;
@@ -3814,55 +3888,53 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="bu
         gap: 10px;
         scroll-snap-align: start;
         scroll-snap-stop: always;
-        border-color: rgba(103, 232, 249, 0.28);
+        border-color: rgba(91, 174, 235, 0.22);
+        border-radius: 16px;
+        clip-path: none;
         background:
             radial-gradient(
-                circle at 18% 0,
-                rgba(56, 189, 248, 0.2),
-                transparent 38%
+                circle at 16% -4%,
+                rgba(56, 189, 248, 0.12),
+                transparent 34%
             ),
             linear-gradient(
                 180deg,
-                rgba(7, 28, 62, 0.98),
-                rgba(2, 8, 23, 0.96)
+                rgba(7, 26, 53, 0.97),
+                rgba(3, 12, 28, 0.97)
             );
         box-shadow:
-            0 18px 38px rgba(0, 0, 0, 0.34),
-            inset 0 1px 0 rgba(255, 255, 255, 0.055);
+            0 18px 38px rgba(0, 0, 0, 0.28),
+            0 0 20px rgba(56, 189, 248, 0.035),
+            inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
 
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-game-division-card[data-yh-game-division="plaza"] {
-        border-color: rgba(52, 211, 153, 0.3);
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-game-division-card[data-yh-game-division="plaza"] {
+        border-color: rgba(155, 119, 255, 0.28);
         background:
             radial-gradient(
-                circle at 18% 0,
-                rgba(16, 185, 129, 0.2),
-                transparent 38%
-            ),
-            linear-gradient(
-                180deg,
-                rgba(5, 44, 48, 0.98),
-                rgba(2, 13, 25, 0.96)
-            );
-    }
-
-    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-game-division-card[data-yh-game-division="federation"] {
-        border-color: rgba(216, 180, 105, 0.34);
-        background:
-            radial-gradient(
-                circle at 82% 0,
-                rgba(139, 92, 246, 0.18),
-                transparent 42%
-            ),
-            radial-gradient(
-                circle at 16% 0,
-                rgba(216, 180, 105, 0.2),
+                circle at 16% -4%,
+                rgba(139, 92, 246, 0.16),
                 transparent 36%
             ),
             linear-gradient(
                 180deg,
-                rgba(38, 25, 42, 0.98),
-                rgba(8, 8, 23, 0.96)
+                rgba(25, 18, 62, 0.98),
+                rgba(8, 10, 31, 0.97)
+            );
+    }
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-game-division-card[data-yh-game-division="federation"] {
+        border-color: rgba(216, 180, 105, 0.28);
+        background:
+            radial-gradient(
+                circle at 16% -4%,
+                rgba(216, 180, 105, 0.15),
+                transparent 36%
+            ),
+            linear-gradient(
+                180deg,
+                rgba(38, 29, 28, 0.98),
+                rgba(10, 11, 24, 0.97)
             );
     }
 
@@ -4130,7 +4202,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="bu
                 90deg,
                 #047857,
                 #10b981,
-                #6ee7b7
+                #0ea5e9
             );
         box-shadow:
             0 0 18px rgba(16, 185, 129, 0.44);
@@ -4581,25 +4653,267 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="bu
 }
 /* END PATCH: Dashboard resources no wallet overlap v193 */
 
-/* PATCH: Dashboard resources transparency tune v194 */
+/* PATCH: Dashboard resources desktop wallet palette v214 */
 @media (max-width: 768px) {
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view,
     body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view {
+        width: 100% !important;
+        min-height: 0 !important;
+
+        padding: 14px !important;
+
+        border: 1px solid rgba(103, 232, 249, 0.18) !important;
+        border-radius: 24px !important;
+
         background:
-            radial-gradient(circle at 16% 0%, rgba(103, 232, 249, 0.070), transparent 44%),
-            linear-gradient(180deg, rgba(6, 30, 64, 0.15), rgba(2, 8, 23, 0.17)) !important;
-        backdrop-filter: blur(2px) saturate(1.03) !important;
-        -webkit-backdrop-filter: blur(2px) saturate(1.03) !important;
+            radial-gradient(circle at 0% 0%, rgba(103, 232, 249, 0.12), transparent 42%),
+            radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.08), transparent 38%),
+            linear-gradient(180deg, rgba(8, 14, 25, 0.72), rgba(3, 6, 14, 0.78)) !important;
+
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.035),
+            0 18px 34px rgba(0, 0, 0, 0.16) !important;
+
+        backdrop-filter: blur(2px) saturate(1.04) !important;
+        -webkit-backdrop-filter: blur(2px) saturate(1.04) !important;
+
+        clip-path: none !important;
+        -webkit-clip-path: none !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view::before,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view::before {
+        content: "" !important;
+
+        position: absolute !important;
+
+        left: 18px !important;
+        right: 18px !important;
+        top: 0 !important;
+
+        height: 1px !important;
+
+        border-radius: 999px !important;
+
+        background:
+            linear-gradient(
+                90deg,
+                transparent,
+                rgba(103, 232, 249, 0.56),
+                rgba(14, 165, 233, 0.32),
+                transparent
+            ) !important;
+
+        pointer-events: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resources-menu-panel-head,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resources-menu-panel-head {
+        padding-bottom: 14px !important;
+        margin-bottom: 14px !important;
+
+        border-bottom: 1px solid rgba(103, 232, 249, 0.16) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resources-menu-kicker,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resources-menu-kicker {
+        color: #d3b270 !important;
+
+        font-family: "Orbitron", "Rajdhani", system-ui, sans-serif !important;
+        font-size: 0.68rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.14em !important;
+        line-height: 1.1 !important;
+        text-transform: uppercase !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resources-menu-title,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resources-menu-title {
+        max-width: 18rem !important;
+
+        margin: 8px 0 0 !important;
+
+        color: #ffffff !important;
+
+        font-family: "Rajdhani", "Poppins", system-ui, sans-serif !important;
+        font-size: clamp(1.56rem, 7.4vw, 2.08rem) !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.035em !important;
+        line-height: 0.98 !important;
+
+        text-shadow:
+            0 1px 10px rgba(0, 0, 0, 0.38),
+            0 0 18px rgba(103, 232, 249, 0.10) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resources-menu-list,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resources-menu-list {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-card,
     body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-mini-card {
+        min-height: 112px !important;
+
+        display: flex !important;
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+        gap: 13px !important;
+
+        padding: 15px !important;
+
+        border: 1px solid rgba(103, 232, 249, 0.18) !important;
+        border-radius: 22px !important;
+
         background:
-            radial-gradient(circle at 18% 0%, rgba(103, 232, 249, 0.070), transparent 46%),
-            linear-gradient(180deg, rgba(15, 47, 122, 0.12), rgba(2, 8, 23, 0.14)) !important;
+            radial-gradient(circle at 0% 0%, rgba(103, 232, 249, 0.12), transparent 42%),
+            radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.08), transparent 38%),
+            linear-gradient(180deg, rgba(10, 16, 28, 0.88), rgba(4, 7, 15, 0.92)) !important;
+
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.035),
+            0 14px 28px rgba(0, 0, 0, 0.16) !important;
+
+        clip-path: none !important;
+        -webkit-clip-path: none !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-card > *:not(.yh-resource-mini-icon),
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-mini-card > *:not(.yh-resource-mini-icon) {
+        min-width: 0 !important;
+        flex: 1 1 auto !important;
+
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+
+        gap: 4px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-card::before,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-mini-card::before {
+        content: "" !important;
+
+        position: absolute !important;
+
+        left: 16px !important;
+        right: 16px !important;
+        top: 0 !important;
+
+        height: 1px !important;
+
+        border-radius: 999px !important;
+
+        background:
+            linear-gradient(
+                90deg,
+                transparent,
+                rgba(103, 232, 249, 0.46),
+                rgba(14, 165, 233, 0.26),
+                transparent
+            ) !important;
+
+        pointer-events: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-icon,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-mini-icon {
+        width: 42px !important;
+        height: 42px !important;
+        min-width: 42px !important;
+
+        display: grid !important;
+        place-items: center !important;
+
+        border: 1px solid rgba(103, 232, 249, 0.20) !important;
+        border-radius: 14px !important;
+
+        background:
+            linear-gradient(180deg, rgba(16, 25, 42, 0.82), rgba(5, 8, 16, 0.88)) !important;
+
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-icon img,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-mini-icon img {
+        width: 28px !important;
+        height: 28px !important;
+        object-fit: contain !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-card-title,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-mini-card-title,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-label,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-mini-label {
+        color: #d3b270 !important;
+
+        font-family: "Orbitron", "Rajdhani", system-ui, sans-serif !important;
+        font-size: 0.72rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.12em !important;
+        line-height: 1.1 !important;
+        text-transform: uppercase !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-card strong,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-mini-card strong,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-name,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-mini-name {
+        color: #ffffff !important;
+
+        font-family: "Rajdhani", "Poppins", system-ui, sans-serif !important;
+        font-size: 1.05rem !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.015em !important;
+        line-height: 1.12 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-card p,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-mini-card p,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-desc,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-mini-desc {
+        margin: 7px 0 0 !important;
+
+        color: rgba(203, 213, 225, 0.76) !important;
+
+        font-size: 0.86rem !important;
+        line-height: 1.42 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-status,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-status,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-badge,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-mini-badge {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+
+        width: fit-content !important;
+        max-width: 100% !important;
+
+        padding: 4px 9px !important;
+
+        border: 1px solid rgba(103, 232, 249, 0.28) !important;
+        border-radius: 999px !important;
+
+        background: rgba(9, 16, 29, 0.62) !important;
+
+        color: #67e8f9 !important;
+
+        font-size: 0.68rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.10em !important;
+        line-height: 1 !important;
+        text-transform: uppercase !important;
     }
 }
-/* END PATCH: Dashboard resources transparency tune v194 */
+/* END PATCH: Dashboard resources desktop wallet palette v214 */
 
 
 /* ========================================================= */
@@ -5153,7 +5467,1542 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="bu
     }
 }
 
-/* END PATCH: Wallet mobile refresh button alignment v199 */
+/* END PATCH: Wallet premium command card polish v200 */
+
+/* ========================================================= */
+/* PATCH: Wallet desktop + mobile premium card polish v201    */
+/* ========================================================= */
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"] {
+    --yh-wallet-v201-bg: rgba(4, 10, 24, 0.84);
+    --yh-wallet-v201-card: rgba(8, 18, 39, 0.84);
+    --yh-wallet-v201-border: rgba(103, 232, 249, 0.20);
+    --yh-wallet-v201-border-hot: rgba(103, 232, 249, 0.46);
+    --yh-wallet-v201-cyan: #67e8f9;
+    --yh-wallet-v201-gold: #d3b270;
+    --yh-wallet-v201-muted: rgba(203, 213, 225, 0.78);
+}
+
+/* Main wallet shell */
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-dialog {
+    min-height: 0 !important;
+
+    padding:
+        clamp(18px, 1.8vw, 28px)
+        clamp(18px, 2vw, 32px)
+        42px !important;
+
+    border: 0 !important;
+    border-radius: 0 !important;
+
+    background:
+        radial-gradient(circle at 50% -8%, rgba(56, 189, 248, 0.14), transparent 34%),
+        radial-gradient(circle at 100% 12%, rgba(211, 178, 112, 0.10), transparent 34%),
+        linear-gradient(180deg, rgba(2, 6, 23, 0.18), rgba(2, 6, 23, 0.04)),
+        url("/images/yhu-premium-bg.png?v=20260531-bg-09") center center / cover no-repeat,
+        #020617 !important;
+
+    box-shadow: none !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+}
+
+/* Shared card language */
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+:is(
+    .yh-wallet-head,
+    .yh-wallet-panel,
+    .yh-wallet-stat-card,
+    .yh-wallet-guide-step,
+    .yh-wallet-method-card,
+    .yh-wallet-ledger-card,
+    .yh-wallet-division-card
+) {
+    position: relative !important;
+
+    overflow: hidden !important;
+
+    border: 1px solid var(--yh-wallet-v201-border) !important;
+    border-radius: 24px !important;
+
+    background:
+        radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+        radial-gradient(circle at 100% 0%, rgba(211, 178, 112, 0.10), transparent 38%),
+        linear-gradient(180deg, rgba(9, 19, 39, 0.88), rgba(4, 8, 20, 0.90)) !important;
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.035),
+        0 18px 34px rgba(0, 0, 0, 0.18) !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+:is(
+    .yh-wallet-head,
+    .yh-wallet-panel,
+    .yh-wallet-stat-card,
+    .yh-wallet-guide-step,
+    .yh-wallet-method-card,
+    .yh-wallet-ledger-card,
+    .yh-wallet-division-card
+)::before {
+    content: "" !important;
+
+    position: absolute !important;
+
+    left: 18px !important;
+    right: 18px !important;
+    top: 0 !important;
+
+    height: 1px !important;
+
+    border-radius: 999px !important;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(103, 232, 249, 0.56),
+            rgba(211, 178, 112, 0.38),
+            transparent
+        ) !important;
+
+    pointer-events: none !important;
+}
+
+/* Tabs */
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-inline-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+
+    gap: 8px !important;
+
+    padding: 8px !important;
+    margin-bottom: 16px !important;
+
+    border: 1px solid rgba(103, 232, 249, 0.18) !important;
+    border-radius: 24px !important;
+
+    background:
+        radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.16), transparent 54%),
+        rgba(3, 8, 22, 0.72) !important;
+
+    box-shadow:
+        0 16px 40px rgba(0, 0, 0, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-inline-tab {
+    min-height: 42px !important;
+
+    border-radius: 999px !important;
+
+    color: rgba(226, 238, 255, 0.78) !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-inline-tab.is-active {
+    border-color: rgba(103, 232, 249, 0.52) !important;
+
+    color: #ffffff !important;
+
+    background:
+        linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(14, 165, 233, 0.78)) !important;
+
+    box-shadow:
+        0 14px 28px rgba(37, 99, 235, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Main stats */
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-stats {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+
+    margin-bottom: 14px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-stat-card {
+    min-height: 150px !important;
+
+    display: grid !important;
+    align-content: start !important;
+    gap: 10px !important;
+
+    padding: 20px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-stat-card.is-primary {
+    border-color: rgba(103, 232, 249, 0.38) !important;
+
+    background:
+        radial-gradient(circle at 16% 0%, rgba(103, 232, 249, 0.20), transparent 42%),
+        radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.16), transparent 38%),
+        linear-gradient(145deg, rgba(8, 25, 55, 0.94), rgba(4, 8, 20, 0.92)) !important;
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 18px 38px rgba(0, 0, 0, 0.22),
+        0 0 28px rgba(56, 189, 248, 0.10) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+:is(
+    .yh-wallet-stat-card span,
+    .yh-wallet-panel-head > span,
+    .yh-wallet-guide-step span
+) {
+    color: var(--yh-wallet-v201-gold) !important;
+
+    font-family: "Orbitron", "Rajdhani", system-ui, sans-serif !important;
+    font-size: 0.72rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.13em !important;
+    line-height: 1.22 !important;
+    text-transform: uppercase !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-stat-card strong {
+    display: block !important;
+
+    margin: 0 !important;
+
+    color: #ffffff !important;
+
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif !important;
+    font-size: clamp(2rem, 3vw, 2.55rem) !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em !important;
+    line-height: 1 !important;
+
+    text-shadow:
+        0 1px 10px rgba(0, 0, 0, 0.34),
+        0 0 18px rgba(103, 232, 249, 0.16) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-stat-card small {
+    display: block !important;
+
+    max-width: 34rem !important;
+
+    color: var(--yh-wallet-v201-muted) !important;
+
+    font-size: 0.88rem !important;
+    line-height: 1.55 !important;
+}
+
+/* Panels and breakdown */
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-panel {
+    padding: 20px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-panel-head {
+    gap: 10px !important;
+
+    margin-bottom: 14px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-panel-head h3 {
+    color: #ffffff !important;
+
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif !important;
+    font-size: 1.24rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em !important;
+    line-height: 1.12 !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-panel-copy {
+    color: var(--yh-wallet-v201-muted) !important;
+
+    font-size: 0.86rem !important;
+    line-height: 1.54 !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-division-breakdown {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-division-card {
+    min-height: 92px !important;
+
+    padding: 16px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-division-card span {
+    color: var(--yh-wallet-v201-cyan) !important;
+
+    font-family: "Orbitron", "Rajdhani", system-ui, sans-serif !important;
+    font-size: 0.68rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.11em !important;
+    text-transform: uppercase !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+.yh-wallet-division-card strong {
+    color: #ffffff !important;
+
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif !important;
+    font-size: 1.22rem !important;
+    font-weight: 800 !important;
+}
+
+/* Buttons */
+
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+#yh-wallet-modal
+:is(
+    .btn-primary,
+    .btn-secondary,
+    .yh-wallet-submit,
+    .yh-wallet-refresh
+) {
+    min-height: 44px !important;
+
+    border-radius: 999px !important;
+
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+}
+
+/* Mobile tightening */
+
+@media (max-width: 768px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-dialog {
+        padding:
+            10px
+            12px
+            calc(
+                36px +
+                env(safe-area-inset-bottom, 0px)
+            ) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-inline-tabs {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+
+        margin-bottom: 12px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-stats,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-division-breakdown {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+
+        margin-bottom: 18px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-stat-card {
+        min-height: 132px !important;
+
+        padding: 16px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-stat-card strong {
+        font-size: clamp(1.76rem, 8vw, 2.18rem) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-panel {
+        padding: 16px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-ledger-grid,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-grid {
+        margin-bottom: 0 !important;
+        gap: 18px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    :is(
+        .yh-wallet-panel,
+        .yh-wallet-ledger-card,
+        .yh-wallet-method-card,
+        .yh-wallet-division-card
+    ):last-child {
+        margin-bottom: 0 !important;
+    }
+}
+
+/* END PATCH: Wallet desktop + mobile premium card polish v201 */
+
+/* ========================================================= */
+/* PATCH: Wallet mobile hide desktop tabs v202                */
+/* ========================================================= */
+
+@media (max-width: 768px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-inline-tabs {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+
+        height: 0 !important;
+        min-height: 0 !important;
+        max-height: 0 !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        border: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-guide,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-stats,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-division-panel,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-grid,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-withdraw-panel,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-ledger-grid {
+        display: grid !important;
+        gap: 20px !important;
+        align-content: start !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-guide,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-stats,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-division-panel,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-grid,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-withdraw-panel {
+        margin-bottom: 22px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-method-card + .yh-wallet-method-card,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-ledger-card + .yh-wallet-ledger-card,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-guide-step + .yh-wallet-guide-step,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-division-card + .yh-wallet-division-card,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-panel + .yh-wallet-panel {
+        margin-top: 18px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-dialog {
+        padding-top: 10px !important;
+        padding-bottom:
+            calc(
+                28px +
+                env(safe-area-inset-bottom, 0px)
+            ) !important;
+    }
+}
+
+/* END PATCH: Wallet mobile hide desktop tabs v202 */
+
+/* ========================================================= */
+/* PATCH: Command inner pages mobile color identity v204      */
+/* Strict scope: Command content pages only, not divisions     */
+/* ========================================================= */
+
+@media (max-width: 768px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"] {
+        --yh-command-inner-bg: rgba(9, 8, 24, 0.92);
+        --yh-command-inner-card: rgba(17, 15, 39, 0.90);
+        --yh-command-inner-card-soft: rgba(22, 20, 48, 0.74);
+        --yh-command-inner-border: rgba(167, 139, 250, 0.24);
+        --yh-command-inner-border-hot: rgba(196, 181, 253, 0.52);
+        --yh-command-inner-primary: #a78bfa;
+        --yh-command-inner-primary-hot: #c084fc;
+        --yh-command-inner-accent: #34d399;
+        --yh-command-inner-text: #f8f7ff;
+        --yh-command-inner-muted: rgba(224, 220, 255, 0.76);
+    }
+
+    /*
+     * Wallet only.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    :is(
+        .yh-wallet-stat-card,
+        .yh-wallet-panel,
+        .yh-wallet-guide-step,
+        .yh-wallet-method-card,
+        .yh-wallet-ledger-card,
+        .yh-wallet-division-card
+    ) {
+        border-color: var(--yh-command-inner-border) !important;
+
+        background:
+            radial-gradient(circle at 0% 0%, rgba(167, 139, 250, 0.14), transparent 42%),
+            radial-gradient(circle at 100% 0%, rgba(52, 211, 153, 0.08), transparent 38%),
+            linear-gradient(180deg, rgba(17, 15, 39, 0.90), rgba(6, 6, 18, 0.92)) !important;
+
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.035),
+            0 18px 34px rgba(0, 0, 0, 0.20) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    :is(
+        .yh-wallet-stat-card,
+        .yh-wallet-panel,
+        .yh-wallet-guide-step,
+        .yh-wallet-method-card,
+        .yh-wallet-ledger-card,
+        .yh-wallet-division-card
+    )::before {
+        background:
+            linear-gradient(
+                90deg,
+                transparent,
+                rgba(196, 181, 253, 0.58),
+                rgba(52, 211, 153, 0.34),
+                transparent
+            ) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    :is(
+        .yh-wallet-stat-card span,
+        .yh-wallet-panel-head > span,
+        .yh-wallet-guide-step span
+    ) {
+        color: var(--yh-command-inner-primary) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-stat-card.is-primary {
+        border-color: rgba(196, 181, 253, 0.42) !important;
+
+        background:
+            radial-gradient(circle at 16% 0%, rgba(167, 139, 250, 0.24), transparent 42%),
+            radial-gradient(circle at 100% 0%, rgba(52, 211, 153, 0.10), transparent 38%),
+            linear-gradient(145deg, rgba(24, 20, 54, 0.94), rgba(6, 6, 18, 0.92)) !important;
+    }
+
+    /*
+     * Messages, My Contacts, Settings.
+     * These are actual command workspace containers in dashboard.html.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    :is(
+        article,
+        section,
+        .card,
+        .panel-card,
+        [class*="card"],
+        [class*="panel"],
+        [class*="shell"],
+        [class*="row"]
+    ),
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="my-contacts"]
+    #yh-dashboard-my-contacts-workspace
+    :is(
+        article,
+        section,
+        .card,
+        .panel-card,
+        [class*="card"],
+        [class*="panel"],
+        [class*="shell"],
+        [class*="row"]
+    ),
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="settings"]
+    #yh-dashboard-settings-workspace
+    :is(
+        article,
+        section,
+        .card,
+        .panel-card,
+        [class*="card"],
+        [class*="panel"],
+        [class*="shell"],
+        [class*="row"]
+    ) {
+        border-color: var(--yh-command-inner-border) !important;
+
+        background:
+            radial-gradient(circle at 0% 0%, rgba(167, 139, 250, 0.12), transparent 42%),
+            radial-gradient(circle at 100% 0%, rgba(52, 211, 153, 0.07), transparent 38%),
+            linear-gradient(180deg, rgba(17, 15, 39, 0.88), rgba(6, 6, 18, 0.90)) !important;
+
+        color: var(--yh-command-inner-text) !important;
+
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.035),
+            0 18px 34px rgba(0, 0, 0, 0.18) !important;
+    }
+
+    /*
+     * Referral workspace only.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="referral"]
+    #yh-dashboard-referral-workspace
+    :is(
+        article,
+        section,
+        .card,
+        .panel-card,
+        [class*="card"],
+        [class*="panel"],
+        [class*="shell"],
+        [class*="row"],
+        [class*="stat"],
+        [class*="item"]
+    ) {
+        border-color: var(--yh-command-inner-border) !important;
+
+        background:
+            radial-gradient(circle at 0% 0%, rgba(167, 139, 250, 0.12), transparent 42%),
+            radial-gradient(circle at 100% 0%, rgba(52, 211, 153, 0.07), transparent 38%),
+            linear-gradient(180deg, rgba(17, 15, 39, 0.88), rgba(6, 6, 18, 0.90)) !important;
+
+        color: var(--yh-command-inner-text) !important;
+    }
+
+    /*
+     * Resources panel only, not the full sidebar/topbar.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-resources-menu-panel {
+        border-color: var(--yh-command-inner-border) !important;
+
+        background:
+            radial-gradient(circle at 0% 0%, rgba(167, 139, 250, 0.14), transparent 42%),
+            radial-gradient(circle at 100% 0%, rgba(52, 211, 153, 0.08), transparent 38%),
+            linear-gradient(180deg, rgba(17, 15, 39, 0.94), rgba(6, 6, 18, 0.96)) !important;
+    }
+
+    /*
+     * Text accents inside command content only.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :is(
+        #yh-wallet-modal,
+        #yh-dashboard-messages-workspace,
+        #yh-dashboard-referral-workspace,
+        #yh-dashboard-my-contacts-workspace,
+        #yh-dashboard-settings-workspace,
+        .yh-resources-menu-panel
+    )
+    :is(
+        .yh-section-kicker,
+        .yh-card-kicker,
+        .workspace-kicker,
+        [class*="kicker"],
+        [class*="label"],
+        label
+    ) {
+        color: var(--yh-command-inner-primary) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :is(
+        #yh-wallet-modal,
+        #yh-dashboard-messages-workspace,
+        #yh-dashboard-referral-workspace,
+        #yh-dashboard-my-contacts-workspace,
+        #yh-dashboard-settings-workspace,
+        .yh-resources-menu-panel
+    )
+    :is(
+        h1,
+        h2,
+        h3,
+        h4,
+        strong,
+        .card-title,
+        .workspace-title
+    ) {
+        color: var(--yh-command-inner-text) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :is(
+        #yh-wallet-modal,
+        #yh-dashboard-messages-workspace,
+        #yh-dashboard-referral-workspace,
+        #yh-dashboard-my-contacts-workspace,
+        #yh-dashboard-settings-workspace,
+        .yh-resources-menu-panel
+    )
+    :is(
+        p,
+        small,
+        .card-copy,
+        .workspace-copy,
+        [class*="copy"],
+        [class*="meta"]
+    ) {
+        color: var(--yh-command-inner-muted) !important;
+    }
+
+    /*
+     * Buttons and fields only inside command content pages.
+     */
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :is(
+        #yh-wallet-modal,
+        #yh-dashboard-messages-workspace,
+        #yh-dashboard-referral-workspace,
+        #yh-dashboard-my-contacts-workspace,
+        #yh-dashboard-settings-workspace,
+        .yh-resources-menu-panel
+    )
+    :is(
+        .btn-primary,
+        .yh-wallet-submit,
+        .yh-wallet-refresh,
+        button[type="submit"]
+    ) {
+        border-color: rgba(196, 181, 253, 0.50) !important;
+
+        background:
+            linear-gradient(135deg, rgba(124, 58, 237, 0.96), rgba(168, 85, 247, 0.84)) !important;
+
+        color: #ffffff !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :is(
+        #yh-wallet-modal,
+        #yh-dashboard-messages-workspace,
+        #yh-dashboard-referral-workspace,
+        #yh-dashboard-my-contacts-workspace,
+        #yh-dashboard-settings-workspace,
+        .yh-resources-menu-panel
+    )
+    :is(
+        .btn-secondary,
+        button:not([type="submit"])
+    ) {
+        border-color: rgba(167, 139, 250, 0.24) !important;
+
+        background:
+            linear-gradient(180deg, rgba(30, 27, 75, 0.68), rgba(8, 9, 24, 0.76)) !important;
+
+        color: rgba(237, 233, 254, 0.92) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :is(
+        #yh-wallet-modal,
+        #yh-dashboard-messages-workspace,
+        #yh-dashboard-referral-workspace,
+        #yh-dashboard-my-contacts-workspace,
+        #yh-dashboard-settings-workspace,
+        .yh-resources-menu-panel
+    )
+    :is(
+        input,
+        select,
+        textarea,
+        .input-field
+    ) {
+        border-color: rgba(167, 139, 250, 0.22) !important;
+
+        background:
+            linear-gradient(180deg, rgba(17, 18, 43, 0.82), rgba(5, 6, 18, 0.86)) !important;
+
+        color: #ffffff !important;
+    }
+}
+
+/* END PATCH: Command inner pages mobile color identity v204 */
+
+/* ========================================================= */
+/* PATCH: Command inner pages desktop wallet palette v214       */
+/* Dark navy, cyan borders, blue actions, gold/cyan accents      */
+/* ========================================================= */
+
+@media (max-width: 768px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"] {
+        --yh-command-inner-bg: rgba(5, 7, 12, 0.94);
+        --yh-command-inner-card: rgba(8, 20, 41, 0.92);
+        --yh-command-inner-card-soft: rgba(10, 22, 46, 0.78);
+        --yh-command-inner-border: rgba(103, 232, 249, 0.26);
+        --yh-command-inner-border-hot: rgba(103, 232, 249, 0.54);
+        --yh-command-inner-primary: #d3b270;
+        --yh-command-inner-primary-hot: #67e8f9;
+        --yh-command-inner-accent: #0ea5e9;
+        --yh-command-inner-text: #ffffff;
+        --yh-command-inner-muted: rgba(203, 213, 225, 0.76);
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    :is(
+        .yh-wallet-stat-card,
+        .yh-wallet-panel,
+        .yh-wallet-guide-step,
+        .yh-wallet-method-card,
+        .yh-wallet-ledger-card,
+        .yh-wallet-division-card
+    ),
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    :is(
+        article,
+        section,
+        .card,
+        .panel-card,
+        [class*="card"],
+        [class*="panel"],
+        [class*="shell"],
+        [class*="row"]
+    ),
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="my-contacts"]
+    #yh-dashboard-my-contacts-workspace
+    :is(
+        article,
+        section,
+        .card,
+        .panel-card,
+        [class*="card"],
+        [class*="panel"],
+        [class*="shell"],
+        [class*="row"]
+    ),
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="settings"]
+    #yh-dashboard-settings-workspace
+    :is(
+        article,
+        section,
+        .card,
+        .panel-card,
+        [class*="card"],
+        [class*="panel"],
+        [class*="shell"],
+        [class*="row"]
+    ),
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="referral"]
+    #yh-dashboard-referral-workspace
+    :is(
+        article,
+        section,
+        .card,
+        .panel-card,
+        [class*="card"],
+        [class*="panel"],
+        [class*="shell"],
+        [class*="row"],
+        [class*="stat"],
+        [class*="item"]
+    ) {
+        border-color: rgba(103, 232, 249, 0.26) !important;
+
+        background:
+            radial-gradient(circle at 0% 0%, rgba(103, 232, 249, 0.13), transparent 42%),
+            radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.075), transparent 38%),
+            linear-gradient(180deg, rgba(8, 20, 41, 0.92), rgba(5, 7, 12, 0.94)) !important;
+
+        color: var(--yh-command-inner-text) !important;
+
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.04),
+            0 18px 34px rgba(0, 0, 0, 0.22) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    :is(
+        .yh-wallet-stat-card,
+        .yh-wallet-panel,
+        .yh-wallet-guide-step,
+        .yh-wallet-method-card,
+        .yh-wallet-ledger-card,
+        .yh-wallet-division-card
+    )::before {
+        background:
+            linear-gradient(
+                90deg,
+                transparent,
+                rgba(103, 232, 249, 0.60),
+                rgba(14, 165, 233, 0.28),
+                transparent
+            ) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="wallet"]
+    #yh-wallet-modal
+    .yh-wallet-stat-card.is-primary {
+        border-color: rgba(103, 232, 249, 0.46) !important;
+
+        background:
+            radial-gradient(circle at 16% 0%, rgba(103, 232, 249, 0.20), transparent 42%),
+            radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.09), transparent 38%),
+            linear-gradient(145deg, rgba(18, 18, 24, 0.96), rgba(5, 7, 12, 0.94)) !important;
+
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.05),
+            0 18px 38px rgba(0, 0, 0, 0.24),
+            0 0 28px rgba(103, 232, 249, 0.08) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :is(
+        #yh-wallet-modal,
+        #yh-dashboard-messages-workspace,
+        #yh-dashboard-referral-workspace,
+        #yh-dashboard-my-contacts-workspace,
+        #yh-dashboard-settings-workspace,
+        .yh-resources-menu-panel
+    )
+    :is(
+        .yh-wallet-stat-card span,
+        .yh-wallet-panel-head > span,
+        .yh-wallet-guide-step span,
+        .yh-section-kicker,
+        .yh-card-kicker,
+        .workspace-kicker,
+        [class*="kicker"],
+        [class*="label"],
+        label
+    ) {
+        color: #d3b270 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :is(
+        #yh-wallet-modal,
+        #yh-dashboard-messages-workspace,
+        #yh-dashboard-referral-workspace,
+        #yh-dashboard-my-contacts-workspace,
+        #yh-dashboard-settings-workspace,
+        .yh-resources-menu-panel
+    )
+    :is(
+        h1,
+        h2,
+        h3,
+        h4,
+        strong,
+        .card-title,
+        .workspace-title
+    ) {
+        color: #ffffff !important;
+
+        text-shadow:
+            0 1px 10px rgba(0, 0, 0, 0.38),
+            0 0 18px rgba(103, 232, 249, 0.10) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :is(
+        #yh-wallet-modal,
+        #yh-dashboard-messages-workspace,
+        #yh-dashboard-referral-workspace,
+        #yh-dashboard-my-contacts-workspace,
+        #yh-dashboard-settings-workspace,
+        .yh-resources-menu-panel
+    )
+    :is(
+        p,
+        small,
+        .card-copy,
+        .workspace-copy,
+        [class*="copy"],
+        [class*="meta"]
+    ) {
+        color: rgba(203, 213, 225, 0.76) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    .yh-resources-menu-panel {
+        border-color: rgba(103, 232, 249, 0.26) !important;
+
+        background:
+            radial-gradient(circle at 0% 0%, rgba(103, 232, 249, 0.14), transparent 42%),
+            radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.08), transparent 38%),
+            linear-gradient(180deg, rgba(8, 20, 41, 0.96), rgba(5, 7, 12, 0.98)) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :is(
+        #yh-wallet-modal,
+        #yh-dashboard-messages-workspace,
+        #yh-dashboard-referral-workspace,
+        #yh-dashboard-my-contacts-workspace,
+        #yh-dashboard-settings-workspace,
+        .yh-resources-menu-panel
+    )
+    :is(
+        .btn-primary,
+        .yh-wallet-submit,
+        .yh-wallet-refresh,
+        button[type="submit"]
+    ) {
+        border-color: rgba(103, 232, 249, 0.50) !important;
+
+        background:
+            linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(14, 165, 233, 0.86)) !important;
+
+        color: #ffffff !important;
+
+        box-shadow:
+            0 14px 30px rgba(37, 99, 235, 0.18),
+            inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :is(
+        #yh-wallet-modal,
+        #yh-dashboard-messages-workspace,
+        #yh-dashboard-referral-workspace,
+        #yh-dashboard-my-contacts-workspace,
+        #yh-dashboard-settings-workspace,
+        .yh-resources-menu-panel
+    )
+    :is(
+        .btn-secondary,
+        button:not([type="submit"])
+    ) {
+        border-color: rgba(103, 232, 249, 0.24) !important;
+
+        background:
+            linear-gradient(180deg, rgba(28, 25, 19, 0.78), rgba(7, 8, 12, 0.86)) !important;
+
+        color: rgba(226, 238, 255, 0.92) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"]
+    :is(
+        #yh-wallet-modal,
+        #yh-dashboard-messages-workspace,
+        #yh-dashboard-referral-workspace,
+        #yh-dashboard-my-contacts-workspace,
+        #yh-dashboard-settings-workspace,
+        .yh-resources-menu-panel
+    )
+    :is(
+        input,
+        select,
+        textarea,
+        .input-field
+    ) {
+        border-color: rgba(103, 232, 249, 0.22) !important;
+
+        background:
+            linear-gradient(180deg, rgba(5, 14, 30, 0.86), rgba(6, 7, 10, 0.88)) !important;
+
+        color: #ffffff !important;
+    }
+}
+
+/* END PATCH: Command inner pages desktop wallet palette v214 */
+
+/* ========================================================= */
+/* PATCH: Messages mobile desktop-color alignment v215        */
+/* Matches desktop navy/cyan styling without changing logic    */
+/* ========================================================= */
+
+@media (max-width: 768px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-system-workspace-content,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-shell {
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-layout {
+        border:
+            1px solid
+            rgba(56, 189, 248, 0.20) !important;
+
+        border-radius:
+            24px !important;
+
+        background:
+            radial-gradient(
+                circle at 16% 100%,
+                rgba(56, 189, 248, 0.15),
+                transparent 36%
+            ),
+            radial-gradient(
+                circle at 82% 18%,
+                rgba(59, 130, 246, 0.12),
+                transparent 34%
+            ),
+            rgba(
+                2,
+                8,
+                23,
+                0.80
+            ) !important;
+
+        box-shadow:
+            0 26px 80px rgba(0, 0, 0, 0.38),
+            inset 0 1px 0 rgba(255, 255, 255, 0.045) !important;
+
+        backdrop-filter:
+            blur(3px)
+            saturate(1.04) !important;
+
+        -webkit-backdrop-filter:
+            blur(3px)
+            saturate(1.04) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-layout::before,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-shell::before,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-inbox::before {
+        content: none !important;
+        display: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-head {
+        border:
+            1px solid
+            rgba(56, 189, 248, 0.20) !important;
+
+        border-radius:
+            24px !important;
+
+        background:
+            linear-gradient(
+                180deg,
+                rgba(7, 20, 39, 0.94),
+                rgba(2, 8, 23, 0.90)
+            ) !important;
+
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.045),
+            0 18px 34px rgba(0, 0, 0, 0.18) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-inbox {
+        width:
+            100% !important;
+
+        max-width:
+            none !important;
+
+        margin:
+            0 !important;
+
+        padding:
+            12px !important;
+
+        border:
+            1px solid
+            rgba(56, 189, 248, 0.18) !important;
+
+        border-radius:
+            24px !important;
+
+        background:
+            radial-gradient(
+                circle at 50% 100%,
+                rgba(56, 189, 248, 0.14),
+                transparent 42%
+            ),
+            linear-gradient(
+                180deg,
+                rgba(4, 15, 33, 0.90),
+                rgba(2, 8, 23, 0.88)
+            ) !important;
+
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.04),
+            0 18px 44px rgba(0, 0, 0, 0.22) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-inbox-head small {
+        color:
+            #67e8f9 !important;
+
+        text-shadow:
+            0 0 14px
+            rgba(103, 232, 249, 0.20) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-inbox-head strong {
+        color:
+            #ffffff !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-refresh-btn {
+        border-color:
+            rgba(125, 211, 252, 0.22) !important;
+
+        background:
+            rgba(8, 21, 43, 0.86) !important;
+
+        color:
+            #dff7ff !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-actions-row
+    .btn-primary {
+        border:
+            1px solid
+            rgba(125, 211, 252, 0.42) !important;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(37, 99, 235, 0.95),
+                rgba(14, 165, 233, 0.88)
+            ) !important;
+
+        color:
+            #ffffff !important;
+
+        box-shadow:
+            0 12px 28px rgba(14, 165, 233, 0.18) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-actions-row
+    .btn-secondary {
+        border:
+            1px solid
+            rgba(125, 211, 252, 0.24) !important;
+
+        background:
+            linear-gradient(
+                180deg,
+                rgba(19, 47, 92, 0.92),
+                rgba(5, 18, 42, 0.95)
+            ) !important;
+
+        color:
+            #dcecff !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-filter-row {
+        border:
+            1px solid
+            rgba(125, 211, 252, 0.16) !important;
+
+        background:
+            rgba(2, 8, 23, 0.54) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-filter-row
+    .btn-secondary {
+        border-color:
+            transparent !important;
+
+        background:
+            transparent !important;
+
+        color:
+            rgba(203, 213, 225, 0.78) !important;
+
+        box-shadow:
+            none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-filter-row
+    .btn-secondary.is-active {
+        border-color:
+            rgba(103, 232, 249, 0.38) !important;
+
+        background:
+            rgba(14, 165, 233, 0.18) !important;
+
+        color:
+            #ffffff !important;
+
+        box-shadow:
+            inset 0 1px 0
+            rgba(255, 255, 255, 0.055) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-search
+    input {
+        border-color:
+            rgba(56, 189, 248, 0.22) !important;
+
+        background:
+            rgba(2, 8, 23, 0.90) !important;
+
+        color:
+            #f8fbff !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-room {
+        border-color:
+            rgba(148, 163, 184, 0.15) !important;
+
+        background:
+            linear-gradient(
+                180deg,
+                rgba(9, 20, 42, 0.82),
+                rgba(4, 11, 25, 0.90)
+            ) !important;
+
+        color:
+            #f8fbff !important;
+
+        box-shadow:
+            inset 0 1px 0
+            rgba(255, 255, 255, 0.035) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-room.is-active {
+        border-color:
+            rgba(56, 189, 248, 0.52) !important;
+
+        background:
+            rgba(14, 165, 233, 0.14) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-room-avatar,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="messages"]
+    #yh-dashboard-messages-workspace
+    .yh-dashboard-dm-thread-avatar {
+        border-color:
+            rgba(56, 189, 248, 0.32) !important;
+
+        background:
+            radial-gradient(
+                circle at 35% 20%,
+                rgba(103, 232, 249, 0.22),
+                transparent 48%
+            ),
+            rgba(14, 165, 233, 0.14) !important;
+
+        color:
+            #e0f7ff !important;
+
+        box-shadow:
+            0 0 18px
+            rgba(14, 165, 233, 0.12) !important;
+    }
+}
+
+/* END PATCH: Messages mobile desktop-color alignment v215 */
+
+/* ========================================================= */
+/* PATCH: Referral mobile remove noisy grid lines v207        */
+/* ========================================================= */
+
+@media (max-width: 768px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="referral"]
+    #yh-dashboard-referral-workspace,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="referral"]
+    #yh-dashboard-referral-workspace-content,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="referral"]
+    #yh-dashboard-referral-workspace
+    :is(
+        article,
+        section,
+        .card,
+        .panel-card,
+        [class*="card"],
+        [class*="panel"],
+        [class*="shell"],
+        [class*="item"],
+        [class*="stat"]
+    ) {
+        background-image:
+            radial-gradient(circle at 0% 0%, rgba(103, 232, 249, 0.12), transparent 42%),
+            radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.07), transparent 38%),
+            linear-gradient(180deg, rgba(8, 20, 41, 0.92), rgba(5, 7, 12, 0.94)) !important;
+
+        background-size: auto !important;
+        background-repeat: no-repeat !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="referral"]
+    #yh-dashboard-referral-workspace
+    :is(
+        article,
+        section,
+        .card,
+        .panel-card,
+        [class*="card"],
+        [class*="panel"],
+        [class*="shell"],
+        [class*="item"],
+        [class*="stat"]
+    )::before,
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="referral"]
+    #yh-dashboard-referral-workspace
+    :is(
+        article,
+        section,
+        .card,
+        .panel-card,
+        [class*="card"],
+        [class*="panel"],
+        [class*="shell"],
+        [class*="item"],
+        [class*="stat"]
+    )::after {
+        background-image: none !important;
+        background: none !important;
+        opacity: 0 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="referral"]
+    #yh-dashboard-referral-workspace
+    :is(
+        input,
+        button,
+        .btn-primary,
+        .btn-secondary,
+        [class*="code"],
+        [class*="link"]
+    ) {
+        background-image:
+            linear-gradient(180deg, rgba(5, 14, 30, 0.90), rgba(6, 7, 10, 0.92)) !important;
+
+        background-size: auto !important;
+        background-repeat: no-repeat !important;
+    }
+}
+
+/* END PATCH: Referral mobile remove noisy grid lines v207 */
 /* ========================================================= */
 /* MOBILE DASHBOARD DIRECT MESSAGES v1                       */
 /* ========================================================= */
@@ -5169,8 +7018,8 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="me
         0 !important;
 
     padding:
-        10px
-        10px
+        8px
+        4px
         calc(
             104px +
             env(
@@ -5486,8 +7335,17 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 
     body[data-yh-view="hub"][data-yh-page="dashboard"]
     .yh-dashboard-dm-inbox {
+        width:
+            100% !important;
+
+        max-width:
+            none !important;
+
+        margin:
+            0 !important;
+
         padding:
-            10px !important;
+            8px !important;
 
         border-right:
             0 !important;
@@ -5579,40 +7437,129 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
     flex:
         0 0 auto !important;
 
+    display:
+        grid !important;
+
+    grid-template-columns:
+        minmax(0, 1fr)
+        78px !important;
+
+    align-items:
+        stretch !important;
+
+    gap:
+        6px !important;
+
     padding:
-        3px 0 0 !important;
+        6px !important;
 
     border:
-        0 !important;
-
-    border-top:
         1px solid
         rgba(
-            56,
-            189,
-            248,
+            157,
+            183,
+            216,
             0.18
         ) !important;
 
     border-radius:
-        0 !important;
+        18px !important;
 
     background:
-        rgba(
-            2,
-            8,
-            23,
-            0.98
+        linear-gradient(
+            180deg,
+            rgba(
+                8,
+                14,
+                28,
+                0.98
+            ),
+            rgba(
+                4,
+                8,
+                18,
+                0.98
+            )
         ) !important;
 
     box-shadow:
-        none !important;
+        inset 0 1px 0
+        rgba(
+            255,
+            255,
+            255,
+            0.035
+        ),
+        0 12px 24px
+        rgba(
+            0,
+            0,
+            0,
+            0.18
+        ) !important;
 
     backdrop-filter:
         blur(14px) !important;
 
     -webkit-backdrop-filter:
         blur(14px) !important;
+
+    overflow:
+        hidden !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+#yh-dashboard-messages-workspace[data-yh-dm-thread-open="true"]
+#yh-dashboard-dm-send {
+    width:
+        78px !important;
+
+    min-width:
+        78px !important;
+
+    max-width:
+        78px !important;
+
+    height:
+        auto !important;
+
+    min-height:
+        48px !important;
+
+    margin:
+        0 !important;
+
+    align-self:
+        stretch !important;
+
+    border-radius:
+        14px !important;
+
+    border:
+        1px solid
+        rgba(
+            157,
+            183,
+            216,
+            0.24
+        ) !important;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(
+                68,
+                94,
+                128,
+                0.96
+            ),
+            rgba(
+                107,
+                141,
+                182,
+                0.88
+            )
+        ) !important;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
@@ -6261,8 +8208,49 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 
     body[data-yh-view="hub"][data-yh-page="dashboard"]
     .yh-dashboard-dm-composer textarea {
+        width:
+            100% !important;
+
+        min-width:
+            0 !important;
+
+        min-height:
+            48px !important;
+
+        margin:
+            0 !important;
+
         resize:
             none !important;
+
+        border:
+            1px solid
+            rgba(
+                157,
+                183,
+                216,
+                0.18
+            ) !important;
+
+        border-radius:
+            14px !important;
+
+        background:
+            linear-gradient(
+                180deg,
+                rgba(
+                    5,
+                    10,
+                    22,
+                    0.96
+                ),
+                rgba(
+                    3,
+                    7,
+                    16,
+                    0.96
+                )
+            ) !important;
     }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
