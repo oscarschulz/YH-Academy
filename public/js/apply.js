@@ -1,5 +1,120 @@
 // public/js/apply.js
 
+function syncYHMobileDownloadCardSurfaceV1() {
+    const body = document.body;
+
+    if (!body) return;
+
+    const isNativeApp = Boolean(
+        window.YHNativeRuntime?.isNativeApp?.() === true ||
+        window.Capacitor?.isNativePlatform?.() === true ||
+        window.location.protocol === 'capacitor:' ||
+        window.location.protocol === 'ionic:'
+    );
+
+    body.classList.toggle(
+        'yh-native-app-shell',
+        isNativeApp
+    );
+
+    const downloadSection =
+        document.getElementById('yh-mobile-download-section');
+
+    const authSection =
+        document.getElementById('yh-auth-section');
+
+    const divisionsSection =
+        document.getElementById('yh-divisions-section');
+
+    const legalFooter =
+        document.getElementById('yh-landing-legal-footer');
+
+    const landingShell =
+        document.querySelector('#step-1.yh-landing-step .yh-landing-shell') ||
+        document.querySelector('#step-1 .yh-landing-shell') ||
+        document.getElementById('step-1');
+
+    const isMobileBrowser =
+        window.matchMedia('(max-width: 920px)').matches;
+
+    const moveAfter = (node, anchor) => {
+        if (
+            node &&
+            anchor &&
+            node.previousElementSibling !== anchor
+        ) {
+            anchor.insertAdjacentElement(
+                'afterend',
+                node
+            );
+        }
+    };
+
+    if (
+        !authSection ||
+        !landingShell
+    ) {
+        return;
+    }
+
+    if (isMobileBrowser) {
+        if (!isNativeApp && downloadSection) {
+            if (divisionsSection) {
+                moveAfter(
+                    downloadSection,
+                    divisionsSection
+                );
+            } else if (downloadSection !== landingShell.lastElementChild) {
+                landingShell.appendChild(
+                    downloadSection
+                );
+            }
+
+            moveAfter(
+                legalFooter,
+                downloadSection
+            );
+
+            return;
+        }
+
+        if (divisionsSection) {
+            moveAfter(
+                legalFooter,
+                divisionsSection
+            );
+        } else if (
+            legalFooter &&
+            legalFooter !== landingShell.lastElementChild
+        ) {
+            landingShell.appendChild(
+                legalFooter
+            );
+        }
+
+        return;
+    }
+
+    if (downloadSection) {
+        moveAfter(
+            downloadSection,
+            authSection
+        );
+
+        moveAfter(
+            legalFooter,
+            downloadSection
+        );
+
+        return;
+    }
+
+    moveAfter(
+        legalFooter,
+        authSection
+    );
+}
+
 function showStep(stepNumber) {
     const normalizedStep = Number(stepNumber);
 
@@ -2301,8 +2416,30 @@ function initLandingDivisionCarousel() {
 }
 
 function bootLandingCriticalInteractionsV1() {
+    syncYHMobileDownloadCardSurfaceV1();
     initLandingDivisionCarousel();
     bindLandingGlobeViewportPauseV1();
+
+    if (!window.__yhMobileDownloadCardSurfaceBoundV1) {
+        window.__yhMobileDownloadCardSurfaceBoundV1 = true;
+
+        window.addEventListener(
+            'resize',
+            syncYHMobileDownloadCardSurfaceV1,
+            { passive: true }
+        );
+
+        window.addEventListener(
+            'orientationchange',
+            () => {
+                window.setTimeout(
+                    syncYHMobileDownloadCardSurfaceV1,
+                    120
+                );
+            },
+            { passive: true }
+        );
+    }
 }
 
 if (document.readyState === 'loading') {
