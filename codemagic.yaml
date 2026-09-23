@@ -76,7 +76,7 @@ workflows:
       - name: Set app version and build number
         script: |
           cd ios/App
-          agvtool new-marketing-version 2.0
+          agvtool new-marketing-version 3.0
           agvtool new-version -all "$BUILD_NUMBER"
 
       - name: Build signed YHU IPA
