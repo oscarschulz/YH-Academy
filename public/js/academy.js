@@ -685,6 +685,8 @@ const socket = io({
     auth: getStoredAuthToken() ? { token: getStoredAuthToken() } : {}
 });
 
+window.YHMaintenanceGuard?.attachSocket(socket);
+
 let myName = getStoredUserValue('yh_user_name', "Hustler");
 
 function academyIsProbablyTruncatedName(value = '') {

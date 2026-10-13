@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/admin-panel.css?v=20260708-admin-lead-copy-force-v3" />
+<script src="/js/yh-maintenance-guard.js?v=20261013-maintenance-v1"></script>
 </head>
 <body>
   <div class="admin-shell">
@@ -168,7 +169,10 @@
       <div class="sidebar-footer">
         <div class="footer-card">
           <div class="footer-label">System Status</div>
-          <div class="footer-value"><span class="dot online"></span> Operational</div>
+          <div class="footer-value">
+            <span class="dot online" id="admin-system-status-dot"></span>
+            <span id="admin-system-status">Operational</span>
+          </div>
         </div>
         <div class="footer-card">
           <div class="footer-label">Admin Role</div>
@@ -1080,6 +1084,55 @@
       </section>
 
       <section class="view view-settings" id="view-settings">
+        <article class="panel-card admin-maintenance-card"
+                 id="admin-maintenance-card"
+                 data-active="false">
+
+          <div class="admin-maintenance-main">
+            <div class="admin-maintenance-copy">
+              <p class="eyebrow">Platform-wide access</p>
+              <h3>Platform Maintenance</h3>
+
+              <p>
+                Temporarily show visitors and members a read-only
+                maintenance notice while keeping the secure
+                Admin Panel available.
+              </p>
+
+              <div class="admin-maintenance-meta" aria-live="polite">
+                <span class="admin-maintenance-indicator"
+                      aria-hidden="true"></span>
+                <strong id="admin-maintenance-status">
+                  Checking platform status...
+                </strong>
+              </div>
+
+              <p class="admin-maintenance-detail"
+                 id="admin-maintenance-description">
+                Status is loaded from the live Admin settings.
+              </p>
+            </div>
+
+            <div class="admin-maintenance-action">
+              <span class="admin-maintenance-switch-label">
+                Maintenance Mode
+              </span>
+
+              <label class="switch"
+                     title="Toggle platform maintenance mode">
+                <input
+                  type="checkbox"
+                  id="admin-maintenance-toggle"
+                  data-setting="maintenanceMode"
+                  aria-label="Enable or disable platform maintenance mode"
+                  disabled
+                />
+                <span aria-hidden="true"></span>
+              </label>
+            </div>
+          </div>
+        </article>
+
         <div class="content-grid two-col">
           <article class="panel-card">
             <div class="panel-head">

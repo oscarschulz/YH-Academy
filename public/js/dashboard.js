@@ -236,6 +236,8 @@ const socket = io({
     auth: getStoredAuthToken() ? { token: getStoredAuthToken() } : {}
 });
 
+window.YHMaintenanceGuard?.attachSocket(socket);
+
 /* PATCH: Dashboard Socket.IO BFCache lifecycle v1 */
 function syncDashboardSocketAuthV1() {
     const token =

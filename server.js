@@ -275,9 +275,11 @@ publicLandingNamespace.on('connection', async (socket) => {
         }
     } catch (error) {
         console.error(
-            'Public landing socket maintenance check failed open:',
+            'Public landing socket maintenance check unavailable; disconnecting:',
             error
         );
+        socket.disconnect(true);
+        return;
     }
 
     console.log(
@@ -4632,9 +4634,11 @@ io.on('connection', async (socket) => {
         }
     } catch (error) {
         console.error(
-            'Socket maintenance mode check failed open:',
+            'Socket maintenance mode check unavailable; disconnecting:',
             error
         );
+        socket.disconnect(true);
+        return;
     }
 
     const socketUser =
@@ -8084,7 +8088,9 @@ const YH_MAINTENANCE_ADMIN_ASSET_PATHS =
         '/admin-login.js',
         '/admin-panel.css',
         '/admin-panel.js',
-        '/images/logo.png'
+        '/images/logo.png',
+        '/images/landing/new%20bg.png',
+        '/images/landing/new bg.png'
     ]);
 
 let yhMaintenanceReadErrorLoggedAt = 0;
@@ -8201,104 +8207,350 @@ function sendYHMaintenanceResponse(
         .send(`<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  />
-  <title>YH Universe Maintenance</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Under Maintenance | Young Hustlers Universe</title>
 
   <style>
+    :root {
+      color-scheme: dark;
+    }
+
     * {
       box-sizing: border-box;
     }
 
-    body {
+    html, body {
+      min-height: 100%;
       margin: 0;
+    }
+
+    body {
+      position: relative;
+      isolation: isolate;
       min-height: 100vh;
+      min-height: 100dvh;
       display: grid;
       place-items: center;
-      background: #030712;
-      color: #e5eef8;
-      font-family: Arial, Helvetica, sans-serif;
-      padding: 24px;
+      overflow-x: hidden;
+      padding:
+        max(24px, env(safe-area-inset-top))
+        18px
+        max(24px, env(safe-area-inset-bottom));
+      background: #02050d;
+      color: #f8fafc;
+      font-family:
+        Poppins, ui-sans-serif, system-ui,
+        -apple-system, 'Segoe UI', sans-serif;
     }
 
-    .card {
-      width: min(560px, 100%);
-      padding: 34px 28px;
-      border: 1px solid #16324c;
-      border-radius: 24px;
-      background: #07111f;
-      text-align: center;
+    .landing-preview {
+      position: fixed;
+      inset: -12px;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+      user-select: none;
+      filter: blur(5px) saturate(.75) brightness(.75);
+      transform: scale(1.025);
+      background:
+        url('/images/landing/new%20bg.png')
+          center top / cover no-repeat,
+        #02050d;
     }
 
-    .eyebrow {
-      font-size: 12px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: #38bdf8;
+    .preview-brand {
+      position: absolute;
+      top: 5%;
+      left: 6%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #fff;
+      font-size: 15px;
       font-weight: 800;
     }
 
-    .mark {
-      width: 64px;
-      height: 64px;
-      margin: 18px auto;
+    .preview-brand img {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+    }
+
+    .preview-hero {
+      position: absolute;
+      top: 24%;
+      left: 8%;
+      width: min(530px, 84%);
+    }
+
+    .preview-hero h2 {
+      margin: 0 0 20px;
+      color: #fff;
+      font-size: clamp(36px, 5vw, 76px);
+      line-height: 1;
+      letter-spacing: -.035em;
+      font-weight: 900;
+    }
+
+    .preview-hero h2 span {
+      color: #38bdf8;
+    }
+
+    .preview-hero p {
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .preview-auth {
+      position: absolute;
+      top: 72%;
+      left: 30%;
+      width: min(700px, 65%);
+      min-height: 230px;
+      border: 1px solid rgba(56,189,248,.25);
+      border-radius: 24px;
+      background: rgba(12,24,43,.85);
+      padding: 32px;
+      text-align: center;
+    }
+
+    .preview-auth strong {
+      display: block;
+      font-size: 24px;
+      margin-bottom: 24px;
+    }
+
+    .preview-auth span {
+      display: block;
+      width: min(320px, 90%);
+      height: 36px;
+      margin: 12px auto;
+      border: 1px solid rgba(56,189,248,.35);
       border-radius: 20px;
-      display: grid;
-      place-items: center;
-      background: #0b2238;
-      border: 1px solid #1c567f;
-      font-size: 30px;
+    }
+
+    .maintenance-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      background: rgba(2,6,23,.70);
+      pointer-events: none;
+    }
+
+    main {
+      position: relative;
+      z-index: 2;
+      width: min(550px, 100%);
+      padding: clamp(30px, 5vw, 54px)
+               clamp(22px, 5vw, 44px);
+      text-align: center;
+      border: 1px solid rgba(125,180,255,.27);
+      border-radius: 28px;
+      background:
+        radial-gradient(
+          circle at 50% 0%,
+          rgba(56,189,248,.12),
+          transparent 58%
+        ),
+        rgba(9,18,35,.97);
+      box-shadow:
+        0 32px 100px rgba(0,0,0,.65),
+        inset 0 1px 0 rgba(255,255,255,.035);
+    }
+
+    @media (max-width: 620px) {
+      .preview-brand {
+        font-size: 12px;
+      }
+
+      .preview-hero {
+        top: 20%;
+        left: 7%;
+      }
+
+      .preview-hero h2 {
+        font-size: clamp(34px, 9vw, 54px);
+      }
+
+      .preview-auth {
+        top: 72%;
+        left: 9%;
+        width: 82%;
+        padding: 20px;
+      }
+
+      main {
+        border-radius: 22px;
+      }
+    }
+
+    .logo {
+      width: 72px;
+      height: 72px;
+      display: block;
+      object-fit: contain;
+      margin: 0 auto 24px;
+    }
+
+    .eyebrow {
+      color: #8bb3ff;
+      font-size: 11px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      font-weight: 800;
     }
 
     h1 {
-      margin: 0 0 12px;
-      font-size: 30px;
+      font-size: clamp(30px, 6vw, 46px);
+      line-height: 1.18;
+      letter-spacing: -.035em;
+      margin: 18px 0;
+      font-weight: 800;
     }
 
     p {
-      margin: 0;
-      color: #9fb0c8;
-      line-height: 1.75;
+      color: #b9c8dd;
+      font-size: clamp(14px, 2.5vw, 16px);
+      line-height: 1.8;
+      margin: 0 auto;
+      max-width: 510px;
+    }
+
+    .supporting {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #91a5bd;
     }
 
     .status {
-      margin-top: 22px;
-      padding: 12px;
-      border-radius: 14px;
-      background: #030712;
-      border: 1px solid #16324c;
-      color: #7dd3fc;
-      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      margin-top: 30px;
+      border: 1px solid rgba(77,139,255,.24);
+      background: rgba(77,139,255,.08);
+      border-radius: 100px;
+      font-size: 12px;
+      color: #c5dcff;
       font-weight: 700;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #f59e0b;
+      border-radius: 50%;
+    }
+
+    .foot {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #7587a1;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .status-dot {
+        animation: pulse 2.4s ease-in-out infinite;
+      }
+    }
+
+    @keyframes pulse {
+      50% {
+        opacity: .45;
+      }
     }
   </style>
 </head>
 
 <body>
-  <main class="card">
+  <div class="landing-preview" aria-hidden="true">
+    <div class="preview-brand">
+      <img src="/images/logo.png" alt="">
+      <span>Young Hustlers Universe</span>
+    </div>
+
+    <div class="preview-hero">
+      <h2>
+        The Future<br>
+        of Global<br>
+        <span>Networking</span>
+      </h2>
+      <p>
+        The old world ran on information.<br>
+        The next one runs on trust, access,
+        and verified people.
+      </p>
+    </div>
+
+    <div class="preview-auth">
+      <strong>Access Terminal</strong>
+      <span></span>
+      <span></span>
+    </div>
+  </div>
+
+  <div class="maintenance-overlay" aria-hidden="true"></div>
+
+  <main role="main" aria-labelledby="maintenance-title">
+    <img
+      class="logo"
+      src="/images/logo.png"
+      alt="Young Hustlers Universe logo"
+      width="72"
+      height="72"
+    >
+
     <div class="eyebrow">
       Young Hustlers Universe
     </div>
 
-    <div class="mark">
-      ⚙
-    </div>
-
-    <h1>
-      We’ll be back shortly.
+    <h1 id="maintenance-title">
+      We're making things better.
     </h1>
 
     <p>
-      YH Universe is temporarily under maintenance while we make an operational update. Please try again in a few minutes.
+      Sorry, Young Hustlers Universe is currently undergoing
+      maintenance. We're making improvements behind the
+      scenes to give you a better experience.
     </p>
 
-    <div class="status">
-      Maintenance mode is currently active.
+    <p class="supporting">
+      The platform is temporarily unavailable.
+      We'll be back as soon as maintenance is complete.
+    </p>
+
+    <div class="status" role="status">
+      <span class="status-dot" aria-hidden="true"></span>
+      Under maintenance
+    </div>
+
+    <div class="foot">
+      Thank you for your patience.
     </div>
   </main>
+
+  <script>
+    // Passive status check; no interactive controls.
+    setInterval(async function () {
+      try {
+        const result = await fetch('/', {
+          method: 'HEAD',
+          cache: 'no-store'
+        });
+
+        if (result.ok) {
+          window.location.replace('/');
+        }
+      } catch (_) {
+        // Remain on maintenance notice.
+      }
+    }, 20000);
+  </script>
 </body>
 </html>`);
 }
@@ -8345,12 +8597,12 @@ app.use(
                     now;
 
                 console.error(
-                    'Maintenance mode read failed open:',
+                    'Maintenance mode read unavailable; blocking member request:',
                     error
                 );
             }
 
-            return next();
+            return sendYHMaintenanceResponse(req, res);
         }
     }
 );

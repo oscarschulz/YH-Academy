@@ -235,7 +235,15 @@ button { cursor: pointer; }
   margin-right: 8px;
 }
 
-.dot.online { background: var(--green); box-shadow: 0 0 10px var(--green); }
+.dot.online {
+  background: var(--green);
+  box-shadow: 0 0 10px var(--green);
+}
+
+#admin-system-status-dot:not(.online) {
+  background: var(--amber);
+  box-shadow: 0 0 10px var(--amber);
+}
 
 .main-panel {
   padding: 24px;
@@ -1092,6 +1100,110 @@ tr:hover td { background: rgba(255,255,255,.02); }
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.admin-maintenance-card {
+  margin-bottom: 20px;
+  border-color: rgba(77, 139, 255, .32);
+  background:
+    radial-gradient(circle at top right, rgba(77, 139, 255, .12), transparent 47%),
+    linear-gradient(180deg, rgba(17, 24, 39, .95), rgba(13, 19, 32, .95));
+}
+
+.admin-maintenance-card[data-active="true"] {
+  border-color: rgba(245, 158, 11, .50);
+  background:
+    radial-gradient(circle at top right, rgba(245, 158, 11, .12), transparent 47%),
+    linear-gradient(180deg, rgba(17, 24, 39, .95), rgba(13, 19, 32, .95));
+}
+
+.admin-maintenance-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+.admin-maintenance-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.admin-maintenance-copy h3 {
+  margin: 5px 0 8px;
+  font-size: 1.2rem;
+}
+
+.admin-maintenance-copy > p:not(.eyebrow) {
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.65;
+  font-size: .86rem;
+}
+
+.admin-maintenance-meta {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 16px;
+  color: #86efac;
+  font-size: .83rem;
+}
+
+.admin-maintenance-card[data-active="true"] .admin-maintenance-meta,
+.admin-maintenance-card[data-active="unknown"] .admin-maintenance-meta {
+  color: #fcd34d;
+}
+
+.admin-maintenance-indicator {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 12px rgba(34, 197, 94, .38);
+  flex: 0 0 auto;
+}
+
+.admin-maintenance-card[data-active="true"] .admin-maintenance-indicator,
+.admin-maintenance-card[data-active="unknown"] .admin-maintenance-indicator {
+  background: var(--amber);
+  box-shadow: 0 0 12px rgba(245, 158, 11, .38);
+}
+
+.admin-maintenance-copy .admin-maintenance-detail {
+  margin-top: 7px !important;
+  font-size: .78rem !important;
+}
+
+.admin-maintenance-action {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.admin-maintenance-switch-label {
+  color: var(--text);
+  font-weight: 700;
+  font-size: .85rem;
+}
+
+.admin-maintenance-action .switch:has(input:disabled) {
+  cursor: progress;
+  opacity: .55;
+}
+
+@media (max-width: 650px) {
+  .admin-maintenance-main {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 18px;
+  }
+
+  .admin-maintenance-action {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 .switch-row {

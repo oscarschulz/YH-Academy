@@ -53,6 +53,8 @@ const plazaBusinessSocket =
       })
     : null;
 
+window.YHMaintenanceGuard?.attachSocket(plazaBusinessSocket);
+
 
 const YH_CANONICAL_PLAZAS = [
   {

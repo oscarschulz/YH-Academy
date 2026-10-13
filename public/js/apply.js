@@ -751,6 +751,7 @@ async function connectLandingRealtimeFeed() {
         transports: ['websocket', 'polling']
     });
 
+    window.YHMaintenanceGuard?.attachSocket(socket);
     yhLandingRealtimeSocket = socket;
 
     socket.on('connect', () => {

@@ -2092,6 +2092,9 @@ const applications = users.flatMap((user) => {
       'admin operational settings read failed:',
       error
     );
+
+    // Unknown must not be treated as disabled.
+    operationalSettings.maintenanceMode = null;
   }
 
   return {
