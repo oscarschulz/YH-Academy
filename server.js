@@ -112,7 +112,9 @@ const YH_LOCAL_DEV_ORIGINS =
     new Set([
         `http://localhost:${localServerPort}`,
         `http://127.0.0.1:${localServerPort}`,
-        `https://localhost:${localServerPort}`
+        `https://localhost:${localServerPort}`,
+        'http://localhost:5173',
+        'http://127.0.0.1:5173'
     ]);
 
 const isProductionYHServer =
@@ -172,6 +174,21 @@ function isAllowedYHClientOrigin(
      * There is intentionally NO
      * "if empty allow everything" fallback.
      */
+
+    /* YHU_LOCAL_VITE_CORS_V1
+     * Explicit opt-in for local Vite development only.
+     * Production origins remain restricted by allowedOrigins.
+     */
+    if (
+        process.env.YH_ALLOW_LOCAL_VITE_ORIGIN === '1' &&
+        (
+            cleanOrigin === 'http://localhost:5173' ||
+            cleanOrigin === 'http://127.0.0.1:5173'
+        )
+    ) {
+        return true;
+    }
+
     return allowedOrigins.has(
         cleanOrigin
     );
@@ -257,6 +274,7 @@ global.yhEmitPublicLandingSnapshot = emitPublicLandingSnapshotToClients;
 publicLandingNamespace.on('connection', async (socket) => {
     try {
         const maintenanceMode =
+            !isYHLocalDevelopmentConnection(socket.request) &&
             await adminOperationalSettingsSupabaseRepo
                 .isMaintenanceModeEnabled();
 
@@ -275,9 +293,11 @@ publicLandingNamespace.on('connection', async (socket) => {
         }
     } catch (error) {
         console.error(
-            'Public landing socket maintenance check failed open:',
+            'Public landing socket maintenance check unavailable; disconnecting:',
             error
         );
+        socket.disconnect(true);
+        return;
     }
 
     console.log(
@@ -1971,6 +1991,54 @@ async function ensureFederationLeadAccessGrant({
         nextSnap.data() ||
         {};
 
+    const grantRecord =
+        federationConnectSupabaseRepo.buildFederationPayload({
+            sourceCollectionPath:
+                'federationLeadAccessGrants',
+            sourceDocumentId:
+                grantId,
+            sourceDocumentPath:
+                `federationLeadAccessGrants/${grantId}`,
+            data: {
+                ...grant,
+                id: grantId
+            }
+        });
+
+    await federationConnectSupabaseRepo.upsertFederationRecord(
+        grantRecord
+    );
+
+    const updatedRequestSnap =
+        await firestore
+            .collection('federationConnectionRequests')
+            .doc(cleanRequestId)
+            .get();
+
+    if (!updatedRequestSnap.exists) {
+        throw new Error(
+            'Federation request disappeared during lead access sync.'
+        );
+    }
+
+    const syncedRequestRecord =
+        await syncFederationConnectionRequestToSupabaseRecord(
+            cleanRequestId,
+            {
+                ...updatedRequestSnap.data(),
+                id: cleanRequestId
+            },
+            {
+                source: 'federation-lead-access-grant'
+            }
+        );
+
+    if (!syncedRequestRecord) {
+        throw new Error(
+            'Federation lead access request Supabase sync failed.'
+        );
+    }
+
     return {
         id:
             grantId,
@@ -2981,7 +3049,7 @@ function isDeletedServerAccountRecord(userData = {}) {
     );
 }
 
-async function resolveActiveServerAuthUserFromToken(token = '') {
+async function resolveActiveServerAuthUserFromToken(token = '', options = {}) {
     const cleanToken = sanitizeText(token);
     if (!cleanToken) return null;
 
@@ -3001,13 +3069,26 @@ async function resolveActiveServerAuthUserFromToken(token = '') {
             };
         }
 
-        const userRow =
-            await yhuUsersSupabaseRepo
-                .getByUid(
-                    uid
-                );
+        let userRow;
+
+        try {
+            userRow = await yhuUsersSupabaseRepo.getByUid(uid);
+        } catch (lookupError) {
+            if (options.propagateIdentityErrors === true) {
+                lookupError.yhuIdentityLookupFailed = true;
+                throw lookupError;
+            }
+
+            return null;
+        }
 
         if (!userRow) {
+            if (options.propagateIdentityErrors === true) {
+                const missingError = new Error('YHU identity mirror not found.');
+                missingError.yhuIdentityMissing = true;
+                throw missingError;
+            }
+
             return null;
         }
 
@@ -3064,7 +3145,12 @@ async function resolveActiveServerAuthUserFromToken(token = '') {
                 'Hustler'
             )
         };
-    } catch (_) {
+    } catch (error) {
+        if (options.propagateIdentityErrors === true &&
+            (error?.yhuIdentityLookupFailed === true || error?.yhuIdentityMissing === true)) {
+            throw error;
+        }
+
         return null;
     }
 }
@@ -3088,7 +3174,9 @@ function getRequestToken(req) {
 
 async function verifyRequestUser(req) {
     const token = getRequestToken(req);
-    return resolveActiveServerAuthUserFromToken(token);
+    return resolveActiveServerAuthUserFromToken(token, {
+        propagateIdentityErrors: true
+    });
 }
 
 function buildExpiredServerAuthCookie() {
@@ -3108,7 +3196,26 @@ function buildExpiredServerAuthCookie() {
 }
 
 async function requireApiUser(req, res, next) {
-    const user = await verifyRequestUser(req);
+    let user;
+
+    try {
+        user = await verifyRequestUser(req);
+    } catch (error) {
+        console.error('YHU API identity verification failed:', error?.message || error);
+
+        const missingIdentity = error?.yhuIdentityMissing === true;
+
+        return res.status(missingIdentity ? 409 : 503).json({
+            success: false,
+            retryable: !missingIdentity,
+            code: missingIdentity
+                ? 'yhu_identity_sync_required'
+                : 'yhu_auth_lookup_unavailable',
+            message: missingIdentity
+                ? 'Your account identity needs synchronization. Please contact support.'
+                : 'Account verification is temporarily unavailable. Please try again.'
+        });
+    }
 
     if (!user?.id) {
         res.setHeader('Set-Cookie', buildExpiredServerAuthCookie());
@@ -3123,53 +3230,42 @@ async function requireApiUser(req, res, next) {
 
     req.user = user;
 
-    yhuUsersSupabaseRepo.patchByUid(
-        user.id,
-        {
-            accountStatus: 'active',
-            lastSeenAt: new Date().toISOString()
-        },
-        {
-            source: 'requireApiUser',
-            publicMetaPatch: {
-                accountStatus: 'active'
+    if (user.id !== 'local-superdev') {
+        yhuUsersSupabaseRepo.patchByUid(
+            user.id,
+            {
+                lastSeenAt: new Date().toISOString()
+            },
+            {
+                source: 'requireApiUser'
             }
-        }
-    ).catch((patchError) => {
-        console.error(
-            'YHU Supabase auth activity patch error:',
-            patchError?.message || patchError
-        );
-    });
+        ).catch((patchError) => {
+            console.error(
+                'YHU Supabase auth activity patch error:',
+                patchError?.message || patchError
+            );
+        });
+    }
 
     return next();
 }
 
-function isLocalSuperdevRuntimeEnabled() {
-    const expectedEmail = sanitizeText(process.env.LOCAL_SUPERDEV_EMAIL).toLowerCase();
-    const expectedUsername = sanitizeText(process.env.LOCAL_SUPERDEV_USERNAME).toLowerCase();
+// YHU_PRODUCTION_SAFE_LOCAL_SUPERDEV_GATE_V1
+let isLocalSuperdevIdentity = () => false;
 
-    if (!expectedEmail && !expectedUsername) return false;
+if (process.env.NODE_ENV !== 'production') {
+    try {
+        const localHelper = require('./backend/services/localSuperdevAccess');
+        if (typeof localHelper.isLocalSuperdevIdentity === 'function') {
+            isLocalSuperdevIdentity = localHelper.isLocalSuperdevIdentity;
+        }
+    } catch (error) {
+        const optionalHelperMissing =
+            error?.code === 'MODULE_NOT_FOUND' &&
+            String(error.message || '').includes('localSuperdevAccess');
 
-    return String(process.env.NODE_ENV || '').trim().toLowerCase() !== 'production';
-}
-
-function isLocalSuperdevIdentity(identity = {}) {
-    if (!isLocalSuperdevRuntimeEnabled()) return false;
-
-    const expectedEmail = sanitizeText(process.env.LOCAL_SUPERDEV_EMAIL).toLowerCase();
-    const expectedUsername = sanitizeText(process.env.LOCAL_SUPERDEV_USERNAME).toLowerCase();
-
-    const email = sanitizeText(identity.email || identity.emailLower).toLowerCase();
-    const username = sanitizeText(identity.username || identity.userName || identity.handle).toLowerCase();
-    const id = sanitizeText(identity.id || identity.firebaseUid || identity.uid).toLowerCase();
-
-    return (
-        Boolean(expectedEmail && email === expectedEmail) ||
-        Boolean(expectedUsername && username === expectedUsername) ||
-        id === 'local-superdev' ||
-        id === 'superdev'
-    );
+        if (!optionalHelperMissing) throw error;
+    }
 }
 
 function getLocalSuperdevDisplayName(identity = {}) {
@@ -4611,43 +4707,59 @@ global.yhEmitPlazaBusinessConversationUpdated =
 // ==========================================
 // ⚡ REAL-TIME SOCKET.IO LOGIC
 // ==========================================
-io.on('connection', async (socket) => {
+io.use(async (socket, next) => {
     try {
-        const maintenanceMode =
+        socket.data.yhMaintenanceCheckFailed = false;
+
+        socket.data.yhMaintenanceMode =
+            !isYHLocalDevelopmentConnection(socket.request) &&
             await adminOperationalSettingsSupabaseRepo
                 .isMaintenanceModeEnabled();
 
-        if (maintenanceMode) {
-            socket.emit(
-                'maintenanceMode',
-                {
-                    enabled: true,
-                    message:
-                        'Young Hustlers Universe is temporarily under maintenance.'
-                }
-            );
-
-            socket.disconnect(true);
-            return;
+        if (!socket.data.yhMaintenanceMode) {
+            socket.user = await verifySocketUser(socket);
         }
     } catch (error) {
+        socket.data.yhMaintenanceCheckFailed = true;
+
         console.error(
-            'Socket maintenance mode check failed open:',
+            'Socket preconnection check unavailable; disconnecting:',
             error
         );
     }
 
-    const socketUser =
-        await verifySocketUser(socket);
+    next();
+});
 
-
-    if (!socketUser?.id) {
-        socket.emit('socketAuthError', { message: 'Unauthorized socket session.' });
+io.on('connection', (socket) => {
+    if (socket.data.yhMaintenanceCheckFailed) {
         socket.disconnect(true);
         return;
     }
 
-    socket.user = socketUser;
+    if (socket.data.yhMaintenanceMode) {
+        socket.emit(
+            'maintenanceMode',
+            {
+                enabled: true,
+                message:
+                    'Young Hustlers Universe is temporarily under maintenance.'
+            }
+        );
+
+        socket.disconnect(true);
+        return;
+    }
+
+    if (!socket.user?.id) {
+        socket.emit('socketAuthError', {
+            message: 'Unauthorized socket session.'
+        });
+
+        socket.disconnect(true);
+        return;
+    }
+
     console.log('⚡ A hustler connected:', socket.id, socket.user.id);
 
     socket.join(getBusinessChatUserRoom(socket.user.id));
@@ -7230,7 +7342,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                             updatedAt: now,
                             paymentUpdatedAt: now
                         };
-                        await paymentLedgerRepo.upsertPaymentRecord({
+                        const savedFederationPayment = await paymentLedgerRepo.upsertPaymentRecord({
                             id: paymentLedgerId || sanitizeText(current.paymentLedgerId),
                             sourceDivision: 'federation',
                             sourceFeature: metadata.kind === 'federation_lead_purchase' ? 'lead_purchase' : 'paid_intro',
@@ -7265,6 +7377,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                             }
                         });
 
+                        paymentPatch.paymentLedgerId = savedFederationPayment.id;
+
                         await requestRef.set(paymentPatch, { merge: true });
 
                         const syncedRequest = {
@@ -7272,6 +7386,21 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                             ...current,
                             ...paymentPatch
                         };
+
+                        const federationRecord =
+                            await syncFederationConnectionRequestToSupabaseRecord(
+                                requestId,
+                                syncedRequest,
+                                {
+                                    source: 'stripe-webhook:checkout-session-completed'
+                                }
+                            );
+
+                        if (!federationRecord) {
+                            throw new Error(
+                                'Stripe Federation paid request Supabase sync failed.'
+                            );
+                        }
 
                         const academyEconomySynced =
                             await syncStripePaidFederationRequestToAcademyEconomy(
@@ -7886,7 +8015,7 @@ app.post('/api/oxapay/webhook', express.raw({ type: 'application/json' }), async
                 paymentUpdatedAt: now
             };
 
-            await paymentLedgerRepo.upsertPaymentRecord({
+            const savedFederationPayment = await paymentLedgerRepo.upsertPaymentRecord({
                 id: sanitizeText(current.paymentLedgerId),
                 sourceDivision: 'federation',
                 sourceFeature: 'lead_purchase',
@@ -7926,6 +8055,8 @@ app.post('/api/oxapay/webhook', express.raw({ type: 'application/json' }), async
                 }
             });
 
+            paymentPatch.paymentLedgerId = savedFederationPayment.id;
+
             await requestRef.set(paymentPatch, { merge: true });
 
             const syncedRequest = {
@@ -7933,6 +8064,21 @@ app.post('/api/oxapay/webhook', express.raw({ type: 'application/json' }), async
                 ...current,
                 ...paymentPatch
             };
+
+            const federationRecord =
+                await syncFederationConnectionRequestToSupabaseRecord(
+                    requestId,
+                    syncedRequest,
+                    {
+                        source: 'oxapay-webhook:invoice-paid'
+                    }
+                );
+
+            if (!federationRecord) {
+                throw new Error(
+                    'OxaPay Federation paid request Supabase sync failed.'
+                );
+            }
 
             const academyEconomySynced =
                 await syncStripePaidFederationRequestToAcademyEconomy(
@@ -7976,7 +8122,7 @@ app.post('/api/oxapay/webhook', express.raw({ type: 'application/json' }), async
                 sentAt: new Date().toISOString(),
                 createdBy: 'oxapay-webhook'
             }).catch(() => null);
-        } else if (isPaying) {
+        } else if (isPaying && !isFederationLeadPurchasePaid(current)) {
             await requestRef.set({
                 paymentStatus: 'paying',
                 paymentLedgerStatus: 'pending',
@@ -8050,21 +8196,13 @@ if (
     p === '/academy/' ||
     p === '/plaza' ||
     p === '/plaza/' ||
-    p === '/plaza.html' ||
     p === '/business-chats' ||
     p === '/business-chats/' ||
-    p === '/business-chats.html' ||
-    p === '/js/business-chats.js' ||
-    p === '/css/business-chats.css' ||
     p === '/collections' ||
     p === '/collections/' ||
     p.startsWith('/collections/') ||
     p.startsWith('/collections-login/') ||
     p.startsWith('/collections-assets/') ||
-    p === '/js/dashboard.js' ||
-    p === '/js/academy.js' ||
-    p === '/js/plaza.js' ||
-    p === '/css/plaza.css' ||
     p === '/js/dashboard-mobile-fix.js' ||
     p === '/js/yh-shared-core.js' ||
     p === '/js/yh-shared-runtime.js'
@@ -8080,12 +8218,27 @@ if (
 
 const YH_MAINTENANCE_ADMIN_ASSET_PATHS =
     new Set([
-        '/admin-login.css',
-        '/admin-login.js',
-        '/admin-panel.css',
-        '/admin-panel.js',
-        '/images/logo.png'
+        '/admin-react-panel.css',
+        '/images/logo.png',
+        '/images/landing/new%20bg.png',
+        '/images/landing/new bg.png'
     ]);
+
+function isYHLocalDevelopmentConnection(req = {}) {
+    if (isProductionYHServer) {
+        return false;
+    }
+
+    const remoteAddress = String(
+        req?.socket?.remoteAddress || ''
+    ).trim();
+
+    return [
+        '127.0.0.1',
+        '::1',
+        '::ffff:127.0.0.1'
+    ].includes(remoteAddress);
+}
 
 let yhMaintenanceReadErrorLoggedAt = 0;
 
@@ -8122,6 +8275,15 @@ function isYHMaintenanceBypassRequest(req = {}) {
         pathName.startsWith(
             '/api/admin/'
         )
+    ) {
+        return true;
+    }
+
+    /* YHU_ADMIN_PHASE2_GUARDED_CUTOVER_V2: Vite static assets for Admin during maintenance */
+    if (
+        ['GET', 'HEAD'].includes(method) &&
+        /^\/assets\/[A-Za-z0-9_./-]+\.(?:js|css|woff2?|png|svg|jpe?g|webp|gif)$/.test(pathName) &&
+        !pathName.includes('..')
     ) {
         return true;
     }
@@ -8201,104 +8363,350 @@ function sendYHMaintenanceResponse(
         .send(`<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  />
-  <title>YH Universe Maintenance</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Under Maintenance | Young Hustlers Universe</title>
 
   <style>
+    :root {
+      color-scheme: dark;
+    }
+
     * {
       box-sizing: border-box;
     }
 
-    body {
+    html, body {
+      min-height: 100%;
       margin: 0;
+    }
+
+    body {
+      position: relative;
+      isolation: isolate;
       min-height: 100vh;
+      min-height: 100dvh;
       display: grid;
       place-items: center;
-      background: #030712;
-      color: #e5eef8;
-      font-family: Arial, Helvetica, sans-serif;
-      padding: 24px;
+      overflow-x: hidden;
+      padding:
+        max(24px, env(safe-area-inset-top))
+        18px
+        max(24px, env(safe-area-inset-bottom));
+      background: #02050d;
+      color: #f8fafc;
+      font-family:
+        Poppins, ui-sans-serif, system-ui,
+        -apple-system, 'Segoe UI', sans-serif;
     }
 
-    .card {
-      width: min(560px, 100%);
-      padding: 34px 28px;
-      border: 1px solid #16324c;
-      border-radius: 24px;
-      background: #07111f;
-      text-align: center;
+    .landing-preview {
+      position: fixed;
+      inset: -12px;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+      user-select: none;
+      filter: blur(5px) saturate(.75) brightness(.75);
+      transform: scale(1.025);
+      background:
+        url('/images/landing/new%20bg.png')
+          center top / cover no-repeat,
+        #02050d;
     }
 
-    .eyebrow {
-      font-size: 12px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: #38bdf8;
+    .preview-brand {
+      position: absolute;
+      top: 5%;
+      left: 6%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #fff;
+      font-size: 15px;
       font-weight: 800;
     }
 
-    .mark {
-      width: 64px;
-      height: 64px;
-      margin: 18px auto;
+    .preview-brand img {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+    }
+
+    .preview-hero {
+      position: absolute;
+      top: 24%;
+      left: 8%;
+      width: min(530px, 84%);
+    }
+
+    .preview-hero h2 {
+      margin: 0 0 20px;
+      color: #fff;
+      font-size: clamp(36px, 5vw, 76px);
+      line-height: 1;
+      letter-spacing: -.035em;
+      font-weight: 900;
+    }
+
+    .preview-hero h2 span {
+      color: #38bdf8;
+    }
+
+    .preview-hero p {
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .preview-auth {
+      position: absolute;
+      top: 72%;
+      left: 30%;
+      width: min(700px, 65%);
+      min-height: 230px;
+      border: 1px solid rgba(56,189,248,.25);
+      border-radius: 24px;
+      background: rgba(12,24,43,.85);
+      padding: 32px;
+      text-align: center;
+    }
+
+    .preview-auth strong {
+      display: block;
+      font-size: 24px;
+      margin-bottom: 24px;
+    }
+
+    .preview-auth span {
+      display: block;
+      width: min(320px, 90%);
+      height: 36px;
+      margin: 12px auto;
+      border: 1px solid rgba(56,189,248,.35);
       border-radius: 20px;
-      display: grid;
-      place-items: center;
-      background: #0b2238;
-      border: 1px solid #1c567f;
-      font-size: 30px;
+    }
+
+    .maintenance-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      background: rgba(2,6,23,.70);
+      pointer-events: none;
+    }
+
+    main {
+      position: relative;
+      z-index: 2;
+      width: min(550px, 100%);
+      padding: clamp(30px, 5vw, 54px)
+               clamp(22px, 5vw, 44px);
+      text-align: center;
+      border: 1px solid rgba(125,180,255,.27);
+      border-radius: 28px;
+      background:
+        radial-gradient(
+          circle at 50% 0%,
+          rgba(56,189,248,.12),
+          transparent 58%
+        ),
+        rgba(9,18,35,.97);
+      box-shadow:
+        0 32px 100px rgba(0,0,0,.65),
+        inset 0 1px 0 rgba(255,255,255,.035);
+    }
+
+    @media (max-width: 620px) {
+      .preview-brand {
+        font-size: 12px;
+      }
+
+      .preview-hero {
+        top: 20%;
+        left: 7%;
+      }
+
+      .preview-hero h2 {
+        font-size: clamp(34px, 9vw, 54px);
+      }
+
+      .preview-auth {
+        top: 72%;
+        left: 9%;
+        width: 82%;
+        padding: 20px;
+      }
+
+      main {
+        border-radius: 22px;
+      }
+    }
+
+    .logo {
+      width: 72px;
+      height: 72px;
+      display: block;
+      object-fit: contain;
+      margin: 0 auto 24px;
+    }
+
+    .eyebrow {
+      color: #8bb3ff;
+      font-size: 11px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      font-weight: 800;
     }
 
     h1 {
-      margin: 0 0 12px;
-      font-size: 30px;
+      font-size: clamp(30px, 6vw, 46px);
+      line-height: 1.18;
+      letter-spacing: -.035em;
+      margin: 18px 0;
+      font-weight: 800;
     }
 
     p {
-      margin: 0;
-      color: #9fb0c8;
-      line-height: 1.75;
+      color: #b9c8dd;
+      font-size: clamp(14px, 2.5vw, 16px);
+      line-height: 1.8;
+      margin: 0 auto;
+      max-width: 510px;
+    }
+
+    .supporting {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #91a5bd;
     }
 
     .status {
-      margin-top: 22px;
-      padding: 12px;
-      border-radius: 14px;
-      background: #030712;
-      border: 1px solid #16324c;
-      color: #7dd3fc;
-      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      margin-top: 30px;
+      border: 1px solid rgba(77,139,255,.24);
+      background: rgba(77,139,255,.08);
+      border-radius: 100px;
+      font-size: 12px;
+      color: #c5dcff;
       font-weight: 700;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #f59e0b;
+      border-radius: 50%;
+    }
+
+    .foot {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #7587a1;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .status-dot {
+        animation: pulse 2.4s ease-in-out infinite;
+      }
+    }
+
+    @keyframes pulse {
+      50% {
+        opacity: .45;
+      }
     }
   </style>
 </head>
 
 <body>
-  <main class="card">
+  <div class="landing-preview" aria-hidden="true">
+    <div class="preview-brand">
+      <img src="/images/logo.png" alt="">
+      <span>Young Hustlers Universe</span>
+    </div>
+
+    <div class="preview-hero">
+      <h2>
+        The Future<br>
+        of Global<br>
+        <span>Networking</span>
+      </h2>
+      <p>
+        The old world ran on information.<br>
+        The next one runs on trust, access,
+        and verified people.
+      </p>
+    </div>
+
+    <div class="preview-auth">
+      <strong>Access Terminal</strong>
+      <span></span>
+      <span></span>
+    </div>
+  </div>
+
+  <div class="maintenance-overlay" aria-hidden="true"></div>
+
+  <main role="main" aria-labelledby="maintenance-title">
+    <img
+      class="logo"
+      src="/images/logo.png"
+      alt="Young Hustlers Universe logo"
+      width="72"
+      height="72"
+    >
+
     <div class="eyebrow">
       Young Hustlers Universe
     </div>
 
-    <div class="mark">
-      ⚙
-    </div>
-
-    <h1>
-      We’ll be back shortly.
+    <h1 id="maintenance-title">
+      We're making things better.
     </h1>
 
     <p>
-      YH Universe is temporarily under maintenance while we make an operational update. Please try again in a few minutes.
+      Sorry, Young Hustlers Universe is currently undergoing
+      maintenance. We're making improvements behind the
+      scenes to give you a better experience.
     </p>
 
-    <div class="status">
-      Maintenance mode is currently active.
+    <p class="supporting">
+      The platform is temporarily unavailable.
+      We'll be back as soon as maintenance is complete.
+    </p>
+
+    <div class="status" role="status">
+      <span class="status-dot" aria-hidden="true"></span>
+      Under maintenance
+    </div>
+
+    <div class="foot">
+      Thank you for your patience.
     </div>
   </main>
+
+  <script>
+    // Passive status check; no interactive controls.
+    setInterval(async function () {
+      try {
+        const result = await fetch('/', {
+          method: 'HEAD',
+          cache: 'no-store'
+        });
+
+        if (result.ok) {
+          window.location.replace('/');
+        }
+      } catch (_) {
+        // Remain on maintenance notice.
+      }
+    }, 20000);
+  </script>
 </body>
 </html>`);
 }
@@ -8310,9 +8718,8 @@ app.use(
         next
     ) => {
         if (
-            isYHMaintenanceBypassRequest(
-                req
-            )
+            isYHLocalDevelopmentConnection(req) ||
+            isYHMaintenanceBypassRequest(req)
         ) {
             return next();
         }
@@ -8345,12 +8752,12 @@ app.use(
                     now;
 
                 console.error(
-                    'Maintenance mode read failed open:',
+                    'Maintenance mode read unavailable; blocking member request:',
                     error
                 );
             }
 
-            return next();
+            return sendYHMaintenanceResponse(req, res);
         }
     }
 );
@@ -8572,11 +8979,8 @@ app.get('/collections-login/:loginAccessKey', (req, res) => {
         return res.status(404).send('Not found');
     }
 
-    const filePath = path.join(__dirname, 'private', 'collections-login', 'login.html');
-
     sendPrivateNoStoreHeaders(res);
-
-    return res.sendFile(filePath);
+    return sendYHReactShell(req, res);
 });
 
 app.post('/collections-login/:loginAccessKey', async (req, res) => {
@@ -8633,11 +9037,8 @@ app.get('/collections/:loginAccessKey', (req, res) => {
         return res.redirect(`/collections-login/${encodeURIComponent(loginAccessKey)}`);
     }
 
-    const filePath = path.join(__dirname, 'private', 'collections', 'collections.html');
-
     sendPrivateNoStoreHeaders(res);
-
-    return res.sendFile(filePath);
+    return sendYHReactShell(req, res);
 });
 
 app.get('/collections-assets/collections.css', (req, res) => {
@@ -8655,7 +9056,20 @@ app.use(async (req, res, next) => {
         return next();
     }
 
-    const user = await verifyRequestUser(req);
+    let user;
+
+    try {
+        user = await verifyRequestUser(req);
+    } catch (error) {
+        console.error('YHU Plaza identity verification failed:', error?.message || error);
+        const missingIdentity = error?.yhuIdentityMissing === true;
+
+        return res.status(missingIdentity ? 409 : 503).send(
+            missingIdentity
+                ? 'Your account identity needs synchronization. Please contact support.'
+                : 'Account verification is temporarily unavailable. Please try again.'
+        );
+    }
 
     if (!user?.id) {
         return res.redirect('/?redirect=plaza');
@@ -8738,6 +9152,102 @@ app.get('/favicon.ico', (req, res) => {
     );
 });
 
+
+/* YHU_LEGACY_REFERENCE_QUARANTINE
+ *
+ * Legacy HTML/JS/CSS owners are intentionally retained
+ * on disk for migration/reference auditing only.
+ *
+ * They must never regain runtime ownership now that
+ * Vite/React is the canonical frontend.
+ */
+
+const YHU_LEGACY_REFERENCE_REDIRECTS = new Map([
+    ['/apply.html', '/'],
+    ['/dashboard.html', '/dashboard'],
+    ['/academy.html', '/academy'],
+    ['/plaza.html', '/plaza'],
+    ['/federation.html', '/federation'],
+    ['/business-chats.html', '/business-chats'],
+    ['/privacy.html', '/privacy'],
+    ['/terms.html', '/terms'],
+    ['/child-safety.html', '/child-safety'],
+    ['/delete-account.html', '/delete-account']
+]);
+
+app.use((req, res, next) => {
+    const pathName =
+        String(req.path || '')
+            .replace(/\/+$/, '') ||
+        '/';
+
+    const target =
+        YHU_LEGACY_REFERENCE_REDIRECTS
+            .get(pathName);
+
+    if (!target) {
+        return next();
+    }
+
+    const originalUrl =
+        String(req.originalUrl || '');
+
+    const queryIndex =
+        originalUrl.indexOf('?');
+
+    const query =
+        queryIndex >= 0
+            ? originalUrl.slice(queryIndex)
+            : '';
+
+    return res.redirect(
+        302,
+        `${target}${query}`
+    );
+});
+
+const YHU_LEGACY_REFERENCE_ASSETS =
+    new Set([
+        '/js/apply.js',
+        '/js/dashboard.js',
+        '/js/academy.js',
+        '/js/plaza.js',
+        '/js/federation.js',
+        '/js/business-chats.js',
+        '/css/plaza.css',
+        '/css/federation.css',
+        '/css/business-chats.css'
+    ]);
+
+app.use((req, res, next) => {
+    const pathName =
+        String(req.path || '')
+            .replace(/\/+$/, '') ||
+        '/';
+
+    if (
+        !YHU_LEGACY_REFERENCE_ASSETS
+            .has(pathName)
+    ) {
+        return next();
+    }
+
+    res.setHeader(
+        'Cache-Control',
+        'no-store'
+    );
+
+    return res
+        .status(404)
+        .send('Not Found');
+});
+
+
+// Academy Embed legacy URL now served by React before public static files.
+app.get('/academy-embed.html', (req, res) => {
+    return sendYHReactShell(req, res);
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
     etag: true,
     lastModified: true,
@@ -8745,19 +9255,9 @@ app.use(express.static(path.join(__dirname, 'public'), {
         const normalized = String(filePath || '').replace(/\\/g, '/');
 
         if (
-            normalized.endsWith('/public/js/dashboard.js') ||
-            normalized.endsWith('/public/js/academy.js') ||
-            normalized.endsWith('/public/js/plaza.js') ||
-            normalized.endsWith('/public/js/business-chats.js') ||
-            normalized.endsWith('/public/css/plaza.css') ||
-            normalized.endsWith('/public/css/business-chats.css') ||
             normalized.endsWith('/public/js/dashboard-mobile-fix.js') ||
             normalized.endsWith('/public/js/yh-shared-core.js') ||
-            normalized.endsWith('/public/js/yh-shared-runtime.js') ||
-            normalized.endsWith('/public/dashboard.html') ||
-            normalized.endsWith('/public/academy.html') ||
-            normalized.endsWith('/public/plaza.html') ||
-            normalized.endsWith('/public/business-chats.html')
+            normalized.endsWith('/public/js/yh-shared-runtime.js')
         ) {
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
             res.setHeader('Pragma', 'no-cache');
@@ -8945,8 +9445,6 @@ const { startAiNurtureWorker } = require('./backend/services/aiNurtureWorker');
 const academyMemberProfileSupabaseRepo = require('./backend/repositories/academyMemberProfileSupabaseRepo');
 
 const { pageRouter: adminPageRouter, apiRouter: adminApiRouter } = createAdminRouters({
-    privateAdminDir: path.join(__dirname, 'private', 'admin'),
-
     onMaintenanceModeChanged: async (enabled) => {
         if (!enabled) {
             return;
@@ -8981,26 +9479,138 @@ const { pageRouter: adminPageRouter, apiRouter: adminApiRouter } = createAdminRo
 app.use(adminApiRouter);
 app.use(adminPageRouter);
 
-function sendYHSoftProtectedShell(req, res, fileName = 'dashboard.html') {
+
+/* YHU_REACT_SPA_CUTOVER */
+
+const YHU_REACT_DIST_DIR =
+    path.join(
+        __dirname,
+        'frontend',
+        'dist'
+    );
+
+const YHU_REACT_INDEX_FILE =
+    path.join(
+        YHU_REACT_DIST_DIR,
+        'index.html'
+    );
+
+app.use(
+    express.static(
+        YHU_REACT_DIST_DIR,
+        {
+            index: false,
+            fallthrough: true
+        }
+    )
+);
+
+function sendYHReactShell(req, res) {
+    sendPrivateNoStoreHeaders(res);
+
+    return res.sendFile(
+        YHU_REACT_INDEX_FILE
+    );
+}
+
+function redirectLegacyYhuPage(targetPath) {
+    return (req, res) => {
+        const originalUrl =
+            String(
+                req.originalUrl ||
+                ''
+            );
+
+        const queryIndex =
+            originalUrl.indexOf('?');
+
+        const query =
+            queryIndex >= 0
+                ? originalUrl.slice(
+                    queryIndex
+                )
+                : '';
+
+        return res.redirect(
+            302,
+            `${targetPath}${query}`
+        );
+    };
+}
+
+/*
+ * Compatibility for old bookmarks and payment return URLs.
+ */
+app.get(
+    '/apply.html',
+    redirectLegacyYhuPage('/')
+);
+
+app.get(
+    '/dashboard.html',
+    redirectLegacyYhuPage('/dashboard')
+);
+
+app.get(
+    '/academy.html',
+    redirectLegacyYhuPage('/academy')
+);
+
+app.get(
+    '/plaza.html',
+    redirectLegacyYhuPage('/plaza')
+);
+
+app.get(
+    '/federation.html',
+    redirectLegacyYhuPage('/federation')
+);
+
+app.get(
+    '/business-chats.html',
+    redirectLegacyYhuPage('/business-chats')
+);
+
+app.get(
+    '/apply',
+    redirectLegacyYhuPage('/')
+);
+
+/*
+ * React landing/auth ownership.
+ */
+app.get(
+    '/',
+    sendYHReactShell
+);
+
+app.get(
+    /^\/(?:login|register|forgot-password)\/?$/,
+    sendYHReactShell
+);
+
+/*
+ * React application/workspace ownership.
+ *
+ * dashboard-v3 and academy-embed remain separate.
+ */
+app.get(
+    /^\/(?:dashboard|messages|academy(?:\/.*)?|plaza(?:\/.*)?|federation(?:\/.*)?|business-chats(?:\/.*)?|profile|wallet|settings)\/?$/,
+    sendYHReactShell
+);
+
+function sendYHSoftProtectedShell(req, res, fileName) {
     sendPrivateNoStoreHeaders(res);
     return res.sendFile(path.join(__dirname, 'public', fileName));
 }
-
-app.get(['/dashboard', '/dashboard/'], (req, res) => {
-    return sendYHSoftProtectedShell(req, res, 'dashboard.html');
-});
 
 // Legacy Academy embed retired.
 // Current Academy experience is owned by the unified /dashboard workspace.
 // Route intentionally disabled pending final regression validation.
 
-app.get(['/academy', '/academy/'], (req, res) => {
-    return sendYHSoftProtectedShell(req, res, 'academy.html');
-});
+app.get(/^\/(?:privacy|terms|child-safety|delete-account)\/?$/, sendYHReactShell);
 
-app.get(['/federation', '/federation/'], (req, res) => {
-    return sendYHSoftProtectedShell(req, res, 'federation.html');
-});
+app.get('/academy-embed', (req, res) => sendYHReactShell(req, res));
 
 app.use('/', viewRoutes);
 app.post(
@@ -10165,24 +10775,11 @@ async function requireFederationApiAccess(req, res, next) {
 }
 
 function mapFederationRequestDoc(docSnap) {
-    const data = docSnap.data() || {};
-
-    return {
-        id: docSnap.id,
-        leadId: sanitizeText(data.leadId),
-        ownerUid: sanitizeText(data.ownerUid),
-        opportunityTitle: sanitizeText(data.opportunityTitle),
-        status: sanitizeText(data.status || 'pending_admin_match'),
-        adminStatus: sanitizeText(data.adminStatus || 'pending_review'),
-        budgetRange: sanitizeText(data.budgetRange || 'not_sure'),
-        urgency: sanitizeText(data.urgency || 'normal'),
-        preferredIntroType: sanitizeText(data.preferredIntroType || 'admin_brokered'),
-        requestReason: sanitizeText(data.requestReason),
-        intendedUse: sanitizeText(data.intendedUse),
-        notes: sanitizeText(data.notes),
-        createdAt: mapFederationConnectTimestamp(data.createdAt),
-        updatedAt: mapFederationConnectTimestamp(data.updatedAt)
-    };
+    const mapped = mapFederationSupabaseRequestRecord({
+        source_document_id: docSnap.id,
+        data: federationConnectSupabaseRepo.normalizeValue(docSnap.data() || {})
+    });
+    return { ...mapped, sourceDatabase: 'firestore', source: 'firestore' };
 }
 
 function normalizeFederationDealRoomType(value = '') {
@@ -10607,8 +11204,8 @@ function mapFederationSupabaseRequestRecord(row = {}) {
         ...data,
         id: sanitizeText(row.source_document_id || data.id || row.id),
         leadId: sanitizeText(data.leadId),
-        ownerUid: sanitizeText(data.ownerUid || data.ownerUserId || row.owner_user_id),
-        requesterUid: sanitizeText(data.requesterUid || data.requesterId || data.userId || row.owner_user_id),
+        ownerUid: sanitizeText(data.ownerUid || data.ownerUserId || data.sellerUid || data.sellerId),
+        requesterUid: sanitizeText(data.requesterUid || data.requesterId || data.buyerUid || data.buyerId || data.userId),
         requesterName: sanitizeText(data.requesterName || data.memberName || data.buyerName || ''),
         requesterEmail: sanitizeText(data.requesterEmail || data.email || '').toLowerCase(),
         targetUserId: sanitizeText(data.targetUserId || data.targetUid || data.providerUid || row.target_user_id),
@@ -10662,31 +11259,49 @@ function mapFederationSupabaseDealRoomRecord(row = {}) {
 
 function mergeFederationRowsById(primary = [], secondary = []) {
     const merged = [];
-    const seen = new Set();
+    const positions = new Map();
 
     [...primary, ...secondary].forEach((item) => {
         const id = sanitizeText(item && item.id);
+        if (!id) return;
 
-        if (!id || seen.has(id)) return;
+        const existingIndex = positions.get(id);
 
-        seen.add(id);
-        merged.push(item);
+        if (existingIndex === undefined) {
+            positions.set(id, merged.length);
+            merged.push(item);
+            return;
+        }
+
+        const existing = merged[existingIndex];
+        const incomingTime = Date.parse(String(item.updatedAt || '')) || 0;
+        const existingTime = Date.parse(String(existing.updatedAt || '')) || 0;
+
+        if (incomingTime > existingTime) {
+            merged[existingIndex] = item;
+        }
     });
 
     return merged;
 }
 
 async function listFederationSupabaseRequestsForUser(userId = '', limit = 100) {
-    const cleanUserId = sanitizeText(userId);
-
-    if (!cleanUserId) return [];
-
-    const rows = await federationConnectSupabaseRepo.listFederationRecords('connection_request', {
-        ownerUserId: cleanUserId,
-        limit
+    const uid = sanitizeText(userId);
+    if (!uid) return [];
+    const keys = ['requesterUid', 'requesterId', 'buyerUid', 'buyerId', 'userId'];
+    const groups = await Promise.all(keys.map(key =>
+        federationConnectSupabaseRepo.listFederationRecords('connection_request', {
+            dataContains: { [key]: uid }, limit
+        })
+    ));
+    const rows = groups.flat().filter(row => {
+        const data = row?.data || {};
+        const requester = keys.map(key => sanitizeText(data[key])).find(Boolean);
+        return requester === uid;
     });
-
-    return rows.map(mapFederationSupabaseRequestRecord);
+    return mergeFederationRowsById(rows.map(mapFederationSupabaseRequestRecord), [])
+        .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+        .slice(0, limit);
 }
 
 async function listFederationFirebaseRequestsForUser(userId = '', limit = 100) {
@@ -10707,42 +11322,51 @@ async function listFederationFirebaseRequestsForUser(userId = '', limit = 100) {
 }
 
 async function listFederationMergedRequestsForUser(userId = '', limit = 100) {
-    const supabaseRequests = await listFederationSupabaseRequestsForUser(userId, limit).catch((error) => {
-        console.error('Federation Supabase requests read failed:', error?.message || error);
-        return [];
+    const results = await Promise.allSettled([
+        listFederationSupabaseRequestsForUser(userId, limit),
+        listFederationFirebaseRequestsForUser(userId, limit)
+    ]);
+    if (results.every(result => result.status === 'rejected')) {
+        const error = new Error('Federation requests could not be loaded from either data source.');
+        error.statusCode = 503;
+        throw error;
+    }
+    results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+            console.error('Federation requests read fallback:', index === 0 ? 'Supabase' : 'Firestore', result.reason?.message);
+        }
     });
-
-    const firebaseRequests = await listFederationFirebaseRequestsForUser(userId, limit).catch((error) => {
-        console.error('Federation Firebase requests fallback read failed:', error?.message || error);
-        return [];
-    });
-
-    const requests = mergeFederationRowsById(supabaseRequests, firebaseRequests);
-
-    requests.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-
-    return requests.slice(0, limit);
+    const primary = results[0].status === 'fulfilled' ? results[0].value : [];
+    const fallback = results[1].status === 'fulfilled' ? results[1].value : [];
+    return mergeFederationRowsById(primary, fallback)
+        .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+        .slice(0, limit);
 }
 
 async function listFederationSupabaseDealRoomsForUser(userId = '', limit = 100) {
-    const cleanUserId = sanitizeText(userId);
-
-    if (!cleanUserId) return [];
-
-    const ownerRows = await federationConnectSupabaseRepo.listFederationRecords('deal_room', {
-        ownerUserId: cleanUserId,
-        limit
-    }).catch(() => []);
-
-    const targetRows = await federationConnectSupabaseRepo.listFederationRecords('deal_room', {
-        targetUserId: cleanUserId,
-        limit
-    }).catch(() => []);
-
-    return mergeFederationRowsById(
-        ownerRows.map(mapFederationSupabaseDealRoomRecord),
-        targetRows.map(mapFederationSupabaseDealRoomRecord)
-    );
+    const uid = sanitizeText(userId);
+    if (!uid) return [];
+    const filters = [
+        { dataContains: { participantUids: [uid] }, limit },
+        { dataContains: { creatorUid: uid }, limit },
+        { ownerUserId: uid, limit },
+        { targetUserId: uid, limit }
+    ];
+    const groups = await Promise.all(filters.map(filter =>
+        federationConnectSupabaseRepo.listFederationRecords('deal_room', filter)
+    ));
+    const rows = groups.flat().filter(row => {
+        const data = row?.data || {};
+        if (Array.isArray(data.participantUids)) {
+            return data.participantUids.some(id => sanitizeText(id) === uid);
+        }
+        // Older records without participant lists retain creator/owner/target access.
+        return [data.creatorUid, data.ownerUid, row.owner_user_id, row.target_user_id]
+            .some(id => sanitizeText(id) === uid);
+    });
+    return mergeFederationRowsById(rows.map(mapFederationSupabaseDealRoomRecord), [])
+        .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+        .slice(0, limit);
 }
 
 async function listFederationFirebaseDealRoomsForUser(userId = '', limit = 100) {
@@ -10763,21 +11387,25 @@ async function listFederationFirebaseDealRoomsForUser(userId = '', limit = 100) 
 }
 
 async function listFederationMergedDealRoomsForUser(userId = '', limit = 100) {
-    const supabaseRooms = await listFederationSupabaseDealRoomsForUser(userId, limit).catch((error) => {
-        console.error('Federation Supabase deal rooms read failed:', error?.message || error);
-        return [];
+    const results = await Promise.allSettled([
+        listFederationSupabaseDealRoomsForUser(userId, limit),
+        listFederationFirebaseDealRoomsForUser(userId, limit)
+    ]);
+    if (results.every(result => result.status === 'rejected')) {
+        const error = new Error('Federation Deal Rooms could not be loaded from either data source.');
+        error.statusCode = 503;
+        throw error;
+    }
+    results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+            console.error('Federation Deal Rooms read fallback:', index === 0 ? 'Supabase' : 'Firestore', result.reason?.message);
+        }
     });
-
-    const firebaseRooms = await listFederationFirebaseDealRoomsForUser(userId, limit).catch((error) => {
-        console.error('Federation Firebase deal rooms fallback read failed:', error?.message || error);
-        return [];
-    });
-
-    const rooms = mergeFederationRowsById(supabaseRooms, firebaseRooms);
-
-    rooms.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-
-    return rooms.slice(0, limit);
+    const primary = results[0].status === 'fulfilled' ? results[0].value : [];
+    const fallback = results[1].status === 'fulfilled' ? results[1].value : [];
+    return mergeFederationRowsById(primary, fallback)
+        .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+        .slice(0, limit);
 }
 
 app.get('/api/federation/command', requireApiUser, requireFederationApiAccess, async (req, res) => {
@@ -11183,6 +11811,87 @@ app.get('/api/federation/connect/requests/:requestId/unlocked-lead', requireApiU
             });
         }
 
+        const paymentLedgerId =
+            sanitizeText(request.paymentLedgerId);
+
+        if (!paymentLedgerId) {
+            return res.status(402).json({
+                success: false,
+                message: 'A verified payment ledger is required before unlocking lead details.'
+            });
+        }
+
+        let payment = null;
+
+        try {
+            payment = await paymentLedgerRepo.getPaymentRecordById(
+                paymentLedgerId
+            );
+        } catch (error) {
+            if (Number(error?.statusCode || 0) !== 404) {
+                throw error;
+            }
+        }
+
+        const paymentProvider =
+            sanitizeText(payment?.provider).toLowerCase();
+
+        const providerPaymentId =
+            sanitizeText(payment?.providerPaymentId);
+
+        const providerReferenceMatches =
+            Boolean(providerPaymentId) &&
+            (
+                (
+                    paymentProvider === 'stripe' &&
+                    (
+                        providerPaymentId === sanitizeText(request.stripePaymentIntentId) ||
+                        providerPaymentId === sanitizeText(request.stripeCheckoutSessionId)
+                    )
+                ) ||
+                (
+                    paymentProvider === 'oxapay' &&
+                    providerPaymentId === sanitizeText(request.oxapayTrackId)
+                )
+            );
+
+        const metadata =
+            payment?.metadata &&
+            typeof payment.metadata === 'object'
+                ? payment.metadata
+                : {};
+
+        const expectedAmount =
+            Number(request.pricingAmount || 0);
+
+        const paidAmount =
+            Number(payment?.amount || 0);
+
+        const verifiedPayment =
+            sanitizeText(payment?.status).toLowerCase() === 'paid' &&
+            sanitizeText(payment?.sourceDivision).toLowerCase() === 'federation' &&
+            sanitizeText(payment?.sourceFeature).toLowerCase() === 'lead_purchase' &&
+            sanitizeText(payment?.sourceRecordId) === requestId &&
+            sanitizeText(payment?.payerUid) === requesterUid &&
+            expectedAmount > 0 &&
+            Math.abs(paidAmount - expectedAmount) < 0.01 &&
+            sanitizeText(payment?.currency).toUpperCase() ===
+                sanitizeText(request.currency || 'USD').toUpperCase() &&
+            (!metadata.requestId ||
+                sanitizeText(metadata.requestId) === requestId) &&
+            (!metadata.ownerUid ||
+                sanitizeText(metadata.ownerUid) === sanitizeText(request.ownerUid)) &&
+            (!metadata.leadId ||
+                sanitizeText(metadata.leadId) === sanitizeText(request.leadId)) &&
+            providerReferenceMatches;
+
+        if (!verifiedPayment) {
+            return res.status(402).json({
+                success: false,
+                message: 'Verified Stripe or OxaPay lead purchase payment is required.'
+            });
+        }
+
         const ownerUid = sanitizeText(request.ownerUid);
         const leadId = sanitizeText(request.leadId);
 
@@ -11528,7 +12237,7 @@ app.post('/api/federation/connect/requests/:requestId/oxapay-invoice', requireAp
             fee_paid_by_payer: Number(process.env.OXAPAY_FEE_PAID_BY_PAYER || 1),
             mixed_payment: true,
             callback_url: `${baseUrl}/api/oxapay/webhook`,
-            return_url: `${baseUrl}/federation.html?checkout=oxapay-success&request=${encodeURIComponent(requestId)}`,
+            return_url: `${baseUrl}/federation/requests?checkout=oxapay-success&request=${encodeURIComponent(requestId)}`,
             email: requesterEmail || undefined,
             order_id: orderId,
             thanks_message: 'Payment received. Return to Federation to unlock your purchased lead.',
@@ -11762,8 +12471,8 @@ app.post('/api/federation/connect/requests/:requestId/checkout-session', require
                     quantity: 1
                 }
             ],
-            success_url: `${baseUrl}/federation.html?checkout=success&request=${encodeURIComponent(requestId)}&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${baseUrl}/federation.html?checkout=cancelled&request=${encodeURIComponent(requestId)}`,
+            success_url: `${baseUrl}/federation/requests?checkout=success&request=${encodeURIComponent(requestId)}&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${baseUrl}/federation/requests?checkout=cancelled&request=${encodeURIComponent(requestId)}`,
             metadata: {
                 kind: 'federation_lead_purchase',
                 requestId,
@@ -12281,7 +12990,7 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
         });
 
         const fullName = sanitizeText(body.fullName || body.name || req.user?.name || 'Federation Applicant').slice(0, 160);
-        const email = sanitizeText(body.email || req.user?.email || '').toLowerCase().slice(0, 180);
+        const email = sanitizeText(req.user?.email || '').toLowerCase().slice(0, 180);
         const role = sanitizeText(profileMap.role || body.role || body.profession).slice(0, 180);
         const country = sanitizeText(body.country).slice(0, 120);
         const city = sanitizeText(body.city).slice(0, 120);
@@ -12357,8 +13066,7 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
         const academyUnlockRequirement = federationGate.academyUnlockRequirement;
 
         const applicationId =
-            sanitizeText(body.id) ||
-            `FED-APP-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+            `FED-APP-${Date.now()}-${crypto.randomBytes(12).toString('hex')}`;
 
         const application = {
             ...body,
@@ -12443,7 +13151,7 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
             supplyRegions: sanitizeText(body.supplyRegions).slice(0, 1200),
             openToAdminMatching: sanitizeText(body.openToAdminMatching).slice(0, 120),
 
-            aiScore: Number(body.aiScore || 0),
+            aiScore: profileMap.score,
             createdAt: existingApplication?.createdAt || nowIso,
             updatedAt: nowIso,
             submittedAt: nowIso,
@@ -14577,6 +15285,14 @@ function isYHLiveRoomExpiredByAge(data = {}, nowMs = Date.now()) {
 }
 
 async function autoEndExpiredYHLiveRooms(reason = 'scheduled') {
+    // Local QA only: preserve the original production auto-end behavior.
+    if (
+        process.env.NODE_ENV === 'development' &&
+        process.env.YHU_LOCAL_QA_DISABLE_LIVE_ROOM_AUTO_END === '1'
+    ) {
+        return { ended: 0, skipped: true };
+    }
+
     if (yhLiveRoomAutoEndSweepInFlight) {
         return { ended: 0, skipped: true };
     }

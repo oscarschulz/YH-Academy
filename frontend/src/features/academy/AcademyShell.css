@@ -1,0 +1,3005 @@
+
+/* YHU Academy Phase 1.
+   One scoped visual style for both existing Academy shells.
+   Original navigation, content, handlers and access remain unchanged. */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1 {
+  --yha-p1-rail: 280px;
+  --yha-p1-bg: #050b19;
+  --yha-p1-panel: rgba(9, 20, 40, .92);
+  --yha-p1-border: rgba(112, 185, 236, .17);
+  --yha-p1-muted: #aabbd3;
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  --yha-work-panel: #0c1c32;
+  --yha-work-panel-raised: #10243e;
+  --yha-work-border: rgba(123, 177, 227, .20);
+  --yha-work-border-focus: rgba(100, 214, 255, .50);
+  --yha-work-fg: #f0f7ff;
+  --yha-work-muted: #a8bdd5;
+}
+
+body[data-yh-view="academy"] .yhu-academy-p1 .yh-top-nav {
+  flex: 0 0 auto;
+  background: linear-gradient(
+    105deg,
+    rgba(7, 18, 36, .98),
+    rgba(10, 26, 50, .95)
+  );
+  border-bottom: 1px solid var(--yha-p1-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+}
+
+body[data-yh-view="academy"] .yhu-academy-p1 #academy-wrapper {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+  overflow: hidden;
+  gap: 0;
+  background:
+    radial-gradient(
+      ellipse at 80% 0%,
+      rgba(36, 92, 154, .12),
+      transparent 42%
+    ),
+    var(--yha-p1-bg);
+}
+
+body[data-yh-view="academy"] .yhu-academy-p1 #academy-sidebar {
+  flex: 0 0 var(--yha-p1-rail);
+  width: var(--yha-p1-rail);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    rgba(9, 22, 43, .98),
+    rgba(5, 13, 29, .98)
+  );
+  border-right: 1px solid var(--yha-p1-border);
+  box-shadow: none;
+}
+
+.yhu-academy-p1 #academy-sidebar .channel-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 169, 220, .34) transparent;
+}
+
+.yhu-academy-p1 #academy-wrapper .academy-sidebar-shell {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 14px 22px;
+}
+
+body[data-yh-view="academy"]
+.yhu-academy-p1 #academy-wrapper .academy-sidebar-intro {
+  padding: 18px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--yha-p1-border);
+  background: linear-gradient(
+    145deg,
+    rgba(24, 63, 103, .3),
+    rgba(8, 20, 42, .5)
+  );
+  box-shadow: none;
+}
+
+.yhu-academy-p1 #academy-wrapper .academy-sidebar-title {
+  letter-spacing: .01em;
+  line-height: 1.14;
+}
+
+.yhu-academy-p1 #academy-wrapper .academy-sidebar-copy {
+  font-size: .87rem;
+  line-height: 1.5;
+}
+
+.yhu-academy-p1 #academy-wrapper .academy-channel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+}
+
+.yhu-academy-p1 #academy-wrapper .academy-channel-list > li {
+  margin: 0;
+  list-style: none;
+}
+
+body[data-yh-view="academy"]
+.yhu-academy-p1 #academy-wrapper .academy-channel-list .channel-link {
+  position: relative;
+  min-height: 48px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 12px 13px;
+  background: transparent;
+  color: var(--yha-p1-muted);
+  box-shadow: none;
+  transition:
+    background .18s ease,
+    border-color .18s ease,
+    color .18s ease;
+}
+
+body[data-yh-view="academy"]
+.yhu-academy-p1 #academy-wrapper .academy-channel-list .channel-link:hover,
+body[data-yh-view="academy"]
+.yhu-academy-p1 #academy-wrapper .academy-channel-list .channel-link.active {
+  color: #f5fcff;
+  background: linear-gradient(
+    90deg,
+    rgba(30, 111, 173, .23),
+    rgba(32, 69, 109, .12)
+  );
+  border-color: rgba(93, 177, 227, .32);
+  box-shadow: inset 3px 0 0 #38bdf8;
+}
+
+.yhu-academy-p1 .academy-react-channel-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.yhu-academy-p1 #academy-wrapper .academy-channel-list .sidebar-icon {
+  flex: 0 0 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.yhu-academy-p1 #academy-wrapper .academy-channel-list .sidebar-text-group {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+body[data-yh-view="academy"]
+.yhu-academy-p1 #academy-wrapper .academy-sidebar-progress {
+  padding: 16px;
+  margin-top: auto;
+  border-radius: 16px;
+  border: 1px solid var(--yha-p1-border);
+  background: var(--yha-p1-panel);
+  box-shadow: none;
+}
+
+.yhu-academy-p1 .academy-react-progress-link {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: .5rem .25rem;
+  background: transparent;
+  color: var(--neon-blue);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.yhu-academy-p1 .academy-react-member-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.yhu-academy-p1 .academy-react-channel-button:focus-visible,
+.yhu-academy-p1 .academy-react-progress-link:focus-visible,
+.yhu-academy-p1 .academy-react-member-button:focus-visible,
+.yhu-academy-p1 #academy-wrapper .channel-link:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 3px;
+}
+
+.yhu-academy-p1 .yh-academy-react-main,
+.yhu-academy-p1 #academy-wrapper > .yh-main-chat {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: transparent;
+}
+
+.yhu-academy-p1 #academy-wrapper > .yh-right-sidebar {
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--yha-p1-border);
+  background: rgba(7, 17, 33, .84);
+}
+}
+
+@media (max-width: 1024px) {
+  @layer yhu-foundation {
+  .yhu-academy-p1 #academy-wrapper > .yh-right-sidebar {
+    display: none;
+  }
+}
+}
+
+@media (max-width: 768px) {
+  @layer yhu-foundation {
+  .yhu-academy-p1 {
+    min-height: 100dvh;
+    height: 100dvh;
+  }
+
+  body[data-yh-view="academy"] .yhu-academy-p1 #academy-wrapper {
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .yhu-academy-p1 #academy-sidebar,
+  .yhu-academy-p1 #academy-wrapper > .yh-right-sidebar {
+    display: none;
+  }
+
+  .yhu-academy-p1 #academy-wrapper > .yh-main-chat,
+  .yhu-academy-p1 .yh-academy-react-main {
+    width: 100%;
+    min-height: 0;
+    padding-bottom: calc(
+      80px + env(safe-area-inset-bottom, 0px)
+    );
+    overflow-y: auto;
+  }
+
+  .yhu-academy-p1 .academy-mobile-bottom-nav {
+    display: flex;
+  }
+}
+}
+
+@media (min-width: 769px) {
+  @layer yhu-foundation {
+  .yhu-academy-p1 .academy-mobile-bottom-nav,
+  .yhu-academy-p1 .academy-mobile-nav-drawer {
+    display: none;
+  }
+}
+}
+
+/* YHU ACADEMY PHASE 2 UI ONLY
+   Canonical visual owner: AcademyShell.css.
+   All existing content and functionality remain unchanged. */
+
+@layer yhu-foundation {
+}
+
+/* ROADMAP WORKSPACE */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-roadmap"] {
+  width: 100%;
+  max-width: 1760px;
+  margin-inline: auto;
+  padding: clamp(16px, 2.2vw, 32px);
+}
+
+.yhu-academy-p1 .roadmap-transformation-system,
+.yhu-academy-p1 .roadmap-clean-shell,
+.yhu-academy-p1 .roadmap-clean-main {
+  min-width: 0;
+}
+
+.yhu-academy-p1 .roadmap-clean-main {
+  gap: clamp(14px, 1.7vw, 22px);
+}
+
+.yhu-academy-p1 .academy-roadmap-preview-banner {
+display: flex;
+align-items: center;
+flex-wrap: wrap;
+gap: 8px 14px;
+padding: 11px 14px;
+margin-bottom: 12px;
+background: rgba(13, 38, 62, .92);
+border: 1px solid rgba(108, 187, 230, .26);
+border-radius: 12px;
+color: #bdd2e7;
+font-size: 13px;
+line-height: 1.45;
+}
+
+.yhu-academy-p1 .academy-roadmap-preview-banner > strong {
+color: #7ad7f4;
+font-size: 12px;
+letter-spacing: .04em;
+text-transform: uppercase;
+}
+
+.yhu-academy-p1 .academy-roadmap-overview {
+  border: 1px solid var(--yha-work-border);
+  border-radius: 22px;
+  background: linear-gradient(
+    120deg,
+    rgba(24, 66, 108, .56),
+    rgba(10, 24, 46, .96)
+  );
+  box-shadow: 0 18px 38px rgba(0, 0, 0, .14);
+  padding: clamp(20px, 2.6vw, 34px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+
+.yhu-academy-p1 .academy-roadmap-overview h1,
+.yhu-academy-p1 .academy-roadmap-overview h2 {
+  color: var(--yha-work-fg);
+  font-size: clamp(1.65rem, 3vw, 2.65rem);
+  line-height: 1.12;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+
+.yhu-academy-p1 .academy-roadmap-overview p,
+.yhu-academy-p1 .academy-lead-missions-copy {
+  color: var(--yha-work-muted);
+  line-height: 1.65;
+}
+
+.yhu-academy-p1 .academy-roadmap-actions {
+display: flex;
+align-items: center;
+justify-content: flex-start;
+flex-wrap: wrap;
+gap: 10px;
+padding: 0;
+margin: 0;
+border: 0;
+background: none;
+box-shadow: none;
+}
+
+.yhu-academy-p1 .roadmap-transform-card,
+.yhu-academy-p1 .academy-home-panel,
+.yhu-academy-p1 .academy-roadmap-apply-card-v1 {
+  border: 1px solid var(--yha-work-border);
+  border-radius: 18px;
+  background: linear-gradient(
+    175deg,
+    var(--yha-work-panel-raised),
+    var(--yha-work-panel)
+  );
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .14);
+}
+
+.yhu-academy-p1 .academy-roadmap-metrics > div,
+.yhu-academy-p1 .roadmap-transform-stat-list > div,
+.yhu-academy-p1 .academy-home-readiness-score-card,
+.yhu-academy-p1 .academy-home-readiness-grid > * {
+  border: 1px solid rgba(133, 184, 227, .16);
+  border-radius: 13px;
+  background: rgba(5, 21, 40, .73);
+  padding: 14px;
+}
+
+.yhu-academy-p1 .academy-roadmap-metrics {
+display: grid;
+grid-template-columns: repeat(3, minmax(0, 1fr));
+gap: 12px;
+margin-top: 0;
+}
+
+.yhu-academy-p1 .academy-roadmap-metrics > span > small {
+display: block;
+color: #93b6d3;
+font-size: 12px;
+font-weight: 650;
+letter-spacing: .03em;
+line-height: 1.4;
+}
+
+.yhu-academy-p1 .academy-roadmap-metrics > span > strong {
+display: block;
+color: #f3f9ff;
+font-size: clamp(16px, 1.35vw, 19px);
+line-height: 1.4;
+letter-spacing: 0;
+overflow-wrap: anywhere;
+}
+
+.yhu-academy-p1 .academy-roadmap-metrics > span {
+  border: 1px solid rgba(133, 184, 227, .16);
+  border-radius: 13px;
+  background: rgba(5, 21, 40, .73);
+  padding: 16px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.yhu-academy-p1 .roadmap-mission-day-card {
+  border: 1px solid rgba(129, 183, 226, .2);
+  border-radius: 14px;
+  background: rgba(7, 25, 46, .82);
+  box-shadow: none;
+}
+
+.yhu-academy-p1 .roadmap-mission-day-card:hover {
+  border-color: var(--yha-work-border-focus);
+  background: rgba(13, 38, 67, .9);
+}
+
+.yhu-academy-p1 .roadmap-transform-eyebrow,
+.yhu-academy-p1 .academy-profile-card-kicker {
+  color: #75d9fa;
+  letter-spacing: .08em;
+}
+
+.yhu-academy-p1 .roadmap-mission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+}
+
+/* YHU_ACADEMY_ROADMAP_UI_REFINEMENT_V1: Academy Roadmap UI only. */
+
+.yhu-academy-p1 .academy-home-readiness-score-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 112px;
+  text-align: center;
+}
+
+.yhu-academy-p1 .academy-home-readiness-score-stack > .academy-home-readiness-score-value {
+  font-size: clamp(28px, 2.5vw, 38px);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.yhu-academy-p1 .academy-home-readiness-score-separator {
+  color: #85a9c9;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.yhu-academy-p1 .academy-home-readiness-score-stack > .academy-home-readiness-score-copy {
+  color: #c1d3e6;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.yhu-academy-p1 .academy-roadmap-progression-row {
+  align-items: stretch;
+}
+
+.yhu-academy-p1 .academy-quest-league-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 14px;
+  height: auto;
+  min-height: 0;
+}
+
+.yhu-academy-p1 .academy-quest-league-rank {
+  margin: 0;
+  color: #f2f9ff;
+  font-size: clamp(17px, 1.6vw, 21px);
+  line-height: 1.3;
+}
+
+.yhu-academy-p1 .academy-quest-league-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.yhu-academy-p1 .academy-quest-league-stats > span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid rgba(133, 184, 227, .2);
+  border-radius: 12px;
+  background: rgba(6, 22, 42, .72);
+  color: #a9c3dd;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.yhu-academy-p1 .academy-quest-league-stats > span > strong {
+  color: #f4faff;
+  font-size: 17px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.yhu-academy-p1 .academy-quest-league-progress {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.yhu-academy-p1 .academy-quest-league-progress > small {
+  margin: 0;
+  color: #b0c5db;
+  font-size: 12px;
+}
+
+.yhu-academy-p1 .academy-quest-league-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  align-items: stretch;
+  gap: 10px;
+  margin: 0;
+}
+
+.yhu-academy-p1 .academy-quest-league-details > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 9px;
+  min-width: 0;
+  min-height: 88px;
+}
+
+.yhu-academy-p1 .academy-quest-league-details > div > span {
+  color: #a8c2db;
+  font-size: 13px;
+}
+
+.yhu-academy-p1 .academy-quest-league-details > div > strong {
+  color: #f1f9ff;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.yhu-academy-p1 .academy-champions-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 14px;
+  height: auto;
+  min-height: 0;
+}
+
+.yhu-academy-p1 .academy-champions-panel > h3 {
+  margin: 0;
+}
+
+.yhu-academy-p1 .academy-champions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 265px), 1fr));
+  align-items: stretch;
+  gap: 14px;
+  min-width: 0;
+}
+
+.yhu-academy-p1 .academy-champions-board {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(133, 184, 227, .2);
+  border-radius: 14px;
+  background: rgba(5, 20, 39, .72);
+}
+
+.yhu-academy-p1 .academy-champions-heading {
+  margin: 0 0 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(133, 184, 227, .2);
+  color: #eef9ff;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.yhu-academy-p1 .academy-champions-entry {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(133, 184, 227, .14);
+  border-radius: 10px;
+  background: rgba(15, 42, 70, .58);
+}
+
+.yhu-academy-p1 .academy-champions-position {
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(47, 119, 168, .24);
+  color: #8fe2ff;
+  font-size: 12px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.yhu-academy-p1 .academy-champions-member {
+  min-width: 0;
+  color: #b6d4ea;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.yhu-academy-p1 .academy-champions-score {
+  color: #f6fbff;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.yhu-academy-p1 .academy-champions-empty {
+  color: #a9c3d9;
+  line-height: 1.5;
+}
+
+/* YHU_ACADEMY_QUEST_LEDGER_LEFT_COLUMN_V1 */
+.yhu-academy-p1 .academy-roadmap-quest-column {
+  display: grid;
+  align-content: start;
+  gap: clamp(14px, 1.7vw, 22px);
+  min-width: 0;
+}
+
+/* MISSIONS WORKSPACE */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1 .academy-lead-missions-scroll {
+  padding: clamp(16px, 2.2vw, 32px);
+}
+
+.yhu-academy-p1 .academy-lead-missions-shell {
+  max-width: 1760px;
+  gap: clamp(14px, 1.7vw, 22px);
+}
+
+.yhu-academy-p1 .academy-lead-missions-hero,
+.yhu-academy-p1 .academy-mission-playbook-detail-card,
+.yhu-academy-p1 .academy-lead-panel,
+.yhu-academy-p1 .academy-lead-list-card,
+.yhu-academy-p1 .academy-lead-info-card,
+.yhu-academy-p1 .academy-lead-withdrawal-card,
+.yhu-academy-p1 .academy-lead-withdrawal-status-panel {
+  border: 1px solid var(--yha-work-border);
+  border-radius: 18px;
+  background: linear-gradient(
+    175deg,
+    var(--yha-work-panel-raised),
+    var(--yha-work-panel)
+  );
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .13);
+}
+
+.yhu-academy-p1 .academy-lead-missions-hero {
+  padding: clamp(18px, 2.2vw, 28px);
+}
+
+.yhu-academy-p1 .academy-lead-missions-title {
+  margin-block: 8px 10px;
+  color: var(--yha-work-fg);
+  font-size: clamp(1.6rem, 2.4vw, 2.25rem);
+  line-height: 1.14;
+  letter-spacing: -.02em;
+}
+}
+
+/* MISSION PLAYBOOK CARDS */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1 .academy-mission-playbook-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 285px), 1fr)
+  );
+  gap: 14px;
+}
+
+.yhu-academy-p1 .academy-mission-playbook-card {
+  min-height: 245px;
+  border: 1px solid var(--yha-work-border);
+  border-radius: 17px;
+  padding: 20px;
+  background: linear-gradient(
+    160deg,
+    rgba(25, 58, 91, .94),
+    rgba(9, 23, 43, .98)
+  );
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .13);
+}
+
+.yhu-academy-p1 .academy-mission-playbook-card:hover {
+  border-color: var(--yha-work-border-focus);
+  background: linear-gradient(
+    160deg,
+    rgba(32, 73, 112, .97),
+    rgba(12, 31, 55, .98)
+  );
+  box-shadow: 0 15px 30px rgba(0, 0, 0, .19);
+}
+
+.yhu-academy-p1 .academy-mission-playbook-icon {
+  border-radius: 12px;
+  border-color: var(--yha-work-border);
+  background: rgba(8, 31, 58, .7);
+}
+
+.yhu-academy-p1 .academy-mission-playbook-footer {
+  border: 1px solid var(--yha-work-border);
+  border-radius: 16px;
+  background: rgba(10, 28, 51, .9);
+  box-shadow: none;
+}
+}
+
+/* OPERATOR WORKSPACE */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1 .academy-lead-operator-focus article,
+.yhu-academy-p1 .academy-mission-playbook-section {
+  border: 1px solid var(--yha-work-border);
+  border-radius: 14px;
+  background: rgba(7, 24, 43, .76);
+}
+
+.yhu-academy-p1 .academy-lead-subtab {
+  border: 1px solid var(--yha-work-border);
+  border-radius: 11px;
+  background: rgba(12, 31, 55, .7);
+  color: var(--yha-work-muted);
+}
+
+.yhu-academy-p1 .academy-lead-subtab:hover,
+.yhu-academy-p1 .academy-lead-subtab.active {
+  border-color: var(--yha-work-border-focus);
+  background: rgba(35, 93, 139, .35);
+  color: var(--yha-work-fg);
+}
+
+.yhu-academy-p1 .academy-lead-list-card {
+  gap: 16px;
+}
+
+.yhu-academy-p1 .academy-lead-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--yha-work-fg);
+}
+
+.yhu-academy-p1 .academy-lead-table th {
+  background: rgba(27, 64, 100, .45);
+  color: #d6ebfb;
+}
+
+.yhu-academy-p1 .academy-lead-table td {
+  border-bottom-color: rgba(123, 177, 227, .14);
+}
+}
+
+/* AI ROADMAP BUILDER */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1 .roadmap-builder-card,
+.yhu-academy-p1 .roadmap-season-choice-panel,
+.yhu-academy-p1 .roadmap-dna-card,
+.yhu-academy-p1 .roadmap-commitment-card {
+  border: 1px solid var(--yha-work-border);
+  border-radius: 15px;
+  background: linear-gradient(
+    165deg,
+    rgba(20, 52, 86, .92),
+    rgba(7, 24, 44, .95)
+  );
+}
+
+.yhu-academy-p1 .roadmap-builder-card:hover,
+.yhu-academy-p1 .roadmap-builder-card.is-selected {
+  border-color: var(--yha-work-border-focus);
+  background: linear-gradient(
+    165deg,
+    rgba(27, 74, 115, .95),
+    rgba(9, 34, 62, .95)
+  );
+}
+
+.yhu-academy-p1 .roadmap-builder-progress span.is-active {
+  border-color: var(--yha-work-border-focus);
+  color: #b9f0ff;
+}
+}
+
+/* EXISTING INPUTS — VISUAL STYLING ONLY */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1 .roadmap-builder-form .input-field,
+.yhu-academy-p1 .academy-lead-form-grid .input-field {
+  border: 1px solid rgba(132, 184, 228, .3);
+  border-radius: 11px;
+  background: #0c2037;
+  color: var(--yha-work-fg);
+}
+
+.yhu-academy-p1 .roadmap-builder-form .input-field:focus-visible,
+.yhu-academy-p1 .academy-lead-form-grid .input-field:focus-visible {
+  border-color: var(--yha-work-border-focus);
+  outline: 2px solid rgba(91, 208, 248, .22);
+  outline-offset: 1px;
+}
+}
+
+/* RESPONSIVENESS */
+
+@media (max-width: 900px) {
+  @layer yhu-foundation {
+
+  .yhu-academy-p1 .roadmap-clean-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .yhu-academy-p1 .roadmap-mission-track {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+}
+
+@media (max-width: 600px) {
+  @layer yhu-foundation {
+  .yhu-academy-p1 [data-yh-dashboard-react-surface="academy-roadmap"],
+  .yhu-academy-p1 .academy-lead-missions-scroll {
+    padding: 14px;
+  }
+
+  .yhu-academy-p1 .academy-roadmap-overview,
+  .yhu-academy-p1 .academy-lead-missions-hero {
+    padding: 17px;
+  }
+
+  .yhu-academy-p1 .academy-roadmap-metrics,
+  .yhu-academy-p1 .roadmap-transform-stat-list,
+  .yhu-academy-p1 .roadmap-mission-track,
+  .yhu-academy-p1 .academy-lead-operator-focus {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .yhu-academy-p1 .academy-mission-playbook-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .yhu-academy-p1 .academy-lead-header-actions {
+    flex-wrap: wrap;
+  }
+}
+}
+
+/* END YHU ACADEMY PHASE 2 UI ONLY */
+
+
+/* ==========================================================
+   YHU ACADEMY PHASE 3 UI ONLY
+   Community Feed and Messages visual presentation.
+   Existing text, state, handlers, APIs and permissions remain.
+   ========================================================== */
+
+/* COMMUNITY WORKSPACE */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-community"] {
+  min-width: 0;
+  width: 100%;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-community"]
+  > .academy-community-scroll {
+  width: 100%;
+  min-width: 0;
+  display: block;
+  height: auto;
+  min-height: 0;
+  padding: clamp(14px, 2vw, 30px);
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.yhu-academy-p1 .academy-feed-shell {
+  display: grid;
+  align-content: start;
+  gap: 17px;
+  width: 100%;
+  max-width: 960px;
+  margin-inline: auto;
+}
+
+.yhu-academy-p1 .academy-community-hero {
+display: flex;
+flex-direction: column;
+align-items: stretch;
+gap: 20px;
+}
+
+.yhu-academy-p1 .academy-community-tabs,
+.yhu-academy-p1 .academy-community-back {
+display: flex;
+align-items: center;
+justify-content: flex-start;
+align-self: flex-start;
+flex-wrap: wrap;
+width: 100%;
+gap: 10px;
+margin: 0;
+padding: 0;
+}
+
+.yhu-academy-p1 .academy-community-search,
+.yhu-academy-p1 .academy-search-results-panel {
+  width: 100%;
+  min-width: 0;
+}
+
+.yhu-academy-p1 .academy-community-search {
+  max-width: 420px;
+  padding: 12px;
+  border: 1px solid rgba(123,177,227,.19);
+  border-radius: 15px;
+  background: rgba(9,24,46,.85);
+}
+
+.yhu-academy-p1 .academy-community-search .input-field {
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  border-radius: 11px;
+  background: #0b1e35;
+  color: #f0f7ff;
+  border: 1px solid rgba(123,177,227,.27);
+}
+
+.yhu-academy-p1 .academy-community-search .input-field:focus-visible {
+  outline: 2px solid rgba(103,232,249,.36);
+  outline-offset: 1px;
+  border-color: #67e8f9;
+}
+
+.yhu-academy-p1 .academy-search-results-panel,
+.yhu-academy-p1 .academy-niche-dashboard {
+  padding: clamp(15px,2vw,22px);
+  border-radius: 17px;
+  border: 1px solid rgba(123,177,227,.2);
+  background: linear-gradient(170deg,#102640,#09182d);
+}
+
+.yhu-academy-p1 .academy-feed-list {
+  display: grid;
+  gap: 17px;
+  min-width: 0;
+}
+
+.yhu-academy-p1 .academy-feed-composer-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.yhu-academy-p1 .academy-feed-composer-card form {
+  display: grid;
+  gap: 13px;
+}
+
+.yhu-academy-p1 .academy-feed-composer-card textarea,
+.yhu-academy-p1 .academy-feed-comment-form textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(123,177,227,.26);
+  border-radius: 12px;
+  background: #0b1d33;
+  color: #f3f8ff;
+  line-height: 1.55;
+}
+
+.yhu-academy-p1 .academy-feed-composer-card
+  .academy-lead-header-actions,
+.yhu-academy-p1 .academy-feed-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+}
+
+.yhu-academy-p1 .academy-feed-composer-card
+  .academy-lead-header-actions > *,
+.yhu-academy-p1 .academy-feed-card-actions > button {
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.yhu-academy-p1 .academy-feed-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.yhu-academy-p1 .academy-feed-card-author {
+display: flex;
+align-items: baseline;
+flex-wrap: wrap;
+column-gap: 10px;
+row-gap: 4px;
+}
+
+.yhu-academy-p1 .academy-feed-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.yhu-academy-p1 .academy-feed-card-body {
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.yhu-academy-p1 .academy-feed-card-media img,
+.yhu-academy-p1 .academy-feed-card-media video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+
+.yhu-academy-p1 .academy-feed-comments-wrap {
+  min-width: 0;
+  border-top: 1px solid rgba(123,177,227,.19);
+  padding-top: 14px;
+}
+
+.yhu-academy-p1 .academy-feed-comment {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.yhu-academy-p1 .academy-feed-comment-form {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.yhu-academy-p1 .academy-feed-comment-form
+  .btn-primary {
+  width: auto;
+  justify-self: start;
+}
+
+.yhu-academy-p1 .academy-niche-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%,260px),1fr)
+  );
+  gap: 13px;
+  grid-auto-rows: minmax(240px, auto);
+  align-items: stretch;
+}
+
+.yhu-academy-p1 .academy-niche-card,
+.yhu-academy-p1 .academy-member-card {
+  min-width: 0;
+  border: 1px solid rgba(123,177,227,.2);
+  border-radius: 15px;
+  background: linear-gradient(
+    160deg,
+    rgba(20,52,84,.94),
+    rgba(8,24,45,.94)
+  );
+}
+
+.yhu-academy-p1 .academy-niche-card {
+display: grid;
+gap: 14px;
+min-height: 240px;
+padding: 18px;
+grid-template-rows: minmax(0, 1fr) auto;
+align-content: stretch;
+}
+
+.yhu-academy-p1 .academy-niche-card-main {
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+gap: 10px;
+min-width: 0;
+}
+
+.yhu-academy-p1 .academy-niche-card-main p {
+margin: 0;
+line-height: 1.5;
+}
+
+.yhu-academy-p1 .academy-niche-card:hover,
+.yhu-academy-p1 .academy-member-card:hover {
+  border-color: rgba(103,232,249,.38);
+}
+
+.yhu-academy-p1 .academy-niche-card-actions,
+.yhu-academy-p1 .academy-member-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.yhu-academy-p1 .academy-niche-card-actions {
+padding-top: 8px;
+align-items: center;
+}
+
+.yhu-academy-p1 .academy-recruitment-intro {
+width: 100%;
+min-width: 0;
+margin: 0;
+padding: 0 0 18px;
+border-bottom: 1px solid rgba(112,185,236,.2);
+text-align: left;
+}
+
+.yhu-academy-p1 .academy-niche-card-actions button,
+.yhu-academy-p1 .academy-member-card-actions button {
+  width: auto;
+  max-width: 100%;
+}
+}
+
+/* MESSAGES WORKSPACE */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-messages"] {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+  padding: clamp(12px,1.8vw,24px);
+}
+
+.yhu-academy-p1 .academy-messages-react-shell {
+  display: grid;
+  grid-template-columns: minmax(290px,350px) minmax(0,1fr);
+  width: 100%;
+  max-width: 1760px;
+  height: min(780px,calc(100dvh - 145px));
+  min-height: 490px;
+  margin-inline: auto;
+  overflow: hidden;
+  border: 1px solid rgba(123,177,227,.24);
+  border-radius: 20px;
+  background: #081629;
+  box-shadow: 0 18px 45px rgba(0,0,0,.18);
+}
+
+.yhu-academy-p1 .academy-messages-react-inbox {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid rgba(123,177,227,.2);
+  background: #0c1e35;
+}
+
+.yhu-academy-p1 .academy-messages-react-inbox-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 12px;
+  padding: 19px 17px 12px;
+}
+
+.yhu-academy-p1 .academy-messages-react-inbox-head h2 {
+  margin: 5px 0;
+  color: #f3f8ff;
+}
+
+.yhu-academy-p1 .academy-messages-react-inbox-head .academy-messages-head-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 7px;
+}
+
+.yhu-academy-p1 .academy-messages-inbox-tabs {
+  flex: 0 0 auto;
+  margin: 4px 14px 12px;
+}
+
+.yhu-academy-p1 .academy-messages-inbox-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 7px;
+  min-height: 0;
+  padding: 0 10px 14px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.yhu-academy-p1 .academy-messages-inbox-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  min-height: 75px;
+  padding: 12px;
+  text-align: left;
+  color: #e9f3ff;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.yhu-academy-p1 .academy-messages-inbox-card:hover,
+.yhu-academy-p1 .academy-messages-inbox-card.is-active {
+  border-color: rgba(103,232,249,.3);
+  background: rgba(33,88,132,.27);
+}
+
+.yhu-academy-p1 .academy-messages-inbox-avatar {
+  flex: 0 0 43px;
+  display: grid;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: rgba(56,189,248,.12);
+}
+
+.yhu-academy-p1 .academy-messages-inbox-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.yhu-academy-p1 .academy-messages-inbox-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  gap: 5px;
+}
+
+.yhu-academy-p1 .academy-messages-inbox-copy strong,
+.yhu-academy-p1 .academy-messages-inbox-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yhu-academy-p1 .academy-messages-inbox-copy small,
+.yhu-academy-p1 .academy-messages-inbox-meta small {
+  color: #a9bdd5;
+}
+
+.yhu-academy-p1 .academy-messages-inbox-meta {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: 72px;
+  font-size: .82rem;
+}
+
+.yhu-academy-p1 .academy-messages-react-thread {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg,#08192e,#071325);
+}
+
+.yhu-academy-p1 .academy-messages-thread-head {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 18px;
+  border-bottom: 1px solid rgba(123,177,227,.18);
+  background: rgba(15,38,66,.92);
+}
+
+.yhu-academy-p1 .academy-messages-thread-head > div {
+  min-width: 0;
+}
+
+.yhu-academy-p1 .academy-messages-thread-head
+  .academy-lead-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.yhu-academy-p1 .academy-messages-thread-head button {
+  width: auto;
+  min-width: 0;
+}
+
+.yhu-academy-p1 .academy-messages-thread-history {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding: 19px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.yhu-academy-p1 .academy-message-bubble {
+  max-width: min(82%,560px);
+  min-width: 0;
+  align-self: flex-start;
+  padding: 12px 15px;
+  border: 1px solid rgba(123,177,227,.18);
+  border-radius: 15px;
+  background: #142d4a;
+  overflow-wrap: anywhere;
+}
+
+.yhu-academy-p1 .academy-message-bubble.is-own {
+  align-self: flex-end;
+  border-color: rgba(103,232,249,.26);
+  background: #174467;
+}
+
+.yhu-academy-p1 .academy-message-bubble p {
+  margin: 5px 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.yhu-academy-p1 .academy-message-bubble small {
+  display: block;
+  margin-top: 7px;
+  color: #b4c7dc;
+}
+
+.yhu-academy-p1 .academy-message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.yhu-academy-p1 .academy-message-actions button {
+  width: auto;
+  max-width: 100%;
+  padding: 7px 9px;
+  font-size: .78rem;
+}
+
+.yhu-academy-p1 .academy-message-attachment-image,
+.yhu-academy-p1 .academy-message-attachment-video {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.yhu-academy-p1 .academy-messages-thread-composer {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 10px;
+  padding: 13px 15px;
+  border-top: 1px solid rgba(123,177,227,.2);
+  background: #0b2039;
+}
+
+.yhu-academy-p1 .academy-messages-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+  min-width: 0;
+}
+
+.yhu-academy-p1 .academy-messages-composer-row label,
+.yhu-academy-p1 .academy-messages-composer-row button {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.yhu-academy-p1 .academy-messages-composer-row textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 45px;
+  max-height: 150px;
+  resize: vertical;
+  border-radius: 11px;
+  border: 1px solid rgba(123,177,227,.3);
+  background: #091a30;
+  color: #f3f8ff;
+}
+
+.yhu-academy-p1 .academy-message-upload-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.yhu-academy-p1 .academy-messages-new-room-modal {
+  width: min(92vw,640px);
+  max-height: min(88dvh,760px);
+  overflow-y: auto;
+  border: 1px solid rgba(123,177,227,.27);
+  border-radius: 19px;
+  background: #0c2039;
+}
+}
+
+/* MOBILE PRESENTATION */
+
+@media (min-width: 761px) {
+  @layer yhu-foundation {
+  .yhu-academy-p1 .academy-messages-mobile-back {
+    display: none;
+  }
+}
+}
+
+@media (max-width: 760px) {
+  @layer yhu-foundation {
+  .yhu-academy-p1 [data-yh-dashboard-react-surface="academy-community"]
+    > .academy-community-scroll {
+    padding: 12px;
+  }
+
+  .yhu-academy-p1 .academy-feed-shell {
+    gap: 12px;
+  }
+
+  .yhu-academy-p1 .academy-niche-grid {
+    grid-template-columns: minmax(0,1fr);
+  }
+
+  .yhu-academy-p1 .academy-feed-card-head {
+    gap: 8px;
+  }
+
+  .yhu-academy-p1 [data-yh-dashboard-react-surface="academy-messages"] {
+    padding: 8px;
+  }
+
+  .yhu-academy-p1 .academy-messages-react-shell {
+    display: block;
+    height: calc(100dvh - 160px);
+    min-height: 240px;
+    border-radius: 14px;
+  }
+
+  .yhu-academy-p1 .academy-messages-react-inbox,
+  .yhu-academy-p1 .academy-messages-react-thread {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border: 0;
+  }
+
+  .yhu-academy-p1 .academy-messages-react-inbox.has-active-room {
+    display: none;
+  }
+
+  .yhu-academy-p1 .academy-messages-react-thread:not(.is-open) {
+    display: none;
+  }
+
+  .yhu-academy-p1 .academy-messages-react-thread.is-open {
+    display: flex;
+  }
+
+  .yhu-academy-p1 .academy-messages-mobile-back {
+    display: inline-flex;
+  }
+
+  .yhu-academy-p1 .academy-messages-thread-head {
+    padding: 11px;
+  }
+
+  .yhu-academy-p1 .academy-messages-thread-history {
+    padding: 12px;
+  }
+
+  .yhu-academy-p1 .academy-message-bubble {
+    max-width: 94%;
+  }
+
+  .yhu-academy-p1 .academy-messages-thread-composer {
+    padding: 10px;
+  }
+
+  .yhu-academy-p1 .academy-messages-inbox-meta {
+    max-width: 62px;
+  }
+}
+}
+
+/* END YHU ACADEMY PHASE 3 UI ONLY */
+
+/* YHU ACADEMY PHASE 4 UI ONLY — Voice, Video, Announcements, AI Coach */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"],
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-video"] {
+  width: 100%;
+  min-width: 0;
+  color: #eff7ff;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-lead-missions-shell,
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-video"] .academy-lead-missions-shell {
+  max-width: 1760px;
+  margin-inline: auto;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-voice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
+  align-self: flex-start;
+  gap: 10px;
+  width: auto;
+  margin-top: 18px;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-mission-playbook-card,
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-video"] .academy-mission-playbook-card {
+  min-width: 0;
+  border-radius: 18px;
+  border-color: rgba(123,177,227,.24);
+  background: linear-gradient(160deg,rgba(24,63,99,.92),rgba(8,23,43,.98));
+  box-shadow: 0 14px 30px rgba(0,0,0,.16);
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-mission-playbook-card:hover,
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-video"] .academy-mission-playbook-card:hover {
+  border-color: rgba(103,232,249,.48);
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .stage-layout-wrapper {
+  gap: 16px;
+  min-width: 0;
+  padding: 4px 0 20px;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .stage-container {
+  min-width: 0;
+  border: 1px solid rgba(123,177,227,.24);
+  border-radius: 18px;
+  padding: clamp(14px,2vw,24px);
+  background: linear-gradient(170deg,#10253e,#07162b);
+  box-shadow: 0 12px 32px rgba(0,0,0,.16);
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .stage-chat-panel {
+  min-width: 0;
+  border: 1px solid rgba(123,177,227,.26);
+  border-radius: 18px;
+  background: #0b1d34;
+  box-shadow: 0 12px 32px rgba(0,0,0,.16);
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .stage-chat-header {
+  padding: 15px 17px;
+  border-bottom: 1px solid rgba(123,177,227,.22);
+  background: rgba(20,49,80,.84);
+  color: #eaf8ff;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .stage-chat-history {
+  min-height: 0;
+  overscroll-behavior: contain;
+  gap: 10px;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .stage-chat-msg {
+  min-width: 0;
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+  border: 1px solid rgba(123,177,227,.17);
+  background: rgba(24,56,88,.78);
+  padding: 10px 12px;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .stage-chat-input-wrapper {
+  min-width: 0;
+  border-top: 1px solid rgba(123,177,227,.23);
+  background: #102641;
+  padding: 12px;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .stage-chat-input {
+  min-width: 0;
+  flex: 1 1 auto;
+  border-radius: 11px;
+  background: #091b31;
+  border: 1px solid rgba(123,177,227,.28);
+  color: #eef7ff;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .stage-chat-input:focus-visible {
+  outline: 2px solid rgba(103,232,249,.5);
+  outline-offset: 1px;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-video"] .academy-mission-playbook-detail-card {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 20px;
+  border-color: rgba(123,177,227,.26);
+  background: #0b1e35;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-video"] .academy-mission-playbook-detail-card video {
+  display: block;
+  max-width: 100%;
+  border-radius: 12px;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-video"] .roadmap-mission-actions {
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-video"] .modal-content.academy-lead-form-grid {
+  border: 1px solid rgba(123,177,227,.32);
+  border-radius: 20px;
+  background: linear-gradient(175deg,#112a47,#081b32);
+  box-shadow: 0 24px 65px rgba(0,0,0,.38);
+}
+
+/* Voice Lounge: one component-owned create dialog */
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-voice-create-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: 24px;
+  background: rgba(1,8,20,.76);
+  backdrop-filter: blur(5px);
+  overscroll-behavior: contain;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-voice-create-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  width: min(620px,100%);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  padding: clamp(22px,3vw,32px);
+  border: 1px solid rgba(123,177,227,.32);
+  border-radius: 18px;
+  background: #0d223b;
+  box-shadow: 0 24px 65px rgba(0,0,0,.42);
+  scrollbar-width: none;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-voice-create-dialog::-webkit-scrollbar {
+  display: none;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-voice-create-header {
+  display: grid;
+  gap: 7px;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-voice-create-header h2 {
+  margin: 0;
+  color: #f3f8ff;
+  font-size: clamp(22px,2.4vw,27px);
+  line-height: 1.25;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-voice-create-header p {
+  margin: 0;
+  color: #a9bfd5;
+  line-height: 1.5;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-voice-create-field {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  color: #d8e9f6;
+  font-size: 14px;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-voice-create-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 12px 14px;
+  border: 1px solid rgba(123,177,227,.32);
+  border-radius: 10px;
+  background: #122b47;
+  color: #f3f8ff;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-voice-create-topic {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-voice-create-input:focus-visible {
+  border-color: #67d8fa;
+  outline: 2px solid rgba(103,216,250,.28);
+  outline-offset: 1px;
+}
+
+.yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .academy-voice-create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(123,177,227,.2);
+}
+
+.yhu-academy-p1 #dynamic-announcements-history {
+  width: min(100%,960px);
+  margin-inline: auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.yhu-academy-p1 #dynamic-announcements-history .announcement-empty {
+  margin: 22px 0;
+  padding: clamp(24px,4vw,48px);
+  border: 1px solid rgba(123,177,227,.22);
+  border-radius: 18px;
+  background: linear-gradient(160deg,#112842,#09192f);
+  color: #b4c8dc;
+  text-align: center;
+}
+}
+
+/* AI Coach uses a body-level portal. */
+
+@layer yhu-foundation {
+
+body[data-yh-view="academy"] .academy-ai-coach-rect-card {
+  border-color: rgba(103,232,249,.35);
+  background: linear-gradient(170deg,#102946,#07162a);
+  box-shadow: 0 26px 70px rgba(0,0,0,.55);
+}
+
+body[data-yh-view="academy"] .academy-ai-coach-rect-head {
+  border-bottom-color: rgba(123,177,227,.2);
+  background: rgba(15,42,70,.68);
+}
+
+body[data-yh-view="academy"] .academy-ai-coach-rect-history {
+  overscroll-behavior: contain;
+}
+
+body[data-yh-view="academy"] .academy-ai-coach-rect-form {
+  border-top-color: rgba(123,177,227,.2);
+}
+
+body[data-yh-view="academy"] .academy-ai-coach-learn-pay-card {
+  border-color: rgba(103,232,249,.32);
+  background: linear-gradient(175deg,#112a47,#081b32);
+}
+}
+
+@media (max-width: 760px) {
+  @layer yhu-foundation {
+  .yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .stage-layout-wrapper {
+    min-width: 0;
+    gap: 12px;
+    padding: 0 0 12px;
+  }
+
+  .yhu-academy-p1 [data-yh-dashboard-react-surface="academy-voice"] .stage-container {
+    padding: 13px;
+  }
+
+  .yhu-academy-p1 [data-yh-dashboard-react-surface="academy-video"] .academy-mission-playbook-detail-card {
+    padding: 12px;
+  }
+}
+}
+
+/* END YHU ACADEMY PHASE 4 UI ONLY */
+
+/* YHU_ACADEMY_MISSION_GUIDES_PHASE3: Academy mission walkthrough */
+@layer yhu-foundation {
+.yh-dashboard-react-academy-workspace .academy-mission-guide-dialog {
+  width: min(680px, calc(100vw - 32px));
+  max-height: min(85dvh, 840px);
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid rgba(114, 169, 255, .45);
+  border-radius: 18px;
+  color: #edf4ff;
+  background: #101a2d;
+  box-shadow: 0 24px 100px rgba(0, 0, 0, .55);
+}
+.yh-dashboard-react-academy-workspace .academy-mission-guide-dialog::backdrop {
+  background: rgba(2, 8, 20, .78);
+}
+.yh-dashboard-react-academy-workspace .academy-mission-guide-content {
+  padding: clamp(18px, 4vw, 34px);
+}
+.yh-dashboard-react-academy-workspace .academy-mission-guide-content h2 {
+  margin: 8px 0;
+  font-size: clamp(20px, 3vw, 28px);
+}
+.yh-dashboard-react-academy-workspace .academy-mission-guide-content h3 {
+  margin: 22px 0 8px;
+  font-size: 17px;
+}
+.yh-dashboard-react-academy-workspace .academy-mission-guide-content li {
+  margin: 10px 0;
+  line-height: 1.55;
+}
+.yh-dashboard-react-academy-workspace .academy-mission-guide-content p {
+  line-height: 1.6;
+}
+.yh-dashboard-react-academy-workspace .academy-mission-guide-counter {
+  font-size: 13px;
+  opacity: .8;
+}
+.yh-dashboard-react-academy-workspace .academy-mission-guide-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+}
+}
+
+
+
+
+
+/* YHU_ACADEMY_NATIVE_SINGLE_GRID_ROW_20261030
+   Single header row. Original controls and handlers preserved.
+*/
+
+@layer yhu-foundation {
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header {
+  box-sizing: border-box;
+  z-index: 80;
+}
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header {
+  display: grid;
+  grid-template-columns:
+    max-content minmax(0, 1fr) max-content max-content;
+  grid-template-rows: 62px;
+  align-items: center;
+  column-gap: clamp(10px, 1.2vw, 20px);
+  width: 100%;
+  height: 62px;
+  min-height: 62px;
+  max-height: 62px;
+  margin: 0;
+  padding: 0 clamp(12px, 1.5vw, 26px);
+  position: relative;
+  overflow: visible;
+  border: 0;
+  border-bottom: 1px solid rgba(103,232,249,.18);
+  border-radius: 0;
+  background: #081629;
+  box-shadow: none;
+  clip-path: none;
+}
+
+/* Remove layout ownership from the former sidebar wrappers. */
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header > .academy-header-tools,
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header > .academy-header-tools > .channel-content,
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header > .academy-header-tools > .channel-content > .academy-sidebar-shell {
+  display: contents;
+}
+
+/* Column 1 — Universe */
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header > .nav-brand {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-self: center;
+  justify-self: start;
+  align-items: center;
+  gap: 9px;
+  position: static;
+  transform: none;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+@layer yhu-foundation {
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header > .nav-brand > img {
+  object-fit: contain;
+}
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header > .nav-brand > img {
+  width: 28px;
+  height: 28px;
+}
+
+@layer yhu-foundation {
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header > .nav-brand > span {
+  white-space: nowrap;
+}
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header > .nav-brand > span {
+  font-size: 15px;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-sidebar-intro {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* Column 2 — Roadmap, Missions and other Academy tabs */
+
+@layer yhu-foundation {
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list {
+  scrollbar-width: none;
+}
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list {
+  grid-area: 1 / 2;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  align-self: center;
+  justify-self: stretch;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+@layer yhu-foundation {
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list::-webkit-scrollbar {
+  display: none;
+}
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list > li {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  position: static;
+  transform: none;
+  width: auto;
+  min-width: 0;
+  height: 40px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  box-shadow: none;
+  clip-path: none;
+}
+
+@layer yhu-foundation {
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list > li > button,
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list > li[role="button"] {
+  white-space: nowrap;
+  cursor: pointer;
+}
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list > li > button,
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list > li[role="button"] {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: auto;
+  height: 40px;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 11px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  box-shadow: none;
+  clip-path: none;
+  transform: none;
+  color: #eef4ff;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list > li.active > button,
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list > li.active[role="button"] {
+  background: rgba(56,189,248,.15);
+  border-color: rgba(103,232,249,.35);
+  color: #fff;
+}
+
+@layer yhu-foundation {
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list .sidebar-icon,
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list .academy-ui-icon {
+  object-fit: contain;
+}
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list .sidebar-icon,
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list .academy-ui-icon {
+  display: inline-flex;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+}
+
+@layer yhu-foundation {
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list .sidebar-text-group,
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list .sidebar-text {
+  white-space: nowrap;
+}
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list .sidebar-text-group,
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list .sidebar-text {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  width: auto;
+  font-size: 13px;
+}
+
+/* Column 3 — Daily Progress */
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-header-progress {
+  grid-area: 1 / 3;
+  display: block;
+  align-self: center;
+  justify-self: end;
+  position: relative;
+  transform: none;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+@layer yhu-foundation {
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-header-progress > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(103,232,249,.24);
+  border-radius: 9px;
+  background: #132d48;
+  box-shadow: none;
+  clip-path: none;
+  transform: none;
+  color: #eef8ff;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 700;
+  white-space: nowrap;
+  list-style: none;
+  cursor: pointer;
+}
+
+@layer yhu-foundation {
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-header-progress > summary::-webkit-details-marker {
+  display: none;
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-header-progress > summary::after {
+  content: '⌄';
+  color: #67d8fa;
+}
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-header-progress > .academy-sidebar-progress {
+  position: absolute;
+  margin: 0;
+  padding: 20px;
+  overflow-y: auto;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 150;
+  width: min(360px, calc(100vw - 24px));
+  max-height: 65dvh;
+  border: 1px solid #406783;
+  border-radius: 15px;
+  background: #0c2036;
+  box-shadow: 0 18px 50px rgba(0,0,0,.48);
+  scrollbar-width: none;
+  display: grid;
+  gap: 12px;
+  box-sizing: border-box;
+  overscroll-behavior: contain;
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-header-progress > .academy-sidebar-progress > .academy-sidebar-progress-head > span:last-child {
+display: block;
+font-size: 13px;
+color: #b7cde1;
+overflow-wrap: anywhere;
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-header-progress > .academy-sidebar-progress > .academy-sidebar-progress-head > span:first-child {
+display: block;
+font-size: 14px;
+font-weight: 700;
+color: #f2f8ff;
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-header-progress > .academy-sidebar-progress > .academy-sidebar-progress-head {
+display: grid;
+grid-template-columns: minmax(0, 1fr);
+gap: 7px;
+min-width: 0;
+line-height: 1.45;
+}
+
+/* Column 4 — Return to Universe */
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header > .academy-universe-return-actions {
+  grid-area: 1 / 4;
+  display: inline-flex;
+  align-self: center;
+  justify-self: end;
+  align-items: center;
+  justify-content: center;
+  position: static;
+  transform: none;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+@layer yhu-foundation {
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-back-universe-btn {
+  white-space: nowrap;
+}
+}
+
+.dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-back-universe-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: 40px;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(103,232,249,.24);
+  border-radius: 9px;
+  background: transparent;
+  box-shadow: none;
+  clip-path: none;
+  transform: none;
+  color: #eef4ff;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+/* Mobile retains original mobile navigation. */
+
+@media (max-width: 768px) {
+  .dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header {
+    grid-template-columns: minmax(0,1fr) max-content;
+    grid-template-rows: 60px;
+    height: 60px;
+    min-height: 60px;
+    max-height: 60px;
+    padding: 0 12px;
+  }
+
+  .dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header > .nav-brand {
+    grid-area: 1 / 1;
+  }
+
+  .dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-channel-list {
+    display: none;
+  }
+
+  .dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header .academy-header-progress {
+    grid-area: 1 / 2;
+  }
+
+  .dashboard-layout.yhu-academy-p1 > nav.yh-top-nav.yhu-academy-native-header > .academy-universe-return-actions {
+    display: none;
+  }
+}
+
+/* YHU_ACADEMY_MISSIONS_LAYOUT_REPAIR_20261030
+   Consolidated Mission, Operator, scrolling and modal styling.
+   UI-only correction.
+*/
+
+@layer yhu-foundation {
+
+.yhu-academy-p1 #academy-wrapper {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.yhu-academy-p1 #academy-wrapper > main.yh-main-chat {
+  display: block;
+  flex: 1 1 0;
+  width: 100%;
+  max-height: 100%;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+}
+
+.yhu-academy-p1 #academy-wrapper > main.yh-main-chat {
+  height: auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+@layer yhu-foundation {
+
+.yhu-academy-p1 #academy-wrapper > main.yh-main-chat::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.yhu-academy-p1 #academy-wrapper
+[data-yh-dashboard-react-surface="academy-missions"] {
+  display: block;
+  width: 100%;
+}
+}
+
+.yhu-academy-p1 #academy-wrapper
+[data-yh-dashboard-react-surface="academy-missions"] {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+.yhu-academy-p1 #academy-wrapper
+[data-yh-dashboard-react-surface="academy-missions"]
+:is(
+  .academy-lead-missions-scroll,
+  .academy-lead-missions-shell,
+  .academy-mission-playbook-detail-shell
+) {
+  height: auto;
+  max-height: none;
+  min-height: 0;
+  overflow: visible;
+}
+
+@layer yhu-foundation {
+
+.yhu-academy-p1 #academy-wrapper
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-scroll {
+  padding: 20px clamp(16px, 2.5vw, 32px) 72px;
+}
+
+.yhu-academy-p1 #academy-wrapper
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-shell {
+  width: 100%;
+  max-width: 1760px;
+  margin-inline: auto;
+}
+}
+
+/* Mission cards */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-mission-playbook-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(min(100%,285px),1fr));
+  align-items: stretch;
+  gap: 16px;
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-mission-playbook-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 285px;
+  height: 100%;
+  padding: 20px;
+  text-align: left;
+  border: 1px solid rgba(112,185,236,.24);
+  border-radius: 17px;
+  background: linear-gradient(155deg,#132e4c,#09192c);
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-mission-playbook-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 8px;
+  min-width: 0;
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-mission-playbook-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  width: 100%;
+  min-height: 39px;
+  margin-top: auto;
+  padding: 10px 14px;
+  border: 1px solid #39779c;
+  border-radius: 9px;
+  background: #163f61;
+  color: #82dfff;
+  font-size: 12px;
+  font-weight: 700;
+}
+}
+
+/* Access Lead Missions at the left */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-hero > .academy-lead-header-actions {
+  grid-column: 1 / -1;
+  justify-self: start;
+  align-self: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
+  width: 100%;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 0;
+  text-align: left;
+}
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-hero > .academy-lead-header-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+@layer yhu-foundation {
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-hero > .academy-lead-header-actions > button {
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  min-height: 42px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: normal;
+}
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-hero > .academy-lead-header-actions > button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 175px;
+  padding: 10px 18px;
+  margin: 0;
+  border-radius: 10px;
+  clip-path: none;
+}
+
+/* Mission detail: preserve all sections, ensure full scroll */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-mission-playbook-detail-card {
+  min-height: 0;
+  padding: clamp(18px,2vw,26px);
+  border-radius: 18px;
+}
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-mission-playbook-detail-card {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+@layer yhu-foundation {
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-mission-playbook-sections-grid {
+  align-items: stretch;
+}
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-mission-playbook-sections-grid {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+@layer yhu-foundation {
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-mission-playbook-detail-head {
+  align-items: center;
+  flex-wrap: wrap;
+  width: 100%;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 0;
+}
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-mission-playbook-detail-head {
+  display: flex;
+  justify-content: flex-start;
+}
+
+@layer yhu-foundation {
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-mission-playbook-detail-head > button {
+  min-height: 38px;
+  max-width: 100%;
+  font-size: 12px;
+  white-space: normal;
+}
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-mission-playbook-detail-head > button {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  padding: 9px 14px;
+  border-radius: 9px;
+  clip-path: none;
+}
+
+/* Operator workspace */
+
+@layer yhu-foundation {
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-workspace {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  gap: 14px;
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-workspace > .academy-lead-header-actions,
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-workspace .academy-lead-subtabs,
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-workspace .academy-lead-header-actions {
+  align-items: center;
+  align-self: stretch;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-workspace > .academy-lead-header-actions,
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-workspace .academy-lead-subtabs,
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-workspace .academy-lead-header-actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+}
+
+@layer yhu-foundation {
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-workspace
+:is(.academy-lead-header-actions > button,.academy-lead-subtab) {
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  min-height: 38px;
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: normal;
+}
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-missions-workspace
+:is(.academy-lead-header-actions > button,.academy-lead-subtab) {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  padding: 9px 13px;
+  margin: 0;
+  border-radius: 9px;
+  clip-path: none;
+}
+
+@layer yhu-foundation {
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-operator-hero {
+  width: 100%;
+  min-width: 0;
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-list {
+  display: grid;
+  grid-template-columns: minmax(0,1fr);
+  gap: 12px;
+  width: 100%;
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-list-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid rgba(112,185,236,.22);
+  border-radius: 14px;
+  background: rgba(10,26,46,.86);
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-list-card .academy-lead-list-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-list-card .roadmap-mission-actions {
+  flex: 0 0 auto;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-list-card .roadmap-mission-actions {
+  display: inline-flex;
+  justify-content: flex-start;
+  width: auto;
+}
+
+@layer yhu-foundation {
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-list-card .roadmap-mission-actions > button {
+  max-width: 160px;
+  min-height: 36px;
+  font-size: 12px;
+}
+}
+
+.yhu-academy-p1
+[data-yh-dashboard-react-surface="academy-missions"]
+.academy-lead-list-card .roadmap-mission-actions > button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 70px;
+  padding: 8px 14px;
+  margin: 0;
+  border-radius: 9px;
+  clip-path: none;
+}
+
+
+/* Academy recruitment SPA page */
+.yhu-academy-p1 .academy-recruitment-page {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: clamp(16px, 3vw, 36px) clamp(18px, 2.5vw, 44px) 84px;
+  overflow: visible;
+}
+.yhu-academy-p1 .academy-recruitment-header,
+.yhu-academy-p1 .academy-recruitment-form {
+  width: min(100%, 1420px);
+  margin-inline: auto;
+}
+.yhu-academy-p1 .academy-recruitment-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+.yhu-academy-p1 .academy-recruitment-header h1 {
+  margin: 4px 0 8px;
+  font-size: clamp(23px,3vw,31px);
+  color: #f4f9ff;
+}
+.yhu-academy-p1 .academy-recruitment-header p {
+  margin: 0;
+  color: #a8bdd5;
+}
+.yhu-academy-p1 .academy-recruitment-form {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 18px;
+  padding: clamp(18px,3vw,32px);
+  border: 1px solid rgba(112,185,236,.30);
+  border-radius: 18px;
+  background: #0c1e34;
+}
+.yhu-academy-p1 .academy-recruitment-form > .academy-lead-form-span-2,
+.yhu-academy-p1 .academy-recruitment-form > label:has(> input[type="checkbox"]),
+.yhu-academy-p1 .academy-recruitment-form > .academy-recruitment-actions {
+  grid-column: 1 / -1;
+}
+.yhu-academy-p1 .academy-recruitment-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+.yhu-academy-p1 .academy-recruitment-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid rgba(132,184,228,.32);
+  border-radius: 10px;
+  background: #10253e;
+  color: #f3f8ff;
+}
+.yhu-academy-p1 .academy-recruitment-input:focus-visible {
+  outline: 2px solid rgba(103,232,249,.32);
+  outline-offset: 1px;
+  border-color: #67e8f9;
+}
+.yhu-academy-p1 .academy-recruitment-form .academy-lead-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.yhu-academy-p1 .academy-recruitment-form .academy-lead-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 1px solid rgba(132,184,228,.23);
+  border-radius: 999px;
+  background: #12283f;
+}
+.yhu-academy-p1 .academy-recruitment-form input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #38bdf8;
+}
+.yhu-academy-p1 .academy-recruitment-actions {
+  display: flex;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(112,185,236,.2);
+}
+
+/* Canonical controls for the redesigned Academy workspaces */
+.yhu-academy-p1 .academy-ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 100%;
+  min-height: 40px;
+  padding: 9px 15px;
+  margin: 0;
+  border: 1px solid rgba(100,184,239,.38);
+  border-radius: 10px;
+  clip-path: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
+  cursor: pointer;
+  transition: background .15s ease,border-color .15s ease;
+}
+.yhu-academy-p1 .academy-ui-button--secondary {
+  color: #e9f4ff;
+  background: #17304e;
+}
+.yhu-academy-p1 .academy-ui-button--primary {
+  color: #fff;
+  background: #165b99;
+}
+.yhu-academy-p1 .academy-ui-button:hover:not(:disabled) {
+  border-color: #67e8f9;
+  background: #216392;
+}
+.yhu-academy-p1 .academy-ui-button.active {
+  border-color: #67e8f9;
+  background: #174e75;
+  color: #fff;
+}
+.yhu-academy-p1 .academy-ui-button:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 2px;
+}
+.yhu-academy-p1 .academy-ui-button:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+}
+
+/* Messages empty screen */
+.yhu-academy-p1 .academy-messages-react-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  gap: 9px;
+  padding: 24px;
+  color: #a8bdd5;
+  text-align: center;
+}
+.yhu-academy-p1 .academy-messages-react-empty h3 {
+  margin: 0;
+  color: #67d8fa;
+}
+.yhu-academy-p1 .academy-messages-react-empty p {
+  max-width: 420px;
+  margin: 0;
+  line-height: 1.55;
+}
+/* Mobile */
+
+
+@media (max-width: 768px) {
+  @layer yhu-foundation {
+    .yhu-academy-p1 #academy-wrapper
+    [data-yh-dashboard-react-surface="academy-missions"]
+    .academy-lead-missions-scroll {
+      padding: 14px 12px 90px;
+    }
+  }
+  .yhu-academy-p1 .academy-recruitment-page {
+    padding: 14px;
+  }
+  .yhu-academy-p1 .academy-recruitment-header {
+    flex-direction: column;
+  }
+  .yhu-academy-p1 .academy-recruitment-form {
+    grid-template-columns: minmax(0,1fr);
+    gap: 13px;
+    padding: 16px;
+  }
+  .yhu-academy-p1 .academy-recruitment-form > .academy-lead-form-span-2,
+  .yhu-academy-p1 .academy-recruitment-form > label:has(> input[type="checkbox"]),
+  .yhu-academy-p1 .academy-recruitment-form > .academy-recruitment-actions {
+    grid-column: 1;
+  }
+}
+
+
+.yhu-academy-p1 .academy-messages-icon-button {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+flex: 0 0 40px;
+width: 40px;
+height: 40px;
+min-width: 40px;
+min-height: 40px;
+padding: 0;
+border: 1px solid rgba(100,184,239,.38);
+border-radius: 10px;
+background: #17304e;
+color: #e9f4ff;
+cursor: pointer;
+}
+
+
+.yhu-academy-p1 .academy-messages-icon-button:hover:not(:disabled) {
+background: #216392;
+}
+
+
+.yhu-academy-p1 .academy-messages-icon-button:focus-visible {
+outline: 2px solid #67e8f9;
+outline-offset: 2px;
+}
+
+
+.yhu-academy-p1 .academy-messages-icon-button:disabled {
+opacity: .48;
+cursor: not-allowed;
+}

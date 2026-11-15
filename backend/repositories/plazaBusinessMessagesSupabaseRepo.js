@@ -107,7 +107,7 @@ function normalizeConversation(input = {}) {
         input.targetUserId,
         input.recipientId,
         input.businessMemberId
-    ].map(sanitizeText).filter(Boolean)));
+    ].map(value => sanitizeText(value)).filter(Boolean)));
 
     const title = sanitizeText(
         input.title ||
@@ -363,6 +363,19 @@ function mapConversationRow(row = {}) {
         authorEmail: sanitizeText(data.authorEmail || row.private_meta?.authorEmail || '').toLowerCase(),
         preview: sanitizeText(data.preview || row.public_meta?.preview || row.summary || ''),
         description: sanitizeText(data.description || row.body || ''),
+        businessPurpose: sanitizeText(data.businessPurpose),
+        businessIntent: sanitizeText(data.businessIntent || data.intentCategory),
+        intentCategory: sanitizeText(data.intentCategory || data.businessIntent),
+        jobSearchIntent: data.jobSearchIntent === true,
+        sourceDivision: sanitizeText(data.sourceDivision),
+        targetDivision: sanitizeText(data.targetDivision),
+        contextTitle: sanitizeText(data.contextTitle),
+        contextRoute: sanitizeText(data.contextRoute),
+        businessThreadKey: sanitizeText(data.businessThreadKey),
+        moderation: { blocked: data.moderation?.blocked === true, closed: data.moderation?.closed === true },
+        blockedBy: data.blockedBy && typeof data.blockedBy === 'object' ? data.blockedBy : {},
+        businessBlock: { active: data.businessBlock?.active === true },
+        closedReason: sanitizeText(data.closedReason),
         messages: safeArray(data.messages || data.replies).map(normalizeMessage),
         replies: safeArray(data.replies || data.messages).map(normalizeMessage),
         status: normalizeStatus(data.status || row.status || 'open'),
@@ -438,7 +451,67 @@ async function importBlock(id = '', payload = {}) {
     return mapBlockRow(await upsertRecord(row));
 }
 
+function businessParties(conversation = {}) {
+    return Array.from(new Set([
+        ...safeArray(conversation.participantIds), conversation.requesterId,
+        conversation.targetUserId, conversation.businessMemberId, conversation.authorId
+    ].map(value => sanitizeText(value)).filter(Boolean)));
+}
+
+function businessHttpError(message, statusCode) {
+    return Object.assign(new Error(message), { statusCode });
+}
+
+// At least one side must be supplied. Paginate the scoped query, not a global top-200 list.
+async function listBusinessBlocks(ownerIds = [], targetIds = []) {
+    const owners = Array.from(new Set(safeArray(ownerIds).map(value => sanitizeText(value)).filter(Boolean)));
+    const targets = Array.from(new Set(safeArray(targetIds).map(value => sanitizeText(value)).filter(Boolean)));
+    if (!owners.length && !targets.length) return [];
+    const result = [];
+    for (let offset = 0; ; offset += 200) {
+        let query = yhuSupabaseAdmin.from(TABLE).select('*').eq('record_type', 'business_user_block');
+        if (owners.length) query = query.in('owner_user_id', owners);
+        if (targets.length) query = query.in('target_user_id', targets);
+        const { data, error } = await query.order('source_document_id', { ascending: true }).range(offset, offset + 199);
+        if (error) throw businessHttpError('Business Chat block verification is unavailable.', 503);
+        if (!Array.isArray(data)) throw businessHttpError('Business Chat block response was incomplete.', 503);
+        result.push(...data.map(mapBlockRow).filter(block => normalizeStatus(block.status) === 'active'));
+        if (data.length < 200) return result;
+    }
+}
+
+function businessDeliveryState(conversation = {}, blocks = [], viewerIds = []) {
+    const parties = new Set(businessParties(conversation));
+    const viewer = new Set(safeArray(viewerIds).map(value => sanitizeText(value)));
+    const relevant = safeArray(blocks).filter(block => normalizeStatus(block.status) === 'active' &&
+        parties.has(sanitizeText(block.blockerId)) && parties.has(sanitizeText(block.blockedUserId)));
+    const status = normalizeStatus(conversation.status);
+    const blocked = status === 'blocked' || conversation.moderation?.blocked === true ||
+        Object.values(conversation.blockedBy || {}).some(Boolean) || conversation.businessBlock?.active === true || relevant.length > 0;
+    const closed = ['closed', 'archived', 'deleted', 'hidden', 'removed'].includes(status) || conversation.moderation?.closed === true;
+    const blockedByMe = relevant.some(block => viewer.has(sanitizeText(block.blockerId)));
+    const blockedMe = relevant.some(block => viewer.has(sanitizeText(block.blockedUserId)));
+    return {
+        blocked, closed,
+        businessBlock: {
+            active: Boolean(blocked), blockedByMe, blockedMe,
+            message: blocked ? "Message can't be delivered. This Business Chat is blocked." : ''
+        }
+    };
+}
+
+async function assertBusinessDeliveryAllowed(conversation, viewerIds = []) {
+    const parties = businessParties(conversation);
+    if (viewerIds.length && !viewerIds.some(id => parties.includes(sanitizeText(id)))) {
+        throw businessHttpError('You are not part of this Business Chat.', 403);
+    }
+    const state = businessDeliveryState(conversation, await listBusinessBlocks(parties, parties), viewerIds);
+    if (state.blocked) throw businessHttpError("Message can't be delivered. This Business Chat is blocked.", 403);
+    if (state.closed) throw businessHttpError("Message can't be delivered. This business chat is closed.", 409);
+}
+
 async function createConversation(payload = {}) {
+    await assertBusinessDeliveryAllowed(payload);
     return importConversation(payload.id || payload.roomId || buildId('plaza_conversation'), payload);
 }
 
@@ -515,10 +588,14 @@ async function getConversationById(id = '') {
 
     if (error) throw new Error('Plaza conversation get failed: ' + error.message);
 
-    return data ? mapConversationRow(data) : null;
+    if (!data) return null;
+    const conversation = mapConversationRow(data);
+    const ids = businessParties(conversation);
+    const state = businessDeliveryState(conversation, await listBusinessBlocks(ids, ids));
+    return { ...conversation, businessBlock: state.businessBlock };
 }
 
-async function addConversationReply(id = '', reply = {}) {
+async function addConversationReply(id = '', reply = {}, viewerIds = []) {
     const existing = await getExisting('conversation', id);
 
     if (!existing) {
@@ -526,6 +603,7 @@ async function addConversationReply(id = '', reply = {}) {
     }
 
     const current = existing.data && typeof existing.data === 'object' ? existing.data : {};
+    await assertBusinessDeliveryAllowed(mapConversationRow(existing), viewerIds.length ? viewerIds : [sanitizeText(reply.authorId)]);
     const currentMessages = safeArray(current.messages || current.replies).map(normalizeMessage);
     const nextReply = normalizeMessage(reply);
 
@@ -581,6 +659,10 @@ async function deleteRecord(recordType = '', id = '') {
 
 module.exports = {
     TABLE,
+    businessParties,
+    businessDeliveryState,
+    listBusinessBlocks,
+    assertBusinessDeliveryAllowed,
     buildConversationRow,
     buildReportRow,
     buildBlockRow,

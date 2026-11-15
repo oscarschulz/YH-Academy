@@ -126,6 +126,16 @@ async function readOperationalSettings({
     rowsToOperationalSettings(
       data || []
     );
+  // YHU-M01: Explicit local development preview only.
+  if (
+    process.env.YHU_LOCAL_PREVIEW_IGNORE_MAINTENANCE === '1' &&
+    process.env.NODE_ENV === 'development'
+  ) {
+    cachedSettings = {
+      ...cachedSettings,
+      maintenanceMode: false
+    };
+  }
 
   cacheExpiresAt =
     now + CACHE_TTL_MS;

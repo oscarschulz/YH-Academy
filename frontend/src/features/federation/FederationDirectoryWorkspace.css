@@ -1,0 +1,277 @@
+@layer yhu-foundation {.yh-federation-directory-react-workspace {
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.yh-federation-directory-scroll {
+  height: 100%;
+  overflow: auto;
+}
+
+.yh-federation-directory-shell {
+  width: min(1760px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 28px 0 52px;
+}
+
+.yh-federation-directory-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 20px;
+  background: rgba(15, 23, 42, .42);
+}
+
+.yh-federation-directory-hero h1 {
+  margin: 7px 0;
+}
+
+.yh-federation-directory-hero p,
+.yh-federation-directory-card > p,
+.yh-federation-directory-profile-copy {
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.yh-federation-directory-kicker {
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.yh-federation-directory-lock-note {
+  display: grid;
+  gap: 5px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid rgba(245, 158, 11, .22);
+  border-radius: 15px;
+  background: rgba(245, 158, 11, .05);
+}
+
+.yh-federation-directory-lock-note span {
+  color: var(--text-muted);
+}
+
+.yh-federation-directory-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.yh-federation-directory-summary article {
+  display: grid;
+  gap: 5px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, .42);
+}
+
+.yh-federation-directory-summary strong {
+  font-size: 1.5rem;
+}
+
+.yh-federation-directory-summary small {
+  color: var(--text-muted);
+}
+
+.yh-federation-directory-toolbar {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.yh-federation-directory-toolbar label {
+  display: grid;
+  gap: 6px;
+}
+
+.yh-federation-directory-toolbar label > span {
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+.yh-federation-directory-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.yh-federation-directory-card {
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, .42);
+}
+
+.yh-federation-directory-card.is-redacted {
+  background: rgba(148, 163, 184, .035);
+}
+
+.yh-federation-directory-member-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.yh-federation-directory-member-head h3 {
+  margin: 0 0 3px;
+}
+
+.yh-federation-directory-member-head > div > span {
+  color: var(--text-muted);
+  font-size: .82rem;
+}
+
+.yh-federation-directory-member-head > b {
+  align-self: start;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, .08);
+  font-size: .7rem;
+}
+
+.yh-federation-directory-avatar {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: rgba(14, 165, 233, .1);
+  font-weight: 800;
+}
+
+.yh-federation-directory-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.yh-federation-directory-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.yh-federation-directory-meta span {
+  padding: 5px 8px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 999px;
+  font-size: .72rem;
+}
+
+.yh-federation-directory-protected {
+  margin-top: 14px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, .06);
+  color: var(--text-muted);
+}
+
+.yh-federation-directory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.yh-federation-directory-state {
+  display: grid;
+  gap: 7px;
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, .42);
+}
+
+.yh-federation-directory-profile-cover {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.yh-federation-directory-profile-modal {
+  display: grid;
+  gap: 15px;
+  max-width: 720px;
+}
+
+.yh-federation-directory-profile-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.yh-federation-directory-profile-head h2 {
+  margin: 5px 0 0;
+}
+
+.yh-federation-directory-profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.yh-federation-directory-profile-grid > div {
+  display: grid;
+  gap: 4px;
+  padding: 11px;
+  border-radius: 13px;
+  background: rgba(148, 163, 184, .06);
+}
+
+.yh-federation-directory-profile-grid small {
+  color: var(--text-muted);
+}
+
+.yh-federation-directory-profile-note {
+  padding: 12px;
+  border-radius: 13px;
+  background: rgba(14, 165, 233, .06);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+}
+
+@media (max-width: 780px) {
+  @layer yhu-foundation {
+  .yh-federation-directory-grid,
+  .yh-federation-directory-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+}
+
+@media (max-width: 640px) {
+  @layer yhu-foundation {
+  .yh-federation-directory-shell {
+    width: min(100% - 20px, 1140px);
+    padding-top: 14px;
+  }
+
+  .yh-federation-directory-hero,
+  .yh-federation-directory-profile-head {
+    flex-direction: column;
+  }
+
+  .yh-federation-directory-summary,
+  .yh-federation-directory-profile-grid {
+    grid-template-columns: 1fr;
+  }
+}
+}

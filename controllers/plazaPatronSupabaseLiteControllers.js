@@ -129,27 +129,32 @@ function getPatronAssignment(
 }
 
 async function loadRegions() {
-    try {
-        if (typeof regionsRepo.listRegions === 'function') {
-            return await regionsRepo.listRegions(250);
-        }
-    } catch (error) {
-        console.warn('Patron regions load skipped:', error?.message || error);
+    const page = await regionsRepo.listRegions({ limit: 200 });
+
+    if (!page || !Array.isArray(page.items)) {
+        throw new Error('Plaza regions returned an invalid response.');
     }
 
-    return [];
+    return page.items;
 }
 
-async function loadRequests() {
-    try {
-        if (typeof requestsRepo.listRequests === 'function') {
-            return await requestsRepo.listRequests(250);
-        }
-    } catch (error) {
-        console.warn('Patron requests load skipped:', error?.message || error);
+async function loadRequests(viewer = {}) {
+    const viewerId = sanitizeText(viewer.id || viewer.firebaseUid);
+
+    if (!viewerId) {
+        throw new Error('Authenticated Patron ID is required.');
     }
 
-    return [];
+    const page = await requestsRepo.listRequests({
+        viewerId,
+        limit: 200
+    });
+
+    if (!page || !Array.isArray(page.items)) {
+        throw new Error('Plaza requests returned an invalid response.');
+    }
+
+    return page.items;
 }
 
 async function loadMeetups() {
@@ -364,7 +369,7 @@ exports.getPatronDesk = async (req, res) => {
             payouts
         ] = await Promise.all([
             loadRegions(),
-            loadRequests(),
+            loadRequests(viewer),
             loadMeetups(),
             patronRepo.listAnnouncements(250),
             patronRepo.listRecommendations(250),
@@ -372,8 +377,21 @@ exports.getPatronDesk = async (req, res) => {
             patronRepo.listPayouts(250)
         ]);
 
+        const assignedRegions = regions.filter((item) => {
+            const id = sanitizeText(item.patronUserId);
+
+            return id &&
+                [viewer.id, viewer.firebaseUid].includes(id) &&
+                cleanStatus(item.patronStatus) === 'active';
+        });
+
         const routedRequests = requests.filter((item) => {
-            return userMatches(item, viewer) || sanitizeText(item.raw?.patronUserId) === viewer.id;
+            return userMatches(item, viewer) || [
+                item.patronUserId,
+                item.assignedTo,
+                item.targetUserId,
+                item.raw?.patronUserId
+            ].map(sanitizeText).includes(viewer.id);
         });
 
         const patronMeetups = meetups.filter((item) => {
@@ -396,7 +414,7 @@ exports.getPatronDesk = async (req, res) => {
             patron: isPatron ? application : null,
             application,
             status,
-            regions,
+            regions: assignedRegions,
             routedRequests,
             meetups: patronMeetups,
             announcements,

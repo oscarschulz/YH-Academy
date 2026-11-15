@@ -554,6 +554,38 @@ async function mirrorAcademyLead(input = {}) {
     }
 
     const mirrorId = normalizeDocId(`academy_${operatorUid}_${leadId}`);
+
+    if (cleanLower(input.action) === 'deleted') {
+        if (!hasCollectionsDb()) {
+            return {
+                success: false,
+                skipped: true,
+                reason: 'supabase_not_configured'
+            };
+        }
+
+        const { error } = await yhuSupabaseAdmin
+            .from(TABLE_NAME)
+            .delete()
+            .eq(
+                'source_record_path',
+                `users/${operatorUid}/academyLeadMissions/${leadId}`
+            )
+            .in('source_document_path', [
+                `${FEDERATION_LEAD_INVENTORY_COLLECTION}/${mirrorId}`,
+                `${INDEX_COLLECTION}/${mirrorId}`
+            ]);
+
+        if (error) throw error;
+
+        return {
+            success: true,
+            action: 'deleted',
+            mirrorId,
+            source: 'supabase'
+        };
+    }
+
     const creator = buildCreatorSnapshot(input.operator || {}, {
         createdByUid: operatorUid,
         operatorUid,

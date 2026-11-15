@@ -5262,23 +5262,14 @@ async function getCommunityNicheState({ viewerId }) {
     const joinedKeys = new Set([
         ...mapArray(profile?.community_niches).map(normalizeNicheKey),
         ...(Array.isArray(data) ? data.map((row) => normalizeNicheKey(row.niche_key)) : [])
-    ].filter(Boolean));
+    ].filter((key) => Boolean(getNicheMeta(key))));
 
-    const requestedDefaultNicheKey =
-        normalizeNicheKey(
-            profile?.default_niche
-        ) ||
-        normalizeNicheKey(
-            (
-                Array.isArray(data)
-                    ? data
-                    : []
-            ).find(
-                (row) =>
-                    row.is_default
-            )?.niche_key
-        ) ||
-        '';
+    const requestedDefaultNicheKey = [
+        normalizeNicheKey(profile?.default_niche),
+        ...(Array.isArray(data) ? data : [])
+            .filter((row) => row.is_default)
+            .map((row) => normalizeNicheKey(row.niche_key))
+    ].find((key) => joinedKeys.has(key)) || '';
 
     const defaultNicheKey =
         joinedKeys.has(

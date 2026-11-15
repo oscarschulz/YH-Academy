@@ -1,0 +1,453 @@
+@layer yhu-foundation {.yh-federation-command-react-workspace {
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.yh-federation-command-scroll {
+  height: 100%;
+  overflow: auto;
+}
+
+.yh-federation-command-shell {
+  width: min(1760px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 28px 0 52px;
+}
+
+.yh-federation-command-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(330px, 1fr);
+  gap: 18px;
+}
+
+.yh-federation-command-hero-copy,
+.yh-federation-strategic-profile,
+.yh-federation-command-card,
+.yh-federation-command-metrics article,
+.yh-federation-command-lanes button {
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 20px;
+  background: rgba(15, 23, 42, .42);
+}
+
+.yh-federation-command-hero-copy,
+.yh-federation-strategic-profile,
+.yh-federation-command-card {
+  padding: 20px;
+}
+
+.yh-federation-command-kicker,
+.yh-federation-command-card-head > div > span {
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.yh-federation-command-hero h1 {
+  margin: 8px 0 9px;
+}
+
+.yh-federation-command-hero p,
+.yh-federation-command-card p,
+.yh-federation-command-disclaimer,
+.yh-federation-framework-grid p {
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.yh-federation-command-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.yh-federation-strategic-profile-head,
+.yh-federation-command-card-head,
+.yh-federation-operation-head,
+.yh-federation-operation-action {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.yh-federation-strategic-profile-head > div {
+  display: grid;
+  gap: 4px;
+}
+
+.yh-federation-strategic-profile-head > div strong {
+  font-size: 1.35rem;
+}
+
+.yh-federation-strategic-profile-head > span,
+.yh-federation-status-chip {
+  align-self: flex-start;
+  padding: 5px 9px;
+  border: 1px solid rgba(14, 165, 233, .25);
+  border-radius: 999px;
+  font-size: .72rem;
+}
+
+.yh-federation-strategic-profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-top: 18px;
+}
+
+.yh-federation-strategic-profile-grid > span,
+.yh-federation-readiness-grid article,
+.yh-federation-operation-meta span {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(148, 163, 184, .06);
+}
+
+.yh-federation-strategic-profile-grid small,
+.yh-federation-readiness-grid small,
+.yh-federation-operation-meta small,
+.yh-federation-command-metrics span {
+  color: var(--text-muted);
+}
+
+.yh-federation-command-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.yh-federation-command-metrics article {
+  display: grid;
+  gap: 5px;
+  padding: 16px;
+}
+
+.yh-federation-command-metrics strong {
+  font-size: 1.55rem;
+}
+
+.yh-federation-command-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-top: 18px;
+}
+
+.yh-federation-command-card {
+  margin-top: 18px;
+}
+
+.yh-federation-command-two-col > .yh-federation-command-card {
+  margin-top: 0;
+}
+
+.yh-federation-command-card-head h2 {
+  margin: 5px 0 0;
+  font-size: 1.05rem;
+}
+
+.yh-federation-primary-operation {
+  margin-top: 15px;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(14, 165, 233, .07);
+}
+
+.yh-federation-primary-operation h3 {
+  margin: 7px 0;
+}
+
+.yh-federation-primary-operation p {
+  margin: 0;
+}
+
+.yh-federation-primary-operation > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 13px 0;
+}
+
+.yh-federation-primary-operation small,
+.yh-federation-region-grid button small,
+.yh-federation-region-grid button span {
+  color: var(--text-muted);
+}
+
+.yh-federation-region-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.yh-federation-region-grid button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  text-align: left;
+  color: inherit;
+  border: 1px solid rgba(148, 163, 184, .12);
+  border-radius: 14px;
+  background: rgba(148, 163, 184, .05);
+  cursor: pointer;
+}
+
+.yh-federation-region-grid button.is-home {
+  border-color: rgba(14, 165, 233, .32);
+  background: rgba(14, 165, 233, .07);
+}
+
+.yh-federation-operation-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 15px;
+}
+
+.yh-federation-readiness-grid,.yh-federation-framework-grid {
+  display: grid;
+  gap: 9px;
+  margin-top: 15px;
+}
+
+.yh-federation-operation-summary article,
+.yh-federation-framework-grid article {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(148, 163, 184, .06);
+}
+
+.yh-federation-operation-summary strong {
+  font-size: 1.35rem;
+}
+
+.yh-federation-operation-filters {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  margin-top: 14px;
+}
+
+.yh-federation-operation-filters button {
+  flex: 0 0 auto;
+  padding: 7px 11px;
+  color: inherit;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 999px;
+  background: rgba(148, 163, 184, .04);
+  cursor: pointer;
+}
+
+.yh-federation-operation-filters button.is-active {
+  border-color: rgba(14, 165, 233, .4);
+  background: rgba(14, 165, 233, .09);
+}
+
+.yh-federation-operation-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.yh-federation-operation-grid > article {
+  padding: 15px;
+  border: 1px solid rgba(148, 163, 184, .12);
+  border-radius: 16px;
+  background: rgba(148, 163, 184, .04);
+}
+
+.yh-federation-operation-head h3 {
+  margin: 5px 0 0;
+}
+
+.yh-federation-operation-head > b {
+  align-self: flex-start;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, .08);
+  font-size: .72rem;
+}
+
+.yh-federation-operation-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.yh-federation-operation-action {
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.yh-federation-influence-grid,
+.yh-federation-phase-list,
+.yh-federation-rank-path {
+  display: grid;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.yh-federation-influence-grid article {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(148, 163, 184, .05);
+}
+
+.yh-federation-influence-grid article > div {
+  display: grid;
+  gap: 3px;
+}
+
+.yh-federation-influence-grid article > span {
+  display: grid;
+  text-align: right;
+}
+
+.yh-federation-influence-grid em {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: .72rem;
+  font-style: normal;
+}
+
+.yh-federation-phase-list article,
+.yh-federation-rank-path article {
+  display: flex;
+  gap: 10px;
+  padding: 11px;
+  border-radius: 13px;
+  background: rgba(148, 163, 184, .05);
+}
+
+.yh-federation-phase-list article > b,
+.yh-federation-rank-path article > b {
+  flex: 0 0 30px;
+}
+
+.yh-federation-phase-list article > div,
+.yh-federation-rank-path article > div {
+  display: grid;
+  gap: 3px;
+}
+
+.yh-federation-phase-list small,
+.yh-federation-rank-path small {
+  color: var(--text-muted);
+}
+
+.yh-federation-rank-path article.is-current {
+  outline: 1px solid rgba(14, 165, 233, .4);
+  background: rgba(14, 165, 233, .08);
+}
+
+.yh-federation-command-lanes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.yh-federation-command-lanes button {
+  display: grid;
+  gap: 6px;
+  padding: 15px;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.yh-federation-command-lanes span,
+.yh-federation-command-lanes small {
+  color: var(--text-muted);
+}
+
+.yh-federation-readiness-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.yh-federation-framework-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.yh-federation-framework-grid p {
+  margin: 0;
+  font-size: .82rem;
+}
+
+.yh-federation-command-disclaimer {
+  margin: 14px 0 0;
+  font-size: .78rem;
+}
+
+.yh-federation-command-empty,
+.yh-federation-command-state {
+  display: grid;
+  gap: 10px;
+  place-items: start;
+  padding: 22px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, .42);
+}
+
+.yh-federation-command-state {
+  margin: 28px;
+}
+
+.yh-federation-command-state.is-error {
+  border-color: rgba(239, 68, 68, .25);
+}
+}
+
+@media (max-width: 900px) {
+  @layer yhu-foundation {
+  .yh-federation-command-hero,
+  .yh-federation-command-two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .yh-federation-command-metrics,
+  .yh-federation-command-lanes,
+  .yh-federation-framework-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+}
+
+@media (max-width: 640px) {
+  @layer yhu-foundation {
+  .yh-federation-command-shell {
+    width: min(100% - 20px, 1180px);
+    padding-top: 14px;
+  }
+
+  .yh-federation-command-metrics,
+  .yh-federation-command-lanes,
+  .yh-federation-framework-grid,
+  .yh-federation-operation-meta,
+  .yh-federation-readiness-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .yh-federation-strategic-profile-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .yh-federation-command-card-head {
+    flex-direction: column;
+  }
+}
+}

@@ -182,18 +182,13 @@ function buildFederationPayload({
   const type = cleanText(recordType || getRecordTypeFromCollection(sourceCollectionPath));
   const docId = cleanText(sourceDocumentId || normalizedData.id || normalizedData.uid);
 
-  const ownerUserId = pickFirst(normalizedData, [
-    'ownerUid',
-    'ownerUserId',
-    'userId',
-    'uid',
-    'requesterUid',
-    'requesterId',
-    'buyerUid',
-    'buyerId',
-    'memberId',
-    'payerUid'
-  ]);
+  // A lead's ownerUid is its seller, not the connection requester.
+  const ownerKeys = type === 'connection_request'
+    ? ['requesterUid', 'requesterId', 'buyerUid', 'buyerId', 'userId', 'uid', 'memberId', 'payerUid']
+    : type === 'deal_room'
+      ? ['creatorUid', 'creatorId', 'createdByUid', 'ownerUid', 'ownerUserId', 'userId', 'uid']
+      : ['ownerUid', 'ownerUserId', 'userId', 'uid', 'requesterUid', 'requesterId', 'buyerUid', 'buyerId', 'memberId', 'payerUid'];
+  const ownerUserId = pickFirst(normalizedData, ownerKeys);
 
   const targetUserId = pickFirst(normalizedData, [
     'targetUserId',
@@ -396,6 +391,13 @@ async function listFederationRecords(recordType = '', filters = {}) {
 
   if (filters.status) {
     query = query.eq('status', cleanLower(filters.status));
+  }
+
+  if (filters.dataContains) {
+    if (typeof filters.dataContains !== 'object' || Array.isArray(filters.dataContains)) {
+      throw makeHttpError('Invalid Federation record data filter.', 400);
+    }
+    query = query.contains('data', filters.dataContains);
   }
 
   if (filters.limit) {

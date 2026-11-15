@@ -336,9 +336,6 @@ async function deleteAdminSession(sessionId = '') {
 }
 
 function createAdminRouters(options = {}) {
-  const privateAdminDir =
-    options.privateAdminDir || path.join(process.cwd(), 'private', 'admin');
-
   const onMaintenanceModeChanged =
     typeof options.onMaintenanceModeChanged === 'function'
       ? options.onMaintenanceModeChanged
@@ -868,6 +865,10 @@ function buildAdminLeadMissionProjection(lead = {}, member = {}, payouts = [], d
     assignedByAdmin: cleanText(lead.assignedByAdmin || ''),
     assignedAt: toIso(lead.assignedAt) || cleanText(lead.assignedAt || ''),
     assignmentStatus: cleanText(lead.assignmentStatus || ''),
+    reviewStatus: cleanText(lead.reviewStatus || ''),
+    adminReviewNote: cleanText(lead.adminReviewNote || ''),
+    adminDecisionReason: cleanText(lead.adminDecisionReason || ''),
+    payoutTier: cleanText(lead.payoutTier || ''),
     missionType: cleanText(lead.missionType || ''),
     missionBrief: cleanText(lead.missionBrief || ''),
     academyMissionNeed: cleanText(lead.academyMissionNeed || ''),
@@ -1028,7 +1029,7 @@ function mapAdminFederationConnectionRequestDoc(doc) {
     platformCommissionRate,
     platformCommissionAmount,
     operatorPayoutAmount,
-    paymentStatus: cleanText(dealPackage.paymentStatus || data.paymentStatus || 'not_started'),
+    paymentStatus: cleanText(data.paymentStatus || dealPackage.paymentStatus || 'not_started'),
     payoutStatus: cleanText(data.payoutStatus || dealPackage.payoutStatus || 'not_started'),
     commissionStatus: cleanText(data.commissionStatus || dealPackage.commissionStatus || 'not_started'),
     dealNotes: cleanText(dealPackage.dealNotes || data.dealNotes || ''),
@@ -1510,6 +1511,351 @@ async function syncAdminUserInProductNotificationsFromUserRef(userRef = null, so
 }
 /* END PATCH: Admin User Notifications Supabase sync helper */
 
+
+function buildAdminAnalyticsTrendSnapshot(members, payments, now = new Date()) {
+  const safeMembers = Array.isArray(members) ? members : [];
+  const safePayments = Array.isArray(payments) ? payments : [];
+  const currentTime = now.getTime();
+
+  function validTime(value) {
+    if (!value) return null;
+    const raw = typeof value.toDate === 'function'
+      ? value.toDate()
+      : value;
+    const time = new Date(raw).getTime();
+
+    return Number.isFinite(time) && time <= currentTime
+      ? time
+      : null;
+  }
+
+  const joined = safeMembers
+    .map((member) => validTime(member.joinedAt))
+    .filter((time) => time !== null);
+
+  const paidUsd = safePayments.filter((payment) =>
+    String(payment.status || '').toLowerCase() === 'paid' &&
+    String(payment.currency || 'USD').toUpperCase() === 'USD'
+  );
+
+  const datedPayments = paidUsd
+    .map((payment) => ({
+      time: validTime(payment.paidAt),
+      amount: Number(payment.amount)
+    }))
+    .filter((payment) =>
+      payment.time !== null &&
+      Number.isFinite(payment.amount) &&
+      payment.amount >= 0
+    );
+
+  const months = Array.from({ length: 6 }, (_, index) => {
+    const start = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth() - 5 + index,
+      1
+    );
+    const end = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth() - 4 + index,
+      1
+    );
+
+    return { start, end };
+  });
+
+  function sumRevenue(start, end) {
+    const amount = datedPayments
+      .filter((record) =>
+        record.time >= start && record.time < end
+      )
+      .reduce((sum, record) => sum + record.amount, 0);
+
+    return Math.round(amount * 100) / 100;
+  }
+
+  const hasHistory =
+    joined.length > 0 || datedPayments.length > 0;
+
+  return {
+    monthly: hasHistory
+      ? months.map(({ start, end }) => ({
+          month: new Date(start).toLocaleDateString('en-US', {
+            month: 'short',
+            year: 'numeric',
+            timeZone: 'UTC'
+          }),
+          revenue: sumRevenue(start, end),
+          members: joined.filter((time) => time < end).length
+        }))
+      : [],
+    monthlyRevenue: sumRevenue(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
+    ),
+    coverage: {
+      loadedMembers: safeMembers.length,
+      datedMembers: joined.length,
+      loadedPaidUsd: paidUsd.length,
+      datedPaidUsd: datedPayments.length,
+      basis: 'Loaded records with valid historical dates; UTC'
+    }
+  };
+}
+
+
+/* YHF_PHASE1_ADMIN_FEDERATION_RECORD_AUTHORITY_V1 */
+
+const ADMIN_FEDERATION_COLLECTION_TYPES = Object.freeze({
+  federationConnectionRequests: 'connection_request',
+  federationDealRooms: 'deal_room'
+});
+
+function adminFederationRevisionMillis(value) {
+  if (!value) return 0;
+
+  if (typeof value.toMillis === 'function') {
+    return value.toMillis();
+  }
+
+  if (typeof value.toDate === 'function') {
+    return value.toDate().getTime();
+  }
+
+  if (
+    typeof value === 'object' &&
+    Number.isFinite(value._seconds)
+  ) {
+    return value._seconds * 1000;
+  }
+
+  const millis = Date.parse(String(value));
+  return Number.isFinite(millis) ? millis : 0;
+}
+
+function adminFederationSourceData(row = {}) {
+  const data =
+    row.data &&
+    typeof row.data === 'object' &&
+    !Array.isArray(row.data)
+      ? federationConnectSupabaseRepo.normalizeValue(row.data)
+      : {};
+
+  const id = cleanText(
+    row.source_document_id || data.id
+  );
+
+  return {
+    ...data,
+    id,
+    createdAt:
+      data.createdAt ||
+      row.created_at_source ||
+      '',
+    updatedAt:
+      data.updatedAt ||
+      row.updated_at_source ||
+      ''
+  };
+}
+
+function adminFederationPreferSupabase(
+  firestoreData = null,
+  supabaseData = null
+) {
+  if (!supabaseData) return false;
+  if (!firestoreData) return true;
+
+  const firestoreTime = adminFederationRevisionMillis(
+    firestoreData.updatedAt ||
+    firestoreData.adminUpdatedAt ||
+    firestoreData.createdAt
+  );
+
+  const supabaseTime = adminFederationRevisionMillis(
+    supabaseData.updatedAt ||
+    supabaseData.adminUpdatedAt ||
+    supabaseData.createdAt
+  );
+
+  return supabaseTime >= firestoreTime;
+}
+
+function adminFederationMapRecord(
+  collection,
+  id,
+  data = {}
+) {
+  const doc = {
+    id,
+    data: () => data
+  };
+
+  return collection === 'federationConnectionRequests'
+    ? mapAdminFederationConnectionRequestDoc(doc)
+    : mapAdminFederationDealRoomDoc(doc);
+}
+
+async function listAdminFederationMergedRecords(
+  collection,
+  limit = 300
+) {
+  const recordType =
+    ADMIN_FEDERATION_COLLECTION_TYPES[collection];
+
+  if (!recordType) {
+    throw new Error('Unknown Federation collection.');
+  }
+
+  const results = await Promise.allSettled([
+    firestore.collection(collection).limit(limit).get(),
+    federationConnectSupabaseRepo.listFederationRecords(
+      recordType,
+      { limit }
+    )
+  ]);
+
+  if (
+    results.every(
+      (result) => result.status === 'rejected'
+    )
+  ) {
+    throw new Error(
+      'Both Federation record sources are unavailable.'
+    );
+  }
+
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      console.warn(
+        'Admin Federation read fallback:',
+        index === 0 ? 'Firestore' : 'Supabase',
+        result.reason?.message
+      );
+    }
+  });
+
+  const byId = new Map();
+
+  if (results[0].status === 'fulfilled') {
+    for (const doc of results[0].value.docs || []) {
+      const id = cleanText(doc.id);
+      if (!id) continue;
+
+      const data =
+        federationConnectSupabaseRepo.normalizeValue(
+          doc.data() || {}
+        );
+
+      byId.set(id, {
+        data,
+        source: 'firestore'
+      });
+    }
+  }
+
+  if (results[1].status === 'fulfilled') {
+    for (const row of results[1].value || []) {
+      const data = adminFederationSourceData(row);
+      const id = cleanText(data.id);
+
+      if (!id) continue;
+
+      const previous = byId.get(id);
+
+      if (
+        !previous ||
+        adminFederationPreferSupabase(
+          previous.data,
+          data
+        )
+      ) {
+        byId.set(id, {
+          data,
+          source: 'supabase'
+        });
+      }
+    }
+  }
+
+  return Array.from(
+    byId,
+    ([id, entry]) => ({
+      ...adminFederationMapRecord(
+        collection,
+        id,
+        entry.data
+      ),
+      sourceDatabase: entry.source
+    })
+  )
+    .sort(
+      (a, b) =>
+        String(b.createdAt || '').localeCompare(
+          String(a.createdAt || '')
+        )
+    )
+    .slice(0, limit);
+}
+
+async function getAdminFederationEditableRecord(
+  collection,
+  id
+) {
+  const recordType =
+    ADMIN_FEDERATION_COLLECTION_TYPES[collection];
+
+  if (!recordType || !cleanText(id)) {
+    throw new Error('Invalid Federation record target.');
+  }
+
+  const ref = firestore.collection(collection).doc(id);
+
+  // Fail closed if either source cannot be checked.
+  const [firestoreSnap, supabaseRow] = await Promise.all([
+    ref.get(),
+    federationConnectSupabaseRepo.getFederationRecord(
+      recordType,
+      id
+    )
+  ]);
+
+  const firestoreData = firestoreSnap.exists
+    ? federationConnectSupabaseRepo.normalizeValue(
+        firestoreSnap.data() || {}
+      )
+    : null;
+
+  const supabaseData =
+    supabaseRow &&
+    supabaseRow.data &&
+    typeof supabaseRow.data === 'object'
+      ? adminFederationSourceData(supabaseRow)
+      : null;
+
+  const preferSupabase =
+    adminFederationPreferSupabase(
+      firestoreData,
+      supabaseData
+    );
+
+  const data = preferSupabase
+    ? supabaseData
+    : firestoreData;
+
+  return {
+    ref,
+    snapshot: {
+      id,
+      exists: !!data,
+      data: () => data || {}
+    },
+    mirrorData: preferSupabase ? data : {}
+  };
+}
+
+/* END YHF_PHASE1_ADMIN_FEDERATION_RECORD_AUTHORITY_V1 */
+
 async function buildAdminBootstrapPayload() {
   const [usersSnap, broadcastsSnap, paymentLedgerResult, payoutLedgerResult] = await Promise.all([
     firestore.collection('users').limit(300).get(),
@@ -1522,6 +1868,59 @@ async function buildAdminBootstrapPayload() {
     id: doc.id,
     ...(doc.data() || {})
   }));
+
+  // Use canonical Federation membership and applications in the admin queue.
+  const canonicalFederationUsers =
+    await yhuUsersSupabaseRepo.listCanonicalUsers({ limit: 5000 });
+
+  const userIndex = new Map(
+    users.map(user => [cleanText(user.id), user])
+  );
+
+  for (const entry of canonicalFederationUsers) {
+    const uid = cleanText(entry?.uid);
+    const row = entry?.row || {};
+    const record = {
+      ...(row.raw_data && typeof row.raw_data === 'object' ? row.raw_data : {}),
+      ...(row.data && typeof row.data === 'object' ? row.data : {})
+    };
+
+    const application = record.federationApplication;
+
+    if (
+      !uid ||
+      !application ||
+      typeof application !== 'object' ||
+      Array.isArray(application)
+    ) continue;
+
+    let user = userIndex.get(uid);
+
+    if (!user) {
+      user = {
+        id: uid,
+        name: cleanText(record.name || record.fullName || record.displayName),
+        fullName: cleanText(record.fullName || record.name || record.displayName),
+        email: cleanText(record.email),
+        username: cleanText(record.username),
+        createdAt: record.createdAt || ''
+      };
+      users.push(user);
+      userIndex.set(uid, user);
+    }
+
+    user.federationApplication = application;
+    user.federationApplicationStatus = cleanText(
+      record.federationApplicationStatus || application.status
+    );
+    user.federationMembershipStatus = cleanText(
+      record.federationMembershipStatus ||
+      record.federationApplicationStatus ||
+      application.status
+    );
+    user.hasFederationAccess = record.hasFederationAccess === true;
+    user.canEnterFederation = record.canEnterFederation === true;
+  }
 
   const broadcasts = Array.isArray(broadcastsSnap.docs)
     ? broadcastsSnap.docs.map((doc) => {
@@ -2018,31 +2417,31 @@ const applications = users.flatMap((user) => {
   let federationConnectionRequests = [];
 
   try {
-    const requestSnap = await firestore
-      .collection('federationConnectionRequests')
-      .limit(300)
-      .get();
-
-    federationConnectionRequests = requestSnap.docs
-      .map((doc) => mapAdminFederationConnectionRequestDoc(doc))
-      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-  } catch (_) {
-    federationConnectionRequests = [];
+    federationConnectionRequests =
+      await listAdminFederationMergedRecords(
+        'federationConnectionRequests',
+        300
+      );
+  } catch (error) {
+    console.error(
+      'Admin Federation requests load failed:',
+      error?.message || error
+    );
   }
 
   let federationDealRooms = [];
 
   try {
-    const dealRoomsSnap = await firestore
-      .collection('federationDealRooms')
-      .limit(300)
-      .get();
-
-    federationDealRooms = dealRoomsSnap.docs
-      .map((doc) => mapAdminFederationDealRoomDoc(doc))
-      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-  } catch (_) {
-    federationDealRooms = [];
+    federationDealRooms =
+      await listAdminFederationMergedRecords(
+        'federationDealRooms',
+        300
+      );
+  } catch (error) {
+    console.error(
+      'Admin Federation Deal Rooms load failed:',
+      error?.message || error
+    );
   }
 
   let plazas = [];
@@ -2068,6 +2467,7 @@ const applications = users.flatMap((user) => {
     });
 
   const economySummary = buildAdminEconomySummary(paymentLedger, payoutLedger);
+  const analyticsTrend = buildAdminAnalyticsTrendSnapshot(members, paymentLedger);
   const plazaRoutingDesk = await buildAdminPlazaRoutingDeskSnapshot(120);
   const businessChatReports = await buildAdminBusinessChatReportsSnapshot(160);
   const businessChatAnalytics = await buildAdminBusinessChatAnalyticsSnapshot();
@@ -2092,6 +2492,9 @@ const applications = users.flatMap((user) => {
       'admin operational settings read failed:',
       error
     );
+
+    // Unknown must not be treated as disabled.
+    operationalSettings.maintenanceMode = null;
   }
 
   return {
@@ -2122,7 +2525,7 @@ const applications = users.flatMap((user) => {
     analytics: {
       finance: {
         totalRevenue: economySummary.paidRevenue || 0,
-        monthlyRevenue: economySummary.paidRevenue || 0,
+        monthlyRevenue: analyticsTrend.monthlyRevenue,
         averageOrderValue: economySummary.paidPaymentCount
           ? Math.round((economySummary.paidRevenue || 0) / economySummary.paidPaymentCount)
           : 0,
@@ -2138,22 +2541,35 @@ const applications = users.flatMap((user) => {
         monthlyRevenueGoal: 0,
         plazasGoal: 0
       },
-      monthly: [],
+      monthly: analyticsTrend.monthly,
+      historyCoverage: analyticsTrend.coverage,
       revenueMix: [],
       regions: []
     }
   };
 }
 
+  /* YHU_ADMIN_REACT_ONLY_V1 — canonical React Admin */
+  const reactAdminIndexFile = path.resolve(
+    __dirname, '..', 'frontend', 'dist', 'index.html'
+  );
+
+  function sendReactAdminPage(res) {
+    if (!require('fs').existsSync(reactAdminIndexFile)) {
+      return res.status(503).send('React Admin build unavailable.');
+    }
+
+    res.setHeader('Cache-Control', 'private, no-store');
+    return res.sendFile(reactAdminIndexFile);
+  }
+
   pageRouter.get(adminLoginPath, async (req, res) => {
     try {
       const session = await readSessionFromRequest(req);
 
-      if (session) {
-        return res.redirect(adminPanelPath);
-      }
+      if (session) return res.redirect(adminPanelPath);
 
-      return res.sendFile(path.join(privateAdminDir, 'admin-login.html'));
+      return sendReactAdminPage(res);
     } catch (error) {
       console.error('Admin login page session check error:', error);
       return res.status(503).send('Admin session service is temporarily unavailable.');
@@ -2164,17 +2580,43 @@ const applications = users.flatMap((user) => {
     try {
       const session = await readSessionFromRequest(req);
 
-      if (!session) {
-        return res.redirect(adminLoginPath);
-      }
+      if (!session) return res.redirect(adminLoginPath);
 
-      return res.sendFile(path.join(privateAdminDir, 'admin-panel.html'));
+      return sendReactAdminPage(res);
     } catch (error) {
       console.error('Admin panel session check error:', error);
       return res.status(503).send('Admin session service is temporarily unavailable.');
     }
   });
 
+  // Existing legacy bookmarks redirect to the official React Admin.
+  pageRouter.get(`${adminPanelPath}-legacy`, async (req, res) => {
+    try {
+      const session = await readSessionFromRequest(req);
+
+      if (!session) return res.redirect(adminLoginPath);
+
+      res.setHeader('Cache-Control', 'private, no-store');
+      return res.redirect(302, adminPanelPath);
+    } catch (error) {
+      console.error('Admin legacy URL redirect error:', error);
+      return res.status(503).send('Admin session service is temporarily unavailable.');
+    }
+  });
+
+  // Authenticated React preview remains available.
+  pageRouter.get(`${adminPanelPath}-preview`, async (req, res) => {
+    try {
+      const session = await readSessionFromRequest(req);
+
+      if (!session) return res.redirect(adminLoginPath);
+
+      return sendReactAdminPage(res);
+    } catch (error) {
+      console.error('Admin React preview session error:', error);
+      return res.status(503).send('Admin session service is temporarily unavailable.');
+    }
+  });
 
   apiRouter.post(adminLoginApiPath, async (req, res) => {
     const { username, password } = req.body || {};
@@ -3045,6 +3487,22 @@ apiRouter.post('/api/admin/plaza/business-chat-reports/:reportId/status', requir
       req.body || {},
       req.adminSession?.username || 'admin'
     );
+
+    if (
+      result?.conversation?.id &&
+      typeof global.yhEmitPlazaBusinessConversationUpdated === 'function'
+    ) {
+      try {
+        await global.yhEmitPlazaBusinessConversationUpdated(
+          result.conversation.id
+        );
+      } catch (error) {
+        console.warn(
+          'Admin Plaza conversation refresh unavailable:',
+          error?.message || error
+        );
+      }
+    }
 
     return res.json({
       success: true,
@@ -4597,6 +5055,189 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
       });
     }
 
+    // Review Federation against canonical yhu_users, not a Firestore mirror.
+    const canonicalApplicants =
+      await yhuUsersSupabaseRepo.listCanonicalUsers({ limit: 5000 });
+
+    const federationMatches = canonicalApplicants.filter(({ row }) => {
+      const record = {
+        ...(row?.raw_data && typeof row.raw_data === 'object' ? row.raw_data : {}),
+        ...(row?.data && typeof row.data === 'object' ? row.data : {})
+      };
+
+      return cleanText(record.federationApplication?.id) === applicationId;
+    });
+
+    if (federationMatches.length > 1) {
+      return res.status(409).json({
+        success: false,
+        message: 'Duplicate Federation application ID.'
+      });
+    }
+
+    if (federationMatches.length === 1) {
+      const userId = cleanText(federationMatches[0].uid);
+      const currentRow = await yhuUsersSupabaseRepo.getByUid(userId);
+
+      if (!currentRow) {
+        return res.status(404).json({
+          success: false,
+          message: 'Canonical Federation user not found.'
+        });
+      }
+
+      const user = {
+        ...(currentRow.raw_data && typeof currentRow.raw_data === 'object'
+          ? currentRow.raw_data : {}),
+        ...(currentRow.data && typeof currentRow.data === 'object'
+          ? currentRow.data : {})
+      };
+
+      const previousApplication = user.federationApplication || {};
+
+      if (cleanText(previousApplication.id) !== applicationId) {
+        return res.status(409).json({
+          success: false,
+          message: 'Federation application changed. Reload.'
+        });
+      }
+
+      const currentStatus = cleanText(
+        previousApplication.status ||
+        user.federationApplicationStatus ||
+        user.federationMembershipStatus ||
+        ''
+      ).toLowerCase();
+
+      if ((['approved', 'rejected'].includes(currentStatus) || (currentStatus === 'waitlisted' && nextStatus === 'Waitlisted'))) {
+        if (currentStatus !== nextStatus.toLowerCase()) {
+          return res.status(409).json({
+            success: false,
+            message: 'Federation review is finalized. Reapplication requires a new application.'
+          });
+        }
+
+        await userNotificationsSupabaseRepo.syncUserNotificationsFromList(
+          userId,
+          Array.isArray(user.inProductReviewNotifications)
+            ? user.inProductReviewNotifications
+            : [],
+          {
+            source: 'admin:federation-review-retry',
+            sourceField: 'inProductReviewNotifications'
+          }
+        );
+
+        return res.json({
+          success: true,
+          application: previousApplication,
+          alreadyReviewed: true,
+          approvalEmailSent: false,
+          approvalEmailError: '',
+          inProductNotificationQueued: false,
+          universeReferralReward: null
+        });
+      }
+
+      const alreadyReviewed =
+        currentStatus === nextStatus.toLowerCase();
+
+      const nowIso = new Date().toISOString();
+      const reviewer = cleanText(req.adminSession?.username || 'admin');
+      const approved = nextStatus === 'Approved';
+
+      const updatedApplication = {
+        ...previousApplication,
+        status: nextStatus,
+        updatedAt: nowIso,
+        reviewedAt: nowIso,
+        reviewedBy: reviewer,
+        notes: alreadyReviewed
+          ? (Array.isArray(previousApplication.notes)
+              ? previousApplication.notes : [])
+          : [
+              'Federation access ' + nextStatus.toLowerCase() + ' by admin.',
+              ...(Array.isArray(previousApplication.notes)
+                ? previousApplication.notes : [])
+            ]
+      };
+
+      const patch = {
+        federationApplication: updatedApplication,
+        federationApplicationStatus: nextStatus,
+        federationMembershipStatus: nextStatus.toLowerCase(),
+        hasFederationAccess: approved,
+        canEnterFederation: approved,
+        federationApplicationReviewedAt: nowIso,
+        federationApplicationReviewedBy: reviewer,
+        updatedAt: nowIso
+      };
+
+      if (approved) {
+        patch.federationApprovedAt = user.federationApprovedAt || nowIso;
+        patch.federationRejectedAt = '';
+      } else if (nextStatus === 'Rejected') {
+        patch.federationRejectedAt = nowIso;
+      }
+
+      if (!alreadyReviewed) {
+        patch.inProductReviewNotifications =
+          prependUserInProductNotification(
+            user.inProductReviewNotifications,
+            buildApplicationReviewNotification({
+              matchedField: 'federationApplication',
+              nextStatus,
+              application: updatedApplication,
+              nowIso
+            })
+          );
+      }
+
+      await yhuUsersSupabaseRepo.patchByUid(userId, patch, {
+        source: 'admin:federation-application-review',
+        publicMetaPatch: {
+          hasFederationAccess: approved
+        }
+      });
+
+      const syncedNotifications =
+        await userNotificationsSupabaseRepo.syncUserNotificationsFromList(
+          userId,
+          patch.inProductReviewNotifications ||
+            user.inProductReviewNotifications || [],
+          {
+            source: 'admin:federation-application-review',
+            sourceField: 'inProductReviewNotifications'
+          }
+        );
+
+      let universeReferralReward = null;
+
+      if (approved && !alreadyReviewed) {
+        universeReferralReward =
+          await qualifyUniverseReferralRewardForUser({
+            referredUid: userId,
+            qualifiedDivision: 'federationApplication',
+            approvedBy: reviewer,
+            approvalSource: 'admin_application_review:federationApplication'
+          }).catch(error => {
+            console.error('Federation referral qualification skipped:', error);
+            return null;
+          });
+      }
+
+      return res.json({
+        success: true,
+        application: updatedApplication,
+        alreadyReviewed,
+        approvalEmailSent: false,
+        approvalEmailError: '',
+        inProductNotificationQueued:
+          !alreadyReviewed && syncedNotifications.length > 0,
+        universeReferralReward
+      });
+    }
+
     const usersSnap = await firestore.collection('users').limit(300).get();
 
     let matchedUserDoc = null;
@@ -4681,6 +5322,17 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
         freshUser[`${matchedField}Status`] ||
         ''
       ).toLowerCase();
+
+      if (
+        matchedField === 'federationApplication' &&
+        ['approved', 'rejected'].includes(previousStatus)
+      ) {
+        const conflict = new Error(
+          'Federation review is finalized. Reapplication requires a new application.'
+        );
+        conflict.statusCode = 409;
+        throw conflict;
+      }
 
       const approvalEmailAlreadySent = Boolean(
         freshUser.academyApprovalEmailSentAt ||
@@ -5531,6 +6183,8 @@ apiRouter.post('/api/admin/academy/route-opportunity-mission', requireAdminSessi
     let sourceRef = null;
     let sourceSnap = null;
     let sourceData = null;
+    let plazaSupabaseRow = null;
+    let sourceRecordPath = '';
     let sourceCollection = '';
     let sourceDivision = '';
     let sourceFeature = '';
@@ -5558,17 +6212,39 @@ apiRouter.post('/api/admin/academy/route-opportunity-mission', requireAdminSessi
       accessScopes = ['academy', 'plazas'];
       networkTags = ['admin-routed', 'plaza-job'];
 
-      sourceRef = firestore.collection(sourceCollection).doc(sourceId);
-      sourceSnap = await sourceRef.get();
+      plazaSupabaseRow = await adminPlazaSupabaseWriteRepo.getRawRecord('opportunity', sourceId);
 
-      if (!sourceSnap.exists) {
-        return res.status(404).json({
-          success: false,
-          message: 'Plaza opportunity not found.'
-        });
+      if (plazaSupabaseRow) {
+        const plazaData = plazaSupabaseRow.data && typeof plazaSupabaseRow.data === 'object'
+          ? plazaSupabaseRow.data
+          : {};
+
+        sourceData = {
+          ...plazaData,
+          title: cleanText(plazaData.title || plazaSupabaseRow.title || ''),
+          text: cleanText(plazaData.text || plazaSupabaseRow.body || ''),
+          description: cleanText(plazaData.description || plazaSupabaseRow.summary || ''),
+          authorName: cleanText(plazaData.authorName || plazaData.ownerName || ''),
+          ownerName: cleanText(plazaData.ownerName || plazaData.authorName || ''),
+          status: cleanText(plazaData.status || plazaSupabaseRow.status || ''),
+          region: cleanText(plazaData.region || plazaSupabaseRow.region || 'Global')
+        };
+
+        sourceRecordPath = 'yhu_plaza_records/opportunity/' + sourceId;
+      } else {
+        sourceRef = firestore.collection(sourceCollection).doc(sourceId);
+        sourceSnap = await sourceRef.get();
+
+        if (!sourceSnap.exists) {
+          return res.status(404).json({
+            success: false,
+            message: 'Plaza opportunity not found.'
+          });
+        }
+
+        sourceData = sourceSnap.data() || {};
+        sourceRecordPath = sourceCollection + '/' + sourceId;
       }
-
-      sourceData = sourceSnap.data() || {};
       title = cleanText(sourceData.title || 'Plaza opportunity');
       description = cleanText(sourceData.text || sourceData.description || '');
       ownerName = cleanText(sourceData.authorName || sourceData.ownerName || sourceData.member || 'Plaza Member');
@@ -5673,7 +6349,7 @@ apiRouter.post('/api/admin/academy/route-opportunity-mission', requireAdminSessi
       sourceDivision,
       sourceFeature,
       sourceRecordId: sourceId,
-      sourceRecordPath: `${sourceCollection}/${sourceId}`,
+      sourceRecordPath: sourceRecordPath || `${sourceCollection}/${sourceId}`,
       routedFromAdmin: true,
       routedSourceTitle: title,
       assignedByAdmin: cleanText(req.adminSession?.username || 'admin'),
@@ -5705,7 +6381,7 @@ apiRouter.post('/api/admin/academy/route-opportunity-mission', requireAdminSessi
       updatedAt: now
     }, { merge: true });
 
-    await sourceRef.set({
+    const academyRouteMarker = {
       routedToAcademy: true,
       lastRoutedAcademyMissionId: createdLead.id,
       lastRoutedAcademyMemberId: memberId,
@@ -5713,7 +6389,20 @@ apiRouter.post('/api/admin/academy/route-opportunity-mission', requireAdminSessi
       lastRoutedAcademyAt: now,
       lastRoutedAcademyBy: cleanText(req.adminSession?.username || 'admin'),
       updatedAt: now
-    }, { merge: true });
+    };
+
+    if (plazaSupabaseRow) {
+      await adminPlazaSupabaseWriteRepo.updateRawRecord('opportunity', sourceId, {
+        data: {
+          ...academyRouteMarker,
+          lastRoutedAcademyAt: nowIso,
+          updatedAt: nowIso
+        },
+        updated_at_source: nowIso
+      });
+    } else {
+      await sourceRef.set(academyRouteMarker, { merge: true });
+    }
 
     await createAdminBroadcastWithSupabaseSync({
       audience: operatorName,
@@ -6923,8 +7612,14 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/match', req
       });
     }
 
-    const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
-    const requestSnap = await requestRef.get();
+    const requestContext =
+      await getAdminFederationEditableRecord(
+        'federationConnectionRequests',
+        requestId
+      );
+
+    const requestRef = requestContext.ref;
+    const requestSnap = requestContext.snapshot;
 
     if (!requestSnap.exists) {
       return res.status(404).json({
@@ -6966,6 +7661,7 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/match', req
     const opportunitySnapshot = buildAdminMatchedFederationOpportunitySnapshot(lead, ownerUid, leadId);
 
     await requestRef.set({
+      ...requestContext.mirrorData,
       ownerUid,
       leadId,
       leadPath: leadRef.path,
@@ -6996,7 +7692,7 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/match', req
     /* PATCH: Admin Federation match request Supabase sync batch 1 */
     await syncAdminFederationConnectionRequestToSupabaseRecord(
       requestId,
-      updatedRequest,
+      updatedSnap.data() || {},
       {
         source: 'api/admin/federation/connection-requests/match',
         adminUsername: req.adminSession.username
@@ -7032,8 +7728,14 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/deal-packag
       });
     }
 
-    const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
-    const requestSnap = await requestRef.get();
+    const requestContext =
+      await getAdminFederationEditableRecord(
+        'federationConnectionRequests',
+        requestId
+      );
+
+    const requestRef = requestContext.ref;
+    const requestSnap = requestContext.snapshot;
 
     if (!requestSnap.exists) {
       return res.status(404).json({
@@ -7051,6 +7753,7 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/deal-packag
         : 'pricing_sent';
 
     await requestRef.set({
+      ...requestContext.mirrorData,
       dealPackage,
       pricingAmount: dealPackage.pricingAmount,
       currency: dealPackage.currency,
@@ -7077,7 +7780,7 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/deal-packag
     /* PATCH: Admin Federation deal-package Supabase sync batch 1 */
     await syncAdminFederationConnectionRequestToSupabaseRecord(
       requestId,
-      updatedRequest,
+      updatedSnap.data() || {},
       {
         source: 'api/admin/federation/connection-requests/deal-package',
         adminUsername: req.adminSession.username
@@ -7129,8 +7832,14 @@ apiRouter.post('/api/admin/federation/deal-rooms/:roomId/status', requireAdminSe
       });
     }
 
-    const roomRef = firestore.collection('federationDealRooms').doc(roomId);
-    const snap = await roomRef.get();
+    const roomContext =
+      await getAdminFederationEditableRecord(
+        'federationDealRooms',
+        roomId
+      );
+
+    const roomRef = roomContext.ref;
+    const snap = roomContext.snapshot;
 
     if (!snap.exists) {
       return res.status(404).json({
@@ -7208,7 +7917,7 @@ const platformCommissionAmount =
       patch.commissionStatus = commissionStatus;
     }
 
-    await roomRef.set(patch, { merge: true });
+    await roomRef.set({ ...roomContext.mirrorData, ...patch }, { merge: true });
 
     const freshSnap = await roomRef.get();
 
@@ -7216,7 +7925,7 @@ const platformCommissionAmount =
     const federationDealRoomAdminRecord = mapAdminFederationDealRoomDoc(freshSnap);
     await syncAdminFederationDealRoomToSupabaseRecord(
       roomId,
-      federationDealRoomAdminRecord,
+      freshSnap.data() || {},
       {
         source: 'api/admin/federation/deal-rooms/status',
         adminUsername: req.adminSession?.username || 'admin'
@@ -7261,8 +7970,14 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/status', re
       });
     }
 
-    const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
-    const requestSnap = await requestRef.get();
+    const requestContext =
+      await getAdminFederationEditableRecord(
+        'federationConnectionRequests',
+        requestId
+      );
+
+    const requestRef = requestContext.ref;
+    const requestSnap = requestContext.snapshot;
 
     if (!requestSnap.exists) {
       return res.status(404).json({
@@ -7294,7 +8009,7 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/status', re
       statusPatch.completedAt = now;
     }
 
-    await requestRef.set(statusPatch, { merge: true });
+    await requestRef.set({ ...requestContext.mirrorData, ...statusPatch }, { merge: true });
 
     const updatedSnap = await requestRef.get();
     const updatedRequest = mapAdminFederationConnectionRequestDoc(updatedSnap);
@@ -7302,7 +8017,7 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/status', re
     /* PATCH: Admin Federation request status Supabase sync batch 1 */
     await syncAdminFederationConnectionRequestToSupabaseRecord(
       requestId,
-      updatedRequest,
+      updatedSnap.data() || {},
       {
         source: 'api/admin/federation/connection-requests/status',
         adminUsername: req.adminSession.username

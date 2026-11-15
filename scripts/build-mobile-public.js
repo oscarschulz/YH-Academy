@@ -1,37 +1,23 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT =
-    path.resolve(
-        __dirname,
-        '..'
-    );
+const ROOT = path.resolve(__dirname, '..');
 
-const PUBLIC_DIR =
-    path.join(
-        ROOT,
-        'public'
-    );
+const VITE_DIST_DIR = path.join(
+    ROOT,
+    'frontend',
+    'dist'
+);
 
-const MOBILE_SRC_DIR =
-    path.join(
-        ROOT,
-        'mobile-src'
-    );
+const MOBILE_SRC_DIR = path.join(
+    ROOT,
+    'mobile-src'
+);
 
-const OUTPUT_DIR =
-    path.join(
-        ROOT,
-        'mobile-public'
-    );
-
-const YH_PRODUCTION_ORIGIN =
-    'https://www.younghustlersuniverse.com';
-
-const EXCLUDED_PUBLIC_PATHS =
-    new Set([
-        'uploads'
-    ]);
+const OUTPUT_DIR = path.join(
+    ROOT,
+    'mobile-public'
+);
 
 function ensureDirectory(directory) {
     fs.mkdirSync(
@@ -59,7 +45,7 @@ function removeDirectory(directory) {
 function copyDirectory(
     source,
     destination,
-    relativeRoot = ''
+    options = {}
 ) {
     if (!fs.existsSync(source)) {
         return;
@@ -67,59 +53,38 @@ function copyDirectory(
 
     ensureDirectory(destination);
 
-    const entries =
-        fs.readdirSync(
-            source,
-            {
-                withFileTypes: true
-            }
-        );
+    const entries = fs.readdirSync(
+        source,
+        {
+            withFileTypes: true
+        }
+    );
 
     for (const entry of entries) {
-        const relativePath =
-            relativeRoot
-                ? path.join(
-                    relativeRoot,
-                    entry.name
-                )
-                : entry.name;
+        const sourcePath = path.join(
+            source,
+            entry.name
+        );
 
-        const normalizedRelativePath =
-            relativePath
-                .split(path.sep)
-                .join('/');
-
-        const topLevelName =
-            normalizedRelativePath
-                .split('/')[0];
-
-        if (
-            EXCLUDED_PUBLIC_PATHS.has(
-                topLevelName
-            )
-        ) {
-            continue;
-        }
-
-        const sourcePath =
-            path.join(
-                source,
-                entry.name
-            );
-
-        const destinationPath =
-            path.join(
-                destination,
-                entry.name
-            );
+        const destinationPath = path.join(
+            destination,
+            entry.name
+        );
 
         if (entry.isDirectory()) {
             copyDirectory(
                 sourcePath,
                 destinationPath,
-                relativePath
+                options
             );
 
+            continue;
+        }
+
+        if (
+            options.excludeHtml === true &&
+            entry.name.toLowerCase().endsWith('.html')
+        ) {
             continue;
         }
 
@@ -150,22 +115,17 @@ function copyFile(
     );
 }
 
-function createRouteAlias(
-    routeName,
-    htmlFile
-) {
-    const source =
-        path.join(
-            OUTPUT_DIR,
-            htmlFile
-        );
+function createSpaRouteAlias(routePath) {
+    const source = path.join(
+        OUTPUT_DIR,
+        'index.html'
+    );
 
-    const destination =
-        path.join(
-            OUTPUT_DIR,
-            routeName,
-            'index.html'
-        );
+    const destination = path.join(
+        OUTPUT_DIR,
+        ...routePath.split('/').filter(Boolean),
+        'index.html'
+    );
 
     copyFile(
         source,
@@ -175,31 +135,25 @@ function createRouteAlias(
 
 function injectNativeRuntimeIntoHtml() {
     const runtimeTag = [
-    '<script src="/js/yh-native-runtime.js?v=20260812-ios-native-runtime-v5"></script>',
-    '<script src="/js/yh-native-session.js?v=20260812-ios-native-session-v4"></script>'
+        '<script src="/js/yh-native-runtime.js?v=20261009-vite-react-native"></script>',
+        '<script src="/js/yh-native-session.js?v=20261009-vite-react-native"></script>'
     ].join('\n    ');
 
     function walk(directory) {
-        const entries =
-            fs.readdirSync(
+        const entries = fs.readdirSync(
+            directory,
+            {
+                withFileTypes: true
+            }
+        );
+
+        for (const entry of entries) {
+            const fullPath = path.join(
                 directory,
-                {
-                    withFileTypes: true
-                }
+                entry.name
             );
 
-        for (
-            const entry of entries
-        ) {
-            const fullPath =
-                path.join(
-                    directory,
-                    entry.name
-                );
-
-            if (
-                entry.isDirectory()
-            ) {
+            if (entry.isDirectory()) {
                 walk(fullPath);
                 continue;
             }
@@ -213,21 +167,11 @@ function injectNativeRuntimeIntoHtml() {
                 continue;
             }
 
-            let html =
-                fs.readFileSync(
-                    fullPath,
-                    'utf8'
-                );
+            let html = fs.readFileSync(
+                fullPath,
+                'utf8'
+            );
 
-            /*
-             * Native mobile viewport authority.
-             *
-             * All HTML copied into mobile-public is locked
-             * to the device width and native 1:1 scale.
-             * This prevents iOS/Android WebView pinch zoom
-             * and focus-triggered viewport zoom without
-             * changing the public website HTML.
-             */
             const mobileViewportContent =
                 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
 
@@ -235,62 +179,35 @@ function injectNativeRuntimeIntoHtml() {
                 /<meta\b(?=[^>]*\bname=["']viewport["'])[^>]*>/i;
 
             if (
-                viewportMetaPattern.test(
-                    html
-                )
+                viewportMetaPattern.test(html)
             ) {
-                html =
-                    html.replace(
-                        viewportMetaPattern,
-                        `<meta name="viewport" content="${mobileViewportContent}">`
-                    );
-            } else if (
-                /<head(?:\s[^>]*)?>/i.test(
-                    html
-                )
-            ) {
-                html =
-                    html.replace(
-                        /<head(?:\s[^>]*)?>/i,
-                        (headTag) =>
-                            `${headTag}\n    <meta name="viewport" content="${mobileViewportContent}">`
-                    );
-            }
-
-            /*
-             * socket.io.js is generated by the live
-             * Node/Socket.IO server and therefore is
-             * not part of mobile-public.
-             */
-            html =
-                html.replace(
-                    /src=(["'])\/socket\.io\/socket\.io\.js\1/gi,
-                    `src="${YH_PRODUCTION_ORIGIN}/socket.io/socket.io.js"`
+                html = html.replace(
+                    viewportMetaPattern,
+                    `<meta name="viewport" content="${mobileViewportContent}">`
                 );
+            } else if (
+                /<head(?:\s[^>]*)?>/i.test(html)
+            ) {
+                html = html.replace(
+                    /<head(?:\s[^>]*)?>/i,
+                    (headTag) =>
+                        `${headTag}\n    <meta name="viewport" content="${mobileViewportContent}">`
+                );
+            }
 
             const alreadyHasRuntime =
                 html.includes(
                     '/js/yh-native-runtime.js'
                 );
 
-            if (
-                !alreadyHasRuntime
-            ) {
+            if (!alreadyHasRuntime) {
+                if (!/<\/head>/i.test(html)) {
+                    throw new Error(
+                        `No </head> found in native HTML: ${fullPath}`
+                    );
+                }
 
-            if (
-                !/<\/head>/i.test(
-                    html
-                )
-            ) {
-                console.warn(
-                    `[YHU Mobile] No </head> found: ${fullPath}`
-                );
-
-                continue;
-            }
-
-            html =
-                html.replace(
+                html = html.replace(
                     /<\/head>/i,
                     `    ${runtimeTag}\n</head>`
                 );
@@ -304,228 +221,80 @@ function injectNativeRuntimeIntoHtml() {
         }
     }
 
-walk(
-    OUTPUT_DIR
-);
-
-/*
- * apply.js can dynamically create the Socket.IO
- * script at runtime. Rewrite that generated mobile
- * copy as well so it never targets capacitor://localhost.
- */
-const mobileApplyJs =
-    path.join(
-        OUTPUT_DIR,
-        'js',
-        'apply.js'
-    );
-
-if (
-    fs.existsSync(
-        mobileApplyJs
-    )
-) {
-    let applySource =
-        fs.readFileSync(
-            mobileApplyJs,
-            'utf8'
-        );
-
-    applySource =
-        applySource.replace(
-            /(["'])\/socket\.io\/socket\.io\.js\1/g,
-            `"${YH_PRODUCTION_ORIGIN}/socket.io/socket.io.js"`
-        );
-
-    /*
-     * Capacitor native navigation must target the
-     * bundled HTML file directly.
-     *
-     * The website can keep using /dashboard,
-     * but the generated iOS bundle uses
-     * /dashboard.html.
-     */
-    applySource =
-        applySource.replaceAll(
-            "window.location.href = '/dashboard';",
-            "window.location.href = '/dashboard.html';"
-        );
-
-    applySource =
-        applySource.replaceAll(
-            'window.location.assign(`/dashboard?auth=${Date.now()}`);',
-            'window.location.assign(`/dashboard.html?auth=${Date.now()}`);'
-        );
-
-    fs.writeFileSync(
-        mobileApplyJs,
-        applySource,
-        'utf8'
-    );
+    walk(OUTPUT_DIR);
 }
 
-/*
- * Dashboard Academy child workspaces must point to
- * the actual bundled HTML document in Capacitor.
- *
- * The live website keeps its clean /academy routes.
- * Only the generated native dashboard copy changes.
- */
-const mobileDashboardJs =
-    path.join(
-        OUTPUT_DIR,
-        'js',
-        'dashboard.js'
-    );
 
-if (
-    fs.existsSync(
-        mobileDashboardJs
-    )
+const LEGACY_REFERENCE_ARTIFACTS = [
+    'apply.html',
+    'dashboard.html',
+    'academy.html',
+    'plaza.html',
+    'federation.html',
+    'business-chats.html',
+
+    'js/apply.js',
+    'js/dashboard.js',
+    'js/academy.js',
+    'js/plaza.js',
+    'js/federation.js',
+    'js/business-chats.js',
+
+    'css/plaza.css',
+    'css/federation.css',
+    'css/business-chats.css'
+];
+
+function stripLegacyReferenceArtifacts(
+    directory
 ) {
-    let dashboardSource =
-        fs.readFileSync(
-            mobileDashboardJs,
-            'utf8'
-        );
+    let removed = 0;
 
-    /*
-     * Normalize Windows CRLF in the generated mobile
-     * Dashboard copy so multiline native patch anchors
-     * remain deterministic across Windows and Codemagic.
-     */
-    dashboardSource =
-        dashboardSource.replace(
-            /\r\n/g,
-            '\n'
-        );
-
-    const academyRouteReplacements = [
-        [
-            "url: '/academy',",
-            "url: '/academy.html',"
-        ],
-        [
-            "url: '/academy?section=home',",
-            "url: '/academy.html?section=home',"
-        ],
-        [
-            "url: '/academy?section=lead-missions',",
-            "url: '/academy.html?section=lead-missions',"
-        ],
-        [
-            "url: '/academy?section=community',",
-            "url: '/academy.html?section=community',"
-        ],
-        [
-            "url: '/academy?section=messages',",
-            "url: '/academy.html?section=messages',"
-        ],
-        [
-            "url: '/academy?section=voice',",
-            "url: '/academy.html?section=voice',"
-        ]
-    ];
-
-    academyRouteReplacements
-        .forEach(
-            ([from, to]) => {
-                dashboardSource =
-                    dashboardSource
-                        .replaceAll(
-                            from,
-                            to
-                        );
-            }
-        );
-
-    /*
-     * Keep the native iOS launch splash visible until
-     * Dashboard's initial access/data synchronization
-     * has completed.
-     *
-     * This modifies the generated mobile dashboard only.
-     * The live website dashboard.js remains untouched.
-     */
-    const nativeDashboardReadyBlock = `            syncDashboardDivisionAccessPolling();
-
-            if (shouldShowDashboardBootstrapLoader) {
-                setTimeout(() => {
-                    hideDashboardBootstrapLoader();
-                }, 280);
-            } else {
-                hideDashboardBootstrapLoader();
-            }`;
-
-    const nativeDashboardReadyReplacement = `            syncDashboardDivisionAccessPolling();
-
-            if (shouldShowDashboardBootstrapLoader) {
-                setTimeout(() => {
-                    hideDashboardBootstrapLoader();
-                }, 280);
-            } else {
-                hideDashboardBootstrapLoader();
-            }
-
-            /*
-             * Native iOS keeps the launch splash visible
-             * until the Dashboard has completed its first
-             * access/data synchronization and painted.
-             */
-            window.requestAnimationFrame(() => {
-                window.requestAnimationFrame(() => {
-                    void window.YHNativeRuntime
-                        ?.hideNativeSplashScreen?.(
-                            'dashboard-ready'
-                        );
-                });
-            });`;
-
-    if (
-        !dashboardSource.includes(
-            nativeDashboardReadyBlock
-        )
+    for (
+        const relativePath
+        of LEGACY_REFERENCE_ARTIFACTS
     ) {
-        throw new Error(
-            'Native dashboard ready anchor not found.'
+        const target =
+            path.join(
+                directory,
+                ...relativePath
+                    .split('/')
+            );
+
+        if (
+            !fs.existsSync(
+                target
+            )
+        ) {
+            continue;
+        }
+
+        fs.rmSync(
+            target,
+            {
+                force: true
+            }
         );
+
+        removed += 1;
     }
 
-    dashboardSource =
-        dashboardSource.replace(
-            nativeDashboardReadyBlock,
-            nativeDashboardReadyReplacement
-        );
-
-    fs.writeFileSync(
-        mobileDashboardJs,
-        dashboardSource,
-        'utf8'
+    console.log(
+        `[YHU Mobile] Removed ${removed} generated legacy reference artifact(s).`
     );
 }
 
-console.log(
-    '[YHU Mobile] Native runtime injected.'
-);
-}
+/* YHU_MOBILE_STRIP_LEGACY_REFERENCE_ARTIFACTS */
 
 function writeBuildMetadata() {
     const metadata = {
-        app:
-            'Young Hustlers Universe',
-
-        target:
-            'ios-first',
-
+        app: 'Young Hustlers Universe',
+        target: 'capacitor',
         generatedAt:
-            new Date()
-                .toISOString(),
-
-        source:
-            'public',
-
-        output:
-            'mobile-public'
+            new Date().toISOString(),
+        source: 'frontend/dist',
+        output: 'mobile-public',
+        frontend: 'vite-react'
     };
 
     fs.writeFileSync(
@@ -544,7 +313,24 @@ function writeBuildMetadata() {
 
 function build() {
     console.log(
-        '[YHU Mobile] Cleaning bundle...'
+        '[YHU Mobile] Building Vite React native bundle...'
+    );
+
+    if (
+        !fs.existsSync(
+            path.join(
+                VITE_DIST_DIR,
+                'index.html'
+            )
+        )
+    ) {
+        throw new Error(
+            'frontend/dist/index.html is missing. Run the Vite production build first.'
+        );
+    }
+
+    console.log(
+        '[YHU Mobile] Cleaning mobile-public...'
     );
 
     removeDirectory(
@@ -556,82 +342,46 @@ function build() {
     );
 
     console.log(
-        '[YHU Mobile] Copying web frontend...'
+        '[YHU Mobile] Copying frontend/dist...'
     );
 
     copyDirectory(
-        PUBLIC_DIR,
+        VITE_DIST_DIR,
         OUTPUT_DIR
     );
 
     /*
-     * The website's current landing/auth UI is
-     * public/apply.html.
-     *
-     * Capacitor requires index.html inside webDir,
-     * so the mobile bundle uses the same UI as its
-     * initial application entry point.
+     * Remove legacy standalone HTML owners.
+     * The Vite React SPA owns these routes now.
      */
-    copyFile(
-        path.join(
-            PUBLIC_DIR,
-            'apply.html'
-        ),
-        path.join(
-            OUTPUT_DIR,
-            'index.html'
-        )
-    );
-
-    /*
-     * Preserve website-style clean navigation such
-     * as /dashboard while running from Capacitor's
-     * local web server.
-     */
-    const routeAliases = [
-        [
-            'apply',
-            'apply.html'
-        ],
-        [
-            'dashboard',
-            'dashboard.html'
-        ],
-        [
-            'academy',
-            'academy.html'
-        ],
-        [
-            'plaza',
-            'plaza.html'
-        ],
-        [
-            'federation',
-            'federation.html'
-        ],
-        [
-            'business-chats',
-            'business-chats.html'
-        ]
+    const legacyHtmlFiles = [
+        'academy.html',
+        'apply.html',
+        'business-chats.html',
+        'dashboard.html',
+        'federation.html',
+        'plaza.html'
     ];
 
-    for (
-        const [
-            routeName,
-            htmlFile
-        ]
-        of routeAliases
-    ) {
-        createRouteAlias(
-            routeName,
-            htmlFile
+    for (const legacyHtmlFile of legacyHtmlFiles) {
+        const legacyHtmlPath = path.join(
+            OUTPUT_DIR,
+            legacyHtmlFile
         );
+
+        if (fs.existsSync(legacyHtmlPath)) {
+            fs.rmSync(
+                legacyHtmlPath,
+                {
+                    force: true
+                }
+            );
+        }
     }
 
     /*
-     * Mobile-only source files override copied web
-     * files when we intentionally introduce native
-     * behavior in later stages.
+     * Keep native-only runtime/session files on top
+     * of the generated Vite application.
      */
     if (
         fs.existsSync(
@@ -639,40 +389,120 @@ function build() {
         )
     ) {
         console.log(
-            '[YHU Mobile] Applying mobile-specific files...'
+            '[YHU Mobile] Applying native-specific files...'
         );
 
         copyDirectory(
             MOBILE_SRC_DIR,
-            OUTPUT_DIR
+            OUTPUT_DIR,
+            {
+                excludeHtml: true
+            }
         );
     }
 
+    stripLegacyReferenceArtifacts(
+        OUTPUT_DIR
+    );
+
     /*
-     * Native runtime must be loaded before the normal
-     * application JavaScript starts making API calls.
-     *
-     * This changes generated mobile HTML only.
-     * public/*.html remains untouched.
+     * BrowserRouter routes need physical aliases when
+     * Capacitor reloads a clean URL directly.
      */
+    const routeAliases = [
+        'dashboard',
+
+        'academy',
+        'academy/roadmap',
+        'academy/missions',
+        'academy/community',
+        'academy/messages',
+        'academy/voice',
+
+        'plaza',
+        'plaza/explorer',
+        'plaza/feed',
+        'plaza/inbox',
+        'plaza/conversations',
+        'plaza/meetups',
+        'plaza/opportunities',
+        'plaza/directory',
+        'plaza/regions',
+        'plaza/atlas',
+        'plaza/patron',
+        'plaza/patron-desk',
+        'plaza/bridge',
+        'plaza/requests',
+
+        'federation',
+        'federation/command',
+        'federation/connect',
+        'federation/deal-rooms',
+        'federation/directory',
+        'federation/requests',
+        'federation/referrals',
+        'federation/access',
+
+        'business-chats',
+        'profile',
+        'wallet',
+        'settings'
+    ];
+
+    for (const routePath of routeAliases) {
+        createSpaRouteAlias(
+            routePath
+        );
+    }
+
     injectNativeRuntimeIntoHtml();
+
+    /*
+     * Build must never finish with legacy HTML owners.
+     */
+    const forbiddenLegacyHtml = [
+        'academy.html',
+        'apply.html',
+        'business-chats.html',
+        'dashboard.html',
+        'federation.html',
+        'plaza.html'
+    ];
+
+    const remainingLegacyHtml =
+        forbiddenLegacyHtml.filter(
+            (fileName) =>
+                fs.existsSync(
+                    path.join(
+                        OUTPUT_DIR,
+                        fileName
+                    )
+                )
+        );
+
+    if (remainingLegacyHtml.length > 0) {
+        throw new Error(
+            `Legacy mobile HTML remains: ${remainingLegacyHtml.join(', ')}`
+        );
+    }
 
     writeBuildMetadata();
 
-    const indexPath =
-        path.join(
-            OUTPUT_DIR,
-            'index.html'
-        );
-
-    if (!fs.existsSync(indexPath)) {
+    if (
+        !fs.existsSync(
+            path.join(
+                OUTPUT_DIR,
+                'index.html'
+            )
+        )
+    ) {
         throw new Error(
             'Mobile build failed: mobile-public/index.html is missing.'
         );
     }
 
     console.log(
-        '[YHU Mobile] Build complete.'
+        '[YHU Mobile] Vite React mobile bundle complete.'
     );
 
     console.log(
@@ -685,8 +515,7 @@ try {
 } catch (error) {
     console.error(
         '[YHU Mobile] Build failed:',
-        error?.message ||
-        error
+        error?.message || error
     );
 
     process.exit(1);

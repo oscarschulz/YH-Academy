@@ -3,7 +3,7 @@ const STORAGE_KEY = 'yh_admin_panel_state_v3_live';
 function getAdminRouteKeyFromPanelPath() {
   const match =
     window.location.pathname.match(
-      /^\/admin\/([A-Za-z0-9_-]{32,128})\/panel\/?$/
+      /^\/admin\/([A-Za-z0-9_-]{32,128})\/(?:panel|panel-legacy)\/?$/
     );
 
   return match?.[1] || '';
@@ -203,10 +203,10 @@ function endAdminAction(action = '', id = '') {
   setAdminActionBusy(action, id, false);
 }
 
+/* YHU_ADMIN_PHASE1_INLINE_V1 */
 const ADMIN_APPLICATION_FINAL_STATUSES = new Set([
   'approved',
-  'rejected',
-  'waitlisted'
+  'rejected'
 ]);
 
 function normalizeAdminApplicationStatus(value = '') {
@@ -2586,9 +2586,11 @@ function renderOverview() {
 
   if (systemAlertsEl) {
     const alerts = [
-      state.settings.maintenanceMode
-        ? 'Maintenance mode is enabled.'
-        : 'System stable. No maintenance mode active.',
+      typeof state.settings.maintenanceMode !== 'boolean'
+        ? 'Maintenance status cannot be verified.'
+        : state.settings.maintenanceMode
+          ? 'Maintenance mode is enabled.'
+          : 'System stable. No maintenance mode active.',
       'Plazas manual listing review control is pending backend enforcement.',
       'Federation manual review control is pending backend enforcement.'
     ];
@@ -4076,7 +4078,55 @@ function renderAnalytics() {
   }
 }
 
+function renderPlatformMaintenanceControl() {
+  const value = state.settings?.maintenanceMode;
+  const known = typeof value === 'boolean';
+  const enabled = value === true;
+
+  const card = document.getElementById('admin-maintenance-card');
+  const toggle = document.getElementById('admin-maintenance-toggle');
+  const status = document.getElementById('admin-maintenance-status');
+  const description = document.getElementById('admin-maintenance-description');
+  const footer = document.getElementById('admin-system-status');
+  const footerDot = document.getElementById('admin-system-status-dot');
+
+  if (card) {
+    card.dataset.active = known ? String(enabled) : 'unknown';
+  }
+
+  if (toggle) {
+    toggle.checked = enabled;
+    toggle.disabled = !known;
+  }
+
+  if (status) {
+    status.textContent = !known
+      ? 'Status unavailable'
+      : enabled ? 'Maintenance in progress' : 'Platform operational';
+  }
+
+  if (description) {
+    description.textContent = !known
+      ? 'Cannot verify live settings. Maintenance switch is locked until the connection recovers.'
+      : enabled
+        ? 'Members see the maintenance notice; the secure Admin Panel remains accessible.'
+        : 'Visitors and members can access the platform normally.';
+  }
+
+  if (footer) {
+    footer.textContent = !known
+      ? 'Status unavailable'
+      : enabled ? 'Maintenance' : 'Operational';
+  }
+
+  if (footerDot) {
+    footerDot.classList.toggle('online', known && !enabled);
+  }
+}
+
 function renderSettings() {
+  renderPlatformMaintenanceControl();
+
 document.getElementById('roles-list').innerHTML = state.roles.length
   ? state.roles.map(role => `
       <div class="role-item">
@@ -4106,17 +4156,12 @@ document.getElementById('roles-list').innerHTML = state.roles.length
       label: 'Enable AI nudges',
       active: false,
       copy: 'Backend enforcement is not active yet. This control will be enabled in the next settings patches.'
-    },
-
-    maintenanceMode: {
-      label: 'Maintenance mode',
-      active: true,
-      copy: 'Temporarily blocks normal member pages and APIs while keeping Admin access available.'
     }
   };
 
   document.getElementById('settings-form').innerHTML =
     Object.entries(state.settings)
+      .filter(([key]) => key !== 'maintenanceMode')
       .map(([key, value]) => {
         const meta =
           settingMeta[key] || {
@@ -5292,7 +5337,7 @@ function setDrawerHeadControls(type, record) {
       <option value="">Quick Status</option>
       <option value="approve-application">Set Approved</option>
       <option value="reject-application">Set Rejected</option>
-      <option value="waitlist-application">Set Waitlisted</option>
+      <option value="waitlist-application"${currentStatus.toLowerCase() === 'waitlisted' ? ' disabled' : ''}>Set Waitlisted</option>
     `;
     statusSelect.value = '';
     statusSelect.dataset.id = record.id;
@@ -7553,6 +7598,19 @@ if (broadcastTemplate) {
         toggle.checked
       );
 
+    if (nextValue === previousValue) return;
+
+    const confirmed = window.confirm(
+      nextValue
+        ? 'Enable Maintenance Mode? All member pages and APIs will be temporarily unavailable. Admin access remains active.'
+        : 'Disable Maintenance Mode and restore public/member access to Young Hustlers Universe?'
+    );
+
+    if (!confirmed) {
+      toggle.checked = previousValue;
+      return;
+    }
+
     toggle.disabled = true;
 
     try {
@@ -7592,19 +7650,16 @@ if (broadcastTemplate) {
           : 'Maintenance mode disabled.'
       );
     } catch (error) {
-      state.settings
-        .maintenanceMode =
-        previousValue;
-
-      toggle.checked =
-        previousValue;
+      // The write may have succeeded before the connection failed.
+      // Never present an unverified status as Operational.
+      state.settings.maintenanceMode = null;
 
       showToast(
-        error.message ||
-        'Failed to update maintenance mode.'
+        (error.message || 'Failed to update maintenance mode.') +
+        ' Reload to verify the live status.'
       );
     } finally {
-      toggle.disabled = false;
+      renderPlatformMaintenanceControl();
     }
   });
 

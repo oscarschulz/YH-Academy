@@ -1,0 +1,47 @@
+@layer yhu-foundation {*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 320px;
+}
+}
+
+
+/* YHU public legal and safety pages */
+@layer yhu-foundation {
+.yhu-legal-doc {
+  min-height: 100vh;
+  background: #070b14;
+  color: #f4f7fb;
+  font: 400 16px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+.yhu-legal-doc, .yhu-legal-doc * { box-sizing: border-box; }
+.yhu-legal-doc main { width: min(900px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0 72px; }
+.yhu-legal-doc .brand { font-weight: 800; letter-spacing: .04em; margin-bottom: 32px; }
+.yhu-legal-doc article { background: #0d1424; border: 1px solid rgba(255,255,255,.1); border-radius: 22px; padding: clamp(24px,5vw,48px); }
+.yhu-legal-doc h1 { margin-top: 0; font-size: clamp(2rem,6vw,3rem); line-height: 1.15; }
+.yhu-legal-doc h2 { margin-top: 36px; font-size: 1.25rem; }
+.yhu-legal-doc p, .yhu-legal-doc li { color: #a8b3c7; }
+.yhu-legal-doc a { color: #38bdf8; }
+.yhu-legal-doc .updated { margin-bottom: 32px; font-size: .95rem; }
+.yhu-legal-doc ul { padding-left: 22px; }
+.yhu-legal-doc--safety { background: #050b18; font-family: Arial, sans-serif; line-height: 1.6; }
+.yhu-legal-doc--safety main { max-width: 760px; width: auto; padding: 48px 20px 64px; }
+.yhu-legal-doc--safety h1, .yhu-legal-doc--safety h2 { color: #fff; }
+.yhu-legal-doc--safety h2 { margin-top: 24px; }
+.yhu-legal-doc--safety .card { background: #0b1426; border: 1px solid #1d3657; border-radius: 16px; padding: 24px; margin: 24px 0; }
+.yhu-legal-doc--safety .button { display: inline-block; margin-top: 10px; padding: 12px 18px; border-radius: 10px; background: #168fff; color: #fff; text-decoration: none; font-weight: 700; }
+.yhu-legal-doc--safety .muted { color: #b7c1d1; }
+.yhu-legal-doc--safety p { color: #f5f7fb; }
+}

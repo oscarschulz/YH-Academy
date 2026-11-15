@@ -319,27 +319,62 @@ async function listCanonicalUsers(
             )
         );
 
-    const {
-        data,
-        error
-    } =
-        await yhuSupabaseAdmin
-            .from(TABLE)
-            .select('*')
-            .limit(safeLimit);
+    // Complete paginated canonical scan; refuse partial results.
+    const { count, error: countError } = await yhuSupabaseAdmin
+        .from(TABLE).select('id', { count: 'exact', head: true });
 
-    if (error) {
-        throw new Error(
-            error.message ||
-            error.details ||
-            String(error)
-        );
+    if (countError || !Number.isSafeInteger(count)) {
+        throw new Error('Canonical user count unavailable.');
     }
 
-    const rows =
-        Array.isArray(data)
-            ? data
-            : [];
+    if (count > safeLimit) {
+        throw new Error('Canonical user scan exceeds safe limit.');
+    }
+
+    const rows = [];
+    const seenRowIds = new Set();
+
+    for (let start = 0; start < count; start += 500) {
+        const end = Math.min(start + 499, count - 1);
+
+        const { data, error } = await yhuSupabaseAdmin
+            .from(TABLE)
+            .select('*')
+            .order('id', { ascending: true })
+            .range(start, end);
+
+        if (
+            error ||
+            !Array.isArray(data) ||
+            data.length !== end - start + 1
+        ) {
+            throw new Error('Incomplete canonical user page.');
+        }
+
+        for (const row of data) {
+            const id = cleanText(row?.id);
+
+            if (!id || seenRowIds.has(id)) {
+                throw new Error('Duplicate or missing canonical row ID.');
+            }
+
+            seenRowIds.add(id);
+            rows.push(row);
+        }
+    }
+
+    const { count: finalCount, error: finalError } =
+        await yhuSupabaseAdmin
+            .from(TABLE)
+            .select('id', { count: 'exact', head: true });
+
+    if (
+        finalError ||
+        finalCount !== count ||
+        rows.length !== count
+    ) {
+        throw new Error('Canonical user set changed during scan.');
+    }
 
     const grouped =
         new Map();
@@ -508,6 +543,16 @@ async function deleteByUidAndEmail({ uid = '', email = '' } = {}) {
     };
 }
 
+function canonicalVersionFromIdentity(row = {}) {
+    return Math.max(0, ...[
+        row?.raw_data?.authSessionVersion,
+        row?.data?.authSessionVersion,
+        row?.public_meta?.authSessionVersion
+    ].map((value) => Number(value || 0))
+     .filter(Number.isFinite)
+     .map(Math.trunc));
+}
+
 async function patchByUid(
     uid = '',
     patch = {},
@@ -538,6 +583,19 @@ async function patchByUid(
                 ? patch
                 : {}
         );
+
+    if (Object.prototype.hasOwnProperty.call(safePatch, 'authSessionVersion')) {
+        const next = Number(safePatch.authSessionVersion);
+        const current = canonicalVersionFromIdentity(existing);
+
+        if (!Number.isSafeInteger(next) || next <= current) {
+            const conflict = new Error(
+                'Refusing stale password session revision.'
+            );
+            conflict.statusCode = 409;
+            throw conflict;
+        }
+    }
 
     const currentRaw =
         existing.raw_data &&
@@ -658,26 +716,34 @@ async function patchByUid(
             nowIso
     };
 
-    const {
-        data,
-        error
-    } =
-        await yhuSupabaseAdmin
-            .from(TABLE)
-            .update(payload)
-            .eq(
-                'id',
-                existing.id
-            )
-            .select('*')
-            .single();
+    const expectedHash = cleanText(existing.data_hash);
+
+    if (!expectedHash) {
+        throw new Error(
+            'Canonical user concurrency token is missing. Refusing unsafe update.'
+        );
+    }
+
+    const { data, error } = await yhuSupabaseAdmin
+        .from(TABLE)
+        .update(payload)
+        .eq('id', existing.id)
+        .eq('data_hash', expectedHash)
+        .select('*')
+        .maybeSingle();
 
     if (error) {
         throw new Error(
-            error.message ||
-            error.details ||
-            String(error)
+            error.message || error.details || String(error)
         );
+    }
+
+    if (!data) {
+        const conflict = new Error(
+            'Canonical user changed concurrently. Reload and retry.'
+        );
+        conflict.statusCode = 409;
+        throw conflict;
     }
 
     return data;
@@ -691,15 +757,53 @@ async function upsertFromFirestoreUser(uid = '', user = {}, context = {}) {
     const existing = await getByUid(cleanUid);
 
     if (existing?.id) {
+        const storedVersion = Number(
+            existing.raw_data?.authSessionVersion ??
+            existing.data?.authSessionVersion ?? 0
+        );
+
+        const incomingVersion = Number(
+            user.authSessionVersion ?? 0
+        );
+
+        if (
+            !Number.isFinite(storedVersion) ||
+            !Number.isFinite(incomingVersion) ||
+            Math.trunc(incomingVersion) < Math.trunc(storedVersion)
+        ) {
+            throw new Error(
+                'Refusing to restore an older auth session version from Firestore.'
+            );
+        }
+
+        const expectedHash = cleanText(existing.data_hash);
+
+        if (!expectedHash) {
+            throw new Error(
+                'Canonical user concurrency token is missing. Refusing unsafe sync.'
+            );
+        }
+
         const { data, error } = await yhuSupabaseAdmin
             .from(TABLE)
             .update(payload)
             .eq('id', existing.id)
+            .eq('data_hash', expectedHash)
             .select('*')
-            .single();
+            .maybeSingle();
 
         if (error) {
-            throw new Error(error.message || error.details || String(error));
+            throw new Error(
+                error.message || error.details || String(error)
+            );
+        }
+
+        if (!data) {
+            const conflict = new Error(
+                'Canonical user changed concurrently. Reload and retry.'
+            );
+            conflict.statusCode = 409;
+            throw conflict;
         }
 
         return data;
@@ -713,6 +817,36 @@ async function upsertFromFirestoreUser(uid = '', user = {}, context = {}) {
 
     if (error) {
         throw new Error(error.message || error.details || String(error));
+    }
+
+    return data;
+}
+
+async function createMissingVerifiedUser(uid = '', user = {}, context = {}) {
+    const cleanUid = cleanText(uid || user.uid || user.userId || user.firebaseUid);
+
+    if (!cleanUid || user.isVerified !== true) {
+        throw new Error('Verified Firestore account is required for identity creation.');
+    }
+
+    const existing = await getByUid(cleanUid);
+    if (existing) return existing;
+
+    const payload = buildPayloadFromFirestoreUser(cleanUid, user, context);
+
+    const { data, error } = await yhuSupabaseAdmin
+        .from(TABLE)
+        .insert(payload)
+        .select('*')
+        .single();
+
+    if (error) {
+        if (error.code === '23505') {
+            const concurrent = await getByUid(cleanUid);
+            if (concurrent) return concurrent;
+        }
+
+        throw new Error('Verified YHU identity creation failed: ' + error.message);
     }
 
     return data;
@@ -752,5 +886,6 @@ module.exports = {
     patchByUid,
     stripSensitiveUserFields,
     syncFromFirestoreUserRef,
+    createMissingVerifiedUser,
     upsertFromFirestoreUser
 };

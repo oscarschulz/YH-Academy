@@ -200,15 +200,30 @@ module.exports = async (req, res, next) => {
         }
 
         if (uid !== 'local-superdev') {
-            const userRow =
-                await getYhuUserByUid(
-                    uid
+            let userRow;
+
+            try {
+                userRow = await getYhuUserByUid(uid);
+            } catch (lookupError) {
+                console.error(
+                    'YHU authenticated user lookup failed:',
+                    lookupError?.message || lookupError
                 );
 
+                return res.status(503).json({
+                    success: false,
+                    retryable: true,
+                    code: 'yhu_auth_lookup_unavailable',
+                    message: 'Account verification is temporarily unavailable. Please try again.'
+                });
+            }
+
             if (!userRow) {
-                return sendDeletedAccountResponse(
-                    res
-                );
+                return res.status(409).json({
+                    success: false,
+                    code: 'yhu_identity_sync_required',
+                    message: 'Your account identity needs synchronization. Please contact support.'
+                });
             }
 
             const user =

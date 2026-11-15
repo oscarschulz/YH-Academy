@@ -1,0 +1,333 @@
+@layer yhu-foundation {.yh-federation-access-react-workspace {
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.yh-federation-access-scroll {
+  height: 100%;
+  overflow: auto;
+}
+
+.yh-federation-access-shell {
+  width: min(1760px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 28px 0 52px;
+}
+
+.yh-federation-access-hero,
+.yh-federation-access-status-card,
+.yh-federation-access-form,
+.yh-federation-access-review-grid article {
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 20px;
+  background: rgba(15, 23, 42, .42);
+}
+
+.yh-federation-access-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 20px;
+}
+
+.yh-federation-access-hero h1,
+.yh-federation-access-status-card h2,
+.yh-federation-access-form-head h2 {
+  margin: 7px 0;
+}
+
+.yh-federation-access-hero p,
+.yh-federation-access-status-card p,
+.yh-federation-access-form-head p,
+.yh-federation-access-review-grid p {
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.yh-federation-access-kicker {
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.yh-federation-access-status-card {
+  margin-top: 18px;
+  padding: 20px;
+}
+
+.yh-federation-access-status-head,
+.yh-federation-access-form-head,
+.yh-federation-access-form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.yh-federation-access-status-head > span {
+  align-self: flex-start;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: .72rem;
+}
+
+.yh-federation-access-status-head > span.is-approved {
+  background: rgba(34, 197, 94, .09);
+}
+
+.yh-federation-access-status-head > span.is-pending {
+  background: rgba(245, 158, 11, .09);
+}
+
+.yh-federation-access-status-head > span.is-rejected {
+  background: rgba(239, 68, 68, .08);
+}
+
+.yh-federation-access-member-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.yh-federation-access-member-info {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 16px;
+  background: rgba(8, 25, 47, .55);
+}
+
+.yh-federation-access-member-info p {
+  margin: 0;
+}
+
+.yh-federation-access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.yh-federation-access-timeline {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 15px;
+}
+
+.yh-federation-access-timeline article {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, .05);
+}
+
+.yh-federation-access-timeline article.is-current {
+  background: rgba(14, 165, 233, .1);
+}
+
+.yh-federation-access-timeline article.is-complete {
+  background: rgba(34, 197, 94, .08);
+}
+
+.yh-federation-access-existing-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.yh-federation-access-review-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 15px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.yh-federation-access-existing-grid > div {
+  display: grid;
+  gap: 4px;
+  padding: 11px;
+  border-radius: 13px;
+  background: rgba(148, 163, 184, .06);
+}
+
+.yh-federation-access-existing-grid small {
+  color: var(--text-muted);
+}
+
+.yh-federation-access-form {
+  margin-top: 18px;
+  padding: 20px;
+}
+
+.yh-federation-access-completion {
+  display: grid;
+  align-self: flex-start;
+  min-width: 120px;
+  padding: 10px;
+  border-radius: 13px;
+  text-align: center;
+  background: rgba(14, 165, 233, .07);
+}
+
+.yh-federation-access-completion strong {
+  font-size: 1.25rem;
+}
+
+.yh-federation-access-completion span {
+  color: var(--text-muted);
+  font-size: .72rem;
+}
+
+.yh-federation-access-section-title {
+  margin: 24px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, .12);
+  font-weight: 800;
+}
+
+.yh-federation-access-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.yh-federation-access-form-grid label {
+  display: grid;
+  gap: 7px;
+}
+
+.yh-federation-access-form-grid label > span,
+.yh-federation-access-options legend {
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+.yh-federation-access-form-grid .is-wide {
+  grid-column: 1 / -1;
+}
+
+.yh-federation-access-options {
+  margin: 15px 0 0;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, .12);
+  border-radius: 15px;
+}
+
+.yh-federation-access-options > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.yh-federation-access-options label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, .06);
+  cursor: pointer;
+}
+
+.yh-federation-access-declaration {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 22px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(148, 163, 184, .05);
+}
+
+.yh-federation-access-form-actions {
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.yh-federation-access-form-actions > span {
+  color: var(--text-muted);
+  font-size: .8rem;
+}
+
+.yh-federation-access-review-grid article {
+  padding: 17px;
+}
+
+.yh-federation-access-review-grid h3 {
+  margin: 7px 0;
+}
+
+.yh-federation-access-state {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, .42);
+}
+
+.yh-federation-access-state.is-error {
+  border-color: rgba(239, 68, 68, .24);
+}
+}
+
+@media (max-width: 820px) {
+  @layer yhu-foundation {
+  .yh-federation-access-member-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .yh-federation-access-existing-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .yh-federation-access-review-grid {
+    grid-template-columns: 1fr;
+  }
+}
+}
+
+@media (max-width: 640px) {
+  @layer yhu-foundation {
+  .yh-federation-access-shell {
+    width: min(100% - 20px, 1160px);
+    padding-top: 14px;
+  }
+
+  .yh-federation-access-hero,
+  .yh-federation-access-status-head,
+  .yh-federation-access-form-head {
+    flex-direction: column;
+  }
+
+  .yh-federation-access-form-grid,
+  .yh-federation-access-existing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .yh-federation-access-form-grid .is-wide {
+    grid-column: auto;
+  }
+
+  .yh-federation-access-timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .yh-federation-access-options > div {
+    flex-direction: column;
+  }
+}
+}

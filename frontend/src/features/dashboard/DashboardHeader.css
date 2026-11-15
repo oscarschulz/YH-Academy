@@ -1,0 +1,330 @@
+@layer yhu-foundation{
+.yhu-dashboard-header-layout{height:100dvh;min-height:100dvh;display:flex;flex-direction:column;overflow:hidden;background:#061124;min-width:0;color:#f8fbff}
+.yhu-dashboard-global-header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 24px;flex:0 0 auto;background:#081629;border-bottom:1px solid rgba(103,232,249,.18);position:relative;z-index:200}
+.yhu-global-nav{display:flex;align-items:center;gap:20px;flex:1 1 auto;min-width:0;position:relative}
+.yhu-nav-brand{display:flex;align-items:center;gap:9px;color:inherit;background:none;border:0;font-weight:800;white-space:nowrap;cursor:pointer}
+.yhu-nav-brand img{width:32px;height:32px;object-fit:contain}
+.yhu-nav-primary{display:flex;align-items:center;gap:6px;min-width:0}
+.yhu-nav-division{display:flex;align-items:center;position:relative}
+.yhu-nav-link{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:42px;background:transparent;border:0;color:#eef4ff;cursor:pointer;padding:8px 11px;border-radius:9px;font-size:.87rem;font-weight:600;white-space:nowrap}
+.yhu-nav-caret{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:42px;background:transparent;border:0;color:#eef4ff;cursor:pointer;border-radius:9px;font-size:.87rem;font-weight:600;white-space:nowrap}
+.yhu-nav-trigger{align-items:center;justify-content:center;gap:5px;min-height:42px;background:transparent;border:0;color:#eef4ff;cursor:pointer;padding:8px 11px;border-radius:9px;font-size:.87rem;font-weight:600;white-space:nowrap}
+.yhu-nav-caret{width:27px;padding:7px}
+.yhu-nav-link:hover,.yhu-nav-caret:hover,.yhu-nav-trigger:hover{background:rgba(56,189,248,.12)}
+.yhu-nav-link:disabled,.yhu-nav-caret:disabled{opacity:.5;cursor:wait}
+.yhu-nav-menu{position:absolute;top:calc(100% + 7px);left:0;z-index:300;display:grid;gap:3px;width:min(260px,85vw);max-height:60vh;overflow:auto;background:#0b1d35;border:1px solid rgba(103,232,249,.22);border-radius:12px;padding:8px;box-shadow:0 16px 50px rgba(0,0,0,.36)}
+.yhu-nav-menu button{width:100%;text-align:left;padding:10px 12px;min-height:40px;background:transparent;color:#eef4ff;border:0;border-radius:7px;cursor:pointer}
+.yhu-nav-menu button:hover{background:rgba(56,189,248,.15)}
+.yhu-nav-account .yhu-nav-menu{
+  right:0;
+  left:auto;
+  width:min(275px,85vw);
+  padding:12px;
+  gap:6px;
+  border-color:rgba(103,232,249,.25);
+  background:linear-gradient(155deg,#102944,#08182d);
+  box-shadow:0 18px 44px rgba(0,0,0,.4);
+}
+.yhu-nav-trigger{display:none;margin-left:auto}
+.yhu-header-actions{display:flex;align-items:center;gap:12px;flex:1 1 320px;justify-content:flex-end;min-width:0}
+.yhu-header-actions .yh-dashboard-top-search{width:100%;max-width:400px;min-width:0}
+.yhu-header-profile{width:38px;height:38px;flex:0 0 38px;border-radius:50%;border:1px solid rgba(103,232,249,.25);background:#15334c;color:#fff;cursor:pointer;overflow:hidden;display:grid;place-items:center}
+.yhu-header-profile img{width:100%;height:100%;object-fit:cover}
+.yhu-dashboard-header-layout > .yh-dashboard-react-main{flex:1 1 auto;min-height:0;min-width:0;overflow:auto;overscroll-behavior:contain;padding:clamp(14px,2vw,26px)}}
+@media(max-width:1240px){@layer yhu-foundation{.yhu-global-nav{flex-basis:100%}.yhu-header-actions{flex-basis:100%}}}
+@media(max-width:768px){@layer yhu-foundation{.yhu-dashboard-global-header{padding:10px 12px}.yhu-global-nav{flex-wrap:wrap}.yhu-nav-trigger{display:inline-flex}.yhu-nav-primary{display:none;flex-basis:100%;width:100%;flex-direction:column;align-items:stretch;max-height:48vh;overflow:auto}.yhu-nav-primary.is-open{display:flex}.yhu-nav-division{width:100%;flex-wrap:wrap}.yhu-nav-division>.yhu-nav-link{flex:1;justify-content:flex-start}.yhu-nav-menu{position:static;width:100%;max-height:200px;margin:4px 0;box-shadow:none}.yhu-nav-account{display:block}.yhu-header-actions{width:100%}.yhu-dashboard-header-layout > .yh-dashboard-react-main{padding:12px}}}
+
+/* Global header status and focus accessibility */
+@layer yhu-foundation{
+.yhu-nav-access {
+  color: #94d9ff;
+  font-size: .65rem;
+  font-weight: 650;
+}
+.yhu-nav-link:focus-visible,
+.yhu-nav-caret:focus-visible,
+.yhu-nav-trigger:focus-visible,
+.yhu-nav-menu button:focus-visible,
+.yhu-nav-brand:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 2px;
+}
+.yhu-nav-primary button {
+  touch-action: manipulation;
+}}
+
+
+/* YHU_COMMUNICATION_LAYOUT_20261028
+   React communication shell owns the fixed page viewport.
+   Inner lists retain scrolling; no global body overflow changes.
+*/
+
+@layer yhu-foundation{
+
+.yhu-dashboard-header-layout
+> main.yh-dashboard-react-main[data-yhu-communication-workspace] {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  padding: 12px;
+  scrollbar-width: none;
+}
+
+.yhu-dashboard-header-layout
+> main.yh-dashboard-react-main[data-yhu-communication-workspace]::-webkit-scrollbar,
+.yhu-dashboard-header-layout
+> main.yh-dashboard-react-main[data-yhu-communication-workspace] *::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.yhu-dashboard-header-layout
+> main.yh-dashboard-react-main[data-yhu-communication-workspace]
+:where(.yh-dashboard-dm-room-list,
+       .yh-dashboard-dm-message-list,
+       .yh-business-chats-scroll,
+       .yh-business-chat-thread-list,
+       .yh-business-chat-messages) {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}}
+
+@media (min-width: 769px) {
+  @layer yhu-foundation{
+  .yhu-dashboard-header-layout
+  main[data-yhu-communication-workspace="messages"]
+  #yh-dashboard-messages-workspace {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .yhu-dashboard-header-layout
+  main[data-yhu-communication-workspace="messages"]
+  #yh-dashboard-messages-workspace
+  > .yh-dashboard-system-workspace-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .yhu-dashboard-header-layout
+  main[data-yhu-communication-workspace="messages"]
+  .yh-dashboard-dm-shell {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    gap: 10px;
+  }
+
+  .yhu-dashboard-header-layout
+  main[data-yhu-communication-workspace="messages"]
+  .yh-dashboard-dm-head {
+    flex: 0 0 auto;
+    padding: 12px 16px;
+  }
+
+  .yhu-dashboard-header-layout
+  main[data-yhu-communication-workspace="messages"]
+  .yh-dashboard-dm-layout {
+    display: grid;
+    flex: 1 1 0;
+    height: 0;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
+  .yhu-dashboard-header-layout
+  main[data-yhu-communication-workspace="messages"]
+  .yh-dashboard-dm-inbox {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .yhu-dashboard-header-layout
+  main[data-yhu-communication-workspace="messages"]
+  .yh-dashboard-dm-room-list {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .yhu-dashboard-header-layout
+  main[data-yhu-communication-workspace="messages"]
+  .yh-dashboard-dm-thread {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .yhu-dashboard-header-layout
+  main[data-yhu-communication-workspace="messages"]
+  .yh-dashboard-dm-active {
+    display: grid;
+    grid-template-rows: auto minmax(0,1fr) auto;
+    flex: 1 1 0;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .yhu-dashboard-header-layout
+  main[data-yhu-communication-workspace="messages"]
+  .yh-dashboard-dm-message-list {
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .yhu-dashboard-header-layout
+  main[data-yhu-communication-workspace="messages"]
+  .yh-dashboard-dm-empty {
+    min-height: 0;
+  }}
+}
+
+/* Preserve access to mobile inbox controls on short/touch viewports. */
+@media (max-width: 768px) {
+  @layer yhu-foundation{
+  .yhu-dashboard-header-layout
+  > main.yh-dashboard-react-main[data-yhu-communication-workspace="messages"] {
+    overflow-y: auto;
+  }
+
+  .yhu-dashboard-header-layout
+  main[data-yhu-communication-workspace="messages"]
+  #yh-dashboard-messages-workspace {
+    min-height: 0;
+  }}
+}
+
+/* Dashboard React notifications — unique visual owners */
+@layer yhu-foundation {
+  .yhu-dashboard-notif-trigger {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: #eef7ff;
+    cursor: pointer;
+  }
+
+  .yhu-dashboard-notif-trigger:focus-visible {
+    outline: 2px solid #67e8f9;
+    outline-offset: 4px;
+    border-radius: 9px;
+  }
+
+  .yhu-dashboard-notif-entry {
+    appearance: none;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 13px;
+    text-align: left;
+    white-space: normal;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #e8f4ff;
+    background: linear-gradient(
+      135deg,
+      rgba(17, 44, 70, 0.98),
+      rgba(10, 26, 47, 0.98)
+    );
+    border: 1px solid rgba(103, 232, 249, 0.14);
+    border-radius: 13px;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease;
+  }
+
+  .yhu-dashboard-notif-entry:hover {
+    background: #15334f;
+    border-color: rgba(103, 232, 249, 0.38);
+  }
+
+  .yhu-dashboard-notif-entry:focus-visible {
+    outline: 2px solid #67e8f9;
+    outline-offset: 2px;
+  }
+
+  .yhu-dashboard-notif-entry:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  .yhu-dashboard-notif-copy {
+    display: block;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-align: left;
+    color: #d8e8f7;
+  }
+
+  .yhu-dashboard-notif-copy > strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #f4fbff;
+    font-weight: 750;
+    font-size: 0.83rem;
+    line-height: 1.4;
+  }
+
+  .yhu-dashboard-notif-copy .notif-time {
+    margin-top: 8px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #8caac6;
+  }
+
+  .yhu-dashboard-notif-readall {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 10px;
+    border: 1px solid rgba(103, 232, 249, 0.22);
+    border-radius: 9px;
+    background: rgba(56, 189, 248, 0.08);
+    color: #a5e9ff;
+    font: inherit;
+    font-size: 0.73rem;
+    font-weight: 650;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .yhu-dashboard-notif-readall:hover:not(:disabled) {
+    background: rgba(56, 189, 248, 0.17);
+    border-color: rgba(103, 232, 249, 0.42);
+  }
+
+  .yhu-dashboard-notif-readall:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+}

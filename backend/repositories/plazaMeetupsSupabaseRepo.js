@@ -234,6 +234,7 @@ function mapMeetupRow(row = {}) {
         format: sanitizeText(data.format || row.public_meta?.format || 'online'),
         location: sanitizeText(data.location || row.public_meta?.location || ''),
         meetingUrl: sanitizeText(data.meetingUrl || row.public_meta?.meetingUrl || ''),
+        regionId: sanitizeText(data.regionId || row.public_meta?.regionId || ''),
         region: sanitizeText(data.region || row.region || 'Global'),
 
         startAt: toIso(data.startAt || row.public_meta?.startAt || ''),

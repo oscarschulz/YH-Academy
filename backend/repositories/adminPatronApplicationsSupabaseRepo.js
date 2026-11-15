@@ -1,5 +1,6 @@
 const { firestore } = require('../../config/firebaseAdmin');
 const { yhuSupabaseAdmin } = require('../../config/supabaseAdmin');
+const yhuUsersSupabaseRepo = require('./yhuUsersSupabaseRepo');
 
 const TABLE = 'yhu_plaza_records';
 
@@ -408,6 +409,106 @@ async function syncUserPatronApplication(application = {}, decision = '', adminN
   };
 }
 
+async function syncPatronRegionAssignment(application = {}, decision = '', patronId = '', validateOnly = false) {
+  const regionId = cleanText(application.regionId);
+  const userId = cleanText(patronId);
+  const approved = normalizeDecision(decision) === 'approved';
+
+  if (!regionId) {
+    if (approved) throw makeHttpError('Approved Patron requires a region.', 409);
+    return null;
+  }
+
+  if (!userId) {
+    throw makeHttpError('Patron identity is missing.', 409);
+  }
+
+  const { data: row, error: lookupError } = await yhuSupabaseAdmin
+    .from(TABLE)
+    .select('*')
+    .eq('record_type', 'region')
+    .eq('source_document_id', regionId)
+    .maybeSingle();
+
+  if (lookupError) {
+    throw makeHttpError('Region lookup failed: ' + lookupError.message, 500);
+  }
+
+  if (!row) {
+    if (!approved) return null;
+    throw makeHttpError('Assigned Plaza region was not found.', 404);
+  }
+
+  const prior = row.data && typeof row.data === 'object' ? row.data : {};
+  const priorUserId = cleanText(prior.patronUserId || row.public_meta?.patronUserId);
+
+  if (approved) {
+    const published = ['active', 'approved', 'published', 'verified'];
+
+    if (!published.includes(cleanLower(row.status)) ||
+        !published.includes(cleanLower(row.review_status))) {
+      throw makeHttpError('Cannot assign Patron to an unpublished region.', 409);
+    }
+
+    if (priorUserId && priorUserId !== userId &&
+        cleanLower(prior.patronStatus || row.public_meta?.patronStatus) === 'active') {
+      throw makeHttpError('Region already has an active Patron.', 409);
+    }
+  } else if (priorUserId !== userId) {
+    return null;
+  }
+
+  if (validateOnly) {
+    return { regionId, patronUserId: priorUserId };
+  }
+
+  const now = nowIso();
+  const next = {
+    ...prior,
+    patronUserId: approved ? userId : '',
+    patronStatus: approved ? 'active' : 'open',
+    patronName: approved ? cleanText(application.name) : '',
+    patronRole: approved ? cleanText(application.preferredRole || 'Regional Patron') : '',
+    patronContactHint: approved ? cleanText(application.plazaPlan) : '',
+    updatedAt: now
+  };
+
+  const pub = row.public_meta && typeof row.public_meta === 'object'
+    ? row.public_meta : {};
+
+  let query = yhuSupabaseAdmin.from(TABLE).update({
+    data: next,
+    public_meta: {
+      ...pub,
+      patronUserId: next.patronUserId,
+      patronStatus: next.patronStatus,
+      patronName: next.patronName,
+      patronRole: next.patronRole
+    },
+    updated_at_source: now
+  })
+    .eq('id', row.id)
+    .eq('record_type', 'region')
+    .eq('source_document_id', regionId);
+
+  query = row.updated_at_source
+    ? query.eq('updated_at_source', row.updated_at_source)
+    : query.is('updated_at_source', null);
+
+  const { data: saved, error: updateError } =
+    await query.select('id').maybeSingle();
+
+  if (updateError) {
+    throw makeHttpError('Region sync failed: ' + updateError.message, 500);
+  }
+
+  if (!saved) {
+    throw makeHttpError('Region changed concurrently. Retry review.', 409);
+  }
+
+  return { regionId, patronUserId: next.patronUserId };
+}
+
 async function reviewPatronApplication(applicationId = '', decision = '', adminName = 'admin') {
   const cleanId = cleanText(applicationId);
   const decisionKey = normalizeDecision(decision);
@@ -427,6 +528,10 @@ async function reviewPatronApplication(applicationId = '', decision = '', adminN
   const currentApp = mapPatronApplicationToAdminApplication(row);
   const statusLabel = statusLabelFromDecision(decisionKey);
   const now = nowIso();
+
+  if (decisionKey === 'approved') {
+    await syncPatronRegionAssignment(currentApp, decisionKey, currentApp.userId, true);
+  }
 
   const updatedRow = await updateSupabasePatronApplication(row, {
     id: currentApp.id,
@@ -456,6 +561,24 @@ async function reviewPatronApplication(applicationId = '', decision = '', adminN
 
   const updatedApplication = mapPatronApplicationToAdminApplication(updatedRow);
   const userSync = await syncUserPatronApplication(updatedApplication, decisionKey, adminName);
+
+  if (!userSync?.userId) {
+    throw makeHttpError('Patron canonical user is missing.', 409);
+  }
+
+  await syncPatronRegionAssignment(updatedApplication, decisionKey, userSync.userId);
+
+  await yhuUsersSupabaseRepo.patchByUid(userSync.userId, userSync.updatePayload, {
+    source: 'admin:plaza-patron-application-review',
+    publicMetaPatch: {
+      hasPlazaPatronRole: decisionKey === 'approved',
+      plazaPatronStatus: decisionKey,
+      plazaPatronApplicationStatus: updatedApplication.status,
+      plazaPatronRegionId: decisionKey === 'approved'
+        ? cleanText(updatedApplication.regionId)
+        : ''
+    }
+  });
 
   return {
     handled: true,

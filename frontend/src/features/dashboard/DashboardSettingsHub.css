@@ -1,0 +1,177 @@
+
+/* Settings & Tools: single compact sidebar layout owner */
+
+@layer yhu-foundation {
+
+.yhu-settings-unified {
+  --yhu-rail: 58px;
+  display: grid;
+  grid-template-columns: var(--yhu-rail) minmax(0,1fr);
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: calc(100dvh - 130px);
+  align-items: start;
+  transition: grid-template-columns .18s ease;
+}
+
+.yhu-settings-unified.is-expanded {
+  --yhu-rail: 218px;
+}
+
+.yhu-settings-rail {
+  position: sticky;
+  top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 9px 7px;
+  min-height: calc(100dvh - 158px);
+  background: #0b1d33;
+  border: 1px solid rgba(103,232,249,.17);
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.yhu-settings-toggle,
+.yhu-settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 43px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 10px;
+  text-align: left;
+  background: transparent;
+  color: #eaf3ff;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.yhu-settings-toggle { color: #a6dafa; }
+
+.yhu-settings-nav-item:hover,
+.yhu-settings-toggle:hover {
+  background: #15334e;
+}
+
+.yhu-settings-nav-item.is-selected {
+  background: #133954;
+  color: #71eaff;
+}
+
+.yhu-settings-glyph {
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  width: 26px;
+  height: 27px;
+  border-radius: 7px;
+  background: rgba(56,189,248,.1);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.yhu-settings-name {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  transition: opacity .12s ease;
+}
+
+.yhu-settings-unified.is-expanded .yhu-settings-name {
+  max-width: 175px;
+  opacity: 1;
+}
+
+.yhu-settings-nav-groups {
+  display: grid;
+  gap: 12px;
+}
+
+.yhu-settings-group {
+  display: grid;
+  gap: 2px;
+}
+
+.yhu-settings-section-name {
+  height: auto;
+  padding: 8px 8px 5px;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #90a8c3;
+  font-size: .64rem;
+  font-weight: 750;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.yhu-settings-unified.is-expanded .yhu-settings-section-name {
+  opacity: 1;
+}
+
+.yhu-settings-logout {
+  margin-top: auto;
+  color: #fda4af;
+}
+
+.yhu-settings-detail {
+  min-width: 0;
+  width: 100%;
+}
+
+.yhu-settings-detail #yh-dashboard-settings-workspace {
+  padding: 0;
+}
+
+.yhu-settings-detail .yh-dashboard-settings-modal.is-dashboard-inline-workspace {
+  width: 100%;
+  padding: 0;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"]
+.yhu-settings-detail
+#yh-dashboard-settings-workspace
+.yh-dashboard-settings-card {
+  width: 100%;
+  max-width: 100%;
+}
+
+.yhu-settings-detail .yh-dashboard-profile-modal-head h3 {
+  font-size: clamp(1rem,1.55vw,1.35rem);
+}
+}
+
+@media(max-width:720px) {
+  @layer yhu-foundation {
+  .yhu-settings-unified {
+    --yhu-rail: 52px;
+    gap: 7px;
+  }
+
+  .yhu-settings-unified.is-expanded {
+    --yhu-rail: min(185px,47vw);
+  }
+
+  .yhu-settings-rail {
+    min-height: calc(100dvh - 150px);
+    padding: 7px 4px;
+  }
+
+  .yhu-settings-toggle,
+  .yhu-settings-nav-item {
+    min-height: 41px;
+    padding: 5px;
+    gap: 8px;
+  }
+}
+}

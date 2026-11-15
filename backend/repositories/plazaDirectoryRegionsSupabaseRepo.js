@@ -752,6 +752,14 @@ function mapRegionRow(row = {}) {
                 )
                 : 0,
 
+        patronUserId: sanitizeText(data.patronUserId || row.public_meta?.patronUserId || ''),
+        patronStatus: sanitizeText(data.patronStatus || row.public_meta?.patronStatus || 'open'),
+        patronName: sanitizeText(data.patronName || row.public_meta?.patronName || ''),
+        patronRole: sanitizeText(data.patronRole || row.public_meta?.patronRole || ''),
+        patronContactHint: sanitizeText(data.patronContactHint || ''),
+        patronBenefits: safeArray(data.patronBenefits),
+        patronPrivileges: safeArray(data.patronPrivileges),
+
         authorId: sanitizeText(
             data.authorId ||
             row.owner_user_id ||

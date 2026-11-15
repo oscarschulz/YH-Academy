@@ -1,0 +1,107 @@
+
+/* Plaza React access gate — isolated canonical styles */
+
+.yhu-plaza-access-screen {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 32px 16px;
+  color: #eef4ff;
+  background:
+    linear-gradient(rgba(5, 11, 25, .75), rgba(5, 11, 25, .88)),
+    url('/images/yhu-premium-bg.png') center / cover no-repeat,
+    #071122;
+}
+
+.yhu-plaza-access-card {
+  display: grid;
+  gap: 24px;
+  width: min(100%, 680px);
+  padding: clamp(24px, 4vw, 44px);
+  border: 1px solid rgba(103, 216, 250, .22);
+  border-radius: 22px;
+  background: rgba(9, 26, 47, .94);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .32);
+}
+
+.yhu-plaza-access-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 700;
+}
+
+.yhu-plaza-access-brand img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}
+
+.yhu-plaza-access-heading {
+  display: grid;
+  gap: 12px;
+}
+
+.yhu-plaza-access-heading > span {
+  color: #67d8fa;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.yhu-plaza-access-heading h1 {
+  margin: 0;
+  font-size: clamp(26px, 3vw, 36px);
+  line-height: 1.18;
+}
+
+.yhu-plaza-access-heading p,
+.yhu-plaza-access-status p,
+.yhu-plaza-access-stop p {
+  margin: 0;
+  color: #b6c7dc;
+  line-height: 1.65;
+}
+
+.yhu-plaza-access-status,
+.yhu-plaza-access-stop {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid rgba(103, 216, 250, .17);
+  border-radius: 15px;
+  background: rgba(21, 50, 81, .42);
+}
+
+.yhu-plaza-access-stop button {
+  min-height: 42px;
+  padding: 10px 17px;
+  border: 1px solid rgba(103, 216, 250, .35);
+  border-radius: 10px;
+  background: #173c60;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.yhu-plaza-access-stop button:hover {
+  background: #21537d;
+}
+
+.yhu-plaza-access-stop button:focus-visible {
+  outline: 2px solid #67d8fa;
+  outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .yhu-plaza-access-card {
+    gap: 20px;
+    padding: 22px;
+  }
+
+  .yhu-plaza-access-status,
+  .yhu-plaza-access-stop {
+    padding: 16px;
+  }
+}

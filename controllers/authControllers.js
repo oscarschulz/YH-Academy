@@ -1581,6 +1581,69 @@ subject: 'Your YH Universe verification code',
     }
 };
 
+function isBlockedYhuIdentityRow(row = null) {
+    if (!row || typeof row !== 'object') return false;
+
+    const rawData = row.raw_data && typeof row.raw_data === 'object' ? row.raw_data : {};
+    const data = row.data && typeof row.data === 'object' ? row.data : {};
+    const publicMeta = row.public_meta && typeof row.public_meta === 'object' ? row.public_meta : {};
+
+    return isDeletedAccountRecord({
+        ...rawData,
+        ...data,
+        ...publicMeta,
+        accountStatus: row.account_status || data.accountStatus || rawData.accountStatus || '',
+        isDeleted: row.is_deleted === true || data.isDeleted === true || rawData.isDeleted === true
+    });
+}
+
+async function ensureVerifiedYhuIdentity(user = {}, source = 'auth_verified_session') {
+    if (!user.id || user.isVerified !== true || isDeletedAccountRecord(user)) {
+        const error = new Error('Verified, active Firestore account is required.');
+        error.code = 'yhu_invalid_source_account';
+        throw error;
+    }
+
+    let row;
+
+    try {
+        row = await yhuUsersSupabaseRepo.createMissingVerifiedUser(
+            user.id,
+            user,
+            { source }
+        );
+    } catch (error) {
+        error.authIdentityLookupFailed = true;
+        throw error;
+    }
+
+    if (isBlockedYhuIdentityRow(row)) {
+        const error = new Error(DELETED_ACCOUNT_MESSAGE);
+        error.code = 'yhu_canonical_account_disabled';
+        throw error;
+    }
+
+    const sourceVersion = Number(user.authSessionVersion || 0);
+    const mirrorVersion = Number(
+        row?.public_meta?.authSessionVersion ??
+        row?.data?.authSessionVersion ??
+        row?.raw_data?.authSessionVersion ??
+        0
+    );
+
+    if (
+        !Number.isFinite(sourceVersion) ||
+        !Number.isFinite(mirrorVersion) ||
+        Math.trunc(sourceVersion) !== Math.trunc(mirrorVersion)
+    ) {
+        const error = new Error('Session version is not synchronized with the account identity.');
+        error.code = 'yhu_auth_session_sync_required';
+        throw error;
+    }
+
+    return row;
+}
+
 exports.verifyOTP = async (req, res) => {
     try {
         const email = String(req.body?.email || '').trim().toLowerCase();
@@ -1613,6 +1676,12 @@ exports.verifyOTP = async (req, res) => {
             });
         }
 
+        const existingIdentity = await yhuUsersSupabaseRepo.getByUid(user.id);
+
+        if (isBlockedYhuIdentityRow(existingIdentity)) {
+            return res.status(410).json(deletedAccountResponsePayload());
+        }
+
         await usersCollection().doc(user.id).update({
             isVerified: true,
             accountStatus: 'active',
@@ -1628,6 +1697,8 @@ exports.verifyOTP = async (req, res) => {
             verificationCode: null,
             verificationCodeIssuedAt: null
         };
+
+        await ensureVerifiedYhuIdentity(updatedUser, 'auth_verify_otp');
 
         try {
             await publicLandingEventsRepo.createEventForUser(updatedUser.id, {
@@ -1656,7 +1727,20 @@ exports.verifyOTP = async (req, res) => {
         });
     } catch (error) {
         console.error('Verify OTP Error:', error);
-        return res.status(500).json({
+
+        if (error?.code === 'yhu_canonical_account_disabled') {
+            return res.status(410).json(deletedAccountResponsePayload());
+        }
+
+        if (error?.code === 'yhu_auth_session_sync_required') {
+            return res.status(409).json({
+                success: false,
+                code: 'yhu_auth_session_sync_required',
+                message: 'Your account session needs synchronization. Please contact support.'
+            });
+        }
+
+        return res.status(503).json({
             success: false,
             message: 'Server error during verification.'
         });
@@ -1901,6 +1985,8 @@ subject: 'Your YH Universe verification code',
             });
         }
 
+        await ensureVerifiedYhuIdentity(user, 'auth_login');
+
         const token = issueJwt(user);
         setAuthCookie(res, token);
 
@@ -1913,6 +1999,27 @@ subject: 'Your YH Universe verification code',
         });
     } catch (error) {
         console.error('Login Error:', error);
+
+        if (error?.code === 'yhu_canonical_account_disabled') {
+            return res.status(410).json(deletedAccountResponsePayload());
+        }
+
+        if (error?.code === 'yhu_auth_session_sync_required') {
+            return res.status(409).json({
+                success: false,
+                code: 'yhu_auth_session_sync_required',
+                message: 'Your account session needs synchronization. Please contact support.'
+            });
+        }
+
+        if (error?.authIdentityLookupFailed === true) {
+            return res.status(503).json({
+                success: false,
+                retryable: true,
+                code: 'yhu_identity_sync_unavailable',
+                message: 'Account verification is temporarily unavailable. Please try again.'
+            });
+        }
 
         if (yhuSupabaseMirrorRepo.isFirebaseQuotaError(error)) {
             return res.status(503).json({
@@ -1938,6 +2045,145 @@ exports.logoutUser = async (req, res) => {
         message: 'Logged out successfully.'
     });
 };
+
+function yhuPasswordSecurityError(code, status, message, logoutRequired = false) {
+    const error = new Error(message);
+    error.yhuPasswordSecurityCode = code;
+    error.httpStatus = status;
+    error.logoutRequired = logoutRequired;
+    return error;
+}
+
+function sendYhuPasswordSecurityError(res, error) {
+    if (!error?.yhuPasswordSecurityCode) return null;
+    if (error.logoutRequired) clearAuthCookie(res);
+
+    return res.status(error.httpStatus).json({
+        success: false,
+        code: error.yhuPasswordSecurityCode,
+        logoutRequired: error.logoutRequired === true,
+        retryable: error.httpStatus === 503,
+        message: error.message
+    });
+}
+
+function canonicalYhuPasswordVersion(row = {}) {
+    return Math.max(0, ...[
+        row?.raw_data?.authSessionVersion,
+        row?.data?.authSessionVersion,
+        row?.public_meta?.authSessionVersion
+    ].map((value) => Number(value || 0))
+     .filter(Number.isFinite)
+     .map(Math.trunc));
+}
+
+async function writeYhuPasswordAfterRevocation({
+    user, userRef, hashedPassword, source, allowRecovery = false
+}) {
+    let canonical;
+
+    try {
+        canonical = await yhuUsersSupabaseRepo.getByUid(user.id);
+    } catch (_) {
+        throw yhuPasswordSecurityError(
+            'yhu_identity_lookup_unavailable', 503,
+            'Account verification is temporarily unavailable. Password was not changed.'
+        );
+    }
+
+    if (!canonical) {
+        throw yhuPasswordSecurityError(
+            'yhu_identity_sync_required', 409,
+            'Account identity must be synchronized before changing the password.'
+        );
+    }
+
+    const accountStatus =
+        String(canonical.account_status || '').trim().toLowerCase();
+
+    if (
+        isBlockedYhuIdentityRow(canonical) ||
+        ['suspended', 'banned', 'blocked'].includes(accountStatus)
+    ) {
+        throw yhuPasswordSecurityError(
+            'yhu_account_restricted', 403,
+            'This account cannot change its password.'
+        );
+    }
+
+    const firestoreVersion = Math.max(
+        0, Math.trunc(Number(user.authSessionVersion) || 0)
+    );
+
+    const canonicalVersion = canonicalYhuPasswordVersion(canonical);
+
+    if (!allowRecovery && canonicalVersion !== firestoreVersion) {
+        throw yhuPasswordSecurityError(
+            'yhu_auth_session_sync_required', 409,
+            'Account session versions are out of sync. Password was not changed.'
+        );
+    }
+
+    const nextVersion =
+        Math.max(firestoreVersion, canonicalVersion) + 1;
+
+    const changedAt = nowIso();
+    let updatedIdentity;
+
+    try {
+        updatedIdentity = await yhuUsersSupabaseRepo.patchByUid(
+            user.id,
+            {
+                authSessionVersion: nextVersion,
+                passwordChangedAt: changedAt,
+                updatedAt: changedAt
+            },
+            {
+                source,
+                publicMetaPatch: {
+                    authSessionVersion: nextVersion
+                }
+            }
+        );
+    } catch (error) {
+        throw yhuPasswordSecurityError(
+            'yhu_session_revocation_unavailable',
+            error?.statusCode === 409 ? 409 : 503,
+            'Session revocation could not be confirmed. Password was not changed.'
+        );
+    }
+
+    if (canonicalYhuPasswordVersion(updatedIdentity) !== nextVersion) {
+        throw yhuPasswordSecurityError(
+            'yhu_session_revocation_unconfirmed', 503,
+            'Session revocation could not be verified. Password was not changed.'
+        );
+    }
+
+    const update = {
+        password: hashedPassword,
+        authSessionVersion: nextVersion,
+        passwordChangedAt: changedAt,
+        passwordResetCode: null,
+        passwordResetExpiresAt: null,
+        passwordResetVerifiedAt: null,
+        updatedAt: changedAt
+    };
+
+    if (user.passwordHash) {
+        update.passwordHash = hashedPassword;
+    }
+
+    try {
+        await userRef.update(update);
+    } catch (_) {
+        throw yhuPasswordSecurityError(
+            'yhu_password_write_unconfirmed', 503,
+            'Sessions were revoked but the password update was not confirmed. Use Forgot Password to recover access.',
+            true
+        );
+    }
+}
 
 exports.changePassword = async (req, res) => {
     try {
@@ -2102,25 +2348,12 @@ exports.changePassword = async (req, res) => {
                 )
                 : 0;
 
-        const changedAt = nowIso();
-
-        await userRef.update({
-            password: hashedPassword,
-            authSessionVersion:
-                currentAuthSessionVersion + 1,
-            passwordChangedAt: changedAt,
-            passwordResetCode: null,
-            passwordResetExpiresAt: null,
-            passwordResetVerifiedAt: null,
-            updatedAt: changedAt
-        });
-
-        await yhuUsersSupabaseRepo.syncFromFirestoreUserRef(
+        await writeYhuPasswordAfterRevocation({
+            user,
             userRef,
-            {
-                source: 'auth_change_password'
-            }
-        );
+            hashedPassword,
+            source: 'auth_change_password'
+        });
 
         clearAuthCookie(res);
 
@@ -2135,6 +2368,9 @@ exports.changePassword = async (req, res) => {
             'Change Password Error:',
             error
         );
+
+        const securityResponse = sendYhuPasswordSecurityError(res, error);
+        if (securityResponse) return securityResponse;
 
         if (
             yhuSupabaseMirrorRepo
@@ -2487,28 +2723,15 @@ exports.resetPassword = async (req, res) => {
                 )
                 : 0;
 
-        const changedAt = nowIso();
+        const resetUserRef = usersCollection().doc(user.id);
 
-        const resetUserRef =
-            usersCollection().doc(user.id);
-
-        await resetUserRef.update({
-            password: hashedPassword,
-            authSessionVersion:
-                currentAuthSessionVersion + 1,
-            passwordChangedAt: changedAt,
-            passwordResetCode: null,
-            passwordResetExpiresAt: null,
-            passwordResetVerifiedAt: null,
-            updatedAt: changedAt
+        await writeYhuPasswordAfterRevocation({
+            user,
+            userRef: resetUserRef,
+            hashedPassword,
+            source: 'auth_reset_password',
+            allowRecovery: true
         });
-
-        await yhuUsersSupabaseRepo.syncFromFirestoreUserRef(
-            resetUserRef,
-            {
-                source: 'auth_reset_password'
-            }
-        );
 
         clearAuthCookie(res);
 
@@ -2518,6 +2741,9 @@ exports.resetPassword = async (req, res) => {
         });
     } catch (error) {
         console.error('Reset Password Error:', error);
+
+        const securityResponse = sendYhuPasswordSecurityError(res, error);
+        if (securityResponse) return securityResponse;
         return res.status(500).json({
             success: false,
             message: 'Server error.'

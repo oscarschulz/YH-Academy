@@ -1300,7 +1300,8 @@ async function getCurrentProfile(uid) {
 }
 
 async function setCurrentProfile(uid, payload = {}) {
-    const existing = await getCurrentProfile(uid).catch(() => null) || {};
+    const existingRow = await getOne('academy:profile', uid, 'profile');
+    const existing = existingRow ? mapStoredProfileData(rowData(existingRow)) : {};
     const ts = nowIso();
     const normalized = mapStoredProfileData(payload || {});
 
@@ -1317,7 +1318,10 @@ async function setCurrentProfile(uid, payload = {}) {
         version: Math.max(1, toNumber(existing.version, 0) + 1)
     };
 
-    await upsertRecord('academy:profile', uid, 'profile', nextProfile);
+    await upsertRecord('academy:profile', uid, 'profile', {
+        ...rowData(existingRow),
+        ...nextProfile
+    });
 
     const nextPublicName = sanitizeString(nextProfile.display_name) || 'Hustler';
 
@@ -3672,7 +3676,8 @@ async function repairRoadmapMissionBundleV1(
 async function persistRoadmapBundle(
     uid,
     profile = {},
-    plan = {}
+    plan = {},
+    createdByModel = ''
 ) {
     const now = nowIso();
 
@@ -3857,9 +3862,15 @@ async function persistRoadmapBundle(
 
         createdByModel:
             sanitizeString(
+                createdByModel ||
                 plan.createdByModel ||
                 'academy-rule-engine-v1'
             ),
+
+        profileSnapshot:
+            profile && typeof profile === 'object'
+                ? profile
+                : {},
 
         createdAt:
             existingTarget
@@ -3956,8 +3967,17 @@ async function persistRoadmapBundle(
         );
     }
 
+    const existingProfileRow = await getOne('academy:profile', uid, 'profile');
+    await upsertRecord('academy:profile', uid, 'profile', {
+        ...rowData(existingProfileRow),
+        ...profile,
+        updatedAt: now,
+        createdAt: now,
+        version: 1
+    });
+
     /*
-     * Mission persistence succeeded.
+     * Mission and profile persistence succeeded.
      * The new Roadmap can now become canonical.
      */
     if (
@@ -6363,9 +6383,12 @@ async function syncAcademyAchievementsV1(
             null,
 
         helperScore:
-            await getAcademyHelperLeaderboardSnapshotV1(
-                cleanUid,
-                3
+            await (
+                context.helperLeaderboardPromise ||
+                getAcademyHelperLeaderboardSnapshotV1(
+                    cleanUid,
+                    3
+                )
             )
                 .then((snapshot) => ({
                     wired: true,
@@ -6456,7 +6479,8 @@ async function syncAcademyAchievementsV1(
 
 async function syncAcademyQuestAchievementStateV1(
     uid = '',
-    progression = {}
+    progression = {},
+    options = {}
 ) {
     const cleanUid =
         sanitizeString(uid);
@@ -6522,7 +6546,9 @@ async function syncAcademyQuestAchievementStateV1(
                 missions,
                 verifiedMissions,
                 checkins,
-                progression
+                progression,
+                helperLeaderboardPromise:
+                    options.helperLeaderboardPromise
             }
         );
 

@@ -1,0 +1,65 @@
+@layer yhu-foundation {.yh-federation-badge-payment-card {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid rgba(56, 189, 248, .25);
+  border-radius: 18px;
+  background: linear-gradient(
+    135deg,
+    rgba(8, 30, 55, .94),
+    rgba(11, 21, 40, .96)
+  );
+  color: #eaf5ff;
+}
+
+.yh-federation-badge-payment-card.is-active {
+  justify-content: flex-start;
+}
+
+.yh-federation-badge-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+}
+
+.yh-federation-badge-payment-card strong {
+  font-size: 17px;
+  color: #f8fafc;
+}
+
+.yh-federation-badge-payment-card p {
+  margin: 0;
+  color: #b9cde2;
+  line-height: 1.5;
+}
+
+.yh-federation-badge-plans {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.yh-federation-badge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.yh-federation-badge-note,
+.yh-federation-badge-legal {
+  font-size: 12px;
+  color: #b9cde2;
+}
+
+.yh-federation-badge-telegram {
+  width: fit-content;
+  margin-top: auto;
+  text-decoration: none;
+}
+}

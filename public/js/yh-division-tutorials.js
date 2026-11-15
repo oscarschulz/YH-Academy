@@ -20,28 +20,65 @@
                     title: 'Start with your Roadmap',
                     copy: 'Your Roadmap turns goals into a clear execution path. Use it to define your focus, understand your next move, and keep your Academy activity aligned.',
                     image: '/assets/academy/icons/academy-icon-roadmap.png',
-                    features: ['Roadmap', 'AI guidance', 'Check-ins']
+                    features: ['Roadmap', 'AI guidance', 'Check-ins'],
+                    steps: ["Open Roadmap and review your current access status.","If prompted, choose Apply for Roadmap Access and complete the intake.","Once your roadmap is available, follow its plan and review your check-ins."]
                 },
                 {
                     eyebrow: 'Execute and Progress',
                     title: 'Complete Missions that move you forward',
                     copy: 'Missions convert your plan into action. Complete assigned work, track progress, build proof, and improve the signals that unlock wider opportunities.',
                     image: '/assets/academy/icons/academy-icon-missions.png',
-                    features: ['Missions', 'Progress', 'Rewards']
+                    features: ['Missions', 'Progress', 'Rewards'],
+                    steps: ["Open Missions and compare the three available mission playbooks.","Select Open Mission to read the specific requirements and tracking instructions.","Follow the mission-specific guide before starting or tracking any work."]
                 },
                 {
                     eyebrow: 'Find Your Community',
                     title: 'Join the right conversations',
                     copy: 'Use the Community Feed and Niches to find relevant people, share useful updates, and build a circle around the work and interests that matter to you.',
                     image: '/assets/academy/icons/academy-icon-community-feed-news.png',
-                    features: ['Community Feed', 'Niches', 'Member profiles']
+                    features: ['Community Feed', 'Niches', 'Member profiles'],
+                    steps: ["Open Community Feed and choose Circle, Global, or Niches.","Browse updates or search for an Academy member or post.","Use the available community actions to connect, share, or participate."]
                 },
                 {
                     eyebrow: 'Connect and Participate',
                     title: 'Message members and enter live rooms',
                     copy: 'Continue relationships through direct messages and groups, then join Live Voice sessions when you want real-time collaboration, learning, or execution.',
                     image: '/assets/academy/icons/academy-icon-messages.png',
-                    features: ['Messages', 'Groups', 'Live Voice']
+                    features: ['Messages', 'Groups', 'Live Voice'],
+                    steps: ["Open Messages to find an existing conversation or connection.","Choose the relevant chat, write your message, and send it.","For real-time discussion, open Live Voice Lounge from Academy navigation."]
+                },
+                /* YHU_ACADEMY_TUTORIAL_PHASE2_ENGLISH */
+                {
+                    eyebrow: "Real-Time Audio",
+                    title: "What is Live Voice Lounge?",
+                    copy: "Live Voice Lounge lets Academy members join audio conversations or host their own room when live collaboration is useful.",
+                    image: "/assets/academy/icons/academy-icon-live-voice-lounge.png",
+                    features: ["Voice Lounge","Join a room","Start Lounge"],
+                    steps: ["Open Live Voice Lounge.","Choose an available room to join, or use Start Lounge to create one.","Participate in the discussion and leave the room when finished."]
+                },
+                {
+                    eyebrow: "Face-to-Face Collaboration",
+                    title: "What is Live Video?",
+                    copy: "Live Video lets Academy members participate in video rooms and start a video call when that feature is available to them.",
+                    image: "/assets/academy/icons/academy-icon-live-voice-lounge.png",
+                    features: ["Video rooms","Join Room","Start Video Call"],
+                    steps: ["Open Live Video when it is available in your Academy workspace.","Choose Join Room for an active session or Start Video Call to create one.","Follow the room controls and leave or end your session when finished."]
+                },
+                {
+                    eyebrow: "Updates from HQ",
+                    title: "What are Announcements?",
+                    copy: "Announcements is the place to read Academy notices and updates from HQ. An empty state means no new announcements are currently shown.",
+                    image: "/assets/academy/icons/academy-icon-community-feed-news.png",
+                    features: ["HQ updates","Read notices","Check again"],
+                    steps: ["Open Announcements when available.","Read the messages or notices displayed in the list.","Return later for new updates; no response is required unless a notice says so."]
+                },
+                {
+                    eyebrow: "Help with Execution",
+                    title: "What is AI Coach?",
+                    copy: "AI Coach is an optional Academy assistant for asking questions about execution. Access may depend on an active Academy or YHA subscription.",
+                    image: "/assets/academy/icons/academy-icon-roadmap.png",
+                    features: ["Ask AI Coach","Execution questions","Subscription access"],
+                    steps: ["Where available, select Ask AI Coach.","Ask a clear question about your roadmap, mission, or next step.","Use the official mission instructions for required tracking and proof."]
                 }
             ]
         },
@@ -167,6 +204,8 @@
     let activeSlideIndex = 0;
     let tutorialReturnFocus = null;
     let entryTimer = null;
+    let academyOpenEpoch = 0;
+    const academyDismissedScopes = new Set();
     let standaloneRetryCount = 0;
     let touchStartX = 0;
     let touchStartY = 0;
@@ -652,6 +691,7 @@ function retryPendingCompletions() {
                         <p id="yh-division-tutorial-copy"></p>
 
                         <div class="yh-division-tutorial-features" id="yh-division-tutorial-features"></div>
+                        <ol class="yh-division-tutorial-steps" id="yh-division-tutorial-steps" hidden></ol>
                         <div class="yh-division-tutorial-dots" id="yh-division-tutorial-dots" aria-label="Tutorial progress"></div>
 
                         <div class="yh-division-tutorial-actions">
@@ -697,6 +737,7 @@ function retryPendingCompletions() {
         const imageEl = document.getElementById('yh-division-tutorial-image');
         const previewEl = document.getElementById('yh-division-tutorial-feature-preview');
         const featuresEl = document.getElementById('yh-division-tutorial-features');
+        const stepsEl = document.getElementById('yh-division-tutorial-steps');
         const dotsEl = document.getElementById('yh-division-tutorial-dots');
         const backButton = document.getElementById('yh-division-tutorial-back');
         const nextButton = document.getElementById('yh-division-tutorial-next');
@@ -722,6 +763,12 @@ function retryPendingCompletions() {
             featuresEl.innerHTML = slide.features
                 .map((feature) => `<span>${escapeHtml(feature)}</span>`)
                 .join('');
+        }
+
+        if (stepsEl) {
+            const steps = Array.isArray(slide.steps) ? slide.steps : [];
+            stepsEl.hidden = steps.length === 0;
+            stepsEl.innerHTML = steps.map(step => `<li>${escapeHtml(step)}</li>`).join('');
         }
 
         if (dotsEl) {
@@ -1077,6 +1124,9 @@ function routeDashboardParentToDefault(
             return false;
         }
 
+        /* YHU_ACADEMY_CONTEXT_FIX_20261029 */
+        const attemptEpoch = academyOpenEpoch;
+        if (cleanDivision === 'academy' && options.force !== true && academyOverviewDismissed()) return false;
         const existingOverlay =
             document.getElementById(
                 'yh-division-tutorial-overlay'
@@ -1166,6 +1216,20 @@ function routeDashboardParentToDefault(
             return false;
         }
 
+        if (
+            cleanDivision === 'academy' &&
+            options.force !== true
+        ) {
+            markFirstAcademyTutorialEligible();
+        }
+
+        if (cleanDivision === 'academy') {
+            if (attemptEpoch !== academyOpenEpoch) return false;
+            if (options.force !== true && academyOverviewDismissed()) return false;
+            const shown = document.getElementById('yh-division-tutorial-overlay');
+            if (activeDivision === cleanDivision && shown && !shown.hidden) return true;
+            if (options.force !== true && getCurrentDivision() !== 'academy') return false;
+        }
         activeDivision = cleanDivision;
         activeSlideIndex = Math.max(0, Math.min(config.slides.length - 1, Number(options.slide || 0) || 0));
 
@@ -1198,7 +1262,9 @@ function routeDashboardParentToDefault(
     }
 
     function closeTutorial(method = 'finish') {
+        academyOpenEpoch += 1;
         const division = activeDivision;
+        if (division === 'academy') academyDismissedScopes.add(getAccountScope());
         const overlay = document.getElementById('yh-division-tutorial-overlay');
 
         const activeElement = document.activeElement;
@@ -1246,6 +1312,7 @@ function routeDashboardParentToDefault(
         if (!division) return;
 
         markDivisionCompletedLocally(division, method);
+        if (division === 'academy') scheduleCurrentEntry(240);
 
         persistDivisionCompletion(
             division,
@@ -1338,6 +1405,165 @@ function routeDashboardParentToDefault(
         }, { passive: true });
     }
 
+
+/* YHU_ACADEMY_CONTEXT_FIX_20261029: first-time contextual guides; no API or mission changes. */
+const ACADEMY_GUIDES = Object.freeze({
+  community: {
+    title: 'How to Use Community Feed',
+    steps: [
+      ['Choose a feed', 'Open Circle for your network, Global for wider Academy posts, or Niches for topic-based communities.', 'Example: Select Global to discover other Academy members.'],
+      ['Find conversations', 'Use Search Academy members and posts to find relevant people and topics.', 'Example: Search for a topic related to your next goal.'],
+      ['Interact with posts', 'Use the available Like, Comment and Reply controls to participate in a discussion.', 'Example: Ask a useful question under a relevant post.'],
+      ['Share an update', 'When posting is available, write an update or attach supported media and submit through the existing post controls.', 'Example: Share a mission milestone with your community.']
+    ]
+  },
+  messages: {
+    title: 'How to Use Messages',
+    steps: [
+      ['Select a conversation type', 'Choose Direct for private messages or Groups for group conversations.', 'Example: Select Direct to contact one Academy member.'],
+      ['Open or start a chat', 'Choose a conversation from the inbox or use the new-message controls to find a member.', 'Example: Start a chat with someone from Community Feed.'],
+      ['Send your message', 'Write in the composer, attach supported media if needed, and select Send.', 'Example: Hello! I saw your post. Can I ask a question?'],
+      ['Follow up', 'Return to the same conversation to read replies and continue the discussion.', 'Example: Reply after reviewing the answer.']
+    ]
+  },
+  voice: {
+    title: 'How to Use Live Voice Lounge',
+    steps: [
+      ['Explore live rooms', 'Open Live Voice Lounge and review the active rooms. Use Refresh to update the list.', 'Example: Find a discussion about executing missions.'],
+      ['Join a conversation', 'Choose a room and use its Join control. Grant microphone access if prompted.', 'Example: Join a room and listen first.'],
+      ['Start your own room', 'Use + Start Lounge to create a session when that action is available.', 'Example: Start a discussion about weekly progress.'],
+      ['Manage audio', 'Use the existing mute, unmute and leave controls when participating.', 'Example: Mute your microphone while listening.']
+    ]
+  }
+});
+
+let academyGuideDialog = null, academyGuideName = '', academyGuideStep = 0, academyGuideLoading = false;
+const academyGuidesDoneThisSession = new Set();
+
+function academyOverviewDismissed() {
+  if (academyDismissedScopes.has(getAccountScope())) return true;
+  const pending = readLocalRecord().pending?.academy;
+  return Number(pending?.completedVersion || 0) >= DIVISION_CONFIG.academy.version;
+}
+
+function academyOverviewCompleted() {
+  return academyOverviewDismissed() || isDivisionCompleted('academy', tutorialStateCache || readLocalRecord().state);
+}
+
+function currentAcademyGuide() {
+  if (getCurrentDivision() !== 'academy') return '';
+  const workspace = getCurrentWorkspace();
+  if (workspace === 'academy-community') return 'community';
+  if (workspace === 'academy-messages') return 'messages';
+  if (workspace === 'academy-voice') return 'voice';
+  const match = location.pathname.match(/^\/academy\/(community|messages|voice)\/?$/);
+  return match ? match[1] : '';
+}
+
+function academyGuideStorageKey(name) {
+  const account = getAccountScope();
+  return account && account !== 'current-user'
+    ? 'yh_academy_context_guide_v1:' + account + ':' + name
+    : '';
+}
+
+function academyGuideDone(name) {
+  if (academyGuidesDoneThisSession.has(name)) return true;
+  const key = academyGuideStorageKey(name);
+  if (!key) return true;
+  try { return localStorage.getItem(key) === 'completed'; }
+  catch (_) { return false; }
+}
+
+function closeAcademyGuide(completed) {
+  if (completed && academyGuideName) {
+    academyGuidesDoneThisSession.add(academyGuideName);
+    const key = academyGuideStorageKey(academyGuideName);
+    if (key) {
+      try { localStorage.setItem(key, 'completed'); }
+      catch (_) {}
+    }
+  }
+  if (academyGuideDialog?.open) academyGuideDialog.close();
+  academyGuideName = '';
+  academyGuideStep = 0;
+}
+
+function drawAcademyGuide() {
+  const d = academyGuideDialog, g = ACADEMY_GUIDES[academyGuideName];
+  if (!d || !g) return;
+  const step = g.steps[academyGuideStep];
+  const put = (selector, value) => {
+    d.querySelector(selector).textContent = value;
+  };
+  put('[data-guide-count]', 'STEP ' + (academyGuideStep + 1) + ' OF ' + g.steps.length);
+  put('[data-guide-title]', g.title);
+  put('[data-guide-heading]', step[0]);
+  put('[data-guide-body]', step[1]);
+  put('[data-guide-example]', step[2]);
+  d.querySelector('[data-guide-action="back"]').disabled = academyGuideStep === 0;
+  put('[data-guide-action="next"]', academyGuideStep === g.steps.length - 1 ? 'Finish' : 'Next');
+}
+
+function academyGuideElement() {
+  if (academyGuideDialog?.isConnected) return academyGuideDialog;
+
+  const d = document.createElement('dialog');
+  d.className = 'yh-academy-context-guide';
+  d.setAttribute('aria-labelledby','yh-academy-context-title');
+
+  d.innerHTML =
+    '<div class="yh-academy-guide-inner"><div class="yh-academy-guide-kicker">THE ACADEMY · HOW IT WORKS</div>' +
+    '<p data-guide-count aria-live="polite"></p><h2 id="yh-academy-context-title" data-guide-title></h2>' +
+    '<h3 data-guide-heading></h3><p data-guide-body></p><p class="yh-academy-guide-example" data-guide-example></p>' +
+    '<div class="yh-academy-guide-buttons"><button type="button" data-guide-action="skip">Skip tutorial</button>' +
+    '<button type="button" data-guide-action="back">Back</button><button type="button" data-guide-action="next">Next</button></div></div>';
+
+  d.addEventListener('click', e => {
+    const act = e.target.closest('[data-guide-action]')?.getAttribute('data-guide-action');
+    if (!act || !academyGuideName) return;
+
+    if (act === 'skip') return closeAcademyGuide(true);
+    if (act === 'back') academyGuideStep = Math.max(0,academyGuideStep - 1);
+    else if (academyGuideStep === ACADEMY_GUIDES[academyGuideName].steps.length - 1)
+      return closeAcademyGuide(true);
+    else academyGuideStep += 1;
+
+    drawAcademyGuide();
+  });
+
+  d.addEventListener('cancel', e => {
+    e.preventDefault();
+    closeAcademyGuide(true);
+  });
+
+  document.body.appendChild(d);
+  academyGuideDialog = d;
+  return d;
+}
+
+async function openAcademyGuide(name) {
+  if (!ACADEMY_GUIDES[name] || !isAcademyMissionGuideEligible() || !academyOverviewCompleted() ||
+      academyGuideDone(name) || academyGuideDialog?.open || academyGuideLoading ||
+      activeDivision || currentAcademyGuide() !== name) return false;
+
+  academyGuideLoading = true;
+  try {
+    if (!(await verifyDivisionAccessApproved('academy'))) return false;
+    if (currentAcademyGuide() !== name || activeDivision || academyGuideDone(name)) return false;
+
+    const d = academyGuideElement();
+    academyGuideName = name;
+    academyGuideStep = 0;
+    drawAcademyGuide();
+    d.showModal();
+    d.querySelector('[data-guide-action="next"]')?.focus({preventScroll:true});
+    return true;
+  } finally {
+    academyGuideLoading = false;
+  }
+}
+
 function scheduleCurrentEntry(
     delay = 260
 ) {
@@ -1410,9 +1636,14 @@ function scheduleCurrentEntry(
 
                 standaloneRetryCount = 0;
 
-                await openTutorial(
-                    division
-                );
+                if (academyGuideDialog?.open && (division !== 'academy' || currentAcademyGuide() !== academyGuideName))
+                    closeAcademyGuide(false);
+
+                const overviewOpened = await openTutorial(division);
+                if (division === 'academy' && !overviewOpened) {
+                  const name = currentAcademyGuide();
+                  if (name) void openAcademyGuide(name);
+                }
             },
             Math.max(
                 0,
@@ -1660,7 +1891,8 @@ function scheduleCurrentEntry(
                 embeddedObserver;
         }
 
-        if (isDashboardPage() && document.body) {
+        /* YHU_TUTORIAL_FINAL_SPA_ENTRY: React route transitions */
+        if (document.body) {
             const observer = new MutationObserver((mutations) => {
                 if (mutations.some((mutation) => (
                     mutation.type === 'attributes' &&
@@ -1696,6 +1928,44 @@ function scheduleCurrentEntry(
         }
 
         scheduleCurrentEntry(isDashboardPage() ? 420 : 720);
+    }
+
+
+    /* YHU_ACADEMY_MISSION_ELIGIBILITY_PHASE4 */
+    const ACADEMY_MISSION_ELIGIBILITY_PREFIX =
+        'yh_academy_mission_eligible_v1';
+
+    function academyMissionEligibilityKey() {
+        try {
+            const scope = getAccountScope();
+            if (!scope || scope === 'current-user') return '';
+            return ACADEMY_MISSION_ELIGIBILITY_PREFIX + ':' + scope;
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function markFirstAcademyTutorialEligible() {
+        const key = academyMissionEligibilityKey();
+        if (!key) return false;
+
+        try {
+            localStorage.setItem(key, 'eligible');
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function isAcademyMissionGuideEligible() {
+        const key = academyMissionEligibilityKey();
+        if (!key) return false;
+
+        try {
+            return localStorage.getItem(key) === 'eligible';
+        } catch (_) {
+            return false;
+        }
     }
 
     window.YHDivisionTutorials =
@@ -1738,6 +2008,10 @@ function scheduleCurrentEntry(
                     scheduleCurrentEntry(
                         0
                     ),
+
+            isAcademyMissionGuideEligible:
+                () =>
+                    isAcademyMissionGuideEligible(),
 
             getConfig:
                 () =>

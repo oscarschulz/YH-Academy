@@ -1,0 +1,736 @@
+/* Profile has one scroll owner: .yhu-profile-scroll. */
+@layer yhu-foundation {
+#yh-dashboard-profile-view-workspace.yhu-profile-workspace {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  color: #f1f7ff;
+}
+.yhu-profile-scroll {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+#yh-dashboard-profile-view-workspace.yhu-profile-workspace::-webkit-scrollbar,
+.yhu-profile-editor-form::-webkit-scrollbar {display:none}
+.yhu-profile-container {
+  width:100%;max-width:1480px;margin:0 auto;padding:4px 0 28px;
+  display:grid;gap:16px;
+}
+.yhu-profile-toolbar {
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;min-width:0;padding:4px 2px;
+}
+.yhu-profile-eyebrow {
+  display:block;color:#68dff8;font-size:.7rem;font-weight:800;
+  letter-spacing:.12em;
+}
+.yhu-profile-page-heading h1 {
+  font-size:clamp(1.35rem,2.2vw,1.85rem);line-height:1.25;
+  font-weight:800;margin:5px 0 0;
+}
+.yhu-profile-toolbar-actions,.yhu-profile-member-actions {
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+}
+.yhu-profile-button {
+  appearance:none;display:inline-flex;justify-content:center;
+  align-items:center;min-height:38px;padding:9px 15px;
+  border-radius:10px;border:1px solid rgba(125,194,234,.27);
+  background:#112b45;color:#edf7ff;font:inherit;
+  font-size:.83rem;font-weight:700;line-height:1.2;
+  cursor:pointer;transition:background .15s ease,border-color .15s ease;
+}
+.yhu-profile-button:hover {background:#174160;border-color:#58d6ee}
+.yhu-profile-button:focus-visible {outline:2px solid #5fe5fa;outline-offset:2px}
+.yhu-profile-button:disabled {opacity:.55;cursor:not-allowed}
+.yhu-profile-button.is-primary {
+  color:#031b2b;border-color:transparent;
+  background:linear-gradient(105deg,#62e3f9,#3688ee);
+}
+.yhu-profile-button.is-primary:hover {filter:brightness(1.07)}
+.yhu-profile-button.is-quiet {background:transparent}
+.yhu-profile-hero,.yhu-profile-card {
+  border:1px solid rgba(126,178,224,.17);border-radius:18px;
+  background:#0b1c31;min-width:0;overflow:hidden;
+}
+.yhu-profile-resume-banner {
+  position:relative;height:158px;
+  background:radial-gradient(ellipse at 20% 40%,rgba(44,172,224,.32),transparent 50%),
+    linear-gradient(110deg,#0b3552,#0b1d35 55%,#070f24);
+}
+.yhu-profile-resume-banner::after {
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,transparent 55%,rgba(2,13,29,.55));
+  pointer-events:none;
+}
+.yhu-profile-resume-banner img {
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+}
+.yhu-profile-resume-identity {
+  display:flex;align-items:center;flex-wrap:wrap;gap:12px;
+  min-width:0;padding:16px 16px 18px;
+}
+.yhu-profile-resume-avatar {
+  position:relative;z-index:2;flex:0 0 84px;
+  width:84px;height:84px;margin-top:-38px;
+  border-radius:18px;border:4px solid #0b1c31;background:#123550;
+  display:grid;place-items:center;overflow:hidden;
+  box-shadow:0 12px 25px rgba(0,0,0,.3);
+}
+.yhu-profile-resume-avatar img {width:100%;height:100%;object-fit:cover}
+.yhu-profile-resume-avatar span {font-size:2.5rem;font-weight:850;color:#8deafd}
+.yhu-profile-resume-identity-copy {
+  min-width:0;flex:1 1 160px;padding-top:0;
+}
+.yhu-profile-resume-identity-copy h2 {
+  font-size:clamp(1.3rem,2vw,1.8rem);line-height:1.23;
+  overflow-wrap:anywhere;margin:0 0 3px;
+}
+.yhu-profile-resume-identity-copy > p {
+  color:#9bb7d3;font-size:.85rem;margin:0 0 11px;
+}
+.yhu-profile-tags {
+  display:flex;flex-wrap:wrap;gap:7px;
+}
+.yhu-profile-tags span {
+  display:inline-flex;align-items:center;min-height:26px;
+  padding:4px 10px;border-radius:999px;font-size:.72rem;
+  color:#a9eafd;line-height:1.25;background:rgba(37,171,226,.1);
+  border:1px solid rgba(60,195,234,.2);
+}
+.yhu-profile-member-actions {margin-left:auto;justify-content:flex-end}
+.yhu-profile-social {
+  display:flex;flex-wrap:wrap;gap:8px 36px;
+  border-top:1px solid rgba(138,184,225,.12);padding:16px 24px;
+}
+.yhu-profile-social > div {display:flex;align-items:baseline;gap:8px}
+.yhu-profile-social strong {font-size:1.2rem;font-weight:800}
+.yhu-profile-social span {color:#97b4d0;font-size:.79rem}
+.yhu-profile-card {padding:clamp(17px,2vw,24px)}
+.yhu-profile-card-heading {margin-bottom:16px}
+.yhu-profile-card-heading > span {
+  color:#65ddef;font-size:.68rem;font-weight:800;letter-spacing:.13em;
+}
+.yhu-profile-card-heading h3 {
+  font-size:clamp(1rem,1.45vw,1.25rem);
+  margin:5px 0 0;line-height:1.3;
+}
+.yhu-profile-bio {
+  margin:0;font-size:.88rem;line-height:1.65;color:#bed1e4;
+  overflow-wrap:anywhere;white-space:pre-wrap;
+}
+.yhu-profile-mini-detail {
+  display:grid;gap:5px;margin-top:20px;padding-top:16px;
+  border-top:1px solid rgba(143,184,218,.13);
+}
+.yhu-profile-mini-detail > span,.yhu-profile-signal > span {
+  font-size:.72rem;font-weight:650;color:#8ba9c6;
+}
+.yhu-profile-mini-detail strong {font-size:.85rem}
+.yhu-profile-tags {margin-top:20px}
+.yhu-profile-signal-grid {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+}
+.yhu-profile-signal {
+  min-height:73px;display:grid;align-content:center;gap:6px;
+  background:#102740;border:1px solid rgba(126,178,224,.11);
+  border-radius:12px;padding:13px 15px;min-width:0;
+}
+.yhu-profile-signal strong {
+  font-size:.84rem;line-height:1.5;font-weight:650;
+  overflow-wrap:anywhere;color:#f1f6ff;
+}
+.yhu-profile-muted {
+  margin:0;background:rgba(101,151,200,.055);
+  border:1px dashed rgba(134,183,221,.17);
+  border-radius:12px;padding:22px 18px;
+  font-size:.84rem;line-height:1.5;color:#93adc7;
+}
+.yhu-profile-post-list {
+  display:grid;gap:12px;
+}
+.yhu-profile-post {
+  padding:18px;border:1px solid rgba(125,173,214,.13);
+  border-radius:12px;background:#102740;
+}
+.yhu-profile-post p {
+  margin:0;line-height:1.6;color:#dcecfb;font-size:.85rem;
+  overflow-wrap:anywhere;white-space:pre-wrap;
+}
+.yhu-profile-status {
+  min-height:200px;display:grid;align-content:center;
+  justify-items:center;gap:14px;padding:30px;text-align:center;
+  border-radius:16px;border:1px solid rgba(126,178,224,.17);
+  background:#0b1c31;color:#c9dbeb;
+}
+.yhu-profile-editor-overlay {
+  position:fixed;z-index:1200;inset:0;
+  background:rgba(2,8,22,.83);backdrop-filter:blur(8px);
+  display:grid;place-items:center;padding:20px;
+}
+.yhu-profile-editor-panel {
+  width:min(920px,100%);
+  display:flex;flex-direction:column;
+  border-radius:18px;background:#0b1d34;
+  border:1px solid rgba(115,195,232,.26);
+  box-shadow:0 30px 90px rgba(0,0,0,.5);
+
+  min-height: 0;
+  max-height: calc(100dvh - clamp(16px, 3vw, 32px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.yhu-profile-editor-head {
+  display:flex;justify-content:space-between;gap:16px;
+  padding:20px 25px;border-bottom:1px solid rgba(126,178,224,.14);
+}
+.yhu-profile-editor-head h2 {margin:4px 0;font-size:1.35rem}
+.yhu-profile-editor-head p {
+  margin:4px 0 0;color:#9db7ce;font-size:.8rem;
+}
+.yhu-profile-editor-form {
+  display:flex;flex-direction:column;min-height:0;
+  overflow:auto;scrollbar-width:none;
+}
+.yhu-profile-editor-fields {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;padding:22px 25px;min-width:0;
+}
+.yhu-profile-field {
+  display:grid;gap:7px;min-width:0;
+  color:#c3d7e8;font-size:.8rem;font-weight:650;
+}
+.yhu-profile-field.is-full {grid-column:1/-1}
+.yhu-profile-field input,.yhu-profile-field select {
+  width:100%;min-width:0;min-height:43px;padding:10px 12px;
+  border:1px solid #25455f;border-radius:9px;
+  background:#122b46;color:#f2faff;font:inherit;
+  font-size:.85rem;outline:none;
+}
+.yhu-profile-field textarea {
+  width:100%;min-width:0;padding:10px 12px;
+  border:1px solid #25455f;border-radius:9px;
+  background:#122b46;color:#f2faff;font:inherit;
+  font-size:.85rem;outline:none;
+}
+.yhu-profile-field textarea {resize:vertical;min-height:105px}
+.yhu-profile-field input:focus,.yhu-profile-field textarea:focus,
+.yhu-profile-field select:focus {
+  border-color:#65def4;box-shadow:0 0 0 2px rgba(76,204,238,.1);
+}
+.yhu-profile-field input[type="file"] {padding:9px;cursor:pointer}
+.yhu-profile-field small {color:#92d5eb;overflow-wrap:anywhere}
+.yhu-profile-editor-actions {
+  position:sticky;bottom:0;display:flex;justify-content:flex-end;
+  gap:10px;padding:16px 25px;background:#0b1d34;
+  border-top:1px solid rgba(126,178,224,.14);
+}
+}
+@media(max-width:880px) {
+  @layer yhu-foundation {
+  .yhu-profile-content-grid {grid-template-columns:minmax(0,1fr)}
+  .yhu-profile-resume-identity {align-items:center;flex-wrap:wrap}
+  .yhu-profile-member-actions {
+    width:100%;margin:0;justify-content:flex-start;
+  }
+}
+}
+@media(max-width:560px) {
+  @layer yhu-foundation {
+  .yhu-profile-container {gap:12px;padding-bottom:18px}
+  .yhu-profile-toolbar,.yhu-profile-resume-identity,
+  .yhu-profile-social {padding-left:14px;padding-right:14px}
+  .yhu-profile-hero,.yhu-profile-card {border-radius:13px}
+  .yhu-profile-resume-banner {height:136px}
+  .yhu-profile-resume-avatar {
+    flex-basis:72px;width:72px;height:72px;
+    margin-top:-32px;border-radius:16px;
+  }
+  .yhu-profile-resume-avatar span {font-size:2rem}
+  .yhu-profile-resume-identity {
+    gap:12px;padding:12px 14px 16px;
+  }
+  .yhu-profile-resume-identity-copy {
+    flex:1 1 150px;padding-top:0;
+  }
+  .yhu-profile-member-actions {
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .yhu-profile-social {gap:9px 22px}
+  .yhu-profile-card {padding:17px}
+  .yhu-profile-signal-grid,.yhu-profile-editor-fields {
+    grid-template-columns:minmax(0,1fr);
+  }
+  .yhu-profile-editor-overlay {padding:10px}
+  .yhu-profile-editor-head,.yhu-profile-editor-fields,
+  .yhu-profile-editor-actions {padding:14px}
+  .yhu-profile-editor-panel {max-height:96dvh}
+  .yhu-profile-editor-actions .yhu-profile-button {flex:1}
+}
+}
+@media(prefers-reduced-motion:reduce) {
+  @layer yhu-foundation {
+  .yhu-profile-button {transition:none}
+}
+}
+
+
+/* YHU_PROFILE_PHASE1_SAFE */
+
+@layer yhu-foundation {
+
+.yhu-profile-editor-panel
+button[data-yhu-profile-close-compact="true"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  max-width: 34px;
+  max-height: 34px;
+  padding: 0;
+  margin: 0;
+  border-radius: 9px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.yhu-profile-editor-panel::-webkit-scrollbar {
+  display: none;
+}
+}
+
+
+/* YHU_PROFILE_MEDIA_P2_FIXED */
+
+@layer yhu-foundation {
+
+.yhu-p2-media {
+  grid-column:1/-1;
+  display:grid;
+  gap:15px;
+  min-width:0;
+  padding:15px;
+  border:1px solid rgba(118,179,220,.16);
+  border-radius:15px;
+  background:#10263f;
+}
+
+.yhu-p2-cover-preview {
+  display:flex;
+  align-items:flex-start;
+  height:clamp(120px,15vw,190px);
+  padding:12px;
+  border-radius:11px;
+  background-color:#14364e;
+  background-image:linear-gradient(120deg,#14506b,#0c1c32);
+  background-size:cover;
+  background-position:center;
+  font-size:.8rem;
+  font-weight:700;
+}
+
+.yhu-p2-actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+  margin-top:10px;
+}
+
+.yhu-p2-actions label {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+
+.yhu-p2-avatar-row {
+  display:flex;
+  align-items:center;
+  gap:15px;
+  flex-wrap:wrap;
+}
+
+.yhu-p2-avatar {
+  flex:0 0 82px;
+  display:grid;
+  place-items:center;
+  width:82px;
+  height:82px;
+  border:2px solid rgba(130,206,241,.35);
+  border-radius:50%;
+  overflow:hidden;
+  background:#175070;
+  color:#eefaff;
+  font-size:2rem;
+  font-weight:800;
+}
+
+.yhu-p2-avatar img {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.yhu-p2-avatar-controls {flex:1;min-width:0;}
+
+.yhu-p2-crop-overlay {
+  position:fixed;
+  inset:0;
+  z-index:1600;
+  display:grid;
+  place-items:center;
+  padding:14px;
+  background:rgba(1,8,22,.9);
+}
+
+.yhu-p2-crop-panel {
+  width:min(660px,100%);
+  max-height:95dvh;
+  display:grid;
+  gap:14px;
+  overflow-y:auto;
+  padding:18px;
+  border:1px solid rgba(128,189,230,.3);
+  border-radius:17px;
+  background:#0b1d34;
+  color:#eff8ff;
+}
+
+.yhu-p2-crop-panel header {
+  display:flex;
+  justify-content:space-between;
+  gap:15px;
+}
+
+.yhu-p2-crop-panel header button {
+  flex:0 0 34px;
+  width:34px;
+  height:34px;
+  padding:0;
+  border-radius:9px;
+  cursor:pointer;
+}
+
+.yhu-p2-crop-panel p {
+  color:#a9c3d8;
+  font-size:.82rem;
+  line-height:1.55;
+}
+
+.yhu-p2-crop-frame {
+  position:relative;
+  width:min(100%,450px);
+  aspect-ratio:1;
+  margin:auto;
+  overflow:hidden;
+  border:2px solid #65ddf7;
+  background:#09182c;
+  touch-action:none;
+  user-select:none;
+  cursor:grab;
+}
+
+.yhu-p2-crop-frame[data-kind="cover"] {
+  width: min(100%, 600px);
+  aspect-ratio: 8 / 3;
+}
+
+.yhu-p2-crop-frame[data-kind="avatar"] {
+  border-radius:50%;
+
+  width: min(100%, 320px);
+  aspect-ratio: 1;}
+
+.yhu-p2-crop-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.yhu-p2-crop-grid {
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    linear-gradient(90deg,transparent 33%,#ffffff22 33.3%,transparent 34%,transparent 66%,#ffffff22 66.6%,transparent 67%),
+    linear-gradient(transparent 33%,#ffffff22 33.3%,transparent 34%,transparent 66%,#ffffff22 66.6%,transparent 67%);
+}
+
+.yhu-p2-crop-zoom {
+  display:flex;
+  align-items:center;
+  gap:9px;
+}
+
+.yhu-p2-crop-zoom input {
+  flex:1;
+  min-width:0;
+}
+
+.yhu-p2-crop-panel footer {
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+}
+}
+
+@media(max-width:600px) {
+  @layer yhu-foundation {
+  .yhu-p2-media {padding:11px;}
+  .yhu-p2-crop-panel {padding:12px;}
+}
+}
+
+@layer yhu-foundation {
+
+.yhu-profile-load-inline {
+  width: 100%;
+  min-height: max(320px, calc(100dvh - 150px));
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 32px 18px;
+  background: radial-gradient(
+    ellipse at center,
+    #102b48 0%,
+    #071629 55%,
+    #050f1d 100%
+  );
+  color: #e8f4ff;
+}
+
+.yhu-profile-loading-stack {
+  width: min(300px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.yhu-profile-loading-emblem {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(103, 232, 249, 0.25);
+  border-radius: 19px;
+  background: rgba(18, 47, 75, 0.65);
+  box-shadow: 0 0 30px rgba(56, 189, 248, 0.12);
+}
+
+.yhu-profile-loading-emblem img {
+  display: block;
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.yhu-profile-loading-stack > strong {
+  color: #b5e8fa;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  margin-top: 5px;
+}
+
+.yhu-profile-loading-stack > span {
+  color: #dcefff;
+  font-size: 0.82rem;
+}
+
+.yhu-profile-loading-track {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #24425e;
+}
+
+.yhu-profile-loading-track > span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 33.333%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    #2563eb,
+    #67e8f9,
+    #38bdf8
+  );
+  animation: yhu-profile-loading-sweep 1.2s linear infinite;
+}
+
+@keyframes yhu-profile-loading-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yhu-profile-loading-track > span {
+    animation: none;
+    transform: translateX(100%);
+  }
+}
+
+.yhu-profile-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+}
+}
+
+/* YHU_PROFILE_RESUME_FEED_V1 — canonical new layout */
+@layer yhu-foundation {
+.yhu-profile-resume-layout {
+  display:grid;grid-template-columns:minmax(280px,360px) minmax(0,1fr);
+  align-items:start;gap:18px;min-width:0;
+}
+.yhu-profile-resume-sidebar,.yhu-profile-resume-feed {
+  display:grid;gap:16px;min-width:0;
+}
+.yhu-profile-resume-sidebar .yhu-profile-social {
+  padding:14px 16px;gap:9px 18px;
+}
+.yhu-profile-composer form {display:grid;gap:11px}
+.yhu-profile-composer-label {
+  font-size:.85rem;font-weight:650;color:#d4e9fa;
+}
+.yhu-profile-composer textarea {
+  width:100%;min-width:0;min-height:110px;padding:14px;resize:vertical;
+  border:1px solid #284660;border-radius:12px;outline:0;
+  background:#102740;color:#f1f7ff;font:inherit;font-size:.9rem;
+}
+.yhu-profile-composer textarea:focus {
+  border-color:#67dff5;box-shadow:0 0 0 2px rgba(65,191,230,.12);
+}
+.yhu-profile-composer-actions {
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;flex-wrap:wrap;
+}
+.yhu-profile-composer-actions span {
+  color:#93adc7;font-size:.75rem;
+}
+.yhu-profile-post-head {
+  display:flex;align-items:center;gap:12px;margin-bottom:15px;
+}
+.yhu-profile-post-avatar {
+  display:grid;place-items:center;flex:0 0 40px;
+  width:40px;height:40px;border-radius:50%;overflow:hidden;
+  background:#123e57;color:#8deafd;font-weight:800;
+}
+.yhu-profile-post-avatar img {
+  width:100%;height:100%;object-fit:cover;
+}
+.yhu-profile-post-author {
+  display:grid;gap:3px;min-width:0;
+}
+.yhu-profile-post-author strong {font-size:.85rem}
+.yhu-profile-post-author span {
+  color:#8eaac4;font-size:.72rem;
+}
+.yhu-profile-post-engagement {
+  display:flex;gap:18px;margin-top:16px;padding-top:12px;
+  border-top:1px solid rgba(126,178,224,.13);
+  color:#94b0ca;font-size:.75rem;
+}
+}
+@media(max-width:930px) {
+  @layer yhu-foundation {
+  .yhu-profile-resume-layout {
+    grid-template-columns:minmax(0,1fr);
+  }
+  .yhu-profile-resume-sidebar {
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  }
+  .yhu-profile-resume-sidebar .yhu-profile-hero {
+    grid-column:1/-1;
+  }
+}
+}
+@media(max-width:620px) {
+  @layer yhu-foundation {
+  .yhu-profile-resume-sidebar {
+    grid-template-columns:minmax(0,1fr);
+  }
+  .yhu-profile-resume-sidebar .yhu-profile-hero {
+    grid-column:auto;
+  }
+}
+}
+
+
+/* Profile membership details */
+
+@layer yhu-foundation {
+
+.yhu-profile-identity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.yhu-profile-identity-item {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  padding: 12px;
+  background: #102740;
+  border: 1px solid rgba(126,178,224,.15);
+  border-radius: 12px;
+}
+
+.yhu-profile-identity-item > span {
+  color: #91abc8;
+  font-size: .73rem;
+  font-weight: 650;
+}
+
+.yhu-profile-identity-item strong {
+  color: #a9eafd;
+  font-size: .8rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+
+
+.yhu-profile-identity-details .yhu-profile-member-actions {
+  margin: 14px 0 0;
+  justify-content: flex-start;
+}
+}
+
+@media (max-width:560px) {
+  @layer yhu-foundation {
+  .yhu-profile-identity-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+}

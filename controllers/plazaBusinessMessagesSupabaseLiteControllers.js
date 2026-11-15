@@ -1,4 +1,6 @@
 const businessRepo = require('../backend/repositories/plazaBusinessMessagesSupabaseRepo');
+const realtimeNotificationsRepo = require('../backend/repositories/realtimeSupabaseRepo');
+const plazaRealtimeCrypto = require('node:crypto');
 const directoryRepo = require('../backend/repositories/plazaDirectoryRegionsSupabaseRepo');
 const bridgeRequestsRepo = require('../backend/repositories/plazaBridgeRequestsSupabaseRepo');
 const yhuUsersSupabaseRepo = require('../backend/repositories/yhuUsersSupabaseRepo');
@@ -86,7 +88,7 @@ function viewerKeys(viewer = {}) {
         viewer.firebaseUid,
         viewer.email,
         viewer.username
-    ].map(sanitizeText).filter(Boolean));
+    ].map(value => sanitizeText(value)).filter(Boolean));
 }
 
 function conversationBelongsToViewer(conversation = {}, viewer = {}) {
@@ -100,7 +102,7 @@ function conversationBelongsToViewer(conversation = {}, viewer = {}) {
         conversation.businessMemberId,
         conversation.authorId,
         ...(Array.isArray(conversation.participantIds) ? conversation.participantIds : [])
-    ].map(sanitizeText).filter(Boolean);
+    ].map(value => sanitizeText(value)).filter(Boolean);
 
     return candidates.some((value) => keys.has(value));
 }
@@ -135,7 +137,7 @@ function getConversationPartyIds(
                         : []
                 )
             ]
-                .map(sanitizeText)
+                .map(value => sanitizeText(value))
                 .filter(Boolean)
         )
     );
@@ -195,6 +197,12 @@ function buildBaseConversationPayload({
     const now =
         new Date().toISOString();
 
+    const purpose = clampText(body.businessPurpose || '', 120);
+    const purposes = ['Business collaboration', 'Partnership', 'Service request', 'Investment or deal flow', 'Introduction request', 'Hiring or project work', 'Looking for jobs'];
+    if (purpose && !purposes.includes(purpose)) {
+        throw Object.assign(new Error('Choose a valid Business Chat purpose.'), { statusCode: 400 });
+    }
+    const jobSearchIntent = purpose === 'Looking for jobs';
     const initialMessage =
         buildInitialMessage(
             req,
@@ -222,7 +230,7 @@ function buildBaseConversationPayload({
                     viewer.firebaseUid,
                     cleanTargetUserId
                 ]
-                    .map(sanitizeText)
+                    .map(value => sanitizeText(value))
                     .filter(Boolean)
             )
         );
@@ -266,6 +274,10 @@ function buildBaseConversationPayload({
                 'Global'
             ) || 'Global',
 
+        businessPurpose: purpose,
+        businessIntent: jobSearchIntent ? 'looking_for_jobs' : 'business_chat',
+        intentCategory: jobSearchIntent ? 'looking_for_jobs' : 'business_chat',
+        jobSearchIntent,
         participantIds,
 
         /*
@@ -343,8 +355,116 @@ function buildBaseConversationPayload({
     };
 }
 
+/* YHU_PLAZA_PHASE3_CANONICAL_REALTIME_DELIVERY */
+
+async function publishSavedPlazaConversation(conversation) {
+    const id = sanitizeText(conversation?.id);
+
+    const emit =
+        global.yhEmitPlazaBusinessConversationUpdated;
+
+    if (!id || typeof emit !== 'function') {
+        return false;
+    }
+
+    try {
+        return Boolean(await emit(id));
+    } catch (error) {
+        console.warn(
+            'Plaza realtime broadcast unavailable:',
+            error?.message || error
+        );
+
+        return false;
+    }
+}
+
+async function notifySavedPlazaReplyRecipients(
+    conversation,
+    viewer
+) {
+    const latest = Array.isArray(conversation?.messages)
+        ? conversation.messages[
+            conversation.messages.length - 1
+        ]
+        : null;
+
+    if (!latest?.id || !conversation?.id) {
+        return;
+    }
+
+    const senderKeys = viewerKeys(viewer);
+
+    const recipients = Array.from(
+        new Set(
+            safeArray(conversation.participantIds)
+                .filter(id => !senderKeys.has(id))
+        )
+    );
+
+    if (!recipients.length) {
+        return;
+    }
+
+    const results = await Promise.allSettled(
+        recipients.map(userId => {
+            const fingerprint = plazaRealtimeCrypto
+                .createHash('sha256')
+                .update(
+                    String(latest.id) + ':' + userId
+                )
+                .digest('hex')
+                .slice(0, 32);
+
+            return realtimeNotificationsRepo
+                .createNotification({
+                    notificationId:
+                        'plaza_reply_' + fingerprint,
+                    userId,
+                    source: 'plaza',
+                    type: 'plaza-message',
+                    notificationType:
+                        'plaza-business-chat',
+                    title: 'New Plaza message',
+                    body: clampText(
+                        (viewer.name || 'A member') +
+                        ' sent a message in your Plaza conversation.',
+                        280
+                    ),
+                    target: 'plazas-conversations',
+                    targetId: String(conversation.id),
+                    avatarStr: 'P'
+                });
+        })
+    );
+
+    const failed = results.filter(
+        result => result.status === 'rejected'
+    ).length;
+
+    if (failed) {
+        console.warn(
+            'Plaza notification delivery failed for',
+            failed,
+            'recipient(s).'
+        );
+    }
+}
+
 async function createConversationAndRespond(req, res, payload) {
     const conversation = await businessRepo.createConversation(payload);
+
+    await publishSavedPlazaConversation(conversation);
+
+    if (
+        Array.isArray(conversation.messages) &&
+        conversation.messages.length
+    ) {
+        await notifySavedPlazaReplyRecipients(
+            conversation,
+            getViewerFromRequest(req)
+        );
+    }
 
     return res.status(201).json({
         success: true,
@@ -634,7 +754,7 @@ exports.getBusinessBlocks = async (req, res) => {
             });
         }
 
-        const blocks = await businessRepo.listBlocks(250);
+        const blocks = await businessRepo.listBusinessBlocks([...viewerKeys(viewer)]);
         const activeBlocks = blocks.filter((block) => {
             return blockBelongsToViewer(block, viewer) && normalizeStatus(block.status) === 'active';
         });
@@ -675,7 +795,7 @@ exports.unblockBusinessMember = async (req, res) => {
             });
         }
 
-        const blocks = await businessRepo.listBlocks(250);
+        const blocks = await businessRepo.listBusinessBlocks([...viewerKeys(viewer)], [blockedUserId]);
         const matching = blocks.filter((block) => {
             return (
                 blockBelongsToViewer(block, viewer) &&
@@ -720,12 +840,16 @@ exports.getMessages = async (req, res) => {
             return conversationBelongsToViewer(conversation, viewer);
         });
 
-        return res.json({
-            success: true,
-            source: 'supabase',
-            conversations,
-            messages: conversations
-        });
+        const identity = [...viewerKeys(viewer)];
+        const relatedBlocks = (await Promise.all([
+            businessRepo.listBusinessBlocks(identity),
+            businessRepo.listBusinessBlocks([], identity)
+        ])).flat();
+        const visible = conversations.map(conversation => ({
+            ...conversation,
+            businessBlock: businessRepo.businessDeliveryState(conversation, relatedBlocks, identity).businessBlock
+        }));
+        return res.json({ success: true, source: 'supabase', conversations: visible, messages: visible });
     } catch (error) {
         console.error('plazaBusinessMessagesSupabaseLite.getMessages error:', error);
 
@@ -828,7 +952,7 @@ exports.createConversationFromRequest = async (
                         request.authorId,
                         request.authorFirebaseUid
                     ]
-                        .map(sanitizeText)
+                        .map(value => sanitizeText(value))
                         .filter(Boolean)
                 )
             );
@@ -841,7 +965,7 @@ exports.createConversationFromRequest = async (
                         request.targetUserId,
                         request.patronUserId
                     ]
-                        .map(sanitizeText)
+                        .map(value => sanitizeText(value))
                         .filter(Boolean)
                 )
             );
@@ -928,7 +1052,7 @@ exports.createConversationFromRequest = async (
                     requestId
             });
 
-        return createConversationAndRespond(
+        return await createConversationAndRespond(
             req,
             res,
             payload
@@ -1014,7 +1138,7 @@ exports.createConversationFromBusinessMember = async (
                         targetMember.userId,
                         targetMember.firebaseUid
                     ]
-                        .map(sanitizeText)
+                        .map(value => sanitizeText(value))
                         .filter(Boolean)
                 )
             );
@@ -1053,6 +1177,11 @@ exports.createConversationFromBusinessMember = async (
             });
         }
 
+        const targetAccount = await yhuUsersSupabaseRepo.getByUid(targetUserId);
+        if (!isDiscoverableBusinessMemberAccount(targetAccount)) {
+            return res.status(404).json({ success: false, message: 'Active Plaza business member not found.' });
+        }
+
         const payload =
             buildBaseConversationPayload({
                 req,
@@ -1083,7 +1212,7 @@ exports.createConversationFromBusinessMember = async (
                     requestedTargetId
             });
 
-        return createConversationAndRespond(
+        return await createConversationAndRespond(
             req,
             res,
             payload
@@ -1210,7 +1339,7 @@ exports.createConversationFromRegion = async (
                     )
             });
 
-        return createConversationAndRespond(
+        return await createConversationAndRespond(
             req,
             res,
             payload
@@ -1317,8 +1446,16 @@ exports.createConversationReply = async (req, res) => {
             await businessRepo
                 .addConversationReply(
                     conversationId,
-                    reply
+                    reply,
+                    [...viewerKeys(viewer)]
                 );
+
+        await publishSavedPlazaConversation(conversation);
+
+        await notifySavedPlazaReplyRecipients(
+            conversation,
+            viewer
+        );
 
         return res.status(201).json({
             success: true,
@@ -1329,7 +1466,7 @@ exports.createConversationReply = async (req, res) => {
     } catch (error) {
         console.error('plazaBusinessMessagesSupabaseLite.createConversationReply error:', error);
 
-        return res.status(500).json({
+        return res.status(Number(error?.statusCode) || 500).json({
             success: false,
             source: 'supabase',
             message: error?.message || 'Failed to create Plaza conversation reply.'
@@ -1414,6 +1551,9 @@ exports.reportConversation = async (req, res) => {
             otherPartyIds[0] ||
             '';
 
+        if (!sanitizeText(req.body?.reason || req.body?.category)) {
+            return res.status(400).json({ success: false, message: 'Add a reason first.' });
+        }
         const report =
             await businessRepo.createReport({
                 conversationId,
@@ -1513,6 +1653,7 @@ exports.closeConversation = async (req, res) => {
             });
         }
 
+        await businessRepo.assertBusinessDeliveryAllowed(currentConversation, [...viewerKeys(viewer)]);
         const conversation =
             await businessRepo
                 .closeConversation(
@@ -1528,6 +1669,8 @@ exports.closeConversation = async (req, res) => {
                     }
                 );
 
+        await publishSavedPlazaConversation(conversation);
+
         return res.json({
             success: true,
             source: 'supabase',
@@ -1536,7 +1679,7 @@ exports.closeConversation = async (req, res) => {
     } catch (error) {
         console.error('plazaBusinessMessagesSupabaseLite.closeConversation error:', error);
 
-        return res.status(500).json({
+        return res.status(Number(error?.statusCode) || 500).json({
             success: false,
             source: 'supabase',
             message: error?.message || 'Failed to close Plaza conversation.'
@@ -1652,6 +1795,10 @@ exports.blockConversationParticipant = async (req, res) => {
         } catch (error) {
             console.warn('Conversation close after block skipped:', error?.message || error);
         }
+
+        await publishSavedPlazaConversation(
+            closedConversation
+        );
 
         return res.status(201).json({
             success: true,

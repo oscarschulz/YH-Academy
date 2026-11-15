@@ -1,0 +1,265 @@
+@layer yhu-foundation {.yh-federation-deal-rooms-react-workspace {
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.yh-federation-deal-scroll {
+  height: 100%;
+  overflow: auto;
+}
+
+.yh-federation-deal-shell {
+  width: min(1760px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 28px 0 52px;
+}
+
+.yh-federation-deal-hero,
+.yh-federation-deal-form,
+.yh-federation-deal-card,
+.yh-federation-deal-summary article {
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 20px;
+  background: rgba(15, 23, 42, .42);
+}
+
+.yh-federation-deal-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 20px;
+}
+
+.yh-federation-deal-hero h1 {
+  margin: 7px 0 8px;
+}
+
+.yh-federation-deal-hero p,
+.yh-federation-deal-form-head p,
+.yh-federation-deal-card > p {
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.yh-federation-deal-kicker {
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.yh-federation-deal-pills,
+.yh-federation-deal-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 13px;
+}
+
+.yh-federation-deal-pills span,
+.yh-federation-deal-status-row span {
+  padding: 6px 9px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 999px;
+  font-size: .72rem;
+}
+
+.yh-federation-deal-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.yh-federation-deal-summary article {
+  display: grid;
+  gap: 5px;
+  padding: 16px;
+}
+
+.yh-federation-deal-summary strong {
+  font-size: 1.5rem;
+}
+
+.yh-federation-deal-summary small {
+  color: var(--text-muted);
+}
+
+.yh-federation-deal-form {
+  margin-top: 18px;
+  padding: 20px;
+}
+
+.yh-federation-deal-form-head h2 {
+  margin: 5px 0;
+}
+
+.yh-federation-deal-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.yh-federation-deal-form-grid label {
+  display: grid;
+  gap: 7px;
+}
+
+.yh-federation-deal-form-grid label > span {
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+.yh-federation-deal-form-grid .is-wide {
+  grid-column: 1 / -1;
+}
+
+.yh-federation-deal-preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-top: 15px;
+}
+
+.yh-federation-deal-preview > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(148, 163, 184, .06);
+}
+
+.yh-federation-deal-preview small {
+  color: var(--text-muted);
+}
+
+.yh-federation-deal-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  margin-top: 16px;
+}
+
+.yh-federation-deal-form-actions small {
+  max-width: 650px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.yh-federation-deal-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.yh-federation-deal-card {
+  padding: 18px;
+}
+
+.yh-federation-deal-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.yh-federation-deal-card-head h3 {
+  margin: 5px 0 0;
+}
+
+.yh-federation-deal-card-head > b {
+  align-self: flex-start;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, .08);
+  font-size: .72rem;
+}
+
+.yh-federation-deal-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.yh-federation-deal-metrics > div {
+  display: grid;
+  gap: 4px;
+  padding: 11px;
+  border-radius: 14px;
+  background: rgba(148, 163, 184, .06);
+}
+
+.yh-federation-deal-metrics small {
+  color: var(--text-muted);
+}
+
+.yh-federation-deal-note {
+  display: grid;
+  gap: 5px;
+  margin-top: 11px;
+  padding: 11px;
+  border-radius: 13px;
+  background: rgba(148, 163, 184, .06);
+}
+
+.yh-federation-deal-note span {
+  color: var(--text-muted);
+}
+
+.yh-federation-deal-note.is-admin {
+  border: 1px solid rgba(14, 165, 233, .18);
+  background: rgba(14, 165, 233, .05);
+}
+
+.yh-federation-deal-state {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, .42);
+}
+
+.yh-federation-deal-state.is-error {
+  border-color: rgba(239, 68, 68, .24);
+}
+}
+
+@media (max-width: 800px) {
+  @layer yhu-foundation {
+  .yh-federation-deal-summary,
+  .yh-federation-deal-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+}
+
+@media (max-width: 640px) {
+  @layer yhu-foundation {
+  .yh-federation-deal-shell {
+    width: min(100% - 20px, 1140px);
+    padding-top: 14px;
+  }
+
+  .yh-federation-deal-hero,
+  .yh-federation-deal-card-head {
+    flex-direction: column;
+  }
+
+  .yh-federation-deal-summary,
+  .yh-federation-deal-metrics,
+  .yh-federation-deal-form-grid,
+  .yh-federation-deal-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .yh-federation-deal-form-grid .is-wide {
+    grid-column: auto;
+  }
+}
+}

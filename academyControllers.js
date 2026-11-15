@@ -16,6 +16,27 @@ const academySupabaseRepo = require('./backend/repositories/academySupabaseRepo'
 const yhuSupabaseMirrorRepo = require('./backend/repositories/yhuSupabaseMirrorRepo');
 const yhuUsersSupabaseRepo = require('./backend/repositories/yhuUsersSupabaseRepo');
 const supportTicketsSupabaseRepo = require('./backend/repositories/supportTicketsSupabaseRepo');
+/* YHU_PRODUCTION_SAFE_ACADEMY_SUPERDEV_V1 */
+let isLocalSuperdevIdentity = () => false;
+
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    const localSuperdev = require('./backend/services/localSuperdevAccess');
+
+    if (typeof localSuperdev.isLocalSuperdevIdentity === 'function') {
+      isLocalSuperdevIdentity =
+        localSuperdev.isLocalSuperdevIdentity;
+    }
+  } catch (error) {
+    const optionalMissing =
+      error?.code === 'MODULE_NOT_FOUND' &&
+      /^Cannot find module ['"]\.\/backend\/services\/localSuperdevAccess['"]/.test(
+        String(error.message || '')
+      );
+
+    if (!optionalMissing) throw error;
+  }
+}
 
 const ACADEMY_UPLOADS_ROOT = path.resolve(
     String(process.env.PERSISTENT_UPLOADS_DIR || '').trim() || path.join(__dirname, 'public', 'uploads')
@@ -2069,7 +2090,9 @@ function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
         displayName
     );
 
-    const avatarAsset = sanitizeAcademyProfileAsset(
+    const avatarAsset = userData?.profile_avatar_removed === true
+        ? ''
+        : sanitizeAcademyProfileAsset(
         pickProfileValue(
             'avatar',
             'avatarUrl',
@@ -2084,7 +2107,9 @@ function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
         )
     );
 
-    const coverAsset = sanitizeAcademyProfileAsset(
+    const coverAsset = userData?.profile_cover_removed === true
+        ? ''
+        : sanitizeAcademyProfileAsset(
         pickProfileValue(
             'cover_photo',
             'coverPhoto',
@@ -2160,6 +2185,9 @@ function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
         name: displayName,
 
         username,
+
+        profile_avatar_removed: userData?.profile_avatar_removed === true,
+        profile_cover_removed: userData?.profile_cover_removed === true,
 
         avatar: avatarAsset,
         avatarUrl: avatarAsset,
@@ -2291,6 +2319,7 @@ async function getAcademyUserAccessSnapshot(uid) {
             userSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
         }
     const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
+    const localSuperdev = isLocalSuperdevIdentity({ ...userData, id: uid });
 
     const academyApplication =
         userData.academyApplication && typeof userData.academyApplication === 'object'
@@ -2302,7 +2331,7 @@ async function getAcademyUserAccessSnapshot(uid) {
             ? userData.roadmapApplication
             : null;
 
-    const academyMembershipStatus = sanitize(
+    const academyMembershipStatus = localSuperdev ? 'approved' : sanitize(
         userData.academyMembershipStatus ||
         userData.academyApplicationStatus ||
         academyApplication?.status ||
@@ -2318,7 +2347,7 @@ async function getAcademyUserAccessSnapshot(uid) {
         accessState = null;
     }
 
-    let hasRoadmapAccess = accessState?.accessState === 'unlocked' || roadmapApplicationAutoUnlocked;
+    let hasRoadmapAccess = localSuperdev || accessState?.accessState === 'unlocked' || roadmapApplicationAutoUnlocked;
 
     if (roadmapApplicationAutoUnlocked && accessState?.accessState !== 'unlocked') {
         const healed = await ensureRoadmapAccessUnlockedFromApprovedApplicationV1(uid, roadmapApplication);
@@ -8242,7 +8271,8 @@ function normalizeYHDivisionTutorialEntry(
 
 function getYHDivisionTutorialApprovalSnapshot(
     userData = {},
-    division = ''
+    division = '',
+    uid = ''
 ) {
     const cleanDivision =
         normalizeYHDivisionTutorialKey(
@@ -8256,6 +8286,19 @@ function getYHDivisionTutorialApprovalSnapshot(
             approvedAt: '',
             approvalToken: '',
             application: null
+        };
+    }
+
+    if (
+        cleanDivision === 'academy' &&
+        isLocalSuperdevIdentity({ ...userData, id: uid })
+    ) {
+        return {
+            approved: true,
+            status: 'approved',
+            approvedAt: '',
+            approvalToken: 'academy:local-superdev',
+            application: userData.academyApplication || null
         };
     }
 
@@ -8480,7 +8523,8 @@ function isYHDivisionTutorialEntryValid(
 }
 
 function buildYHDivisionTutorialState(
-    userData = {}
+    userData = {},
+    uid = ''
 ) {
     const source =
         userData.divisionTutorials &&
@@ -8519,7 +8563,8 @@ function buildYHDivisionTutorialState(
         const approval =
             getYHDivisionTutorialApprovalSnapshot(
                 userData,
-                division
+                division,
+                uid
             );
 
         if (
@@ -8621,7 +8666,8 @@ async (req, res) => {
 
             tutorials:
                 buildYHDivisionTutorialState(
-                    userData
+                    userData,
+                    uid
                 )
         });
     } catch (error) {
@@ -8731,7 +8777,8 @@ async (req, res) => {
         const approval =
             getYHDivisionTutorialApprovalSnapshot(
                 userData,
-                division
+                division,
+                uid
             );
 
         /*
@@ -8757,7 +8804,8 @@ async (req, res) => {
 
         const currentState =
             buildYHDivisionTutorialState(
-                userData
+                userData,
+                uid
             );
 
         const currentEntry =
@@ -10177,6 +10225,18 @@ exports.updateCurrentProfile = async (req, res) => {
             Object.prototype.hasOwnProperty.call(req.body || {}, 'cover_photo') ||
             Object.prototype.hasOwnProperty.call(req.body || {}, 'coverPhoto');
 
+        /* YHU_PROFILE_MEDIA_P2_FIXED */
+        const removeAvatar = req.body?.remove_avatar === true;
+        const removeCover = req.body?.remove_cover_photo === true;
+
+        const nextAvatarRemoved =
+            removeAvatar ||
+            (userData?.profile_avatar_removed === true && !hasAvatarField);
+
+        const nextCoverRemoved =
+            removeCover ||
+            (userData?.profile_cover_removed === true && !hasCoverField);
+
         const nextDisplayName = sanitize(
             req.body?.display_name ||
             req.body?.displayName ||
@@ -10217,7 +10277,9 @@ exports.updateCurrentProfile = async (req, res) => {
             username: nextUsername,
             role_label: 'Academy Member',
             bio: nextBio || 'Focused on execution, consistency, and long-term growth inside The Academy.',
-avatar: hasAvatarField
+avatar: nextAvatarRemoved
+    ? ''
+    : hasAvatarField
     ? (
         sanitizeAcademyProfileAsset(
             req.body?.avatar ||
@@ -10228,7 +10290,9 @@ avatar: hasAvatarField
         currentProfile.avatar
     )
     : currentProfile.avatar,
-cover_photo: hasCoverField
+cover_photo: nextCoverRemoved
+    ? ''
+    : hasCoverField
     ? (
         sanitizeAcademyProfileAsset(
             req.body?.cover_photo ||
@@ -10304,7 +10368,9 @@ cover_photo: hasCoverField
             uid,
             {
                 ...userData,
-                ...payload
+                ...payload,
+                profile_avatar_removed: nextAvatarRemoved,
+                profile_cover_removed: nextCoverRemoved
             },
             savedProfile || payload
         );
@@ -10312,6 +10378,8 @@ cover_photo: hasCoverField
         const now = new Date().toISOString();
 
         const userMirrorPayload = {
+            profile_avatar_removed: nextAvatarRemoved,
+            profile_cover_removed: nextCoverRemoved,
             displayName: savedProfileResponse.display_name,
             fullName: savedProfileResponse.fullName || savedProfileResponse.display_name,
             name: savedProfileResponse.display_name,
@@ -10389,24 +10457,32 @@ cover_photo: hasCoverField
 
         await userRef.set(userMirrorPayload, { merge: true });
 
-        try {
-            await syncAcademyMemberProfileFromFirestoreUserRef(uid, userRef);
-        } catch (syncError) {
-            console.warn('updateCurrentProfile member profile Supabase sync skipped:', syncError?.message || syncError);
+        /*
+         * Profile save must confirm both Supabase mirrors
+         * before returning a successful API response.
+         */
+        const committedUserSnapshot = await userRef.get();
+
+        if (!committedUserSnapshot.exists) {
+            throw new Error('Updated profile source record is unavailable.');
         }
 
-        try {
-            await syncAcademyYhuUserToSupabase(userRef, 'academy_profile_update');
-        } catch (syncError) {
-            console.warn('updateCurrentProfile yhu_users Supabase sync skipped:', syncError?.message || syncError);
-        }
+        const committedUserData = committedUserSnapshot.data() || {};
 
-        const refreshedUserSnapshot = await getAcademyMemberProfileSupabaseSnapshot(uid, userRef);
-        const refreshedUserData = refreshedUserSnapshot?.exists ? (refreshedUserSnapshot.data() || {}) : {};
+        await academyMemberProfileSupabaseRepo.upsertProfileFromUserData(
+            uid,
+            committedUserData
+        );
+
+        await yhuUsersSupabaseRepo.upsertFromFirestoreUser(
+            uid,
+            committedUserData,
+            { source: 'academy_profile_update' }
+        );
 
         return res.json({
             success: true,
-            profile: buildAcademyProfileResponse(uid, refreshedUserData, savedProfile || savedProfileResponse || payload)
+            profile: buildAcademyProfileResponse(uid, committedUserData, savedProfile || savedProfileResponse || payload)
         });
     } catch (error) {
         console.error('updateCurrentProfile error:', error);
@@ -10574,10 +10650,112 @@ exports.changeCurrentPassword = async (req, res) => {
                 nextPasswordHash;
         }
 
-        await userRef.update(updatePayload);
-        /* PATCH: Academy yhu_users Supabase safe write sync */
-        await syncAcademyYhuUserToSupabase(userRef, 'academy:userRef-write');
-        /* END PATCH: Academy yhu_users Supabase safe write sync */
+        // Revoke existing JWTs before writing the new Firestore password.
+        // Do not full-upsert account data or bypass canonical restrictions.
+        let canonicalIdentity;
+
+        try {
+            canonicalIdentity = await yhuUsersSupabaseRepo.getByUid(uid);
+        } catch (lookupError) {
+            console.error(
+                'Academy password identity lookup failed:',
+                lookupError?.message || lookupError
+            );
+
+            return res.status(503).json({
+                success: false,
+                retryable: true,
+                message: 'Account verification is temporarily unavailable. Password was not changed.'
+            });
+        }
+
+        if (!canonicalIdentity) {
+            return res.status(409).json({
+                success: false,
+                message: 'Your account identity needs synchronization before changing the password.'
+            });
+        }
+
+        const accountStatus = String(
+            canonicalIdentity.account_status || ''
+        ).trim().toLowerCase();
+
+        if (
+            canonicalIdentity.is_deleted === true ||
+            [
+                'deleted', 'disabled', 'deactivated', 'removed',
+                'archived', 'banned', 'suspended', 'blocked'
+            ].includes(accountStatus)
+        ) {
+            return res.status(403).json({
+                success: false,
+                message: 'This account cannot change its password.'
+            });
+        }
+
+        const mirrorVersion = Number(
+            canonicalIdentity.raw_data?.authSessionVersion ??
+            canonicalIdentity.data?.authSessionVersion ??
+            canonicalIdentity.public_meta?.authSessionVersion ?? 0
+        );
+
+        if (
+            !Number.isFinite(mirrorVersion) ||
+            Math.trunc(mirrorVersion) !== currentAuthSessionVersion
+        ) {
+            return res.status(409).json({
+                success: false,
+                message: 'Your account session is out of sync. Password was not changed.'
+            });
+        }
+
+        try {
+            await yhuUsersSupabaseRepo.patchByUid(
+                uid,
+                {
+                    authSessionVersion: updatePayload.authSessionVersion,
+                    passwordChangedAt: nowIso,
+                    passwordUpdatedAt: nowIso,
+                    updatedAt: nowIso
+                },
+                {
+                    source: 'academy_password_change_revoke_sessions',
+                    publicMetaPatch: {
+                        authSessionVersion: updatePayload.authSessionVersion
+                    }
+                }
+            );
+        } catch (revokeError) {
+            console.error(
+                'Academy password revocation failed:',
+                revokeError?.message || revokeError
+            );
+
+            return res.status(
+                revokeError?.statusCode === 409 ? 409 : 503
+            ).json({
+                success: false,
+                logoutRequired: true,
+                retryable: revokeError?.statusCode !== 409,
+                message: 'Session revocation could not be confirmed. Password was not changed. Sign in again or use password recovery if needed.'
+            });
+        }
+
+        try {
+            await userRef.update(updatePayload);
+        } catch (writeError) {
+            console.error(
+                'Academy password update unconfirmed:',
+                writeError?.message || writeError
+            );
+
+            return res.status(503).json({
+                success: false,
+                logoutRequired: true,
+                passwordUpdateUnconfirmed: true,
+                message: 'Existing sessions were revoked, but the password update could not be confirmed. Sign in again or use password recovery.'
+            });
+        }
 
         return res.json({
             success: true,
@@ -11174,7 +11352,9 @@ exports.submitRoadmapApplication = async (req, res) => {
                 ? userData.academyApplication
                 : null;
 
-        const academyStatus = sanitize(academyApplication?.status).toLowerCase();
+        const academyStatus = isLocalSuperdevIdentity({ ...userData, id: uid })
+            ? 'approved'
+            : sanitize(academyApplication?.status).toLowerCase();
 
         if (academyStatus !== 'approved') {
             return res.status(403).json({
@@ -17987,15 +18167,23 @@ exports.getAcademyChampions = async (req, res) => {
                     canonicalProfile
                 );
 
-        const questAchievementState =
-            await academyFirestoreRepo
-                .syncAcademyQuestAchievementStateV1(
+        const helperLeaderboardPromise =
+            academyFirestoreRepo
+                .getAcademyHelperLeaderboardSnapshotV1(
                     uid,
-                    progression
+                    50
                 );
 
-        const weeklyLeaderboardSnapshot =
-            await academyFirestoreRepo
+        const questAchievementPromise =
+            academyFirestoreRepo
+                .syncAcademyQuestAchievementStateV1(
+                    uid,
+                    progression,
+                    { helperLeaderboardPromise }
+                );
+
+        const weeklyLeaderboardPromise =
+            academyFirestoreRepo
                 .getAcademyProgressionLeaderboardSnapshotV2(
                     'weekly',
                     50,
@@ -18021,12 +18209,8 @@ exports.getAcademyChampions = async (req, res) => {
                     };
                 });
 
-        const helperLeaderboardSnapshot =
-            await academyFirestoreRepo
-                .getAcademyHelperLeaderboardSnapshotV1(
-                    uid,
-                    50
-                )
+        const helperLeaderboardResult =
+            helperLeaderboardPromise
                 .catch((error) => {
                     console.warn(
                         'Academy Helper leaderboard unavailable:',
@@ -18053,6 +18237,16 @@ exports.getAcademyChampions = async (req, res) => {
                             'one_point_per_unique_contribution_to_completed_squad_mission'
                     };
                 });
+
+        const [
+            questAchievementState,
+            weeklyLeaderboardSnapshot,
+            helperLeaderboardSnapshot
+        ] = await Promise.all([
+            questAchievementPromise,
+            weeklyLeaderboardPromise,
+            helperLeaderboardResult
+        ]);
 
         return res.json(
             buildAcademyChampionsPayloadV2(
