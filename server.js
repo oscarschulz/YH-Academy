@@ -8218,6 +8218,7 @@ if (
 
 const YH_MAINTENANCE_ADMIN_ASSET_PATHS =
     new Set([
+        '/admin-login.css',
         '/admin-react-panel.css',
         '/images/logo.png',
         '/images/landing/new%20bg.png',
