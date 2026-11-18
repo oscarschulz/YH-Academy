@@ -937,22 +937,20 @@ export default function PlazaConversationsWorkspace({
     }
   }, [])
 
+  // Keep read receipts current when a conversation receives new messages.
   useEffect(() => {
-    if (
-      activeConversation
-    ) {
-      markSeen(
-        activeConversation,
-      )
-
-      joinConversation(
-        activeConversation.id,
-      )
+    if (activeConversation) {
+      markSeen(activeConversation)
     }
-  }, [
-    activeConversation,
-    joinConversation,
-  ])
+  }, [activeConversation])
+
+  // Rejoin only if the selected conversation ID changes, not on each snapshot.
+  const activeConversationId = activeConversation?.id || ''
+  useEffect(() => {
+    if (activeConversationId) {
+      joinConversation(activeConversationId)
+    }
+  }, [activeConversationId, joinConversation])
 
   const unreadCount =
     conversations.filter(
