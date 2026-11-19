@@ -2078,7 +2078,7 @@ function canonicalYhuPasswordVersion(row = {}) {
 }
 
 async function writeYhuPasswordAfterRevocation({
-    user, userRef, hashedPassword, source, allowRecovery = false
+    user, userRef, hashedPassword, source, allowRecovery = false, resetClaim = null
 }) {
     let canonical;
 
@@ -2167,6 +2167,10 @@ async function writeYhuPasswordAfterRevocation({
         passwordResetCode: null,
         passwordResetExpiresAt: null,
         passwordResetVerifiedAt: null,
+        passwordResetTokenHash: null,
+        passwordResetTokenExpiresAt: null,
+        passwordResetClaim: null,
+        passwordResetAttempts: 0,
         updatedAt: changedAt
     };
 
@@ -2175,7 +2179,21 @@ async function writeYhuPasswordAfterRevocation({
     }
 
     try {
-        await userRef.update(update);
+        if (resetClaim) {
+            await firestore.runTransaction(async transaction => {
+                const snapshot = await transaction.get(userRef);
+                const current = snapshot.data() || {};
+                if (!snapshot.exists || isDeletedAccountRecord(current) ||
+                    current.passwordResetClaim !== resetClaim ||
+                    current.password !== user.password ||
+                    Number(current.authSessionVersion || 0) !== Number(user.authSessionVersion || 0)) {
+                    throw new Error('Password reset was superseded.');
+                }
+                transaction.update(userRef, update);
+            });
+        } else {
+            await userRef.update(update);
+        }
     } catch (_) {
         throw yhuPasswordSecurityError(
             'yhu_password_write_unconfirmed', 503,
@@ -2561,192 +2579,15 @@ exports.getMyUniverseReferrals = async (req, res) => {
         });
     }
 };
-exports.forgotPassword = async (req, res) => {
-    try {
-        const email = String(req.body?.email || '').trim().toLowerCase();
-
-        const user = await findUserByEmail(email);
-        if (!user) {
-            const deletedUsers = await findDeletedUsersByEmail(email);
-
-            if (deletedUsers.length) {
-                return res.status(410).json(deletedAccountResponsePayload());
-            }
-
-            return res.status(400).json({
-                success: false,
-                message: 'Email not found in our system.'
-            });
-        }
-
-        if (isDeletedAccountRecord(user)) {
-            return res.status(410).json(deletedAccountResponsePayload());
-        }
-
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const passwordResetExpiresAt = addMinutesToIso(PASSWORD_RESET_OTP_TTL_MINUTES);
-
-        await usersCollection().doc(user.id).update({
-            passwordResetCode: otpCode,
-            passwordResetExpiresAt,
-            passwordResetVerifiedAt: null,
-            updatedAt: nowIso()
-        });
-
-        await sendOtpMail({
-            to: email,
-            subject: 'Your YH Universe password reset code',
-            html: forgotPasswordMailHtml(otpCode),
-            text: forgotPasswordMailText(otpCode)
-        });
-
-        return res.json({
-            success: true,
-            message: 'Password reset code sent to your email.'
-        });
-    } catch (error) {
-        console.error('Forgot Password Error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error.'
-        });
-    }
-};
-exports.verifyForgotOTP = async (req, res) => {
-    try {
-        const email = String(req.body?.email || '').trim().toLowerCase();
-        const otpCode = String(req.body?.otpCode || '').trim();
-
-        const user = await findUserByEmail(email);
-        if (!user) {
-            const deletedUsers = await findDeletedUsersByEmail(email);
-
-            if (deletedUsers.length) {
-                return res.status(410).json(deletedAccountResponsePayload());
-            }
-
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid or expired reset code.'
-            });
-        }
-
-        if (isDeletedAccountRecord(user)) {
-            return res.status(410).json(deletedAccountResponsePayload());
-        }
-
-        const storedCode = String(user.passwordResetCode || '').trim();
-        const expiresAt = String(user.passwordResetExpiresAt || '').trim();
-
-        if (!storedCode || !otpCode || storedCode !== otpCode || isIsoExpired(expiresAt)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid or expired reset code.'
-            });
-        }
-
-        await usersCollection().doc(user.id).update({
-            passwordResetVerifiedAt: nowIso(),
-            updatedAt: nowIso()
-        });
-
-        return res.json({
-            success: true,
-            message: 'Code verified! You can now create a new password.'
-        });
-    } catch (error) {
-        console.error('Verify Forgot OTP Error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error.'
-        });
-    }
-};
-
-exports.resetPassword = async (req, res) => {
-    try {
-        const email = String(req.body?.email || '').trim().toLowerCase();
-        const newPassword = String(req.body?.newPassword || '');
-
-        if (
-            newPassword.length < 8 ||
-            newPassword.length > 128
-        ) {
-            return res.status(400).json({
-                success: false,
-                message: 'New password must be between 8 and 128 characters.'
-            });
-        }
-
-        const user = await findUserByEmail(email);
-        if (!user) {
-            const deletedUsers = await findDeletedUsersByEmail(email);
-
-            if (deletedUsers.length) {
-                return res.status(410).json(deletedAccountResponsePayload());
-            }
-
-            return res.status(400).json({
-                success: false,
-                message: 'Email not found in our system.'
-            });
-        }
-
-        if (isDeletedAccountRecord(user)) {
-            return res.status(410).json(deletedAccountResponsePayload());
-        }
-
-        const verifiedAt = String(user.passwordResetVerifiedAt || '').trim();
-        if (!verifiedAt || isIsoExpired(addMinutesToIsoFromValue(verifiedAt, PASSWORD_RESET_VERIFIED_TTL_MINUTES))) {
-            return res.status(403).json({
-                success: false,
-                message: 'Password reset session is invalid or expired. Please verify your reset code again.'
-            });
-        }
-
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-        const currentAuthSessionVersion =
-            Number.isFinite(
-                Number(
-                    user.authSessionVersion
-                )
-            )
-                ? Math.max(
-                    0,
-                    Math.trunc(
-                        Number(
-                            user.authSessionVersion
-                        )
-                    )
-                )
-                : 0;
-
-        const resetUserRef = usersCollection().doc(user.id);
-
-        await writeYhuPasswordAfterRevocation({
-            user,
-            userRef: resetUserRef,
-            hashedPassword,
-            source: 'auth_reset_password',
-            allowRecovery: true
-        });
-
-        clearAuthCookie(res);
-
-        return res.json({
-            success: true,
-            message: 'Password successfully reset!'
-        });
-    } catch (error) {
-        console.error('Reset Password Error:', error);
-
-        const securityResponse = sendYhuPasswordSecurityError(res, error);
-        if (securityResponse) return securityResponse;
-        return res.status(500).json({
-            success: false,
-            message: 'Server error.'
-        });
-    }
-};
+// YHU_AUTH_RECOVERY_V1: same endpoints; caller-bound one-time recovery proof.
+const yhuPasswordRecovery = require('../backend/services/yhuPasswordRecovery')({
+    firestore, usersCollection, findUserByEmail, findDeletedUsersByEmail,
+    isDeletedAccountRecord, deletedAccountResponsePayload, sendOtpMail,
+    forgotPasswordMailHtml, forgotPasswordMailText, bcrypt,
+    writeYhuPasswordAfterRevocation, clearAuthCookie, sendYhuPasswordSecurityError,
+    codeTTL: PASSWORD_RESET_OTP_TTL_MINUTES,
+    proofTTL: PASSWORD_RESET_VERIFIED_TTL_MINUTES
+});
+exports.forgotPassword = yhuPasswordRecovery.forgotPassword;
+exports.verifyForgotOTP = yhuPasswordRecovery.verifyForgotOTP;
+exports.resetPassword = yhuPasswordRecovery.resetPassword;
