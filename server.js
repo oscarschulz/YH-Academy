@@ -9244,6 +9244,11 @@ app.use((req, res, next) => {
 });
 
 
+// Canonical marketing entry point; uses the normal web maintenance policy.
+app.get('/download', (req, res) => {
+    return res.sendFile(path.join(__dirname, 'public', 'download.html'));
+});
+
 // Academy Embed legacy URL now served by React before public static files.
 app.get('/academy-embed.html', (req, res) => {
     return sendYHReactShell(req, res);
